@@ -459,99 +459,123 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Unrecognized F# compiler generated method: " + me.MethodName)
      
     member this.CompileMethod(info, expr, typ, meth) =
-        currentNode <- M.MethodNode(typ, meth) 
+        try
+            currentNode <- M.MethodNode(typ, meth) 
 #if DEBUG
-        if meth.Value.MethodName.StartsWith "DebugCompiler" then
-            printfn "Logging transformations: %s" meth.Value.MethodName
-            logTransformations <- true
-            printfn "Translator start: %s" (Debug.PrintExpression expr)
+            if meth.Value.MethodName.StartsWith "DebugCompiler" then
+                printfn "Logging transformations: %s" meth.Value.MethodName
+                logTransformations <- true
+                printfn "Translator start: %s" (Debug.PrintExpression expr)
 #endif      
-        if inProgress |> List.contains currentNode then
-            let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName
-            comp.AddError(None, SourceError msg)
-            comp.FailedCompiledMethod(typ, meth)
-        else
-        // for C# static auto-properties
-        selfAddress <- 
-            comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
-                cls.StaticConstructor |> Option.map (fun (a, _) -> Address (List.tail a.Value))    
-            )
-        currentIsInline <- isInline info
-        match info with
-        | NotCompiled (i, notVirtual, opts) ->
-            currentFuncArgs <- opts.FuncArgs
-            let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
-                } 
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, notVirtual, opts) ->
-            let m = GeneratedMethod(typ, meth)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
-                }
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            if inProgress |> List.contains currentNode then
+                let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName
+                comp.AddError(None, SourceError msg)
+                comp.FailedCompiledMethod(typ, meth)
+            else
+            // for C# static auto-properties
+            selfAddress <- 
+                comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
+                    cls.StaticConstructor |> Option.map (fun (a, _) -> Address (List.tail a.Value))    
+                )
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, notVirtual, opts) ->
+                currentFuncArgs <- opts.FuncArgs
+                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                    } 
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            | NotGenerated (g, p, i, notVirtual, opts) ->
+                let m = GeneratedMethod(typ, meth)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                    }
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 #if DEBUG
-        logTransformations <- false
+            logTransformations <- false
 #endif
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, opts) 
+            | NotGenerated (_, _, i, _, opts) ->
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
-        currentNode <- M.ImplementationNode(typ, intf, meth)
-        currentIsInline <- isInline info // TODO: implementations should not be inlined
-        match info with
-        | NotCompiled (i, _, _) -> 
-            let res = this.TransformExpression expr |> breakExpr
-            let res = this.CheckResult(res)
-            comp.AddCompiledImplementation(typ, intf, meth, i, res)
-        | NotGenerated (g, p, i, _, _) ->
-            let m = GeneratedImplementation(typ, intf, meth)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            comp.AddCompiledImplementation(typ, intf, meth, i, res)
+        try
+            currentNode <- M.ImplementationNode(typ, intf, meth)
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, _, _) -> 
+                let res = this.TransformExpression expr |> breakExpr
+                let res = this.CheckResult(res)
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+            | NotGenerated (g, p, i, _, _) ->
+                let m = GeneratedImplementation(typ, intf, meth)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, _) 
+            | NotGenerated (_, _, i, _, _) ->
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
 
     member this.CompileConstructor(info, expr, typ, ctor) =
-        currentNode <- M.ConstructorNode(typ, ctor)
-        if inProgress |> List.contains currentNode then
-            let msg = sprintf "inline loop found at constructor of %s" typ.Value.FullName
-            comp.AddError(None, SourceError msg)
-            comp.FailedCompiledConstructor(typ, ctor)
-        else
-        currentIsInline <- isInline info
-        match info with
-        | NotCompiled (i, _, opts) -> 
-            currentFuncArgs <- opts.FuncArgs
-            let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = opts.IsPure || isPureFunction res
-                }
-            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, _, opts) ->
-            let m = GeneratedConstructor(typ, ctor)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = opts.IsPure || isPureFunction res
-                }
-            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+        try
+            currentNode <- M.ConstructorNode(typ, ctor)
+            if inProgress |> List.contains currentNode then
+                let msg = sprintf "inline loop found at constructor of %s" typ.Value.FullName
+                comp.AddError(None, SourceError msg)
+                comp.FailedCompiledConstructor(typ, ctor)
+            else
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, _, opts) -> 
+                currentFuncArgs <- opts.FuncArgs
+                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = opts.IsPure || isPureFunction res
+                    }
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+            | NotGenerated (g, p, i, _, opts) ->
+                let m = GeneratedConstructor(typ, ctor)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = opts.IsPure || isPureFunction res
+                    }
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, opts)
+            | NotGenerated (_, _, i, _, opts) ->
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
 
     member this.CompileStaticConstructor(addr, expr, typ) =
-        currentNode <- M.TypeNode typ
-        cctorCalls <- Set.singleton typ
-        selfAddress <- 
-            let cls = comp.TryLookupClassInfo(typ).Value
-            let addr = fst cls.StaticConstructor.Value 
-            Some (Address (List.tail addr.Value))
-        let res = this.TransformExpression expr |> breakExpr
-        let res = this.CheckResult(res)
-        comp.AddCompiledStaticConstructor(typ, addr, res)
+        try
+            currentNode <- M.TypeNode typ
+            cctorCalls <- Set.singleton typ
+            selfAddress <- 
+                let cls = comp.TryLookupClassInfo(typ).Value
+                let addr = fst cls.StaticConstructor.Value 
+                Some (Address (List.tail addr.Value))
+            let res = this.TransformExpression expr |> breakExpr |> this.CheckResult
+            comp.AddCompiledStaticConstructor(typ, addr, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            comp.AddCompiledStaticConstructor(typ, addr, res)
 
     static member CompileFull(comp: Compilation) =
         while comp.CompilingConstructors.Count > 0 do
