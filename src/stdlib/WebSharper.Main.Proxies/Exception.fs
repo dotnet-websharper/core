@@ -92,12 +92,29 @@ type private ArgumentOutOfRangeExceptionProxy =
     new (argumentName: string, message: string) =
         { inherit exn(message + "\nParameter name: " + argumentName) }
 
+[<Proxy(typeof<System.ArgumentNullException>)>]
+[<Name "ArgumentNullException">]
+type private ArgumentNullExceptionProxy =
+    inherit exn
+
+    new () =
+        { inherit exn("Value cannot be null.") }
+
+    new (argumentName: string) =
+        new ArgumentNullExceptionProxy(argumentName, "Value cannot be null.")
+
+    new (argumentName: string, message: string) =
+        { inherit exn(message + "\nParameter name: " + argumentName) }
+
 [<Proxy(typeof<System.InvalidOperationException>)>]
 [<Name "InvalidOperationException">]
-type private InvalidOperationExceptionProxy(message: string) =
-    inherit exn(message)
+type private InvalidOperationExceptionProxy(message: string, innerExn: exn) =
+    inherit exn(message, innerExn)
     
     new () = InvalidOperationExceptionProxy "Operation is not valid due to the current state of the object."
+
+    new (message) =
+        new InvalidOperationExceptionProxy(message, null)
 
 [<Proxy(typeof<System.AggregateException>)>]
 [<Name "AggregateException">]

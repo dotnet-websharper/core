@@ -8,7 +8,7 @@
     <RootNamespace>WebSharper.Tests.Website</RootNamespace>
     <WebSharperProject>Library</WebSharperProject>
     <FSharp40>True</FSharp40>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
   </PropertyGroup>
   <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>

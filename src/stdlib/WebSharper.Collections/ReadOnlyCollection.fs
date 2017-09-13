@@ -42,6 +42,9 @@ type ReadOnlyCollectionProxy<'T> =
 //        [<Inline>]
 //        member this.GetEnumerator() = ((As<'T[]> this) :> seq<'T>).GetEnumerator()
 
+[<Proxy(typeof<System.Array>)>]
+type private ArrayProxy =
 
-    
-
+    [<Inline>]
+    static member AsReadOnly(array: 'T[]) =
+        new System.Collections.ObjectModel.ReadOnlyCollection<'T>(array)

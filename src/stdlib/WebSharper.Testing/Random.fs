@@ -179,6 +179,18 @@ let String: Generator<string> =
             new System.String(cs)
     }
 
+/// Generates random readable strings.
+[<JavaScript>]
+let StringReadable: Generator<string> =
+    {
+        Base = [| "" |]
+        Next = fun () ->
+            let len = Natural.Next() % 100
+            let cs = Array.init len (fun _ ->
+                char ((Int.Next() % 95) + 32))
+            new System.String(cs)
+    }
+
 /// Generates random strings including nulls.
 [<JavaScript>]
 let StringExhaustive =
