@@ -54,6 +54,10 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
 
     new (action, ct) = TaskProxy(action, ct, TaskStatus.Created, null)
     
+    new (action: System.Action<obj>, obj: obj) = TaskProxy((fun () -> action.Invoke(obj)), CT.None, TaskStatus.Created, null)
+
+    new (action: System.Action<obj>, obj: obj, ct: CT) = TaskProxy((fun () -> action.Invoke(obj)), ct, TaskStatus.Created, null)
+
     member this.OnCompleted(cont : unit -> unit) =
         if this.IsCompleted then 
             cont()
@@ -65,6 +69,7 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         for c in continuations do
             c.StartContinuation()    
 
+    [<Inline>]
     member this.ContinueWith(action: System.Action<Task>) =
         this.ContinueWith(action, CT.None)
 
@@ -87,6 +92,22 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
         else
             continuations.JS.Push res |> ignore
         As<Task<'T>> res
+
+    [<Inline>]
+    member this.ContinueWith(action: System.Action<Task, obj>, obj: obj) =
+        this.ContinueWith(fun t -> action.Invoke (t, obj))
+
+    [<Inline>]
+    member this.ContinueWith(action: System.Action<Task, obj>, obj: obj, ct) =
+        this.ContinueWith((fun t -> action.Invoke (t, obj)), ct)
+
+    [<Inline>]
+    member this.ContinueWith(func: System.Func<Task, obj, 'T>, obj: obj) =
+        this.ContinueWith(fun t -> func.Invoke (t, obj))
+
+    [<Inline>]
+    member this.ContinueWith(func: System.Func<Task, obj, 'T>, obj: obj, ct) =
+        this.ContinueWith((fun t -> func.Invoke (t, obj)), ct)
 
     member this.StartContinuation() =
         if status = TaskStatus.WaitingForActivation then
@@ -250,15 +271,22 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
     [<Inline>]                         
     static member WhenAll(tasks: seq<Task<'T>>) = TaskProxy.WhenAll(Array.ofSeq tasks)
 
-//    // TODO : return type System.Runtime.CompilerServices.YieldAwaitable 
-//    static member Yield() =
-//        Async.Sleep 0 |> Async.StartAsTask  
+    static member Yield() =
+        new Task(fun () -> ()) |> As<System.Runtime.CompilerServices.YieldAwaitable>  
 
 and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.Func<'T>, token: CT, status, exc, result) =
     inherit TaskProxy(null, token, status, exc)
     
     [<Name "result">]
     let mutable result = result
+
+    new (func) = TaskProxy<'T>(func, CT.None, TaskStatus.Created, null, As<'T> JS.Undefined)
+
+    new (func, ct) = TaskProxy<'T>(func, ct, TaskStatus.Created, null, As<'T> JS.Undefined)
+
+    new (func: System.Func<obj, 'T>, obj: obj) = TaskProxy<'T>((fun () -> func.Invoke obj), CT.None, TaskStatus.Created, null, As<'T> JS.Undefined)
+
+    new (func: System.Func<obj, 'T>, obj: obj, ct: CT) = TaskProxy<'T>((fun () -> func.Invoke obj), ct, TaskStatus.Created, null, As<'T> JS.Undefined)
 
     member this.Result = result
 
@@ -280,6 +308,22 @@ and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.
     [<Inline>]
     member this.ContinueWith<'R>(func: System.Func<Task<'T>, 'R>, ct) =
         this.ContinueWith(As<System.Func<Task, 'R>> func, ct) 
+
+    [<Inline>]
+    member this.ContinueWith(action: System.Action<Task<'T>, obj>, obj: obj) =
+        this.ContinueWith(fun t -> action.Invoke(t, obj))
+
+    [<Inline>]
+    member this.ContinueWith(action: System.Action<Task<'T>, obj>, obj: obj, ct) =
+        this.ContinueWith((fun t -> action.Invoke(t, obj)), ct)
+
+    [<Inline>]
+    member this.ContinueWith<'R>(func: System.Func<Task<'T>, obj, 'R>, obj: obj) =
+        this.ContinueWith(fun t -> func.Invoke(t, obj)) 
+
+    [<Inline>]
+    member this.ContinueWith<'R>(func: System.Func<Task<'T>, obj, 'R>, obj: obj, ct) =
+        this.ContinueWith((fun t -> func.Invoke(t, obj)), ct) 
 
 [<Proxy(typeof<TaskCompletionSource<_>>)>]
 [<Name "TaskCompletionSource">]
