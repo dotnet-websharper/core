@@ -183,7 +183,7 @@ type AttributeReader<'A>() =
                     failwithf "Type must be in format \"FullName, AssemblyName\": %s" s
             | t -> 
                 try this.GetTypeDef t
-                with _ -> failwith "Failed to parse type argument of attribute."
+                with e -> failwithf "Failed to parse type argument of attribute with error %s at %s" e.Message e.StackTrace
         let param =
             if args.Length = 2 then
                 Some args.[1]

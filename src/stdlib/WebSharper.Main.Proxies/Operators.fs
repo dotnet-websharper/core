@@ -211,7 +211,7 @@ let ToFloat (x: 'T) = X<float>
 let Floor (x: 'T) = X<'T>
 
 [<Inline "$x[0]">]
-let Fst (x: System.Tuple<'T1,'T2>) = X<'T1>
+let Fst (x: TupleProxy<'T1,'T2>) = X<'T1>
 
 [<Inline>]
 let Hash<'T when 'T : equality> (x: 'T) = Unchecked.hash x
@@ -311,7 +311,7 @@ let Sin (x: 'T) = X<'T>
 let Sinh (x: 'T) = x
 
 [<Inline "$x[1]">]
-let Snd (x: System.Tuple<'T1,'T2>) = X<'T2>
+let Snd (x: TupleProxy<'T1,'T2>) = X<'T2>
 
 [<Inline "Math.sqrt($x)">]
 let Sqrt (x: 'T1) = X<'T2>

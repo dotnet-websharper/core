@@ -181,6 +181,9 @@
     <Compile Include="../WebSharper.Main.Proxies/NullableOperators.fs">
       <Link>NullableOperators.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs">
+      <Link>Tuple.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Operators.fs">
       <Link>Operators.fs</Link>
     </Compile>
@@ -225,9 +228,6 @@
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Task.fs">
       <Link>Task.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs">
-      <Link>Tuple.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs">
       <Link>TimeSpan.fs</Link>

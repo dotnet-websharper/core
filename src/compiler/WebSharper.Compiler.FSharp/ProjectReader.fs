@@ -231,14 +231,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let addConstructor (mem: option<FSMFV * Member>) mAnnot (def: Constructor) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
-//            if mem.Accessibility.IsPublic then
-                if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
-                    let candidates = 
-                        ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
-                        |> Seq.map (fun m -> string m.Value) |> List.ofSeq
-                    if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
-                        let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
-                        comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+            if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
+                let candidates = 
+                    ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
+                    |> Seq.map (fun m -> string m.Value) |> List.ofSeq
+                if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
+                    let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
         clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
 
@@ -534,7 +533,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ -> failwith "impossible"
                     
                     let addModuleValueProp kind body =
-                        if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
+                        if List.isEmpty args && (CodeReader.getEnclosingEntity meth).IsFSharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
                             // TODO : check proxy targets for module values
                             addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false None iBody    
@@ -1051,7 +1050,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                     else
                         b |> List.iter (getTypesWithMembers parentMembers)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
-                types.[a.EnclosingEntity].Add(SourceMember(a, b, c))
+                types.[CodeReader.getEnclosingEntity a].Add(SourceMember(a, b, c))
             | FSIFD.InitAction a ->
                 parentMembers.Add (InitAction a)
 
