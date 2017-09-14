@@ -71,6 +71,17 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
+let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+    let thisDef = sr.ReadTypeDefinition cls
+    let annot =
+        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
+    d.Add(cls, (thisDef, annot))
+    for m in members do
+        match m with
+        | SourceEntity (ent, nmembers) ->
+            collectClassAnnotations d sr annot ent nmembers
+        | _ -> ()
+
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
@@ -78,7 +89,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
     let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
-        | Some d -> d 
+        | Some d -> d
         | _ -> sr.ReadTypeDefinition intf
 
     for m in intf.MembersFunctionsAndValues do
@@ -129,11 +140,8 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
-    let thisDef = sr.ReadTypeDefinition cls
-    
-    let annot = 
-        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) members =
+    let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
         if comp.HasGraph then
@@ -146,7 +154,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let def, proxied =
         match annot.ProxyOf with
         | Some p -> 
-            comp.AddProxy(thisDef, p)
             if cls.Accessibility.IsPublic then
                 comp.AddWarning(Some (CodeReader.getRange cls.DeclarationLocation), SourceWarning "Proxy type should not be public")
             let proxied =
@@ -664,7 +671,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | None 
             | _ -> ()
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr annot ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
@@ -1056,12 +1063,26 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
 
         file.Declarations |> Seq.iter (getTypesWithMembers topLevelTypes)
 
+        let classAnnotations = Dictionary()
+        
+        for t in topLevelTypes do
+            match t with
+            | SourceEntity (c, m) ->
+                collectClassAnnotations classAnnotations sr rootTypeAnnot c m
+            | _ -> ()
+
+        // register all proxies for signature redirection
+        for (def, annot) in classAnnotations.Values do
+            match annot.ProxyOf with
+            | Some p -> comp.AddProxy(def, p)
+            | _ -> ()
+
         for t in topLevelTypes do
             match t with
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr rootTypeAnnot c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations rootTypeAnnot c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
