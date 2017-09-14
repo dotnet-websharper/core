@@ -161,6 +161,12 @@ let ArrayOf (generator: Generator<'T>) : Generator<'T[]> =
                 Array.init len (fun _ -> generator.Next())
     }
 
+/// Generates random resizable arrays.
+[<JavaScript>]
+let ResizeArrayOf (generator: Generator<'T>) : Generator<ResizeArray<'T>> =
+    ArrayOf generator
+    |> Map ResizeArray
+
 /// Generates random lists.
 [<JavaScript>]
 let ListOf (generator: Generator<'T>) : Generator<list<'T>> =
@@ -386,6 +392,9 @@ module internal Internal =
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
                 wrap, Choice1Of2 (cCallR "ListOf" [x])
+            | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.Collections.Generic.List`1" ->
+                mkGenerator wrap t >>= fun wrap x ->
+                wrap, Choice1Of2 (cCallR "ResizeArrayOf" [x])
             | T.TupleType ([t1; t2], _) ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->

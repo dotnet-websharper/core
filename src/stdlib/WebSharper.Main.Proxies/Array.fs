@@ -340,7 +340,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort<'K, 'V>(keys: 'K[], items: 'V[], index: int, length: int) : unit =
-        sortByKeys keys items index length (As compare)
+        sortByKeys keys items index length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort<'K, 'V>(keys: 'K[], items: 'V[], comparer: IComparer<'K>) : unit =
@@ -348,7 +348,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort<'K, 'V>(keys: 'K[], items: 'V[]) : unit =
-        sortByKeys keys items 0 keys.Length (As compare)
+        sortByKeys keys items 0 keys.Length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort<'K>(keys: 'K[], index: int, length: int, comparer: IComparer<'K>) : unit =
@@ -356,7 +356,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort<'K>(keys: 'K[], index: int, length: int) : unit =
-        sortSub keys index length (As compare)
+        sortSub keys index length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort<'K>(keys: 'K[], comparer: IComparer<'K>) : unit =
@@ -364,7 +364,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort<'K>(keys: 'K[]) : unit =
-        sortSub keys 0 keys.Length (As compare)
+        sortSub keys 0 keys.Length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort<'K>(keys: 'K[], comparison: Comparison<'K>) =
@@ -376,7 +376,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort(keys: System.Array, index: int, length: int) : unit =
-        sortSub (As<obj[]> keys) index length (As compare)
+        sortSub (As<obj[]> keys) index length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort(keys: System.Array, comparer: IComparer) : unit =
@@ -388,7 +388,7 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort(keys: System.Array, items: System.Array, index: int, length: int) : unit =
-        sortByKeys (As<obj[]> keys) (As<obj[]> items) index length (As compare)
+        sortByKeys (As<obj[]> keys) (As<obj[]> items) index length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort(keys: System.Array, items: System.Array, comp: IComparer) : unit =
@@ -396,11 +396,11 @@ type private ArrayProxy =
 
     [<Inline>]
     static member Sort(keys: System.Array, items: System.Array) : unit =
-        sortByKeys (As<obj[]> keys) (As<obj[]> items) 0 keys.Length (As compare)
+        sortByKeys (As<obj[]> keys) (As<obj[]> items) 0 keys.Length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member Sort(keys: System.Array) : unit =
-        sortSub (As<obj[]> keys) 0 keys.Length (As compare)
+        sortSub (As<obj[]> keys) 0 keys.Length (fun (x, y) -> compare (As x) (As y))
 
     [<Inline>]
     static member TrueForAll<'T>(array : 'T[], predicate: Predicate<'T>) : bool =

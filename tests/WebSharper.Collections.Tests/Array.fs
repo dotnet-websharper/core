@@ -32,10 +32,10 @@ let Tests =
     TestCategory "System.Array" {
 
         Test "AsReadOnly" {
-            property (fun a -> Do {
+            property (fun (a: _[]) -> Do {
                 let b = System.Array.AsReadOnly(a)
                 forEach {0 .. a.Length - 1} (fun i -> Do {
-                    equal a.[i] (As<'T[]> b).[i]
+                    equal a.[i] (As<_[]> b).[i]
                 })
             })
         }

@@ -22,12 +22,7 @@ module private WebSharper.Collections.ResizeArray
 
 open WebSharper
 open WebSharper.JavaScript
-
-[<Inline "$arr.push($x)">]
-let push (arr: 'T []) (x: 'T) = ()
-
-[<Direct "Array.prototype.splice.apply($arr, [$index, $howMany].concat($items))">]
-let splice (arr: 'T []) (index: int) (howMany: int) (items: 'T[]) : 'T [] = items
+type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 
 [<Name "WebSharper.Collections.ListEnumerator">]
 [<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
@@ -59,69 +54,222 @@ type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
 
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]
-type ResizeArrayProxy<'T> [<JavaScript>] (arr: 'T []) =
+[<Prototype false>]
+type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
 
+    [<Inline "[]">]
     new () =
         new ResizeArrayProxy<'T>([||])
 
+    [<Inline "[]">]
     new (size: int) =
         new ResizeArrayProxy<'T>([||])
 
+    [<Inline>]
     new (el: seq<'T>) =
         new ResizeArrayProxy<'T>(Seq.toArray el)
 
     [<Inline>]
     member this.GetEnumerator() =
-        As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(arr))
+        As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(As<'T[]> this))
 
     interface 'T seq with
-        member this.GetEnumerator() = (As<System.Collections.IEnumerable> arr).GetEnumerator()
-        member this.GetEnumerator() = (As<seq<'T>> arr).GetEnumerator()
+        member this.GetEnumerator() = (As<System.Collections.IEnumerable> this).GetEnumerator()
+        member this.GetEnumerator() = (As<seq<'T>> this).GetEnumerator()
 
+    [<Inline>]
     member this.Add(x: 'T) : unit =
-        push arr x
+        As<'T[]>(this).JS.Push(x) |> ignore
 
+    [<Inline>]
     member this.AddRange(x: seq<'T>) : unit =
         Seq.iter this.Add x
 
-    member this.Clear() : unit =
-        splice arr 0 arr.Length [||] |> ignore
+    [<Inline>]
+    member this.AsReadOnly() : System.Collections.ObjectModel.ReadOnlyCollection<'T> =
+        System.Array.AsReadOnly(As<'T[]> this)
 
+    [<Inline>]
+    member this.BinarySearch(start: int, length: int, item: 'T, comparer: IComparer<'T>) : int =
+        System.Array.BinarySearch(As<'T[]> this, start, length, item, comparer)
+
+    [<Inline>]
+    member this.BinarySearch(item: 'T) : int =
+        System.Array.BinarySearch(As<'T[]> this, item)
+
+    [<Inline>]
+    member this.BinarySearch(item: 'T, comparer: IComparer<'T>) : int =
+        System.Array.BinarySearch(As<'T[]> this, item, comparer)
+
+    [<Inline>]
+    member this.Clear() : unit =
+        (As<'T[]> this).JS.Splice(0, this.Count) |> ignore
+
+    [<Inline>]
+    member this.Contains(item: 'T) : bool =
+        System.Array.Exists(As<'T[]> this, fun x -> System.Collections.Generic.EqualityComparer.Default.Equals(item, x))
+
+    [<Inline>]
+    member this.ConvertAll<'U>(conv: System.Converter<'T, 'U>) : ResizeArray<'U> =
+        ResizeArray<'U>(System.Array.ConvertAll(As<'T[]> this, conv))
+
+    [<Inline>]
     member this.CopyTo(arr: 'T[]) : unit =
         this.CopyTo(arr, 0)
 
+    [<Inline>]
     member this.CopyTo(arr: 'T[], offset: int) : unit =
         this.CopyTo(0, arr, offset, this.Count)
 
+    [<Inline>]
     member this.CopyTo(index: int, target: 'T[], offset: int, count: int) : unit =
-        Array.blit arr index target offset count
+        Array.blit (As<'T[]> this) index target offset count
 
-    member this.Count : int = arr.Length
+    [<Inline>]
+    member this.Count : int = (As<'T[]> this).Length
 
+    [<Inline>]
+    member this.Exists(pred: System.Predicate<'T>) : bool =
+        System.Array.Exists(As<'T[]> this, pred)
+
+    [<Inline>]
+    member this.Find(pred: System.Predicate<'T>) : 'T =
+        System.Array.Find(As<'T[]> this, pred)
+
+    [<Inline>]
+    member this.FindAll(pred: System.Predicate<'T>) : ResizeArray<'T> =
+        ResizeArray<'T>(System.Array.FindAll(As<'T[]> this, pred))
+
+    [<Inline>]
+    member this.FindIndex(pred: System.Predicate<'T>) : int =
+        System.Array.FindIndex(As<'T[]> this, pred)
+
+    [<Inline>]
+    member this.FindIndex(start: int, pred: System.Predicate<'T>) : int =
+        System.Array.FindIndex(As<'T[]> this, start, pred)
+
+    [<Inline>]
+    member this.FindIndex(start: int, count: int, pred: System.Predicate<'T>) : int =
+        System.Array.FindIndex(As<'T[]> this, start, count, pred)
+
+    [<Inline>]
+    member this.FindLast(pred: System.Predicate<'T>) : 'T =
+        System.Array.FindLast(As<'T[]> this, pred)
+
+    [<Inline>]
+    member this.FindLastIndex(pred: System.Predicate<'T>) : int =
+        System.Array.FindLastIndex(As<'T[]> this, pred)
+
+    [<Inline>]
+    member this.FindLastIndex(start: int, pred: System.Predicate<'T>) : int =
+        System.Array.FindLastIndex(As<'T[]> this, start, pred)
+
+    [<Inline>]
+    member this.FindLastIndex(start: int, count: int, pred: System.Predicate<'T>) : int =
+        System.Array.FindLastIndex(As<'T[]> this, start, count, pred)
+
+    [<Inline>]
+    member this.ForEach(action: System.Action<'T>) : unit =
+        System.Array.ForEach(As<'T[]> this, action)
+
+    [<Inline>]
     member this.GetRange(index: int, count: int) : ResizeArray<'T> =
-        As (ResizeArrayProxy<'T>(Array.sub arr index count))
+        As (ResizeArrayProxy<'T>(Array.sub (As<'T[]> this) index count))
 
-    member this.Insert(index: int, items: 'T) : unit =
-        splice arr index 0 [| items |] |> ignore
+    [<Inline>]
+    member this.IndexOf(item: 'T) : int =
+        System.Array.IndexOf(As<'T[]> this, item)
 
+    [<Inline>]
+    member this.IndexOf(item: 'T, start: int) : int =
+        System.Array.IndexOf(As<'T[]> this, item, start)
+
+    [<Inline>]
+    member this.IndexOf(item: 'T, start: int, count: int) : int =
+        System.Array.IndexOf(As<'T[]> this, item, start, count)
+
+    [<Inline>]
+    member this.Insert(index: int, item: 'T) : unit =
+        (As<'T[]> this).JS.Splice(index, 0, item) |> ignore
+
+    [<Inline>]
     member this.InsertRange(index: int, items: seq<'T>) : unit =
-        splice arr index 0 (Seq.toArray items) |> ignore
+        (As<'T[]> this).JS.Splice(index, 0, Array.ofSeq items) |> ignore
 
     member this.Item
-        with [<JavaScript>] get (x: int) : 'T = arr.[x]
-        and [<JavaScript>] set (x: int) (v: 'T) = arr.[x] <- v
+        with [<Inline>] get (x: int) : 'T = (As<'T[]> this).[x]
+        and [<Inline>] set (x: int) (v: 'T) = (As<'T[]> this).[x] <- v
 
+    [<Inline>]
+    member this.LastIndexOf(item: 'T) : int =
+        System.Array.LastIndexOf(As<'T[]> this, item)
+
+    [<Inline>]
+    member this.LastIndexOf(item: 'T, start: int) : int =
+        System.Array.LastIndexOf(As<'T[]> this, item, start)
+
+    [<Inline>]
+    member this.LastIndexOf(item: 'T, start: int, count: int) : int =
+        System.Array.LastIndexOf(As<'T[]> this, item, start, count)
+
+    member this.Remove(item: 'T) : bool =
+        match this.IndexOf(item) with
+        | -1 -> false
+        | n -> this.RemoveAt(n); true
+
+    member this.RemoveAll(pred: System.Predicate<'T>) : int =
+        let mutable removed = 0
+        let mutable i = 0
+        while i < this.Count do
+            if pred.Invoke((As<'T[]> this).JS.[i]) then
+                let mutable j = i + 1
+                while j < this.Count && pred.Invoke((As<'T[]> this).JS.[j]) do
+                    j <- j + 1
+                removed <- removed + j - i
+                (As<'T[]> this).JS.Splice(i, j - i) |> ignore
+            else
+                i <- i + 1
+        removed
+
+    [<Inline>]
     member this.RemoveAt(x: int) : unit =
-        splice arr x 1 [||] |> ignore
+        (As<'T[]> this).JS.Splice(x, 1) |> ignore
 
+    [<Inline>]
     member this.RemoveRange(index: int, count: int) : unit =
-        splice arr index count [||] |> ignore
+        (As<'T[]> this).JS.Splice(index, count) |> ignore
 
+    [<Inline>]
     member this.Reverse() : unit =
-        System.Array.Reverse(arr)
+        System.Array.Reverse(As<'T[]> this)
 
+    [<Inline>]
     member this.Reverse(index: int, count: int) : unit =
-        System.Array.Reverse(arr, index, count)
+        System.Array.Reverse(As<'T[]> this, index, count)
 
+    [<Inline>]
+    member this.Sort() : unit =
+        System.Array.Sort(As<'T[]> this)
+
+    [<Inline>]
+    member this.Sort(comp: IComparer<'T>) : unit =
+        System.Array.Sort(As<'T[]> this, comp)
+
+    [<Inline>]
+    member this.Sort(start: int, length: int, comp: IComparer<'T>) : unit =
+        System.Array.Sort(As<'T[]> this, start, length, comp)
+
+    [<Inline>]
+    member this.Sort(comp: System.Comparison<'T>) : unit =
+        System.Array.Sort(As<'T[]> this, comp)
+
+    [<Inline>]
     member this.ToArray() : 'T [] =
-        Array.copy arr
+        Array.copy (As<'T[]> this)
+
+    [<Inline>]
+    member this.TrimExcess() = ()
+
+    [<Inline>]
+    member this.TrueForAll(pred: System.Predicate<'T>) : bool =
+        System.Array.TrueForAll(As<'T[]> this, pred)
