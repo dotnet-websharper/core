@@ -204,6 +204,10 @@ type private StringProxy =
         Unchecked.compare (this :> obj) (s :> obj)
 
     [<Inline>]
+    member this.CompareTo(s: obj) =
+        Unchecked.compare (this :> obj) s
+
+    [<Inline>]
     static member Concat(strings: string seq) =
         Join "" (Array.ofSeq strings)
 
@@ -224,6 +228,15 @@ type private StringProxy =
 
     [<Inline "$x === $y">]
     static member Equals(x: string, y: string) = X<bool>
+
+    [<Inline "$this === $s">]
+    member this.Equals(s: string) = X<bool>
+
+    [<Inline "$this === $s">]
+    member this.Equals(s: obj) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this
 
     [<Inline>]
     member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
@@ -334,6 +347,9 @@ type private StringProxy =
     member this.ToCharArray(i: int, l: int) =
         ToCharArrayRange (As this) i l
 
+    [<Inline "$this">]
+    member this.ToString() = X<string>
+    
     [<Inline "$this.toLowerCase()">]
     member this.ToLower() = X<string>
 

@@ -47,5 +47,30 @@ namespace WebSharper.CSharp.Tests
             fmt = "{0} {1} {2} {3}";
             Equal(String.Format(fmt, "foo", 12, 12.35, (long)500), "foo 12 12.35 500");
         }
+
+        [Test]
+        public void Comparisons()
+        {
+            IsTrue("a".Equals("a"));
+            IsFalse("a".Equals("b"));
+            IsTrue("a".Equals((object)"a"));
+            Equal("a".CompareTo("b"), -1);
+            Equal("a".CompareTo((object)"b"), -1);
+
+            IsTrue('a'.Equals('a'));
+            IsFalse('a'.Equals('b'));
+            IsTrue('a'.Equals((object)'a'));
+            Equal('a'.CompareTo('b'), -1);
+            Equal('a'.CompareTo((object)'b'), -1);
+        }
+
+        [Test]
+        public void Basics()
+        {
+            var hs = "a".GetHashCode();
+            var hc = 'a'.GetHashCode();
+            Equal("a".ToString(),"a");
+            Equal('a'.ToString(), "a");
+        }
     }
 }

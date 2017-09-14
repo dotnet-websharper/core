@@ -28,6 +28,7 @@
     <Compile Include="Arithmetic.cs" />
     <Compile Include="Collections.cs" />
     <Compile Include="Delegate.cs" />
+    <Compile Include="Guid.cs" />
     <Compile Include="InlineControl.cs" />
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />
