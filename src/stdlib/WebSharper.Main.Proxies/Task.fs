@@ -95,11 +95,11 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
 
     [<Inline>]
     member this.ContinueWith(action: System.Action<Task, obj>, obj: obj) =
-        this.ContinueWith(fun t -> action.Invoke (t, obj))
+        this.ContinueWith(System.Action<Task>(fun t -> action.Invoke (t, obj)))
 
     [<Inline>]
     member this.ContinueWith(action: System.Action<Task, obj>, obj: obj, ct) =
-        this.ContinueWith((fun t -> action.Invoke (t, obj)), ct)
+        this.ContinueWith(System.Action<Task>(fun t -> action.Invoke (t, obj)), ct)
 
     [<Inline>]
     member this.ContinueWith(func: System.Func<Task, obj, 'T>, obj: obj) =
@@ -311,11 +311,11 @@ and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.
 
     [<Inline>]
     member this.ContinueWith(action: System.Action<Task<'T>, obj>, obj: obj) =
-        this.ContinueWith(fun t -> action.Invoke(t, obj))
+        this.ContinueWith(System.Action<Task<'T>>(fun t -> action.Invoke(t, obj)))
 
     [<Inline>]
     member this.ContinueWith(action: System.Action<Task<'T>, obj>, obj: obj, ct) =
-        this.ContinueWith((fun t -> action.Invoke(t, obj)), ct)
+        this.ContinueWith(System.Action<Task<'T>>(fun t -> action.Invoke(t, obj)), ct)
 
     [<Inline>]
     member this.ContinueWith<'R>(func: System.Func<Task<'T>, obj, 'R>, obj: obj) =
