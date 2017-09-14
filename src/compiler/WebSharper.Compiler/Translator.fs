@@ -31,11 +31,13 @@ module I = WebSharper.Core.AST.IgnoreSourcePos
 
 /// Debug-only checker for invalid forms after transformation to have localized error.
 /// Otherwise error is thrown when writing to JavaScript after packaging.
-type CheckNoInvalidJSForms(comp: Compilation, isInline) as this =
+type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     inherit TransformerWithSourcePos(comp)
 
     let invalidForm f = 
-        this.Error("Invalid form after JS tranlation: " + f)
+        this.Error("Invalid form after JavaScript translation in " + name() + ": " + f)
+
+    let mutable insideLoop = false
 
     override this.TransformSelf () = invalidForm "Self"
     override this.TransformBase () = invalidForm "Base"
@@ -48,11 +50,75 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline) as this =
     override this.TransformAwait _  = invalidForm "Await"
     override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
     override this.TransformRefOrOutParameter _ = invalidForm "RefOrOutParamete"
-    override this.TransformCtor (a, b, c) = if isInline then base.TransformCtor(a, b, c) else invalidForm "Ctor"
+    override this.TransformCtor (_, _, _) = invalidForm "Ctor"
     override this.TransformCoalesce (_,_,_) = invalidForm "Coalesce"
     override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
-    override this.TransformCall (a, b, c, d) = if isInline then base.TransformCall(a, b, c, d) else invalidForm "Call"
+    override this.TransformCall (_, _, _, _) = invalidForm "Call"
+    override this.TransformCctor _ = invalidForm "Cctor"
+    override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
+    override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
+    override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
+    override this.TransformDoNotReturn () = if isInline then DoNotReturn else invalidForm "DoNotReturn" |> ExprStatement
 
+    override this.TransformFunction(a, b) =
+        let l = insideLoop
+        insideLoop <- false
+        let res = base.TransformFunction(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformFuncDeclaration(a, b, c) =
+        let l = insideLoop
+        insideLoop <- false
+        let res = base.TransformFuncDeclaration(a, b, c)
+        insideLoop <- l
+        res
+
+    override this.TransformFor(a, b, c, d) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformFor(a, b, c, d)
+        insideLoop <- l
+        res
+
+    override this.TransformForIn(a, b, c) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformForIn(a, b, c)
+        insideLoop <- l
+        res
+
+    override this.TransformWhile(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformWhile(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformDoWhile(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformDoWhile(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformSwitch(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformSwitch(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformBreak a = 
+        if Option.isNone a && not insideLoop then
+            invalidForm "Break outside of loop" |> ExprStatement
+        else Break a
+
+    override this.TransformContinue a = 
+        if Option.isNone a && not insideLoop then
+            invalidForm "Continue outside of loop" |> ExprStatement
+        else Continue a
+    
 type RemoveLets() =
     inherit Transformer()
     
@@ -293,14 +359,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> breaker.TransformExpression
             |> runtimeCleanerForced.TransformExpression
             |> collectCurried isCtor
+    
+    let getCurrentName() =
+        match currentNode with
+        | M.MethodNode (td, m) -> td.Value.FullName + "." + m.Value.MethodName
+        | M.ConstructorNode (td, c) -> td.Value.FullName + "..ctor"
+        | M.ImplementationNode (td, i, m) -> td.Value.FullName + ":" + i.Value.FullName + "." + m.Value.MethodName
+        | M.TypeNode td -> td.Value.FullName + "..cctor"
+        | _ -> "unknown"
 
     member this.CheckResult (res) =
-#if DEBUG
         if hasDelayedTransform then res else
-            CheckNoInvalidJSForms(comp, currentIsInline).TransformExpression res
-#else
-        res
-#endif
+            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformExpression res
      
     member this.Generate(g, p, m) =
         match comp.GetGeneratorInstance(g) with
