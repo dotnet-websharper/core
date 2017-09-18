@@ -26,54 +26,75 @@ open WebSharper
 
 [<Extension; Sealed>]
 type JavaScriptExtensions =
+    /// Treats this object as a JavaScript.Object
     [<Extension; Inline "$0">]
     static member ToJS(x: obj) = X<Object>
 
+    /// Gets JavaScript properties in sequence dynamically from an object.
     [<Extension; Inline; Macro(typeof<WebSharper.Core.Macros.GetJS>)>]
     static member GetJS<'T>(x: obj, [<System.ParamArray>] i: string[]) = GetJS<'T> x i
 
+    /// Sets a JavaScript property on this object.
+    [<Extension; Inline "void($x[$i] = $v)">]
+    static member SetJS(x: obj, i: string, v: obj) = X<unit>
+
+    /// Treats this object as a JavaScript.Array
     [<Extension; Inline "$0">]
     static member ToJS(x: 'T[]) = X<Array<'T>>
 
+    /// Treats this object as a JavaScript.String
     [<Extension; Inline "$0">]
     static member ToJS(x: string) = X<String>
 
+    /// Treats this object as a JavaScript.Error
     [<Extension; Inline "$0">]
     static member ToJS(x: exn) = X<Error>
 
+    /// Treats this object as a JavaScript.Boolean
     [<Extension; Inline "$0">]
     static member ToJS(x: bool) = X<Boolean>
 
-    [<Extension; Inline "$0">]
+    /// Converts this value to a JavaScript.Date
+    [<Extension; Inline "new Date($0)">]
     static member ToJS(x: System.DateTime) = X<Date>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: byte) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: sbyte) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: int16) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: int32) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: int64) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: uint16) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: uint32) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: uint64) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: single) = X<Number>
 
+    /// Treats this value to a JavaScript.Number
     [<Extension; Inline "$0">]
     static member ToJS(x: double) = X<Number>
 
