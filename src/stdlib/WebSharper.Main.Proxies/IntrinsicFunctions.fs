@@ -26,6 +26,7 @@ module private WebSharper.IntrinsicFunctionProxy
 
 open System
 open WebSharper.JavaScript
+module M = WebSharper.Core.Macros
 
 [<Inline "$value">]
 let UnboxGeneric<'T> (value: obj) = X<'T>
@@ -33,10 +34,10 @@ let UnboxGeneric<'T> (value: obj) = X<'T>
 [<Inline "$value">]
 let UnboxFast<'T> (value: obj) = X<'T>
 
-[<Macro(typeof<Macro.TypeTest>)>]
+[<Macro(typeof<M.TypeTest>)>]
 let TypeTestGeneric<'T> (value: obj) = X<bool>
 
-[<Macro(typeof<Macro.TypeTest>)>]
+[<Macro(typeof<M.TypeTest>)>]
 let TypeTestFast<'T> (value: obj) = X<bool>
 
 [<Inline "$arr.length">]

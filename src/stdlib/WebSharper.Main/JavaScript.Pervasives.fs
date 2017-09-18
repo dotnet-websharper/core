@@ -24,7 +24,7 @@
 module WebSharper.JavaScript.Pervasives
 
 open WebSharper
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 /// Casts an object to the desired type.
 [<Inline "$x">]
@@ -95,11 +95,6 @@ let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 
 [<Inline "[$x,$y]">]
 let ( => ) (x: string) (y: obj) = (x, y)
-
-type JS =
-    /// Parses and inlines JavaScript code
-    [<Macro(typeof<M.InlineJS>)>]
-    static member Inline<'T> (inlineString: string, [<System.ParamArray>] args: obj[]) = X<'T>
 
 [<JavaScript>]
 let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =

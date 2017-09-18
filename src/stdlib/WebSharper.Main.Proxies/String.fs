@@ -27,7 +27,7 @@ module private WebSharper.StringProxy
 
 open WebSharper.JavaScript
 
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 let Compare (x: string) (y: string) = compare x y
 

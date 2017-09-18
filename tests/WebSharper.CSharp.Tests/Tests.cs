@@ -182,8 +182,8 @@ namespace WebSharper.CSharp.Tests
             Equal(InlinedAdd("1", 2), "12");
             Equal(InlineWithReturn(true), 1);
             Equal(InlineWithReturn(false), 2);
-            Equal(JS.Inline<int>("1 + 1"), 2);
-            Equal(JS.Inline<int>("1 + $0", 2), 3);
+            Equal(WebSharper.JavaScript.JS.Inline<int>("1 + 1"), 2);
+            Equal(WebSharper.JavaScript.JS.Inline<int>("1 + $0", 2), 3);
         }
 
         //[Test]

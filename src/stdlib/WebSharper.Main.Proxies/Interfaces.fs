@@ -21,6 +21,7 @@
 namespace WebSharper
 
 open WebSharper.JavaScript
+module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<System.IComparable>)>]
 type private IComparableProxy =
@@ -58,7 +59,7 @@ type private EqualityComparerProxy<'T>() =
     interface System.Collections.IEqualityComparer with
         member this.Equals(x, y) = this.Equals(As x, As y)
         member this.GetHashCode(x) = this.GetHashCode(As x)
-    [<Macro(typeof<Macro.EqualityComparer>)>]
+    [<Macro(typeof<M.EqualityComparer>)>]
     static member Default = X<System.Collections.Generic.EqualityComparer<'T>>
 
 [<Proxy(typeof<System.Collections.IComparer>)>]
@@ -80,7 +81,7 @@ type private ComparerProxy<'T>() =
         member this.Compare(x, y) = this.Compare(x, y)
     interface System.Collections.IComparer with
         member this.Compare(x, y) = this.Compare(As x, As y)
-    [<Macro(typeof<Macro.Comparer>)>]
+    [<Macro(typeof<M.Comparer>)>]
     static member Default = X<System.Collections.Generic.Comparer<'T>>
 
 [<Proxy(typeof<System.IEquatable<_>>)>]

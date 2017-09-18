@@ -11,8 +11,6 @@
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
-    <Compile Include="Macro.fsi" />
-    <Compile Include="Macro.fs" />
     <Compile Include="Pervasives.fs" />
     <Compile Include="JavaScript.Pervasives.fs" />
     <EmbeddedResource Include="Json.js" />
@@ -27,6 +25,7 @@
     <Compile Include="JSObject.fs" />
     <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
+    <Compile Include="Comparers.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

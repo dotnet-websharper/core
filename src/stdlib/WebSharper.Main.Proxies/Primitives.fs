@@ -22,7 +22,7 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 [<JavaScript>]
 [<Name "Numeric">]

@@ -27,6 +27,7 @@
 module private WebSharper.UncheckedProxy
 
 open WebSharper.JavaScript
+module M = WebSharper.Core.Macros
 
 [<Inline "$a instanceof Array">]
 let isArray (a: obj) = X<bool>
@@ -90,7 +91,7 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             else objCompare (As a) (As b)
 
 /// Produces an undefined value.
-[<Macro(typeof<Macro.DefaultOf>)>]
+[<Macro(typeof<M.DefaultOf>)>]
 [<Inline "undefined">]
 let DefaultOf<'T> = X<'T>
 

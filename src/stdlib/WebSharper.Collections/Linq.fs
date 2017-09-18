@@ -144,7 +144,7 @@ type private LinqMacro() =
 
     override this.TranslateCall(c) = //e, t, m, a, _) =
         let targ = c.Method.Generics.[0]
-        WebSharper.Macro.EqualityComparer.GetDefault(c.Compilation, targ)
+        WebSharper.Core.Macros.EqualityComparer.GetDefault(c.Compilation, targ)
         |> MacroResult.Map (fun ec ->
             let m' =
                 let t =

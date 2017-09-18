@@ -29,7 +29,7 @@ type JavaScriptExtensions =
     [<Extension; Inline "$0">]
     static member ToJS(x: obj) = X<Object>
 
-    [<Extension; Inline; Macro(typeof<WebSharper.Macro.GetJS>)>]
+    [<Extension; Inline; Macro(typeof<WebSharper.Core.Macros.GetJS>)>]
     static member GetJS<'T>(x: obj, [<System.ParamArray>] i: string[]) = GetJS<'T> x i
 
     [<Extension; Inline "$0">]

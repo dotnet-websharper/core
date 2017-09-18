@@ -86,6 +86,15 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res, 43);
 
+            res = 0;
+            switch (x)
+            {
+                case Union<int, string>.Union1Of2 u:
+                    res = u.Item;
+                    break;
+            }
+            Equal(res, 43);
+
             var res2 = "";
             x = I.Module.ErasedUnion2;
             switch (x.Tag)
