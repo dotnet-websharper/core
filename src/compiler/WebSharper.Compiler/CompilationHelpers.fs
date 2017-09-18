@@ -601,6 +601,12 @@ module Definitions =
             FullName = "System.Object"    
         }
 
+    let ValueType =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.ValueType"    
+        }
+
     let Dynamic =
         TypeDefinition {
             Assembly = ""
@@ -673,7 +679,7 @@ module Definitions =
         }
     
 let ignoreSystemObject td =
-    if td = Definitions.Obj then None else Some td
+    if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
 
 module Resolve =
     open System.Collections.Generic
