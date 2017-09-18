@@ -34,6 +34,10 @@ type JavaScriptExtensions =
     [<Extension; Inline; Macro(typeof<WebSharper.Core.Macros.GetJS>)>]
     static member GetJS<'T>(x: obj, [<System.ParamArray>] i: string[]) = GetJS<'T> x i
 
+    /// Gets JavaScript properties in sequence dynamically from an object.
+    [<Extension; Inline; Macro(typeof<WebSharper.Core.Macros.GetJS>)>]
+    static member GetJS(x: obj, [<System.ParamArray>] i: string[]) = GetJS<obj> x i
+
     /// Sets a JavaScript property on this object.
     [<Extension; Inline "void($x[$i] = $v)">]
     static member SetJS(x: obj, i: string, v: obj) = X<unit>

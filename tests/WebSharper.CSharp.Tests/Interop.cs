@@ -86,9 +86,14 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res, 43);
 
+            IsTrue(x is Union<int, string>.Union1Of2);
+            IsFalse(x is Union<int, string>.Union2Of2);
+
             res = 0;
             switch (x)
             {
+                case Union<int, string>.Union2Of2 u:
+                    break;
                 case Union<int, string>.Union1Of2 u:
                     res = u.Item;
                     break;
@@ -323,6 +328,12 @@ namespace WebSharper.CSharp.Tests
             Equal(a.GetJS<int>("x", "y"), 2);
             var i = new[] { "x", "y" };
             Equal(a.GetJS<int>(i), 2);
+
+            a.GetJS("x").SetJS("y", 3);
+            Equal(a.GetJS<int>("x", "y"), 3);
+
+            a.SetJS("x", 4);
+            Equal(a.GetJS<int>("x"), 4);
         }
 
         [Test]
