@@ -1585,10 +1585,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "Microsoft.FSharp.Core.FSharpChoice`7" ->
                 trExpr
             | tname ->
-                if not (List.isEmpty gs) then
-                    this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
+                let warnIgnoringGenerics() =
+                    if not (List.isEmpty gs) then
+                        this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
                 match comp.TryLookupClassAddressOrCustomType t with
                 | Choice1Of2 (Some a) ->
+                    warnIgnoringGenerics()
                     Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
                 | Choice1Of2 None ->
                     this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
@@ -1608,13 +1610,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
                         let i = Id.New (mut = false)
                         match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
-                        | Value (Bool true) ->
+                        | Value (Bool true) -> // in case of erased union
                            this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
                         | testParent ->
+                            warnIgnoringGenerics()
                             Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
+                            warnIgnoringGenerics()
                             let shortestName = ii.Methods.Values |> Seq.minBy String.length
                             Binary(
                                 Value (String shortestName),
