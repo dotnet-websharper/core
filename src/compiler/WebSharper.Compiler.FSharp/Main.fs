@@ -58,9 +58,16 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
         TimedStage "Checking project"
 
-        prevMeta.Wait()
 
-        match prevMeta.Result with
+        try
+            prevMeta.Wait()
+            prevMeta.Result
+        with :? System.AggregateException as exn ->
+            exn.InnerExceptions
+            |> Seq.map (sprintf "%O")
+            |> String.concat "\r\n"
+            |> failwith
+        |> function
         | None -> None
         | Some refMeta ->
 
