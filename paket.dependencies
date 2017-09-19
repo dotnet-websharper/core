@@ -1,3 +1,8 @@
+version 5.92.3
+
+references: strict
+redirects: on
+
 framework: net461, netstandard2.0
 source https://www.nuget.org/api/v2
 

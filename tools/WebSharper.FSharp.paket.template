@@ -1,8 +1,8 @@
 type file
 id WebSharper.FSharp
 authors IntelliFactory
-licenseUrl http:/websharper.com/licensing
-projectUrl http:/websharper.com
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
 description
     F#-to-JavaScript compiler
 tags
@@ -10,7 +10,7 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
 files
-    ../msbuild/Zafir.FSharp.targets ==> build
+    ../msbuild/WebSharper.FSharp.targets ==> build
     ../build/Release/FSharp/WsFsc.exe ==> tools
     ../build/Release/FSharp/WsFsc.exe.config ==> tools
     ../build/Release/FSharp/WebSharper.Compiler.dll ==> tools
@@ -19,9 +19,9 @@ files
     ../build/Release/FSharp/WebSharper.Core.dll ==> tools
     ../build/Release/FSharp/WebSharper.Core.JavaScript.dll ==> tools
     ../build/Release/FSharp/WebSharper.InterfaceGenerator.dll ==> tools
-    ../packages/FSharp.Core/lib/net40/FSharp.Core.dll ==> tools
-    ../packages/FSharp.Core/lib/net40/FSharp.Core.sigdata ==> tools
-    ../packages/FSharp.Core/lib/net40/FSharp.Core.optdata ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
+    ../packages/fsharp4/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
     ../build/Release/FSharp/Mono.Cecil.dll ==> tools
     ../build/Release/FSharp/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/Mono.Cecil.Pdb.dll ==> tools

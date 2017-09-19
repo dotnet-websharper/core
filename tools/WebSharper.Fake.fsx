@@ -91,7 +91,7 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
             traceImportant (sprintf "Warning: computing patch version: %s" e.Message)
             0u
     let build =
-        match environVar "BUILD_NUMBER" with
+        match jenkinsBuildNumber with
         | null | "" -> string (int64 lastVersion.Build + 1L)
         | b -> b
     Printf.ksprintf (fun v ->
@@ -103,7 +103,7 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
 type Args =
     {
         Version : Paket.SemVerInfo
-        ProjectFiles : seq<string>
+        SolutionFile : string
         Attributes : seq<Attribute>
         StrongName : bool
         BaseBranch : string
@@ -116,6 +116,7 @@ type WSTargets =
     {
         BuildDebug : string
         Publish : string
+        CommitPublish : string
         ComputedVersion : Paket.SemVerInfo
     }
 
@@ -129,6 +130,7 @@ let MakeTargets (args: Args) =
     let dirtyDirs =
         !! "/**/bin"
         ++ "/**/obj"
+        ++ "build"
 
     Target "WS-Clean" <| fun () ->
         DeleteDirs dirtyDirs
@@ -154,7 +156,8 @@ let MakeTargets (args: Args) =
             ]
 
     let build f =
-        f "" "Build" args.ProjectFiles
+        !! args.SolutionFile
+        |> f "" "Build"
         |> Log "AppBuild-Output: "
 
     Target "WS-BuildDebug" <| fun () ->
@@ -166,7 +169,7 @@ let MakeTargets (args: Args) =
     Target "WS-Package" <| fun () ->
         Paket.Pack <| fun p ->
             { p with
-                OutputPath = environVarOrDefault "NuGetPackageOutputPath" "build"
+                OutputPath = "build"
                 Version = args.Version.AsString
             }
 
@@ -204,17 +207,24 @@ let MakeTargets (args: Args) =
                     tracefn "[GIT] OK -- merging onto %s: %s" branch (String.concat ", " changes)
                     Git.Staging.StageAll "."
                     Git.Commit.Commit "." ("[CI] " + tag)
+                Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
                     
             Git.CommandHelper.directRunGitCommand "." ("tag " + tag) |> ignore
-            Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
             Git.Branches.pushTag "." args.PushRemote tag
 
     Target "WS-Publish" <| fun () ->
-        Paket.Push <| fun p ->
-            { p with
-                PublishUrl = environVarOrDefault "NugetPublishUrl" "https://nuget.websharper.com/nuget"
-                ApiKey = environVar "NugetApiKey"
-            }
+        match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
+        | Some nugetPublishUrl, Some nugetApiKey ->
+            tracefn "[NUGET] Publishing to %s" nugetPublishUrl 
+            Paket.Push <| fun p ->
+                { p with
+                    PublishUrl = nugetPublishUrl
+                    ApiKey = nugetApiKey
+                    WorkingDir = "build"
+                }
+        | _ -> traceError "[NUGET] Not publishing: NugetPublishUrl and/or NugetApiKey are not set"
+
+    Target "WS-CommitPublish" DoNothing
 
     "WS-Clean"
         ==> "WS-GenAssemblyInfo"
@@ -225,7 +235,14 @@ let MakeTargets (args: Args) =
         ==> "WS-GenAssemblyInfo"
         ==> "WS-BuildRelease"
         ==> "WS-Package"
+        ==> "WS-Publish"
+        
+    "WS-Package"    
         ==> "WS-Commit"
+        ?=> "WS-Publish"
+        ==> "WS-CommitPublish"
+
+    "WS-Package"
         ==> "WS-Publish"
 
     "WS-Clean"
@@ -238,6 +255,7 @@ let MakeTargets (args: Args) =
     {
         BuildDebug = "WS-BuildDebug"
         Publish = "WS-Publish"
+        CommitPublish = "WS-CommitPublish"
         ComputedVersion = args.Version
     }
 
@@ -246,10 +264,7 @@ type WSTargets with
     static member Default (version) =
         {
             Version = version
-            ProjectFiles =
-                !! "/**/*.csproj"
-                ++ "/**/*.fsproj"
-                :> seq<string>
+            SolutionFile = "*.sln"
             Attributes = Seq.empty
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."

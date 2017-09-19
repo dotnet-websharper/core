@@ -27,6 +27,14 @@ module private WebSharper.LazyExtensionsProxy
 
 open WebSharper.JavaScript
 
+[<JavaScript; Prototype false>]
+type LazyRecord<'T> =
+    {
+        [<Name "c">] mutable created : bool
+        [<Name "v">] mutable evalOrVal : obj
+        [<Name "f">] mutable force : unit -> 'T
+    }
+
 let cachedLazy<'T> () =
     JS.This.evalOrVal
 

@@ -34,6 +34,5 @@
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
     <FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
     <FscToolExe>WsFsc.exe</FscToolExe>
-    <!-- <PreserveCompilationContext>True</PreserveCompilationContext> -->
   </PropertyGroup>
 </Project>

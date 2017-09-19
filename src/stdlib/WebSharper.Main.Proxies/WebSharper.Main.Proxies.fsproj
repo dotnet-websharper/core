@@ -5,82 +5,234 @@
     <SkipCopyBuildProduct>true</SkipCopyBuildProduct>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="../WebSharper.Main/JavaScript.fs" />
-    <Compile Include="../WebSharper.Main/Macro.fsi" />
-    <Compile Include="../WebSharper.Main/Macro.fs" />
-    <Compile Include="../WebSharper.Main/Pervasives.fs" />
-    <Compile Include="../WebSharper.Main/JavaScript.Pervasives.fs" />
-    <EmbeddedResource Include="../WebSharper.Main/Json.js" />
-    <EmbeddedResource Include="../WebSharper.Main/Json.min.js" />
-    <Compile Include="../WebSharper.Main/Json.fsi" />
-    <Compile Include="../WebSharper.Main/Json.fs" />
-    <Compile Include="../WebSharper.Main/Remoting.fs" />
-    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.js" />
-    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js" />
-    <Compile Include="../WebSharper.Main/Utils.fs" />
-    <Compile Include="../WebSharper.Main/Concurrency.fs" />
-    <Compile Include="../WebSharper.Main/Enumerator.fs" />
-    <Compile Include="../WebSharper.Main/Enumerable.fs" />
-    <Compile Include="../WebSharper.Main/Resources.fs" />
-    <Compile Include="../WebSharper.Main/Html.fs" />
-    <Compile Include="../WebSharper.Main/FSharpConvert.fs" />
-    <Compile Include="../WebSharper.Main/JavaScript.Extensions.fs" />
-    <Compile Include="../WebSharper.Main/ProxyHelpers.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Interop.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/JSObject.fs" />
-    <None Include="../WebSharper.Main.Proxies/genInterop.fsx" />
-    <Compile Include="../WebSharper.Main.Proxies/CollectionInternals.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Object.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/IntrinsicFunctions.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Array.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/ArrayModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Array2DModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Async.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/AsyncBuilder.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Char.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Choice.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Console.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/CommonExtensions.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/DateTime.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Delegate.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Dictionary.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Enum.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Exception.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/ExtraTopLevelOperators.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Func.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Guid.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/HashSet.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Interfaces.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/IntrinsicOperators.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/KeyValuePair.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/LanguagePrimitives.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Lazy.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/LazyExtensions.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/List.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/ListModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Math.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Nullable.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/NullableModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/NullableOperators.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Operators.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/OperatorIntrinsics.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Option.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/OptionModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Queue.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Printf.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Random.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Ref.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Result.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/ResultModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/RuntimeHelpers.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/SeqModule.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Stack.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/String.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Task.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Unchecked.fs" />
-    <Compile Include="../WebSharper.Main.Proxies/Primitives.fs" />
+    <Compile Include="../WebSharper.Main/JavaScript.fs">
+      <Link>JavaScript.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Macro.fsi">
+      <Link>Macro.fsi</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Macro.fs">
+      <Link>Macro.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Pervasives.fs">
+      <Link>Pervasives.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/JavaScript.Pervasives.fs">
+      <Link>JavaScript.Pervasives.fs</Link>
+    </Compile>
+    <EmbeddedResource Include="../WebSharper.Main/Json.js">
+      <Link>Json.js</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="../WebSharper.Main/Json.min.js">
+      <Link>Json.min.js</Link>
+    </EmbeddedResource>
+    <Compile Include="../WebSharper.Main/Json.fsi">
+      <Link>Json.fsi</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Json.fs">
+      <Link>Json.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Remoting.fs">
+      <Link>Remoting.fs</Link>
+    </Compile>
+    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.js">
+      <Link>AnimFrame.js</Link>
+    </EmbeddedResource>
+    <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js">
+      <Link>AnimFrame.min.js</Link>
+    </EmbeddedResource>
+    <Compile Include="../WebSharper.Main/Utils.fs">
+      <Link>Utils.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Concurrency.fs">
+      <Link>Concurrency.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Enumerator.fs">
+      <Link>Enumerator.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Enumerable.fs">
+      <Link>Enumerable.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Resources.fs">
+      <Link>Resources.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/Html.fs">
+      <Link>Html.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/FSharpConvert.fs">
+      <Link>FSharpConvert.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/JavaScript.Extensions.fs">
+      <Link>JavaScript.Extensions.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/ProxyHelpers.fs">
+      <Link>ProxyHelpers.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Interop.fs">
+      <Link>Interop.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/JSObject.fs">
+      <Link>JSObject.fs</Link>
+    </Compile>
+    <None Include="../WebSharper.Main.Proxies/genInterop.fsx">
+      <Link>genInterop.fsx</Link>
+    </None>
+    <Compile Include="../WebSharper.Main.Proxies/CollectionInternals.fs">
+      <Link>CollectionInternals.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Object.fs">
+      <Link>Object.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/IntrinsicFunctions.fs">
+      <Link>IntrinsicFunctions.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Array.fs">
+      <Link>Array.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/ArrayModule.fs">
+      <Link>ArrayModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Array2DModule.fs">
+      <Link>Array2DModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Async.fs">
+      <Link>Async.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/AsyncBuilder.fs">
+      <Link>AsyncBuilder.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Char.fs">
+      <Link>Char.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Choice.fs">
+      <Link>Choice.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Console.fs">
+      <Link>Console.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/CommonExtensions.fs">
+      <Link>CommonExtensions.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/DateTime.fs">
+      <Link>DateTime.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Delegate.fs">
+      <Link>Delegate.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Dictionary.fs">
+      <Link>Dictionary.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Enum.fs">
+      <Link>Enum.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Exception.fs">
+      <Link>Exception.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/ExtraTopLevelOperators.fs">
+      <Link>ExtraTopLevelOperators.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Func.fs">
+      <Link>Func.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Guid.fs">
+      <Link>Guid.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/HashSet.fs">
+      <Link>HashSet.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Interfaces.fs">
+      <Link>Interfaces.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/IntrinsicOperators.fs">
+      <Link>IntrinsicOperators.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/KeyValuePair.fs">
+      <Link>KeyValuePair.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/LanguagePrimitives.fs">
+      <Link>LanguagePrimitives.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Lazy.fs">
+      <Link>Lazy.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/LazyExtensions.fs">
+      <Link>LazyExtensions.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/List.fs">
+      <Link>List.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/ListModule.fs">
+      <Link>ListModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Math.fs">
+      <Link>Math.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Nullable.fs">
+      <Link>Nullable.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/NullableModule.fs">
+      <Link>NullableModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/NullableOperators.fs">
+      <Link>NullableOperators.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Operators.fs">
+      <Link>Operators.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/OperatorIntrinsics.fs">
+      <Link>OperatorIntrinsics.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Option.fs">
+      <Link>Option.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/OptionModule.fs">
+      <Link>OptionModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Queue.fs">
+      <Link>Queue.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Printf.fs">
+      <Link>Printf.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Random.fs">
+      <Link>Random.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Ref.fs">
+      <Link>Ref.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Result.fs">
+      <Link>Result.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/ResultModule.fs">
+      <Link>ResultModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/RuntimeHelpers.fs">
+      <Link>RuntimeHelpers.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/SeqModule.fs">
+      <Link>SeqModule.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Stack.fs">
+      <Link>Stack.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/String.fs">
+      <Link>String.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Task.fs">
+      <Link>Task.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs">
+      <Link>Tuple.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs">
+      <Link>TimeSpan.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Unchecked.fs">
+      <Link>Unchecked.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Primitives.fs">
+      <Link>Primitives.fs</Link>
+    </Compile>
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

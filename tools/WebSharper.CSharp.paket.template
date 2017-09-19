@@ -1,8 +1,8 @@
 type file
 id WebSharper.CSharp
 authors IntelliFactory
-licenseUrl http:/websharper.com/licensing
-projectUrl http:/websharper.com
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
 description
     C#-to-JavaScript compiler
 tags
@@ -10,7 +10,7 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
 files
-    ../msbuild/Zafir.CSharp.targets ==> build
+    ../msbuild/WebSharper.CSharp.targets ==> build
     ../build/Release/CSharp/ZafirCs.exe ==> tools
     ../build/Release/CSharp/ZafirCs.exe.config ==> tools
     ../build/Release/CSharp/WebSharper.Compiler.dll ==> tools

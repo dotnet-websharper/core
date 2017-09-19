@@ -26,11 +26,13 @@ open WebSharper.JavaScript
 
 type private OCE = System.OperationCanceledException
 
+[<JavaScript; Prototype false>]
 type Result<'T> =
     | Ok of 'T
     | No of exn
     | Cc of OCE
   
+[<JavaScript; Prototype false>]
 type CT =
     { 
         [<Name "c">] mutable IsCancellationRequested : bool 
@@ -59,6 +61,7 @@ let internal Register (ct: CT) (callback: unit -> unit) =
             member this.Dispose() = ct.Registrations.[i] <- ignore
         }
 
+[<JavaScript; Prototype false>]
 type AsyncBody<'T> =
     {
         k  : Result<'T> -> unit

@@ -1,8 +1,8 @@
 type file
 id WebSharper
 authors IntelliFactory
-licenseUrl http:/websharper.com/licensing
-projectUrl http:/websharper.com
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
 description
     .NET-to-JavaScript compiler and web application framework
 tags

@@ -25,12 +25,23 @@
     <WebSharperSourceMap>True</WebSharperSourceMap>
   </PropertyGroup>
   <Import Project="FSharp.targets" />
-  <Import Project="Zafir.FSharp.targets" />
   <PropertyGroup>
     <FscToolPath Condition="'$(TargetFramework)' == 'net461'">$(Root)\build\$(Configuration)\FSharp\net461\publish\</FscToolPath>
     <FscToolPath Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\publish\</FscToolPath>
     <FscToolExe Condition="'$(TargetFramework)' == 'net461'">WebSharper.FSharp.exe</FscToolExe>
     <FscToolExe Condition="'$(OS)' == 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.sh</FscToolExe>
     <FscToolExe Condition="'$(OS)' != 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.cmd</FscToolExe>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
+    <OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:"$(MSBuildProjectFullPath)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --webroot:"$(WebProjectOutputDir)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
   </PropertyGroup>
 </Project>

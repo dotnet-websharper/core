@@ -1,8 +1,8 @@
 type file
 id WebSharper.Compiler
 authors IntelliFactory
-licenseUrl http:/websharper.com/licensing
-projectUrl http:/websharper.com
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
 description
     Compiler libraries for C#/F#-to-JavaScript translation
 tags
