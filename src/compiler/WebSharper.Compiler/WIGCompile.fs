@@ -244,19 +244,30 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
+    let tryFindAssembly =
+        let domainAssemblies = System.AppDomain.CurrentDomain.GetAssemblies()
+        fun (name: string) ->
+            let name = name.ToLowerInvariant()
+            domainAssemblies
+            |> Array.tryFind (fun a -> a.GetName().Name.ToLowerInvariant() = name)
     let netstandard =
-        let netstandardRefl = 
-            System.AppDomain.CurrentDomain.GetAssemblies()
-            |> Array.find (fun a -> a.GetName().Name = "netstandard")
-        aR.Resolve(AssemblyNameReference.Parse(netstandardRefl.FullName))
+        match tryFindAssembly "netstandard" with
+        | Some asm -> aR.Resolve(AssemblyNameReference.Parse(asm.FullName))
+        | None -> failwith "Not referencing netstandard"
+    let addIfExists name asm =
+        tryFindAssembly name
+        |> Option.iter (fun a -> assemblies.[a.FullName] <- asm)
     do  let m = netstandard.MainModule
+        addIfExists "netstandard" netstandard
+        addIfExists "System.Private.CoreLib" netstandard
+        addIfExists "mscorlib" netstandard
         for e in m.ExportedTypes do
             resolvedTypes.[e.FullName] <-
                 lazy
                 TypeReference(e.Namespace, e.Name, m, e.Scope)
                 |> main.ImportReference
 
-    let resolveAsm name =
+    let resolveAsm (name: string) =
         match assemblies.TryGetValue(name) with
         | true, x -> x
         | false, _ ->
@@ -265,6 +276,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
             x
 
     let doResolveTypeName (asm: AssemblyDefinition) (typeName: string) =
+        eprintfn "TYPE %s RESOLVED TO %s" typeName asm.FullName
         let ty = asm.MainModule.GetType(typeName.Replace('+', '/'))
         let ty =
             match ty with
@@ -364,6 +376,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
+        eprintfn "b.Type RESOLVING ASM %s FOR TYPE %s" assemblyName fullName
         match resolveAsm assemblyName with
         | null -> failwithf "Could not resolve assembly: %s" assemblyName
         | asm -> resolveTypeName asm fullName
@@ -1268,7 +1281,7 @@ type Compiler() =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, WebSharper.Compiler.LoaderUtility.Resolver(aR) :> IAssemblyResolver)
+        (aR, new WebSharper.Compiler.LoaderUtility.Resolver(aR) :> IAssemblyResolver)
 
     let getId (d: Code.NamespaceEntity) =
         d.Id

@@ -1,2 +1,11 @@
-Microsoft.CodeAnalysis.CSharp
-NETStandard.Library framework: net461
+﻿System.ValueTuple
+NETStandard.Library
+
+group roslyn
+    Microsoft.CodeAnalysis.CSharp
+    Microsoft.CodeAnalysis.Common
+    System.Collections.Immutable
+    System.Reflection.Metadata    
+
+group fsharp4
+    FSharp.Core

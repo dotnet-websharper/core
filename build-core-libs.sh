@@ -17,9 +17,5 @@ case "$1" in
         ;;
 esac
 
-for i in "${frameworks[@]}"; do
-    dotnet publish src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj -f $i -v n &
-done
-wait
-
-exec ./build-core-libs.sh "$@"
+dotnet build src/stdlib/WebSharper.Main.Proxies/WebSharper.Main.Proxies.fsproj $arg -v n
+dotnet build src/stdlib/WebSharper.Main/WebSharper.Main.fsproj $arg -v n

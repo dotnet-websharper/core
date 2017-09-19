@@ -1,2 +1,4 @@
+NETStandard.Library
+
 group fsharp4
     FSharp.Core

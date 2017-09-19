@@ -1,4 +1,16 @@
-Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
-Microsoft.CodeAnalysis.CSharp
+﻿Mono.Cecil
+    exclude Mono.Cecil.Rocks.dll
+System.ValueTuple
 Microsoft.NETCore.App
+
+group roslyn
+    Microsoft.CodeAnalysis.CSharp
+    Microsoft.CodeAnalysis.Common
+    System.Collections.Immutable
+    System.Reflection.Metadata
+    System.IO.FileSystem
+    System.Security.Cryptography.Algorithms
+    System.Security.Cryptography.Primitives
+
+group fsharp4
+    FSharp.Core

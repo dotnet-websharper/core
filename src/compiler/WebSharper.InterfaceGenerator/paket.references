@@ -1,4 +1,9 @@
-Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
-System.CodeDom
-NETStandard.Library framework: net461
+﻿Mono.Cecil
+    exclude Mono.Cecil.Rocks.dll
+NETStandard.Library
+
+group fsharp3
+    FSharp.Core
+
+group roslyn
+    System.CodeDom

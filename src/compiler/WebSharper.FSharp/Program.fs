@@ -88,7 +88,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             TimedStage "WIG running time"
             0
         with e ->
-            PrintGlobalError (sprintf "Error running WIG assembly: %s at %s" e.Message e.StackTrace)
+            PrintGlobalError (sprintf "Error running WIG assembly: %A" e)
             1
     
     else    

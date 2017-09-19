@@ -1,3 +1,7 @@
-Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
+﻿Mono.Cecil
+    exclude Mono.Cecil.Rocks.dll
 System.Reflection.Emit.Lightweight
+
+group fsharp3
+    FSharp.Core
+    

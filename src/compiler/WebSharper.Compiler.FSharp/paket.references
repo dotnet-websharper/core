@@ -1,2 +1,10 @@
-FSharp.Compiler.Service
-NETStandard.Library framework: net461
+﻿System.ValueTuple
+NETStandard.Library
+
+group fcs
+    FSharp.Compiler.Service
+    System.Collections.Immutable
+    System.Reflection.Metadata
+
+group fsharp4
+    FSharp.Core

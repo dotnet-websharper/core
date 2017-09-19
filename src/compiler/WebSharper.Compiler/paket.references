@@ -1,6 +1,11 @@
-Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
-System.CodeDom
+﻿Mono.Cecil
+    exclude Mono.Cecil.Rocks.dll
 System.Configuration.ConfigurationManager
-NETStandard.Library restriction: == net461
+NETStandard.Library
 Microsoft.Extensions.DependencyModel
+
+group fsharp4
+    FSharp.Core
+
+group roslyn
+    System.CodeDom
