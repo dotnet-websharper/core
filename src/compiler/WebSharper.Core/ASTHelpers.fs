@@ -295,3 +295,7 @@ type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
         match repl.TryGetValue i with
         | true, j -> j
         | _ -> i
+
+let EmbedAST<'T> (v: Expression) : FSharp.Quotations.Expr<'T> =
+    FSharp.Quotations.Expr.Value(v, typeof<'T>) 
+    |> FSharp.Quotations.Expr.Cast

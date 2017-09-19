@@ -7,24 +7,15 @@
     <OutputType>Library</OutputType>
     <Name>WebSharper.Collections.Tests</Name>
     <WebSharperProject>Library</WebSharperProject>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <Tests>True</Tests>
   </PropertyGroup>
   <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\fsharp3\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
   <ItemGroup>
     <Compile Include="Dictionary.fs" />
     <Compile Include="Set.fs" />
     <Compile Include="Map.fs" />
+    <Compile Include="Array.fs" />
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />
@@ -49,6 +40,11 @@
       <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
+      <Name>WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
       <Name>WebSharper.Testing</Name>
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
@@ -60,4 +56,15 @@
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>
+  <Choose>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>..\..\packages\fsharp3\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+  </Choose>
 </Project>

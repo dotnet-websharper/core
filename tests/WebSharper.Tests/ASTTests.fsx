@@ -1,5 +1,5 @@
 ﻿#I __SOURCE_DIRECTORY__
-#r "../../packages/FSharp.Compiler.Service/lib/net45/FSharp.Compiler.Service.dll"
+#r "../../packages/fcs/FSharp.Compiler.Service/lib/net45/FSharp.Compiler.Service.dll"
 #r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.dll"
 #r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.Mdb.dll"
 #r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.Pdb.dll"
@@ -16,10 +16,10 @@
 #r "../../build/Release/WebSharper.Core.dll"
 #r "../../build/Release/WebSharper.JavaScript.dll"
 #r "../../build/Release/WebSharper.JQuery.dll"
-#r "../../build/Release/WebSharper.Main.dll"
-#r "../../build/Release/WebSharper.Collections.dll"
-#r "../../build/Release/WebSharper.Control.dll"
-#r "../../build/Release/WebSharper.Web.dll"
+//#r "../../build/Release/WebSharper.Main.dll"
+//#r "../../build/Release/WebSharper.Collections.dll"
+//#r "../../build/Release/WebSharper.Control.dll"
+//#r "../../build/Release/WebSharper.Web.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.FSharp.dll"
 
@@ -43,7 +43,7 @@ module Utils =
         | BasicPatterns.Application(f,tyargs,args) -> quote low (printExpr 10 f + printTyargs tyargs + " " + printCurriedArgs args)
         | BasicPatterns.BaseValue(_) -> "base"
         | BasicPatterns.Call(Some obj,v,tyargs1,tyargs2,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL
-        | BasicPatterns.Call(None,v,tyargs1,tyargs2,argsL) -> v.EnclosingEntity.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
+        | BasicPatterns.Call(None,v,tyargs1,tyargs2,argsL) -> v.EnclosingEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
         | BasicPatterns.Coerce(ty1,e1) -> quote low (printExpr 10 e1 + " :> " + printTy ty1)
         | BasicPatterns.DefaultValue(ty1) -> "dflt"
         | BasicPatterns.FastIntegerForLoop _ -> "for-loop"
@@ -56,7 +56,7 @@ module Utils =
         | BasicPatterns.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
         | BasicPatterns.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
         | BasicPatterns.NewDelegate(ty,es) -> "new-delegate" 
-        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.EnclosingEntity.CompiledName + printTupledArgs args 
+        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.EnclosingEntity.Value.CompiledName + printTupledArgs args 
         | BasicPatterns.NewRecord(v,args) -> 
             let fields = v.TypeDefinition.FSharpFields
             "{" + ((fields, args) ||> Seq.map2 (fun f a -> f.Name + " = " + printExpr 0 a) |> String.concat "; ") + "}" 
@@ -265,13 +265,13 @@ let wsRefs =
         "WebSharper.Core"
         "WebSharper.JavaScript"
         "WebSharper.JQuery"
-        "WebSharper.Main"
-        "WebSharper.Collections"
-        "WebSharper.Control"
-        "WebSharper.Web"
-        "WebSharper.Sitelets"
-        "WebSharper.Tests"
-        "WebSharper.InterfaceGenerator.Tests"
+        //"WebSharper.Main"
+        //"WebSharper.Collections"
+        //"WebSharper.Control"
+        //"WebSharper.Web"
+        //"WebSharper.Sitelets"
+        //"WebSharper.Tests"
+        //"WebSharper.InterfaceGenerator.Tests"
     ]
 
 let mkProjectCommandLineArgs (dllName, fileNames) = 
@@ -384,13 +384,11 @@ translate """
 module M
 
 open WebSharper
+open System.Runtime.CompilerServices
 
 [<JavaScript>]
-type MultipleStaticLetTest() =
-    static let HIGH = "moooh"
-    static let LOW = "meh"
-    static let DefaultMsg() = "mooo"+HIGH+LOW
-    member __.SayWhat() = DefaultMsg()
+[<MethodImpl(MethodImplOptions.PreserveSig)>]
+let Fst (x: System.Tuple<'T1,'T2>) = x
 
     """
 

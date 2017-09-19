@@ -51,13 +51,6 @@ type Id =
             Mutable = defaultArg mut true
         }
 
-    static member Global() =
-        {
-            IdName = Some "window"
-            Id = -1L
-            Mutable = false
-        }
-
     member this.Clone() =
         {
             IdName = this.IdName
@@ -269,6 +262,45 @@ type TypeDefinitionInfo =
 
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
+module Definitions =
+    let FSharpFunc =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpFunc`2"
+        }
+
+    let Tuple isStruct (arity: int) =
+        TypeDefinition {
+            Assembly = if isStruct then "System.ValueTuple" else "mscorlib"
+            FullName = 
+                let name = if isStruct then "System.ValueTuple" else "System.Tuple"
+                if arity = 0 then name else name + "`" + string (min arity 8)
+        }
+
+    let Array =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "[]"
+        }    
+
+    let Array2 =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "[,]"
+        }    
+
+    let Unit =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.Unit"
+        }
+
+    let Void =
+        TypeDefinition {
+            Assembly = "System.Void"
+            FullName = "mscorlib"
+        }
+
 /// Stores a definition and type parameter information
 type Concrete<'T> =
     {
@@ -348,7 +380,7 @@ and Type =
                         name + "8[[" + 
                             String.concat "],[" (ts |> Seq.take 7 |> Seq.map (fun g -> g.AssemblyQualifiedName)) + 
                             getName (l - 7) (ts |> Seq.skip 7 |> List.ofSeq) + "]]"
-                getName (List.length ts) ts, "mscorlib"
+                getName (List.length ts) ts, if v then "System.ValueTuple" else "mscorlib"
             | FSharpFuncType (a, r) ->
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
@@ -362,11 +394,11 @@ and Type =
         | StaticTypeParameter _
         | LocalTypeParameter 
         | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
-        | ArrayType _ -> invalidOp "Array type has no TypeDefinition"
-        | TupleType _ -> invalidOp "Tuple type has no TypeDefinition"
-        | FSharpFuncType _ -> invalidOp "FSharpFunc type has no TypeDefinition"
+        | ArrayType _ -> Definitions.Array
+        | TupleType (ts, isStruct)  -> Definitions.Tuple isStruct (List.length ts)
+        | FSharpFuncType _ -> Definitions.FSharpFunc
         | ByRefType t -> t.TypeDefinition
-        | VoidType -> invalidOp "Void type has no TypeDefinition"
+        | VoidType -> Definitions.Unit
 
     member this.SubstituteGenerics (gs : Type[]) =
         match this with 
@@ -376,9 +408,9 @@ and Type =
         | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
-        | VoidType -> VoidType
-        | StaticTypeParameter i -> StaticTypeParameter i
-        | LocalTypeParameter -> LocalTypeParameter
+        | VoidType 
+        | StaticTypeParameter _ 
+        | LocalTypeParameter -> this
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -388,9 +420,9 @@ and Type =
         | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenericsToSame(o)), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenericsToSame(o), r.SubstituteGenericsToSame(o))
         | ByRefType t -> ByRefType (t.SubstituteGenericsToSame(o))
-        | VoidType -> VoidType
-        | StaticTypeParameter i -> StaticTypeParameter i
-        | LocalTypeParameter -> LocalTypeParameter
+        | VoidType 
+        | StaticTypeParameter _ 
+        | LocalTypeParameter -> this
 
     member this.GetStableHash()  =
         let inline (++) a b = StableHash.tuple (a, b)
@@ -413,6 +445,33 @@ and Type =
         | VoidType -> 6
         | StaticTypeParameter i -> 7 ++ i
         | LocalTypeParameter -> 8
+
+    member this.Normalize() =
+        match this with
+        | ConcreteType t -> 
+            let td = t.Entity
+            if td = Definitions.Void || td = Definitions.Unit then
+                VoidType
+            elif td = Definitions.Array then
+                ArrayType (t.Generics.[0].Normalize(), 1)
+            elif td = Definitions.Array2 then
+                ArrayType (t.Generics.[0].Normalize(), 2)
+            elif td = Definitions.FSharpFunc then
+                FSharpFuncType (t.Generics.[0].Normalize(), t.Generics.[1].Normalize())
+            elif td.Value.FullName.StartsWith "System.Tuple`" then // TODO: longer tuples 
+                TupleType(t.Generics |> List.map (fun p -> p.Normalize()), false)
+            elif td.Value.FullName.StartsWith "System.ValueTuple`" then
+                TupleType(t.Generics |> List.map (fun p -> p.Normalize()), true)
+            else
+                ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.Normalize()) }
+        | ArrayType (t, i) -> ArrayType (t.Normalize(), i)
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.Normalize()), v) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.Normalize(), r.Normalize())
+        | ByRefType t -> ByRefType (t.Normalize())
+        | TypeParameter _
+        | VoidType 
+        | StaticTypeParameter _ 
+        | LocalTypeParameter -> this
 
 type MethodInfo =
     {
@@ -457,6 +516,23 @@ type Member =
 
 type Address = Hashed<list<string>>
 
+module private Instances =
+    let GlobalId =
+        {
+            IdName = Some "window"
+            Id = -1L
+            Mutable = false
+        }
+
+    let DefaultCtor =
+        Constructor { CtorParameters = [] }
+
+type Id with
+    static member Global() = Instances.GlobalId
+
+type ConstructorInfo with
+    static member Default() = Instances.DefaultCtor
+
 module Reflection = 
     type private FST = Microsoft.FSharp.Reflection.FSharpType
 
@@ -472,22 +548,14 @@ module Reflection =
 
     let ReadTypeDefinition (t: System.Type) =
         if t.IsArray then
-            Hashed {
-                Assembly = "mscorlib"
-                FullName = "[]"
-            }    
-        elif FST.IsFunction t then
-            Hashed {
-                Assembly = "FSharp.Core"
-                FullName = "Microsoft.FSharp.Core.FSharpFunc`2"
-            }
-        elif FST.IsTuple t then
-            let name = if t.IsValueType then "System.ValueTuple`" else "System.Tuple`"
-            let g = t.GetGenericArguments().Length
-            Hashed {
-                Assembly = "mscorlib"
-                FullName = name + string (max g 8)
-            }
+            if t.GetArrayRank() = 1 then
+                Definitions.Array
+            else 
+                Definitions.Array2
+        elif FST.IsFunction t then 
+            Definitions.FSharpFunc
+        elif FST.IsTuple t then 
+            Definitions.Tuple t.IsValueType (t.GetGenericArguments().Length)
         else
             getTypeDefinitionUnchecked false t
 
@@ -515,14 +583,15 @@ module Reflection =
             try TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
             with _ -> gen()
         elif t.IsGenericParameter then  
-            if t.DeclaringMethod <> null then
+            match t.DeclaringMethod with
+            | null ->
+                TypeParameter t.GenericParameterPosition
+            | _ ->
                 let dT = t.DeclaringType
                 let k =
                     if not dT.IsGenericType then 0 else
                         dT.GetGenericArguments().Length
                 TypeParameter (k + t.GenericParameterPosition)
-            else
-                TypeParameter t.GenericParameterPosition
         elif t = voidTy || t = unitTy then
             VoidType
         else

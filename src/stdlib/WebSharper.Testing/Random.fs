@@ -52,6 +52,17 @@ let Implies a b =
 let ( ==> ) a b =
     Implies a b
 
+/// Filter the values of a generator by a predicate.
+[<JavaScript>]
+let SuchThat f r =
+    let rec next() =
+        let x = r.Next()
+        if f x then x else next()
+    {
+        Base = Array.filter f r.Base
+        Next = next
+    }
+
 let private SysRandom = System.Random()
 
 [<Inline "Math.random()">]
@@ -150,6 +161,12 @@ let ArrayOf (generator: Generator<'T>) : Generator<'T[]> =
                 Array.init len (fun _ -> generator.Next())
     }
 
+/// Generates random resizable arrays.
+[<JavaScript>]
+let ResizeArrayOf (generator: Generator<'T>) : Generator<ResizeArray<'T>> =
+    ArrayOf generator
+    |> Map ResizeArray
+
 /// Generates random lists.
 [<JavaScript>]
 let ListOf (generator: Generator<'T>) : Generator<list<'T>> =
@@ -165,6 +182,18 @@ let String: Generator<string> =
             let len = Natural.Next() % 100
             let cs = Array.init len (fun _ ->
                 char (Int.Next() % 256))
+            new System.String(cs)
+    }
+
+/// Generates random readable strings.
+[<JavaScript>]
+let StringReadable: Generator<string> =
+    {
+        Base = [| "" |]
+        Next = fun () ->
+            let len = Natural.Next() % 100
+            let cs = Array.init len (fun _ ->
+                char ((Int.Next() % 95) + 32))
             new System.String(cs)
     }
 
@@ -202,6 +231,22 @@ let Tuple3Of (a: Generator<'A>, b: Generator<'B>, c: Generator<'C>) :
                             yield (x, y, z)
             |]
         Next = fun () -> (a.Next(), b.Next(), c.Next())
+    }
+
+/// Promotes a triple of generators to a generator of triples.
+[<JavaScript>]
+let Tuple4Of (a: Generator<'A>, b: Generator<'B>, c: Generator<'C>, d: Generator<'D>) :
+                Generator<'A*'B*'C*'D> =
+    {
+        Base =
+            [|
+                for xa in a.Base do
+                    for xb in b.Base do
+                        for xc in c.Base do
+                            for xd in d.Base do
+                            yield (xa, xb, xc, xd)
+            |]
+        Next = fun () -> (a.Next(), b.Next(), c.Next(), d.Next())
     }
 
 /// Creates a generator with a random uniform distribution over a set
@@ -347,6 +392,9 @@ module internal Internal =
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
                 wrap, Choice1Of2 (cCallR "ListOf" [x])
+            | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.Collections.Generic.List`1" ->
+                mkGenerator wrap t >>= fun wrap x ->
+                wrap, Choice1Of2 (cCallR "ResizeArrayOf" [x])
             | T.TupleType ([t1; t2], _) ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->

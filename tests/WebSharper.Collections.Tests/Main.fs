@@ -29,6 +29,7 @@ let RunTests() =
         Dictionary.Tests
         Set.Tests
         Map.Tests
+        Array.Tests
         ResizeArray.Tests
         LinkedList.Tests
         HashSet.Tests

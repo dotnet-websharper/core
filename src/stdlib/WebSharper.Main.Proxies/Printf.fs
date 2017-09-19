@@ -22,7 +22,7 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-module M = Macro
+module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<PrintfFormat<_,_,_,_,_>>)>]
 type internal PrintfFormat = 

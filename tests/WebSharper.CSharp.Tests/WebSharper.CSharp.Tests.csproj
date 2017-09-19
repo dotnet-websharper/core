@@ -11,7 +11,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>WebSharper.CSharp.Tests</RootNamespace>
     <AssemblyName>WebSharper.CSharp.Tests</AssemblyName>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
     <Tests>True</Tests>
@@ -28,10 +28,12 @@
     <Compile Include="Arithmetic.cs" />
     <Compile Include="Collections.cs" />
     <Compile Include="Delegate.cs" />
+    <Compile Include="Guid.cs" />
     <Compile Include="InlineControl.cs" />
     <Compile Include="Macro.cs" />
     <Compile Include="Object.cs" />
     <Compile Include="PatternMatching.cs" />
+    <Compile Include="Regression.cs" />
     <Compile Include="Remoting.cs" />
     <Compile Include="Interop.cs" />
     <Compile Include="Linq.cs" />

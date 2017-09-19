@@ -8,12 +8,6 @@
     <Compile Include="../WebSharper.Main/JavaScript.fs">
       <Link>JavaScript.fs</Link>
     </Compile>
-    <Compile Include="../WebSharper.Main/Macro.fsi">
-      <Link>Macro.fsi</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/Macro.fs">
-      <Link>Macro.fs</Link>
-    </Compile>
     <Compile Include="../WebSharper.Main/Pervasives.fs">
       <Link>Pervasives.fs</Link>
     </Compile>
@@ -65,8 +59,20 @@
     <Compile Include="../WebSharper.Main/JavaScript.Extensions.fs">
       <Link>JavaScript.Extensions.fs</Link>
     </Compile>
-    <Compile Include="../WebSharper.Main/ProxyHelpers.fs">
-      <Link>ProxyHelpers.fs</Link>
+    <Compile Include="../WebSharper.Main/Comparers.fs">
+      <Link>Comparers.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Utils.fs">
+      <Link>Utils.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Concurrency.fs">
+      <Link>Concurrency.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Enumerator.fs">
+      <Link>Enumerator.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Enumerable.fs">
+      <Link>Enumerable.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Interop.fs">
       <Link>Interop.fs</Link>
@@ -176,6 +182,9 @@
     <Compile Include="../WebSharper.Main.Proxies/NullableOperators.fs">
       <Link>NullableOperators.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs">
+      <Link>Tuple.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Operators.fs">
       <Link>Operators.fs</Link>
     </Compile>
@@ -220,9 +229,6 @@
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Task.fs">
       <Link>Task.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/Tuple.fs">
-      <Link>Tuple.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs">
       <Link>TimeSpan.fs</Link>

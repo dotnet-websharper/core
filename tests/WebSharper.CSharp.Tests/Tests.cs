@@ -10,7 +10,7 @@ using static WebSharper.JavaScript.Interop;
 
 namespace WebSharper.CSharp.Tests
 {
-    [JavaScript, Test("C# Basic tests")]
+    [Test("C# Basic tests")]
     public class Tests : TestCategory
     {
         [Generated(typeof(TestGenerator))]
@@ -182,8 +182,8 @@ namespace WebSharper.CSharp.Tests
             Equal(InlinedAdd("1", 2), "12");
             Equal(InlineWithReturn(true), 1);
             Equal(InlineWithReturn(false), 2);
-            Equal(JS.Inline<int>("1 + 1"), 2);
-            Equal(JS.Inline<int>("1 + $0", 2), 3);
+            Equal(WebSharper.JavaScript.JS.Inline<int>("1 + 1"), 2);
+            Equal(WebSharper.JavaScript.JS.Inline<int>("1 + $0", 2), 3);
         }
 
         //[Test]
@@ -239,34 +239,34 @@ namespace WebSharper.CSharp.Tests
             Equal(Guid.Empty.ToString(), "00000000-0000-0000-0000-000000000000");
         }
 
-        //[Test]
-        //public void VariableScopingGoto()
-        //{
-        //    //var res = 0;
-        //    //var adders = new List<System.Action>();
-        //    //for (var i = 0; i <= 10; i++)
-        //    //{
-        //    //    if (i == 6) goto outOfLoop;
-        //    //    var b = i;
-        //    //    adders.Add(() => res += b);
-        //    //}
-        //    //outOfLoop: foreach (var adder in adders) adder();
-        //    //Equal(res, 15, "goto from inside loop");
-        //}
+        [Test]
+        public void VariableScopingGoto()
+        {
+            var res = 0;
+            var adders = new List<System.Action>();
+            for (var i = 0; i <= 10; i++)
+            {
+                if (i == 6) goto outOfLoop;
+                var b = i;
+                adders.Add(() => res += b);
+            }
+            outOfLoop: foreach (var adder in adders) adder();
+            Equal(res, 15, "goto from inside loop");
+        }
 
-        //[Test]
-        //public void VariableScopingBreak()
-        //{
-        //    //var res = 0;
-        //    //var adders = new List<System.Action>();
-        //    //for (var i = 0; i <= 10; i++)
-        //    //{
-        //    //    if (i == 6) break;
-        //    //    var b = i;
-        //    //    adders.Add(() => res += b);
-        //    //}
-        //    //foreach (var adder in adders) adder();
-        //    //Equal(res, 15, "break inside loop");
-        //}
+        [Test]
+        public void VariableScopingBreak()
+        {
+            var res = 0;
+            var adders = new List<System.Action>();
+            for (var i = 0; i <= 10; i++)
+            {
+                if (i == 6) break;
+                var b = i;
+                adders.Add(() => res += b);
+            }
+            foreach (var adder in adders) adder();
+            Equal(res, 15, "break inside loop");
+        }
     }
 }

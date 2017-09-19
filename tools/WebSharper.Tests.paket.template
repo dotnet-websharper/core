@@ -1,0 +1,31 @@
+type file
+id WebSharper.Tests
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    Test suite for WebSharper
+tags
+    Web JavaScript F# C#
+dependencies
+    WebSharper == CURRENTVERSION
+    WebSharper.Testing == CURRENTVERSION
+files
+    ../build/Release/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.CSharp.Sitelets.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.CSharp.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.CSharp.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.Collections.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.Collections.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.Html5.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.Html5.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.InterfaceGenerator.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.Sitelets.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.Sitelets.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.Web.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.Web.Tests.xml ==> lib/net40
+    ../build/Release/WebSharper.Tests.dll ==> lib/net40
+    ../build/Release/WebSharper.Tests.xml ==> lib/net40
+    ../build/Release/Website.dll ==> lib/net40
+    ../build/Release/Website.xml ==> lib/net40

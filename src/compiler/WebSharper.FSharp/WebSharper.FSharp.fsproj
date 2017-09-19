@@ -16,6 +16,13 @@
     </Content>
     <None Include="paket.references" />
   </ItemGroup>
+  <Target Name="CopyToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <FSharpCoreExtraFiles Include="..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.sigdata" />
+      <FSharpCoreExtraFiles Include="..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.optdata" />
+    </ItemGroup>
+    <Copy SourceFiles="@(FSharpCoreExtraFiles)" DestinationFiles="@(FSharpCoreExtraFiles->'..\..\..\build\$(Configuration)\FSharp\%(Filename)%(Extension)')" />
+  </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

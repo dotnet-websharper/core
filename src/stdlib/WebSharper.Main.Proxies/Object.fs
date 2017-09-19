@@ -46,10 +46,22 @@ type private ObjectProxy() =
     static member ReferenceEquals(a: obj, b: obj) = a ===. b
 
     [<Inline>]
-    static member op_Equality(a: obj, b: obj) = Unchecked.equals a b
+    static member op_Equality(a: obj, b: obj) = a ===. b
 
     [<Inline>]
-    static member op_Inequality(a: obj, b: obj) = not (Unchecked.equals a b)
+    static member op_Inequality(a: obj, b: obj) = a !==. b
+
+    [<Inline>]
+    override this.ToString() = string this
+
+[<Proxy(typeof<System.ValueType>)>]
+type private ValueTypeProxy =
+
+    [<Inline>]
+    override this.GetHashCode() = Unchecked.hash this
+
+    [<Inline>]
+    override this.Equals(obj: obj) = Unchecked.equals (this :> obj) obj
 
     [<Inline>]
     override this.ToString() = string this

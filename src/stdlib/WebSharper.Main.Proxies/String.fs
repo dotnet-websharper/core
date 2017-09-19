@@ -27,7 +27,7 @@ module private WebSharper.StringProxy
 
 open WebSharper.JavaScript
 
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 let Compare (x: string) (y: string) = compare x y
 
@@ -189,14 +189,30 @@ type private StringProxy =
     [<Inline "$chars.join('')">]
     new (chars: char []) = {}
 
+    [<Inline>]
+    static member CtorProxy(ch: char, n: int) = String.replicate n (string ch)
+
+    [<Inline "$chars.slice($i, $i + $j).join('')">]
+    new (chars: char [], i: int, j: int) = {}
+
     member this.Chars  with [<Inline "$this[$pos]">]
                             get (pos: int) = X<char>
 
     [<Inline "$this">]
     member this.Clone() = this :> obj
 
+    [<Inline "$this">]
+    member this.Copy() = this
+
     [<Inline>]
     static member Compare(x: string, y: string) =
+        Unchecked.compare x y
+
+    [<Inline>]
+    static member Compare(x: string, y: string, b: bool) =
+        if b then
+            Unchecked.compare (x.ToLower()) (y.ToLower())
+        else
         Unchecked.compare x y
 
     [<Inline>]
@@ -204,11 +220,44 @@ type private StringProxy =
         Unchecked.compare (this :> obj) (s :> obj)
 
     [<Inline>]
+    member this.CompareTo(s: obj) =
+        Unchecked.compare (this :> obj) s
+
+    [<Inline>]
     static member Concat(strings: string seq) =
         Join "" (Array.ofSeq strings)
 
+    [<Inline>]
+    static member Concat<'T>(objs: 'T seq) : string =
+        Join "" (Array.ofSeq (objs |> Seq.map (fun o -> o.ToString())))
+
+    [<Inline>]
+    static member Concat(s1: string, s2: string) = s1 + s2
+
+    [<Inline>]
+    static member Concat(s1: string, s2: string, s3: string) = s1 + s2 + s3
+
+    [<Inline>]
+    static member Concat(s1: string, s2: string, s3: string, s4: string) = s1 + s2 + s3 + s4
+
+    [<Inline>]
+    static member Concat(o1: obj) = string o1
+
+    [<Inline>]
+    static member Concat(o1: obj, o2: obj) = string o1 + string o2
+
+    [<Inline>]
+    static member Concat(o1: obj, o2: obj, o3: obj) = string o1 + string o2 + string o3
+
+    [<Inline>]
+    static member Concat(o1: obj, o2: obj, o3: obj, o4: obj) = string o1 + string o2 + string o3 + string o4
+
     [<Inline "$strings.join('')">]
     static member Concat([<System.ParamArray>] strings: string[]) = X<string>
+
+    [<Inline>]
+    static member Concat(objs: obj[]) =
+        Join "" (As<string[]> objs)
 
     [<Inline "$this.indexOf($s) != -1">]
     member this.Contains(s: string) = X<bool>
@@ -224,6 +273,15 @@ type private StringProxy =
 
     [<Inline "$x === $y">]
     static member Equals(x: string, y: string) = X<bool>
+
+    [<Inline "$this === $s">]
+    member this.Equals(s: string) = X<bool>
+
+    [<Inline "$this === $s">]
+    member this.Equals(s: obj) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this
 
     [<Inline>]
     member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
@@ -334,6 +392,9 @@ type private StringProxy =
     member this.ToCharArray(i: int, l: int) =
         ToCharArrayRange (As this) i l
 
+    [<Inline "$this">]
+    member this.ToString() = X<string>
+    
     [<Inline "$this.toLowerCase()">]
     member this.ToLower() = X<string>
 
@@ -428,4 +489,4 @@ let MapIndexed (f: int -> char -> char) (s: string) : string =
 
 [<Name "replicate">]
 let Replicate (count: int) (s: string) : string =
-    Initialize count (fun _ -> s)
+    System.String.Concat(Array.create count s)

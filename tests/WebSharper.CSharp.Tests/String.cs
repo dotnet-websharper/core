@@ -47,5 +47,59 @@ namespace WebSharper.CSharp.Tests
             fmt = "{0} {1} {2} {3}";
             Equal(String.Format(fmt, "foo", 12, 12.35, (long)500), "foo 12 12.35 500");
         }
+
+        [Test]
+        public void Comparisons()
+        {
+            IsTrue("a" == "a");
+            IsTrue("a" != "b");
+            IsTrue("a" == (object)"a");
+
+            IsTrue("a".Equals("a"));
+            IsFalse("a".Equals("b"));
+            IsTrue("a".Equals((object)"a"));
+            Equal("a".CompareTo("b"), -1);
+            Equal("a".CompareTo((object)"b"), -1);
+
+            IsTrue('a' == 'a');
+            IsTrue('a' != 'b');
+            IsTrue('a' < 'b');
+
+            IsTrue('a'.Equals('a'));
+            IsFalse('a'.Equals('b'));
+            IsTrue('a'.Equals((object)'a'));
+            Equal('a'.CompareTo('b'), -1);
+            Equal('a'.CompareTo((object)'b'), -1);
+        }
+
+        [Test]
+        public void Construction()
+        {
+            Equal(new string(new[] { 'a', 'b' }), "ab");
+            Equal(new string('a', 3), "aaa");
+            Equal(new string(new[] { 'a', 'b', 'c', 'd', 'e' }, 2, 2), "cd");
+        }
+
+        [Test]
+        public void Basics()
+        {
+            var hs = "a".GetHashCode();
+            var hc = 'a'.GetHashCode();
+            Equal("a".ToString(),"a");
+            Equal('a'.ToString(), "a");
+        }
+
+        [Test]
+        public void Concat()
+        {
+            Equal(String.Concat("a", "b"), "ab");
+            Equal(String.Concat("a", "b", "c", "d", "e"), "abcde");
+            Equal(String.Concat(new A()), "a object");
+            Equal(String.Concat(new A(), "!"), "a object!");
+            Equal(String.Concat(new[] { "a", "b" }), "ab");
+            Equal(String.Concat(new List<string> { "a", "b" }), "ab");
+            Equal(String.Concat(new A(), new A(), new A(), new A(), new A()), "a objecta objecta objecta objecta object");
+            Equal(String.Concat(new List<A> { new A(), new A() }), "a objecta object");
+        }
     }
 }

@@ -11,12 +11,18 @@ using static WebSharper.JavaScript.Pervasives;
 
 namespace WebSharper.CSharp.Tests
 {
-    //[JavaScript]
-    //public struct TestStruct
-    //{
-    //    public int x : int;
-    //    public int y : int;
-    //}
+    [JavaScript, Serializable]
+    public struct TestStruct
+    {
+        public int X;
+        public int Y;
+
+        public TestStruct (int x, int y)
+        {
+            this.X = x;
+            this.Y = y;
+        }
+    }
 
     [JavaScript, Serializable]
     public class TestClass
@@ -94,6 +100,12 @@ namespace WebSharper.CSharp.Tests
             o.X++;
             o.Y++;
             return Task.FromResult(o);
+        }
+
+        [Remote]
+        public static Task<TestStruct> IncrementXYStruct(TestStruct o)
+        {
+            return Task.FromResult(new TestStruct(o.X + 1, o.Y + 1));
         }
 
         static Server()
@@ -199,6 +211,15 @@ namespace WebSharper.CSharp.Tests
             o.X = 1;
             o.Y = 1;
             o = await Server.IncrementXY(o);
+            Equal(o.X, 2);
+            Equal(o.Y, 2);
+        }
+
+        [Test]
+        public async Task CustomStruct()
+        {
+            var o = new TestStruct(1, 1);
+            o = await Server.IncrementXYStruct(o);
             Equal(o.X, 2);
             Equal(o.Y, 2);
         }

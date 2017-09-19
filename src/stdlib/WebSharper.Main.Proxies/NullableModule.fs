@@ -29,7 +29,7 @@ open WebSharper.JavaScript
 
 type N<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> ValueType> = Nullable<'T> 
 
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 [<Macro(typeof<M.Char>)>]
 let ToChar (x: N<'T>) = X<N<char>>

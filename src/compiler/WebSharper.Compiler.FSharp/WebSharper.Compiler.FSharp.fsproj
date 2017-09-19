@@ -12,6 +12,7 @@
     <Compile Include="Main.fs" />
     <None Include="genTransformer.fsx" />
     <None Include="tests.fsx" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

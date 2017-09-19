@@ -158,9 +158,14 @@ let numericTypes =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
+    let getContainingAssemblyName (t: ITypeSymbol) =
+        match t.ContainingAssembly with
+        | null -> comp.AssemblyName
+        | a -> a.Name
+
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
-            override this.GetAssemblyName attr = attr.AttributeClass.ContainingAssembly.Name
+            override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
             override this.GetName attr = attr.AttributeClass.Name
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
@@ -194,7 +199,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
         let res =
             Hashed {
-                Assembly = x.ContainingAssembly.Identity.Name
+                Assembly = getContainingAssemblyName x
                 FullName = getTypeAddress [] x
             }
 
@@ -1378,12 +1383,22 @@ type RoslynTransformer(env: Environment) =
         identifierName, expression
 
     member this.TransformConstructorDeclaration (x: ConstructorDeclarationData) : _ =
-        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
-        let initializer = x.Initializer |> Option.map (this.TransformConstructorInitializer)
+        let initializer = 
+            match x.Initializer with
+            | Some i -> Some <| this.TransformConstructorInitializer i
+            | _ -> 
+                let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+                if symbol.IsStatic then None else
+                let bTyp = symbol.ContainingType.BaseType
+                if isNull bTyp then None else
+                match sr.ReadNamedType bTyp with
+                | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
+                    None
+                | b ->
+                    Some <| BaseInitializer(b, ConstructorInfo.Default(), [], id)
         let body = 
             match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
             | Some e -> Some (ExprStatement e)

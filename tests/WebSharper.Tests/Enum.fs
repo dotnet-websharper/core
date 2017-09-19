@@ -63,4 +63,10 @@ let Tests =
             isFalse (E.A.HasFlag E.B)
             isFalse (E.B.HasFlag E.A)
         }
+
+        Test "Comparison" {
+            isTrue (E.A = E.A)
+            isTrue (E.A <= E.A)
+            isTrue (E.A < E.B)
+        }
     }

@@ -39,6 +39,12 @@ type private N = NotResolvedMemberKind
 type TypeWithAnnotation =
     | TypeWithAnnotation of INamedTypeSymbol * A.TypeAnnotation
 
+let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    if annot.JavaScriptTypesAndFiles |> List.contains name then
+        if annot.IsForcedNotJavaScript then annot else
+            { annot with IsJavaScript = true }
+    else annot
+    
 let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceSymbol) =
     let rec withNested a (t: INamedTypeSymbol) =
         let annot = sr.AttributeReader.GetTypeAnnot(a, t.GetAttributes())
@@ -139,6 +145,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let thisDef = sr.ReadNamedTypeDefinition cls
 
+    let annot =
+        cls.DeclaringSyntaxReferences |> Seq.fold (fun a r -> 
+            let pos = CodeReader.getSourcePosOfSyntaxReference r
+            let fileName = System.IO.Path.GetFileName pos.FileName 
+            a |> annotForTypeOrFile fileName
+        ) annot
+        |> annotForTypeOrFile thisDef.Value.FullName
+
     if isResourceType sr cls then
         if comp.HasGraph then
             let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
@@ -163,22 +177,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let members = cls.GetMembers()
 
     let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
-            {
-                Kind = kind
-                StrongName = mAnnot.Name
-                Macros = mAnnot.Macros
-                Generator = 
-                    match mAnnot.Kind with
-                    | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
-                    | _ -> None
-                Compiled = compiled 
-                Pure = mAnnot.Pure
-                Body = expr
-                Requires = mAnnot.Requires
-                FuncArgs = None
-                Args = []
-                Warn = mAnnot.Warn
-            }
+        {
+            Kind = kind
+            StrongName = mAnnot.Name
+            Macros = mAnnot.Macros
+            Generator = 
+                match mAnnot.Kind with
+                | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
+                | _ -> None
+            Compiled = compiled 
+            Pure = mAnnot.Pure
+            Body = expr
+            Requires = mAnnot.Requires
+            FuncArgs = None
+            Args = []
+            Warn = mAnnot.Warn
+        }
 
     let addMethod mAnnot def kind compiled expr =
         clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
@@ -193,7 +207,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     for intf in cls.Interfaces do
         for meth in intf.GetMembers().OfType<IMethodSymbol>() do
             let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
-            if impl <> null && impl.ExplicitInterfaceImplementations.Length = 0 then 
+            if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
                 Dict.addToMulti implicitImplementations impl intf
 
     for mem in members do
@@ -274,6 +288,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let mutable hasStubMember = false
 
     for meth in members.OfType<IMethodSymbol>() do
+        let meth = 
+            match meth.PartialImplementationPart with
+            | null -> meth
+            | impl -> impl 
         let attrs =
             match meth.MethodKind with
             | MethodKind.PropertyGet
@@ -282,12 +300,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | MethodKind.EventRemove ->
                 Seq.append (meth.AssociatedSymbol.GetAttributes()) (meth.GetAttributes()) 
             | _ -> meth.GetAttributes() :> _
+        let decls = meth.DeclaringSyntaxReferences
         let mAnnot =
             sr.AttributeReader.GetMemberAnnot(annot, attrs)
             |> fixMemberAnnot sr annot meth
-
         let error m = 
-            comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference meth.DeclaringSyntaxReferences.[0]), SourceError m)
+            let sourcePos =
+                if decls.Length > 0 then
+                    Some (CodeReader.getSourcePosOfSyntaxReference decls.[0])
+                else None
+            comp.AddError(sourcePos, SourceError m)
         
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
@@ -301,8 +323,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
                 addConstructor mAnnot cdef N.Inline true expr
-            | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
-            | Member.Override(_, _) -> error "Override method can't have Stub attribute"
+            | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
+            | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
             let memdef = sr.ReadMember meth
@@ -323,13 +345,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 addMethod mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
-            let meth = 
-                match meth.PartialImplementationPart with
-                | null -> meth
-                | impl -> impl 
             let memdef = sr.ReadMember meth
-            let getParsed() = 
-                let decls = meth.DeclaringSyntaxReferences
+            let getParsed() =                 
                 if decls.Length > 0 then
                     try
                         let syntax = decls.[0].GetSyntax()
@@ -547,8 +564,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
                     else
                         match memdef with
-                        | Member.Override _ -> 
-                            error "Override methods cannot be marked with Inline, Macro or Constant attributes."
+                        | Member.Override (bTyp, _) -> 
+                            if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
+                                error "Override methods cannot be marked with Inline, Macro or Constant attributes."
                         | Member.Implementation _ ->
                             error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                         | _ -> ()
@@ -746,31 +764,59 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     let lookupTypeDefinition (typ: TypeDefinition) =
         rcomp.GetTypeByMetadataName(typ.Value.FullName) |> Option.ofObj
 
+    let readAttribute (a: AttributeData) =
+        let fixTypeValue (o: obj) =
+            match o with
+            | :? ITypeSymbol as t -> box (sr.ReadType t)
+            | _ -> o
+        sr.ReadNamedTypeDefinition a.AttributeClass,
+        a.ConstructorArguments |> Seq.map (CodeReader.getTypedConstantValue >> fixTypeValue >> ParameterObject.OfObj) |> Array.ofSeq
+
     let lookupTypeAttributes (typ: TypeDefinition) =
         lookupTypeDefinition typ |> Option.map (fun s ->
-            s.GetAttributes() |> Seq.map (fun a ->
-                sr.ReadNamedTypeDefinition a.AttributeClass,
-                a.ConstructorArguments |> Seq.map (CodeReader.getTypedConstantValue >> ParameterObject.OfObj) |> Array.ofSeq
-            )
-            |> List.ofSeq
+            s.GetAttributes() |> Seq.map readAttribute |> List.ofSeq
         )
 
     let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
         lookupTypeDefinition typ |> Option.bind (fun s ->
             match s.GetMembers(field).OfType<IFieldSymbol>() |> List.ofSeq with
             | [ f ] ->
-                Some (
-                    sr.ReadType f.Type,
-                    f.GetAttributes() |> Seq.map (fun a ->
-                        sr.ReadNamedTypeDefinition a.AttributeClass,
-                        a.ConstructorArguments |> Seq.map (CodeReader.getTypedConstantValue >> ParameterObject.OfObj) |> Array.ofSeq
-                    ) |> List.ofSeq
-                )
+                Some (f.GetAttributes() |> Seq.map readAttribute |> List.ofSeq)
             | _ -> None
+        )
+
+    let lookupMethodAttributes (typ: TypeDefinition) (meth: Method) =
+        lookupTypeDefinition typ |> Option.bind (fun s -> 
+            s.GetMembers(meth.Value.MethodName).OfType<IMethodSymbol>()
+            |> Seq.tryFind (fun m ->
+                match sr.ReadMember m with
+                | Member.Method (_, m)
+                | Member.Override (_, m)
+                | Member.Implementation (_, m) when m = meth -> true
+                | _ -> false
+            )
+            |> Option.map (fun m ->
+                m.GetAttributes() |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    let lookupConstructorAttributes (typ: TypeDefinition) (ctor: Constructor) =
+        lookupTypeDefinition typ |> Option.bind (fun s -> 
+            s.GetMembers(".ctor").OfType<IMethodSymbol>()
+            |> Seq.tryFind (fun m -> 
+                match sr.ReadMember m with
+                | Member.Constructor c when c = ctor -> true
+                | _ -> false
+            ) 
+            |> Option.map (fun m ->
+                m.GetAttributes() |> Seq.map readAttribute |> List.ofSeq
+            ) 
         )
 
     comp.LookupTypeAttributes <- lookupTypeAttributes
     comp.LookupFieldAttributes <- lookupFieldAttributes 
+    comp.LookupMethodAttributes <- lookupMethodAttributes
+    comp.LookupConstructorAttributes <- lookupConstructorAttributes
 
     for TypeWithAnnotation(t, a) in getAllTypeMembers sr rootTypeAnnot assembly.GlobalNamespace do
         transformInterface sr a t |> Option.iter comp.AddInterface

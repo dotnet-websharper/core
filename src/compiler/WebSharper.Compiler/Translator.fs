@@ -31,11 +31,13 @@ module I = WebSharper.Core.AST.IgnoreSourcePos
 
 /// Debug-only checker for invalid forms after transformation to have localized error.
 /// Otherwise error is thrown when writing to JavaScript after packaging.
-type CheckNoInvalidJSForms(comp: Compilation, isInline) as this =
+type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     inherit TransformerWithSourcePos(comp)
 
     let invalidForm f = 
-        this.Error("Invalid form after JS tranlation: " + f)
+        this.Error("Invalid form after JavaScript translation in " + name() + ": " + f)
+
+    let mutable insideLoop = false
 
     override this.TransformSelf () = invalidForm "Self"
     override this.TransformBase () = invalidForm "Base"
@@ -48,11 +50,75 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline) as this =
     override this.TransformAwait _  = invalidForm "Await"
     override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
     override this.TransformRefOrOutParameter _ = invalidForm "RefOrOutParamete"
-    override this.TransformCtor (a, b, c) = if isInline then base.TransformCtor(a, b, c) else invalidForm "Ctor"
+    override this.TransformCtor (_, _, _) = invalidForm "Ctor"
     override this.TransformCoalesce (_,_,_) = invalidForm "Coalesce"
     override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
-    override this.TransformCall (a, b, c, d) = if isInline then base.TransformCall(a, b, c, d) else invalidForm "Call"
+    override this.TransformCall (_, _, _, _) = invalidForm "Call"
+    override this.TransformCctor _ = invalidForm "Cctor"
+    override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
+    override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
+    override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
+    override this.TransformDoNotReturn () = if isInline then DoNotReturn else invalidForm "DoNotReturn" |> ExprStatement
 
+    override this.TransformFunction(a, b) =
+        let l = insideLoop
+        insideLoop <- false
+        let res = base.TransformFunction(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformFuncDeclaration(a, b, c) =
+        let l = insideLoop
+        insideLoop <- false
+        let res = base.TransformFuncDeclaration(a, b, c)
+        insideLoop <- l
+        res
+
+    override this.TransformFor(a, b, c, d) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformFor(a, b, c, d)
+        insideLoop <- l
+        res
+
+    override this.TransformForIn(a, b, c) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformForIn(a, b, c)
+        insideLoop <- l
+        res
+
+    override this.TransformWhile(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformWhile(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformDoWhile(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformDoWhile(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformSwitch(a, b) =
+        let l = insideLoop
+        insideLoop <- true
+        let res = base.TransformSwitch(a, b)
+        insideLoop <- l
+        res
+
+    override this.TransformBreak a = 
+        if Option.isNone a && not insideLoop then
+            invalidForm "Break outside of loop" |> ExprStatement
+        else Break a
+
+    override this.TransformContinue a = 
+        if Option.isNone a && not insideLoop then
+            invalidForm "Continue outside of loop" |> ExprStatement
+        else Continue a
+    
 type RemoveLets() =
     inherit Transformer()
     
@@ -141,8 +207,6 @@ let defaultRemotingProvider =
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
     }, []
     
-let emptyConstructor = Hashed { CtorParameters = [] }
-
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
 
@@ -295,14 +359,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> breaker.TransformExpression
             |> runtimeCleanerForced.TransformExpression
             |> collectCurried isCtor
+    
+    let getCurrentName() =
+        match currentNode with
+        | M.MethodNode (td, m) -> td.Value.FullName + "." + m.Value.MethodName
+        | M.ConstructorNode (td, c) -> td.Value.FullName + "..ctor"
+        | M.ImplementationNode (td, i, m) -> td.Value.FullName + ":" + i.Value.FullName + "." + m.Value.MethodName
+        | M.TypeNode td -> td.Value.FullName + "..cctor"
+        | _ -> "unknown"
 
     member this.CheckResult (res) =
-#if DEBUG
         if hasDelayedTransform then res else
-            CheckNoInvalidJSForms(comp, currentIsInline).TransformExpression res
-#else
-        res
-#endif
+            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformExpression res
      
     member this.Generate(g, p, m) =
         match comp.GetGeneratorInstance(g) with
@@ -314,7 +382,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Parameter = p
                         Compilation = comp
                     }
-                with e -> GeneratorError e.Message
+                with e -> GeneratorError (e.Message + " at " + e.StackTrace)
             let verifyFunction gres =
                 match IgnoreExprSourcePos gres with 
                 | Function _
@@ -461,99 +529,123 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Unrecognized F# compiler generated method: " + me.MethodName)
      
     member this.CompileMethod(info, expr, typ, meth) =
-        currentNode <- M.MethodNode(typ, meth) 
+        try
+            currentNode <- M.MethodNode(typ, meth) 
 #if DEBUG
-        if meth.Value.MethodName.StartsWith "DebugCompiler" then
-            printfn "Logging transformations: %s" meth.Value.MethodName
-            logTransformations <- true
-            printfn "Translator start: %s" (Debug.PrintExpression expr)
+            if meth.Value.MethodName.StartsWith "DebugCompiler" then
+                printfn "Logging transformations: %s" meth.Value.MethodName
+                logTransformations <- true
+                printfn "Translator start: %s" (Debug.PrintExpression expr)
 #endif      
-        if inProgress |> List.contains currentNode then
-            let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName
-            comp.AddError(None, SourceError msg)
-            comp.FailedCompiledMethod(typ, meth)
-        else
-        // for C# static auto-properties
-        selfAddress <- 
-            comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
-                cls.StaticConstructor |> Option.map (fun (a, _) -> Address (List.tail a.Value))    
-            )
-        currentIsInline <- isInline info
-        match info with
-        | NotCompiled (i, notVirtual, opts) ->
-            currentFuncArgs <- opts.FuncArgs
-            let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
-                } 
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, notVirtual, opts) ->
-            let m = GeneratedMethod(typ, meth)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = notVirtual && (opts.IsPure || isPureFunction res)
-                }
-            comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            if inProgress |> List.contains currentNode then
+                let msg = sprintf "Inline loop found at method %s.%s" typ.Value.FullName meth.Value.MethodName
+                comp.AddError(None, SourceError msg)
+                comp.FailedCompiledMethod(typ, meth)
+            else
+            // for C# static auto-properties
+            selfAddress <- 
+                comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
+                    cls.StaticConstructor |> Option.map (fun (a, _) -> Address (List.tail a.Value))    
+                )
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, notVirtual, opts) ->
+                currentFuncArgs <- opts.FuncArgs
+                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                    } 
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+            | NotGenerated (g, p, i, notVirtual, opts) ->
+                let m = GeneratedMethod(typ, meth)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                    }
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 #if DEBUG
-        logTransformations <- false
+            logTransformations <- false
 #endif
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, opts) 
+            | NotGenerated (_, _, i, _, opts) ->
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
-        currentNode <- M.ImplementationNode(typ, intf, meth)
-        currentIsInline <- isInline info // TODO: implementations should not be inlined
-        match info with
-        | NotCompiled (i, _, _) -> 
-            let res = this.TransformExpression expr |> breakExpr
-            let res = this.CheckResult(res)
-            comp.AddCompiledImplementation(typ, intf, meth, i, res)
-        | NotGenerated (g, p, i, _, _) ->
-            let m = GeneratedImplementation(typ, intf, meth)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            comp.AddCompiledImplementation(typ, intf, meth, i, res)
+        try
+            currentNode <- M.ImplementationNode(typ, intf, meth)
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, _, _) -> 
+                let res = this.TransformExpression expr |> breakExpr
+                let res = this.CheckResult(res)
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+            | NotGenerated (g, p, i, _, _) ->
+                let m = GeneratedImplementation(typ, intf, meth)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, _) 
+            | NotGenerated (_, _, i, _, _) ->
+                comp.AddCompiledImplementation(typ, intf, meth, i, res)
 
     member this.CompileConstructor(info, expr, typ, ctor) =
-        currentNode <- M.ConstructorNode(typ, ctor)
-        if inProgress |> List.contains currentNode then
-            let msg = sprintf "inline loop found at constructor of %s" typ.Value.FullName
-            comp.AddError(None, SourceError msg)
-            comp.FailedCompiledConstructor(typ, ctor)
-        else
-        currentIsInline <- isInline info
-        match info with
-        | NotCompiled (i, _, opts) -> 
-            currentFuncArgs <- opts.FuncArgs
-            let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = opts.IsPure || isPureFunction res
-                }
-            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
-        | NotGenerated (g, p, i, _, opts) ->
-            let m = GeneratedConstructor(typ, ctor)
-            let res = this.Generate (g, p, m) |> breakExpr
-            let res = this.CheckResult(res)
-            let opts =
-                { opts with
-                    IsPure = opts.IsPure || isPureFunction res
-                }
-            comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+        try
+            currentNode <- M.ConstructorNode(typ, ctor)
+            if inProgress |> List.contains currentNode then
+                let msg = sprintf "inline loop found at constructor of %s" typ.Value.FullName
+                comp.AddError(None, SourceError msg)
+                comp.FailedCompiledConstructor(typ, ctor)
+            else
+            currentIsInline <- isInline info
+            match info with
+            | NotCompiled (i, _, opts) -> 
+                currentFuncArgs <- opts.FuncArgs
+                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = opts.IsPure || isPureFunction res
+                    }
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+            | NotGenerated (g, p, i, _, opts) ->
+                let m = GeneratedConstructor(typ, ctor)
+                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.CheckResult(res)
+                let opts =
+                    { opts with
+                        IsPure = opts.IsPure || isPureFunction res
+                    }
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            match info with
+            | NotCompiled (i, _, opts)
+            | NotGenerated (_, _, i, _, opts) ->
+                comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
 
     member this.CompileStaticConstructor(addr, expr, typ) =
-        currentNode <- M.TypeNode typ
-        cctorCalls <- Set.singleton typ
-        selfAddress <- 
-            let cls = comp.TryLookupClassInfo(typ).Value
-            let addr = fst cls.StaticConstructor.Value 
-            Some (Address (List.tail addr.Value))
-        let res = this.TransformExpression expr |> breakExpr
-        let res = this.CheckResult(res)
-        comp.AddCompiledStaticConstructor(typ, addr, res)
+        try
+            currentNode <- M.TypeNode typ
+            cctorCalls <- Set.singleton typ
+            selfAddress <- 
+                let cls = comp.TryLookupClassInfo(typ).Value
+                let addr = fst cls.StaticConstructor.Value 
+                Some (Address (List.tail addr.Value))
+            let res = this.TransformExpression expr |> breakExpr |> this.CheckResult
+            comp.AddCompiledStaticConstructor(typ, addr, res)
+        with e ->
+            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            comp.AddCompiledStaticConstructor(typ, addr, res)
 
     static member CompileFull(comp: Compilation) =
         while comp.CompilingConstructors.Count > 0 do
@@ -580,7 +672,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
-                let (KeyValue((t, m), (i, e))) =  Seq.head comp.CompilingMethods
+                let (KeyValue((t, m), (i, e))) = Seq.head comp.CompilingMethods
                 toJS.CompileMethod(i, e, t, m)
 
         compileMethods()
@@ -731,13 +823,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some m ->
                     try 
                         m.TranslateCall {
-                                This = thisObj
-                                DefiningType = typ
-                                Method = meth
-                                Arguments = args
-                                Parameter = parameter |> Option.map M.ParameterObject.ToObj
-                                IsInline = currentIsInline
-                                Compilation = comp
+                            This = thisObj
+                            DefiningType = typ
+                            Method = meth
+                            Arguments = args
+                            Parameter = parameter |> Option.map M.ParameterObject.ToObj
+                            IsInline = currentIsInline
+                            Compilation = comp
                         }
                     with e -> MacroError e.Message 
                 | _ -> 
@@ -792,7 +884,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | Some p ->
                             [ toParamValue p ]
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric rpTyp, emptyConstructor, rpArgs) 
+                this.TransformCtor(NonGeneric rpTyp, ConstructorInfo.Default(), rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =
@@ -1483,13 +1575,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ ->
         match typ with
         | ConcreteType { Entity = t; Generics = gs } ->
+            if erasedUnions.Contains t then Value (Bool true) else
             match t.Value.FullName with
-            | "System.IDisposable" ->
-                Binary(
-                    Value (String "Dispose"),
-                    BinaryOperator.``in``,
-                    trExpr
-                )
             | "Microsoft.FSharp.Core.FSharpChoice`2"
             | "Microsoft.FSharp.Core.FSharpChoice`3"
             | "Microsoft.FSharp.Core.FSharpChoice`4"
@@ -1498,10 +1585,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "Microsoft.FSharp.Core.FSharpChoice`7" ->
                 trExpr
             | tname ->
-                if not (List.isEmpty gs) then
-                    this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
+                let warnIgnoringGenerics() =
+                    if not (List.isEmpty gs) then
+                        this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
                 match comp.TryLookupClassAddressOrCustomType t with
                 | Choice1Of2 (Some a) ->
+                    warnIgnoringGenerics()
                     Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
                 | Choice1Of2 None ->
                     this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
@@ -1509,12 +1598,35 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match ct with
                     | M.FSharpUnionCaseInfo c ->
                         let tN = t.Value.FullName
-                        let nestedIn = tN.[.. tN.LastIndexOf '+' - 1]
-                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = [] } 
+                        let lastPlus = tN.LastIndexOf '+'
+                        let nestedIn = tN.[.. lastPlus - 1]
+                        let parentGenParams =
+                            let nested = tN.[lastPlus + 1 ..]
+                            match nested.IndexOf '`' with
+                            | -1 -> gs
+                            | i -> 
+                                // if the nested type has generic parameters, remove them from the type parameter list
+                                gs |> List.take (List.length gs - int nested.[i + 1 ..])
+                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
                         let i = Id.New (mut = false)
-                        Let (i, trExpr, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
+                        match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
+                        | Value (Bool true) -> // in case of erased union
+                           this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
+                        | testParent ->
+                            warnIgnoringGenerics()
+                            Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
-                        this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
+                        match comp.TryLookupInterfaceInfo t with
+                        | Some ii ->
+                            warnIgnoringGenerics()
+                            let shortestName = ii.Methods.Values |> Seq.minBy String.length
+                            Binary(
+                                Value (String shortestName),
+                                BinaryOperator.``in``,
+                                trExpr
+                            )
+                        | _ ->
+                            this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true

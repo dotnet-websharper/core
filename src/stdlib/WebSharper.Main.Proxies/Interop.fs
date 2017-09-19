@@ -23,6 +23,7 @@ module private WebSharper.InteropProxy
 open WebSharper.JavaScript
 
 type PA = System.ParamArrayAttribute
+module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<Function>)>]
 type FunctionProxy =
@@ -48,7 +49,7 @@ type FunctionProxy =
 
 [<Proxy(typeof<FuncWithArgs<_,_>>)>]
 type FuncWithArgsProxy<'TArgs, 'TResult> =
-    [<Macro(typeof<WebSharper.Macro.FuncWithArgs>)>]
+    [<Macro(typeof<M.FuncWithArgs>)>]
     new (func: 'TArgs -> 'TResult) = {}
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
@@ -58,7 +59,7 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
 type FuncWithThisProxy<'TThis, 'TFunc> =
-//    [<Macro(typeof<WebSharper.Macro.FuncWithThis>)>]
+//    [<Macro(typeof<M.FuncWithThis>)>]
     [<Inline "$wsruntime.CreateFuncWithThis($func)">]
     new (func: 'TThis -> 'TFunc) = {}
 
@@ -135,7 +136,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, '
 
 [<Proxy(typeof<FuncWithArgsRest<_,_,_>>)>]
 type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
-//    [<Macro(typeof<WebSharper.Macro.FuncWithArgsRest>)>]
+//    [<Macro(typeof<M.FuncWithArgsRest>)>]
     [<Inline "$wsruntime.CreateFuncWithArgsRest($func)">]
     new (func: 'TArgs * 'TRest[] -> 'TResult) = {}
 
@@ -162,7 +163,7 @@ type ThisActionProxy<'TThis> =
     new (del: System.Action<'TThis>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis) = X<unit>
 [<Proxy (typeof<ThisAction<_,_>>)>]
 type ThisActionProxy<'TThis, 'T> =
@@ -170,7 +171,7 @@ type ThisActionProxy<'TThis, 'T> =
     new (del: System.Action<'TThis, 'T>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg: 'T) = X<unit>
 [<Proxy (typeof<ThisAction<_,_,_>>)>]
 type ThisActionProxy<'TThis, 'T1, 'T2> =
@@ -178,7 +179,7 @@ type ThisActionProxy<'TThis, 'T1, 'T2> =
     new (del: System.Action<'TThis, 'T1, 'T2>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2) = X<unit>
 [<Proxy (typeof<ThisAction<_,_,_,_>>)>]
 type ThisActionProxy<'TThis, 'T1, 'T2, 'T3> =
@@ -186,7 +187,7 @@ type ThisActionProxy<'TThis, 'T1, 'T2, 'T3> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<unit>
 [<Proxy (typeof<ThisAction<_,_,_,_,_>>)>]
 type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4> =
@@ -194,7 +195,7 @@ type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<unit>
 [<Proxy (typeof<ThisAction<_,_,_,_,_,_>>)>]
 type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5> =
@@ -202,7 +203,7 @@ type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4, 'T5>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<unit>
 [<Proxy (typeof<ThisAction<_,_,_,_,_,_,_>>)>]
 type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
@@ -210,7 +211,7 @@ type ThisActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6) = X<unit>
 [<Proxy (typeof<ThisFunc<_,_>>)>]
 type ThisFuncProxy<'TThis, 'TResult> =
@@ -218,7 +219,7 @@ type ThisFuncProxy<'TThis, 'TResult> =
     new (del: System.Func<'TThis, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T, 'TResult> =
@@ -226,7 +227,7 @@ type ThisFuncProxy<'TThis, 'T, 'TResult> =
     new (del: System.Func<'TThis, 'T, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg: 'T) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T1, 'T2, 'TResult> =
@@ -234,7 +235,7 @@ type ThisFuncProxy<'TThis, 'T1, 'T2, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'TResult> =
@@ -242,7 +243,7 @@ type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_,_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TResult> =
@@ -250,7 +251,7 @@ type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_,_,_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
@@ -258,7 +259,7 @@ type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<'TResult>
 [<Proxy (typeof<ThisFunc<_,_,_,_,_,_,_,_>>)>]
 type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult> =
@@ -266,91 +267,91 @@ type ThisFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TResult>>
-    [<Macro(typeof<Macro.JSThisCall>)>]
+    [<Macro(typeof<M.JSThisCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6) = X<'TResult>
 [<Proxy (typeof<ParamsAction<_>>)>]
 type ParamsActionProxy<'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call([<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_>>)>]
 type ParamsActionProxy<'T, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg: 'T, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_,_>>)>]
 type ParamsActionProxy<'T1, 'T2, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T1, 'T2, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_,_,_>>)>]
 type ParamsActionProxy<'T1, 'T2, 'T3, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T1, 'T2, 'T3, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_,_,_,_>>)>]
 type ParamsActionProxy<'T1, 'T2, 'T3, 'T4, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_,_,_,_,_>>)>]
 type ParamsActionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsAction<_,_,_,_,_,_,_>>)>]
 type ParamsActionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Action<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ParamsFunc<_,_>>)>]
 type ParamsFuncProxy<'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call([<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_>>)>]
 type ParamsFuncProxy<'T, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg: 'T, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_,_>>)>]
 type ParamsFuncProxy<'T1, 'T2, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T1, 'T2, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_,_,_>>)>]
 type ParamsFuncProxy<'T1, 'T2, 'T3, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T1, 'T2, 'T3, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_,_,_,_>>)>]
 type ParamsFuncProxy<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_,_,_,_,_>>)>]
 type ParamsFuncProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ParamsFunc<_,_,_,_,_,_,_,_>>)>]
 type ParamsFuncProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult> =
     [<Inline "$wsruntime.ParamsFunc($del)">]
     new (del: System.Func<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>) = { }
-    [<Macro(typeof<Macro.JSParamsCall>)>]
+    [<Macro(typeof<M.JSParamsCall>)>]
     member this.Call(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsAction<_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'TParams> =
@@ -358,7 +359,7 @@ type ThisParamsActionProxy<'TThis, 'TParams> =
     new (del: System.Action<'TThis, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T, 'TParams> =
@@ -366,7 +367,7 @@ type ThisParamsActionProxy<'TThis, 'T, 'TParams> =
     new (del: System.Action<'TThis, 'T, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg: 'T, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'TParams> =
@@ -374,7 +375,7 @@ type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'TParams> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'TParams> =
@@ -382,7 +383,7 @@ type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'TParams> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_,_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams> =
@@ -390,7 +391,7 @@ type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_,_,_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams> =
@@ -398,7 +399,7 @@ type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsAction<_,_,_,_,_,_,_,_>>)>]
 type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams> =
@@ -406,7 +407,7 @@ type ThisParamsActionProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams> =
     new (del: System.Action<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsAction<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<unit>
 [<Proxy (typeof<ThisParamsFunc<_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'TParams, 'TResult> =
@@ -414,7 +415,7 @@ type ThisParamsFuncProxy<'TThis, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T, 'TParams, 'TResult> =
@@ -422,7 +423,7 @@ type ThisParamsFuncProxy<'TThis, 'T, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg: 'T, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'TParams, 'TResult> =
@@ -430,7 +431,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'TParams, 'TResult> =
@@ -438,7 +439,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult> =
@@ -446,7 +447,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_,_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult> =
@@ -454,7 +455,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult> =
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<ThisParamsFunc<_,_,_,_,_,_,_,_,_>>)>]
 type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult> =
@@ -462,7 +463,7 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResul
     new (del: System.Func<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>) = { }
     [<Inline "$this.bind($thisArg)">]
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>>
-    [<Macro(typeof<Macro.JSThisParamsCall>)>]
+    [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
 [<Proxy (typeof<Union<_,_>>)>]
 type UnionProxy<'T1, 'T2> =

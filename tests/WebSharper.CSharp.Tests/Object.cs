@@ -231,6 +231,31 @@ namespace WebSharper.CSharp.Tests
             o.set_xx(4);
             Equal(o.xx(), 4);
         }
+
+        [JavaScript]
+        public struct MyStruct
+        {
+            public readonly int X;
+            public readonly int Y;
+
+            public MyStruct(int x, int y)
+            {
+                this.X = x;
+                this.Y = y;
+            }
+
+            public int Sum => X + Y;
+        }
+
+        [Test]
+        public void Structs()
+        {
+            var s1 = new MyStruct(1, 2);
+            var s2 = new MyStruct(1, 2);
+            IsTrue(s1.Equals(s2));
+            IsTrue(s1.GetHashCode() != -1);
+            Equal(s1.Sum, 3);
+        }
     }
 
     [JavaScript]

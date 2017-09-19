@@ -45,6 +45,12 @@ type private SourceMemberOrEntity =
     | SourceInterface of FSharpEntity 
     | InitAction of FSharpExpr
 
+let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    if annot.JavaScriptTypesAndFiles |> List.contains name then
+        if annot.IsForcedNotJavaScript then annot else
+            { annot with IsJavaScript = true }
+    else annot
+
 // fixes annotation for property setters, we don't want name coflicts
 let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSMFV) (a: A.MemberAnnotation) =
     if m.IsPropertySetterMethod then
@@ -65,6 +71,17 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
+let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+    let thisDef = sr.ReadTypeDefinition cls
+    let annot =
+        sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
+    d.Add(cls, (thisDef, annot))
+    for m in members do
+        match m with
+        | SourceEntity (ent, nmembers) ->
+            collectClassAnnotations d sr annot ent nmembers
+        | _ -> ()
+
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
@@ -72,7 +89,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
     let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
-        | Some d -> d 
+        | Some d -> d
         | _ -> sr.ReadTypeDefinition intf
 
     for m in intf.MembersFunctionsAndValues do
@@ -121,13 +138,10 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
     if annot.IsJavaScript then
         let _, (statements, _) = sc.Value
         let env = CodeReader.Environment.New ([], [], comp, sr)  
-        statements.Add (CodeReader.transformExpression env a |> ExprStatement)
+        statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
-    let thisDef = sr.ReadTypeDefinition cls
-    
-    let annot = 
-        sr.AttributeReader.GetTypeAnnot(parentAnnot, cls.Attributes)
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) members =
+    let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
         if comp.HasGraph then
@@ -140,7 +154,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let def, proxied =
         match annot.ProxyOf with
         | Some p -> 
-            comp.AddProxy(thisDef, p)
             if cls.Accessibility.IsPublic then
                 comp.AddWarning(Some (CodeReader.getRange cls.DeclarationLocation), SourceWarning "Proxy type should not be public")
             let proxied =
@@ -225,14 +238,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let addConstructor (mem: option<FSMFV * Member>) mAnnot (def: Constructor) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
-//            if mem.Accessibility.IsPublic then
-                if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
-                    let candidates = 
-                        ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
-                        |> Seq.map (fun m -> string m.Value) |> List.ofSeq
-                    if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
-                        let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
-                        comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+            if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
+                let candidates = 
+                    ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
+                    |> Seq.map (fun m -> string m.Value) |> List.ofSeq
+                if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
+                    let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
         clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
 
@@ -274,8 +286,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
                 addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
-            | Member.Implementation(_, _) -> error "Implementation method can't have Stub attribute"
-            | Member.Override(_, _) -> error "Override method can't have Stub attribute"
+            | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
+            | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
             let memdef = sr.ReadMember meth
@@ -528,7 +540,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ -> failwith "impossible"
                     
                     let addModuleValueProp kind body =
-                        if List.isEmpty args && meth.EnclosingEntity.IsFSharpModule then
+                        if List.isEmpty args && (CodeReader.getEnclosingEntity meth).IsFSharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
                             // TODO : check proxy targets for module values
                             addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false None iBody    
@@ -568,8 +580,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
                         else
                             match memdef with
-                            | Member.Override _ -> 
-                                if def <> Definitions.Obj then
+                            | Member.Override (bTyp, _) -> 
+                                if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
                                     error "Override methods cannot be marked with Inline, Macro or Constant attributes."
                             | Member.Implementation _ ->
                                 error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
@@ -659,7 +671,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | None 
             | _ -> ()
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr annot ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
@@ -866,7 +878,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
-            let cdef = Hashed { CtorParameters = [] }
+            let cdef = ConstructorInfo.Default()
             let fields =
                 cls.FSharpFields |> Seq.map (fun f -> 
                     if f.IsMutable then
@@ -953,8 +965,12 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         res 
 
     let readAttribute (a: FSharpAttribute) =
+        let fixTypeValue (o: obj) =
+            match o with
+            | :? FSharpType as t -> box (sr.ReadType Map.empty t)
+            | _ -> o
         sr.ReadTypeDefinition a.AttributeType,
-        a.ConstructorArguments |> Seq.map (snd >> ParameterObject.OfObj) |> Array.ofSeq
+        a.ConstructorArguments |> Seq.map (snd >> fixTypeValue >> ParameterObject.OfObj) |> Array.ofSeq
 
     let lookupTypeAttributes (typ: TypeDefinition) =
         lookupTypeDefinition typ |> Option.map (fun e ->
@@ -964,27 +980,55 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
     let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.FSharpFields |> Seq.tryFind (fun f -> f.Name = field) |> Option.map (fun f ->
-                let tparams = e.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-                sr.ReadType tparams f.FieldType,
                 Seq.append f.FieldAttributes f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    let lookupMethodAttributes (typ: TypeDefinition) (meth: Method) =
+        lookupTypeDefinition typ |> Option.bind (fun e -> 
+            e.MembersFunctionsAndValues
+            |> Seq.tryFind (fun m -> 
+                match sr.ReadMember m with
+                | Member.Method (_, m)
+                | Member.Override (_, m)
+                | Member.Implementation (_, m) when m = meth -> true
+                | _ -> false
+            ) 
+            |> Option.map (fun m ->
+                m.Attributes |> Seq.map readAttribute |> List.ofSeq
+            ) 
+        )
+
+    let lookupConstructorAttributes (typ: TypeDefinition) (ctor: Constructor) =
+        lookupTypeDefinition typ |> Option.bind (fun e -> 
+            e.MembersFunctionsAndValues
+            |> Seq.tryFind (fun m -> 
+                match sr.ReadMember m with
+                | Member.Constructor c when c = ctor -> true
+                | _ -> false
+            ) 
+            |> Option.map (fun m ->
+                m.Attributes |> Seq.map readAttribute |> List.ofSeq
             ) 
         )
 
     comp.LookupTypeAttributes <- lookupTypeAttributes
     comp.LookupFieldAttributes <- lookupFieldAttributes 
+    comp.LookupMethodAttributes <- lookupMethodAttributes
+    comp.LookupConstructorAttributes <- lookupConstructorAttributes
 
     let argCurrying = ArgCurrying.ResolveFuncArgs(comp)
 
     for file in checkResults.AssemblyContents.ImplementationFiles do
-        let fileName =
-            lazy
+        if List.isEmpty file.Declarations then () else
+        let filePath =
             match file.Declarations.Head with
             | FSIFD.Entity (a, _) -> a.DeclarationLocation.FileName
             | FSIFD.MemberOrFunctionOrValue (_, _, c) -> c.Range.FileName
             | FSIFD.InitAction a -> a.Range.FileName
         let sc =
             lazy
-            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension fileName.Value).Replace('.', '_')
+            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
             let def =
                 TypeDefinition {
                     Assembly = assemblyName
@@ -993,9 +1037,9 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             def, 
             (ResizeArray(), HashSet() : StartupCode)
 
+        let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
         let types = Dictionary<FSharpEntity, ResizeArray<SourceMemberOrEntity>>()
-//        let interfaces = ResizeArray<FSharpEntity>()
         let rec getTypesWithMembers (parentMembers: ResizeArray<_>) d =
             match d with
             | FSIFD.Entity (a, b) ->
@@ -1013,19 +1057,32 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                     else
                         b |> List.iter (getTypesWithMembers parentMembers)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
-                types.[a.EnclosingEntity].Add(SourceMember(a, b, c))
+                types.[CodeReader.getEnclosingEntity a].Add(SourceMember(a, b, c))
             | FSIFD.InitAction a ->
                 parentMembers.Add (InitAction a)
 
         file.Declarations |> Seq.iter (getTypesWithMembers topLevelTypes)
 
+        let classAnnotations = Dictionary()
+        
+        for t in topLevelTypes do
+            match t with
+            | SourceEntity (c, m) ->
+                collectClassAnnotations classAnnotations sr rootTypeAnnot c m
+            | _ -> ()
+
+        // register all proxies for signature redirection
+        for (def, annot) in classAnnotations.Values do
+            match annot.ProxyOf with
+            | Some p -> comp.AddProxy(def, p)
+            | _ -> ()
+
         for t in topLevelTypes do
             match t with
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
-//                transformInitAction sc comp sr rootTypeAnnot a
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr rootTypeAnnot c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations rootTypeAnnot c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             

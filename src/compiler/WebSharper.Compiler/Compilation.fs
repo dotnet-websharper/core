@@ -68,6 +68,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
     member val LookupTypeAttributes = fun _ -> None with get, set
     member val LookupFieldAttributes = fun _ _ -> None with get, set
+    member val LookupMethodAttributes = fun _ _ -> None with get, set
+    member val LookupConstructorAttributes = fun _ _ -> None with get, set
 
     member this.MutableExternals = mutableExternals
 
@@ -153,8 +155,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.Macros = cls.Macros
                 }
 
+        member this.GetJavaScriptClasses() = classes.Keys |> List.ofSeq
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
+        member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
+        member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
@@ -246,7 +251,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CloseMacros() =
         for m in macros.Values do
-            m |> Option.iter (fun m -> m.Close this)         
+            m |> Option.iter (fun m -> m.Close this)      
 
     member this.GetGeneratorInstance(gen) =
         match generators.TryFind gen with
@@ -326,9 +331,9 @@ type Compilation(meta: Info, ?hasGraph) =
         with _ ->
             if cls.IsProxy then
                 if Option.isSome cls.StrongName then
-                    this.AddError(None, SourceError ("Proxy extension can't be strongly named."))
+                    this.AddError(None, SourceError ("Proxy extension can't be strongly named: " + typ.Value.FullName))
                 elif Option.isSome cls.BaseClass then
-                    this.AddError(None, SourceError ("Proxy extension can't have a non-Object base class."))
+                    this.AddError(None, SourceError ("Proxy extension can't have a non-Object base class: " + typ.Value.FullName))
                 else 
                     let orig = notResolvedClasses.[typ]                    
                     notResolvedClasses.[typ] <-
@@ -948,7 +953,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 // inlines
                 | _ -> Sequential [ Cctor typ; expr ]
             else expr
-
+        
         for KeyValue(typ, cls) in notResolvedClasses do
             let namedCls =
                 match cls.StrongName with
@@ -1003,22 +1008,22 @@ type Compilation(meta: Info, ?hasGraph) =
                     match m with 
                     | M.Constructor (cDef, nr) ->
                         let comp = compiledNoAddressMember nr
-                        if nr.Compiled then
+                        if nr.Compiled && Option.isNone cc.StaticConstructor then
                             try
                                 let isPure =
                                     nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Constructors.Add (cDef, (comp, opts isPure nr, addCctorCall typ cc nr.Body))
+                                cc.Constructors.Add (cDef, (comp, opts isPure nr, nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
                         else 
                             compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))      
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
-                        if nr.Compiled then
+                        if nr.Compiled && Option.isNone cc.StaticConstructor then
                             try
                                 let isPure =
                                     nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Methods.Add (mDef, (comp, opts isPure nr, addCctorCall typ cc nr.Body))
+                                cc.Methods.Add (mDef, (comp, opts isPure nr, nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
@@ -1079,20 +1084,20 @@ type Compilation(meta: Info, ?hasGraph) =
             match m with
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember addr nr
-                if nr.Compiled then
+                if nr.Compiled && Option.isNone res.StaticConstructor then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Constructors.Add(cDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
+                    res.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField addr, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember addr nr
-                if nr.Compiled then 
+                if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods.Add(mDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
+                    res.Methods.Add(mDef, (comp, opts isPure nr, nr.Body))
                 else
                     compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
@@ -1117,14 +1122,14 @@ type Compilation(meta: Info, ?hasGraph) =
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
                 | N.Implementation intf ->
-                    if nr.Compiled then 
-                        res.Implementations.Add((intf, mDef), (comp, addCctorCall typ res nr.Body))
+                    if nr.Compiled && Option.isNone res.StaticConstructor then 
+                        res.Implementations.Add((intf, mDef), (comp, nr.Body))
                     else
                         compilingImplementations.Add((typ, intf, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
                 | _ ->
-                    if nr.Compiled then 
+                    if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods.Add(mDef, (comp, opts isPure nr, addCctorCall typ res nr.Body))
+                        res.Methods.Add(mDef, (comp, opts isPure nr, nr.Body))
                     else
                         compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | _ -> failwith "Invalid instance member kind"   

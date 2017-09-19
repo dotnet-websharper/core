@@ -49,6 +49,14 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
+        [Test("Yield")]
+        public async Task Yield()
+        {
+            var one = await GetOneAsync();
+            await Task.Yield();
+            Equal(one, 1);
+        }
+
         [Test("Task cancellation")]
         public async void TaskCancellation()
         {

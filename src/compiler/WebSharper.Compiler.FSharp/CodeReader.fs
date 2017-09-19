@@ -132,6 +132,11 @@ let getSourcePos (x: FSharpExpr) =
 let withSourcePos (x: FSharpExpr) (expr: Expression) =
     ExprSourcePos (getSourcePos x, IgnoreExprSourcePos expr)
 
+let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
+    match x.EnclosingEntity with
+    | Some e -> e
+    | None -> failwithf "Enclosing entity not found for %s" x.FullName
+                                
 type FixCtorTransformer(?thisExpr) =
     inherit Transformer()
 
@@ -281,7 +286,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetAssemblyName attr = self.ReadSimpleName attr.AttributeType.Assembly
             override this.GetName attr = attr.AttributeType.LogicalName
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
-            override this.GetTypeDef o = self.ReadTypeDefinition (o :?> FSharpType).TypeDefinition
+            override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
         }
 
     member this.ReadSimpleName (a: FSharpAssembly) =
@@ -334,7 +339,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 { Assembly = "mscorlib"; FullName = "System.Double" }   
             | _ -> res
         | _ -> res
-        |> fun x -> TypeDefinition x
+        |> fun x -> TypeDefinition x |> comp.FindProxied
 
     member this.ReadTypeSt markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
         if t.IsGenericParameter then
@@ -396,7 +401,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 | _ ->
                     GenericType td (t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq)
 
-    member this.ReadType tparams t = this.ReadTypeSt false tparams t
+    member this.ReadType tparams t = (this.ReadTypeSt false tparams t).Normalize()
 
     member this.ReadAbstractSlot tparams (x: FSharpAbstractSignature) : Method =
         let tparams =
@@ -417,7 +422,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         if name = ".cctor" then Member.StaticConstructor else
 
         let tparams = 
-            Seq.append x.EnclosingEntity.GenericParameters x.GenericParameters
+            Seq.append (getEnclosingEntity x).GenericParameters x.GenericParameters
             |> Seq.distinctBy (fun p -> p.Name)
             |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
@@ -461,7 +466,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                         MethodName = name
                         Parameters = getPars()
                         ReturnType = this.ReadType tparams x.ReturnParameter.Type
-                        Generics   = tparams.Count - x.EnclosingEntity.GenericParameters.Count
+                        Generics   = tparams.Count - (getEnclosingEntity x).GenericParameters.Count
                     } 
                 )
 
@@ -643,7 +648,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 tr body
             )
         | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-            let td = sr.ReadAndRegisterTypeDefinition env.Compilation meth.EnclosingEntity
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity meth)
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
@@ -699,7 +704,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.IfThenElse (cond, then_, else_) ->
             Conditional(tr cond, tr then_, tr else_)    
         | P.NewObject (ctor, typeGenerics, arguments) -> 
-            let td = sr.ReadAndRegisterTypeDefinition env.Compilation ctor.EnclosingEntity
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity ctor)
             let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
             let args = List.map tr arguments
             let args, before =
@@ -735,7 +740,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | P.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
-                let td = sr.ReadAndRegisterTypeDefinition env.Compilation var.EnclosingEntity
+                let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity var)
                 match sr.ReadMember var with
                 | Member.Method (_, m) ->
                     let me = m.Value

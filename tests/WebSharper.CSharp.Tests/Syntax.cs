@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using WebSharper.Testing;
 using System.Collections;
 
+[assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
+
 namespace WebSharper.CSharp.Tests
 {
     [JavaScript, Test("C# syntax")]
@@ -72,26 +74,6 @@ namespace WebSharper.CSharp.Tests
             x: Equal(a, 0);
         }
 
-        //[Test]
-        //public void GotoFinally()
-        //{
-        //    var a = 0;
-        //    var b = 0;
-        //    try
-        //    {
-        //        goto y;
-        //        b++;
-        //        y: goto x;
-        //    }
-        //    finally
-        //    {
-        //        a = 1;
-        //    }
-        //    b++;
-        //    x: Equal(a, 1);
-        //    Equal(b, 0);
-        //}
-
         [Test]
         public void GotoFinally()
         {
@@ -105,6 +87,26 @@ namespace WebSharper.CSharp.Tests
                 a = 1;
             }
             x: Equal(a, 1);
+        }
+
+        [Test]
+        public void GotoFinally2()
+        {
+            var a = 0;
+            var b = 0;
+            try
+            {
+                goto y;
+                b++;
+                y: goto x;
+            }
+            finally
+            {
+                a = 1;
+            }
+            b++;
+            x: Equal(a, 1);
+            Equal(b, 0);
         }
 
         public IEnumerable<int> SmallSeq()
@@ -274,9 +276,9 @@ namespace WebSharper.CSharp.Tests
         {
             List<Cat> cats = new List<Cat>
             {
-                new Cat(){ Name = "Sylvester", Age=8 },
-                new Cat(){ Name = "Whiskers", Age=2 },
-                new Cat(){ Name = "Sasha", Age=14 }
+                new Cat(){ Name = "Sylvester", Age = 8 },
+                new Cat(){ Name = "Whiskers", Age = 2 },
+                new Cat(){ Name = "Sasha", Age = 14 }
             };
 
             Equal(cats.Count, 3);

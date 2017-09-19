@@ -27,7 +27,11 @@ files
     ../build/Release/CSharp/Mono.Cecil.Pdb.dll ==> tools
     ../build/Release/CSharp/Microsoft.CodeAnalysis.dll ==> tools
     ../build/Release/CSharp/Microsoft.CodeAnalysis.CSharp.dll ==> tools
+    ../build/Release/CSharp/System.ValueTuple.dll ==> tools
     ../build/Release/CSharp/System.Collections.Immutable.dll ==> tools
     ../build/Release/CSharp/System.Reflection.Metadata.dll ==> tools
+    ../build/Release/CSharp/System.IO.FileSystem.dll ==> tools
+    ../build/Release/CSharp/System.Security.Cryptography.Algorithms.dll ==> tools
+    ../build/Release/CSharp/System.Security.Cryptography.Primitives.dll ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools

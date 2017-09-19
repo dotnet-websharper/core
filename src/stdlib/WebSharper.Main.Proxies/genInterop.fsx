@@ -98,7 +98,7 @@ let interop =
                         if this then
                             cprintfn "    [<Inline \"$this.bind($thisArg)\">]"
                             cprintfn "    member this.Bind(thisArg: 'TThis) = X<%s%s%s>" (if pars then "Params" else "System.") del (toTypArgs (List.tail t))
-                        cprintfn "    [<Macro(typeof<Macro.JS%sCall>)>]" thisPars
+                        cprintfn "    [<Macro(typeof<M.JS%sCall>)>]" thisPars
                         cprintfn "    member this.Call(%s) = X<%s>" (a |> String.concat ", ") (if ret then "'TResult" else "unit")
 
     for i = 2 to 7 do

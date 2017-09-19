@@ -5,6 +5,7 @@
   <ItemGroup>
     <Compile Include="WebSharperTask.fsi" />
     <Compile Include="WebSharperTask.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Build.Framework" />

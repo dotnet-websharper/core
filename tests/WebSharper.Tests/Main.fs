@@ -23,6 +23,9 @@ module WebSharper.Tests.Main
 open WebSharper
 open WebSharper.Testing
 
+[<assembly: JavaScript "WebSharper.Tests.Basis+TestOptionals">] // test for JavaScript "TypeName"
+do()
+
 [<JavaScript>]
 let RunTests() =
     Runner.RunTests [|
