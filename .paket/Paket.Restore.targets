@@ -18,8 +18,8 @@
 
   <Target Name="PaketRestore" BeforeTargets="_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
-    <Exec Command='$(PaketBootStrapperCommand) ' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)')) AND '$(PaketSkipRestore)' != 'true'" ContinueOnError="false" />
-    <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" --target-framework $(TargetFramework)' Condition="'$(PaketSkipRestore)' != 'true'" ContinueOnError="false" />
+    <Exec Command='$(PaketBootStrapperCommand) ' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)'))" ContinueOnError="false" />
+    <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" --target-framework $(TargetFramework)' ContinueOnError="false" />
 
     <PropertyGroup>
       <PaketReferencesFilePath>$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references</PaketReferencesFilePath>

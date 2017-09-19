@@ -276,7 +276,6 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
             x
 
     let doResolveTypeName (asm: AssemblyDefinition) (typeName: string) =
-        eprintfn "TYPE %s RESOLVED TO %s" typeName asm.FullName
         let ty = asm.MainModule.GetType(typeName.Replace('+', '/'))
         let ty =
             match ty with
@@ -349,6 +348,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
 
     let wsCore = resolveAsm typeof<WebSharper.InlineAttribute>.Assembly.FullName
 
+    member b.SystemAssembly = netstandard
+
     member b.Action ts =
         commonType netstandard "System.Action" ts
 
@@ -376,7 +377,6 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
-        eprintfn "b.Type RESOLVING ASM %s FOR TYPE %s" assemblyName fullName
         match resolveAsm assemblyName with
         | null -> failwithf "Could not resolve assembly: %s" assemblyName
         | asm -> resolveTypeName asm fullName
@@ -1196,7 +1196,7 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         generate fileName
 
 [<Sealed>]
-type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions) =
+type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, systemAssembly: AssemblyDefinition) =
 
     let writerParams =
         match options.StrongNameKeyPair with
@@ -1238,8 +1238,6 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyFileVersionAttribute>
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
             |]
-        let systemAssembly =
-            def.MainModule.AssemblyResolver.Resolve(AssemblyNameReference.Parse(typeof<string>.Assembly.FullName))
         let getSystemTypeDef (t: Type) =
             systemAssembly.MainModule.GetType(t.FullName)
             |> def.MainModule.ImportReference
@@ -1396,7 +1394,7 @@ type Compiler() =
             (fun _ _ c -> mC.Class c)
             (fun _ _ i -> mC.Interface i)
         mC.AddDependencies(assembly, def)
-        (def, comments, mB)
+        (def, comments, mB, tB)
 
     let addResourceExports (mB: MemberBuilder) (def: AssemblyDefinition) =
         let addResource name mime =
@@ -1411,7 +1409,7 @@ type Compiler() =
                 | _ -> () // TODO: correct here?
 
     member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
-        let (def, comments, mB) = buildAssembly resolver options assembly
+        let (def, comments, mB, tB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
             EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
             |> def.MainModule.Resources.Add
@@ -1433,7 +1431,7 @@ type Compiler() =
         WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
 
         let doc = XmlDocGenerator(def, comments)
-        let r = CompiledAssembly(def, doc, options)
+        let r = CompiledAssembly(def, doc, options, tB.SystemAssembly)
         match originalAssembly with
         | None -> ()
         | Some assem -> r.SetAssemblyAttributes(assem)
