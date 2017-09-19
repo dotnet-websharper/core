@@ -296,3 +296,6 @@ val Close : Id -> E -> E
 
 /// Performs simple optimizations.
 val Optimize : E -> E
+
+/// Remove source position wrapper.
+val RemoveOuterStatementSourcePos : S -> S

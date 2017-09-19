@@ -47,5 +47,15 @@ namespace WebSharper.CSharp.Tests
         {
             Equal(new SubClass().Message, "Hi from subclass!");
         }
+
+        // look in compiled code that `f` is on top level
+        public void LocalFunctionStrictMode()
+        {
+            if (1 < 2)
+            {
+                void f() { }
+                f();
+            }
+        }
     }
 }

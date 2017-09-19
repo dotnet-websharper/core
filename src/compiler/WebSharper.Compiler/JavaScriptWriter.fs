@@ -37,6 +37,8 @@ type Environment =
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         ScopeVars : ResizeArray<J.Id>
+        FuncDecls : ResizeArray<J.Statement>
+        mutable InFuncScope : bool
         OuterScope : bool
     }
     static member New(pref) =
@@ -46,6 +48,8 @@ type Environment =
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "window" ] 
             ScopeVars = ResizeArray()
+            FuncDecls = ResizeArray()
+            InFuncScope = false
             OuterScope = true
         }
 
@@ -56,6 +60,8 @@ type Environment =
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
+            FuncDecls = ResizeArray()
+            InFuncScope = true
             OuterScope = false
         }
 
@@ -119,6 +125,18 @@ type CollectVariables(env: Environment) =
     override this.VisitVarDeclaration(v, _) =
         defineId env true v |> ignore
 
+let flattenJS s =
+    let res = ResizeArray()
+    let rec add a =
+        match J.RemoveOuterStatementSourcePos a with
+        | J.Block b -> b |> List.iter add
+        | J.Empty -> ()
+        | _ -> res.Add a
+    s |> Seq.iter add
+    List.ofSeq res    
+
+let block s = J.Block (flattenJS s)
+
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
     let inline trI x = transformId env x
@@ -174,7 +192,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             if env.OuterScope then
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
             else []
-        J.Lambda(None, args, useStrict @ innerEnv.Declarations @ body)
+        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body))
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -283,15 +301,29 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
         match IgnoreStatementSourcePos s with
         | Block s -> flatten s
         | _ -> [ trS s ]
+    // collect function declarations to be on top level of functions to satisfy strict mode
+    // requirement by some JavaScript engines
+    let withFuncDecls f =
+        if env.InFuncScope then
+            env.InFuncScope <- false
+            let woFuncDecls = f()
+            env.InFuncScope <- true
+            if env.FuncDecls.Count > 0 then
+                let res = block (Seq.append env.FuncDecls (Seq.singleton woFuncDecls))
+                env.FuncDecls.Clear()
+                res
+            else woFuncDecls
+        else 
+            f()
     match statement with
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
     | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, (IgnoreSourcePos.Sequential s)))
-    | ExprStatement (IgnoreSourcePos.Sequential s) -> J.Block (sequentialE s |> List.map trS)
+    | ExprStatement (IgnoreSourcePos.Sequential s) -> block (sequentialE s |> List.map trS)
     | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, e))
     | ExprStatement e -> J.Ignore(trE e)
-    | Block s -> J.Block (flatten s)
+    | Block s -> block (flatten s)
     | StatementSourcePos (pos, s) -> 
         let jpos =
             {
@@ -302,9 +334,11 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
-    | If(a, b, c) -> J.If(trE a, trS b, trS c)
-    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Block [ J.Ignore(trE a); J.Return None ]
-    | Return (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Return |> List.map trS)
+    | If(a, b, c) -> 
+        withFuncDecls <| fun () -> 
+            J.If(trE a, trS b, trS c)
+    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> block [ J.Ignore(trE a); J.Return None ]
+    | Return (IgnoreSourcePos.Sequential s) -> block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
@@ -325,26 +359,44 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             | J.Empty
             | J.Return None -> []
             | b -> [ b ]
-        J.Function(id, args, innerEnv.Declarations @ body)
-    | While(a, b) -> J.While (trE a, trS b)
-    | DoWhile(a, b) -> J.Do (trS a, trE b)
-    | For(a, b, c, d) -> J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
+        let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
+        if env.InFuncScope then
+            f
+        else
+            env.FuncDecls.Add f 
+            J.Empty
+    | While(a, b) -> 
+        withFuncDecls <| fun () -> 
+            J.While (trE a, trS b)
+    | DoWhile(a, b) ->
+        withFuncDecls <| fun () -> 
+            J.Do (trS a, trE b)
+    | For(a, b, c, d) -> 
+        withFuncDecls <| fun () -> 
+            J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | Switch(a, b) -> 
-        J.Switch(trE a, 
-            b |> List.map (fun (l, s) -> 
-                match l with 
-                | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
-                | _ -> J.SwitchElement.Default (flattenS s)
+        withFuncDecls <| fun () ->
+            J.Switch(trE a, 
+                b |> List.map (fun (l, s) -> 
+                    match l with 
+                    | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
+                    | _ -> J.SwitchElement.Default (flattenS s)
+                )
             )
-        )
-    | Throw (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Throw |> List.map trS)
+    | Throw (IgnoreSourcePos.Sequential s) -> block (sequential s Throw |> List.map trS)
     | Throw(a) -> J.Throw (trE a)
-    | Labeled(a, b) -> J.Labelled(a.Name.Value, trS b)
+    | Labeled(a, b) -> 
+        withFuncDecls <| fun () -> 
+            J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
-        J.TryWith(trS a, defineId env false (match b with Some b -> b | _ -> Id.New()), trS c, None)
+        withFuncDecls <| fun () ->
+            J.TryWith(trS a, defineId env false (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
-        J.TryFinally(trS a, trS b)
-    | ForIn(a, b, c) -> J.ForVarIn(defineId env false a, None, trE b, trS c)
+        withFuncDecls <| fun () ->
+            J.TryFinally(trS a, trS b)
+    | ForIn(a, b, c) -> 
+        withFuncDecls <| fun () ->
+            J.ForVarIn(defineId env false a, None, trE b, trS c)
     | _ -> 
         failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformStatement(statement))
         invalidForm (GetUnionCaseName statement)
