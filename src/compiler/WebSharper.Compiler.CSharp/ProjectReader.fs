@@ -564,8 +564,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
                     else
                         match memdef with
-                        | Member.Override _ -> 
-                            error "Override methods cannot be marked with Inline, Macro or Constant attributes."
+                        | Member.Override (bTyp, _) -> 
+                            if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
+                                error "Override methods cannot be marked with Inline, Macro or Constant attributes."
                         | Member.Implementation _ ->
                             error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                         | _ -> ()

@@ -25,7 +25,7 @@
 module private WebSharper.ExtraTopLevelOperatorsProxy
 
 open WebSharper.JavaScript
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 [<Inline "null">]
 let DefaultAsyncBuilder : Control.AsyncBuilder =

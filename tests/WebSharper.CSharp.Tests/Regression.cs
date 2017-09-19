@@ -23,5 +23,29 @@ namespace WebSharper.CSharp.Tests
 
             public static int parse() => ParseInt("12345");
         }
+
+        public class BaseClass
+        {
+            public string Message { get; protected set; }
+
+            protected virtual void InitMessage() =>
+                this.Message = "Hi from base class!";
+
+            public BaseClass() => InitMessage();
+        }
+
+        public class SubClass : BaseClass
+        {
+            protected override void InitMessage() =>
+                this.Message = "Hi from subclass!";
+
+            public SubClass() { }
+        }
+
+        [Test]
+        public void ImplicitBaseCall()
+        {
+            Equal(new SubClass().Message, "Hi from subclass!");
+        }
     }
 }

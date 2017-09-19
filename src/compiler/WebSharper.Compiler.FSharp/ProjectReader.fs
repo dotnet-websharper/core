@@ -580,8 +580,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
                         else
                             match memdef with
-                            | Member.Override _ -> 
-                                if def <> Definitions.Obj then
+                            | Member.Override (bTyp, _) -> 
+                                if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
                                     error "Override methods cannot be marked with Inline, Macro or Constant attributes."
                             | Member.Implementation _ ->
                                 error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."

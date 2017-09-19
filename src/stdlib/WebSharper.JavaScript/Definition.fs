@@ -63,6 +63,9 @@ let Global =
                 "decodeURIComponent" => T<string->string> |> WithInline "decodeURIComponent($0)"
                 "encodeURI" => T<string->string> |> WithInline "encodeURI($0)"
                 "encodeURIComponent" => T<string->string> |> WithInline "encodeURIComponent($0)"
+                Generic - fun t -> "Inline" => T<string>?inlineString *+ T<obj> ^-> t
+                |> WithMacro typeof<WebSharper.Core.Macros.InlineJS>
+                |> WithComment "Parses and inlines JavaScript code"
             ]
     ]
 

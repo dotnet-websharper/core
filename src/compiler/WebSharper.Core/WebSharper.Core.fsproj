@@ -25,6 +25,8 @@
     <Compile Include="Metadata.fs" />
     <Compile Include="Resources.fsi" />
     <Compile Include="Resources.fs" />
+    <Compile Include="Macro.fs" />
+    <Compile Include="Macros.fsi" />
     <Compile Include="Macros.fs" />
     <Compile Include="Graph.fs" />
     <Compile Include="Json.fsi" />

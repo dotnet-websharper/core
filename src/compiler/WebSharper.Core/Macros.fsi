@@ -19,8 +19,7 @@
 // $end{copyright}
 
 /// Defines macros used by proxy definitions.
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module WebSharper.Macro
+module WebSharper.Core.Macros
 
 open WebSharper.Core
 

@@ -1575,6 +1575,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ ->
         match typ with
         | ConcreteType { Entity = t; Generics = gs } ->
+            if erasedUnions.Contains t then Value (Bool true) else
             match t.Value.FullName with
             | "Microsoft.FSharp.Core.FSharpChoice`2"
             | "Microsoft.FSharp.Core.FSharpChoice`3"
@@ -1584,10 +1585,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | "Microsoft.FSharp.Core.FSharpChoice`7" ->
                 trExpr
             | tname ->
-                if not (List.isEmpty gs) then
-                    this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
+                let warnIgnoringGenerics() =
+                    if not (List.isEmpty gs) then
+                        this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
                 match comp.TryLookupClassAddressOrCustomType t with
                 | Choice1Of2 (Some a) ->
+                    warnIgnoringGenerics()
                     Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
                 | Choice1Of2 None ->
                     this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
@@ -1595,13 +1598,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match ct with
                     | M.FSharpUnionCaseInfo c ->
                         let tN = t.Value.FullName
-                        let nestedIn = tN.[.. tN.LastIndexOf '+' - 1]
-                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = [] } 
+                        let lastPlus = tN.LastIndexOf '+'
+                        let nestedIn = tN.[.. lastPlus - 1]
+                        let parentGenParams =
+                            let nested = tN.[lastPlus + 1 ..]
+                            match nested.IndexOf '`' with
+                            | -1 -> gs
+                            | i -> 
+                                // if the nested type has generic parameters, remove them from the type parameter list
+                                gs |> List.take (List.length gs - int nested.[i + 1 ..])
+                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
                         let i = Id.New (mut = false)
-                        Let (i, trExpr, this.TransformTypeCheck(Var i, ConcreteType uTyp) ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
+                        match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
+                        | Value (Bool true) -> // in case of erased union
+                           this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
+                        | testParent ->
+                            warnIgnoringGenerics()
+                            Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
                     | _ -> 
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
+                            warnIgnoringGenerics()
                             let shortestName = ii.Methods.Values |> Seq.minBy String.length
                             Binary(
                                 Value (String shortestName),

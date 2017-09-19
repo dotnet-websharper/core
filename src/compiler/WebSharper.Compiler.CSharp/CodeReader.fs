@@ -1383,12 +1383,22 @@ type RoslynTransformer(env: Environment) =
         identifierName, expression
 
     member this.TransformConstructorDeclaration (x: ConstructorDeclarationData) : _ =
-        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> this.TransformParameterList
         for p in parameterList do
             env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
-        let initializer = x.Initializer |> Option.map (this.TransformConstructorInitializer)
+        let initializer = 
+            match x.Initializer with
+            | Some i -> Some <| this.TransformConstructorInitializer i
+            | _ -> 
+                let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
+                if symbol.IsStatic then None else
+                let bTyp = symbol.ContainingType.BaseType
+                if isNull bTyp then None else
+                match sr.ReadNamedType bTyp with
+                | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
+                    None
+                | b ->
+                    Some <| BaseInitializer(b, ConstructorInfo.Default(), [], id)
         let body = 
             match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
             | Some e -> Some (ExprStatement e)

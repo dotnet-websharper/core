@@ -29,7 +29,7 @@ module private WebSharper.OperatorsProxy
 
 open WebSharper.JavaScript
 
-module M = WebSharper.Macro
+module M = WebSharper.Core.Macros
 
 [<JavaScript>]
 [<Name "range">]
