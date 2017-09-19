@@ -31,13 +31,13 @@ type FunctionProxy =
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
     
-    [<Inline "$this.apply($thisArg)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg)">]
     member this.ApplyUnsafe(thisArg: obj) = X<obj>
 
-    [<Inline "$this.apply($thisArg, $argsArray)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg, $argsArray)">]
     member this.ApplyUnsafe(thisArg: obj, argsArray: obj[]) = X<obj>
 
-    [<Inline "$this.apply($thisArg, $args)">]
+    [<Inline "$wsruntime.Apply($this, $thisArg, $args)">]
     member this.CallUnsafe(thisArg: obj, [<PA>] args: obj[]) = X<obj>
   
     [<Inline "Function.prototype.bind.apply($thisArg, $args)">]
@@ -53,7 +53,7 @@ type FuncWithArgsProxy<'TArgs, 'TResult> =
     
     member this.Length with [<Inline "$this.length">] get() = X<int>
        
-    [<Inline "$this.apply(null, $args)">]
+    [<Inline "$wsruntime.Apply($this, null, $args)">]
     member this.Call (args: 'Args) = X<'TResult>
 
 [<Proxy(typeof<FuncWithThis<_,_>>)>]
@@ -82,7 +82,7 @@ type FuncWithRestProxy<'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgs($func)">]
     new (func: 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, $rest)">]
+    [<Inline "$wsruntime.Apply($this, null, $rest)">]
     member this.Call ([<PA>] rest: 'TRest[]) = X<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_>>)>]
@@ -90,7 +90,7 @@ type FuncWithRestProxy<'TArg, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(1, $func)">]
     new (func: 'TArg * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg].concat($rest))">]
     member this.Call (arg: 'TArg, [<PA>] rest: 'TRest[]) = X<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_>>)>]
@@ -98,7 +98,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(2, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_>>)>]
@@ -106,7 +106,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(3, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_>>)>]
@@ -114,7 +114,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithRest(4, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_,_>>)>]
@@ -122,7 +122,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TRest, 'TResult>
     [<Inline "$wsruntime.CreateFuncWithRest(5, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4, $arg5].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4, $arg5].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithRest<_,_,_,_,_,_,_,_>>)>]
@@ -130,7 +130,7 @@ type FuncWithRestProxy<'TArg1, 'TArg2, 'TArg3, 'TArg4, 'TArg5, 'TArg6, 'TRest, '
     [<Inline "$wsruntime.CreateFuncWithRest(6, $func)">]
     new (func: 'TArg1 * 'TArg2 * 'TArg3 * 'TArg4 * 'TArg5 * 'TArg6 * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, [$arg1, $arg2, $arg3, $arg4, $arg5, $arg6].concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, [$arg1, $arg2, $arg3, $arg4, $arg5, $arg6].concat($rest))">]
     member this.Call (arg1: 'TArg1, arg2: 'TArg2, arg3: 'TArg3, arg4: 'TArg4, arg5: 'TArg5, arg6: 'TArg6, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<FuncWithArgsRest<_,_,_>>)>]
@@ -139,7 +139,7 @@ type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
     [<Inline "$wsruntime.CreateFuncWithArgsRest($func)">]
     new (func: 'TArgs * 'TRest[] -> 'TResult) = {}
 
-    [<Inline "$this.apply(null, $args.concat($rest))">]
+    [<Inline "$wsruntime.Apply($this, null, $args.concat($rest))">]
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<Optional<_>>)>]
@@ -149,6 +149,11 @@ type OptionalProxy<'T> =
 
     [<Inline>]
     member this.Value = As<'T> this
+
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T) = X<Optional<'T>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Optional<'T>) = X<'T>
 
 // {{ generated by genInterop.fsx, do not modify
 [<Proxy (typeof<ThisAction<_>>)>]
@@ -465,8 +470,16 @@ type UnionProxy<'T1, 'T2> =
     | Union2Of2 of 'T2
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2>) = X<'T2>
 [<Proxy (typeof<Union<_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3> =
     | Union1Of3 of 'T1
@@ -474,10 +487,22 @@ type UnionProxy<'T1, 'T2, 'T3> =
     | Union3Of3 of 'T3
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2, 'T3>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2, 'T3>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = X<'T2>
     [<Inline>]
     member this.Value3 = As<'T3> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = X<'T3>
 [<Proxy (typeof<Union<_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     | Union1Of4 of 'T1
@@ -486,12 +511,28 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     | Union4Of4 of 'T4
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2, 'T3, 'T4>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2, 'T3, 'T4>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = X<'T2>
     [<Inline>]
     member this.Value3 = As<'T3> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3, 'T4>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = X<'T3>
     [<Inline>]
     member this.Value4 = As<'T4> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T4) = X<Union<'T1, 'T2, 'T3, 'T4>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = X<'T4>
 [<Proxy (typeof<Union<_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Union1Of5 of 'T1
@@ -501,14 +542,34 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Union5Of5 of 'T5
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T2>
     [<Inline>]
     member this.Value3 = As<'T3> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T3>
     [<Inline>]
     member this.Value4 = As<'T4> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T4) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T4>
     [<Inline>]
     member this.Value5 = As<'T5> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T5) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T5>
 [<Proxy (typeof<Union<_,_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Union1Of6 of 'T1
@@ -519,16 +580,40 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Union6Of6 of 'T6
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T2>
     [<Inline>]
     member this.Value3 = As<'T3> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T3>
     [<Inline>]
     member this.Value4 = As<'T4> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T4) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T4>
     [<Inline>]
     member this.Value5 = As<'T5> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T5) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T5>
     [<Inline>]
     member this.Value6 = As<'T6> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T6) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T6>
 [<Proxy (typeof<Union<_,_,_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Union1Of7 of 'T1
@@ -540,16 +625,44 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Union7Of7 of 'T7
     [<Inline>]
     member this.Value1 = As<'T1> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T1) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T1>
     [<Inline>]
     member this.Value2 = As<'T2> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T2>
     [<Inline>]
     member this.Value3 = As<'T3> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T3>
     [<Inline>]
     member this.Value4 = As<'T4> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T4) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T4>
     [<Inline>]
     member this.Value5 = As<'T5> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T5) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T5>
     [<Inline>]
     member this.Value6 = As<'T6> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T6) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T6>
     [<Inline>]
     member this.Value7 = As<'T7> this
+    [<Inline "$x">]
+    static member op_Implicit(x: 'T7) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>>
+    [<Inline "$x">]
+    static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7>) = X<'T7>
 // }}

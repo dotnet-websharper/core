@@ -549,13 +549,13 @@ module Type =
     let private thisArgsTransform =
         {
             In = fun x -> "$wsruntime.CreateFuncWithThisArgs(" + x + ")"
-            Out = fun x -> "function(obj) { return function(args) { return (" + x + ").apply(obj, args); }; }"
+            Out = fun x -> "function(obj) { return function(args) { return $wsruntime.Apply(" + x + ", obj, args); }; }"
         }
 
     let private argsTransform = 
         {
             In = fun x -> "$wsruntime.CreateFuncWithArgs(" + x + ")"
-            Out = fun x -> "function(args) { return (" + x + ").apply(this, args); }"
+            Out = fun x -> "function(args) { return $wsruntime.Apply(" + x + ", this, args); }"
         }
 
     let private restTransform (i: int) =
@@ -569,11 +569,11 @@ module Type =
             Out = 
                 match i with
                 | 0 ->
-                    fun x -> "function(rest) { return (" + x + ").apply(null, rest); }" 
+                    fun x -> "function(rest) { return $wsruntime.Apply(" + x + ", null, rest); }" 
                 | 1 ->
-                    fun x -> "function(args) { return (" + x + ").apply(null, [args[0]].concat(args[1])); }"                  
+                    fun x -> "function(args) { return $wsruntime.Apply(" + x + ", null, [args[0]].concat(args[1])); }"                  
                 | _ ->
-                    fun x -> "function(args) { return (" + x + ").apply(null, args.slice(0, " + string i + ").concat(args[ " + string i + "])); }" 
+                    fun x -> "function(args) { return $wsruntime.Apply(" + x + ", null, args.slice(0, " + string i + ").concat(args[ " + string i + "])); }" 
         }
         
     let (|UnionOf|_|) t =
@@ -593,7 +593,6 @@ module Type =
             "Int32"
             "UInt16"
             "UInt32"
-            "Decimal"
             "Int64"
             "UInt64" 
             "Char"

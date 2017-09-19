@@ -59,6 +59,11 @@
     <None Include="ASTTests.fsx" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj">
+      <Name>WebSharper.Compiler</Name>
+      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
       <Name>WebSharper.Core.JavaScript</Name>
       <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
@@ -84,11 +89,15 @@
       <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
-      <Name>WebSharper.JavaScript</Name>
-      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+    <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj">
+      <Name>WebSharper.Web.Tests</Name>
+      <Project>{2605322f-851c-4c6a-a204-f4eee9e21252}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <Reference Include="WebSharper.JavaScript">
+      <HintPath>..\..\build\$(Configuration)\WebSharper.JavaScript.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
       <Name>WebSharper.Testing</Name>
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
@@ -97,6 +106,11 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj">
       <Name>WebSharper.Main</Name>
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
+      <Name>WebSharper.Collections.Tests</Name>
+      <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">

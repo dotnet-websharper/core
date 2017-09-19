@@ -33,10 +33,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let glob = Id.New("Global", false)
-    declarations.Add <| VarDeclaration (glob, Var (Id.Global()))
-    let glob = Var glob
-
+    let g = Id.New "Global"
+    let glob = Var g
+    declarations.Add <| VarDeclaration (g, Var (Id.Global()))
+    addresses.Add(Address [], glob)
+    addresses.Add(Address [ "window" ], glob)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =
@@ -48,22 +49,15 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | [ name ] ->
                 let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
                 let f = Value (String name)
-//                if isBundle then
-//                    declarations.Add <| VarDeclaration (var, ItemGet(glob, f) |> safeObject)                
-//                else
-                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
                 let res = Var var
-                //topLevel.Add(name, res)
                 addresses.Add(address, res)
                 res
             | name :: r ->
                 let parent = getAddress (Hashed r)
                 let f = Value (String name)
                 let var = Id.New name
-//                if isBundle then
-//                    declarations.Add <| VarDeclaration (var, ItemGet(parent, f) |> safeObject)                
-//                else
-                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f) |> safeObject))                
+                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
                 let res = Var var
                 addresses.Add(address, res)
                 res
@@ -82,11 +76,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | [] -> glob
             | h :: t ->
                 let parent = getOrImportAddress false (Address t)
-                let import = ItemGet(parent, Value (String h))
+                let import = ItemGet(parent, Value (String h), Pure)
                 if full then
                     import
                 else
-                    let var = Id.New h
+                    let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
                     let importWithCheck =
                         if List.isEmpty t then import else parent ^&& import
                     declarations.Add <| VarDeclaration (var, importWithCheck)                
@@ -115,8 +109,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         let o, x = getFieldAddress a
         match expr with
         | Function ([], body) ->
-            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"))))    
-            let expr = JSRuntime.Cctor <| Function([], Block [body; rem])
+            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
+            let expr = Function([], Block [rem; body])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
             failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
@@ -193,7 +187,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             match withoutMacros info with
             | M.Constructor caddr ->
                 if body <> Undefined then
-                    if Option.isSome c.Address then
+                    if c.HasWSPrototype && Option.isSome c.Address then
                         package caddr <| 
                             match c.Address with
                             | Some addr -> JSRuntime.Ctor body (GlobalAccess addr)
@@ -212,16 +206,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     if isBundle then
         match current.EntryPoint with
-        | Some ep -> statements.Add ep
+        | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
-    let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-
-    // allStatements will always have the Global variable declaration
-    if List.isEmpty allStatements.Tail then Undefined else
-        Application(Function([], Block allStatements), [], false, Some 0)
+    if List.isEmpty trStatements then Undefined else
+        let allStatements = List.ofSeq (Seq.append declarations trStatements) 
+        Application(Function([], Block allStatements), [], NonPure, Some 0)
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with

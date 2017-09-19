@@ -48,6 +48,9 @@ type Assembly =
     /// Reads the embedded map file.
     member MapFileForReadable : option<string>
 
+    /// The short name of the assembly.
+    member Name : string
+
     /// The full name of the assembly.
     member FullName : string
 
@@ -65,3 +68,7 @@ type Assembly =
         * ?loadPath: string
         * ?symbols: Symbols ->
         Assembly
+
+    static member internal GetAllResources :
+        def: Mono.Cecil.AssemblyDefinition ->
+        seq<EmbeddedFile>

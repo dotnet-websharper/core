@@ -35,65 +35,75 @@ module Server =
         | P.Call(_, mi, _) ->
             let typ = Reflection.ReadTypeDefinition mi.DeclaringType
             let meth = Reflection.ReadMethod mi
-            WebSharper.Web.Shared.Metadata.Classes.[typ].Methods.[meth]
+            let _, _, expr = WebSharper.Web.Shared.Metadata.Classes.[typ].Methods.[meth]
+            expr, meth.Value.MethodName
         | _ -> failwith "expected a Call pattern"
 
-    [<Remote>]
-    let TupledArgWithGlobal() =
-        let _, _, expr = getCompiled <@ Optimizations.TupledArgWithGlobal() @>
-        match expr with 
-        | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> 
-            ""
-        | _ -> "unexpected optimized form: " + Debug.PrintExpression expr
-        |> async.Return 
+    type RuntimeCleaner() =
+        inherit Transformer()
+    
+        override this.TransformExpression (a) =
+            base.TransformExpression(WebSharper.Compiler.Optimizations.cleanRuntime true a)
+
+    let private runtimeCleaner = RuntimeCleaner()
+
+    let testWithMatch f p =
+        let expr, name = getCompiled f
+        let res =
+            if p expr then "" 
+            else
+                let opt = runtimeCleaner.TransformExpression expr
+                if opt <> expr then
+                    "Not fully optimized: " + Debug.PrintExpression expr + " => " + Debug.PrintExpression opt
+                else
+                    "Unexpected optimized form: " + Debug.PrintExpression expr
+        res, name
 
     [<Remote>]
-    let TupledArgWithLocal() =
-        let _, _, expr = getCompiled <@ Optimizations.TupledArgWithLocal() @>
-        match expr with 
-        | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> 
-            ""
-        | _ -> "unexpected optimized form: " + Debug.PrintExpression expr
-        |> async.Return 
+    let OptimizationTests() =
+        async.Return [|
+            
+            testWithMatch <@ Optimizations.TupledArgWithGlobal() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | _ -> false
+        
+            testWithMatch <@ Optimizations.TupledArgWithLocal() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | _ -> false
+        
+            testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | _ -> false
 
-    [<Remote>]
-    let CurriedArgWithGlobal() =
-        let _, _, expr = getCompiled <@ Optimizations.CurriedArgWithGlobal() @>
-        match expr with 
-        | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> 
-            ""
-        | _ -> "unexpected optimized form: " + Debug.PrintExpression expr
-        |> async.Return 
+            testWithMatch <@ Optimizations.CurriedArgWithLocal() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | _ -> false
 
-    [<Remote>]
-    let CurriedArgWithLocal() =
-        let _, _, expr = getCompiled <@ Optimizations.CurriedArgWithLocal() @>
-        match expr with 
-        | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> 
-            ""
-        | _ -> "unexpected optimized form: " + Debug.PrintExpression expr
-        |> async.Return 
+            testWithMatch <@ Optimizations.CollectJSObject() @> <| function
+            | Function (_, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues() @> <| function
+            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues2() @> <| function
+            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], NonPure, None) )) -> true
+            | _ -> false
+
+            testWithMatch <@ Optimizations.InlineValues3() @> <| function
+            | Function (_, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
+            | _ -> false
+        
+        |]
 
 [<JavaScript>]
 let Tests =
     TestCategory "Compiler" {
-        Test "Optimizations.TupledArgWithGlobal" {
-            let! res = Server.TupledArgWithGlobal()
-            equal res ""
-        }
-
-        Test "Optimizations.TupledArgWithLocal" {
-            let! res = Server.TupledArgWithLocal()
-            equal res ""
-        }
-
-        Test "Optimizations.CurriedArgWithGlobal" {
-            let! res = Server.CurriedArgWithGlobal()
-            equal res ""
-        }
-
-        Test "Optimizations.CurriedArgWithLocal" {
-            let! res = Server.CurriedArgWithLocal()
-            equal res ""
+        Test "Optimizations" {
+            let! res = Server.OptimizationTests()
+            forEach res (fun (r, msg) ->
+                Do { equalMsg r "" msg }
+            )
         }
     }

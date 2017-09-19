@@ -66,9 +66,10 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
     else a
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
-    let methodNames = ResizeArray()
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
+    if annot.IsForcedNotJavaScript then None else
+    let methodNames = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 
@@ -250,6 +251,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let stubs = HashSet()
     let mutable hasStubMember = false
+    let mutable hasNonStubMember = false
 
     for meth in cls.MembersFunctionsAndValues do
         if meth.IsProperty then () else
@@ -302,7 +304,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
-    let fsharpSpecific = cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
+    let fsharpSpecific = 
+        cls.IsFSharpModule || cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
 
     let clsTparams =
         lazy 
@@ -357,6 +360,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Some A.MemberKind.Stub
             | Some (A.MemberKind.Remote _) -> ()
             | Some kind ->
+                hasNonStubMember <- true
                 let memdef = sr.ReadMember meth
 
                 if stubs.Contains memdef then () else
@@ -578,7 +582,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
                             if addModuleValueProp N.Inline parsed then
                                 addMethod None mAnnot mdef N.Inline true None parsed   
                             else addM N.Inline true None parsed
@@ -590,7 +594,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
                             addM (getKind()) true None parsed
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
@@ -601,7 +605,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         jsMethod true
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
-                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..])))
+                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..]), Pure))
                             addM N.Inline true None i
                         elif meth.IsPropertySetterMethod then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
@@ -630,14 +634,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Inline js ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline thisVar vars mAnnot.Pure js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
                             addC N.Inline true None parsed 
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
                             addC N.Static true None parsed 
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
@@ -664,7 +668,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
-        if annot.IsStub || hasStubMember
+        if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif cls.IsFSharpModule then NotResolvedClassKind.Static
         elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
@@ -672,13 +676,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         else NotResolvedClassKind.Class
 
     let baseCls =
-        cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        else 
+            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
 
     let hasWSPrototype =                
         hasWSPrototype ckind baseCls clsMembers
 
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
+
+    let notForcedNotJavaScript = not annot.IsForcedNotJavaScript
 
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
@@ -713,7 +724,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            if argumentless then
+                            if argumentless && notForcedNotJavaScript then
                                 let caseField = Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
@@ -757,7 +768,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i, not annot.IsJavaScript)
 
-        if cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration then
+        if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =
                 Hashed {
                     CtorParameters =
@@ -793,7 +804,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Static false None body
+            let cAnnot =
+                if notForcedNotJavaScript then 
+                    A.MemberAnnotation.BasicPureJavaScript
+                else A.MemberAnnotation.BasicPureInlineJavaScript
+            addConstructor None cAnnot cdef N.Static false None body
 
             // properties
 
@@ -839,6 +854,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         RecordFieldType = fTyp
                         DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
                         Optional = isOpt
+                        IsMutable = f.IsMutable
                     }
                 )
                 |> List.ofSeq |> FSharpRecordInfo    
@@ -873,6 +889,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 StrongName = fAnnot.Name
                 IsStatic = f.IsStatic
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                IsReadonly = not f.IsMutable
                 FieldType = sr.ReadType clsTparams.Value f.FieldType
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
@@ -1023,6 +1040,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                                 StrongName = None
                                 IsStatic = true
                                 IsOptional = false
+                                IsReadonly = true
                                 FieldType = VoidType // field types are only needed for adding code dependencies for activator
                             } 
                         )

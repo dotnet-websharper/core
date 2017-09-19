@@ -37,7 +37,7 @@ let CopyTo (s: string) (o: int) (d: char []) (off: int) (ct: int) =
 [<Direct "$x.substring($x.length - $s.length) == $s">]
 let EndsWith (x: string) (s: string) = X<bool>
 
-[<Direct "$s.indexOf(String.fromCharCode($c),$i)">]
+[<Direct "$s.indexOf($c,$i)">]
 let IndexOf (s: string) (c: char) (i: int) = X<int>
 
 [<Direct "$x.substring(0,$index-1)+$s+$x.substring($index)">]
@@ -49,16 +49,16 @@ let IsNullOrEmpty (x: string) = X<bool>
 [<Direct """$x == null || /^\s*$/.test($x)""">]
 let IsNullOrWhiteSpace (x: string) = X<bool>
 
-[<Direct "$s.lastIndexOf(String.fromCharCode($c),$i)">]
+[<Direct "$s.lastIndexOf($c,$i)">]
 let LastIndexOf (s: string) (c: char) (i: int) = X<int>
 
-[<Direct "$n>$s.length?Array($n-$s.length+1).join(String.fromCharCode($c))+$s:$s">]
+[<Direct "$n>$s.length?Array($n-$s.length+1).join($c)+$s:$s">]
 let PadLeftWith (s: string) (n: int) (c: char) = X<string>
 
 let PadLeft (s: string) (n: int) =
     PadLeftWith s n ' '
 
-[<Direct "$n>$s.length?$s+Array($n-$s.length+1).join(String.fromCharCode($c)):$s">]
+[<Direct "$n>$s.length?$s+Array($n-$s.length+1).join($c):$s">]
 let PadRightWith (s: string) (n: int) (c: char) = X<string>
 
 let PadRight (s: string) (n: int) =
@@ -186,10 +186,10 @@ type private StringProxy =
     [<Inline "''">]
     new () = {}
 
-    [<Inline "String.fromCharCode.apply(undefined,$chars)">]
+    [<Inline "$chars.join('')">]
     new (chars: char []) = {}
 
-    member this.Chars  with [<Inline "$this.charCodeAt($pos)">]
+    member this.Chars  with [<Inline "$this[$pos]">]
                             get (pos: int) = X<char>
 
     [<Inline "$this">]
@@ -231,7 +231,7 @@ type private StringProxy =
     [<Inline "$this.indexOf($s)">]
     member this.IndexOf(s: string) = X<int>
 
-    [<Inline "$this.indexOf(String.fromCharCode($c))">]
+    [<Inline "$this.indexOf($c)">]
     member this.IndexOf(c: char) = X<int>
 
     [<Inline "$this.indexOf($s,$i)">]
@@ -247,7 +247,7 @@ type private StringProxy =
     static member IsNullOrWhiteSpace(x: string) = IsNullOrWhiteSpace x
 
     member this.Item
-        with    [<Inline "$this.charCodeAt($pos)">]
+        with    [<Inline "$this[$pos]">]
                 get (pos: int) = X<char>
 
     [<Inline>]
@@ -261,7 +261,7 @@ type private StringProxy =
     [<Inline "$this.lastIndexOf($s)">]
     member this.LastIndexOf(s: string) = X<int>
 
-    [<Inline "$this.lastIndexOf(String.fromCharCode($c))">]
+    [<Inline "$this.lastIndexOf($c)">]
     member this.LastIndexOf(c: char) = X<int>
 
     [<Inline "$this.lastIndexOf($s,$i)">]

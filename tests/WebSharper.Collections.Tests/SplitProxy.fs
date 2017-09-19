@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -18,19 +18,19 @@
 //
 // $end{copyright}
 
-module private WebSharper.Ref
+module WebSharper.Collections.Tests.SplitProxy
 
-open WebSharper.JavaScript
+module ClassInfoMergeTestType =
+    let Member1 () = "member1"
+    let Member2 () = "member2"
 
-[<Proxy(typeof<ref<_>>)>]
-[<Name "WebSharper.Ref">]
-type private RefProxy<'T> =
-    {
-        [<Name 0>]
-        mutable contents : 'T    
-    } 
-    member this.Value
-        with    [<Inline "$this[0]">]
-                get () = X<'T>
-        and     [<Inline "void ($this[0] = $x)">]
-                set (x: 'T) = X<unit>
+open WebSharper
+open WebSharper.JavaScript.Interop
+
+[<Proxy "WebSharper.Collections.Tests.SplitProxy+ClassInfoMergeTestType, WebSharper.Collections.Tests">]
+module private TestTypeProxy =
+    [<Name "WebSharper.Collections.Tests.SplitProxy.ClassInfoMergeTestType.Member1">]
+    let [<Inline "'member1'">] Member1 () = X<string>
+
+
+

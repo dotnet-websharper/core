@@ -31,7 +31,9 @@ open WebSharper.JavaScript
 
 module M = WebSharper.Macro
 
+[<JavaScript>]
 [<Name "range">]
+[<Macro(typeof<M.Range>)>]
 let ( .. ) (min: 'T) (max: 'T) : seq<'T> =
     let count = 1 + As max - As min
     if count <= 0 then Seq.empty
@@ -47,13 +49,13 @@ let ( .. .. ) (min: 'T1) (step: 'T2) (max: 'T1) : seq<'T1> =
 [<Inline "$r[0]">]
 let ( ! ) (r: ref<'T>) = X<'T>
 
-[<Inline "$a % $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( % ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Inline "$a & $b">]
 let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 
-[<Inline "$a * $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( * ) (a: 'T1) (b: 'T2) = X<'T3>
 
 [<Inline "Math.pow($a, $b)">]
@@ -62,13 +64,13 @@ let ( ** ) (a: 'T1) (b: 'T2) = X<'T1>
 [<Inline "Math.pow($a, $p)">]
 let PowInteger (a: 'T, p: int) = X<'T>
 
-[<Macro(typeof<M.Add>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( + ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Sub>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( - ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Div>)>]
+[<Macro(typeof<M.Arith>)>]
 let ( / ) (x: 'T1) (y: 'T2) = X<'T3>
 
 [<Inline "void ($a[0] = $b)">]
@@ -92,22 +94,22 @@ let ( <|| ) (f: 'T1 -> 'T2 -> 'TR) (x: 'T1, y: 'T2) : 'TR = f x y
 let ( <||| ) (f: 'T1 -> 'T2 -> 'T3 -> 'TR)
              (x: 'T1, y: 'T2, z: 'T3) : 'TR = f x y z
 
-[<Macro(typeof<M.EQ>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( = ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.NE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( <> ) (a: 'T) (b: 'T) =  X<bool>
 
-[<Macro(typeof<M.LT>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( < ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.GT>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( > ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.LE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( <= ) (a: 'T) (b: 'T) = X<bool>
 
-[<Macro(typeof<M.GE>)>]
+[<Macro(typeof<M.Comp>)>]
 let ( >= ) (a: 'T) (b: 'T) = X<bool>
 
 [<Inline>]
@@ -173,6 +175,7 @@ let Ceiling (x: 'T) = X<'T>
 [<Macro(typeof<M.Char>)>]
 let ToChar (x: 'T) = X<char>
 
+[<Inline>]
 let Compare<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
 [<Inline "Math.cos($x)">]
@@ -181,10 +184,10 @@ let Cos (x: 'T) = X<'T>
 [<Inline "(Math.exp($x)+Math.exp(-$x))/2">]
 let Cosh<'T> (x: 'T) = X<'T>
 
-[<Direct "void ($x[0]--)">]
-[<Name "WebSharper.Ref.decr">]
+[<Inline "void ($x[0]--)">]
 let Decrement (x: ref<int>) = ()
 
+[<Inline>]
 let DefaultArg x d =
     match x with
     | Some x -> x
@@ -193,7 +196,7 @@ let DefaultArg x d =
 [<Inline "$x">]
 let Enum<'T when 'T : enum<int>> (x: 'T) = X<'T>
 
-[<Inline "Number($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToDouble (x: 'T) = X<double>
 
 [<Inline "Math.exp($x)">]
@@ -201,8 +204,8 @@ let inline Exp (x: 'T) = X<'T>
 
 let FailWith (msg: string) : 'T = raise (exn msg)
 
-[<Inline "Number($x)">]
-let ToFloat (x: 'T) = X<'T>
+[<Macro(typeof<M.Conversion>)>]
+let ToFloat (x: 'T) = X<float>
 
 [<Inline "Math.floor($x)">]
 let Floor (x: 'T) = X<'T>
@@ -219,8 +222,7 @@ let Identity (x: 'T) = X<'T>
 [<Inline "void $x">]
 let Ignore (x: 'T) = X<unit>
 
-[<Direct "void ($x[0]++)">]
-[<Name "WebSharper.Ref.incr">]
+[<Inline "void ($x[0]++)">]
 let Increment (x: ref<int>) = ()
 
 [<Inline "Infinity">]
@@ -230,19 +232,19 @@ let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
 let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
 
-[<Inline "($x << 0)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt (x: 'T) = X<int>
 
-[<Inline "Number($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToSingle (x: 'T) = X<single>
 
-[<Inline "($x << 0)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt32 (x: 'T) = X<int32>
 
 [<Inline "$x">]
 let ToEnum<'T> (x: int) = X<'T>
 
-[<Inline "Math.floor($x)">]
+[<Macro(typeof<M.Conversion>)>]
 let ToInt64 (x: 'T) = X<int64>
 
 [<Inline "Math.log($x)">]
@@ -251,9 +253,11 @@ let Log (x: 'T) = X<'T>
 [<Inline "Math.log($x)/Math.log(10)">]
 let Log10 (x: 'T) = X<'T>
 
+[<Inline>]
 let Max<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a > b then a else b
 
+[<Inline>]
 let Min<'T when 'T : comparison> (a: 'T) (b: 'T) =
     if a < b then a else b
 
@@ -330,6 +334,7 @@ let Unbox (x: obj) = X<'T>
 [<Inline "$x == null">]
 let IsNull (x: 'T) = X<bool>
 
+[<Inline>]
 let Using t f =
     try f t finally (t :> System.IDisposable).Dispose()
 

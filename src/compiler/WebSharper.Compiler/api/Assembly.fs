@@ -63,19 +63,22 @@ module AssemblyUtility =
                 | :? Mono.Cecil.EmbeddedResource as r when r.Name = key -> true
                 | _ -> false)
 
+    let ParseWebResourcesUnchecked (def: Mono.Cecil.AssemblyDefinition) =
+        def.CustomAttributes
+        |> Seq.choose (fun attr ->
+            let wra = "System.Web.UI.WebResourceAttribute"
+            if attr.AttributeType.FullName = wra then
+                match Seq.toList attr.ConstructorArguments with
+                | [StringArg resourceName; StringArg contentType] ->
+                    ReadResourceBytes resourceName def
+                    |> Option.map (fun c ->
+                        EmbeddedFile.Create(string def.FullName, resourceName, c, CT.Parse contentType))
+                | _ -> None
+            else None)
+    
     let ParseWebResources (def: Mono.Cecil.AssemblyDefinition) =
         if IsWebSharperAssembly def then
-            def.CustomAttributes
-            |> Seq.choose (fun attr ->
-                let wra = "System.Web.UI.WebResourceAttribute"
-                if attr.AttributeType.FullName = wra then
-                    match Seq.toList attr.ConstructorArguments with
-                    | [StringArg resourceName; StringArg contentType] ->
-                        ReadResourceBytes resourceName def
-                        |> Option.map (fun c ->
-                            EmbeddedFile.Create(string def.FullName, resourceName, c, CT.Parse contentType))
-                    | _ -> None
-                else None)
+            ParseWebResourcesUnchecked def
         else Seq.empty
 
 type Assembly =
@@ -93,6 +96,9 @@ type Assembly =
 
     member this.FullName =
         this.Definition.FullName
+
+    member this.Name =
+        this.Definition.Name.Name
 
     member this.GetScripts() =
         ParseWebResources this.Definition
@@ -151,3 +157,6 @@ type Assembly =
             Definition = def
             FullLoadPath = loadPath
         }
+
+    static member GetAllResources(def) =
+        ParseWebResourcesUnchecked def

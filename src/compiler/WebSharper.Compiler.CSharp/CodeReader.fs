@@ -239,6 +239,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             GenericType td ta
 
     member this.ReadType (x: ITypeSymbol) : Type =
+        if isNull x then VoidType else
         match x.TypeKind with
         | TypeKind.Array ->
             let t = x :?> IArrayTypeSymbol
@@ -404,10 +405,28 @@ type Environment =
     member this.WithNotInitializing() =
         { this with Initializing = None }
 
+module Definitions =
+    let Decimal =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Decimal"    
+        }
+
+    let DecimalCtorIntArray =
+        Constructor {
+            CtorParameters = [ ArrayType(NonGenericType Definitions.Int, 1) ]
+        }
+
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
-        env.SemanticModel.GetConstantValue(x).Value
-        |> ReadLiteral |> Value
+        let l =
+            env.SemanticModel.GetConstantValue(x).Value
+            |> ReadLiteral 
+        match l with
+        | Decimal x ->
+            Ctor(NonGeneric Definitions.Decimal, Definitions.DecimalCtorIntArray,
+                (System.Decimal.GetBits(x) |> Seq.map (Int >> Value) |> List.ofSeq))
+        | _ -> Value l
 
     let sr = env.SymbolReader
 
@@ -493,7 +512,7 @@ type RoslynTransformer(env: Environment) =
         }                
 
     let jsConcat expr args =
-        Application(ItemGet(expr, Value (String "concat")), args, true, None)
+        Application(ItemGet(expr, Value (String "concat"), Pure), args, Pure, None)
 
     let queryCall (symbol: IMethodSymbol) args =
         let qtyp = sr.ReadNamedType symbol.ContainingType
@@ -528,7 +547,7 @@ type RoslynTransformer(env: Environment) =
         | :? IRangeVariableSymbol as v ->
             match env.RangeVars.[v] with
             | v, None -> Var v
-            | v, Some i -> ItemGet(Var v, Value (Int i))
+            | v, Some i -> ItemGet(Var v, Value (Int i), NoSideEffect)
         | :? IFieldSymbol as f -> FieldGet((getTarget()), sr.ReadNamedType f.ContainingType, f.Name) 
         | :? IEventSymbol as e -> FieldGet((getTarget()), sr.ReadNamedType e.ContainingType, e.Name)
         | :? IPropertySymbol as p ->
@@ -597,6 +616,13 @@ type RoslynTransformer(env: Environment) =
                 let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
                 let meth = Generic (sr.ReadMethod symbol) ma
                 Call(None, typ, meth, [ expr ])
+            elif conversion.IsNumeric then
+                let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
+                let fromTyp = typInfo.Type :?> INamedTypeSymbol |> sr.ReadNamedTypeDefinition
+                let toTyp = typInfo.ConvertedType :?> INamedTypeSymbol |>  sr.ReadNamedTypeDefinition
+                //let fromTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.Parameters.[0].Type :?> INamedTypeSymbol)
+                //let toTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.ReturnType :?> INamedTypeSymbol)
+                NumericConversion fromTyp toTyp expr
             else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
@@ -628,7 +654,7 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then
             // for dynamic
-            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, false, None)
+            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, NonPure, None)
         else
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
@@ -652,7 +678,7 @@ type RoslynTransformer(env: Environment) =
 
         if symbol.MethodKind = MethodKind.LocalFunction then
             let f = env.GetLocalFunctionId(symbol)
-            Application(Var f, args, false, Some args.Length)
+            Application(Var f, args, NonPure, Some args.Length)
         elif isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
         else        
@@ -674,7 +700,7 @@ type RoslynTransformer(env: Environment) =
         // TODO: investigate that symbol is null only when it is an array
         if symbol = null then
             // TODO: make setter possible for 2-dim arrays
-            List.fold (fun e a -> ItemGet(e, a)) expression argumentList
+            List.fold (fun e a -> ItemGet(e, a, NoSideEffect)) expression argumentList
         else
             call symbol.GetMethod (Some expression) argumentList
 
@@ -702,10 +728,10 @@ type RoslynTransformer(env: Environment) =
                     MakeRef e (fun value -> VarSet(v, value))
                 | NewVar (v, Undefined) -> // out var
                     Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
-                | ItemGet(o, i) ->
+                | ItemGet(o, i, _) ->
                     let ov = Id.New ()
                     let iv = Id.New ()
-                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv)) (fun value -> ItemSet(Var ov, Var iv, value))))
+                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value))))
                 | FieldGet(o, t, f) ->
                     match o with
                     | Some o ->
@@ -713,7 +739,7 @@ type RoslynTransformer(env: Environment) =
                         Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                     | _ ->
                         MakeRef e (fun value -> FieldSet(None, t, f, value))  
-                | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+                | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                     r
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
@@ -1082,8 +1108,8 @@ type RoslynTransformer(env: Environment) =
             match IgnoreExprSourcePos left with
             | Var id -> VarSet(id, right)
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
-            | ItemGet(obj, i) -> ItemSet (obj, i, right)
-            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            | ItemGet(obj, i, _) -> ItemSet (obj, i, right)
+            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
@@ -1143,12 +1169,12 @@ type RoslynTransformer(env: Environment) =
                     let m = Id.New ()
                     let leftWithM = FieldGet (Some (Var m), ty, f)
                     Let (m, obj, FieldSet (Some (Var m), ty, f, Call(None, opTyp, operator, [leftWithM; right]))) 
-            | ItemGet(obj, i) ->
+            | ItemGet(obj, i, _) ->
                 let m = Id.New ()
                 let j = Id.New ()
-                let leftWithM = ItemGet (Var m, Var j)
+                let leftWithM = ItemGet (Var m, Var j, NoSideEffect)
                 Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
-            | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
@@ -1186,7 +1212,16 @@ type RoslynTransformer(env: Environment) =
             Coalesce(left, leftType, right)
         | _ -> 
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            call symbol None [left; right]
+            let typ, meth = getTypeAndMethod symbol
+            if List.isEmpty meth.Generics then
+                // add fake generics type information to resolve nullable operations
+                let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).Type |> sr.ReadType
+                let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).Type |> sr.ReadType
+                let meth =
+                    { meth with Generics = [leftType; rightType] }
+                Call(None, typ, meth, [left; right])
+            else
+                Call(None, typ, meth, [left; right])
         |> withExprSourcePos x.Node
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =
@@ -1400,7 +1435,7 @@ type RoslynTransformer(env: Environment) =
                     if pr.IsStatic then 
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)))
+                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)), NoSideEffect)
                         | AccessorDeclarationKind.SetAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(Self, Value (String ("$" + pr.Name)), Var v)
@@ -1408,7 +1443,7 @@ type RoslynTransformer(env: Environment) =
                     else
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(This, Value (String ("$" + pr.Name)))
+                            Return <| ItemGet(This, Value (String ("$" + pr.Name)), NoSideEffect)
                         | AccessorDeclarationKind.SetAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(This, Value (String ("$" + pr.Name)), Var v)
@@ -1510,10 +1545,10 @@ type RoslynTransformer(env: Environment) =
         match e with
         | Var v ->
             withResultValue false operand <| fun rv -> VarSet(v, rv)
-        | ItemGet(o, i) ->
+        | ItemGet(o, i, _) ->
             let ov = Id.New ()
             let iv = Id.New ()
-            withResultValue false (ItemGet(Var ov, Var iv)) <| fun rv -> 
+            withResultValue false (ItemGet(Var ov, Var iv, NoSideEffect)) <| fun rv -> 
                 ItemSet(Var ov, Var iv, rv)
         | FieldGet(o, t, f) ->
             match o with
@@ -1523,7 +1558,7 @@ type RoslynTransformer(env: Environment) =
                     Let (ov, o, FieldSet(Some (Var ov), t, f, rv))
             | _ ->
                 withResultValue false operand <| fun rv -> FieldSet(None, t, f, rv)
-        | Application(ItemGet (r, Value (String "get")), [], _, _) ->
+        | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
             withResultValue true operand <| SetRef r
         | Call (thisOpt, typ, getter, args) ->
             withResultValue true operand <| fun rv ->
@@ -1759,7 +1794,7 @@ type RoslynTransformer(env: Environment) =
         match symbol with
         | :? IPropertySymbol as symbol ->
             if symbol.ContainingType.IsAnonymousType then
-                ItemGet(getExpression().Value, Value (String (symbol.Name)))
+                ItemGet(getExpression().Value, Value (String (symbol.Name)), NoSideEffect)
             else
                 call symbol.GetMethod (getExpression()) [] // TODO property indexers
         | :? IMethodSymbol as symbol ->
@@ -1795,7 +1830,7 @@ type RoslynTransformer(env: Environment) =
                 match expr with
                 | Some e -> this.TransformExpression e
                 | _ -> Var env.Conditional.Value
-            ItemGetNonPure(expression, Value (String name.Node.Identifier.Text))
+            ItemGet(expression, Value (String name.Node.Identifier.Text), NonPure)
         | _ ->
             failwith "member access not handled: not property, event, method or field"      
         |> withExprSourcePos node
@@ -1872,7 +1907,13 @@ type RoslynTransformer(env: Environment) =
         let expression = x.Expression |> this.TransformExpression
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then 
-            expression
+            let fromTyp = env.SemanticModel.GetTypeInfo(x.Expression.Node).Type |> sr.ReadType
+            let toTyp = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
+            match fromTyp, toTyp with
+            | ConcreteType { Generics = []; Entity = ft }, ConcreteType { Generics = []; Entity = tt } ->
+                NumericConversion ft tt expression
+            | _ ->
+                expression
         else
             call symbol None [ expression ]
 
@@ -2103,6 +2144,19 @@ type RoslynTransformer(env: Environment) =
         | InterpolatedStringContentData.InterpolatedStringText x -> 
             Value (String x.Node.TextToken.ValueText)
         | InterpolatedStringContentData.Interpolation x -> 
-            if Option.isSome x.AlignmentClause then failwith "Syntax currently not supported for client side: interpolated string alignment"
-            if Option.isSome x.FormatClause then failwith "Syntax currently not supported for client side: interpolated string formatting"
-            x.Expression |> this.TransformExpression
+            let align =
+                x.AlignmentClause |> Option.map (fun a ->
+                    match getConstantValueOfExpression a.Value.Node with
+                    | Value v -> "," + v.Value.ToString()
+                    | _ -> failwith "Decimal not supported for string alignment"
+                )
+            let format = 
+                x.FormatClause |> Option.map (fun f ->
+                    ":" + f.Node.FormatStringToken.ValueText
+                )
+            let expr = x.Expression |> this.TransformExpression
+            match align, format with
+            | None, None -> expr
+            | _ -> 
+                let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
+                Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])

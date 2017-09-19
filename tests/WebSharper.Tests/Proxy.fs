@@ -21,6 +21,7 @@
 module WebSharper.Tests.Proxy
 
 open WebSharper
+open WebSharper.Collections.Tests.SplitProxy
 open WebSharper.JavaScript
 open WebSharper.Testing
 module R = WebSharper.Testing.Random
@@ -38,6 +39,19 @@ type internal StringBuilderProxy [<JavaScript>] () =
     [<JavaScript>]
     override this.ToString() = c
 
+[<JavaScript false>]
+type IIsClient =
+    abstract member IsClient: unit -> bool
+
+[<Proxy(typeof<IIsClient>)>]
+type internal IIsClientProxy =
+    [<Inline>]
+    member this.IsClient() = true
+
+type IIsClientClass [<JavaScript>] () =
+    interface IIsClient with
+        member this.IsClient() = false
+
 [<JavaScript>]
 let Tests =
 
@@ -51,4 +65,12 @@ let Tests =
             equal (sb.ToString()) "foobar"
         }
 
+        Test "Interface with JavaScript false" {
+            isTrue ((IIsClientClass() :> IIsClient).IsClient())
+        }
+
+        Test "Split proxy compilation" {
+            equalMsg (ClassInfoMergeTestType.Member1 ()) "member1" "Member1 compiled"
+            equalMsg (ClassInfoMergeTestType.Member2 ()) "member2" "Member2 compiled"
+        }
     }

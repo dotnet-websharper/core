@@ -30,7 +30,8 @@
     <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'False' ">$(OtherFlags) --dlres</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
     <FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
     <FscToolExe>WsFsc.exe</FscToolExe>
     <!-- <PreserveCompilationContext>True</PreserveCompilationContext> -->

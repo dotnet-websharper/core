@@ -64,7 +64,8 @@ module NotResolved =
         {
             StrongName : option<string>
             IsStatic : bool
-            IsOptional : bool   
+            IsOptional : bool 
+            IsReadonly : bool
             FieldType : Type
         }
 
@@ -106,12 +107,17 @@ module NotResolved =
     type M = NotResolvedMember
 
     let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
+        let nonObjBaseClass() = 
+            match baseCls with
+            | None -> false
+            | Some td when td = Definitions.Obj -> false
+            | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false
-        | NotResolvedClassKind.Static -> Option.isSome baseCls
+        | NotResolvedClassKind.Static -> nonObjBaseClass()
         | NotResolvedClassKind.WithPrototype -> true
         | _ ->
-            Option.isSome baseCls ||
+            nonObjBaseClass() ||
             cmembers
             |> Seq.exists (
                 function
@@ -142,10 +148,10 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
  
     member x.Item
         with get (key: 'TKey): 'TValue = 
-            match orig.TryGetValue key with
-            | true, value -> value
-            | _ ->
             match current.TryGetValue key with
+            | true, value -> value
+            | _ -> 
+            match orig.TryGetValue key with
             | true, value -> value
             | _ -> raise (KeyNotFoundException())
         and set (key: 'TKey) (v: 'TValue): unit = 
@@ -157,7 +163,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
         Seq.append orig.Keys current.Keys
 
     member x.TryGetValue(key: 'TKey, value: byref<'TValue>): bool = 
-        orig.TryGetValue(key, &value) || current.TryGetValue(key, &value)
+        current.TryGetValue(key, &value) || orig.TryGetValue(key, &value)
 
     member this.TryFind(key: 'TKey) =
         let mutable value = Unchecked.defaultof<'TValue>
@@ -439,7 +445,7 @@ type LookupMemberResult =
     | LookupMemberError of CompilationError 
 
 type LookupFieldResult =
-    | CompiledField of CompiledField
+    | CompiledField of CompiledField * bool * Type
     | PropertyField of option<Method> * option<Method>
     | CustomTypeField of CustomTypeInfo
     | LookupFieldError of CompilationError 

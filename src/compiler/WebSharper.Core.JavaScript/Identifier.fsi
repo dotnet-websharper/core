@@ -24,6 +24,9 @@ module WebSharper.Core.JavaScript.Identifier
 /// Checks if a string is a reserved word in JavaScript.
 val IsReserved : string -> bool
 
+/// Checks if a string is a standard member of an Object in JavaScript.
+val IsObjectMember : string -> bool
+
 /// Checks if a string is a valid JavaScript identifier name.
 val IsValid : string -> bool
 

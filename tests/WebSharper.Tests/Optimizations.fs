@@ -382,3 +382,35 @@ let CurriedArgWithLocal() =
     let LocalCurried a b =
         a + b
     CurriedArg LocalCurried
+
+[<JavaScript>]
+let CollectJSObject() =
+    let x = New [ "a" => 1 ]
+    x?b <- 
+        Console.Log(2)
+        2
+    x?c <- 
+        Console.Log(3)
+        3
+    x
+
+[<JavaScript>]
+let InlineValues() =
+    ("a", "b") ||> fun a b -> Console.Log(a, b)    
+
+[<JavaScript>]
+let InlineValues2() =
+    ((Console.Log("a"); "a"), (Console.Log("b"); "b")) ||> fun a b -> Console.Log(a, b)    
+
+[<JavaScript>]
+let InlineValues3() =
+    ((Console.Log("a"); "a"), (Console.Log("b"); "b")) ||> fun a b -> Array(a, b)    
+
+[<JavaScript>]
+let InlineValues4() =
+    let f x y = x + y + 1
+    ([| 1; 2 |], [| 3; 4 |]) ||> Array.map2 f
+
+[<JavaScript>]
+let InlinePrintf(a, b) =
+    sprintf "string: %s int: %d " a b 

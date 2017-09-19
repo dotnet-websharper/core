@@ -113,16 +113,12 @@ type XhrProvider [<JavaScript>] () =
 [<JavaScript>]
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
-[<Inline "void ($obj[$key] = $value)">]
-let private ( ?<- ) (obj: obj) (key: string) (value: obj) =
-    X<unit>
-
 [<JavaScript>]
 let private makeHeaders (m: string) =
-    let headers = obj ()
-    (?<-) headers "content-type" "application/json"
-    (?<-) headers "x-websharper-rpc" m
-    headers
+    New [
+        "content-type" => "application/json"   
+        "x-websharper-rpc" => m
+    ]
 
 [<JavaScript>]
 let private makePayload (data: obj []) =

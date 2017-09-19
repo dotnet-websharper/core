@@ -42,6 +42,7 @@ let Tests =
         Test "Guid" {
             let guids = List.init 100 (fun _ -> System.Guid.NewGuid())
             equal (guids |> Seq.distinct |> Seq.length) 100
+            equal (System.Guid.Empty.ToString()) "00000000-0000-0000-0000-000000000000"
         }
 
     }

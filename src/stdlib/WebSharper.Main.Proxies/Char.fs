@@ -26,6 +26,9 @@ open WebSharper.JavaScript
 [<Proxy(typeof<System.Char>)>]
 type private CharProxy =
 
+    [<Inline "'\u0000'">]
+    new () = {}
+
     static member GetNumericValue(c: char) : float =
         if c >= '0' && c <= '9' then float c - float '0' else -1.
 
@@ -48,13 +51,12 @@ type private CharProxy =
     static member IsUpper(c: char) : bool =
         c >= 'A' && c <= 'Z'
 
-    [<Direct @"String.fromCharCode($c).match(/\s/) !== null">]
+    [<Direct @"$c.match(/\s/) !== null">]
     static member IsWhiteSpace(c: char) = X<bool>
 
-    [<Inline "$s.charCodeAt(0)">]
-    static member CharCodeAt0(s: string) = X<char>
-
     static member Parse(s: string) =
-        if s.Length = 1 then CharProxy.CharCodeAt0(s) else
+        if s.Length = 1 then As<char> s else
             failwith "String must be exactly one character long."
 
+    [<Inline "String.fromCharCode($x.charCodeAt() + $y.charCodeAt())">]
+    static member (+) (x: char, y: char) : char = x + y

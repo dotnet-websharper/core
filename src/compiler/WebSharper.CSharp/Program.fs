@@ -58,10 +58,12 @@ let Compile config =
     let refMeta =
         let mutable refError = false
         let metas = refs |> List.choose (fun r -> 
-            try ReadFromAssembly FullMetadata r
-            with e ->
+            match TryReadFromAssembly FullMetadata r with
+            | None -> None
+            | Some (Ok m) -> Some m
+            | Some (Error e) ->
                 refError <- true
-                PrintGlobalError e.Message
+                PrintGlobalError e
                 None
         )
         if refError then None
@@ -116,18 +118,20 @@ let Compile config =
     
     let comp =
         compiler.Compile(refMeta, config.CompilerArgs, config.ProjectFile)
-
-    PrintWebSharperErrors config.WarnOnly comp
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        PrintWebSharperErrors config.WarnOnly comp
         argError "" // exits without printing more errors
     else
 
     let assem = loader.LoadFile config.AssemblyFile
+
     let js =
-        ModifyAssembly refMeta
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
+        ModifyAssembly (Some comp) refMeta
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
             
+    PrintWebSharperErrors config.WarnOnly comp
+
     if config.PrintJS then
         match js with 
         | Some js ->
@@ -233,6 +237,14 @@ let compileMain argv =
             cscArgs.Add a
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
+        | StartsWith "--closures:" c ->
+            match c.ToLower() with
+            | "true" ->
+                wsArgs := { !wsArgs with AnalyzeClosures = Some false }
+            | "movetotop" ->
+                wsArgs := { !wsArgs with AnalyzeClosures = Some true }
+                | _ ->
+                    printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
         | _ -> 
             cscArgs.Add a  
     wsArgs := 

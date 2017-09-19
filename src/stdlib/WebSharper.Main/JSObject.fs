@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -18,19 +18,21 @@
 //
 // $end{copyright}
 
-module private WebSharper.Ref
+namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Proxy(typeof<ref<_>>)>]
-[<Name "WebSharper.Ref">]
-type private RefProxy<'T> =
-    {
-        [<Name 0>]
-        mutable contents : 'T    
-    } 
-    member this.Value
-        with    [<Inline "$this[0]">]
-                get () = X<'T>
-        and     [<Inline "void ($this[0] = $x)">]
-                set (x: 'T) = X<unit>
+type JSObject [<Inline "{}">]() =
+
+    [<Inline "void($this[$key] = $value)">]
+    member this.Add<'T>(key: string, value: 'T) = X<unit> 
+
+    interface System.Collections.IEnumerable with
+        member this.GetEnumerator() = X<System.Collections.IEnumerator>
+
+    [<Inline "$this">]
+    member this.As<'T>() = X<'T>
+
+    member this.Item
+        with [<Inline "$this[$key]">] get (key: string) = X<obj>
+        and [<Inline "void($this[$key] = $value)">] set (key: string) (value: obj) = X<unit> 

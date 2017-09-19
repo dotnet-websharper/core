@@ -69,14 +69,22 @@ let transformId (env: Environment) (id: Id) =
     try Map.find id env.ScopeIds
     with _ -> 
         //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
-        failwithf "Undefined variable during writing JavaScript: %s" (defaultArg id.Name "(noname)")
+        failwithf "Undefined variable during writing JavaScript: %s" (string id)
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
+let getCompactName (env: Environment) =
+    let vars = env.ScopeNames
+    let mutable name = formatter env.CompactVars   
+    env.CompactVars <- env.CompactVars + 1   
+    while vars |> Set.contains name do
+        name <- formatter env.CompactVars   
+        env.CompactVars <- env.CompactVars + 1   
+    name
+
 let defineId (env: Environment) addToDecl (id: Id) =
     if env.Preference = P.Compact then
-        let name = formatter env.CompactVars    
-        env.CompactVars <- env.CompactVars + 1   
+        let name = getCompactName env    
         env.ScopeIds <- env.ScopeIds |> Map.add id name
         if addToDecl then env.ScopeVars.Add(name)
         name 
@@ -89,6 +97,15 @@ let defineId (env: Environment) addToDecl (id: Id) =
         env.ScopeIds <- env.ScopeIds |> Map.add id name
         if addToDecl then env.ScopeVars.Add(name)
         name
+
+let defineImportedId (env: Environment) (id: Id) =
+    let iname = id.Name.Value
+    env.ScopeNames <- env.ScopeNames |> Set.add iname
+    if env.Preference = P.Compact then
+        let name = getCompactName env    
+        env.ScopeIds <- env.ScopeIds |> Map.add id name
+    else 
+        env.ScopeIds <- env.ScopeIds |> Map.add id iname
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
@@ -115,7 +132,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | Null     -> J.Literal.Null
         | Bool   v -> if v then J.Literal.True else J.Literal.False
         | Byte   v -> J.Number (string v)
-        | Char   v -> J.Number (string (int v))
+        | Char   v -> J.String (string v)
         | Double v -> J.Number (string v)
         | Int    v -> J.Number (string v)
         | Int16  v -> J.Number (string v)
@@ -126,7 +143,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | UInt16 v -> J.Number (string v)
         | UInt32 v -> J.Number (string v)
         | UInt64 v -> J.Number (string v)
-        | Decimal v -> J.Number (string v)
+        | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
         |> J.Constant
     | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
@@ -158,8 +175,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
             else []
         J.Lambda(None, args, useStrict @ innerEnv.Declarations @ body)
-    | ItemGet (x, y) 
-    | ItemGetNonPure (x, y) 
+    | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
         match y with
@@ -287,7 +303,7 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> J.If(trE a, trS b, trS c)
-    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Ignore(trE a)
+    | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> J.Block [ J.Ignore(trE a); J.Return None ]
     | Return (IgnoreSourcePos.Sequential s) -> J.Block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))

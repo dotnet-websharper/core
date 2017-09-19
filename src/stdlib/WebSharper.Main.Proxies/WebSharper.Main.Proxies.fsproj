@@ -17,7 +17,7 @@
     <Compile Include="../WebSharper.Main/Remoting.fs" />
     <EmbeddedResource Include="../WebSharper.Main/AnimFrame.js" />
     <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js" />
-    <Compile Include="../WebSharper.Main/PrintfHelpers.fs" />
+    <Compile Include="../WebSharper.Main/Utils.fs" />
     <Compile Include="../WebSharper.Main/Concurrency.fs" />
     <Compile Include="../WebSharper.Main/Enumerator.fs" />
     <Compile Include="../WebSharper.Main/Enumerable.fs" />
@@ -27,6 +27,7 @@
     <Compile Include="../WebSharper.Main/JavaScript.Extensions.fs" />
     <Compile Include="../WebSharper.Main/ProxyHelpers.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Interop.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/JSObject.fs" />
     <None Include="../WebSharper.Main.Proxies/genInterop.fsx" />
     <Compile Include="../WebSharper.Main.Proxies/CollectionInternals.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Object.fs" />
@@ -59,6 +60,8 @@
     <Compile Include="../WebSharper.Main.Proxies/ListModule.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Math.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Nullable.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/NullableModule.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/NullableOperators.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Operators.fs" />
     <Compile Include="../WebSharper.Main.Proxies/OperatorIntrinsics.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Option.fs" />

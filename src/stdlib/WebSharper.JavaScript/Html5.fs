@@ -1417,6 +1417,27 @@ module General =
         Class "Navigator" 
         |+> Instance ["geolocation" =? Geolocation.Geolocation]
 
+    let MQL =
+        Class "MediaQueryList"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Instance [
+            "matches" =? T<bool>
+            "media" =? T<string>
+            "onchange" => Dom.Interfaces.Event ^-> T<unit>
+        ]
+
+    let CSSSD =
+        Class "CSSStyleDeclaration"
+        |+> Instance [
+            "cssText" =@ T<string>
+            "length" =? T<int>
+            "getPropertyPriority" => T<string> ^-> T<string>
+            "getPropertyValue" => T<string> ^-> T<string>
+            "item" => T<int> ^-> T<string>
+            "removeProperty" => T<string> ^-> T<string>
+            "setProperty" => T<string>?propertyName * !? T<string>?value * !? T<string>?priority ^-> T<unit>
+        ]
+
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
@@ -1441,6 +1462,37 @@ module General =
             "statusbar" =? BarProp
             "toolbar" =? BarProp
 
+            "getComputedStyle" => Dom.Interfaces.Element * !? T<string>?pseudo ^-> CSSSD
+
+            "matchMedia" => T<string> ^-> MQL
+
+            "innerHeight" =? T<int>
+            "innerWidth" =? T<int>
+            "outerHeight" =? T<int>
+            "outerWidth" =? T<int>
+
+            "scrollX" =? T<float>
+            "scrollY" =? T<float>
+            "scroll" => T<int>?x * T<int>?y ^-> T<unit>
+            "scrollBy" => T<int>?x * T<int>?y ^-> T<unit>
+            "scrollTo" => T<int>?x * T<int>?y ^-> T<unit>
+
+            "screenX" =? T<int>
+            "screenY" =? T<int>
+
+            "stop" => T<unit> ^-> T<unit>
+
+            "moveBy" => T<int>?x * T<int>?y ^-> T<unit>
+            "moveTo" => T<int>?x * T<int>?y ^-> T<unit>
+            "resizeBy" => T<int>?x * T<int>?y ^-> T<unit>
+            "resizeTo" => T<int>?oWidth * T<int>?oHeight ^-> T<unit>
+
+            "requestAnimationFrame" => (T<float -> unit>) ^-> T<int>
+
+            "blur" => T<unit> ^-> T<unit>
+                |> WithComment "Shifts focus away from the window"
+            "focus" => T<unit> ^-> T<unit>
+                |> WithComment "Makes a request to bring the window to the front"
 
             "frames" =? WindowProxyType
             "length" =? T<int>
@@ -1453,6 +1505,7 @@ module General =
             "open" => (T<string> * T<string>) ^->  WindowProxyType
             "open" => (T<string>) ^->  WindowProxyType
             "open" => (T<unit>) ^->  WindowProxyType
+            "close" => T<unit> ^-> T<unit>
 
             "navigator" =? Navigator
             "crypto" =? T<obj>
@@ -2233,6 +2286,8 @@ module Definition =
                 General.ScrollRestoration
                 General.UndoManager
                 General.Window
+                General.CSSSD
+                General.MQL
                 TypedArrays.DataView.Class
                 TypedArrays.ArrayBuffer
                 TypedArrays.ArrayBufferView

@@ -126,8 +126,10 @@ let CombineStatements statements =
             | Continue _
             | Throw _
             | Return _ ->
-                go <- false
-                true
+                if go then
+                    go <- false
+                    true
+                else false
             | FuncDeclaration _ -> true
             | _ -> go
         )    
@@ -163,11 +165,11 @@ let MakeRef getVal setVal =
 
 /// Gets the value from a by-address value proxy
 let GetRef r =
-    Application(ItemGet (r, Value (String "get")), [], true, Some 0)
+    Application(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
 
 /// Sets the value of a by-address value proxy
 let SetRef r v =
-    Application(ItemGet (r, Value (String "set")), [v], false, Some 1)
+    Application(ItemGet (r, Value (String "set"), Pure), [v], NonPure, Some 1)
 
 /// recognizes .NET names for binary operators
 let (|BinaryOpName|_|) = function
@@ -213,3 +215,83 @@ let erasedUnions =
                 }    
         }
     )
+
+let smallIntegralTypes =
+    Set [
+        "System.Byte"
+        "System.SByte"
+        "System.Int16"
+        "System.Int32"
+        "System.UInt16"
+        "System.UInt32"
+    ]
+
+let bigIntegralTypes =
+    Set [
+        "System.Int64"
+        "System.UInt64" 
+    ]
+
+let integralTypes =  smallIntegralTypes + bigIntegralTypes
+
+let scalarTypes =
+    integralTypes
+    + Set [
+        "System.Double"
+        "System.Single"
+        "System.TimeSpan"
+        "System.DateTime"
+    ]
+
+let comparableTypes =
+    scalarTypes
+    + Set [
+        "System.String"
+        "System.Char"
+    ]
+
+let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|NonNumericType|) n =
+    if smallIntegralTypes.Contains n then SmallIntegralType
+    elif bigIntegralTypes.Contains n then BigIntegralType
+    elif scalarTypes.Contains n then ScalarType
+    elif n = "System.Char" then CharType
+    elif n = "System.String" then StringType
+    else NonNumericType
+
+let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
+    match fromTyp.Value.FullName, toTyp.Value.FullName with
+    | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
+    | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
+    | ScalarType, ScalarType
+    | CharType, (CharType | StringType)
+    | StringType, StringType
+        -> expr
+    | ScalarType, SmallIntegralType
+        -> expr ^>> !~(Int 0)
+    | ScalarType, BigIntegralType
+        -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
+    | (SmallIntegralType | BigIntegralType | ScalarType), CharType
+        -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+    | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
+        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None) 
+    | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
+        -> Application(Global ["String"], [expr], Pure, Some 1)
+    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
+        -> Application(Global ["Number"], [expr], Pure, Some 1)
+    | _ -> expr
+
+/// Change every occurence of one Id to another
+type ReplaceId(fromId, toId) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        if i = fromId then toId else i
+
+/// Change every occurence of multiple Ids
+type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
+    inherit Transformer()
+    
+    override this.TransformId i =
+        match repl.TryGetValue i with
+        | true, j -> j
+        | _ -> i

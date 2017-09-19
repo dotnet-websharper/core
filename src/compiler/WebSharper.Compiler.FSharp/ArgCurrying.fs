@@ -141,7 +141,12 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
     override this.VisitApplication(f, args, _, _) =
         match IgnoreExprSourcePos f with
         | ArgIndex i ->
-            setAppl margs.[i] 1
+            if appl.[i] = 1 then
+                match args with 
+                | [ I.NewArray _ ] -> ()
+                | _ -> setAppl margs.[i] 0
+            else
+                setAppl margs.[i] 1
         | f -> this.VisitExpression f
         args |> List.iter this.VisitExpression            
 
@@ -175,12 +180,12 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             match cargs.TryGetValue f with
             | true, CurriedFuncArg a ->
                 let ucArgs, restArgs = args |> List.map this.TransformExpression |> List.splitAt a
-                let inner = Application(Var f, ucArgs, false, Some a)
+                let inner = Application(Var f, ucArgs, NonPure, Some a)
                 curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
                 | t :: rArgs ->
-                    curriedApplication (this.TransformApplication(func, [t], false, Some 1))
+                    curriedApplication (this.TransformApplication(func, [t], NonPure, Some 1))
                         (List.map this.TransformExpression rArgs)
                 | _ -> failwith "tupled func must have arguments"
             | _ -> base.TransformCurriedApplication(func, args)
@@ -197,7 +202,7 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
                 | [ I.NewArray es ] ->
                     Application(Var f, List.map this.TransformExpression es, p, Some (List.length es))
                 | _ ->
-                    failwith "tupled function applied with multiple arguments"    
+                    failwith "tupled function not applied with a known tuple"    
             | _ -> normal()    
         | _ -> normal()
 

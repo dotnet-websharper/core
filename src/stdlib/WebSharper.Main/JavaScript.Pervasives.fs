@@ -96,9 +96,14 @@ let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 [<Inline "[$x,$y]">]
 let ( => ) (x: string) (y: obj) = (x, y)
 
+type JS =
+    /// Parses and inlines JavaScript code
+    [<Macro(typeof<M.InlineJS>)>]
+    static member Inline<'T> (inlineString: string, [<System.ParamArray>] args: obj[]) = X<'T>
+
 [<JavaScript>]
 let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
-    let r = obj ()
+    let r = JS.Inline "{}"
     for (k, v) in fields do
         (?<-) r k v
     As r
@@ -106,11 +111,6 @@ let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
 /// Constructs a new object as if an object literal was used.
 [<Macro(typeof<M.New>); Inline>]
 let New<'T> (fields: seq<string * obj>) = NewFromSeq<'T> fields
-
-type JS =
-    /// Parses and inlines JavaScript code
-    [<Macro(typeof<M.InlineJS>)>]
-    static member Inline<'T> (inlineString: string, [<System.ParamArray>] args: obj[]) = X<'T>
 
 /// Constructs an proxy to a remote object instance.
 [<Constant null>]

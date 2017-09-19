@@ -265,7 +265,7 @@ type Graph =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
                 | AssemblyNode (name, true) ->
-                    AssemblyResource name :> R.IResource
+                    AssemblyResource(name) :> R.IResource
                 | ResourceNode (t, p) ->
                     try
                         match p with

@@ -88,6 +88,10 @@ module FSharpExtensions =
 
 /// Utility functions on IDictionary objects
 module Dict =
+    /// Returns true if the dictionary has no elements
+    let isEmpty (d: IDictionary<_,_>) =
+        d.Count = 0
+
     /// Add or append item to an IDictionary having a lists as values
     let addToMulti (d: IDictionary<_,_>) k v =
         match d.TryGetValue k with

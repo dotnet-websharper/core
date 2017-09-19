@@ -120,7 +120,7 @@ module UnpackCommand =
             match (try loader.LoadFile p |> Some with _ -> None) with 
             | None -> () 
             | Some a ->
-            let aid = PC.AssemblyId.Create(a.FullName)
+            let aid = PC.AssemblyId.Create(a.Name)
             emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
                 a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
             emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)

@@ -35,6 +35,14 @@ let Tests =
             equal (1 :: 2 :: 3 :: []) [1; 2; 3]
         }
 
+        Test "List.allPairs" {
+            equal (List.allPairs [] []) []
+            equal (List.allPairs [1] []) []
+            equal (List.allPairs [] [1]) []
+            equal (List.allPairs [1] [2]) [(1,2)]
+            equal (List.allPairs [1; 2; 3] ['a';'b']) [(1,'a');(1,'b');(2,'a');(2,'b');(3,'a');(3,'b')]
+        }
+
         Test "List.append" {
             equal (List.append [1; 2; 3] [4; 5]) [1..5]
             equal (List.append [] []) []

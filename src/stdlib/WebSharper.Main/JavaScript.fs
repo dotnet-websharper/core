@@ -43,7 +43,7 @@ let Undefined<'T> = raise ClientSideOnly : 'T
 
 /// Returns the reference to the global JavaScript object.
 [<Inline "$global">]
-let Global = obj ()
+let Global = X<obj>
 
 /// Ignores the value of an expression.
 [<Inline "void $x">]
@@ -109,7 +109,7 @@ let ClearTimeout (handle: Handle) = raise ClientSideOnly : unit
 let ClearInterval (handle: Handle) = raise ClientSideOnly : unit
 
 /// Performs JavaScript function application.
-[<Inline "$x[$func].apply($x,$args)">]
+[<Inline "$wsruntime.Apply($x[$func], $x, $args)">]
 let Apply<'T> (x: obj) (func: string) (args: obj []) = raise ClientSideOnly : 'T
 
 /// Deletes a field from a JavaScript object.
@@ -155,12 +155,12 @@ let ForEach (x: obj) (iter: string -> bool) = raise ClientSideOnly : unit
 let InstanceOf (x: obj) (cl: obj) = raise ClientSideOnly : bool
 
 /// Logs the given object to console if one is defined.
-[<Direct "if (console) console.log($x)">]
+[<Inline "if (console) console.log($x)">]
 [<System.Obsolete "Use Console.Log instead.">]
 let Log (x: obj) = raise ClientSideOnly : unit
 
 /// Logs an array or tuple to console if one is defined.
-[<Direct "if (console) console.log.apply(console, $args)">]
+[<Inline "if (console) console.log.apply(console, $args)">]
 [<System.Obsolete "Use Console.Log instead.">]
 let LogMore args = ()
 

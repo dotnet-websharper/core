@@ -91,15 +91,15 @@ module Definition =
                 "multiLine" =? T<bool>
                 "lastIndex" =@ T<int>
                 "match" => T<string>?str ^-> T<string []>
-                    |> WithInline "$this[Symbol.match]($str)"
+                    |> WithInline "$str.match($this)"
                 "replace" => T<string>?str * T<string>?newSubStr ^-> T<string>
-                    |> WithInline "$this[Symbol.replace]($str, $newSubStr)"
+                    |> WithInline "$str.replace($this, $newSubStr)"
                 "replace" => T<string>?str * T<Function>?replaceFn ^-> T<string>
-                    |> WithInline "$this[Symbol.replace]($str, $replaceFn)"
+                    |> WithInline "$str.replace($this, $replaceFn)"
                 "search" => T<string>?str ^-> T<int>
-                    |> WithInline "$this[Symbol.search]($str)"
+                    |> WithInline "$str.search($this)"
                 "split" => T<string>?str ^-> T<string []>
-                    |> WithInline "$this[Symbol.split]($str)"
+                    |> WithInline "$str.split($this)"
             ]
         |+> Static [
                 Constructor(T<string> * !?T<string>?flags)

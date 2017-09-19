@@ -26,7 +26,19 @@ open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
 
+module I = WebSharper.Core.JavaScript.Identifier
+
 open IgnoreSourcePos
+
+//let (|GlobalAccess|_|) e =
+//    let rec ga acc e =
+//        match e with
+//        | GlobalAccess a -> Some (Address (acc @ a.Value))
+//        | ItemGet(m, Value (String f), _) -> ga (f :: acc) m
+//        | _ -> None
+//    match e with 
+//    | GlobalAccess a -> Some a
+//    | _ -> ga [] e
 
 let (|Runtime|_|) e = 
     match e with 
@@ -46,11 +58,21 @@ let (|Global|_|) e =
     
 let (|AppItem|_|) e =
     match e with
-    | Application (ItemGet (obj, Value (String item)), args, _, _) -> Some (obj, item, args)
+    | Application (ItemGet (obj, Value (String item), _), args, _, _) -> Some (obj, item, args)
+    | _ -> None
+
+let (|AppRuntime|_|) e =
+    match e with
+    | Application (Runtime rtFunc, args, _, _) -> Some (rtFunc, args)
+    | _ -> None
+
+let (|GetPrototypeConstuctor|_|) e =
+    match e with
+    | ItemGet(ItemGet(GlobalAccess m, Value (String "prototype"), _), Value (String "constructor"), _) -> Some m
     | _ -> None
 
 let AppItem (obj, item, args) =
-    Application(ItemGet(obj, Value (String item)), args, true, None)
+    Application(ItemGet(obj, Value (String item), Pure), args, NonPure, None)
 
 let func vars body isReturn =
     if isReturn then Lambda(vars, body) else Function(vars, ExprStatement body)
@@ -58,26 +80,61 @@ let func vars body isReturn =
 let thisFunc this vars body isReturn =
     func vars (FixThisScope().Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
 
-let cleanRuntime expr =
+let globalArray = Address [ "Array" ]
+
+let cleanRuntime force expr =
 //    let tr = Transform clean
     match expr with
     | Application (Global "id", [ x ], _, _) -> 
         x
     | Application (Global "ignore", [ x ], _, _) -> 
         Unary(UnaryOperator.``void``, x)
-    | Application (Application (Runtime "Bind", [f; obj], _, _), args, _, _) -> 
+    | Application (AppRuntime ("Bind", [f; obj]), args, _, _) -> 
         AppItem(f, "call", obj :: args)
-    | AppItem(Application (Runtime "Bind", [f; obj], _, _), "apply", [args]) ->
-        AppItem(f, "apply", [obj; args])
-    | Application(Application(Application(Runtime "Curried2", [ f ], _, _), [ a ], _, _), [ b ], isPure, _) ->
+    | Application(Application(AppRuntime("Curried2", [ f ]), [ a ], _, _), [ b ], isPure, _) ->
         Application(f, [ a; b ], isPure, Some 2)
-    | Application(Application(Application(Application(Runtime "Curried3", [ f ], _, _), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
+    | Application(Application(Application(AppRuntime("Curried3", [ f ]), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
         Application(f, [ a; b; c ], isPure, Some 3)
-    | Application(Runtime rtFunc, xs, _, _) ->
+
+    | AppItem(NewArray arr, "concat", [ NewArray rest ]) ->
+        NewArray (arr @ rest)    
+    | AppRuntime(rtFunc, xs) ->
         match rtFunc, xs with
-        | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], isPure, _); NewArray args ] 
-            when args.Length = l ->
+        | "Apply", [AppRuntime ("Bind", [f; obj]); ignoredObj; args] ->
+            AppItem(f, "apply", [obj; Sequential [ignoredObj; args]])
+        
+        //used by functions with rest argument
+        | "Apply", [GlobalAccess mf; Value Null ] ->
+            Application (GlobalAccess mf, [], NonPure, None)
+        | "Apply", [GlobalAccess mf; Value Null; NewArray arr ] ->
+            Application (GlobalAccess mf, arr, NonPure, None)
+        | "Apply", [GlobalAccess mf; Value Null; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] ->
+            Application (GlobalAccess mf, arr @ rest, NonPure, None)
+
+        | "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Value.Tail = m.Value ->
+            Application (GlobalAccess mf, [], NonPure, None)
+        | "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Value.Tail = m.Value ->
+            Application (GlobalAccess mf, arr, NonPure, None)
+        | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Value = m.Value ->
+            Application (GlobalAccess mf, arr @ rest, NonPure, None)
+        
+        | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->
+            if m1 = globalArray then NewArray []
+            else New(GlobalAccess m1, [])
+        | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2; NewArray arr ] when m1 = m2 ->
+            if m1 = globalArray then NewArray arr
+            else New(GlobalAccess m1, arr)
+        | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when m1 = m2 ->
+            if m1 = globalArray then NewArray (arr @ rest)
+            else New(GlobalAccess m1, arr @ rest)
+
+        | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], isPure, _); ignoredObj; NewArray args ] 
+            when args.Length = l && isPureExpr ignoredObj ->
                 Application(f, args, isPure, Some l)
+        | "Apply", [f; obj; args] when force ->
+            AppItem(f, "apply", [ obj; args ])
+        | "Apply", [f; obj] when force ->
+            AppItem(f, "apply", [ obj ])
         | "CreateFuncWithArgs", [ TupledLambda (vars, body, isReturn) as f ] ->
             func vars body isReturn |> WithSourcePosOfExpr f
         | "CreateFuncWithArgs", _ ->
@@ -89,11 +146,11 @@ let cleanRuntime expr =
             thisFunc obj [] body isReturn |> WithSourcePosOfExpr f
         | "CreateFuncWithThis", [ Lambda ([obj], Lambda (args, body, isReturn), true) as f ] ->
             thisFunc obj args body isReturn |> WithSourcePosOfExpr f   
-        | "CreateFuncWithThis", [ Application(Runtime "Curried", [Lambda([obj; arg], body, isReturn) as f], _, _) ] ->
+        | "CreateFuncWithThis", [ AppRuntime ("Curried", [Lambda([obj; arg], body, isReturn) as f]) ] ->
             thisFunc obj [arg] body isReturn |> WithSourcePosOfExpr f   
         | "CreateFuncWithThisArgs", [ Lambda ([obj], TupledLambda (vars, body, isReturn), true) as f ] ->
             thisFunc obj vars body isReturn |> WithSourcePosOfExpr f
-        | "CreateFuncWithThisArgs", [ Application(Runtime "Curried", [Lambda([obj; arg], body, isReturn) as f], _, _) ] ->
+        | "CreateFuncWithThisArgs", [ AppRuntime ("Curried", [Lambda([obj; arg], body, isReturn) as f]) ] ->
             match func [arg] body isReturn with
             | TupledLambda(vars, body, _) ->
                 thisFunc obj vars body isReturn |> WithSourcePosOfExpr f
@@ -111,7 +168,7 @@ let cleanRuntime expr =
         | "SetOptional", [obj; field; optValue] ->
             match optValue with
             | Object ["$", Value (Int 0)] ->
-                MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field)) |> WithSourcePosOfExpr expr
+                MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field, NonPure)) |> WithSourcePosOfExpr expr
             | Object ["$", Value (Int 1); "$0", value] ->
                 ItemSet (obj, field, value) |> WithSourcePosOfExpr expr
             | _ -> expr     
@@ -119,7 +176,7 @@ let cleanRuntime expr =
             if isTrivialValue value then
                 match value with
                 | Undefined ->
-                    MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field)) |> WithSourcePosOfExpr expr
+                    MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field, NonPure)) |> WithSourcePosOfExpr expr
                 | _ ->
                     ItemSet (obj, field, value) |> WithSourcePosOfExpr expr
             else expr     
@@ -190,10 +247,7 @@ let cleanRuntime expr =
             transformIfAlwaysInterop "CreateFuncWithThisArgs" (fun () -> thisFunc obj vars lBody isReturn)
         | _ ->
             expr
-    //used by functions with rest argument
-    | Application (ItemGet(NewArray arr, Value (String "concat")), [ NewArray rest ], _, _) ->
-        NewArray (arr @ rest)    
-    | ItemGet (Object fs, Value (String fieldName)) ->
+    | ItemGet (Object fs, Value (String fieldName), _) when not (I.IsObjectMember fieldName) ->
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []
         let mutable fieldValue = None
@@ -215,7 +269,7 @@ let cleanRuntime expr =
             Let (resVar, result, 
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )
-    | ItemGet (NewArray fs, Value (Int index)) ->
+    | ItemGet (NewArray fs, Value (Int index), _) ->
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []
         let mutable fieldValue = None
@@ -239,4 +293,7 @@ let cleanRuntime expr =
             Let (resVar, result, 
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )
+    // created by FSharpRef if using record constructor
+    | Object [ "0", x ] ->
+        NewArray [ x ]
     | _ -> expr

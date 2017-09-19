@@ -83,10 +83,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     if config.ProjectType = Some WIG then  
         aR.Wrap <| fun () ->
-        RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
-
-        TimedStage "WIG running time"
-        0
+        try 
+            RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
+            TimedStage "WIG running time"
+            0
+        with e ->
+            PrintGlobalError (sprintf "Error running WIG assembly: %s at %s" e.Message e.StackTrace)
+            1
     
     else    
     let loader = Loader.Create aR (printfn "%s")
@@ -95,10 +98,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         System.Threading.Tasks.Task.Run(fun () ->
             let mutable refError = false
             let metas = refs |> List.choose (fun r -> 
-                try ReadFromAssembly FullMetadata r
-                with e ->
+                match TryReadFromAssembly FullMetadata r with
+                | None -> None
+                | Some (Ok m) -> Some m
+                | Some (Error e) ->
                     refError <- true
-                    PrintGlobalError e.Message
+                    PrintGlobalError e
                     None
             )
             if refError then None
@@ -153,16 +158,19 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         1
     | Some comp ->
 
-    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
         1
     else
             
     let assem = loader.LoadFile config.AssemblyFile
+    
     let js =
-        ModifyAssembly (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap assem
+        ModifyAssembly (Some comp) (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+
+    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
     if config.PrintJS then
         match js with 
@@ -286,6 +294,14 @@ let compileMain argv =
                 warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
             | StartsWith "--warnaserror-:" w ->
                 warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
+            | StartsWith "--closures:" c ->
+                match c.ToLower() with
+                | "true" ->
+                    wsArgs := { !wsArgs with AnalyzeClosures = Some false }
+                | "movetotop" ->
+                    wsArgs := { !wsArgs with AnalyzeClosures = Some true }
+                | _ ->
+                    printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
             | _ -> 
                 fscArgs.Add a  
         with e ->
@@ -299,11 +315,14 @@ let compileMain argv =
         }
 
     let clearOutput() =
-        let intermediaryOutput = (!wsArgs).AssemblyFile
-        if File.Exists intermediaryOutput then 
-            let failedOutput = intermediaryOutput + ".failed"
-            if File.Exists failedOutput then File.Delete failedOutput
-            File.Move (intermediaryOutput, failedOutput)
+        try
+            let intermediaryOutput = (!wsArgs).AssemblyFile
+            if File.Exists intermediaryOutput then 
+                let failedOutput = intermediaryOutput + ".failed"
+                if File.Exists failedOutput then File.Delete failedOutput
+                File.Move (intermediaryOutput, failedOutput)
+        with _ ->
+            PrintGlobalError "Failed to clean intermediate output!"
 
     try 
         let exitCode = Compile !wsArgs !warn

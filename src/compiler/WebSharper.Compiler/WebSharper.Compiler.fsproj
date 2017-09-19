@@ -13,9 +13,9 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="AttributeReader.fs" />
     <Compile Include="CompilationHelpers.fs" />
+    <Compile Include="Optimizations.fs" />
     <Compile Include="Breaker.fsi" />
     <Compile Include="Breaker.fs" />
-    <Compile Include="Optimizations.fs" />
     <Compile Include="Recognize.fs" />
     <Compile Include="Verifier.fs" />
     <Compile Include="CompilationTypes.fs" />
@@ -25,6 +25,7 @@
     <Compile Include="Translator.fsi" />
     <Compile Include="Translator.fs" />
     <Compile Include="Stubs.fs" />
+    <Compile Include="Closures.fs" />
     <Compile Include="JavaScriptWriter.fs" />
     <Compile Include="Packager.fs" />
     <Compile Include="ErrorPrinting.fs" />

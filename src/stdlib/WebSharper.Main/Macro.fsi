@@ -24,34 +24,29 @@ module WebSharper.Macro
 
 open WebSharper.Core
 
-[<AbstractClass>]
+[<Sealed>]
 type Arith =
     inherit Macro
-
-[<Sealed>]
-type Add =
-    new : unit -> Add
-    inherit Arith
-
-[<Sealed>]
-type Sub =
-    new : unit -> Sub
-    inherit Arith
-
-[<Sealed>]
-type Div =
-    new : unit -> Div
-    inherit Macro
+    new : unit -> Arith
 
 [<Sealed>]
 type NumericMacro =
     inherit Macro
-
     new : unit -> NumericMacro
 
 [<Sealed>]
 type Char =
     new : unit -> Char
+    inherit Macro
+
+[<Sealed>]
+type Range =
+    new : unit -> Range
+    inherit Macro
+
+[<Sealed>]
+type Conversion =
+    new : unit -> Conversion
     inherit Macro
 
 [<Sealed>]
@@ -104,39 +99,10 @@ type PrintF =
     new : unit -> PrintF
     inherit Macro
 
-[<AbstractClass>]
-type CMP =
+[<Sealed>]
+type Comp =
     inherit Macro
-
-[<Sealed>]
-type EQ =
-    new : unit -> EQ
-    inherit CMP
-
-[<Sealed>]
-type NE =
-    new : unit -> NE
-    inherit CMP
-
-[<Sealed>]
-type LT =
-    new : unit -> LT
-    inherit CMP
-
-[<Sealed>]
-type GT =
-    new : unit -> GT
-    inherit CMP
-
-[<Sealed>]
-type LE =
-    new : unit -> LE
-    inherit CMP
-
-[<Sealed>]
-type GE =
-    new : unit -> GE
-    inherit CMP
+    new : unit -> Comp
 
 [<Sealed>]
 type EqualityComparer =

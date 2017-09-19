@@ -44,9 +44,6 @@ module BundleUtility =
         JS.Application (JS.Binary (JS.Var "document", JS.BinaryOperator.``.``, str "write"), [str w])
         |> W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
 
-    let GetDependencyNodeForAssembly (a: Assembly) : M.Node =
-        M.Node.AssemblyNode (a.FullName, true)
-
 [<Sealed>]
 type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfig: string) =
 

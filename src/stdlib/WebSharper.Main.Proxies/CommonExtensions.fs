@@ -34,10 +34,10 @@ let observer (h: 'T -> unit) : System.IObserver<'T> =
         member this.OnNext args = h args
     }
 
-[<Name "addListener">]
+[<Inline>]
 let AddToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
     event.Subscribe(observer h) |> ignore
 
-[<Name "subscribeTo">]
+[<Inline>]
 let SubscribeToObservable<'T> (event: System.IObservable<'T>) (h: 'T -> unit) =
     event.Subscribe(observer h)

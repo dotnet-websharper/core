@@ -58,6 +58,19 @@ let Tests =
 
     TestCategory "Seq" {
 
+        Test "Seq.allPairs" {
+            let empty = Seq.toArray Seq.empty
+            equal (Seq.allPairs Seq.empty Seq.empty |> Seq.toArray) empty
+            equal (Seq.allPairs (seq { yield 1 }) Seq.empty |> Seq.toArray) empty
+            equal (Seq.allPairs Seq.empty (seq { yield 1 }) |> Seq.toArray) empty
+            equal (Seq.allPairs (seq { yield 1 }) (seq { yield 2 }) |> Seq.toArray) ((seq { yield (1,2) }) |> Seq.toArray)
+            equal (Seq.allPairs
+                    (seq { 1 .. 3})
+                    (seq { 'a' .. 'b' })
+                    |> Seq.toArray
+                  ) ([|(1,'a');(1,'b');(2,'a');(2,'b');(3,'a');(3,'b')|])
+        }
+
         Test "Seq.append" {
             equal (Seq.append (seq { 1 .. 5 }) (seq { 6 .. 10 }) |> Seq.toArray)
                 [| 1 .. 10 |]
@@ -87,10 +100,23 @@ let Tests =
             equal (Seq.averageBy float (seq { 0 .. 100 })) 50.
         }
 
-        Property "Seq.cache" (fun x -> Do {
-            let s = Seq.toArray (Seq.cache (Array.toSeq x))
-            equal (Seq.toArray s) x
-        })
+        Test "Seq.cache" {
+            let r = ref 0
+            let s =
+                seq {
+                    incr r
+                    yield 1
+                    incr r
+                    yield 2
+                }
+            let c = Seq.cache s
+            equal (c |> Seq.take 1 |> Seq.toArray) [| 1 |]
+            equal !r 1
+            equal (c |> Seq.toArray) [| 1; 2 |]
+            equal !r 2
+            equal (c |> Seq.toArray) [| 1; 2 |]
+            equal !r 2
+        }
 
         Test "Seq.cast" {
             equal (Seq.cast [| 1; 2; 3 |] |> Seq.toArray) [| 1; 2; 3 |]
