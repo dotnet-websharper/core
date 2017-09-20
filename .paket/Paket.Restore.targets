@@ -18,12 +18,13 @@
 
   <Target Name="PaketRestore" BeforeTargets="_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
-    <Exec Command='$(PaketBootStrapperCommand) ' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)'))" ContinueOnError="false" />
-    <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" --target-framework $(TargetFramework)' ContinueOnError="false" />
-
     <PropertyGroup>
       <PaketReferencesFilePath>$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references</PaketReferencesFilePath>
     </PropertyGroup>
+
+    <Exec Command='$(PaketBootStrapperCommand) ' Condition="Exists('$(PaketBootStrapperExePath)') AND !(Exists('$(PaketExePath)'))" ContinueOnError="false" />
+    <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)" --target-framework $(TargetFramework)' ContinueOnError="false"
+          Condition="!(Exists('$(PaketReferencesFilePath)')) OR ($([System.IO.File]::GetLastWriteTime('$(MSBuildProjectDirectory)/paket.references').Ticks) > $([System.IO.File]::GetLastWriteTime('$(PaketReferencesFilePath)').Ticks))" />
 
     <ReadLinesFromFile File="$(PaketReferencesFilePath)" >
       <Output TaskParameter="Lines" ItemName="PaketReferencesFileLines"/>
