@@ -480,6 +480,17 @@ namespace WebSharper.CSharp.Tests
             Equal(default(int), 0);
             Equal(default(string), null);
         }
+
+        public int this[int i] => i * i;
+
+        public string this[string x] { get { return x + "!"; } }
+
+        [Test]
+        public void Indexers()
+        {
+            Equal(this[4], 16);
+            Equal(this["hi"], "hi!");
+        }
     }
 
     // this already has JavaScript attribute

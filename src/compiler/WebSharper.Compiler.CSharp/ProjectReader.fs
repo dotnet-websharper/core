@@ -213,7 +213,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     for mem in members do
         match mem with
         | :? IPropertySymbol as p ->
-            if p.IsAbstract then () else
+            if p.IsAbstract || p.IsIndexer then () else
             let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
@@ -400,17 +400,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> (cs model).TransformAccessorDeclaration
                             |> fixMethod
                         | :? ArrowExpressionClauseSyntax as syntax ->
-                            let body =
-                                syntax
-                                |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
-                                |> (cs model).TransformArrowExpressionClause
-                            {
-                                IsStatic = meth.IsStatic
-                                Parameters = []
-                                Body = Return body
-                                IsAsync = meth.IsAsync
-                                ReturnType = sr.ReadType meth.ReturnType
-                            } : CodeReader.CSharpMethod
+                            syntax
+                            |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
+                            |> (cs model).TransformArrowExpressionClauseAsMethod meth
                             |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =
