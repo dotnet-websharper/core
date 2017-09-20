@@ -22,4 +22,4 @@ for i in "${frameworks[@]}"; do
 done
 wait
 
-exec ./build-core-libs.sh "$@"
+exec ./build-core-libs.sh
