@@ -41,7 +41,7 @@ let Compile config =
         argError "You must provide assembly output path."
 
     if not (File.Exists config.AssemblyFile) then 
-        argError "Output assembly not found"
+        ()
     else
 
     let paths =
