@@ -244,56 +244,51 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
-    let tryFindAssembly =
-        let domainAssemblies = System.AppDomain.CurrentDomain.GetAssemblies()
-        fun (name: string) ->
-            let name = name.ToLowerInvariant()
-            domainAssemblies
-            |> Array.tryFind (fun a -> a.GetName().Name.ToLowerInvariant() = name)
-    let netstandard =
-        match tryFindAssembly "netstandard" with
-        | Some asm -> aR.Resolve(AssemblyNameReference.Parse(asm.FullName))
-        | None -> failwith "Not referencing netstandard"
-    let addIfExists name asm =
-        tryFindAssembly name
-        |> Option.iter (fun a -> assemblies.[a.FullName] <- asm)
-    do  let m = netstandard.MainModule
-        addIfExists "netstandard" netstandard
-        addIfExists "System.Private.CoreLib" netstandard
-        addIfExists "mscorlib" netstandard
-        for e in m.ExportedTypes do
-            resolvedTypes.[e.FullName] <-
-                lazy
-                TypeReference(e.Namespace, e.Name, m, e.Scope)
-                |> main.ImportReference
 
-    let resolveAsm (name: string) =
-        match assemblies.TryGetValue(name) with
+    let netstandardAsm =
+        AppDomain.CurrentDomain.GetAssemblies()
+        |> Array.tryFind (fun asm -> asm.GetName().Name = "netstandard")
+        |> function
+        | Some asm -> asm
+        | None -> failwith "Not referencing netstandard"
+    let netstandard = aR.Resolve(AssemblyNameReference.Parse(netstandardAsm))
+    do assemblies.["netstandard"] <- netstandard
+
+    let isNetStandardType (fullName: string) =
+        match netstandardAsm.GetType(fullName) with
+        | null -> false
+        | _ -> true
+
+    let resolveAsm (asmName: string) (typeName: string) =
+        match assemblies.TryGetValue(asmName) with
         | true, x -> x
         | false, _ ->
-            let x = aR.Resolve(AssemblyNameReference.Parse(name))
-            assemblies.[name] <- x
-            x
+            let asm =
+                if isNetStandardType typeName
+                then netstandard
+                else aR.Resolve(AssemblyNameReference.Parse(asmName))
+            assemblies.[asmName] <- asm
+            asm
 
     let doResolveTypeName (asm: AssemblyDefinition) (typeName: string) =
-        let ty = asm.MainModule.GetType(typeName.Replace('+', '/'))
-        let ty =
-            match ty with
+        let ty = 
+            match asm.MainModule.GetType(typeName.Replace('+', '/')) with
             | null -> failwithf "Could not resolve type %s in %A" typeName asm.Name
-            | ty -> if asm.Name = out.Name then ty :> TypeReference else main.ImportReference ty
-        resolvedTypes.[typeName] <- lazy ty
+            | ty when asm.Name = out.Name -> ty :> TypeReference
+            | ty -> main.ImportReference ty
+        resolvedTypes.[typeName] <- ty
         ty
 
     let resolveTypeName asm typeName =
         match resolvedTypes.TryGetValue(typeName) with
-        | true, x -> x.Value
+        | true, x -> x
         | false, _ -> doResolveTypeName asm typeName
 
     let resolveType (ty: System.Type) =
         match resolvedTypes.TryGetValue(ty.FullName) with
-        | true, x -> x.Value
+        | true, x -> x
         | false, _ ->
-            let asm = resolveAsm ty.Assembly.FullName
+            let asm = resolveAsm ty.Assembly.FullName ty.FullName
             doResolveTypeName asm ty.FullName
 
     let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
@@ -346,7 +341,9 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let funcWithArgsRest = resolveType typedefof<WebSharper.JavaScript.FuncWithArgsRest<_,_,_>>
     let optionType = resolveType typedefof<WebSharper.JavaScript.Optional<_>>
 
-    let wsCore = resolveAsm typeof<WebSharper.InlineAttribute>.Assembly.FullName
+    let wsCore =
+        let t = typeof<WebSharper.InlineAttribute>
+        resolveAsm t.Assembly.FullName t.FullName
 
     member b.SystemAssembly = netstandard
 
@@ -377,7 +374,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
-        match resolveAsm assemblyName with
+        match resolveAsm assemblyName fullName with
         | null -> failwithf "Could not resolve assembly: %s" assemblyName
         | asm -> resolveTypeName asm fullName
 
@@ -403,9 +400,8 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         genericInstance funcWithArgsRest [args; rest; result]        
 
     member b.Delegate args res =
-        let asm = if List.length args <= 8 then netstandard else netstandard
         let tn = if Option.isSome res then "System.Func" else "System.Action"
-        commonType asm tn (args @ Option.toList res)
+        commonType netstandard tn (args @ Option.toList res)
 
     member b.InteropDelegate this args pars res =
         let tn =
