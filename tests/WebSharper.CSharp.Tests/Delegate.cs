@@ -63,6 +63,7 @@ namespace WebSharper.CSharp.Tests
         }
 
         private int f1() => 32;
+        private int f1m() => 42;
 
         private int f2(int x) => x + 4;
 
@@ -96,7 +97,15 @@ namespace WebSharper.CSharp.Tests
         {
             var d1 = new Func<int>(f1);
             var d2 = new Func<int>(f1);
+            var d3 = new Func<int>(f1m);
+            IsTrue((object)d1 == (object)d2);
             IsTrue(d1 == d2);
+            IsTrue(d1.Equals(d2));
+            IsTrue(d1.Equals((object)d2));
+            IsTrue(d1 != null);
+            IsFalse(d1 == d3);
+            IsFalse((object)d1 == (object)d3);
+            IsTrue(d1 != d3);
         }
 
         [Test]
@@ -112,7 +121,7 @@ namespace WebSharper.CSharp.Tests
             Equal(comb.GetInvocationList().Length, 2);
         }
 
-        [Test]
+        [Test("Delegate with default value, known issue: https://github.com/intellifactory/websharper/issues/788")]
         public void DelegateWithOptional()
         {
             var f = new FuncWithOptional(x => x);

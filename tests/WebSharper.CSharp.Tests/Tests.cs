@@ -94,7 +94,7 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test]
+        [Test("try/finally in iterators, known issue: https://github.com/intellifactory/websharper/issues/542")]
         public void DisposingGenerator()
         {
             foreach (var a in DisposingSeq().Take(2))
@@ -239,7 +239,7 @@ namespace WebSharper.CSharp.Tests
             Equal(Guid.Empty.ToString(), "00000000-0000-0000-0000-000000000000");
         }
 
-        [Test]
+        [Test("goto and variable scoping, known issue: https://github.com/intellifactory/websharper/issues/542")]
         public void VariableScopingGoto()
         {
             var res = 0;
@@ -254,7 +254,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 15, "goto from inside loop");
         }
 
-        [Test]
+        [Test("break and variable scoping, known issue: https://github.com/intellifactory/websharper/issues/542")]
         public void VariableScopingBreak()
         {
             var res = 0;

@@ -184,5 +184,23 @@ namespace WebSharper.CSharp.Tests
             IsFalse((3).Equals("3"));
             IsFalse((3).Equals((object)"3"));
         }
+
+        [Test]
+        public void Bool()
+        {
+            IsTrue(true.Equals(true));
+            IsTrue(true.Equals((object)true));
+            IsTrue(true == true);
+            IsTrue(true != false);
+            IsTrue(true.GetHashCode() == true.GetHashCode());
+            IsTrue(true.GetHashCode() != false.GetHashCode());
+            Equal(true.CompareTo(false), 1);
+            Equal(bool.TrueString, "true");
+            Equal(bool.FalseString, "false");
+            Equal(true.ToString(), "true");
+            Equal(false.ToString(), "false");
+            IsTrue(bool.Parse("true") && bool.Parse("True"));
+            IsTrue(!bool.Parse("false") && !bool.Parse("False"));
+        }
     }
 }

@@ -252,7 +252,11 @@ namespace WebSharper.CSharp.Tests
         {
             var s1 = new MyStruct(1, 2);
             var s2 = new MyStruct(1, 2);
+            var s3 = new MyStruct(1, 3);
             IsTrue(s1.Equals(s2));
+            IsTrue((object)s1 == (object)s2);
+            IsTrue((System.ValueType)s1 == (System.ValueType)s2);
+            IsFalse(s1.Equals(s3));
             IsTrue(s1.GetHashCode() != -1);
             Equal(s1.Sum, 3);
         }

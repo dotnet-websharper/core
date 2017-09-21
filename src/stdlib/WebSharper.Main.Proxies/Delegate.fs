@@ -26,9 +26,18 @@ open WebSharper.JavaScript
 [<Name "WebSharper.Delegate">]
 [<Proxy(typeof<Delegate>)>]
 type internal DelegateProxy =
-//    member this.GetLastInvoke() =
-//        let inv = As<Delegate[]> this?``$Invokes``
-//        if As inv then inv.[inv.Length - 1] else As this
+
+    [<Inline "$wsruntime.DelegateEqual($0, $1)">]
+    member this.Equals(x: obj) = X<bool>
+
+    [<Inline "$wsruntime.DelegateEqual($0, $1)">]
+    static member op_Equality(a: Delegate, b: Delegate) = X<bool>
+
+    [<Inline "!$wsruntime.DelegateEqual($0, $1)">]
+    static member op_Inequality(a: Delegate, b: Delegate) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this
 
     [<Inline "$this.apply(null, $args)">]
     member this.DynamicInvoke(args: obj[]) = X<obj>
@@ -86,6 +95,18 @@ type internal DelegateProxy =
 [<Proxy(typeof<MulticastDelegate>)>]
 type internal MulticastDelegateProxy =
     
+    [<Inline "$wsruntime.DelegateEqual($0, $1)">]
+    member this.Equals(x: obj) = X<bool>
+
+    [<Inline "$wsruntime.DelegateEqual($0, $1)">]
+    static member op_Equality(a: Delegate, b: Delegate) = X<bool>
+
+    [<Inline "!$wsruntime.DelegateEqual($0, $1)">]
+    static member op_Inequality(a: Delegate, b: Delegate) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this
+
     [<Inline>]
     member this.GetInvocationList() : Delegate[] =
         DelegateProxy.InvocationList (As this)

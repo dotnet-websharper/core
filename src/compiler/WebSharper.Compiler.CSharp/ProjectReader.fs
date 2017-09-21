@@ -753,6 +753,8 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
+    comp.CustomTypesReflector <- A.reflectCustomType
+
     let lookupTypeDefinition (typ: TypeDefinition) =
         rcomp.GetTypeByMetadataName(typ.Value.FullName) |> Option.ofObj
 
@@ -811,8 +813,12 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     comp.LookupConstructorAttributes <- lookupConstructorAttributes
 
     for TypeWithAnnotation(t, a) in getAllTypeMembers sr rootTypeAnnot assembly.GlobalNamespace do
-        transformInterface sr a t |> Option.iter comp.AddInterface
-        transformClass rcomp sr comp a t |> Option.iter comp.AddClass
+        match t.TypeKind with
+        | TypeKind.Interface ->
+            transformInterface sr a t |> Option.iter comp.AddInterface
+        | TypeKind.Struct | TypeKind.Class ->
+            transformClass rcomp sr comp a t |> Option.iter comp.AddClass
+        | _ -> ()
     
     comp.Resolve()
 

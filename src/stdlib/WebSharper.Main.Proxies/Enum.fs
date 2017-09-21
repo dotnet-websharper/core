@@ -20,8 +20,20 @@
 
 namespace WebSharper
 
+open WebSharper.JavaScript
+
 [<Proxy(typeof<System.Enum>)>]
 type internal EnumProxy =
 
+    [<Inline>]
+    member this.CompareTo(x: obj) =
+        Unchecked.compare (this :> obj) x
+
     [<Inline "($0 & $1) === $1">]
     member p.HasFlag (flag: System.Enum) = false
+
+    [<Inline "$this === $x">]
+    member this.Equals(x: obj) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this

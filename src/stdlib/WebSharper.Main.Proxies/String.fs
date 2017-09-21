@@ -271,10 +271,10 @@ type private StringProxy =
     [<Inline>]
     member this.EndsWith(other: string) = EndsWith (As this) other
 
-    [<Inline "$x === $y">]
+    [<Inline "$x == $y">]
     static member Equals(x: string, y: string) = X<bool>
 
-    [<Inline "$this === $s">]
+    [<Inline "$this == $s">]
     member this.Equals(s: string) = X<bool>
 
     [<Inline "$this === $s">]
@@ -419,10 +419,10 @@ type private StringProxy =
     [<Inline>]
     static member (+) (a: string, b: obj) = a + string b
 
-    [<Inline "$a === $b">]
+    [<Inline "$a == $b">]
     static member op_Equality(a: string, b: string) = X<bool>
 
-    [<Inline "$a !== $b">]
+    [<Inline "$a != $b">]
     static member op_Inequality(a: string, b: string) = X<bool>
 
     [<Macro(typeof<M.StringFormat>)>]
