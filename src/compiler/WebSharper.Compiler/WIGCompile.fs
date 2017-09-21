@@ -251,7 +251,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         |> function
         | Some asm -> asm
         | None -> failwith "Not referencing netstandard"
-    let netstandard = aR.Resolve(AssemblyNameReference.Parse(netstandardAsm))
+    let netstandard = aR.Resolve(AssemblyNameReference.Parse(netstandardAsm.FullName))
     do assemblies.["netstandard"] <- netstandard
 
     let isNetStandardType (fullName: string) =
