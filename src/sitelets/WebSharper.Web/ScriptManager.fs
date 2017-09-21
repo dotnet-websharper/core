@@ -37,8 +37,11 @@ type private Q<'T> = System.Collections.Generic.Queue<'T>
 /// control in the head section.
 [<Sealed>]
 type ScriptManager() =
+#if NET461
     inherit System.Web.UI.Control()
     do base.ID <- Shared.SCRIPT_MANAGER_ID
+#endif
+
     let registry = D()
     let nodes = Q()
     let mutable k = 0
@@ -61,7 +64,11 @@ type ScriptManager() =
         id
 
     /// Renders the resources.
+#if NET461
     override this.Render writer =
+#else
+    member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
+#endif
         let encode (text: string) =
             let ev =
                 System.Text.RegularExpressions.MatchEvaluator(fun x ->
@@ -91,6 +98,7 @@ type ScriptManager() =
             writer.WriteLine @"  IntelliFactory.Runtime.Start();"
             writer.WriteLine("</script>")
 
+#if NET461
     /// Searches the page for a ScriptManager.
     static member private TryFind(page: System.Web.UI.Page) =
         match page.Header with
@@ -112,3 +120,4 @@ type ScriptManager() =
                  set to SERVER."
         | Some c ->
             c
+#endif

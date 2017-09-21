@@ -20,7 +20,11 @@
 
 namespace WebSharper.Web
 
+#if NET461
 open System.Web.UI
+#else
+open WebSharper.Core.Resources
+#endif
 open WebSharper
 module M = WebSharper.Core.Metadata
 
