@@ -507,10 +507,6 @@ NUGET
       Microsoft.NETCore.Platforms (>= 1.1) - restriction: || (&& (== net461) (< net451)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
       Microsoft.NETCore.Targets (>= 1.1) - restriction: || (&& (== net461) (< net451)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
       System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net451)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
-    System.ValueTuple (4.3)
-      System.Collections (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netstandard2.0)
-      System.Resources.ResourceManager (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netstandard2.0)
-      System.Runtime (>= 4.3) - restriction: || (&& (== net461) (< net45)) (== netstandard2.0)
     System.Xml.ReaderWriter (4.3) - restriction: || (&& (== net461) (< net45)) (&& (== net461) (< net46)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
       System.Collections (>= 4.3) - restriction: || (&& (== net461) (< net45)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
       System.Diagnostics.Debug (>= 4.3) - restriction: || (&& (== net461) (< net45)) (&& (== net461) (>= dnxcore50)) (== netstandard2.0)
@@ -581,7 +577,6 @@ NUGET
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
       System.Collections.Immutable (>= 1.3.1)
-    System.ValueTuple (4.3)
 
 GROUP fsharp3
 RESTRICTION: == net46
@@ -590,12 +585,54 @@ NUGET
     FSharp.Core (3.0.2)
 
 GROUP fsharp4
+STRATEGY: MIN
 RESTRICTION: == net46
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Core (4.1.17)
       System.ValueTuple (>= 4.3)
-    System.ValueTuple (4.3)
+    Microsoft.NETCore.Platforms (2.0)
+    Microsoft.Win32.Primitives (4.3)
+    NETStandard.Library (2.0)
+      Microsoft.NETCore.Platforms (>= 1.1)
+      Microsoft.Win32.Primitives (>= 4.3)
+      System.AppContext (>= 4.3)
+      System.Console (>= 4.3)
+      System.Globalization.Calendars (>= 4.3)
+      System.IO.Compression (>= 4.3)
+      System.IO.Compression.ZipFile (>= 4.3)
+      System.IO.FileSystem (>= 4.3)
+      System.IO.FileSystem.Primitives (>= 4.3)
+      System.Net.Http (>= 4.3.2)
+      System.Net.Sockets (>= 4.3)
+      System.Runtime.InteropServices.RuntimeInformation (>= 4.3)
+      System.Security.Cryptography.Algorithms (>= 4.3)
+      System.Security.Cryptography.Encoding (>= 4.3)
+      System.Security.Cryptography.Primitives (>= 4.3)
+      System.Security.Cryptography.X509Certificates (>= 4.3)
+      System.Xml.ReaderWriter (>= 4.3)
+    System.AppContext (4.3)
+    System.Console (4.3)
+    System.Globalization.Calendars (4.3)
+    System.IO.Compression (4.3)
+    System.IO.Compression.ZipFile (4.3)
+    System.IO.FileSystem (4.3)
+      System.IO.FileSystem.Primitives (>= 4.3)
+    System.IO.FileSystem.Primitives (4.3)
+    System.Net.Http (4.3.2)
+      System.Security.Cryptography.X509Certificates (>= 4.3)
+    System.Net.Sockets (4.3)
+    System.Runtime.InteropServices.RuntimeInformation (4.3)
+    System.Security.Cryptography.Algorithms (4.3)
+      System.Security.Cryptography.Primitives (>= 4.3)
+    System.Security.Cryptography.Encoding (4.3)
+    System.Security.Cryptography.Primitives (4.3)
+    System.Security.Cryptography.X509Certificates (4.3)
+      System.Security.Cryptography.Algorithms (>= 4.3)
+      System.Security.Cryptography.Encoding (>= 4.3)
+    System.ValueTuple (4.4)
+      NETStandard.Library (>= 1.6.1)
+    System.Xml.ReaderWriter (4.3)
 
 GROUP roslyn
 STRATEGY: MIN
@@ -685,7 +722,7 @@ NUGET
     System.Threading.Tasks (4.3)
     System.Threading.Tasks.Parallel (4.3)
     System.Threading.Thread (4.3)
-    System.ValueTuple (4.3)
+    System.ValueTuple (4.4)
     System.Xml.ReaderWriter (4.3)
     System.Xml.XDocument (4.3)
     System.Xml.XmlDocument (4.3)

@@ -12,7 +12,6 @@ nuget Microsoft.NETCore.Platforms >= 2.0
 nuget Microsoft.NETCore.Targets >= 2.0
 nuget Microsoft.Extensions.DependencyModel >= 2.0
 nuget Mono.Cecil ~> 0.10-beta
-nuget System.ValueTuple 4.3.0
 nuget Microsoft.Build.Utilities.Core >= 15.3
 nuget AjaxMin
 nuget NETStandard.Library >= 2.0
@@ -22,8 +21,11 @@ nuget System.Reflection.Emit.Lightweight >= 4.3
 group fsharp4
     framework: net46
     source https://api.nuget.org/v3/index.json
+    strategy: min
 
-    nuget System.ValueTuple 4.3.0
+    nuget NETStandard.Library >= 2.0
+    nuget Microsoft.NETCore.Platforms >= 2.0
+    nuget System.ValueTuple 4.4.0
     nuget FSharp.Core 4.1.17
 
 group fsharp3
@@ -37,7 +39,7 @@ group roslyn
     source https://api.nuget.org/v3/index.json
     strategy: min
 
-    nuget System.ValueTuple 4.3.0
+    nuget System.ValueTuple 4.4.0
     nuget Microsoft.CodeAnalysis.CSharp ~2.3
     nuget System.CodeDom >= 4.4
 
@@ -46,5 +48,4 @@ group fcs
     source https://api.nuget.org/v3/index.json
     strategy: min
 
-    nuget System.ValueTuple 4.3.0
     nuget FSharp.Compiler.Service ~14.0.2

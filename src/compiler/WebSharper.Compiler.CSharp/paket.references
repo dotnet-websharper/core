@@ -1,5 +1,4 @@
-﻿System.ValueTuple
-NETStandard.Library
+﻿NETStandard.Library
 
 group roslyn
     Microsoft.CodeAnalysis.CSharp

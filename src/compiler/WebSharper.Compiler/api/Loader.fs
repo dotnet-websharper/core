@@ -150,16 +150,16 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
         let par = Mono.Cecil.ReaderParameters()
         par.AssemblyResolver <- new Resolver(aR)
         par.ReadingMode <- Mono.Cecil.ReadingMode.Deferred
-        match symbols with
-        | Some (Pdb bytes) ->
-            par.ReadSymbols <- true
-            par.SymbolReaderProvider <- new Mono.Cecil.Pdb.PdbReaderProvider()
-            par.SymbolStream <- new MemoryStream(bytes)
-        | Some (Mdb bytes) ->
-            par.ReadSymbols <- true
-            par.SymbolReaderProvider <- new Mono.Cecil.Mdb.MdbReaderProvider()
-            par.SymbolStream <- new MemoryStream(bytes)
-        | None -> ()
+        // match symbols with
+        // | Some (Pdb bytes) ->
+        //     par.ReadSymbols <- true
+        //     par.SymbolReaderProvider <- new Mono.Cecil.Pdb.PdbReaderProvider()
+        //     par.SymbolStream <- new MemoryStream(bytes)
+        // | Some (Mdb bytes) ->
+        //     par.ReadSymbols <- true
+        //     par.SymbolReaderProvider <- new Mono.Cecil.Mdb.MdbReaderProvider()
+        //     par.SymbolStream <- new MemoryStream(bytes)
+        // | None -> ()
         let def = Mono.Cecil.AssemblyDefinition.ReadAssembly(str, par)
         Assembly.Create(def, ?loadPath = flp, ?symbols = symbols)
 

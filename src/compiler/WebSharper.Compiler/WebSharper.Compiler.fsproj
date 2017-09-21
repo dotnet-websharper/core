@@ -61,7 +61,6 @@
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="System.Configuration" />
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />

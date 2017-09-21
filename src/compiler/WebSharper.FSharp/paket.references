@@ -1,6 +1,5 @@
 ﻿Mono.Cecil
     exclude Mono.Cecil.Rocks.dll
-System.ValueTuple
 NETStandard.Library
 Microsoft.NETCore.App
 
