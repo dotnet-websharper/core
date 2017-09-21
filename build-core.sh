@@ -17,9 +17,17 @@ case "$1" in
         ;;
 esac
 
+pids=()
+
 for i in "${frameworks[@]}"; do
     dotnet publish src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj -f $i -v n &
+    pids+=($!)
 done
-wait
+
+for pid in ${pids[*]}; do
+    wait $pid
+done
+
+echo PUBLISH COMPILER DONE.
 
 exec ./build-core-libs.sh

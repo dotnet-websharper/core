@@ -271,7 +271,7 @@ module Definitions =
 
     let Tuple isStruct (arity: int) =
         TypeDefinition {
-            Assembly = if isStruct then "System.ValueTuple" else "mscorlib"
+            Assembly = "netstandard"
             FullName = 
                 let name = if isStruct then "System.ValueTuple" else "System.Tuple"
                 if arity = 0 then name else name + "`" + string (min arity 8)
@@ -279,13 +279,13 @@ module Definitions =
 
     let Array =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "[]"
         }    
 
     let Array2 =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "[,]"
         }    
 
@@ -298,7 +298,7 @@ module Definitions =
     let Void =
         TypeDefinition {
             Assembly = "System.Void"
-            FullName = "mscorlib"
+            FullName = "netstandard"
         }
 
 /// Stores a definition and type parameter information
@@ -380,7 +380,7 @@ and Type =
                         name + "8[[" + 
                             String.concat "],[" (ts |> Seq.take 7 |> Seq.map (fun g -> g.AssemblyQualifiedName)) + 
                             getName (l - 7) (ts |> Seq.skip 7 |> List.ofSeq) + "]]"
-                getName (List.length ts) ts, if v then "System.ValueTuple" else "mscorlib"
+                getName (List.length ts) ts, "netstandard"
             | FSharpFuncType (a, r) ->
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
@@ -540,10 +540,20 @@ module Reflection =
         let rec getName (t: System.Type) =
             if t.IsNested then
                 getName t.DeclaringType + "+" + t.Name 
-            else t.Namespace + "." + t.Name         
+            else t.Namespace + "." + t.Name
+        let name = getName t
+        let asmName =
+            if fullAsmName then
+                match AssemblyConventions.StandardAssemblyFullNameForTypeNamed name with
+                | Some n -> n
+                | None -> t.Assembly.FullName
+            else
+                match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
+                | Some n -> n
+                | None -> t.Assembly.FullName.Split(',').[0]
         Hashed {
-            Assembly = if fullAsmName then t.Assembly.FullName else t.Assembly.FullName.Split(',').[0]
-            FullName = getName t
+            Assembly = asmName
+            FullName = name
         } 
 
     let ReadTypeDefinition (t: System.Type) =

@@ -175,9 +175,14 @@ type AttributeReader<'A>() =
             | :? string as s ->
                 let ss = s.Split([|','|])
                 if ss.Length >= 2 then
+                    let fullName = ss.[0].Trim()
+                    let assemblyName =
+                        match AssemblyConventions.StandardAssemblyNameForTypeNamed fullName with
+                        | Some n -> n
+                        | None -> ss.[1].Trim()
                     Hashed {
-                        FullName = ss.[0].Trim()
-                        Assembly = ss.[1].Trim()
+                        FullName = fullName
+                        Assembly = assemblyName
                     }
                 else
                     failwithf "Type must be in format \"FullName, AssemblyName\": %s" s

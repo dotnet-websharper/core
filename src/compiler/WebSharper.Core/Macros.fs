@@ -359,7 +359,7 @@ type NumericMacro() =
             match c.This with
             | Some self ->
                 // TODO refactor to separate method
-                if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, mscorlib" then
+                if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, netstandard" then
                     self
                 else 
                     Application(Global ["String"], [self], Pure, Some 1)
@@ -1058,7 +1058,7 @@ type EqualityComparer() =
 
     static let ieqTy =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.IEquatable`1"
         } 
 
@@ -1094,7 +1094,7 @@ type Comparer() =
 
     static let icmpTy =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.IComparable`1"
         } 
 
@@ -1136,7 +1136,7 @@ type DefaultOf() =
         if t.IsParameter then MacroNeedsResolvedTypeArg t else
         match t with
         | ConcreteType td when
-            (td.Entity.Value.Assembly.StartsWith "mscorlib" &&
+            (td.Entity.Value.Assembly.StartsWith "netstandard" &&
                 match td.Entity.Value.FullName with
                 | "System.SByte"
                 | "System.Byte"

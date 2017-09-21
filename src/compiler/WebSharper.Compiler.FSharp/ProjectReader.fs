@@ -1021,8 +1021,8 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
 
     checkResults.AssemblyContents.ImplementationFiles
     |> List.sortByDescending (fun f -> List.isEmpty f.Declarations)
-    |> List.distinctBy (fun f -> f.Name)
-    |> Seq.iter (fun files ->
+    |> List.distinctBy (fun f -> f.FileName)
+    |> Seq.iter (fun file ->
         if List.isEmpty file.Declarations then () else
         let filePath =
             match file.Declarations.Head with

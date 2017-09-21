@@ -244,27 +244,18 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
-
-    let netstandardAsm =
-        AppDomain.CurrentDomain.GetAssemblies()
-        |> Array.tryFind (fun asm -> asm.GetName().Name = "netstandard")
-        |> function
-        | Some asm -> asm
-        | None -> failwith "Not referencing netstandard"
-    let netstandard = aR.Resolve(AssemblyNameReference.Parse(netstandardAsm.FullName))
+    let netstandard =
+        AssemblyConventions.NetStandardAssembly.FullName
+        |> AssemblyNameReference.Parse
+        |> aR.Resolve
     do assemblies.["netstandard"] <- netstandard
-
-    let isNetStandardType (fullName: string) =
-        match netstandardAsm.GetType(fullName) with
-        | null -> false
-        | _ -> true
 
     let resolveAsm (asmName: string) (typeName: string) =
         match assemblies.TryGetValue(asmName) with
         | true, x -> x
         | false, _ ->
             let asm =
-                if isNetStandardType typeName
+                if AssemblyConventions.IsNetStandardType typeName
                 then netstandard
                 else aR.Resolve(AssemblyNameReference.Parse(asmName))
             assemblies.[asmName] <- asm
