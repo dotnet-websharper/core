@@ -368,6 +368,13 @@ namespace WebSharper.CSharp.Tests
             Equal($"format:{d:hh}", "format:03");
         }
 
+        [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787")]
+        public void DateFormatting()
+        {
+            var d = new DateTime(2010, 4, 8, 15, 5, 39);
+            Equal($"format:{d:hh}", "format:03");
+        }
+
         public int OptionalTest(int x, int y = 2, int z = 0) => x + y + z;
 
         public int DefaultOptionalTest([Optional] int x) => x;
@@ -479,6 +486,35 @@ namespace WebSharper.CSharp.Tests
         {
             Equal(default(int), 0);
             Equal(default(string), null);
+        }
+
+        public int this[int i] => i * i;
+
+        public string this[string x] { get { return x + "!"; } }
+
+        [Test]
+        public void Indexers()
+        {
+            Equal(this[4], 16);
+            Equal(this["hi"], "hi!");
+        }
+
+        enum Days { Sat, Sun, Mon, Tue, Wed, Thu, Fri };
+
+        [Test]
+        public void Enums()
+        {
+            var d1 = Days.Sat;
+            var d2 = Days.Tue;
+            IsTrue(d1.Equals(d1));
+            IsTrue(d1.Equals((object)d1));
+            IsTrue(d1 == d1);
+            IsTrue(d1 != d2);
+            IsTrue(d1 < d2);
+            Equal(d1.CompareTo(d2), -1);
+            IsTrue(d1.HasFlag(Days.Sat));
+            IsTrue(d1.GetHashCode() == d1.GetHashCode());
+            IsTrue(d1.GetHashCode() != d2.GetHashCode());
         }
     }
 

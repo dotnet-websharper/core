@@ -446,6 +446,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | [ d1; d2 ] ->
                     JSRuntime.DelegateEqual d1 d2
                 | _ -> this.Error("Delegate equality check expects two arguments")
+            | "op_Inequality" -> 
+                match args |> List.map this.TransformExpression with
+                | [ d1; d2 ] ->
+                    Unary(UnaryOperator.``!``, JSRuntime.DelegateEqual d1 d2)
+                | _ -> this.Error("Delegate equality check expects two arguments")
             | "ToString" -> Value (String typ.Entity.Value.FullName)
             | mn -> this.Error("Unrecognized delegate method: " + mn)
         | M.FSharpRecordInfo _ ->
@@ -526,7 +531,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match unionCase false c with
             | Some res -> res
             | _ -> this.Error("Unrecognized F# compiler generated method for union case: " + me.MethodName)    
-        | _ -> this.Error("Unrecognized F# compiler generated method: " + me.MethodName)
+        | M.EnumInfo e ->
+            this.TransformCall(objExpr, NonGeneric e, meth, args)
+        | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      
     member this.CompileMethod(info, expr, typ, meth) =
         try

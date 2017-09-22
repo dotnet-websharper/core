@@ -42,10 +42,10 @@ type internal GuidProxy =
     [<Inline "$this">]
     member this.ToString() = X<string>
 
-    [<Inline "$a === $b">]
+    [<Inline "$a == $b">]
     static member op_Equality(a: System.Guid, b: System.Guid) = X<bool>
 
-    [<Inline "$a !== $b">]
+    [<Inline "$a != $b">]
     static member op_Inequality(a: System.Guid, b: System.Guid) = X<bool>
 
     [<Inline>]

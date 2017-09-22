@@ -41,6 +41,18 @@ type internal N =
         if ok then r <- As<'T> x
         ok
 
+    static member ParseBool(s: string) =
+        match s.ToLower() with
+        | "true" -> true
+        | "false" -> false
+        | _ -> raise (System.FormatException "String was not recognized as a valid Boolean.")
+
+    static member TryParseBool(s: string, r: byref<bool>) =
+        match s.ToLower() with
+        | "true" -> r <- true; true
+        | "false" -> r <- false; true
+        | _ -> false
+
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]
 type internal NB =
@@ -179,3 +191,43 @@ type internal ND =
 type internal B = 
     [<Inline>]
     static member op_LogicalNot(a: bool) = not a
+
+    [<Inline "$this == $x">]
+    member this.Equals(x: bool) = X<bool>
+
+    [<Inline "$this === $x">]
+    member this.Equals(x: obj) = X<bool>
+
+    [<Inline "$a == $b">]
+    static member op_Equality(a: bool, b: bool) = X<bool>
+
+    [<Inline "$a != $b">]
+    static member op_Inequality(a: bool, b: bool) = X<bool>
+
+    [<Inline>]
+    member this.GetHashCode() = hash this
+
+    [<Constant "true">]
+    static member TrueString = X<string>
+
+    [<Constant "false">]
+    static member FalseString = X<string>
+
+    [<Inline>]
+    member this.ToString() = string this
+
+    [<Inline>]
+    member this.CompareTo(x: bool) =
+        Unchecked.compare (this :> obj) (x :> obj)
+
+    [<Inline>]
+    member this.CompareTo(x: obj) =
+        Unchecked.compare (this :> obj) x
+
+    [<Inline>]
+    static member Parse(x: string) =
+        N.ParseBool x
+
+    [<Inline>]
+    static member TryParse(x: string, r: byref<bool>) =
+        N.TryParseBool(x, &r)

@@ -1319,6 +1319,19 @@ type RoslynTransformer(env: Environment) =
     member this.TransformArrowExpressionClause (x: ArrowExpressionClauseData) : Expression =
         x.Expression |> this.TransformExpression
 
+    member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
+        let parameterList = sr.ReadParameters meth
+        for p in parameterList do
+            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
+        let body = x.Expression |> this.TransformExpression
+        {
+            IsStatic = meth.IsStatic
+            Parameters = parameterList
+            Body = Return body
+            IsAsync = meth.IsAsync
+            ReturnType = sr.ReadType meth.ReturnType
+        }
+
     member this.TransformReturnStatement (x: ReturnStatementData) : Statement =
         defaultArg (x.Expression |> Option.map (this.TransformExpression)) Undefined |> Return
 

@@ -46,10 +46,10 @@ type private ObjectProxy() =
     static member ReferenceEquals(a: obj, b: obj) = a ===. b
 
     [<Inline>]
-    static member op_Equality(a: obj, b: obj) = a ===. b
+    static member op_Equality(a: obj, b: obj) = Unchecked.equals a b
 
     [<Inline>]
-    static member op_Inequality(a: obj, b: obj) = a !==. b
+    static member op_Inequality(a: obj, b: obj) = not (Unchecked.equals a b)
 
     [<Inline>]
     override this.ToString() = string this

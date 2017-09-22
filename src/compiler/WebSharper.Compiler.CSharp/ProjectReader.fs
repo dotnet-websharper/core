@@ -213,7 +213,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     for mem in members do
         match mem with
         | :? IPropertySymbol as p ->
-            if p.IsAbstract then () else
+            if p.IsAbstract || p.IsIndexer then () else
             let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
@@ -400,17 +400,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> (cs model).TransformAccessorDeclaration
                             |> fixMethod
                         | :? ArrowExpressionClauseSyntax as syntax ->
-                            let body =
-                                syntax
-                                |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
-                                |> (cs model).TransformArrowExpressionClause
-                            {
-                                IsStatic = meth.IsStatic
-                                Parameters = []
-                                Body = Return body
-                                IsAsync = meth.IsAsync
-                                ReturnType = sr.ReadType meth.ReturnType
-                            } : CodeReader.CSharpMethod
+                            syntax
+                            |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
+                            |> (cs model).TransformArrowExpressionClauseAsMethod meth
                             |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =
@@ -761,6 +753,8 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 
+    comp.CustomTypesReflector <- A.reflectCustomType
+
     let lookupTypeDefinition (typ: TypeDefinition) =
         rcomp.GetTypeByMetadataName(typ.Value.FullName) |> Option.ofObj
 
@@ -819,8 +813,12 @@ let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =
     comp.LookupConstructorAttributes <- lookupConstructorAttributes
 
     for TypeWithAnnotation(t, a) in getAllTypeMembers sr rootTypeAnnot assembly.GlobalNamespace do
-        transformInterface sr a t |> Option.iter comp.AddInterface
-        transformClass rcomp sr comp a t |> Option.iter comp.AddClass
+        match t.TypeKind with
+        | TypeKind.Interface ->
+            transformInterface sr a t |> Option.iter comp.AddInterface
+        | TypeKind.Struct | TypeKind.Class ->
+            transformClass rcomp sr comp a t |> Option.iter comp.AddClass
+        | _ -> ()
     
     comp.Resolve()
 

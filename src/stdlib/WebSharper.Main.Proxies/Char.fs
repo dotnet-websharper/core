@@ -37,7 +37,7 @@ type private CharProxy =
     member this.CompareTo(s: obj) =
         Unchecked.compare (this :> obj) s
 
-    [<Inline "$this === $s">]
+    [<Inline "$this == $s">]
     member this.Equals(s: char) = X<bool>
 
     [<Inline "$this === $s">]

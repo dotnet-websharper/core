@@ -365,6 +365,7 @@ type private TaskCompletionSourceProxy<'T>() =
     member this.TrySetCanceled(ct: CT) =
         if not task.IsCompleted then
             task?status <- TaskStatus.Canceled
+            task?token <- ct
             task.RunContinuations()
             true
         else false
