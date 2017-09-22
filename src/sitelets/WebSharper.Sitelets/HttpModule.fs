@@ -26,9 +26,11 @@ open System.Configuration
 open System.Diagnostics
 open System.IO
 open System.Reflection
+#if NET461
 open System.Web
 open System.Web.Compilation
 open System.Web.Hosting
+#endif
 open WebSharper.Web
 module R = WebSharper.Core.Remoting
 
@@ -80,16 +82,21 @@ module internal SiteLoading =
         | Some _ as res -> res
         | _ -> TryLoadSiteB assembly
 
-    let LoadFromAssemblies (app: HttpApplication) =
+    let LoadFromAssemblies (assemblies: seq<Assembly>) =
         Timed "Initialized sitelets" <| fun () ->
-            let assemblies =
-                BuildManager.GetReferencedAssemblies()
-                |> Seq.cast<Assembly>
             let sitelets, actions = 
                 Seq.choose TryLoadSite assemblies 
                 |> List.ofSeq |> List.unzip
             (Sitelet.Sum sitelets, Seq.concat actions)
 
+#if NET461
+    let LoadFromApplicationAssemblies () =
+        BuildManager.GetReferencedAssemblies()
+        |> Seq.cast<Assembly>
+        |> LoadFromAssemblies
+#endif
+
+#if NET461
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
@@ -141,13 +148,21 @@ module private WebUtils =
             Body = req.InputStream
             Post = new Http.ParameterCollection(req.Form)
             Get  = new Http.ParameterCollection(req.QueryString)
-            Cookies = req.Cookies
             ServerVariables = new Http.ParameterCollection(req.ServerVariables)
             Files =
                 let fs = req.Files
                 seq {
-                    for i = 1 to fs.Count do
-                        yield fs.[i-1]
+                    for i = 0 to fs.Count - 1 do
+                        let f = req.Files.[i]
+                        let k = fs.GetKey(i)
+                        yield { new Http.IPostedFile with
+                            member this.Key = k
+                            member this.ContentLength = f.ContentLength
+                            member this.ContentType = f.ContentType
+                            member this.FileName = f.FileName
+                            member this.InputStream = f.InputStream
+                            member this.SaveAs(n) = f.SaveAs(n)
+                        }
                 }
         }
 
@@ -182,7 +197,7 @@ module private WebUtils =
             resp.Status <- response.Status.ToString()
             for header in response.Headers do
                 resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+            if req.Cookies.[RpcHandler.CsrfTokenKey].IsNone then
                 RpcHandler.SetCsrfCookie resp
             response.WriteBody resp.OutputStream
             resp.End()
@@ -205,11 +220,13 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>, resCtx,
         member this.EndProcessRequest(result) = endAction result
 
     member this.ProcessRequest(ctx) = processRequest ctx
+#endif
 
 /// IIS module, processing the URLs and serving the pages.
 [<Sealed>]
 type HttpModule() =
 
+#if NET461
     let mutable runtime = None
 
     let tryGetHandler (ctx: HttpContextBase) =
@@ -224,7 +241,7 @@ type HttpModule() =
         member this.Init app =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
-                SiteLoading.LoadFromAssemblies(app) |> fst,
+                SiteLoading.LoadFromApplicationAssemblies() |> fst,
                 WebSharper.Web.ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
@@ -248,6 +265,7 @@ type HttpModule() =
     member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
         tryGetHandler ctx
         |> Option.map (fun h -> h.ProcessRequest(ctx))
+#endif
 
     static member DiscoverSitelet(assemblies: seq<Assembly>) =
         let assemblies = Seq.cache assemblies

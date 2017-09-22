@@ -27,29 +27,51 @@ open System.Reflection
 #if NET461
 type HtmlTextWriter = System.Web.UI.HtmlTextWriter
 #else
-type HtmlTextWriter(w: TextWriter) =
+type HtmlTextWriter(w: TextWriter, indentString: string) =
     inherit System.IO.TextWriter(w.FormatProvider)
 
-    let mutable currentTag = ""
-    let mutable currentAttributes = ResizeArray()
+    let mutable tagStack = System.Collections.Generic.Stack()
+    let currentAttributes = ResizeArray()
+
+    new (w) = new HtmlTextWriter(w, "\t")
 
     override this.Write(c: char) = w.Write(c)
     override this.Write(s: string) = w.Write(s)
     override this.Encoding = w.Encoding
 
+    member this.PushTag(name: string) =
+        tagStack.Push(name)
+
+    member this.PopTag() =
+        if tagStack.Count = 0 then
+            raise (System.InvalidOperationException("A PopEndTag was called without a corresponding PushEndTag."))
+        tagStack.Pop()
+
+    // TODO dotnet: newlines and indentation
     member this.RenderBeginTag(name: string) =
-        currentTag <- name
+        this.PushTag(name)
         this.Write('<')
         this.Write(name)
         if currentAttributes.Count > 0 then
             for (name, value) in currentAttributes do
                 this.Write("{0}=\"{1}\"", name, value) // TODO: escape
-            currentAttributes <- ResizeArray()
+            currentAttributes.Clear()
         this.Write('>')
 
     member this.RenderEndTag() =
+        this.WriteEndTag(this.PopTag())
+
+    member this.WriteBeginTag(name: string) =
+        this.Write("<")
+        this.Write(name)
+
+    member this.WriteFullBeginTag(name: string) =
+        this.WriteBeginTag(name)
+        this.Write(">")
+
+    member this.WriteEndTag(name) =
         this.Write("</")
-        this.Write(currentTag)
+        this.Write(name)
         this.Write(">")
         
     member this.AddAttribute(name: string, value: string) =

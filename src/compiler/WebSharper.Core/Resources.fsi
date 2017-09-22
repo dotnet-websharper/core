@@ -29,8 +29,14 @@ type HtmlTextWriter = System.Web.UI.HtmlTextWriter
 type HtmlTextWriter =
     inherit System.IO.TextWriter
     new : System.IO.TextWriter -> HtmlTextWriter
+    new : System.IO.TextWriter * indent: string -> HtmlTextWriter
+    member PushTag : string -> unit
+    member PopTag : unit -> string
     member RenderBeginTag : string -> unit
     member RenderEndTag : unit -> unit
+    member WriteBeginTag : string -> unit
+    member WriteFullBeginTag : string -> unit
+    member WriteEndTag : string -> unit
     member AddAttribute : string * string -> unit
 #endif
 

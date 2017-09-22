@@ -21,9 +21,9 @@
 namespace WebSharper.Sitelets
 
 open System.Collections.Generic
-open System.Web.UI
 open WebSharper
 open WebSharper.Web
+type private HtmlTextWriter = WebSharper.Core.Resources.HtmlTextWriter
 type private Writer = HtmlTextWriter -> unit
 
 type Page =
@@ -38,14 +38,14 @@ type Page =
 
     static member Default =
         let renderer (doctype : option<string>) (title: option<string>)
-            writeHead writeBody (writer: System.Web.UI.HtmlTextWriter) =
+            writeHead writeBody (writer: HtmlTextWriter) =
             // Doctype
             match doctype with
             | Some dt -> writer.WriteLine dt
             | None -> ()
-            writer.RenderBeginTag HtmlTextWriterTag.Html
+            writer.RenderBeginTag "html"
             // Head section
-            writer.RenderBeginTag HtmlTextWriterTag.Head
+            writer.RenderBeginTag "head"
             match title with
             | Some t ->
                 writer.WriteFullBeginTag "title"
@@ -56,7 +56,7 @@ type Page =
             writeHead writer
             writer.RenderEndTag()
             // Body section
-            writer.RenderBeginTag HtmlTextWriterTag.Body
+            writer.RenderBeginTag "body"
             writeBody writer
             writer.RenderEndTag()
             writer.RenderEndTag()
