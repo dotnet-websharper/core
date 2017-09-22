@@ -286,7 +286,6 @@ let emptyRequest (uri: string) : Http.Request =
         Headers = Seq.empty
         Post = Http.ParameterCollection(Seq.empty)
         Get = Http.ParameterCollection(Seq.empty)
-        Cookies = HttpCookieCollection()
         ServerVariables = Http.ParameterCollection(Seq.empty)
         Body = Stream.Null
         Files = Seq.empty

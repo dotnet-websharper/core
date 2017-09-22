@@ -2,11 +2,9 @@
     exclude Mono.Cecil.Rocks.dll
 NETStandard.Library
 Microsoft.NETCore.App
+FSharp.Core
 
 group fcs
     FSharp.Compiler.Service
     System.Collections.Immutable
     System.Reflection.Metadata
-
-group fsharp4
-    FSharp.Core

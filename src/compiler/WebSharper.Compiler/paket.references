@@ -3,9 +3,7 @@
 System.Configuration.ConfigurationManager
 NETStandard.Library
 Microsoft.Extensions.DependencyModel
-
-group fsharp4
-    FSharp.Core
+FSharp.Core
 
 group roslyn
     System.CodeDom

@@ -1,3 +1,2 @@
 Microsoft.Build.Utilities.Core
-group fsharp4
-    FSharp.Core
+FSharp.Core

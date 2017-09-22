@@ -14,7 +14,22 @@ let baseVersion =
 
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
-        SolutionFile = "WebSharper.sln"
+        BuildAction = BuildAction.Custom <| fun mode ->
+            let publish project framework =
+                DotNetCli.Publish <| fun p ->
+                    { p with
+                        Project = sprintf "src/compiler/%s/%s.fsproj" project project
+                        Configuration = string mode
+                        Framework = framework
+                    }
+            publish "WebSharper.FSharp" "net461"
+            publish "WebSharper.FSharp" "netcoreapp2.0"
+            publish "WebSharper.CSharp" "netcoreapp2.0"
+            DotNetCli.Build <| fun p ->
+                { p with
+                    Project = "WebSharper.sln"
+                    Configuration = string mode
+                }
 }
 
 let NeedsBuilding input output =

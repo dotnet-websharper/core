@@ -5,41 +5,28 @@ redirects: on
 
 framework: net461, netstandard2.0
 source https://www.nuget.org/api/v2
+strategy: min
 
 nuget FAKE
 nuget Microsoft.NETCore.App >= 2.0 framework: netstandard2.0
 nuget Microsoft.NETCore.Platforms >= 2.0
 nuget Microsoft.NETCore.Targets >= 2.0
 nuget Microsoft.Extensions.DependencyModel >= 2.0
-nuget Mono.Cecil ~> 0.10-beta
+nuget Mono.Cecil ~> 0.10-beta6
 nuget Microsoft.Build.Utilities.Core >= 15.3
 nuget AjaxMin
 nuget NETStandard.Library >= 2.0
 nuget System.Configuration.ConfigurationManager >= 4.4
 nuget System.Reflection.Emit.Lightweight >= 4.3
-
-group fsharp4
-    framework: net46
-    source https://api.nuget.org/v3/index.json
-    strategy: min
-
-    nuget NETStandard.Library >= 2.0
-    nuget Microsoft.NETCore.Platforms >= 2.0
-    nuget System.ValueTuple 4.4.0
-    nuget FSharp.Core 4.1.17
-
-group fsharp3
-    framework: net46
-    source https://api.nuget.org/v3/index.json
-
-    nuget FSharp.Core 3.0.2
+nuget System.ValueTuple ~> 4.4.0
+nuget FSharp.Core ~> 4.2.0
 
 group roslyn
     framework: net461
     source https://api.nuget.org/v3/index.json
     strategy: min
 
-    nuget System.ValueTuple 4.4.0
+    nuget System.ValueTuple ~> 4.4.0
     nuget Microsoft.CodeAnalysis.CSharp ~2.3
     nuget System.CodeDom >= 4.4
 

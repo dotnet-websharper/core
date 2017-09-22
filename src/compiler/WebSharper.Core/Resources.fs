@@ -33,6 +33,9 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
     let mutable tagStack = System.Collections.Generic.Stack()
     let currentAttributes = ResizeArray()
 
+    let encodeText (text: string) =
+        text // TODO: do encode
+
     new (w) = new HtmlTextWriter(w, "\t")
 
     override this.Write(c: char) = w.Write(c)
@@ -53,8 +56,8 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         this.Write('<')
         this.Write(name)
         if currentAttributes.Count > 0 then
-            for (name, value) in currentAttributes do
-                this.Write("{0}=\"{1}\"", name, value) // TODO: escape
+            for struct (name, value) in currentAttributes do
+                this.WriteAttribute(name, value)
             currentAttributes.Clear()
         this.Write('>')
 
@@ -73,9 +76,21 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         this.Write("</")
         this.Write(name)
         this.Write(">")
+
+    member this.WriteEncodedText(text: string) =
+        this.Write(encodeText text)
         
     member this.AddAttribute(name: string, value: string) =
-        currentAttributes.Add((name, value))
+        currentAttributes.Add(struct (name, value))
+
+    member this.WriteAttribute(name: string, value: string) =
+        this.Write(" {0}=\"{1}\"", name, encodeText value)
+
+    static member SelfClosingTagEnd = " />"
+
+    static member TagLeftChar = '>'
+
+    static member TagRightChar = '>'
 #endif
 
 module CT = ContentTypes

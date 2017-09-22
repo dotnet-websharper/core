@@ -100,10 +100,23 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     ) "%i.%i.%i.%s%s" baseVersion.Major baseVersion.Minor patch build
         (match baseVersion.PreRelease with Some r -> "-" + r.Origin | None -> "")
 
+type BuildMode =
+    | Debug
+    | Release
+
+    override this.ToString() =
+        match this with
+        | Debug -> "Debug"
+        | Release -> "Release"
+
+type BuildAction =
+    | Solution of string
+    | Custom of (BuildMode -> unit)
+
 type Args =
     {
         Version : Paket.SemVerInfo
-        SolutionFile : string
+        BuildAction : BuildAction
         Attributes : seq<Attribute>
         StrongName : bool
         BaseBranch : string
@@ -121,7 +134,7 @@ type WSTargets =
     }
 
     member this.AddPrebuild s =
-        "WS-Clean" ==> s ==> "WS-BuildDebug"
+        "WS-Clean" ?=> s ==> "WS-BuildDebug"
         "WS-Update" ?=> s ==> "WS-BuildRelease"
         ()
 
@@ -155,16 +168,23 @@ let MakeTargets (args: Args) =
                         yield Attribute.KeyFile (p </> "keys" </> "IntelliFactory.snk")
             ]
 
-    let build f =
-        !! args.SolutionFile
-        |> f "" "Build"
-        |> Log "AppBuild-Output: "
+    let build mode =
+        match args.BuildAction with
+        | BuildAction.Solution file ->
+            let f =
+                match mode with
+                | BuildMode.Debug -> MSBuildDebug
+                | BuildMode.Release -> MSBuildRelease
+            !! file
+            |> f "" "Build"
+            |> Log "AppBuild-Output: "
+        | Custom f -> f mode
 
     Target "WS-BuildDebug" <| fun () ->
-        build MSBuildDebug
+        build BuildMode.Debug
 
     Target "WS-BuildRelease" <| fun () ->
-        build MSBuildRelease
+        build BuildMode.Release
 
     Target "WS-Package" <| fun () ->
         Paket.Pack <| fun p ->
@@ -228,7 +248,7 @@ let MakeTargets (args: Args) =
 
     "WS-Clean"
         ==> "WS-GenAssemblyInfo"
-        ==> "WS-BuildDebug"
+        ?=> "WS-BuildDebug"
 
     "WS-Clean"
         ==> "WS-Update"
@@ -264,7 +284,7 @@ type WSTargets with
     static member Default (version) =
         {
             Version = version
-            SolutionFile = "*.sln"
+            BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."

@@ -1,6 +1,7 @@
 ﻿Mono.Cecil
     exclude Mono.Cecil.Rocks.dll
 Microsoft.NETCore.App
+FSharp.Core
 
 group roslyn
     Microsoft.CodeAnalysis.CSharp
@@ -10,6 +11,3 @@ group roslyn
     System.IO.FileSystem
     System.Security.Cryptography.Algorithms
     System.Security.Cryptography.Primitives
-
-group fsharp4
-    FSharp.Core

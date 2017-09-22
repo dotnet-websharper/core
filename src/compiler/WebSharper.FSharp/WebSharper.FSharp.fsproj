@@ -17,9 +17,13 @@
     <None Include="paket.references" />
   </ItemGroup>
   <Target Name="CopyToOutput" AfterTargets="Build">
+    <PropertyGroup>
+      <FSharpCoreFramework>netstandard1.6</FSharpCoreFramework>
+      <FSharpCoreFramework Condition="$(TargetFramework.StartsWith('net4'))">net45</FSharpCoreFramework>
+    </PropertyGroup>
     <ItemGroup>
-      <FSharpCoreExtraFiles Include="..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.sigdata" />
-      <FSharpCoreExtraFiles Include="..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.optdata" />
+      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\$(FSharpCoreFramework)\FSharp.Core.sigdata" />
+      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\$(FSharpCoreFramework)\FSharp.Core.optdata" />
     </ItemGroup>
     <Copy SourceFiles="@(FSharpCoreExtraFiles)" DestinationFiles="@(FSharpCoreExtraFiles->'..\..\..\build\$(Configuration)\FSharp\%(Filename)%(Extension)')" />
   </Target>

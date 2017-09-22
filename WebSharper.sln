@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.26730.12
+VisualStudioVersion = 15.0.26730.15
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
@@ -19,55 +19,53 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{EC
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "stdlib", "stdlib", "{9042A9EB-28A6-4FCB-9D12-9E56835FD713}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{891CB1BD-128A-4455-8F02-A726B0B2EACF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{891CB1BD-128A-4455-8F02-A726B0B2EACF}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {7001E2B2-61F4-4770-BA7C-86F07F657678}
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
 	ProjectSection(ProjectDependencies) = postProject
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {615AEA64-16EC-49BC-AFB4-36211F6354CC}
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Collections", "src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj", "{4EF94364-B50F-4906-AB91-77BCA8413D60}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections", "src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj", "{4EF94364-B50F-4906-AB91-77BCA8413D60}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Control", "src\stdlib\WebSharper.Control\WebSharper.Control.fsproj", "{666977BF-E022-4C8F-B53D-5D294D41010F}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Control", "src\stdlib\WebSharper.Control\WebSharper.Control.fsproj", "{666977BF-E022-4C8F-B53D-5D294D41010F}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Testing", "src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj", "{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Testing", "src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj", "{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sitelets", "sitelets", "{70FEE852-57E6-4910-B4A8-E1B6D0F159E3}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Web", "src\sitelets\WebSharper.Web\WebSharper.Web.fsproj", "{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web", "src\sitelets\WebSharper.Web\WebSharper.Web.fsproj", "{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Sitelets", "src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj", "{D991329A-3AA3-4269-83AD-3597864855A0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets", "src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj", "{D991329A-3AA3-4269-83AD-3597864855A0}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{7C8FF043-B608-42BD-930B-2249675BA666}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core.JavaScript.Tests", "tests\WebSharper.Core.JavaScript.Tests\WebSharper.Core.JavaScript.Tests.fsproj", "{198AC342-E6F2-4612-813C-905B81E5471D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Tests", "tests\WebSharper.Tests\WebSharper.Tests.fsproj", "{87D32671-869D-4F33-9F24-380A4070B2DC}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Tests", "tests\WebSharper.Tests\WebSharper.Tests.fsproj", "{87D32671-869D-4F33-9F24-380A4070B2DC}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Collections.Tests", "tests\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj", "{BB4817E7-12A1-4622-B8CE-29CB3C406851}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Html5.Tests", "tests\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj", "{3958F5E1-DDA2-4A22-BF29-794A25BB14F7}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Html5.Tests", "tests\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj", "{3958F5E1-DDA2-4A22-BF29-794A25BB14F7}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Web.Tests", "tests\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj", "{2605322F-851C-4C6A-A204-F4EEE9E21252}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web.Tests", "tests\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj", "{2605322F-851C-4C6A-A204-F4EEE9E21252}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Sitelets.Tests", "tests\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Tests", "tests\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Website", "tests\Website\Website.fsproj", "{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "tests\Web\Web.csproj", "{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Website", "tests\Website\Website.fsproj", "{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
@@ -83,7 +81,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-BAD1-4D58-AFB8-529185357EE4}"
 	ProjectSection(SolutionItems) = preProject
@@ -118,25 +116,25 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 		docs\WebSharper.md = docs\WebSharper.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.CSharp", "src\compiler\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj", "{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.CSharp", "src\compiler\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj", "{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.FSharp", "src\compiler\WebSharper.FSharp\WebSharper.FSharp.fsproj", "{615AEA64-16EC-49BC-AFB4-36211F6354CC}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp", "src\compiler\WebSharper.FSharp\WebSharper.FSharp.fsproj", "{615AEA64-16EC-49BC-AFB4-36211F6354CC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.CSharp.Tests", "tests\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj", "{C78F4FFD-9C51-466B-8E35-99588A419D60}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.fsproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.fsproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp", "src\compiler\WebSharper.CSharp\WebSharper.CSharp.fsproj", "{46D8C7C3-43CA-465C-9714-20B22CF3E459}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp", "src\compiler\WebSharper.CSharp\WebSharper.CSharp.fsproj", "{46D8C7C3-43CA-465C-9714-20B22CF3E459}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
 	ProjectSection(SolutionItems) = preProject
@@ -233,10 +231,6 @@ Global
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -308,7 +302,6 @@ Global
 		{2605322F-851C-4C6A-A204-F4EEE9E21252} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{4C826618-E150-40F7-B13A-9182F0C3EACA} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{F4582361-BAD1-4D58-AFB8-529185357EE4} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
