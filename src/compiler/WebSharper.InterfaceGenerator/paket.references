@@ -3,5 +3,4 @@
 NETStandard.Library
 FSharp.Core
 
-group roslyn
     System.CodeDom

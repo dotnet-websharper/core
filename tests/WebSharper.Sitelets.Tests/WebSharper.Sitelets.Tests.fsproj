@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Api.fs" />
@@ -16,6 +17,6 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

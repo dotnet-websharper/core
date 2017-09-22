@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Config.fs" />
@@ -28,6 +29,6 @@
     <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

@@ -2,7 +2,6 @@
     exclude Mono.Cecil.Rocks.dll
 FSharp.Core
 
-group roslyn
     Microsoft.CodeAnalysis.CSharp
     Microsoft.CodeAnalysis.Common
     System.Collections.Immutable

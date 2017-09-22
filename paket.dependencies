@@ -8,31 +8,20 @@ source https://www.nuget.org/api/v2
 strategy: min
 
 nuget FAKE
-nuget Microsoft.NETCore.App >= 2.0 framework: netstandard2.0
-nuget Microsoft.NETCore.Platforms >= 2.0
-nuget Microsoft.NETCore.Targets >= 2.0
-nuget Microsoft.Extensions.DependencyModel >= 2.0
+nuget Microsoft.NETCore.App ~> 2.0.0 framework: netstandard2.0
+nuget Microsoft.NETCore.Platforms ~> 2.0.0
+nuget Microsoft.NETCore.Targets ~> 2.0.0
+nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.10-beta6
-nuget Microsoft.Build.Utilities.Core >= 15.3
+nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget AjaxMin
-nuget NETStandard.Library >= 2.0
-nuget System.Configuration.ConfigurationManager >= 4.4
-nuget System.Reflection.Emit.Lightweight >= 4.3
+nuget NETStandard.Library ~> 2.0.0
+nuget System.Configuration.ConfigurationManager ~> 4.4.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 2.3.2
+nuget System.CodeDom ~> 4.4.0
+nuget System.Reflection.Emit.Lightweight ~> 4.3.0
+nuget System.Net.Http ~> 4.3.0
+nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0
-
-group roslyn
-    framework: net461
-    source https://api.nuget.org/v3/index.json
-    strategy: min
-
-    nuget System.ValueTuple ~> 4.4.0
-    nuget Microsoft.CodeAnalysis.CSharp ~2.3
-    nuget System.CodeDom >= 4.4
-
-group fcs
-    framework: net461
-    source https://api.nuget.org/v3/index.json
-    strategy: min
-
-    nuget FSharp.Compiler.Service ~14.0.2
+nuget FSharp.Compiler.Service ~> 14.0.2

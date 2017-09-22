@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
@@ -20,6 +21,6 @@
   <!-- <ItemGroup>
     <Reference Include="System.Web" />
   </ItemGroup> -->
-  <Import Project="..\..\msbuild\CSharp.targets" />
+  <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

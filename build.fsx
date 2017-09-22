@@ -22,7 +22,6 @@ let targets = MakeTargets {
                         Configuration = string mode
                         Framework = framework
                     }
-            publish "WebSharper.FSharp" "net461"
             publish "WebSharper.FSharp" "netcoreapp2.0"
             publish "WebSharper.CSharp" "netcoreapp2.0"
             DotNetCli.Build <| fun p ->

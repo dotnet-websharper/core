@@ -3,7 +3,6 @@
 Microsoft.NETCore.App
 FSharp.Core
 
-group roslyn
     Microsoft.CodeAnalysis.CSharp
     Microsoft.CodeAnalysis.Common
     System.Collections.Immutable

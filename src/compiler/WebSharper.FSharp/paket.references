@@ -4,7 +4,6 @@ NETStandard.Library
 Microsoft.NETCore.App
 FSharp.Core
 
-group fcs
     FSharp.Compiler.Service
     System.Collections.Immutable
     System.Reflection.Metadata

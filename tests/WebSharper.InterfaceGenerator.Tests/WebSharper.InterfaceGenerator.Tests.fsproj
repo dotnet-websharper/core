@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <WebSharperProject>Extension</WebSharperProject>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />
@@ -13,6 +14,6 @@
     <ProjectReference Include="..\..\src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

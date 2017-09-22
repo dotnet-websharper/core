@@ -5,5 +5,4 @@ NETStandard.Library
 Microsoft.Extensions.DependencyModel
 FSharp.Core
 
-group roslyn
     System.CodeDom
