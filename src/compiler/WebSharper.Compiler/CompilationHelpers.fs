@@ -572,10 +572,11 @@ let makeExprInline (vars: Id list) expr =
             Let (v, h, body)    
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
 
+let CurrentGlobal a = GlobalAccess { Module = CurrentModule; Address = Hashed (List.rev a) }
+
 module JSRuntime =
-    let private runtime = ["Runtime"; "IntelliFactory"]
-    let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
-    let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
+    let private runtimeFunc f p args = Application(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
+    let private runtimeFuncI f p i args = Application(GlobalAccess (Address.Runtime f), args, p, Some i)
     let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
@@ -698,11 +699,11 @@ module Resolve =
         | Member
     
     type Resolver() =
-        let statics = Dictionary<Address, ResolveNode>()
+        let statics = Dictionary<Hashed<list<string>>, ResolveNode>()
         let prototypes = Dictionary<TypeDefinition, HashSet<string>>()
 
         let rec getSubAddress (root: list<string>) (name: string) node =
-            let tryAddr = Address (name :: root)
+            let tryAddr = Hashed (name :: root)
             match statics.TryFind tryAddr, node with
             | Some _, Member
             | Some Member, _ 
@@ -713,7 +714,7 @@ module Resolve =
                 tryAddr
 
         let getExactSubAddress (root: list<string>) (name: string) node =
-            let tryAddr = Address (name :: root)
+            let tryAddr = Hashed (name :: root)
             match statics.TryFind tryAddr, node with
             | Some (Class | Module), Module -> true
             | Some Module, Class
@@ -764,47 +765,6 @@ module Resolve =
  
 open WebSharper.Core.Metadata 
 open System.Collections.Generic
-
-let getAllAddresses (meta: Info) =
-    let r = Resolve.Resolver()
-    for KeyValue(typ, cls) in meta.Classes do
-        if typ.Value.FullName.StartsWith "Generated$" then () else
-        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
-        let rec addMember (m: CompiledMember) =
-            match m with
-            | Instance n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
-            | Static a 
-            | Constructor a -> r.ExactStaticAddress a.Value |> ignore
-            | Macro (_, _, Some m) -> addMember m
-            | _ -> ()
-        for m, _, _ in cls.Constructors.Values do addMember m
-        for f, _, _ in cls.Fields.Values do
-            match f with
-            | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
-            | StaticField a -> r.ExactStaticAddress a.Value |> ignore
-            | IndexedField _ -> ()
-        for m, _ in cls.Implementations.Values do addMember m
-        for m, _, _ in cls.Methods.Values do addMember m
-        match cls.StaticConstructor with
-        | Some (a, _) -> r.ExactStaticAddress a.Value |> ignore  
-        | _ -> ()
-    // inheritance 
-    let inheriting = HashSet()
-    let rec inheritMembers typ (cls: ClassInfo) =
-        if inheriting.Add typ then
-            match cls.BaseClass with
-            | None -> ()
-            | Some b ->
-                // assembly containing base class may not be referenced
-                match meta.Classes.TryFind b with
-                | None -> ()
-                | Some bCls ->
-                    inheritMembers b bCls              
-                    (r.LookupPrototype typ).UnionWith(r.LookupPrototype b) 
-    for KeyValue(typ, cls) in meta.Classes do
-        inheritMembers typ cls        
-    r
 
 type Refresher() =
     inherit Transformer()

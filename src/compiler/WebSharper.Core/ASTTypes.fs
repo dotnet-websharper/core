@@ -514,7 +514,24 @@ type Member =
     | Constructor of Constructor
     | StaticConstructor
 
-type Address = Hashed<list<string>>
+type Module =
+    | StandardLibrary
+    | JavaScriptFile of string
+    | TypeScriptModule of string
+    | CurrentModule
+
+type Address =
+    {
+        Module : Module
+        Address : Hashed<list<string>>
+    }
+
+    member this.JSAddress =
+        match this.Module with
+        | StandardLibrary
+        | JavaScriptFile _ ->
+            Some this.Address
+        | _ -> None
 
 module private Instances =
     let GlobalId =
@@ -527,11 +544,21 @@ module private Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
+    let RuntimeModule = JavaScriptFile "Runtime"
+
+    let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
+
 type Id with
     static member Global() = Instances.GlobalId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
+
+type Address with
+    static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
+    static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f; "WSRuntime"] }
+    static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
+    static member Global() = Instances.GlobalAddress
 
 module Reflection = 
     type private FST = Microsoft.FSharp.Reflection.FSharpType

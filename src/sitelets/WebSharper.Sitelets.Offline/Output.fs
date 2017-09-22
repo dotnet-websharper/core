@@ -42,7 +42,7 @@ module P = PathUtility
 module R = WebSharper.Core.Resources
 
 [<Literal>]
-let EMBEDDED_JS = "WebSharper.js"
+let EMBEDDED_JS = "WebSharper.ts"
 
 [<Literal>]
 let EMBEDDED_MINJS = "WebSharper.min.js"

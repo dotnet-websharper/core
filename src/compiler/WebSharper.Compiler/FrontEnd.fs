@@ -125,7 +125,8 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     let pkg =
         match comp, closures with
         | Some comp, Some moveToTop ->
-            let clPkg = pkg |> Closures.ExamineClosures(comp, moveToTop).TransformExpression 
+            let cl = Closures.ExamineClosures(comp, moveToTop)
+            let clPkg = pkg |> List.map cl.TransformStatement
             TimedStage "Closure analyzation"
             clPkg
         | _ -> pkg
@@ -135,9 +136,10 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     
     let pkg =
         if sourceMap then
-            TransformSourcePositions(assemblyName).TransformExpression pkg
+            let tr = TransformSourcePositions(assemblyName)
+            pkg |> List.map tr.TransformStatement
         else
-            removeSourcePos.TransformExpression pkg
+            pkg |> List.map removeSourcePos.TransformStatement
 
     let addRes name path data = 
         match data with
@@ -170,7 +172,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
 
         TimedStage "Serializing metadata"
 
-    if pkg <> AST.Undefined then
+    if not (List.isEmpty pkg) then
         
         let getCodeWriter() = 
             if sourceMap then
@@ -180,16 +182,16 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+        let js, map = pkg |> WebSharper.Compiler.Packager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter
         addRes EMBEDDED_JS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
             addRes EMBEDDED_MAP None (Some (getBytes m)))
         TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
-        minMap |> Option.iter (fun m ->
-            addRes EMBEDDED_MINMAP None (Some (getBytes m)))
-        TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        //let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+        //addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
+        //minMap |> Option.iter (fun m ->
+        //    addRes EMBEDDED_MINMAP None (Some (getBytes m)))
+        //TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
         addMeta()
         Some js, res.ToArray()

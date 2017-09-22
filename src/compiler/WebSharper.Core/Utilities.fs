@@ -57,6 +57,10 @@ type Hashed<'T when 'T : equality and 'T : comparison> =
 
     static member Get (h: Hashed<'T>) = h.Value
 
+[<AutoOpen>]
+module HashedHelper =
+    let (|Hashed|) (h: Hashed<'T>) = h.Value
+
 /// Utility extensions of IDictionary and parsing value types
 [<AutoOpen>]
 module FSharpExtensions =

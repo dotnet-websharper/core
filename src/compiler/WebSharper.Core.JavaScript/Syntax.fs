@@ -193,6 +193,10 @@ and Statement =
     | While        of E * S
     | With         of E * S
     | Function     of Id * list<Id> * list<S>
+    | Export       of S
+    | ImportAll    of option<Id> * string
+    | Declare      of S
+    | Namespace    of string * list<S>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
 

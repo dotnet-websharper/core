@@ -83,6 +83,9 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
             x
 
 [<JavaScript>]
+let listConstructor = []?constructor;
+
+[<JavaScript>]
 [<Require(typeof<Resource>)>]
 let Activate<'T> (json: obj) : 'T =
     let types = As<obj[]> ((?) json "$TYPES")
@@ -99,7 +102,7 @@ let Activate<'T> (json: obj) : 'T =
                     let ti = (?) x "$T"
                     if JS.TypeOf ti = JS.Kind.Undefined then o else
                         let t = types.[ti]
-                        if t ===. JS.Global?WebSharper?List?T then
+                        if t ===. listConstructor then
                             box (List.ofArray (As<obj[]> o))
                         else
                             let r = JS.New types.[ti]

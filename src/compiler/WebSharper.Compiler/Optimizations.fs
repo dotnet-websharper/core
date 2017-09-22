@@ -30,30 +30,14 @@ module I = WebSharper.Core.JavaScript.Identifier
 
 open IgnoreSourcePos
 
-//let (|GlobalAccess|_|) e =
-//    let rec ga acc e =
-//        match e with
-//        | GlobalAccess a -> Some (Address (acc @ a.Value))
-//        | ItemGet(m, Value (String f), _) -> ga (f :: acc) m
-//        | _ -> None
-//    match e with 
-//    | GlobalAccess a -> Some a
-//    | _ -> ga [] e
-
-let (|Runtime|_|) e = 
-    match e with 
-    | GlobalAccess a ->
-        match a.Value with
-        | [ r; "Runtime"; "IntelliFactory" ] -> Some r
-        | _ -> None
+let (|Runtime|_|) e =
+    match e with
+    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ a; "WSRuntime" ] } -> Some a
     | _ -> None
 
 let (|Global|_|) e = 
     match e with 
-    | GlobalAccess a ->
-        match a.Value with
-        | [ r ] -> Some r
-        | _ -> None
+    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ r ] } -> Some r
     | _ -> None
     
 let (|AppItem|_|) e =
@@ -80,7 +64,7 @@ let func vars body isReturn =
 let thisFunc this vars body isReturn =
     func vars (FixThisScope().Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
 
-let globalArray = Address [ "Array" ]
+let globalArray = Address.Lib "Array"
 
 let cleanRuntime force expr =
 //    let tr = Transform clean
@@ -111,11 +95,11 @@ let cleanRuntime force expr =
         | "Apply", [GlobalAccess mf; Value Null; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] ->
             Application (GlobalAccess mf, arr @ rest, NonPure, None)
 
-        | "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Value.Tail = m.Value ->
+        | "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
             Application (GlobalAccess mf, [], NonPure, None)
-        | "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Value.Tail = m.Value ->
+        | "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
             Application (GlobalAccess mf, arr, NonPure, None)
-        | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Value = m.Value ->
+        | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Module = m.Module && mf.Address.Value = m.Address.Value ->
             Application (GlobalAccess mf, arr @ rest, NonPure, None)
         
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->

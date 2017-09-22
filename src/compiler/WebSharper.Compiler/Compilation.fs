@@ -131,6 +131,9 @@ type Compilation(meta: Info, ?hasGraph) =
             generatedClass <- Some td
             td
 
+    member this.LocalAddress addr =
+        { Module = CurrentModule; Address = addr }
+    
     interface ICompilation with
         member this.GetCustomTypeInfo typ = 
             this.GetCustomType typ
@@ -165,7 +168,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
             let parsed = Recognize.createInline mutableExternals None vars false inl
             Substitution(args).TransformExpression(parsed)
-                
+        
         member this.NewGenerated addr =
             let resolved = resolver.Value.StaticAddress (List.rev addr)
             let td = this.GetGeneratedClass()
@@ -177,11 +180,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = 0       
                 }
             generatedMethodAddresses.Add(meth, resolved)
-            td, meth, resolved
+            td, meth, this.LocalAddress resolved
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
-            let addr = generatedMethodAddresses.[meth]
+            let addr = this.LocalAddress generatedMethodAddresses.[meth]
             compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None), body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
@@ -453,9 +456,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(CurrentGlobal ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
+                        Compiled (Inline, Optimizations.None, Application(CurrentGlobal ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
                     | _ -> 
                         Compiled (Instance m, Optimizations.None, Undefined)
                 else
@@ -613,7 +616,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ
         let cls = classes.[typ]
         match cls.StaticConstructor with
-        | Some(_, GlobalAccess a) when a.Value = [ "ignore" ] -> None
+        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> None
         | Some (cctor, _) -> Some cctor
         | None -> None
 
@@ -739,11 +742,11 @@ type Compilation(meta: Info, ?hasGraph) =
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
             resolveInterface typ nr
 
-        let r = getAllAddresses meta
+        let r = Resolve.Resolver()
         resolver <- Some r
 
-        let someEmptyAddress = Some (Address [])
-        let unresolvedCctor = Some (Address [], Undefined)
+        let someEmptyAddress = Some (Address.Global())
+        let unresolvedCctor = Some (Address.Global(), Undefined)
 
         let resNode (t, p) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
@@ -884,10 +887,10 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.foldBack (fun (p, o) fb -> Some (Macro(p, o |> Option.map ParameterObject.OfObj, fb))) nr.Macros
                 |> Option.get
 
-        let compiledStaticMember (address: Address) (nr : NotResolvedMethod) =
+        let compiledStaticMember a (nr : NotResolvedMethod) =
             match nr.Kind with
-            | N.Static -> Static address
-            | N.Constructor -> Constructor address
+            | N.Static -> Static (this.LocalAddress a)
+            | N.Constructor -> Constructor (this.LocalAddress a)
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -932,7 +935,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let setClassAddress typ clAddr =
             let res = classes.[typ]
             if Option.isSome res.Address then
-                classes.[typ] <- { res with Address = Some clAddr }
+                classes.[typ] <- { res with Address = Some (this.LocalAddress clAddr) }
             else
                 extraClassAddresses.[typ] <- clAddr.Value
 
@@ -1077,13 +1080,13 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.rev
             if not (r.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
                 this.AddError(None, NameConflict ("Class name conflict", sn))
-            setClassAddress typ (Address addr)
+            setClassAddress typ (Hashed addr)
 
-        let nameStaticMember typ addr m = 
+        let nameStaticMember typ a m = 
             let res = classes.[typ]
             match m with
             | M.Constructor (cDef, nr) ->
-                let comp = compiledStaticMember addr nr
+                let comp = compiledStaticMember a nr
                 if nr.Compiled && Option.isNone res.StaticConstructor then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
@@ -1091,9 +1094,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, nr) ->
-                res.Fields.Add(fName, (StaticField addr, nr.IsReadonly, nr.FieldType))
+                res.Fields.Add(fName, (StaticField (this.LocalAddress a), nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
-                let comp = compiledStaticMember addr nr
+                let comp = compiledStaticMember a nr
                 if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
@@ -1103,8 +1106,8 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 let cls = classes.[typ]
-                classes.[typ] <- { cls with StaticConstructor = Some (addr, Undefined) }
-                compilingStaticConstructors.Add(typ, (addr, expr))
+                classes.[typ] <- { cls with StaticConstructor = Some (this.LocalAddress a, Undefined) }
+                compilingStaticConstructors.Add(typ, (this.LocalAddress a, expr))
         
         let nameInstanceMember typ name m =
             let res = classes.[typ]
@@ -1136,7 +1139,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let getClassAddress typ =
             match classes.[typ].Address with
-            | Some a -> a.Value
+            | Some a -> a.Address.Value
             | _ -> 
             match extraClassAddresses.TryFind typ with
             | Some a -> a
@@ -1156,7 +1159,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | a -> List.ofArray (Array.rev a)
             if not (r.ExactStaticAddress addr) then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
-            nameStaticMember typ (Address addr) m
+            nameStaticMember typ (Hashed addr) m
               
         for typ in remainingClasses do
             let removeGen (n: string) =
@@ -1173,7 +1176,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 let addr = n :: clAddr
                 if not (r.ExactStaticAddress addr) then
                     this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
-                nameStaticMember typ (Address addr) m
+                nameStaticMember typ (Hashed addr) m
            
         // TODO: check nothing is hiding (exclude overrides and implementations)
         for KeyValue(typ, ms) in namedInstanceMembers do

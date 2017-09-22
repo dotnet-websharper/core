@@ -30,6 +30,8 @@ open WebSharper.Core.AST
 
 type P = WebSharper.Core.JavaScript.Preferences
 
+let defaultNames = Set [ "window" ] 
+
 type Environment =
     {
         Preference : WebSharper.Core.JavaScript.Preferences
@@ -44,25 +46,26 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window" ]
+            ScopeNames = defaultNames
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "window" ] 
+            ScopeIds = Map [ Id.Global(), "<any>window" ] 
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = false
             OuterScope = true
         }
 
-    member this.NewInner() =
+    member this.NewInner(?ns) =
+        let outer = defaultArg ns false
         {
             Preference = this.Preference    
-            ScopeNames = this.ScopeNames
+            ScopeNames = if outer then defaultNames else this.ScopeNames
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
-            OuterScope = false
+            OuterScope = outer
         }
 
     member this.Declarations =
@@ -125,6 +128,10 @@ type CollectVariables(env: Environment) =
     override this.VisitVarDeclaration(v, _) =
         defineId env true v |> ignore
 
+    override this.VisitNamespace(n, s) =
+        env.ScopeNames <- env.ScopeNames |> Set.add n
+        s |> List.iter this.VisitStatement
+
 let flattenJS s =
     let res = ResizeArray()
     let rec add a =
@@ -186,11 +193,11 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
-        let useStrict =
-            if env.OuterScope then
-                [ J.Ignore (J.Constant (J.String "use strict")) ]
-            else []
-        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body))
+        //let useStrict =
+        //    if env.OuterScope then
+        //        [ J.Ignore (J.Constant (J.String "use strict")) ]
+        //    else []
+        J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body))
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -265,11 +272,17 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
+    | GlobalAccess { Module = StandardLibrary | CurrentModule; Address = a } ->
+        let rec get a =
+            match a with
+            | [] -> failwith "empty local address"
+            | [ n ] -> J.Var n
+            | n :: r -> (get r).[J.Constant (J.String n)]
+        get a.Value
     | _ -> 
-        failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformExpression(expr))
         invalidForm (GetUnionCaseName expr)
 
-and private transformStatement (env: Environment) (statement: Statement) : J.Statement =
+and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     let sequential s effect =
@@ -340,9 +353,14 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
-        match e with
-        | IgnoreSourcePos.Undefined -> J.Empty 
-        | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
+        if env.OuterScope then
+            match e with
+            | IgnoreSourcePos.Undefined -> J.Vars [ transformId env id, None ]
+            | _ -> J.Vars [ transformId env id, Some (trE e) ]
+        else
+            match e with
+            | IgnoreSourcePos.Undefined -> J.Empty 
+            | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
@@ -387,6 +405,21 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
             J.ForVarIn(defineId env false a, None, trE b, trS c)
+    | ImportAll (a, b) ->
+        J.ImportAll(a |> Option.map (defineId env false), b)
+    | Export a ->
+        J.Export (trS a)
+    | Declare a ->
+        J.Declare (trS a)
+    | Namespace (a, b) ->
+        let innerEnv = env.NewInner(true)
+        J.Namespace (a, List.map (transformStatement innerEnv) b)
     | _ -> 
-        failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformStatement(statement))
         invalidForm (GetUnionCaseName statement)
+
+let transformProgram pref statements =
+    let env = Environment.New(pref)
+    let collect = CollectVariables(env)
+    statements |> List.iter collect.VisitStatement
+    J.Ignore (J.Constant (J.String "use strict")) ::
+    (statements |> List.map (transformStatement env) |> flattenJS)

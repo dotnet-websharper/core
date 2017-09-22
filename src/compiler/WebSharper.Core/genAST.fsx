@@ -270,6 +270,17 @@ let StatementDefs =
 
         "DoNotReturn", [],
             ".NET - F# tail call position"
+
+        // TypeScript
+        "ImportAll", [ Option Id, "identifier"; Str, "moduleName" ],
+            "TypeScript - import * as ... from ..."
+        "Export", [ Statement, "statement" ],
+            "TypeScript - export"
+        "Declare", [ Statement, "statement" ], 
+            "TypeScript - declare ..."
+        "Namespace", [ Str, "name"; List Statement, "statements" ], 
+            "TypeScript - namespace { ... }"
+
     ]
 
 let binaryOps =

@@ -22,6 +22,7 @@
 [<AutoOpen>]
 module WebSharper.Compiler.Breaker
 
+open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
 open System.Collections.Generic
@@ -218,7 +219,7 @@ let (|ObjWithPropSetters|_|) expr =
 
 let bind key value body = Let (key, value, body)
 
-let globalId = Address [ "id" ]
+let globalId = { Module = JavaScriptFile "Runtime"; Address = Hashed [ "id" ] }
 
 let rec removeLets expr =
     let func vars body isReturn =

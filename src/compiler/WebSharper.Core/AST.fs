@@ -242,6 +242,14 @@ and Statement =
     | GotoCase of CaseExpression:option<Expression>
     /// .NET - F# tail call position
     | DoNotReturn
+    /// TypeScript - import * as ... from ...
+    | ImportAll of Identifier:option<Id> * ModuleName:string
+    /// TypeScript - export
+    | Export of Statement:Statement
+    /// TypeScript - declare ...
+    | Declare of Statement:Statement
+    /// TypeScript - namespace { ... }
+    | Namespace of Name:string * Statements:list<Statement>
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -486,6 +494,18 @@ type Transformer() =
     /// .NET - F# tail call position
     abstract TransformDoNotReturn : unit -> Statement
     override this.TransformDoNotReturn () = DoNotReturn 
+    /// TypeScript - import * as ... from ...
+    abstract TransformImportAll : Identifier:option<Id> * ModuleName:string -> Statement
+    override this.TransformImportAll (a, b) = ImportAll (Option.map this.TransformId a, b)
+    /// TypeScript - export
+    abstract TransformExport : Statement:Statement -> Statement
+    override this.TransformExport a = Export (this.TransformStatement a)
+    /// TypeScript - declare ...
+    abstract TransformDeclare : Statement:Statement -> Statement
+    override this.TransformDeclare a = Declare (this.TransformStatement a)
+    /// TypeScript - namespace { ... }
+    abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
+    override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -571,6 +591,10 @@ type Transformer() =
         | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
         | GotoCase a -> this.TransformGotoCase a
         | DoNotReturn  -> this.TransformDoNotReturn ()
+        | ImportAll (a, b) -> this.TransformImportAll (a, b)
+        | Export a -> this.TransformExport a
+        | Declare a -> this.TransformDeclare a
+        | Namespace (a, b) -> this.TransformNamespace (a, b)
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -814,6 +838,18 @@ type Visitor() =
     /// .NET - F# tail call position
     abstract VisitDoNotReturn : unit -> unit
     override this.VisitDoNotReturn () = ()
+    /// TypeScript - import * as ... from ...
+    abstract VisitImportAll : Identifier:option<Id> * ModuleName:string -> unit
+    override this.VisitImportAll (a, b) = Option.iter this.VisitId a; ()
+    /// TypeScript - export
+    abstract VisitExport : Statement:Statement -> unit
+    override this.VisitExport a = (this.VisitStatement a)
+    /// TypeScript - declare ...
+    abstract VisitDeclare : Statement:Statement -> unit
+    override this.VisitDeclare a = (this.VisitStatement a)
+    /// TypeScript - namespace { ... }
+    abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
+    override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -899,6 +935,10 @@ type Visitor() =
         | CSharpSwitch (a, b) -> this.VisitCSharpSwitch (a, b)
         | GotoCase a -> this.VisitGotoCase a
         | DoNotReturn  -> this.VisitDoNotReturn ()
+        | ImportAll (a, b) -> this.VisitImportAll (a, b)
+        | Export a -> this.VisitExport a
+        | Declare a -> this.VisitDeclare a
+        | Namespace (a, b) -> this.VisitNamespace (a, b)
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -990,6 +1030,10 @@ module IgnoreSourcePos =
     let (|CSharpSwitch|_|) x = match ignoreStatementSourcePos x with CSharpSwitch (a, b) -> Some (a, b) | _ -> None
     let (|GotoCase|_|) x = match ignoreStatementSourcePos x with GotoCase a -> Some a | _ -> None
     let (|DoNotReturn|_|) x = match ignoreStatementSourcePos x with DoNotReturn  -> Some () | _ -> None
+    let (|ImportAll|_|) x = match ignoreStatementSourcePos x with ImportAll (a, b) -> Some (a, b) | _ -> None
+    let (|Export|_|) x = match ignoreStatementSourcePos x with Export a -> Some a | _ -> None
+    let (|Declare|_|) x = match ignoreStatementSourcePos x with Declare a -> Some a | _ -> None
+    let (|Namespace|_|) x = match ignoreStatementSourcePos x with Namespace (a, b) -> Some (a, b) | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
     let rec PrintExpression x =
@@ -1075,6 +1119,10 @@ module Debug =
         | CSharpSwitch (a, b) -> "CSharpSwitch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> "[" + String.concat "; " (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) "_") a) + "], " + PrintStatement b) b) + "]" + ")"
         | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
         | DoNotReturn  -> "DoNotReturn" + ""
+        | ImportAll (a, b) -> "ImportAll" + "(" + defaultArg (Option.map string a) "_" + ", " + PrintObject b + ")"
+        | Export a -> "Export" + "(" + PrintStatement a + ")"
+        | Declare a -> "Declare" + "(" + PrintStatement a + ")"
+        | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
 // }}
 
     let PrintExpressionWithPos x =

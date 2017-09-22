@@ -176,6 +176,9 @@ let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
     |> ignore
 
 let EscapeId (id: string) =
+    match id with
+    | "<any>window" -> id
+    | _ -> 
     let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
         invalidArg "id" "Cannot escape null and empty identifiers."
@@ -480,6 +483,17 @@ and Statement canBeEmpty statement =
         ++ Id name
         ++ Parens (CommaSeparated Id formals)
         -- BlockLayout (List.map (Statement true) body)
+    | S.Export s ->
+        Word "export" ++ Statement false s
+    | S.ImportAll (None, m) ->
+        Word "import" ++ Token (QuoteString m) 
+    | S.ImportAll (Some i, m) ->
+        Word "import * as" ++ Word (EscapeId i) ++ Word "from" ++ Token (QuoteString m) 
+    | S.Declare s ->
+        Word "declare" ++ Statement false s
+    | S.Namespace (n, s) ->
+        Word "namespace" ++ Word n
+        -- BlockLayout (List.map (Statement true) s)
 
 and Block statement =
     match S.IgnoreStatementPos statement with

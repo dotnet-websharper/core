@@ -575,8 +575,8 @@ type New() =
 //type FST = Reflection.FSharpType
 
 module JSRuntime =
-    let private runtime = ["Runtime"; "IntelliFactory"]
-    let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
+    let private runtimeFunc f p args = 
+        Application(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let GetOptional value = runtimeFunc "GetOptional" Pure [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
     let CreateFuncWithArgs f = runtimeFunc "CreateFuncWithArgs" Pure [f]

@@ -1517,13 +1517,15 @@ module TypedProviderInternals =
         and pko xs =
             Object (xs |> List.map (fun (a, b) -> (a, pk b)))
         let data = pk encoded
-        let rec encA acc x =
-            match x with
-            | [] -> failwith "types array must not be empty"
-            | [x] -> Array (String x :: acc)
-            | y :: x -> encA (String y :: acc) x
+        let rec encA (a: AST.Address) =
+            match a.Module with
+            | AST.StandardLibrary 
+            | AST.JavaScriptFile _ ->
+                Array (Null :: (a.Address.Value |> List.rev |> List.map String))
+            | AST.TypeScriptModule m ->
+                Array (String m :: (a.Address.Value |> List.rev |> List.map String))
         let types =
-            Array (List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA [])))
+            Array (List.ofSeq (dict.Keys |> Seq.map encA))
         Object [
             TYPES, types
             DATA, data

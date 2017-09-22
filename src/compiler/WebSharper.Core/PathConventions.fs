@@ -75,7 +75,7 @@ module PathConventions =
         let scripts = root ++ "Scripts" ++ "WebSharper"
 
         member p.JavaScriptFileName(a) =
-            a.ShortName + ".js"
+            a.ShortName + ".ts"
 
         member p.MinifiedJavaScriptFileName(a) =
             a.ShortName + ".min.js"

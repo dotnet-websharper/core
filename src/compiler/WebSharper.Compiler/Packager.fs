@@ -26,6 +26,7 @@ open System.Collections.Generic
 
 open WebSharper.Core
 open WebSharper.Core.AST
+
 module M = WebSharper.Core.Metadata
 
 let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
@@ -34,86 +35,116 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let statements = ResizeArray()
 
     let g = Id.New "Global"
-    let glob = Var g
+    let glob = Var g                    
     declarations.Add <| VarDeclaration (g, Var (Id.Global()))
-    addresses.Add(Address [], glob)
-    addresses.Add(Address [ "window" ], glob)
+    addresses.Add(Address.Global(), glob)
+    addresses.Add(Address.Lib "window", glob)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
-    
+
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            match address.Value with
-            | [] -> glob
-            | [ name ] ->
-                let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
-                let f = Value (String name)
-                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
-                let res = Var var
-                addresses.Add(address, res)
-                res
-            | name :: r ->
-                let parent = getAddress (Hashed r)
-                let f = Value (String name)
-                let var = Id.New name
-                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
-                let res = Var var
-                addresses.Add(address, res)
-                res
+            let res =
+                match address.Address.Value with
+                | [] ->
+                    match address.Module with
+                    | StandardLibrary -> failwith "impossible, already handled"
+                    | JavaScriptFile js ->
+                        let fileName = js + ".js"
+                        declarations.Add <| ImportAll (None, fileName)
+                        glob
+                    | TypeScriptModule ts ->
+                        let var = Id.New (ts |> String.filter System.Char.IsUpper)
+                        declarations.Add <| ImportAll (Some var, ts)
+                        Var var
+                    | CurrentModule -> failwith "empty local address"
+                | [ name ] ->
+                    match address.Module with
+                    | CurrentModule 
+                    | StandardLibrary -> GlobalAccess address
+                    | _ ->
+                    let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
+                    let f = Value (String name)
+                    declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
+                    Var var
+                | name :: r ->
+                    match address.Module with
+                    | CurrentModule -> GlobalAccess address
+                    | _ ->
+                    let parent = getAddress { address with Address = Hashed r }
+                    let f = Value (String name)
+                    let var = Id.New name
+                    declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
+                    Var var
+            addresses.Add(address, res)
+            res
 
-    let getFieldAddress (address: Address) =
-        match address.Value with
-        | name :: r ->
-            getAddress (Hashed r), Value (String name)
-        | _ -> failwith "packageAssembly: empty address"
-    
-    let rec getOrImportAddress (full: bool) (address: Address) =
+    let mutable currentNamespace = ResizeArray() 
+    let mutable currentNamespaceContents = [ statements ]
+
+    let rec transformAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            match address.Value with
+            match address.Module with
+            | CurrentModule
+            | TypeScriptModule _ -> getAddress address
+            | _ ->
+            match address.Address.Value with
             | [] -> glob
             | h :: t ->
-                let parent = getOrImportAddress false (Address t)
-                let import = ItemGet(parent, Value (String h), Pure)
-                if full then
-                    import
-                else
-                    let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
-                    let importWithCheck =
-                        if List.isEmpty t then import else parent ^&& import
-                    declarations.Add <| VarDeclaration (var, importWithCheck)                
-                    let res = Var var
-                    addresses.Add(address, res)
-                    res
+                let parent = getAddress { address with Address = Hashed t }
+                ItemGet(parent, Value (String h), Pure)
+
+    let commonLength s1 s2 =
+        Seq.zip s1 s2 |> Seq.takeWhile (fun (a, b) -> a = b) |> Seq.length
+
+    let closeNamespace() =
+        match currentNamespaceContents with
+        | contents :: (parentContents :: _ as pc) ->
+            let l = currentNamespace.Count - 1
+            let name = currentNamespace.[l]
+            currentNamespace.RemoveAt(l)
+            currentNamespaceContents <- pc
+            parentContents.Add(Export (Namespace (name, List.ofSeq contents)))
+        | _  -> ()
+
+    let toNamespace a =
+        let r = List.rev a 
+        let common = commonLength currentNamespace r
+        let close = currentNamespace.Count - common
+        for i = 1 to close do
+            closeNamespace()
+        for name in r |> List.skip common do
+            currentNamespace.Add(name)
+            currentNamespaceContents <- ResizeArray() :: currentNamespaceContents
+    
+    let toNamespaceWithName (a: Address) =
+        match a.Address.Value with
+        | n :: ns ->
+            toNamespace ns
+            n
+        | _ -> failwith "empty address"
+
+    let addStatement s =
+        match currentNamespaceContents with
+        | contents :: _ -> contents.Add(s)
+        | _ -> failwith "impossible"
 
     let globalAccessTransformer =
         { new Transformer() with
-            override this.TransformGlobalAccess a = getOrImportAddress true a
+            override this.TransformGlobalAccess a = transformAddress a
         }
-            
-    let package a expr =
-        let o, x = getFieldAddress a
-        statements.Add <| ExprStatement (ItemSet (o, x, expr))    
 
-    let packageCtor a expr =
-        let o, x = getFieldAddress a
-        let av = 
-            match getAddress a with
-            | Var v -> v
-            | _ -> failwith "packageCtor error"
-        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
-
-    let packageCctor a expr name =
-        let o, x = getFieldAddress a
-        match expr with
-        | Function ([], body) ->
-            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
-            let expr = Function([], Block [rem; body])
-            statements.Add <| ExprStatement (ItemSet (o, x, expr))    
-        | _ ->
-            failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
+    let package (a: Address) expr =
+        let n = toNamespaceWithName a
+        let i = Id.New n
+        let exp =
+            match expr with
+            | Function(args, body) -> FuncDeclaration(i, args, body)
+            | _ -> VarDeclaration (i, expr)
+        addStatement <| Export exp
 
     let classes = Dictionary(current.Classes)
 
@@ -133,10 +164,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | _ -> ()
         | _ -> ()
 
+        for f, _, _ in c.Fields.Values do
+            match f with
+            | M.StaticField n ->
+                package n Undefined  
+            | _ -> ()
+
         match c.StaticConstructor with
-        | Some(_, GlobalAccess a) when a.Value = [ "ignore" ] -> ()
-        | Some (ccaddr, body) -> 
-            packageCctor ccaddr body name
+        | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
+        | Some(ccaddr, body) -> 
+            package ccaddr body
         | _ -> ()
 
         match c.Address with 
@@ -173,7 +210,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | _ -> Value Null
              
             if c.HasWSPrototype then
-                packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
+                package addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
         for info, _, body in c.Methods.Values do
             match withoutMacros info with
@@ -204,16 +241,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         classes.Remove t |> ignore
         packageClass c t.Value.FullName
 
+    toNamespace []
+
     if isBundle then
         match current.EntryPoint with
-        | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
+        | Some ep -> addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
-    if List.isEmpty trStatements then Undefined else
-        let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-        Application(Function([], Block allStatements), [], NonPure, Some 0)
+    if List.isEmpty trStatements then 
+        [] 
+    else
+        List.ofSeq declarations @ trStatements 
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
@@ -224,14 +264,8 @@ let readMapFileSources mapFile =
         List.zip sources sourcesContent
     | _ -> failwith "map file JSON should be an object"
 
-let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
-    let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
-    let program =
-        statement
-        |> JavaScriptWriter.transformExpr env
-        |> WebSharper.Core.JavaScript.Syntax.Ignore
-        |> List.singleton
-
+let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
+    let program = statements |> JavaScriptWriter.transformProgram pref
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile()

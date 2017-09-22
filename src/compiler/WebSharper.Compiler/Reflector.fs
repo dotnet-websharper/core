@@ -273,10 +273,17 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
         
         if constructors.Count = 0 && methods.Count = 0 then () else
-                           
+        
+        let address =
+             prototypes.TryFind(def.Value.FullName)
+             |> Option.map (fun s -> 
+                 // TODO: support for JS files
+                 { Module = StandardLibrary; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+             )
+
         classes.Add(def, 
             {
-                Address = prototypes.TryFind(def.Value.FullName) |> Option.map (fun s -> s.Split('.') |> List.ofArray |> List.rev |> Address)
+                Address = address
                 BaseClass = baseDef
                 Constructors = constructors
                 Fields = Map.empty 
