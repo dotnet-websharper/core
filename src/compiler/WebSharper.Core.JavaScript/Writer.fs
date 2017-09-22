@@ -20,6 +20,8 @@
 
 module WebSharper.Core.JavaScript.Writer
 
+open System.Security.Cryptography.X509Certificates
+
 
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder
@@ -90,7 +92,7 @@ let PostfixOperatorAssociativity =
     NonAssociative
 
 let Precedence expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Application _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
     | S.Conditional _ -> 15
@@ -100,7 +102,7 @@ let Precedence expression =
     | _ -> 0
 
 let Associativity expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Application _ -> LeftAssociative
     | S.Binary (_, op, _) -> BinaryOperatorAssociativity op
     | S.Conditional _ -> RightAssociative
@@ -110,11 +112,14 @@ let Associativity expression =
     | _ -> NonAssociative
 
 let (|QualifiedName|_|) expression =
-    let rec loop acc = function
-        | S.Binary (x, B.``.``, S.Constant (S.String y)) ->
+    let rec loop acc e =
+        match S.IgnoreExprPos e with
+        | S.ExprPos (x, _) ->
+            loop acc x
+        | S.Binary (x, B.``.``, S.IgnoreEPos (S.Constant (S.String y))) ->
             loop (y :: acc) x
-        | S.Var _ | S.This as expr ->
-            Some (expr, List.rev acc)
+        | S.Var _ | S.This ->
+            Some (e, List.rev acc)
         | _ ->
             None
     loop [] expression
@@ -260,7 +265,7 @@ let rec Expression (expression) =
         | B.``.``, S.Constant (S.String y) when Identifier.IsValid y ->
             let e = Expression x
             let eL =
-                match x with
+                match S.IgnoreExprPos x with
                 | S.Constant (S.Number _) -> Parens e
                 | S.Application _
                 | S.Binary (_, B.``.``, _)
@@ -336,8 +341,6 @@ let rec Expression (expression) =
         Token (string x)
     | S.This ->
         Word "this"
-    | _ ->
-        failwith "Syntax.Expression not recognized"
 
 and Statement canBeEmpty statement =
     match statement with
@@ -362,8 +365,10 @@ and Statement canBeEmpty statement =
     | S.Empty ->
         if canBeEmpty then Empty else Token ";"
     | S.Ignore e ->
-        let rec dangerous = function
+        let rec dangerous e =
+            match e with
             | S.Lambda _ | S.NewObject _ -> true
+            | S.ExprPos (x, _)
             | S.Application (x, _)
             | S.Binary (x, _, _)
             | S.Conditional (x, _, _)
@@ -405,17 +410,17 @@ and Statement canBeEmpty statement =
                    ++ Word "in"
                    ++ Expression e2)
         ++ Statement false body
-    | S.If (e, s, S.Empty) ->
+    | S.If (e, s, S.IgnoreSPos S.Empty) ->
         Word "if"
         ++ Parens (Expression e)
         -- Indent (Statement false s)
     | S.If (e, s1, s2) ->
         let s1L =
-            match s1 with
+            match S.IgnoreStatementPos s1 with
             | S.If (_,_,_) -> BlockLayout [ Statement true s1 ]
             | _ -> Indent (Statement false s1)
         let rec isEmpty s =
-            match s with
+            match S.IgnoreStatementPos s with
             | S.Empty -> true
             | S.Block ss -> List.forall isEmpty ss
             | _ -> false
@@ -477,9 +482,9 @@ and Statement canBeEmpty statement =
         -- BlockLayout (List.map (Statement true) body)
 
 and Block statement =
-    match statement with
+    match S.IgnoreStatementPos statement with
     | S.Block ss -> List.map (Statement true) (Seq.toList ss)
-    | s -> [Statement true s]
+    | _ -> [Statement true statement]
     |> BlockLayout
 
 and AssignmentExpression expression =
@@ -487,7 +492,7 @@ and AssignmentExpression expression =
     ParensExpression prec expression
 
 and LeftHandSideExpression expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Application _
     | S.New _
     | _ when Precedence expression <= BinaryOperatorPrecedence B.``.`` ->
@@ -527,7 +532,7 @@ and ExpressionNoIn expression =
         Expression expression
 
 and HasIn expression =
-    match expression with
+    match S.IgnoreExprPos expression with
     | S.Binary (a, op, b) ->
         match op with
         | B.``in`` -> true

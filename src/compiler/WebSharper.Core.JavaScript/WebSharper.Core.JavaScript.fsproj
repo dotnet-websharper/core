@@ -13,7 +13,6 @@
     <Compile Include="Preferences.fs" />
     <Compile Include="Identifier.fsi" />
     <Compile Include="Identifier.fs" />
-    <Compile Include="Syntax.fsi" />
     <Compile Include="Syntax.fs" />
     <Compile Include="Lexer.fsi" />
     <Compile Include="Lexer.fs" />

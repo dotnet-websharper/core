@@ -128,12 +128,18 @@ type CollectVariables(env: Environment) =
 let flattenJS s =
     let res = ResizeArray()
     let rec add a =
-        match J.RemoveOuterStatementSourcePos a with
+        match J.IgnoreStatementPos a with
         | J.Block b -> b |> List.iter add
         | J.Empty -> ()
         | _ -> res.Add a
     s |> Seq.iter add
     List.ofSeq res    
+
+let flattenFuncBody s =
+    let b = flattenJS [s]
+    match List.rev b with
+    | J.IgnoreSPos (J.Return None) :: more -> List.rev more
+    | _ -> b
 
 let block s = J.Block (flattenJS s)
 
@@ -174,20 +180,12 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndLine = fst pos.End
                 EndColumn = snd pos.End
             } : J.SourcePos
-        J.ExprPos (trE e, jpos)
+        J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let body =
-            match b |> transformStatement innerEnv with
-            | J.Block b -> 
-                match List.rev b with
-                | J.Return None :: more -> List.rev more
-                | _ -> b
-            | J.Empty
-            | J.Return None -> []
-            | b -> [ b ]
+        let body = b |> transformStatement innerEnv |> flattenFuncBody
         let useStrict =
             if env.OuterScope then
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
@@ -333,7 +331,7 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
                 EndLine = fst pos.End
                 EndColumn = snd pos.End
             } : J.SourcePos
-        J.StatementPos (trS s, jpos)
+        J.StatementPos (J.IgnoreStatementPos (trS s), jpos)
     | If(a, b, c) -> 
         withFuncDecls <| fun () -> 
             J.If(trE a, trS b, trS c)
@@ -350,15 +348,7 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let body =
-            match b |> transformStatement innerEnv with
-            | J.Block b -> 
-                match List.rev b with
-                | J.Return None :: more -> List.rev more
-                | _ -> b
-            | J.Empty
-            | J.Return None -> []
-            | b -> [ b ]
+        let body = b |> transformStatement innerEnv |> flattenFuncBody
         let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
         if env.InFuncScope then
             f
