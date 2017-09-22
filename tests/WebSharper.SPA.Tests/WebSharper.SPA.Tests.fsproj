@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <WebSharperProject>Bundle</WebSharperProject>
+    <WebSharperBundleOutputDir>Content</WebSharperBundleOutputDir>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="Main.fs" />
+    <Content Include="Web.config" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>
