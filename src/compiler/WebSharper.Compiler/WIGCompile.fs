@@ -311,11 +311,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let stringType = resolveType typeof<string>
     let systemType = resolveType typeof<System.Type>
     let voidType = resolveType typeof<System.Void>
-#if NET461
-    let webResource = resolveType typeof<System.Web.UI.WebResourceAttribute>
-#else
     let webResource = resolveType typeof<WebSharper.WebResourceAttribute>
-#endif
     let baseResourceType = resolveType typeof<WebSharper.Core.Resources.BaseResource>
     let paramArray = resolveType typeof<System.ParamArrayAttribute>
     let notImpl = resolveType typeof<System.NotImplementedException>

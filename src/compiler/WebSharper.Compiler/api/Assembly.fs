@@ -66,8 +66,7 @@ module AssemblyUtility =
     let ParseWebResourcesUnchecked (def: Mono.Cecil.AssemblyDefinition) =
         def.CustomAttributes
         |> Seq.choose (fun attr ->
-            let wra = "System.Web.UI.WebResourceAttribute"
-            if attr.AttributeType.FullName = wra then
+            if Utility.IsWebResourceAttribute attr.AttributeType.FullName then
                 match Seq.toList attr.ConstructorArguments with
                 | [StringArg resourceName; StringArg contentType] ->
                     ReadResourceBytes resourceName def

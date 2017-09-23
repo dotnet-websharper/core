@@ -22,6 +22,7 @@
 /// Re-exports functionality from WebSharper.Core.Resources.
 module WebSharper.Resources
 
+open WebSharper
 module R = WebSharper.Core.Resources
 
 /// Re-exports BaseResource.
@@ -35,12 +36,6 @@ type Runtime = R.Runtime
 
 /// Re-exports IResource.
 type IResource = R.IResource
-
-#if NET461
-type private WebResourceAttribute = System.Web.UI.WebResourceAttribute
-#else
-type private WebResourceAttribute = WebSharper.WebResourceAttribute
-#endif
 
 [<assembly: WebResource("Json.js", "text/javascript")>]
 [<assembly: WebResource("Json.min.js", "text/javascript")>]
