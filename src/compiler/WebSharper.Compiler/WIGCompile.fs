@@ -1185,10 +1185,10 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
         match options.StrongNameKeyPair with
         | None -> WriterParameters()
         | Some p ->
-#if NET461
+#if NET461 // TODO dotnet: strong naming
             WriterParameters(StrongNameKeyPair = p)
 #else
-            WriterParameters() // TODO dotnet
+            WriterParameters()
 #endif
 
     member a.GetBytes() =

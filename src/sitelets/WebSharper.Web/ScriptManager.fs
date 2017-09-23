@@ -37,7 +37,7 @@ type private Q<'T> = System.Collections.Generic.Queue<'T>
 /// control in the head section.
 [<Sealed>]
 type ScriptManager() =
-#if NET461
+#if NET461 // ASP.NET: Control
     inherit System.Web.UI.Control()
     do base.ID <- Shared.SCRIPT_MANAGER_ID
 #endif
@@ -63,7 +63,7 @@ type ScriptManager() =
         |> List.iter (fun (k, v) -> registry.[k] <- v)
         id
 
-#if NET461
+#if NET461 // ASP.NET: Control
     override this.Render writer =
         this.Render(new Re.HtmlTextWriter(writer))
 #endif
@@ -99,7 +99,7 @@ type ScriptManager() =
             writer.WriteLine @"  IntelliFactory.Runtime.Start();"
             writer.WriteLine("</script>")
 
-#if NET461
+#if NET461 // ASP.NET: Control
     /// Searches the page for a ScriptManager.
     static member private TryFind(page: System.Web.UI.Page) =
         match page.Header with

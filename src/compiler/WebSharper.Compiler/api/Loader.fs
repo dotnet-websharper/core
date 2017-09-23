@@ -23,7 +23,7 @@ namespace WebSharper.Compiler
 [<AutoOpen>]
 module LoaderUtility =
 
-#if !NET461
+#if !NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
     open System
     open System.Collections.Generic
     open Microsoft.Extensions.DependencyModel
@@ -104,7 +104,7 @@ module LoaderUtility =
 
     [<Sealed>]
     type Resolver(aR: AssemblyResolver) =
-#if NET461
+#if NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
         let def = new Mono.Cecil.DefaultAssemblyResolver()
 #else
         let def = new DotNetCoreAssemblyResolver()
@@ -136,7 +136,7 @@ module LoaderUtility =
                 resolve ref None
 
             member x.Dispose() =
-#if NET461
+#if NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
                 def.Dispose()
 #else
                 ()

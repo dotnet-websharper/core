@@ -29,7 +29,7 @@ module R = WebSharper.Core.AST.Reflection
 
 /// A server-side control that adds a runtime dependency on a given resource.
 type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
-#if NET461
+#if NET461 // ASP.NET: Control
     inherit System.Web.UI.Control()
 #endif
 
@@ -46,7 +46,7 @@ type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
         member this.Encode(_, _) = []
         member this.Requires = req :> _
 
-#if NET461
+#if NET461 // ASP.NET: Control
     override this.OnLoad _ =
         this.ID <- ScriptManager.Find(base.Page).Register None this
 
@@ -62,7 +62,7 @@ type Require<'T when 'T :> Resources.IResource>() =
 /// control in your application.
 [<AbstractClass>]
 type Control() =
-#if NET461
+#if NET461 // ASP.NET: Control
     inherit System.Web.UI.Control()
 #endif
 
@@ -70,7 +70,7 @@ type Control() =
     [<System.NonSerialized>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
-#if NET461
+#if NET461 // ASP.NET: Control
     override this.ID
 #else
     member this.ID
@@ -78,7 +78,7 @@ type Control() =
         with get () = id
         and set x = id <- x
 
-#if NET461
+#if NET461 // ASP.NET: Control
     override this.OnLoad _ =
         this.ID <- ScriptManager.Find(base.Page).Register (Some id) this
 #endif
@@ -109,7 +109,7 @@ type Control() =
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
-#if NET461
+#if NET461 // ASP.NET: Control
     override this.Render writer =
 #else
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =

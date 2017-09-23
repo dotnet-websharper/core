@@ -18,10 +18,10 @@ module ResourceContext =
     let ResourceContext (appPath: string) : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
             let isDebug =
-#if NET461
+#if NET461 // TODO dotnet: System.Web.HttpContext.Current.IsDebuggingEnabled
                 System.Web.HttpContext.Current.IsDebuggingEnabled
 #else
-                false // TODO dotnet
+                false
 #endif
             let pu = P.PathUtility.VirtualPaths(appPath)
             {

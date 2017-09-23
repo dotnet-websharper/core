@@ -109,7 +109,7 @@ type Assembly =
 
     member this.OutputParameters(keyPair) =
         let par = Mono.Cecil.WriterParameters()
-#if NET461
+#if NET461 // TODO dotnet: strong naming
         match keyPair with
         | Some kp -> par.StrongNameKeyPair <- kp
         | None -> ()

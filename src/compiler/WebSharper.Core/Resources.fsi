@@ -24,14 +24,10 @@ module WebSharper.Core.Resources
 open System
 
 type HtmlTextWriter =
-#if NET461
+#if NET461 // ASP.NET: HtmlTextWriter
     inherit System.Web.UI.HtmlTextWriter
 #else
     inherit System.IO.TextWriter
-#endif
-    new : System.IO.TextWriter -> HtmlTextWriter
-    new : System.IO.TextWriter * indent: string -> HtmlTextWriter
-#if !NET461
     member RenderBeginTag : string -> unit
     member RenderEndTag : unit -> unit
     member WriteBeginTag : string -> unit
@@ -44,6 +40,8 @@ type HtmlTextWriter =
     static member TagLeftChar : char
     static member TagRightChar : char
 #endif
+    new : System.IO.TextWriter -> HtmlTextWriter
+    new : System.IO.TextWriter * indent: string -> HtmlTextWriter
 
 val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 

@@ -26,7 +26,7 @@ open System.Configuration
 open System.Diagnostics
 open System.IO
 open System.Reflection
-#if NET461
+#if NET461 // ASP.NET: Sitelets HttpModule
 open System.Web
 open System.Web.Compilation
 open System.Web.Hosting
@@ -89,14 +89,12 @@ module internal SiteLoading =
                 |> List.ofSeq |> List.unzip
             (Sitelet.Sum sitelets, Seq.concat actions)
 
-#if NET461
+#if NET461 // ASP.NET: Sitelets HttpModule
     let LoadFromApplicationAssemblies () =
         BuildManager.GetReferencedAssemblies()
         |> Seq.cast<Assembly>
         |> LoadFromAssemblies
-#endif
 
-#if NET461
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
@@ -226,7 +224,7 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>, resCtx,
 [<Sealed>]
 type HttpModule() =
 
-#if NET461
+#if NET461 // ASP.NET: Sitelets HttpModule
     let mutable runtime = None
 
     let tryGetHandler (ctx: HttpContextBase) =

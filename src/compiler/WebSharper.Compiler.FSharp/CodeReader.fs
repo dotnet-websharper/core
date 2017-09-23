@@ -51,7 +51,7 @@ let isUnit (t: FSharpType) =
     if t.IsTupleType || t.IsFunctionType then false else
     let td = t.TypeDefinition
     if td.IsArrayType || td.IsByRef then false
-#if NET461 // TODO dotnet
+#if NET461 // TODO dotnet: erased type providers
     elif td.IsProvidedAndErased then false
 #endif
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
@@ -60,7 +60,7 @@ let isOption (t: FSharpType) =
     let t = getOrigType t
     t.HasTypeDefinition &&
         let td = t.TypeDefinition
-#if NET461 // TODO dotnet
+#if NET461 // TODO dotnet: erased type providers
         not td.IsProvidedAndErased &&
 #endif
         td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
@@ -70,7 +70,7 @@ let rec isSeq (t: FSharpType) =
     (
         t.HasTypeDefinition &&
             let td = t.TypeDefinition
-#if NET461 // TODO dotnet
+#if NET461 // TODO dotnet: erased type providers
             not td.IsProvidedAndErased &&
 #endif
             td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
@@ -307,7 +307,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         else
         let td = getOrigDef td
         let fullName =
-#if NET461 // TODO dotnet
+#if NET461 // TODO dotnet: erased type providers
             if td.IsProvidedAndErased then td.LogicalName else
 #endif
             td.QualifiedName.Split([|','|]).[0] 
@@ -376,7 +376,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
         else
             let fn = 
-#if NET461 // TODO dotnet
+#if NET461 // TODO dotnet: erased type providers
                 if td.IsProvidedAndErased then td.LogicalName else
 #endif
                 td.FullName

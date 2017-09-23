@@ -24,13 +24,12 @@ open System
 open System.IO
 open System.Security.Cryptography
 open System.Security.Principal
-#if NET461
-open System.Web.Security
-open System.Web
-#endif
 module R = WebSharper.Core.Remoting
 
-#if NET461
+#if NET461 // ASP.Net: RPC HttpModule
+open System.Web.Security
+open System.Web
+
 type AspNetFormsUserSession(ctx: HttpContextBase) =
 
     let refresh (cookie: HttpCookie) =
@@ -133,7 +132,7 @@ type RpcHandler() =
         | _ ->
             Ok headers
 
-#if NET461
+#if NET461 // ASP.NET: RPC module
     let server = R.Server.Create Shared.Metadata Shared.Json
     let rootFolder = HttpRuntime.AppDomainAppPath
     let appPath = HttpRuntime.AppDomainAppVirtualPath
@@ -216,7 +215,7 @@ type RpcHandler() =
         rng.GetBytes(bytes)
         Convert.ToBase64String bytes
 
-#if NET461
+#if NET461 // ASP.NET: RPC HttpModule
     static member SetCsrfCookie (resp: HttpResponseBase) =
         HttpCookie(RpcUtil.CsrfTokenKey, RpcHandler.MakeCsrfCookie(),
             Expires = System.DateTime.UtcNow.AddYears(1000))
@@ -226,7 +225,7 @@ type RpcHandler() =
     static member CorsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie =
         corsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie
 
-#if NET461
+#if NET461 // ASP.NET: RPC HttpModule
 /// The WebSharper RPC HttpModule. Handles RPC requests.
 [<Sealed>]
 type RpcModule() =

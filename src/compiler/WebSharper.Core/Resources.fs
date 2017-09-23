@@ -24,7 +24,7 @@ open System
 open System.IO
 open System.Reflection
 
-#if NET461
+#if NET461 // ASP.NET: HtmlTextWriter
 
 type private HTW = System.Web.UI.HtmlTextWriter
 
@@ -180,7 +180,7 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
-#if NET461
+#if NET461 // ASP.NET: References from System.Web.Compilation.BuildManager
     let fromWeb =
         try
             System.Web.Compilation.BuildManager.GetReferencedAssemblies()

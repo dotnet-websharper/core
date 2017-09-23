@@ -34,7 +34,7 @@ type IWebsite<'Action when 'Action : equality> =
 [<RequireQualifiedAccess>]
 type SinglePageAction = | Index
 
-#if NET461
+#if NET461 // ASP.NET: HttpApplication
 type IHostedWebsite<'Action when 'Action : equality> =
     abstract Build : HttpApplication -> IWebsite<'Action>
 #endif
@@ -62,7 +62,7 @@ module private Utils =
     module S = Specialization
 
     let GetSitelet : Type -> _ -> _ =
-#if NET461
+#if NET461 // ASP.NET: HttpApplication
         S.Specialize {
             new S.IGeneric<obj * option<HttpApplication>,Sitelet<obj> * list<obj>> with
                 member this.Run<'T when 'T : equality>((website, app)) =
@@ -118,7 +118,7 @@ type WebsiteAttribute private (arg: option<System.Type * obj>) =
         | Some (t, website) -> Utils.GetSitelet t (website, None)
         | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
 
-#if NET461
+#if NET461 // ASP.NET: HttpApplication
     member this.Run(app: HttpApplication) =
         match arg with
         | Some (t, website) -> Utils.GetSitelet t (website, Some app)
