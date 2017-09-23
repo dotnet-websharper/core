@@ -110,8 +110,11 @@ type BuildMode =
         | Release -> "Release"
 
 type BuildAction =
-    | Solution of string
+    | Projects of seq<string>
     | Custom of (BuildMode -> unit)
+
+    static member Solution s =
+        BuildAction.Projects (!!s)
 
 type Args =
     {
@@ -137,6 +140,11 @@ type WSTargets =
         "WS-Clean" ?=> s ==> "WS-BuildDebug"
         "WS-Update" ?=> s ==> "WS-BuildRelease"
         ()
+
+let verbose = EnvironmentHelper.getEnvironmentVarAsBoolOrDefault "verbose" false
+let msbuildVerbosity = if verbose then MSBuildVerbosity.Normal else MSBuildVerbosity.Minimal
+let dotnetArgs = if verbose then [ "-v"; "n" ] else []
+MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
 
 let MakeTargets (args: Args) =
 
@@ -170,12 +178,12 @@ let MakeTargets (args: Args) =
 
     let build mode =
         match args.BuildAction with
-        | BuildAction.Solution file ->
+        | BuildAction.Projects files ->
             let f =
                 match mode with
                 | BuildMode.Debug -> MSBuildDebug
                 | BuildMode.Release -> MSBuildRelease
-            !! file
+            files
             |> f "" "Build"
             |> Log "AppBuild-Output: "
         | Custom f -> f mode

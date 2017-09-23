@@ -12,27 +12,28 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
+let buildLibs mode =
+    DotNetCli.Build <| fun p ->
+        { p with
+            Project = "WebSharper.sln"
+            Configuration = string mode
+            AdditionalArgs = dotnetArgs
+        }
+
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
         BuildAction = BuildAction.Custom <| fun mode ->
-            let verbose = EnvironmentHelper.getEnvironmentVarAsBoolOrDefault "verbose" false
-            let args = if verbose then [ "-v"; "n" ] else []
             let publish project framework =
                 DotNetCli.Publish <| fun p ->
                     { p with
                         Project = sprintf "src/compiler/%s/%s.fsproj" project project
                         Configuration = string mode
                         Framework = framework
-                        AdditionalArgs = args
+                        AdditionalArgs = dotnetArgs
                     }
             publish "WebSharper.FSharp" "netcoreapp2.0"
             publish "WebSharper.CSharp" "netcoreapp2.0"
-            DotNetCli.Build <| fun p ->
-                { p with
-                    Project = "WebSharper.sln"
-                    Configuration = string mode
-                    AdditionalArgs = args
-                }
+            buildLibs mode
 }
 
 let NeedsBuilding input output =
@@ -72,6 +73,9 @@ targets.BuildDebug ==> "Build"
 
 Target "CI-Release" DoNothing
 targets.Publish ==> "CI-Release"
+
+Target "Libs" <| fun () ->
+    buildLibs BuildMode.Debug
 
 Target "Run" <| fun () ->
     shellExec {
