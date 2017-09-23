@@ -63,12 +63,13 @@ type ScriptManager() =
         |> List.iter (fun (k, v) -> registry.[k] <- v)
         id
 
-    /// Renders the resources.
 #if NET461
     override this.Render writer =
-#else
-    member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
+        this.Render(new Re.HtmlTextWriter(writer))
 #endif
+
+    /// Renders the resources.
+    member this.Render (writer: Re.HtmlTextWriter) =
         let encode (text: string) =
             let ev =
                 System.Text.RegularExpressions.MatchEvaluator(fun x ->

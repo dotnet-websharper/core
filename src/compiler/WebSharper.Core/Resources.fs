@@ -25,8 +25,16 @@ open System.IO
 open System.Reflection
 
 #if NET461
-type HtmlTextWriter = System.Web.UI.HtmlTextWriter
+
+type private HTW = System.Web.UI.HtmlTextWriter
+
+type HtmlTextWriter =
+    inherit HTW
+    new(w: TextWriter, i: string) = { inherit HTW(w, i) }
+    new(w: TextWriter) = { inherit HTW(w) }
+
 #else
+    
 type HtmlTextWriter(w: TextWriter, indentString: string) =
     inherit System.IO.TextWriter(w.FormatProvider)
 
@@ -34,7 +42,7 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
     let currentAttributes = ResizeArray()
 
     let encodeText (text: string) =
-        text // TODO: do encode
+        text // TODO dotnet: do encode
 
     new (w) = new HtmlTextWriter(w, "\t")
 
@@ -91,6 +99,7 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
     static member TagLeftChar = '>'
 
     static member TagRightChar = '>'
+
 #endif
 
 module CT = ContentTypes

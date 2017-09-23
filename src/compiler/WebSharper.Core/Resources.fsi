@@ -23,15 +23,15 @@ module WebSharper.Core.Resources
 
 open System
 
-#if NET461
-type HtmlTextWriter = System.Web.UI.HtmlTextWriter
-#else
 type HtmlTextWriter =
+#if NET461
+    inherit System.Web.UI.HtmlTextWriter
+#else
     inherit System.IO.TextWriter
+#endif
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
-    member PushTag : string -> unit
-    member PopTag : unit -> string
+#if !NET461
     member RenderBeginTag : string -> unit
     member RenderEndTag : unit -> unit
     member WriteBeginTag : string -> unit
