@@ -15,12 +15,15 @@ let baseVersion =
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
         BuildAction = BuildAction.Custom <| fun mode ->
+            let verbose = EnvironmentHelper.getEnvironmentVarAsBoolOrDefault "verbose" false
+            let args = if verbose then [ "-v"; "n" ] else []
             let publish project framework =
                 DotNetCli.Publish <| fun p ->
                     { p with
                         Project = sprintf "src/compiler/%s/%s.fsproj" project project
                         Configuration = string mode
                         Framework = framework
+                        AdditionalArgs = args
                     }
             publish "WebSharper.FSharp" "netcoreapp2.0"
             publish "WebSharper.CSharp" "netcoreapp2.0"
@@ -28,6 +31,7 @@ let targets = MakeTargets {
                 { p with
                     Project = "WebSharper.sln"
                     Configuration = string mode
+                    AdditionalArgs = args
                 }
 }
 
