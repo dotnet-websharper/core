@@ -119,7 +119,7 @@ let defineId (env: Environment) kind (id: Id) =
             env.ScopeIds <- env.ScopeIds |> Map.add id name
             if addToDecl then env.ScopeVars.Add(name)
             name
-    if isParam then
+    if isParam && id.IsOptional then
         res + "?"
     else
         res
@@ -302,25 +302,31 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         sequential s (function IgnoreSourcePos.Unary(UnaryOperator.``void``, e) | e -> ExprStatement e)    
     let flatten s =
         let res = ResizeArray()
+        let mutable go = true 
         let rec add a =
-            match IgnoreStatementSourcePos a with 
-            | Block b -> b |> List.iter add
-            | Empty 
-            | ExprStatement IgnoreSourcePos.Undefined -> ()
-            | ExprStatement (IgnoreSourcePos.Sequential s) ->
-                sequentialE s |> List.iter add
-            | Return (IgnoreSourcePos.Sequential s) ->
-                sequential s Return |> List.iter add
-            | Throw (IgnoreSourcePos.Sequential s) ->
-                sequential s Throw |> List.iter add
-            | _ -> 
-                res.Add(trS a)
+            if go then 
+                match IgnoreStatementSourcePos a with 
+                | Block b -> b |> List.iter add
+                | Empty 
+                | ExprStatement IgnoreSourcePos.Undefined -> ()
+                | ExprStatement (IgnoreSourcePos.Sequential s) ->
+                    sequentialE s |> List.iter add
+                | Return (IgnoreSourcePos.Sequential s) ->
+                    sequential s Return |> List.iter add
+                    go <- false
+                | Throw (IgnoreSourcePos.Sequential s) ->
+                    sequential s Throw |> List.iter add
+                    go <- false
+                | Return _ 
+                | Throw _
+                | Break _
+                | Continue _ ->
+                    res.Add(trS a)
+                    go <- false
+                | _ -> 
+                    res.Add(trS a)
         s |> List.iter add
         List.ofSeq res    
-    let flattenS s =
-        match IgnoreStatementSourcePos s with
-        | Block s -> flatten s
-        | _ -> [ trS s ]
     // collect function declarations to be on top level of functions to satisfy strict mode
     // requirement by some JavaScript engines
     let withFuncDecls f =
@@ -396,8 +402,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             J.Switch(trE a, 
                 b |> List.map (fun (l, s) -> 
                     match l with 
-                    | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
-                    | _ -> J.SwitchElement.Default (flattenS s)
+                    | Some l -> J.SwitchElement.Case (trE l, flatten [ s ]) 
+                    | _ -> J.SwitchElement.Default (flatten [ s ])
                 )
             )
     | Throw (IgnoreSourcePos.Sequential s) -> block (sequential s Throw |> List.map trS)

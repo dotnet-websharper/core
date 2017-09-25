@@ -293,6 +293,8 @@ let tryGetTypeCheck kind expr =
     | _ ->
         None
 
+let objectCreate = ItemGet(GlobalAccess (Address.Lib "Object"), Value (String "create"), Pure)
+
 type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
 
@@ -1052,7 +1054,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.New ->
             New(GlobalAccess (typAddress()), trArgs())
         | M.NewIndexed (i) ->
-            New(GlobalAccess (typAddress()), Value (String (string i)) :: trArgs())
+            New(GlobalAccess (typAddress()), Value (Int i) :: trArgs())
         | M.Static address ->
             Application(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
@@ -1112,7 +1114,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            New (GlobalAccess a, [ this.TransformExpression objExpr ])
+            Application(objectCreate, [GlobalAccess a; this.TransformExpression objExpr], Pure, Some 2)
         | _ -> this.TransformExpression objExpr
 
     override this.TransformNewRecord(typ, args) =
@@ -1302,23 +1304,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
                   
-    override this.TransformBaseCtor(expr, typ, ctor, args) =
+    override this.TransformChainedCtor(isBase, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
         let def () =
             match norm with
             | New (func, a) ->
-                Application(Base, a, NonPure, None)
+                if isBase then
+                    Application(Base, a, NonPure, None)
+                else
+                    Application(func |> getItem "call", This :: a, NonPure, None)
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                Application(Base, [a1], NonPure, None)
+                if isBase then
+                    Application(Base, [a1], NonPure, None)
+                else
+                    Application(func |> getItem "call", This :: [a1], NonPure, None)
             | _ ->
-                comp.AddError (this.CurrentSourcePos, SourceError "Chained constructor is an Inline in a not supported form")
+                let err = sprintf "Chained constructor is an Inline in a not supported form: %s" (Debug.PrintExpression norm)
+                comp.AddError (this.CurrentSourcePos, SourceError err)
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then
-            match IgnoreExprSourcePos expr with
-            | This -> norm
-            | Var _ -> def()
-            | _ -> this.Error("Unrecognized this value in constructor inline")
+            norm
         else def()
 
     override this.TransformCctor(typ) =

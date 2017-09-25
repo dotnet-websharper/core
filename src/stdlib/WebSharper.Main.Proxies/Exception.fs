@@ -22,20 +22,17 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Name [| "Error" |]>]
+[<Name "Exception">]
 [<Proxy(typeof<System.Exception>)>]
-type private ExceptionProxy =
-    [<Inline "Error($message)">]
-    new (message: string) = { }
+type private ExceptionProxy(message, inner: exn) =
+    inherit Error(message)
 
-    [<Inline "var e = Error($message); e.inner = $inner; return e">]
-    new (message: string, inner: exn) = { }
+    new (message: string) = ExceptionProxy (message, null)
 
-    [<Inline>]
-    new () = ExceptionProxy "Exception of type 'System.Exception' was thrown."
+    new () = ExceptionProxy ("Exception of type 'System.Exception' was thrown.", null)
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
-    member this.InnerException with [<Inline "$this.inner">] get () = X<System.Exception>
+    member this.InnerException with get () = inner
 
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]

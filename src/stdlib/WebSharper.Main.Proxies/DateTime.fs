@@ -89,13 +89,13 @@ module private DateTimeHelpers =
         | _ ->
             failwith "Failed to parse date string."
 
-    [<Direct "(new Date($d)).toLocaleDateString({}, {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})">]
+    [<Direct "(new Date($d)).toLocaleDateString([], {year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'})">]
     let LongDate (d: obj) = X<string>
      
-    [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', hour12: false})">]
+    [<Direct "(new Date($d)).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false})">]
     let ShortTime (d: obj) = X<string>
 
-    [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})">]
+    [<Direct "(new Date($d)).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})">]
     let LongTime (d: obj) = X<string>
                 
 [<Proxy(typeof<System.DateTime>)>]

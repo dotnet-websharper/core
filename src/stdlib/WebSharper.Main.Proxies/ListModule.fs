@@ -48,8 +48,8 @@ let setValue (l: list<'T>) (v: 'T) =
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
 
-[<Inline "new WebSharper.List.T({$: 1})"; Pure>]
-let freshEmptyList() = X<list<'T>>
+[<Inline>]
+let freshEmptyList() = As<list<'T>> [ Undefined ]
 
 [<Inline>]
 let freshTail (l: list<'T>) =

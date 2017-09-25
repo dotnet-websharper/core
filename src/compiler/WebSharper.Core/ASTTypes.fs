@@ -45,8 +45,8 @@ type Id =
         and set n = this.IdName <- n
 
     member this.IsMutable = this.Mutable
-
     member this.HasStrongName = this.StrongName
+    member this.IsOptional = this.Optional
     
     static member New(?name, ?mut, ?str, ?opt) =
         {

@@ -232,7 +232,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                         if body <> Undefined then
                             match body with
                             | Function (args, b) ->  
-                                let index = Id.New("i: '" + string i + "'", str = true)
+                                let index = Id.New("i: " + string i, str = true)
                                 members.Add (ClassConstructor (index :: args, None))
                                 indexedCtors.Add (i, (args, b))
                             | _ ->
@@ -246,7 +246,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     let cBody =
                         Switch(Var index, 
                             indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
-                                Some (Value (String (string i))), 
+                                Some (Value (Int i)), 
                                 CombineStatements [
                                     ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
                                     Break None

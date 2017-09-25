@@ -360,10 +360,19 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | a -> a
                 , t
 
+            let getParamIsOpt (a: list<FSMFV>) =
+                // if there is only a single parameter and it's generic, make it optional
+                match a with
+                | [ p ] -> p.FullType.IsGenericParameter
+                | _ -> false
+            
             let getVarsAndThis() =
                 let a, t = getArgsAndThis()
-                a |> List.map (fun p -> CodeReader.namedId p),
-                t |> Option.map (fun p -> CodeReader.namedId p)
+                let isOpt = getParamIsOpt a
+                a |> List.map (fun p -> 
+                    CodeReader.namedId isOpt p
+                ),
+                t |> Option.map (fun p -> CodeReader.namedId false p)
                
             let error m = comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
             let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
@@ -405,15 +414,16 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             None, FixThisScope().Fix(rd)
                         | _ ->
                         let a, t = getArgsAndThis()
+                        let isOpt = getParamIsOpt a
                         let argsAndVars = 
                             [
                                 match t with
                                 | Some t ->
-                                    yield t, (CodeReader.namedId t, CodeReader.ThisArg)
+                                    yield t, (CodeReader.namedId false t, CodeReader.ThisArg)
                                 | _ -> ()
                                 for p in a ->    
                                     p, 
-                                    (CodeReader.namedId p, 
+                                    (CodeReader.namedId isOpt p, 
                                         if CodeReader.isByRef p.FullType 
                                         then CodeReader.ByRefArg 
                                         else
@@ -453,7 +463,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = 
                                 match memdef with
                                 | Member.Constructor _ -> 
-                                    try CodeReader.fixCtor b
+                                    try CodeReader.fixCtor def b
                                     with e ->
                                         let tryGetExprSourcePos expr =
                                             match expr with
@@ -770,7 +780,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     }
                 )
                 |> List.ofSeq
-            
+
             let i =
                 FSharpUnionInfo {
                     Cases = cases
@@ -779,6 +789,35 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 }
 
             comp.AddCustomType(def, i, not annot.IsJavaScript)
+
+            let maxCaseFields =
+                cases |> Seq.map (fun c ->
+                    match c.Kind with
+                    | NormalFSharpUnionCase cs -> List.length cs
+                    | _ -> 0
+                ) |> Seq.max
+            
+            let tag =
+                {
+                    StrongName = Some "$"
+                    IsStatic = false
+                    IsOptional = false
+                    IsReadonly = true
+                    FieldType = NonGenericType Definitions.Int
+                }
+            clsMembers.Add (NotResolvedMember.Field ("$", tag))
+
+            for i = 0 to maxCaseFields - 1 do
+                let name = "$" + string i
+                let caseField =
+                    {
+                        StrongName = Some name
+                        IsStatic = false
+                        IsOptional = false
+                        IsReadonly = true
+                        FieldType = NonGenericType Definitions.Obj
+                    }
+                clsMembers.Add (NotResolvedMember.Field (name, caseField))
 
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =

@@ -111,8 +111,8 @@ and Expression =
     | OptimizedFSharpArg of FuncVar:Expression * Opt:FuncArgOptimization
     /// .NET - Constructor call
     | Ctor of TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression>
-    /// .NET - Base constructor call
-    | BaseCtor of ThisObject:Expression * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression>
+    /// .NET - Chained or base constructor call
+    | ChainedCtor of IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression>
     /// .NET - Creating an object from a plain object
     | CopyCtor of TypeDefinition:TypeDefinition * Object:Expression
     /// .NET - Static constructor
@@ -341,9 +341,9 @@ type Transformer() =
     /// .NET - Constructor call
     abstract TransformCtor : TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> Expression
     override this.TransformCtor (a, b, c) = Ctor (a, b, List.map this.TransformExpression c)
-    /// .NET - Base constructor call
-    abstract TransformBaseCtor : ThisObject:Expression * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> Expression
-    override this.TransformBaseCtor (a, b, c, d) = BaseCtor (this.TransformExpression a, b, c, List.map this.TransformExpression d)
+    /// .NET - Chained or base constructor call
+    abstract TransformChainedCtor : IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> Expression
+    override this.TransformChainedCtor (a, b, c, d) = ChainedCtor (a, b, c, List.map this.TransformExpression d)
     /// .NET - Creating an object from a plain object
     abstract TransformCopyCtor : TypeDefinition:TypeDefinition * Object:Expression -> Expression
     override this.TransformCopyCtor (a, b) = CopyCtor (a, this.TransformExpression b)
@@ -555,7 +555,7 @@ type Transformer() =
         | CurriedApplication (a, b) -> this.TransformCurriedApplication (a, b)
         | OptimizedFSharpArg (a, b) -> this.TransformOptimizedFSharpArg (a, b)
         | Ctor (a, b, c) -> this.TransformCtor (a, b, c)
-        | BaseCtor (a, b, c, d) -> this.TransformBaseCtor (a, b, c, d)
+        | ChainedCtor (a, b, c, d) -> this.TransformChainedCtor (a, b, c, d)
         | CopyCtor (a, b) -> this.TransformCopyCtor (a, b)
         | Cctor a -> this.TransformCctor a
         | FieldGet (a, b, c) -> this.TransformFieldGet (a, b, c)
@@ -703,9 +703,9 @@ type Visitor() =
     /// .NET - Constructor call
     abstract VisitCtor : TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> unit
     override this.VisitCtor (a, b, c) = (); (); List.iter this.VisitExpression c
-    /// .NET - Base constructor call
-    abstract VisitBaseCtor : ThisObject:Expression * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> unit
-    override this.VisitBaseCtor (a, b, c, d) = this.VisitExpression a; (); (); List.iter this.VisitExpression d
+    /// .NET - Chained or base constructor call
+    abstract VisitChainedCtor : IsBase:bool * TypeDefinition:Concrete<TypeDefinition> * Ctor:Constructor * Arguments:list<Expression> -> unit
+    override this.VisitChainedCtor (a, b, c, d) = (); (); (); List.iter this.VisitExpression d
     /// .NET - Creating an object from a plain object
     abstract VisitCopyCtor : TypeDefinition:TypeDefinition * Object:Expression -> unit
     override this.VisitCopyCtor (a, b) = (); this.VisitExpression b
@@ -915,7 +915,7 @@ type Visitor() =
         | CurriedApplication (a, b) -> this.VisitCurriedApplication (a, b)
         | OptimizedFSharpArg (a, b) -> this.VisitOptimizedFSharpArg (a, b)
         | Ctor (a, b, c) -> this.VisitCtor (a, b, c)
-        | BaseCtor (a, b, c, d) -> this.VisitBaseCtor (a, b, c, d)
+        | ChainedCtor (a, b, c, d) -> this.VisitChainedCtor (a, b, c, d)
         | CopyCtor (a, b) -> this.VisitCopyCtor (a, b)
         | Cctor a -> this.VisitCctor a
         | FieldGet (a, b, c) -> this.VisitFieldGet (a, b, c)
@@ -1013,7 +1013,7 @@ module IgnoreSourcePos =
     let (|CurriedApplication|_|) x = match ignoreExprSourcePos x with CurriedApplication (a, b) -> Some (a, b) | _ -> None
     let (|OptimizedFSharpArg|_|) x = match ignoreExprSourcePos x with OptimizedFSharpArg (a, b) -> Some (a, b) | _ -> None
     let (|Ctor|_|) x = match ignoreExprSourcePos x with Ctor (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|BaseCtor|_|) x = match ignoreExprSourcePos x with BaseCtor (a, b, c, d) -> Some (a, b, c, d) | _ -> None
+    let (|ChainedCtor|_|) x = match ignoreExprSourcePos x with ChainedCtor (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|CopyCtor|_|) x = match ignoreExprSourcePos x with CopyCtor (a, b) -> Some (a, b) | _ -> None
     let (|Cctor|_|) x = match ignoreExprSourcePos x with Cctor a -> Some a | _ -> None
     let (|FieldGet|_|) x = match ignoreExprSourcePos x with FieldGet (a, b, c) -> Some (a, b, c) | _ -> None
@@ -1108,7 +1108,7 @@ module Debug =
         | CurriedApplication (a, b) -> "CurriedApplication" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
         | OptimizedFSharpArg (a, b) -> "OptimizedFSharpArg" + "(" + PrintExpression a + ", " + PrintObject b + ")"
         | Ctor (a, b, c) -> "Ctor" + "(" + a.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
-        | BaseCtor (a, b, c, d) -> "BaseCtor" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | ChainedCtor (a, b, c, d) -> "ChainedCtor" + "(" + PrintObject a + ", " + b.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | CopyCtor (a, b) -> "CopyCtor" + "(" + a.Value.FullName + ", " + PrintExpression b + ")"
         | Cctor a -> "Cctor" + "(" + a.Value.FullName + ")"
         | FieldGet (a, b, c) -> "FieldGet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ")"

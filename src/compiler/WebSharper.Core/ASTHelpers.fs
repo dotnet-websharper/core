@@ -281,7 +281,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | (SmallIntegralType | BigIntegralType | ScalarType), CharType
         -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
-        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None) 
+        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [ Value (Int 0) ], Pure, None) 
     | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
     | StringType, (SmallIntegralType | BigIntegralType | ScalarType)

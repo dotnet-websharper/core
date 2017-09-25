@@ -413,12 +413,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
                                     CombineStatements [
-                                        ExprStatement (BaseCtor(This, bTyp, bCtor, args) |> reorder)
+                                        ExprStatement (ChainedCtor(true, bTyp, bCtor, args) |> reorder)
                                         c.Body
                                     ]
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
                                     CombineStatements [
-                                        ExprStatement (BaseCtor(This, NonGeneric def, bCtor, args) |> reorder)
+                                        ExprStatement (ChainedCtor(false, NonGeneric def, bCtor, args) |> reorder)
                                         c.Body
                                     ]
                                 | None -> c.Body

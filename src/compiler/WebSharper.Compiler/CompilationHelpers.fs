@@ -362,7 +362,7 @@ let varEvalOrder (vars : Id list) expr =
                 evalSt a
             | Arguments
             | Await _
-            | BaseCtor _
+            | ChainedCtor _
             | Ctor _
             | CallNeedingMoreArgs _
             | Cctor _
@@ -1105,18 +1105,20 @@ let (|Lambda|_|) e =
     | _ -> None
 
 let (|SimpleFunction|_|) expr =
-    match IgnoreExprSourcePos expr with
-    | Function (_, I.Empty) ->
-        Some <| Global [ "ignore" ]
-    | Function (x :: _, I.Return (I.Var y)) when x = y ->
-        Some <| Global [ "id" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
-        Some <| Global [ "fst" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
-        Some <| Global [ "snd" ]
-    | Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
-        Some <| Global [ "trd" ]
-    | _ -> None
+    // TODO : have typed versions in Runtime.ts
+    //match IgnoreExprSourcePos expr with
+    //| Function (_, I.Empty) ->
+    //    Some <| Global [ "ignore" ]
+    //| Function (x :: _, I.Return (I.Var y)) when x = y ->
+    //    Some <| Global [ "id" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 0), _))) when x = y ->
+    //    Some <| Global [ "fst" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 1), _))) when x = y ->
+    //    Some <| Global [ "snd" ]
+    //| Function (x :: _, I.Return (I.ItemGet(I.Var y, I.Value (Int 2), _))) when x = y ->
+    //    Some <| Global [ "trd" ]
+    //| _ -> None
+    None
 
 let (|AlwaysTupleGet|_|) tupledArg length expr =
     let (|TupleGet|_|) e =

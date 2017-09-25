@@ -129,7 +129,7 @@ let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
-type FixCtorTransformer(?thisExpr) =
+type FixCtorTransformer(?typ, ?thisExpr) =
     inherit Transformer()
 
     let mutable firstOcc = true
@@ -155,21 +155,14 @@ type FixCtorTransformer(?thisExpr) =
     override this.TransformCtor (t, c, a) =
         if not firstOcc then Ctor (t, c, a) else
         firstOcc <- false
-        if (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
-            match a with
-            | [] -> Undefined
-            | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
-            | [msg; inner] -> 
-                Sequential [
-                    ItemSet(thisExpr, Value (String "message"), msg)
-                    ItemSet(thisExpr, Value (String "inner"), inner)
-                ]
-            | _ -> failwith "Too many arguments for Error"
-        else
-            BaseCtor(thisExpr, t, c, a) 
+        let isBase =
+            match typ with
+            | None -> false
+            | Some ct -> t.Entity <> ct
+        ChainedCtor(isBase, t, c, a) 
 
-let fixCtor expr =
-    FixCtorTransformer().TransformExpression(expr)
+let fixCtor thisTyp expr =
+    FixCtorTransformer(thisTyp).TransformExpression(expr)
 
 module Definitions =
     let List =
@@ -214,19 +207,19 @@ module Definitions =
     
 
 let newId() = Id.New(mut = false)
-let namedId (i: FSharpMemberOrFunctionOrValue) =
+let namedId isOpt (i: FSharpMemberOrFunctionOrValue) =
     if i.IsCompilerGenerated then
         let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
         if n.Length > 0 then
-            Id.New(n.Substring(0, 1), i.IsMutable)
+            Id.New(n.Substring(0, 1), i.IsMutable, opt = isOpt)
         else
-            Id.New(mut = i.IsMutable)
+            Id.New(mut = i.IsMutable, opt = isOpt)
     elif i.IsActivePattern then
         Id.New(i.DisplayName.Split('|').[1], i.IsMutable)
     else
         let n = i.DisplayName
-        if n = "( builder@ )" then Id.New("b", i.IsMutable)
-        else Id.New(n, i.IsMutable) 
+        if n = "( builder@ )" then Id.New("b", i.IsMutable, opt = isOpt)
+        else Id.New(n, i.IsMutable, opt = isOpt) 
 
 type MatchValueVisitor(okToInline: int[]) =
     inherit Visitor()
@@ -564,13 +557,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 if isUnit arg.FullType then 
                     lam [] (tr body) (isUnit body.Type)
                 else 
-                    let v = namedId arg
+                    let v = namedId arg.FullType.IsGenericParameter arg
                     let env = env.WithVar(v, arg)
                     lam [v] (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
-                        let v = namedId arg
+                        let v = namedId false arg
                         v, env.WithVar(v, arg)
                     ) 
                 let trBody = body |> transformExpression env
@@ -579,7 +572,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let compGenCurriedAppl (env: Environment) ids body =
                 let vars, env =
                     (env, ids) ||> List.mapFold (fun env arg ->
-                        let v = namedId arg
+                        let v = namedId false arg
                         v, env.WithVar(v, arg)
                     ) 
                 let inline tr x = transformExpression env x
@@ -588,7 +581,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let trArg x = tr x |> removeListOfArray x.Type
             match func with
             | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
-                let ov = namedId o
+                let ov = namedId false o
                 Let(ov, tr objectArg, compGenCurriedAppl (env.WithVar(ov, o)) ids body)    
             | CompGenLambda args.Length (ids, body) ->
                 compGenCurriedAppl env ids body   
@@ -610,7 +603,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | CompGenClosure value ->
             tr value
         | P.Let((id, value), body) ->
-            let i = namedId id
+            let i = namedId false id
             let trValue = tr value
             let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
             let inline tr x = transformExpression env x
@@ -621,7 +614,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.LetRec(defs, body) ->
             let mutable env = env
             let ids = defs |> List.map (fun (id, _) ->
-                let i = namedId id
+                let i = namedId false id
                 env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
                 i
             )
@@ -709,7 +702,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let res = newId()
             StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
         | P.TryWith (body, var, filter, e, catch) -> // TODO: var, filter?
-            let err = namedId e
+            let err = namedId false e
             let res = newId()
             StatementExpr (
                 TryWith(VarSetStatement(res, tr body), 
@@ -849,7 +842,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     let mutable env = env 
                     let captures =
                         ci |> List.map (fun cv ->
-                            let i = namedId cv
+                            let i = namedId false cv
                             env <- env.WithVar (i, cv)
                             i
                         )
@@ -997,11 +990,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let thisVar, vars =
                                 match ovr.CurriedParameterGroups with
                                 | [t] :: a ->
-                                    let thisVar = namedId t
+                                    let thisVar = namedId false t
                                     env <- env.WithVar(thisVar, t)
                                     thisVar,
                                     a |> Seq.concat |> Seq.map (fun v ->
-                                        let vv = namedId v
+                                        let vv = namedId false v
                                         env <- env.WithVar(vv, v)
                                         vv
                                     ) |> List.ofSeq 
@@ -1012,9 +1005,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         yield Var o
                     ]
                 )
-            Let(r, CopyCtor(sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, plainObj),
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
+            Let(r, CopyCtor(td, plainObj),
                 Sequential [
-                    yield FixCtorTransformer(Var r).TransformExpression(tr expr)
+                    yield FixCtorTransformer(thisExpr = Var r).TransformExpression(tr expr)
                     yield Var r
                 ]
             )
@@ -1032,11 +1026,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             match loop [] arg with
             | ([], P.Application (f, _, [P.Const (null, _)])) ->
                 tr f
+            | [ v ], body when isUnit v.FullType  ->
+                Lambda ([], transformExpression env body)
             | vars, body ->
                 let mutable env = env
                 let args = 
                     vars |> List.map (fun v -> 
-                        let vv = namedId v
+                        let vv = namedId false v
                         env <- env.WithVar(vv, v)
                         vv
                     )

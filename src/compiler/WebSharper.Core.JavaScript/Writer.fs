@@ -908,7 +908,7 @@ let Render mode (out: CodeWriter) layout =
             match mode with
             | Compact -> ()
             | Readable -> for k in 1 .. line.Indent do
-                              out.Write ' '
+                              out.Write "  "
             renderAtoms xs
         out.WriteLine()
     ToLines mode layout

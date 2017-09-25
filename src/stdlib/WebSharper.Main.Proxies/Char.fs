@@ -99,7 +99,7 @@ type private CharProxy =
         if s.Length = 1 then As<char> s else
             failwith "String must be exactly one character long."
 
-    [<Inline "String.fromCharCode($x.charCodeAt() + $y.charCodeAt())">]
+    [<Inline "String.fromCharCode($x.charCodeAt(0) + $y.charCodeAt(0))">]
     static member (+) (x: char, y: char) : char = x + y
 
     [<Inline "$this">]

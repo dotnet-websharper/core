@@ -156,8 +156,8 @@ let ExprDefs =
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
             , ".NET - Constructor call"
-        "BaseCtor", [ Expr, "thisObject"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
-            , ".NET - Base constructor call"
+        "ChainedCtor", [ Bool, "isBase"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
+            , ".NET - Chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
             , ".NET - Creating an object from a plain object"
         "Cctor", [ NonGenericTypeDefinition, "typeDefinition" ]
