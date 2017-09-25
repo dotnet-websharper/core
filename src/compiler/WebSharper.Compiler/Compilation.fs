@@ -890,7 +890,6 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledStaticMember a (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Static -> Static (this.LocalAddress a)
-            | N.Constructor -> Constructor (this.LocalAddress a)
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -969,6 +968,8 @@ type Compilation(meta: Info, ?hasGraph) =
             
             let cc = classes.[typ]
 
+            let constructors = ResizeArray()
+
             for m in cls.Members do
                 
                 let strongName, isStatic, isError =  
@@ -1033,7 +1034,14 @@ type Compilation(meta: Info, ?hasGraph) =
                             compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body)) 
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
-                    Dict.addToMulti remainingStaticMembers typ m
+                    match m with 
+                    | M.Constructor (cDef, nr) ->
+                        if nr.Kind = N.Constructor then
+                            constructors.Add (cDef, nr)
+                        else
+                        Dict.addToMulti remainingStaticMembers typ m
+                    | _ ->
+                        Dict.addToMulti remainingStaticMembers typ m
                 | None, Some false ->
                     match m with
                     | M.Method (mDef, ({ Kind = N.Override td } as nr)) ->
@@ -1068,7 +1076,22 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ ->
                             printerrf "Failed to look up interface for implementing: %s by type %s" td.Value.FullName typ.Value.FullName
                     | _ -> 
-                        Dict.addToMulti remainingInstanceMembers typ m                   
+                        Dict.addToMulti remainingInstanceMembers typ m    
+                        
+            let addConstructor (cDef, nr) comp =
+                if nr.Compiled && Option.isNone cc.StaticConstructor then
+                    let isPure =
+                        nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                    cc.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
+                else
+                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))
+            
+            match constructors.Count with
+            | 0 -> ()
+            | 1 -> addConstructor constructors.[0] New
+            | _ -> 
+                for i, ctor in Seq.indexed constructors do
+                    addConstructor ctor (NewIndexed i)
 
         for typ, sn in stronglyNamedClasses do
             let addr = 

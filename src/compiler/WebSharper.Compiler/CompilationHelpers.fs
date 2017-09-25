@@ -380,6 +380,8 @@ let varEvalOrder (vars : Id list) expr =
             | RefOrOutParameter _
             | TraitCall _
                 -> fail()
+            | _ ->
+                failwith "unexpected form"
     
     and evalSt s =
         if ok then
@@ -419,6 +421,8 @@ let varEvalOrder (vars : Id list) expr =
             | While _
             | Yield _
                 -> fail()      
+            | _ ->
+                failwith "unexpected form"
                
     eval expr
     ok && List.isEmpty vars   

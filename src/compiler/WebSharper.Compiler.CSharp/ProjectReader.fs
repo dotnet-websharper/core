@@ -402,7 +402,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | :? ArrowExpressionClauseSyntax as syntax ->
                             syntax
                             |> RoslynHelpers.ArrowExpressionClauseData.FromNode 
-                            |> (cs model).TransformArrowExpressionClauseAsMethod meth
+                            |> (cs model).TransformArrowExpressionDeclaration meth
                             |> fixMethod
                         | :? ConstructorDeclarationSyntax as syntax ->
                             let c =

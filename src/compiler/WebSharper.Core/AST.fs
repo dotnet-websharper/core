@@ -250,6 +250,14 @@ and Statement =
     | Declare of Statement:Statement
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
+    /// TypeScript - class { ... }
+    | Class of Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement>
+    /// TypeScript - class method
+    | ClassMethod of IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement>
+    /// TypeScript - class method
+    | ClassConstructor of Parameters:list<Id> * Body:option<Statement>
+    /// TypeScript - class plain property
+    | ClassProperty of IsStatic:bool * Name:string
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -506,6 +514,18 @@ type Transformer() =
     /// TypeScript - namespace { ... }
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
+    /// TypeScript - class { ... }
+    abstract TransformClass : Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement> -> Statement
+    override this.TransformClass (a, b, c, d) = Class (a, Option.map this.TransformExpression b, List.map this.TransformExpression c, List.map this.TransformStatement d)
+    /// TypeScript - class method
+    abstract TransformClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> -> Statement
+    override this.TransformClassMethod (a, b, c, d) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d)
+    /// TypeScript - class method
+    abstract TransformClassConstructor : Parameters:list<Id> * Body:option<Statement> -> Statement
+    override this.TransformClassConstructor (a, b) = ClassConstructor (List.map this.TransformId a, Option.map this.TransformStatement b)
+    /// TypeScript - class plain property
+    abstract TransformClassProperty : IsStatic:bool * Name:string -> Statement
+    override this.TransformClassProperty (a, b) = ClassProperty (a, b)
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -595,6 +615,10 @@ type Transformer() =
         | Export a -> this.TransformExport a
         | Declare a -> this.TransformDeclare a
         | Namespace (a, b) -> this.TransformNamespace (a, b)
+        | Class (a, b, c, d) -> this.TransformClass (a, b, c, d)
+        | ClassMethod (a, b, c, d) -> this.TransformClassMethod (a, b, c, d)
+        | ClassConstructor (a, b) -> this.TransformClassConstructor (a, b)
+        | ClassProperty (a, b) -> this.TransformClassProperty (a, b)
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -850,6 +874,18 @@ type Visitor() =
     /// TypeScript - namespace { ... }
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
+    /// TypeScript - class { ... }
+    abstract VisitClass : Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement> -> unit
+    override this.VisitClass (a, b, c, d) = (); Option.iter this.VisitExpression b; List.iter this.VisitExpression c; List.iter this.VisitStatement d
+    /// TypeScript - class method
+    abstract VisitClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> -> unit
+    override this.VisitClassMethod (a, b, c, d) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d
+    /// TypeScript - class method
+    abstract VisitClassConstructor : Parameters:list<Id> * Body:option<Statement> -> unit
+    override this.VisitClassConstructor (a, b) = List.iter this.VisitId a; Option.iter this.VisitStatement b
+    /// TypeScript - class plain property
+    abstract VisitClassProperty : IsStatic:bool * Name:string -> unit
+    override this.VisitClassProperty (a, b) = (); ()
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -939,6 +975,10 @@ type Visitor() =
         | Export a -> this.VisitExport a
         | Declare a -> this.VisitDeclare a
         | Namespace (a, b) -> this.VisitNamespace (a, b)
+        | Class (a, b, c, d) -> this.VisitClass (a, b, c, d)
+        | ClassMethod (a, b, c, d) -> this.VisitClassMethod (a, b, c, d)
+        | ClassConstructor (a, b) -> this.VisitClassConstructor (a, b)
+        | ClassProperty (a, b) -> this.VisitClassProperty (a, b)
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -1034,6 +1074,10 @@ module IgnoreSourcePos =
     let (|Export|_|) x = match ignoreStatementSourcePos x with Export a -> Some a | _ -> None
     let (|Declare|_|) x = match ignoreStatementSourcePos x with Declare a -> Some a | _ -> None
     let (|Namespace|_|) x = match ignoreStatementSourcePos x with Namespace (a, b) -> Some (a, b) | _ -> None
+    let (|Class|_|) x = match ignoreStatementSourcePos x with Class (a, b, c, d) -> Some (a, b, c, d) | _ -> None
+    let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d) -> Some (a, b, c, d) | _ -> None
+    let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b) -> Some (a, b) | _ -> None
+    let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b) -> Some (a, b) | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
     let rec PrintExpression x =
@@ -1123,6 +1167,10 @@ module Debug =
         | Export a -> "Export" + "(" + PrintStatement a + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
+        | Class (a, b, c, d) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ")"
+        | ClassMethod (a, b, c, d) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ")"
+        | ClassConstructor (a, b) -> "ClassConstructor" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ")"
+        | ClassProperty (a, b) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ")"
 // }}
 
     let PrintExpressionWithPos x =

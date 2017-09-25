@@ -20,9 +20,6 @@
 
 module WebSharper.Core.JavaScript.Writer
 
-open System.Security.Cryptography.X509Certificates
-
-
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder
 type StringWriter = System.IO.StringWriter
@@ -175,10 +172,16 @@ let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
     buf.AppendFormat(@"\u{0:x4}", int c)
     |> ignore
 
-let EscapeId (id: string) =
-    match id with
-    | "<any>window" -> id
-    | _ -> 
+let Id (id: string) =
+    if id.[0] = ' ' then
+        Word (id.Substring(1))
+    else
+    let id, isOptional =
+        let l = id.Length
+        if id.[l - 1] = '?' then
+            id.Substring(0, l - 1), true
+        else 
+            id, false
     let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
         invalidArg "id" "Cannot escape null and empty identifiers."
@@ -202,7 +205,10 @@ let EscapeId (id: string) =
     | _ ->
         for i in 0 .. id.Length - 1 do
             writeChar i
-    string buf
+    if isOptional then
+        Word (string buf) ++ Token "?"
+    else
+        Word (string buf)
 
 let QuoteString (s: string) =
     let buf = StringBuilder()
@@ -236,13 +242,18 @@ let CommaSeparated brush items =
 let Parens layout =
     Token "(" ++ layout ++ Token ")"
 
-let Id (id: string) =
-    Word (EscapeId id)
-
-let Optional f layout =
-    match layout with
+let Optional f item =
+    match item with
     | None -> Empty
     | Some x -> f x
+
+let OptionalList f items =
+    match items with
+    | [] -> Empty
+    | _ -> f items
+
+let Conditional layout pred =
+    if pred then layout else Empty
 
 let BlockLayout items =
     Token "{"
@@ -308,9 +319,9 @@ let rec Expression (expression) =
         ++ Token ":"
         ++ AssignmentExpression c
     | S.VarNamed (x, n) ->
-        SourceName n ++ Word (EscapeId x)
+        SourceName n ++ Id x
     | S.Var x ->
-        Word (EscapeId x)
+        Id x
     | S.Lambda (name, formals, body) ->
         Word "function"
         ++ Optional Id name
@@ -344,6 +355,8 @@ let rec Expression (expression) =
         Token (string x)
     | S.This ->
         Word "this"
+    | S.Super ->
+        Word "super"    
 
 and Statement canBeEmpty statement =
     match statement with
@@ -488,12 +501,36 @@ and Statement canBeEmpty statement =
     | S.ImportAll (None, m) ->
         Word "import" ++ Token (QuoteString m) 
     | S.ImportAll (Some i, m) ->
-        Word "import * as" ++ Word (EscapeId i) ++ Word "from" ++ Token (QuoteString m) 
+        Word "import * as" ++ Id i ++ Word "from" ++ Token (QuoteString m) 
     | S.Declare s ->
         Word "declare" ++ Statement false s
     | S.Namespace (n, s) ->
-        Word "namespace" ++ Word n
+        Word "namespace" ++ Id n
         -- BlockLayout (List.map (Statement true) s)
+    | S.Class (n, a, b, i, ms) ->
+        Conditional (Word "abstract") a
+        ++ Word "class" 
+        ++ Id n 
+        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
+        -- BlockLayout (List.map Member ms)
+
+and Member mem =
+    match mem with
+    | S.Method (s, n, args, body) ->
+        Conditional (Word "abstract") (Option.isNone body)
+        ++ Conditional (Word "static") s
+        ++ Id n
+        ++ Parens (CommaSeparated Id args)
+        -- Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Constructor (args, body) ->
+        Word "constructor"
+        ++ Parens (CommaSeparated Id args)
+        -- Optional (List.map (Statement true) >> BlockLayout) body
+    | S.Property (s, n) ->
+        Conditional (Word "static") s
+        ++ Id n
+        ++ Token ";"
 
 and Block statement =
     match S.IgnoreStatementPos statement with

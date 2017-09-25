@@ -36,6 +36,8 @@ type Id =
         mutable IdName : string option
         Id: int64
         Mutable : bool
+        StrongName : bool
+        Optional : bool
     }
 
     member this.Name 
@@ -43,25 +45,25 @@ type Id =
         and set n = this.IdName <- n
 
     member this.IsMutable = this.Mutable
+
+    member this.HasStrongName = this.StrongName
     
-    static member New(?name, ?mut) =
+    static member New(?name, ?mut, ?str, ?opt) =
         {
             IdName = name
             Id = Ids.New()
             Mutable = defaultArg mut true
+            StrongName = defaultArg str false
+            Optional = defaultArg opt false
         }
 
     member this.Clone() =
-        {
-            IdName = this.IdName
+        { this with
             Id = if this.Id < 0L then this.Id else Ids.New()
-            Mutable = this.Mutable
         }
 
     member this.ToMutable() =
-        {
-            IdName = this.IdName
-            Id = this.Id
+        { this with
             Mutable = true
         }
 
@@ -536,9 +538,11 @@ type Address =
 module private Instances =
     let GlobalId =
         {
-            IdName = Some "window"
+            IdName = Some "<any>window"
             Id = -1L
             Mutable = false
+            StrongName = true
+            Optional = false
         }
 
     let DefaultCtor =

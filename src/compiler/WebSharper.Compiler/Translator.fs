@@ -40,7 +40,6 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     let mutable insideLoop = false
 
     override this.TransformSelf () = invalidForm "Self"
-    override this.TransformBase () = invalidForm "Base"
     override this.TransformHole a = if isInline then base.TransformHole(a) else invalidForm "Hole"
     override this.TransformFieldGet (_,_,_) = invalidForm "FieldGet"
     override this.TransformFieldSet (_,_,_,_) = invalidForm "FieldSet"
@@ -904,7 +903,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | _ -> ()
                 addTypeDeps meth.Entity.Value.ReturnType
             Application (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.Purity, Some 2)
-        | M.Constructor _ -> failwith "Not a valid method info: Constructor"
+        | M.NewIndexed _ -> failwith "Not a valid method info: IndexedConstructor"
+        | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
         if typ.Entity = Definitions.Dynamic then
@@ -1028,7 +1028,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Inline _ 
             | M.Macro _ 
             | M.Remote _ -> inlined()
-            | M.Constructor _ -> failwith "impossible"
+            | M.NewIndexed _
+            | M.New _ -> failwith "impossible"
         | CustomTypeMember _ -> inlined()
         | LookupMemberError err -> this.Error err
 
@@ -1043,9 +1044,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 )
                 |> List.ofSeq   
             | _ -> args |> List.map this.TransformExpression
+        let typAddress() =
+            match comp.TryLookupClassAddressOrCustomType typ.Entity with
+            | Choice1Of2 (Some a) -> a 
+            | _ -> failwithf "Class address not found for %s" typ.Entity.Value.FullName
         match info with
-        | M.Constructor address ->
-            New(GlobalAccess address, trArgs())
+        | M.New ->
+            New(GlobalAccess (typAddress()), trArgs())
+        | M.NewIndexed (i) ->
+            New(GlobalAccess (typAddress()), Value (String (string i)) :: trArgs())
         | M.Static address ->
             Application(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
@@ -1300,10 +1307,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let def () =
             match norm with
             | New (func, a) ->
-                Application(func |> getItem "call", expr :: a, NonPure, None)
+                Application(Base, a, NonPure, None)
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                Application(func |> getItem "call", expr :: [a1], NonPure, None)
+                Application(Base, [a1], NonPure, None)
             | _ ->
                 comp.AddError (this.CurrentSourcePos, SourceError "Chained constructor is an Inline in a not supported form")
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)

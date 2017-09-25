@@ -155,8 +155,7 @@ type FixCtorTransformer(?thisExpr) =
     override this.TransformCtor (t, c, a) =
         if not firstOcc then Ctor (t, c, a) else
         firstOcc <- false
-        if t.Entity = Definitions.Obj then thisExpr
-        elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
+        if (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
             match a with
             | [] -> Undefined
             | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)

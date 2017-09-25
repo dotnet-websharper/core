@@ -1319,18 +1319,9 @@ type RoslynTransformer(env: Environment) =
     member this.TransformArrowExpressionClause (x: ArrowExpressionClauseData) : Expression =
         x.Expression |> this.TransformExpression
 
-    member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
-        let parameterList = sr.ReadParameters meth
-        for p in parameterList do
-            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
-        let body = x.Expression |> this.TransformExpression
-        {
-            IsStatic = meth.IsStatic
-            Parameters = parameterList
-            Body = Return body
-            IsAsync = meth.IsAsync
-            ReturnType = sr.ReadType meth.ReturnType
-        }
+    member this.TransformArrowExpressionDeclaration (symbol: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
+        let parameterList = sr.ReadParameters symbol
+        this.TransformMethodDeclarationBase(symbol, parameterList, None, Some x)
 
     member this.TransformReturnStatement (x: ReturnStatementData) : Statement =
         defaultArg (x.Expression |> Option.map (this.TransformExpression)) Undefined |> Return
@@ -1407,11 +1398,7 @@ type RoslynTransformer(env: Environment) =
                 if symbol.IsStatic then None else
                 let bTyp = symbol.ContainingType.BaseType
                 if isNull bTyp then None else
-                match sr.ReadNamedType bTyp with
-                | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
-                    None
-                | b ->
-                    Some <| BaseInitializer(b, ConstructorInfo.Default(), [], id)
+                Some <| BaseInitializer(sr.ReadNamedType bTyp, ConstructorInfo.Default(), [], id)
         let body = 
             match x.ExpressionBody |> Option.map this.TransformArrowExpressionClause with
             | Some e -> Some (ExprStatement e)

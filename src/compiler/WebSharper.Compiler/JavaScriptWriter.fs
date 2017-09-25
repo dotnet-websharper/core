@@ -75,6 +75,7 @@ type Environment =
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
 let transformId (env: Environment) (id: Id) =
+    if id.HasStrongName then " " + id.Name.Value else
     try Map.find id env.ScopeIds
     with _ -> 
         //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
@@ -91,30 +92,37 @@ let getCompactName (env: Environment) =
         env.CompactVars <- env.CompactVars + 1   
     name
 
-let defineId (env: Environment) addToDecl (id: Id) =
-    if env.Preference = P.Compact then
-        let name = getCompactName env    
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name 
-    else 
-        let vars = env.ScopeNames
-        let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
-        while vars |> Set.contains name do
-            name <- Resolve.newName name 
-        env.ScopeNames <- vars |> Set.add name
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name
+type IdKind =
+    | VarDeclId
+    | FuncArgId
+    | InnerId
 
-let defineImportedId (env: Environment) (id: Id) =
-    let iname = id.Name.Value
-    env.ScopeNames <- env.ScopeNames |> Set.add iname
-    if env.Preference = P.Compact then
-        let name = getCompactName env    
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-    else 
-        env.ScopeIds <- env.ScopeIds |> Map.add id iname
+let defineId (env: Environment) kind (id: Id) =
+    if id.HasStrongName then " " + id.Name.Value else
+    let addToDecl, isParam =
+        match kind with
+        | VarDeclId -> false, false
+        | FuncArgId -> false, true
+        | InnerId -> true, false
+    let res =
+        if env.Preference = P.Compact then
+            let name = getCompactName env    
+            env.ScopeIds <- env.ScopeIds |> Map.add id name
+            if addToDecl then env.ScopeVars.Add(name)
+            name 
+        else 
+            let vars = env.ScopeNames
+            let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
+            while vars |> Set.contains name do
+                name <- Resolve.newName name 
+            env.ScopeNames <- vars |> Set.add name
+            env.ScopeIds <- env.ScopeIds |> Map.add id name
+            if addToDecl then env.ScopeVars.Add(name)
+            name
+    if isParam then
+        res + "?"
+    else
+        res
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
@@ -123,10 +131,10 @@ type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
     override this.VisitFuncDeclaration(f, _, _) =
-        defineId env false f |> ignore    
+        defineId env FuncArgId f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
-        defineId env true v |> ignore
+        defineId env InnerId v |> ignore
 
     override this.VisitNamespace(n, s) =
         env.ScopeNames <- env.ScopeNames |> Set.add n
@@ -156,6 +164,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     match expr with
     | Undefined -> undef
     | This -> J.This
+    | Base -> J.Super
     | Arguments -> J.Var "arguments"
     | Var id -> J.Var (trI id)
     | Value v ->
@@ -190,7 +199,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv false) 
+        let args = ids |> List.map (defineId innerEnv FuncArgId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
         //let useStrict =
@@ -364,7 +373,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv false) 
+        let args = ids |> List.map (defineId innerEnv FuncArgId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
         let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
@@ -398,15 +407,15 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
         withFuncDecls <| fun () ->
-            J.TryWith(trS a, defineId env false (match b with Some b -> b | _ -> Id.New()), trS c, None)
+            J.TryWith(trS a, defineId env VarDeclId (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
-            J.ForVarIn(defineId env false a, None, trE b, trS c)
+            J.ForVarIn(defineId env VarDeclId a, None, trE b, trS c)
     | ImportAll (a, b) ->
-        J.ImportAll(a |> Option.map (defineId env false), b)
+        J.ImportAll(a |> Option.map (defineId env VarDeclId), b)
     | Export a ->
         J.Export (trS a)
     | Declare a ->
@@ -414,8 +423,42 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Namespace (a, b) ->
         let innerEnv = env.NewInner(true)
         J.Namespace (a, List.map (transformStatement innerEnv) b)
+    | Class (a, b, c, d) ->
+        let isAbstract =
+            d |> List.exists (function
+                | ClassMethod (_, _, _, None) -> true
+                | _ -> false
+            )
+        J.Class(a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
+
+and transformMember (env: Environment) (mem: Statement) : J.Member =
+    let inline trE x = transformExpr env x
+    let inline trS x = transformStatement env x
+    match mem with
+    | ClassMethod (a, b, c, d) ->
+        let innerEnv = env.NewInner(false)
+        let args = c |> List.map (defineId innerEnv FuncArgId) 
+        let body = 
+            d |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                b |> transformStatement innerEnv |> flattenFuncBody
+            )
+        J.Method(a, b, args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
+    | ClassConstructor (a, b) ->
+        let innerEnv = env.NewInner(false)
+        let args = a |> List.map (defineId innerEnv FuncArgId) 
+        let body = 
+            b |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                b |> transformStatement innerEnv |> flattenFuncBody
+            )
+        J.Constructor(args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
+    | ClassProperty (a, b) ->
+        J.Property (a, b)
+    | _ -> 
+        invalidForm (GetUnionCaseName mem)
 
 let transformProgram pref statements =
     let env = Environment.New(pref)

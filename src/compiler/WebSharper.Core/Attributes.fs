@@ -109,7 +109,7 @@ type GeneratedAttribute private () =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
 type NameAttribute private () =
     inherit A()
 

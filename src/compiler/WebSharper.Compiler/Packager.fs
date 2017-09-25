@@ -93,6 +93,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | _ ->
             match address.Address.Value with
             | [] -> glob
+            | [ n ] -> Var (Id.New(n, str = true))
             | h :: t ->
                 let parent = getAddress { address with Address = Hashed t }
                 ItemGet(parent, Value (String h), Pure)
@@ -139,12 +140,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     let package (a: Address) expr =
         let n = toNamespaceWithName a
-        let i = Id.New n
+        let i = Id.New (n, str = true)
         let exp =
             match expr with
             | Function(args, body) -> FuncDeclaration(i, args, body)
             | _ -> VarDeclaration (i, expr)
         addStatement <| Export exp
+
+    let packageByName (a: Address) f =
+        let n = toNamespaceWithName a
+        addStatement <| Export (f n)
 
     let classes = Dictionary(current.Classes)
 
@@ -164,41 +169,42 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
             | _ -> ()
         | _ -> ()
 
+        let members = ResizeArray()
+        
         for f, _, _ in c.Fields.Values do
             match f with
-            | M.StaticField n ->
-                package n Undefined  
+            | M.InstanceField n
+            | M.OptionalField n ->
+                members.Add (ClassProperty (false, n)) 
+            | M.StaticField a ->
+                package a Undefined 
             | _ -> ()
 
         match c.StaticConstructor with
         | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
-        | Some(ccaddr, body) -> 
+        | Some(ccaddr, body) ->
             package ccaddr body
         | _ -> ()
 
         match c.Address with 
         | None -> ()
         | Some addr ->
-            
-            let prototype = 
-                let prop info body =
-                    match withoutMacros info with
-                    | M.Instance mname ->
-                        if body <> Undefined then
-                            Some (mname, body)
-                        else None
-                    | _ -> None
+            let mem (m: Method) info body =
+                match withoutMacros info with
+                | M.Instance mname ->
+                    match IgnoreExprSourcePos body with
+                    | Function (args, b) ->
+                        members.Add (ClassMethod(false, mname, args, Some b))
+                    | Undefined ->
+                        let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
+                        members.Add (ClassMethod(false, mname, args, None))
+                    | _ -> failwith "unexpected form for class member"
+                | _ -> ()
                     
-                Object [
-                    for info, _, body in c.Methods.Values do
-                        match prop info body with
-                        | Some p -> yield p 
-                        | _ -> ()
-                    for info, body in c.Implementations.Values do
-                        match prop info body with
-                        | Some p -> yield p 
-                        | _ -> ()
-                ]
+            for KeyValue(m, (info, _, body)) in c.Methods do
+                mem m info body 
+            for KeyValue((_, m), (info, body)) in c.Implementations do
+                mem m info body
                             
             let baseType =
                 let tryFindClass c =
@@ -206,35 +212,62 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     | Some _ as res -> res
                     | _ -> current.Classes.TryFind c
                 match c.BaseClass |> Option.bind tryFindClass |> Option.bind (fun b -> b.Address) with
-                | Some ba -> GlobalAccess ba
-                | _ -> Value Null
-             
+                | Some ba -> Some (GlobalAccess ba)
+                | _ -> None
+
             if c.HasWSPrototype then
-                package addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
+                let indexedCtors = Dictionary()
+                for info, _, body in c.Constructors.Values do
+                    match withoutMacros info with
+                    | M.New ->
+                        if body <> Undefined then
+                            match body with
+                            | Function ([], IgnoreSourcePos.Empty) -> 
+                                ()
+                            | Function (args, b) ->                  
+                                members.Add (ClassConstructor (args, Some b))
+                            | _ ->
+                                failwithf "Invalid form for translated constructor"
+                    | M.NewIndexed i ->
+                        if body <> Undefined then
+                            match body with
+                            | Function (args, b) ->  
+                                let index = Id.New("i: '" + string i + "'", str = true)
+                                members.Add (ClassConstructor (index :: args, None))
+                                indexedCtors.Add (i, (args, b))
+                            | _ ->
+                                failwithf "Invalid form for translated constructor"
+                    | _ -> ()
 
-        for info, _, body in c.Methods.Values do
-            match withoutMacros info with
-            | M.Static maddr ->
-                if body <> Undefined then
-                    if body <> Undefined then
-                        package maddr body
-            | _ -> ()
+                if indexedCtors.Count > 0 then
+                    let index = Id.New("i", mut = false)
+                    let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
+                    let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
+                    let cBody =
+                        Switch(Var index, 
+                            indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
+                                Some (Value (String (string i))), 
+                                CombineStatements [
+                                    ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
+                                    Break None
+                                ]
+                            ) |> List.ofSeq
+                        )
+                    members.Add (ClassConstructor (index :: cArgs, Some cBody))   
 
-        for info, _, body in c.Constructors.Values do
+                packageByName addr <| fun n -> Class(n, baseType, [], List.ofSeq members)
+
+        let smem info body = 
             match withoutMacros info with
-            | M.Constructor caddr ->
-                if body <> Undefined then
-                    if c.HasWSPrototype && Option.isSome c.Address then
-                        package caddr <| 
-                            match c.Address with
-                            | Some addr -> JSRuntime.Ctor body (GlobalAccess addr)
-                            | _ -> body
-                    else
-                        package caddr body
             | M.Static maddr ->
                 if body <> Undefined then
                     package maddr body
             | _ -> ()
+        
+        for info, _, body in c.Constructors.Values do
+            smem info body
+        for info, _, body in c.Methods.Values do
+            smem info body
             
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head

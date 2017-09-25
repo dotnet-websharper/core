@@ -888,7 +888,7 @@ and private breakSt statement : Statement seq =
                 ]
                 |> Seq.ofList
         | _ ->
-            brA |> toStatementsSpec Return |> List.ofSeq |> CombineStatements |> Seq.singleton
+            brA |> toStatementsSpec Return
     | Block a ->
         if a |> List.forall (function I.ExprStatement _ -> true | _ -> false) then
             a |> List.map (function I.ExprStatement e -> e | _ -> failwith "impossible")

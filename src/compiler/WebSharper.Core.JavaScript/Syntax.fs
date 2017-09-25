@@ -22,6 +22,9 @@
 module WebSharper.Core.JavaScript.Syntax
 
 /// Represents JavaScript identifiers.
+/// Conventions:
+/// * starts with ' ' - no escaping
+/// * ends with '?' - optional
 type Id = string
 
 /// Represents JavaScript labels.
@@ -130,6 +133,7 @@ and Expression =
     | NewRegex    of Regex
     | Postfix     of E * PostfixOperator
     | This
+    | Super
     | Unary       of UnaryOperator * E
     | Var         of Id
     | VarNamed    of Id * string
@@ -196,9 +200,15 @@ and Statement =
     | Export       of S
     | ImportAll    of option<Id> * string
     | Declare      of S
-    | Namespace    of string * list<S>
+    | Namespace    of Id * list<S>
+    | Class        of Id * bool * option<E> * list<E> * list<Member>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
+
+and Member =
+    | Method      of bool * Id * list<Id> * option<list<S>>
+    | Constructor of list<Id> * option<list<S>>
+    | Property    of bool * Id 
 
 /// Represents switch elements.
 and SwitchElement =

@@ -280,7 +280,14 @@ let StatementDefs =
             "TypeScript - declare ..."
         "Namespace", [ Str, "name"; List Statement, "statements" ], 
             "TypeScript - namespace { ... }"
-
+        "Class", [ Str, "name"; Option Expr, "baseClass"; List Expr, "implementations"; List Statement, "members" ],
+            "TypeScript - class { ... }"
+        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body" ],
+            "TypeScript - class method"
+        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body" ],
+            "TypeScript - class method"
+        "ClassProperty", [ Bool, "isStatic"; Str, "name" ],
+            "TypeScript - class plain property"
     ]
 
 let binaryOps =
@@ -367,6 +374,7 @@ let code =
             match c with
             | List Expr -> "List.map this.TransformExpression " + x
             | Option Expr -> "Option.map this.TransformExpression " + x
+            | Option Statement -> "Option.map this.TransformStatement " + x
             | Expr -> "this.TransformExpression " + x 
             | Statement -> "this.TransformStatement " + x
             | Id -> "this.TransformId " + x
@@ -381,7 +389,7 @@ let code =
             | List (Object _) -> x
             | Option (Object _) -> x
             | Empty -> ""
-            | _ -> " failwith \"no transform\""
+            | _ -> failwithf "no transformer defined for %A" c
         let trArgs = 
             match c with
             | [] -> ""
@@ -431,6 +439,7 @@ let code =
             match c with
             | List Expr -> "List.iter this.VisitExpression " + x
             | Option Expr -> "Option.iter this.VisitExpression " + x
+            | Option Statement -> "Option.iter this.VisitStatement " + x
             | Expr -> "this.VisitExpression " + x 
             | Statement -> "this.VisitStatement " + x
             | Id -> "this.VisitId " + x
@@ -445,7 +454,7 @@ let code =
             | List (Object _) -> "()"
             | Option (Object _) -> "()"
             | Empty -> ""
-            | _ -> " failwith \"no visit\""
+            | _ -> failwithf "no visitor defined for %A" c
         let trArgs = 
             match c with
             | [] -> "()"
@@ -518,6 +527,7 @@ let code =
                 match c with
                 | List Expr -> "\"[\" + String.concat \"; \" (List.map PrintExpression " + x + ") + \"]\""
                 | Option Expr -> "defaultArg (Option.map PrintExpression " + x + ") \"_\""
+                | Option Statement -> "defaultArg (Option.map PrintStatement " + x + ") \"\""
                 | Expr -> "PrintExpression " + x 
                 | Statement -> "PrintStatement " + x
                 | Id -> "string " + x
@@ -537,7 +547,7 @@ let code =
                 | List (Object _) -> "\"[\" + String.concat \"; \" (List.map PrintObject " + x + ") + \"]\""
                 | Option (Object _) -> "defaultArg (Option.map PrintObject " + x + ") \"_\""
                 | Empty -> ""
-                | _ -> "TODOprinter"
+                | _ -> failwithf "no debug printer defined for %A" c
             match c with
             | [ Object "SourcePos", _; Expr, _ ] ->
                 cprintfn "        | %s (_, b) -> PrintExpression b" n
