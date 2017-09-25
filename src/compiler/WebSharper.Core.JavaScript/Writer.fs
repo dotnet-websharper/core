@@ -379,7 +379,7 @@ and Statement canBeEmpty statement =
         ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
-        if canBeEmpty then Empty else Token ";"
+        if canBeEmpty then Empty else Token "{}"
     | S.Ignore e ->
         let rec dangerous e =
             match e with

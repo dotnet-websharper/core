@@ -26,6 +26,70 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 open NotResolved
+
+[<AutoOpen>]
+module private WSDefinitions =
+    let wsEnumeratorModule =
+        TypeDefinition {
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.Enumerator"
+        } 
+
+    let seq0Ty =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Collections.IEnumerable"
+        } 
+
+    let seqTy =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Collections.Generic.IEnumerable`1"
+        } 
+
+    let enum0Ty =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Collections.IEnumerator"
+        } 
+
+    let enumTy =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Collections.Generic.IEnumerator`1"
+        }
+
+    let getEnumerator0 =
+        Method {
+            MethodName = "GetEnumerator"
+            Parameters = []
+            ReturnType = ConcreteType (NonGeneric enum0Ty)
+            Generics = 0
+        } 
+            
+    let wsGetEnumerator0 =
+        Method {
+            MethodName = "Get0"
+            Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
+            ReturnType = ConcreteType (NonGeneric enum0Ty)
+            Generics = 0
+        } 
+    
+    let getEnumerator =
+        Method {
+            MethodName = "GetEnumerator"
+            Parameters = []
+            ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
+            Generics = 0
+        } 
+
+    let wsGetEnumerator =
+        Method {
+            MethodName = "Get"
+            Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
+            ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
+            Generics = 1
+        } 
     
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
@@ -456,9 +520,11 @@ type Compilation(meta: Info, ?hasGraph) =
                 if typ.Value.Assembly = "mscorlib" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(CurrentGlobal ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
+                        let body = Call(None, NonGeneric wsEnumeratorModule, NonGeneric wsGetEnumerator0, [Hole 0]) 
+                        Compiled (NotCompiledInline, Optimizations.None, body)
                     | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(CurrentGlobal ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
+                        let body = Call(None, NonGeneric wsEnumeratorModule, NonGeneric wsGetEnumerator, [Hole 0]) 
+                        Compiled (NotCompiledInline, Optimizations.None, body)
                     | _ -> 
                         Compiled (Instance m, Optimizations.None, Undefined)
                 else
@@ -1299,67 +1365,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // Add graph edges for GetEnumerator and Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
-            let wsEnumeratorModule =
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.Enumerator"
-                } 
-
-            let seq0Ty =
-                TypeDefinition {
-                    Assembly = "mscorlib"
-                    FullName = "System.Collections.IEnumerable"
-                } 
-
-            let seqTy =
-                TypeDefinition {
-                    Assembly = "mscorlib"
-                    FullName = "System.Collections.Generic.IEnumerable`1"
-                } 
-
-            let enum0Ty =
-                TypeDefinition {
-                    Assembly = "mscorlib"
-                    FullName = "System.Collections.IEnumerator"
-                } 
-
-            let enumTy =
-                TypeDefinition {
-                    Assembly = "mscorlib"
-                    FullName = "System.Collections.Generic.IEnumerator`1"
-                }
-
-            let getEnumerator0 =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
-            
-            let wsGetEnumerator0 =
-                Method {
-                    MethodName = "Get0"
-                    Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
-    
-            let getEnumerator =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 0
-                } 
-
-            let wsGetEnumerator =
-                Method {
-                    MethodName = "Get"
-                    Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 1
-                } 
             
             graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
             graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
