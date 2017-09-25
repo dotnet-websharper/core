@@ -263,6 +263,8 @@ type TypeDefinitionInfo =
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
 module Definitions =
+    open System.Reflection
+
     let FSharpFunc =
         TypeDefinition {
             Assembly = "FSharp.Core"
@@ -277,6 +279,12 @@ module Definitions =
                 if arity = 0 then name else name + "`" + string (min arity 8)
         }
 
+    let FSharpList =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Collections.FSharpList`1"
+        }
+
     let Array =
         TypeDefinition {
             Assembly = "netstandard"
@@ -287,7 +295,13 @@ module Definitions =
         TypeDefinition {
             Assembly = "netstandard"
             FullName = "[,]"
-        }    
+        }
+
+    let ResizeArray =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Collections.Generic.List`1"
+        }
 
     let Unit =
         TypeDefinition {
@@ -299,6 +313,99 @@ module Definitions =
         TypeDefinition {
             Assembly = "System.Void"
             FullName = "netstandard"
+        }
+
+    let Object =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Object"
+        }
+
+    let Bool =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Boolean"
+        }
+
+    let UInt8 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Byte"
+        }
+    let Byte = UInt8
+
+    let Int8 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.SByte"
+        }
+    let SByte = Int8
+
+    let UInt16 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.UInt16"
+        }
+
+    let Int16 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Int16"
+        }
+
+    let UInt32 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.UInt32"
+        }
+
+    let Int32 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Int32"
+        }
+    let Int = Int32
+
+    let UInt64 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.UInt64"
+        }
+
+    let Int64 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Int64"
+        }
+
+    let String =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.String"
+        }
+
+    let Float32 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Single"
+        }
+
+    let Float =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Double"
+        }
+
+    let FSharpAsync =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Control.FSharpAsync`1"
+        }
+
+    let FSharpChoice (arity: int) =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpChoice`" + string arity
         }
 
 /// Stores a definition and type parameter information

@@ -143,11 +143,14 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("Task based remoting")]
     public class Remoting : TestCategory
     {
+        public static bool ShouldRun { get; set; } = true;
+
         public int GetSync() => 3;
 
         [Test]
         public async Task SimpleAsync()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var r = await Server.GetOneAsync();
             Equal(r, 1);
         }
@@ -155,6 +158,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task SimpleAsyncWith1Arg()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var r = await Server.AddOneAsync(1783);
             Equal(r, 1784);
         }
@@ -162,6 +166,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void SimpleVoid()
         {
+            if (!ShouldRun) { Expect(0); return; }
             Server.Void();
             IsTrue(true);
         }
@@ -169,6 +174,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task VoidAndCheckReturn()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var k = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             var v = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             Server.Set(k, v);
@@ -179,6 +185,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task VoidTaskAndCheckReturn()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var k = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             var v = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             await Server.SetAsync(k, v);
@@ -189,6 +196,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task UserSession()
         {
+            if (!ShouldRun) { Expect(0); return; }
             Equal(await Server.GetUser(), null, "No logged in user");
             await Server.Login("testuser");
             Equal(await Server.GetUser(), "testuser", "Get logged in user");
@@ -199,6 +207,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task CustomHandler()
         {
+            if (!ShouldRun) { Expect(0); return; }
             await Remote<Handler>().Reset();
             Equal(await Remote<Handler>().Increment(5), 5);
             Equal(await Remote<Handler>().Increment(5), 10);
@@ -207,6 +216,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task CustomClass()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var o = new TestClass();
             o.X = 1;
             o.Y = 1;
@@ -218,6 +228,7 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task CustomStruct()
         {
+            if (!ShouldRun) { Expect(0); return; }
             var o = new TestStruct(1, 1);
             o = await Server.IncrementXYStruct(o);
             Equal(o.X, 2);
