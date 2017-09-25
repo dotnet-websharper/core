@@ -27,43 +27,65 @@ open WebSharper.JavaScript
 
 module internal Internal =
 
-//    module Q = WebSharper.Core.Quotations
-//    module J = WebSharper.Core.JavaScript.Core
     open WebSharper.Core
     open WebSharper.Core.AST
 
     open WebSharper.Testing.Random.Internal
 
+    let asserter = ty "WebSharper.Testing.Pervasives+QUnit+Asserter"
+    let runnerOf t = !@asserter ^-> Definitions.FSharpChoice 2 @@[t; Definitions.FSharpAsync @@[t]]
+
     type TestPropertyMacro() =
         inherit Macro()
 
+        let m =
+            let t = TypeParameter 0
+            let a = TypeParameter 1
+            let b = TypeParameter 2
+            meth "PropertyWithSample" [runnerOf a; a ^-> sampleOf t; a ^-> t ^-> runnerOf b] (runnerOf a)
+
         override this.TranslateCall(c) =
-            match c.This, c.Arguments with  
-            | Some this, [runner; gen; attempt] ->
+            let t = List.head c.Method.Generics
+            match c.Arguments with  
+            | [runner; gen; attempt] ->
                 let id = Id.New(mut = false)
-                cCall this "PropertyWithSample" [
-                    runner
-                    Function([id],
-                        Return (mkSample (Application(gen, [Var id], Pure, Some 1)) (cInt 100)))
-                    attempt
-                ]
+                Call(c.This, c.DefiningType, m c.Method.Generics,
+                    [
+                        runner
+                        Function([id],
+                            Return (mkSample t (Application(gen, [Var id], Pure, Some 1)) (cInt 100)))
+                        attempt
+                    ]
+                )
                 |> MacroOk
-            | Some this, [runner; attempt] ->
-                cCall this "PropertyWithSample" [
-                    runner
-                    Function([], Return (mkSample (mkGenerator c.Method.Generics.Head) (cInt 100)))
-                    attempt
-                ]
+            | [runner; attempt] ->
+                Call(c.This, c.DefiningType, m c.Method.Generics,
+                    [
+                        runner
+                        Function([], Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
+                        attempt
+                    ]
+                )
                 |> MacroOk
             | _ -> MacroFallback
 
     type PropertyMacro() =
         inherit Macro()
 
+        let pervasives = NonGeneric (ty "WebSharper.Testing.Pervasives")
+        let m =
+            let a = TypeParameter 0
+            let b = TypeParameter 1
+            meth "PropertyWith" [
+                !@Definitions.String
+                generatorOf a
+                a ^-> runnerOf b
+            ] VoidType
+
         override this.TranslateCall(c) =
             match c.Arguments with 
-            | [name; f] -> 
-                cCallG ["WebSharper"; "Testing"; "Pervasives"; "PropertyWith"] [name; mkGenerator c.Method.Generics.Head; f]
+            | [name; f] ->
+                Call(None, pervasives, m c.Method.Generics, [name; mkGenerator c.Method.Generics.Head; f])
                 |> MacroOk
             | _ -> MacroFallback
 
