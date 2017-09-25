@@ -29,6 +29,7 @@ let private addOne (c: IControlBody) =
 
 [<SPAEntryPoint>]
 let Main() =
+    WebSharper.CSharp.Tests.Remoting.ShouldRun <- false
     Seq.iter addOne [
         WebSharper.Tests.Main.RunTests()
         WebSharper.Collections.Tests.Main.RunTests()
