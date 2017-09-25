@@ -499,9 +499,9 @@ and Statement canBeEmpty statement =
     | S.Export s ->
         Word "export" ++ Statement false s
     | S.ImportAll (None, m) ->
-        Word "import" ++ Token (QuoteString m) 
+        Word "import " ++ Token (QuoteString m) 
     | S.ImportAll (Some i, m) ->
-        Word "import * as" ++ Id i ++ Word "from" ++ Token (QuoteString m) 
+        Word "import * as" ++ Id i ++ Word "from " ++ Token (QuoteString m) 
     | S.Declare s ->
         Word "declare" ++ Statement false s
     | S.Namespace (n, s) ->

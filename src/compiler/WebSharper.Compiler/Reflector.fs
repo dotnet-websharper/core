@@ -161,6 +161,11 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     let interfaces = Dictionary()
     let classes = Dictionary()
 
+    let thisModule = 
+        match fromLibrary with
+        | Some js -> JavaScriptFile js
+        | None -> StandardLibrary
+
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
         if not (intfAsClass || typ.IsClass) then () else
 
@@ -278,7 +283,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
              prototypes.TryFind(def.Value.FullName)
              |> Option.map (fun s -> 
                  // TODO: support for JS files
-                 { Module = StandardLibrary; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+                 { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
              )
 
         classes.Add(def, 

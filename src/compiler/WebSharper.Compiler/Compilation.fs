@@ -745,8 +745,8 @@ type Compilation(meta: Info, ?hasGraph) =
         let r = Resolve.Resolver()
         resolver <- Some r
 
-        let someEmptyAddress = Some (Address.Global())
-        let unresolvedCctor = Some (Address.Global(), Undefined)
+        let someEmptyAddress = Some (Address.Empty())
+        let unresolvedCctor = Some (Address.Empty(), Undefined)
 
         let resNode (t, p) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
@@ -889,7 +889,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledStaticMember a (nr : NotResolvedMethod) =
             match nr.Kind with
-            | N.Static -> Static (this.LocalAddress a)
+            | N.Static -> Static a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -1106,10 +1106,11 @@ type Compilation(meta: Info, ?hasGraph) =
             setClassAddress typ (Hashed addr)
 
         let nameStaticMember typ a m = 
+            let la = this.LocalAddress a
             let res = classes.[typ]
             match m with
             | M.Constructor (cDef, nr) ->
-                let comp = compiledStaticMember a nr
+                let comp = compiledStaticMember la nr
                 if nr.Compiled && Option.isNone res.StaticConstructor then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
@@ -1117,9 +1118,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
             | M.Field (fName, nr) ->
-                res.Fields.Add(fName, (StaticField (this.LocalAddress a), nr.IsReadonly, nr.FieldType))
+                res.Fields.Add(fName, (StaticField la, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
-                let comp = compiledStaticMember a nr
+                let comp = compiledStaticMember la nr
                 if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
@@ -1129,8 +1130,8 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 let cls = classes.[typ]
-                classes.[typ] <- { cls with StaticConstructor = Some (this.LocalAddress a, Undefined) }
-                compilingStaticConstructors.Add(typ, (this.LocalAddress a, expr))
+                classes.[typ] <- { cls with StaticConstructor = Some (la, Undefined) }
+                compilingStaticConstructors.Add(typ, (la, expr))
         
         let nameInstanceMember typ name m =
             let res = classes.[typ]

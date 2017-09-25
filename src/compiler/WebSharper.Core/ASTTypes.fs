@@ -551,6 +551,7 @@ module private Instances =
     let RuntimeModule = JavaScriptFile "Runtime"
 
     let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
+    let EmptyAddress = { Module = CurrentModule; Address = Hashed [] }
 
 type Id with
     static member Global() = Instances.GlobalId
@@ -563,6 +564,7 @@ type Address with
     static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f; "WSRuntime"] }
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress
+    static member Empty() = Instances.EmptyAddress
 
 module Reflection = 
     type private FST = Microsoft.FSharp.Reflection.FSharpType

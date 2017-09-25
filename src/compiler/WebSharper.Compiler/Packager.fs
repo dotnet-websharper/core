@@ -47,10 +47,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | [] ->
                     match address.Module with
                     | StandardLibrary -> failwith "impossible, already handled"
-                    | JavaScriptFile _ -> failwith "empty access to JS library"
+                    | JavaScriptFile js ->
+                        declarations.Add <| ImportAll (None, js + ".js")
+                        Undefined
                     | TypeScriptModule ts ->
                         let var = Id.New (ts |> String.filter System.Char.IsUpper)
-                        declarations.Add <| ImportAll (Some var, ts)
+                        declarations.Add <| ImportAll (Some var, "./" + ts)
                         Var var
                     | CurrentModule -> failwith "empty local address"
                 | [ name ] ->
@@ -58,9 +60,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     | CurrentModule 
                     | StandardLibrary ->
                         GlobalAccess address
-                    | JavaScriptFile js ->
-                        let fileName = js + ".js"
-                        declarations.Add <| ImportAll (None, fileName)
+                    | JavaScriptFile _ ->
+                        getAddress { address with Address = Hashed [] } |> ignore
                         let var = Id.New name
                         declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
                         Var var
@@ -78,21 +79,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     let mutable currentNamespace = ResizeArray() 
     let mutable currentNamespaceContents = [ statements ]
-
-    //let rec transformAddress (address: Address) =
-    //    match addresses.TryGetValue address with
-    //    | true, v -> v
-    //    | _ ->
-    //        match address.Module with
-    //        | CurrentModule
-    //        | TypeScriptModule _ -> getAddress address
-    //        | _ ->
-    //        match address.Address.Value with
-    //        | [] -> glob
-    //        | [ n ] -> Var (Id.New(n, str = true))
-    //        | h :: t ->
-    //            let parent = getAddress { address with Address = Hashed t }
-    //            ItemGet(parent, Value (String h), Pure)
 
     let commonLength s1 s2 =
         Seq.zip s1 s2 |> Seq.takeWhile (fun (a, b) -> a = b) |> Seq.length

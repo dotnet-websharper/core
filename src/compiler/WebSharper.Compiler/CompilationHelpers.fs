@@ -855,29 +855,17 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | _ -> ()
     { meta with Classes = classes}
 
+let private exposeAddress asmName (a: Address) =
+        match a.Module with
+        | CurrentModule ->
+            { a with Module = TypeScriptModule asmName }
+        | _ -> a
+
 type RemoveSourcePositionsAndUpdateModule (asmName) =
     inherit RemoveSourcePositions ()
 
     override this.TransformGlobalAccess(a) =
-        match a.Module with
-        | CurrentModule ->
-            GlobalAccess { a with Module = TypeScriptModule asmName }
-        | _ -> GlobalAccess a
-
-let removeSourcePositionFromMetadata asmName (meta: Info) =
-    let tr = RemoveSourcePositionsAndUpdateModule(asmName)
-    { meta with 
-        Classes = 
-            meta.Classes |> Dict.map (fun c ->
-                { c with 
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
-                }
-            )
-        EntryPoint = meta.EntryPoint |> Option.map removeSourcePos.TransformStatement
-    }
+        GlobalAccess <| exposeAddress asmName a
 
 type TransformSourcePositions(asmName) =
     inherit Transformer()
@@ -913,26 +901,44 @@ type TransformSourcePositionsAndUpdateModule(asmName) =
     inherit TransformSourcePositions(asmName)
 
     override this.TransformGlobalAccess(a) =
-        match a.Module with
-        | CurrentModule ->
-            GlobalAccess { a with Module = TypeScriptModule asmName }
-        | _ -> GlobalAccess a
+        GlobalAccess <| exposeAddress asmName a
 
-let transformAllSourcePositionsInMetadata asmName (meta: Info) =
-    let tr = TransformSourcePositionsAndUpdateModule(asmName)
+let rec private exposeCompiledMember asmName m = 
+    match m with
+    | Static a -> Static <| exposeAddress asmName a
+    | Macro (td, p, Some r) ->
+        Macro (td, p, Some (exposeCompiledMember asmName r))
+    | _ -> m
+
+let private exposeCompiledField asmName f =
+    match f with
+    | StaticField a -> StaticField <| exposeAddress asmName a
+    | _ -> f
+
+let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
+    let tr, sp = 
+        if isRemove then
+            RemoveSourcePositionsAndUpdateModule(asmName) :> Transformer, None 
+        else
+            let tr = TransformSourcePositionsAndUpdateModule(asmName)
+            tr :> _, Some tr
     { meta with 
         Classes = 
             meta.Classes |> Dict.map (fun c ->
                 { c with 
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
+                    Address = c.Address |> Option.map (exposeAddress asmName)
+                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
+                    Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
+                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> exposeAddress asmName a, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)
+                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
                 }
             )
         EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
     },
-    tr.FileMap
+    match sp with
+    | None -> [||]
+    | Some t -> t.FileMap
 
 type Capturing(?var) =
     inherit Transformer()
