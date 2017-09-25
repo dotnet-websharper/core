@@ -74,10 +74,10 @@ type TestCategory() =
         asserter.Ok(value, message)
 
     member this.IsFalse(value) =
-        asserter.Ok(not value)
+        asserter.NotOk(value)
 
     member this.IsFalse(value, message) =
-        asserter.Ok(not value)
+        asserter.NotOk(value)
 
     member this.Raises(expr: Func<'T>) =
         try
@@ -163,11 +163,9 @@ type TestGenerator() =
         | null -> Choice2Of2 (t.FullName + " must have a default constructor.")
         | ctor ->
             let make = Expr.NewObject(ctor, [])
-            let unitRun = t.GetMethod("Run", [| typeof<string>; typeof<unit -> unit> |])
-            let taskRun = t.GetMethod("Run", [| typeof<string>; typeof<unit -> Task> |])
             let methods = findTestMethods t
             let findRunFor (m: Reflection.MethodInfo) name v = choice {
-                let name = m.DeclaringType.FullName + "." + m.Name
+                let fullName = m.DeclaringType.FullName + "." + m.Name
                 let! e =
                     match m.GetParameters() with
                     | [||] -> Choice1Of2 (Expr.Call(v, m, []))
@@ -185,7 +183,7 @@ type TestGenerator() =
                                 .MakeGenericMethod(p.ParameterType)
                         Expr.Call(iter, [fn; data])
                         |> Choice1Of2
-                    | _ -> Choice2Of2 (name + " has invalid argument count, \
+                    | _ -> Choice2Of2 (fullName + " has invalid argument count, \
                         should have none (for a simple test) or one (for a property test).")
                 let v = coerce<TestCategory> v
                 if m.ReturnType = typeof<Void> then
@@ -193,7 +191,7 @@ type TestGenerator() =
                 elif m.ReturnType = typeof<Task> then
                     return <@ (%v).Run(name, fun () -> %%e : Task) @>
                 else
-                    let msg = name + " has invalid type, should take no argument \
+                    let msg = fullName + " has invalid type, should take no argument \
                         and return either void or Task. It will not be run."
                     return! Choice2Of2 msg
             }

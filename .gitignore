@@ -8,6 +8,7 @@
 IntelliFactory.WebSharper.JQuery/*.js
 **/Scripts/WebSharper/
 **/Content/WebSharper/
+/tests/WebSharper.SPA.Tests/Content/
 /build/
 /packages/
 /paket-files/
