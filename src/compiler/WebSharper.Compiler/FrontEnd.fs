@@ -113,7 +113,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
             let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
             current, sources
         else
-            removeSourcePositionFromMetadata current, [||]
+            removeSourcePositionFromMetadata assemblyName current, [||]
     
     TimedStage "Source position transformations"
 

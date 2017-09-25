@@ -34,12 +34,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
-    let g = Id.New "Global"
-    let glob = Var g                    
-    declarations.Add <| VarDeclaration (g, Var (Id.Global()))
+    let glob = Var (Id.Global())
     addresses.Add(Address.Global(), glob)
     addresses.Add(Address.Lib "window", glob)
-    let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
 
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
@@ -50,10 +47,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | [] ->
                     match address.Module with
                     | StandardLibrary -> failwith "impossible, already handled"
-                    | JavaScriptFile js ->
-                        let fileName = js + ".js"
-                        declarations.Add <| ImportAll (None, fileName)
-                        glob
+                    | JavaScriptFile _ -> failwith "empty access to JS library"
                     | TypeScriptModule ts ->
                         let var = Id.New (ts |> String.filter System.Char.IsUpper)
                         declarations.Add <| ImportAll (Some var, ts)
@@ -62,41 +56,43 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | [ name ] ->
                     match address.Module with
                     | CurrentModule 
-                    | StandardLibrary -> GlobalAccess address
-                    | _ ->
-                    let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
-                    let f = Value (String name)
-                    declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
-                    Var var
+                    | StandardLibrary ->
+                        GlobalAccess address
+                    | JavaScriptFile js ->
+                        let fileName = js + ".js"
+                        declarations.Add <| ImportAll (None, fileName)
+                        let var = Id.New name
+                        declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
+                        Var var
+                    | TypeScriptModule _ ->
+                        let parent = getAddress { address with Address = Hashed [] }
+                        ItemGet(parent, Value (String name), Pure)
                 | name :: r ->
                     match address.Module with
                     | CurrentModule -> GlobalAccess address
                     | _ ->
                     let parent = getAddress { address with Address = Hashed r }
-                    let f = Value (String name)
-                    let var = Id.New name
-                    declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
-                    Var var
+                    ItemGet(parent, Value (String name), Pure)
             addresses.Add(address, res)
             res
 
     let mutable currentNamespace = ResizeArray() 
     let mutable currentNamespaceContents = [ statements ]
 
-    let rec transformAddress (address: Address) =
-        match addresses.TryGetValue address with
-        | true, v -> v
-        | _ ->
-            match address.Module with
-            | CurrentModule
-            | TypeScriptModule _ -> getAddress address
-            | _ ->
-            match address.Address.Value with
-            | [] -> glob
-            | [ n ] -> Var (Id.New(n, str = true))
-            | h :: t ->
-                let parent = getAddress { address with Address = Hashed t }
-                ItemGet(parent, Value (String h), Pure)
+    //let rec transformAddress (address: Address) =
+    //    match addresses.TryGetValue address with
+    //    | true, v -> v
+    //    | _ ->
+    //        match address.Module with
+    //        | CurrentModule
+    //        | TypeScriptModule _ -> getAddress address
+    //        | _ ->
+    //        match address.Address.Value with
+    //        | [] -> glob
+    //        | [ n ] -> Var (Id.New(n, str = true))
+    //        | h :: t ->
+    //            let parent = getAddress { address with Address = Hashed t }
+    //            ItemGet(parent, Value (String h), Pure)
 
     let commonLength s1 s2 =
         Seq.zip s1 s2 |> Seq.takeWhile (fun (a, b) -> a = b) |> Seq.length
@@ -135,7 +131,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
 
     let globalAccessTransformer =
         { new Transformer() with
-            override this.TransformGlobalAccess a = transformAddress a
+            override this.TransformGlobalAccess a = getAddress a
         }
 
     let package (a: Address) expr =

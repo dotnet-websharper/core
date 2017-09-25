@@ -293,7 +293,7 @@ let tryGetTypeCheck kind expr =
     | _ ->
         None
 
-let objectCreate = ItemGet(GlobalAccess (Address.Lib "Object"), Value (String "create"), Pure)
+//let objectCreate = ItemGet(GlobalAccess (Address.Lib "Object"), Value (String "create"), Pure)
 
 type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
@@ -1114,7 +1114,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            Application(objectCreate, [GlobalAccess a; this.TransformExpression objExpr], Pure, Some 2)
+            JSRuntime.Create (GlobalAccess a) (this.TransformExpression objExpr)
         | _ -> this.TransformExpression objExpr
 
     override this.TransformNewRecord(typ, args) =

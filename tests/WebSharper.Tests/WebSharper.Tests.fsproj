@@ -5,6 +5,7 @@
     <OutputType>Library</OutputType>
     <Name>WebSharper.Tests</Name>
     <WebSharperProject>Library</WebSharperProject>
+    <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
     <FSharp40>True</FSharp40>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <Tests>True</Tests>

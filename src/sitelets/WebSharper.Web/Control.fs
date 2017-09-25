@@ -198,7 +198,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
-                        funcName <- Array.ofList (List.rev a.Value)
+                        funcName <- Array.ofList (List.rev a.Address.Value)
                     | Some _ ->
                         failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                             (getLocation()) declType.Value.FullName meth.Value.MethodName
@@ -294,7 +294,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                 | Some cls ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _) ->
-                        funcName <- Array.ofList (List.rev a.Value)
+                        funcName <- Array.ofList (List.rev a.Address.Value)
                     | Some _ -> 
                         failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
                             declType.Value.FullName meth.Value.MethodName

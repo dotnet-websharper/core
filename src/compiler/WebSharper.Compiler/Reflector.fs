@@ -140,7 +140,7 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
-let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) isTSasm =
+let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) fromLibrary isTSasm =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -222,7 +222,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure) 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure fromLibrary) 
 
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some Inline else 
@@ -350,8 +350,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         ResourceHashes = Dictionary()
     }
 
-let TransformAssembly prototypes assembly =
-    trAsm prototypes assembly false    
+let TransformAssembly prototypes fromLibrary assembly =
+    trAsm prototypes assembly fromLibrary false    
 
 let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
-    trAsm prototypes assembly.Raw true    
+    trAsm prototypes assembly.Raw None true    

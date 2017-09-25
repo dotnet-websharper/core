@@ -581,6 +581,7 @@ let CurrentGlobal a = GlobalAccess { Module = CurrentModule; Address = Hashed (L
 module JSRuntime =
     let private runtimeFunc f p args = Application(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address.Runtime f), args, p, Some i)
+    let Create obj props = runtimeFunc "Create" Pure [obj; props]
     let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
@@ -854,15 +855,25 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | _ -> ()
     { meta with Classes = classes}
 
-let removeSourcePositionFromMetadata (meta: Info) =
+type RemoveSourcePositionsAndUpdateModule (asmName) =
+    inherit RemoveSourcePositions ()
+
+    override this.TransformGlobalAccess(a) =
+        match a.Module with
+        | CurrentModule ->
+            GlobalAccess { a with Module = TypeScriptModule asmName }
+        | _ -> GlobalAccess a
+
+let removeSourcePositionFromMetadata asmName (meta: Info) =
+    let tr = RemoveSourcePositionsAndUpdateModule(asmName)
     { meta with 
         Classes = 
             meta.Classes |> Dict.map (fun c ->
                 { c with 
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)    
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, removeSourcePos.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, removeSourcePos.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, removeSourcePos.TransformExpression e)
+                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
+                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> a, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)
+                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
                 }
             )
         EntryPoint = meta.EntryPoint |> Option.map removeSourcePos.TransformStatement
@@ -898,8 +909,17 @@ type TransformSourcePositions(asmName) =
             this.TransformStatement s
         )
 
+type TransformSourcePositionsAndUpdateModule(asmName) =
+    inherit TransformSourcePositions(asmName)
+
+    override this.TransformGlobalAccess(a) =
+        match a.Module with
+        | CurrentModule ->
+            GlobalAccess { a with Module = TypeScriptModule asmName }
+        | _ -> GlobalAccess a
+
 let transformAllSourcePositionsInMetadata asmName (meta: Info) =
-    let tr = TransformSourcePositions(asmName)
+    let tr = TransformSourcePositionsAndUpdateModule(asmName)
     { meta with 
         Classes = 
             meta.Classes |> Dict.map (fun c ->

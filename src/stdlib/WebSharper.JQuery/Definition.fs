@@ -768,7 +768,6 @@ module Definition =
             "uniqueSort" => Type.ArrayOf T<Dom.Element> ^-> Type.ArrayOf T<Dom.Element>
         ]
         
-        
     let Assembly =
         Assembly [
             Namespace "WebSharper.JQuery" [

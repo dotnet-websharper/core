@@ -107,9 +107,10 @@ type Environment =
         This : option<Id>
         Purity : Purity
         MutableExternals : HashSet<Hashed<list<string>>>
+        FromLibrary : option<string>
     }
 
-    static member New(thisArg, isDirect, isPure, args, ext) =
+    static member New(thisArg, isDirect, isPure, args, ext, lib) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -134,6 +135,7 @@ type Environment =
             This = None
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
+            FromLibrary = lib 
         }
 
     static member Empty =
@@ -144,6 +146,7 @@ type Environment =
             This = None
             Purity = NonPure
             MutableExternals = HashSet()
+            FromLibrary = None
         }
 
     member this.WithNewScope (vars) =
@@ -230,7 +233,6 @@ let setValue (env: Environment) expr value =
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
-let glob = Var (Id.Global())
 let wsruntime = GlobalAccess (Address.Runtime())
 
 let jsFunctionMembers =
@@ -416,7 +418,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
         match a with
-        | "$global" -> glob
+        | "$global"
         | "window" -> Global []
         | "$wsruntime" -> wsruntime
         | "arguments" -> Arguments
@@ -424,7 +426,12 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> Global [ a ]
+        | None -> 
+            match env.FromLibrary with
+            | Some l ->
+                GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ a ] }
+            | _ ->
+                Global [ a ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -525,18 +532,18 @@ type InlinedStatementsTransformer() =
         let res = this.TransformStatement(st)
         StatementExpr(res, returnVar)
                 
-let createInline ext thisArg args isPure inlineString =        
+let createInline ext thisArg args isPure fromLib inlineString =        
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
     let b =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, false, isPure, args, ext))
+            e |> transformExpression (Environment.New(thisArg, false, isPure, args, ext, fromLib))
         | Choice2Of2 p ->
             p
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, false, isPure, args, ext))
+            |> transformStatement (Environment.New(thisArg, false, isPure, args, ext, fromLib))
             |> InlinedStatementsTransformer().Run
     makeExprInline (Option.toList thisArg @ args) b
 
@@ -547,11 +554,11 @@ let parseDirect ext thisArg args jsString =
     let body =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, true, false, args, ext)) |> Return 
+            e |> transformExpression (Environment.New(thisArg, true, false, args, ext, None)) |> Return 
         | Choice2Of2 p ->
             p
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, true, false, args, ext))
+            |> transformStatement (Environment.New(thisArg, true, false, args, ext, None))
     Function(args, body)
 
 let parseGeneratedJavaScript e =

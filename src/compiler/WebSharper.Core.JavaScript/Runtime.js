@@ -42,6 +42,12 @@ WSRuntime = {
         return typeFunction;
     },
 
+    Create: function (ctor, copyFrom) {
+      var obj = ctor();
+      for (var f in copyFrom) { obj[f] = copyFrom[f] }
+      return obj;
+    },
+
     Clone: function (obj) {
         var res = {};
         for (var p in obj) { res[p] = obj[p] }
