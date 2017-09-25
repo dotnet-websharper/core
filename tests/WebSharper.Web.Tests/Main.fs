@@ -25,9 +25,10 @@ open WebSharper.Testing
 
 [<JavaScript>]
 [<Require(typeof<Resources.BaseResource>, "testUrlResource.css")>]
-let RunTests jsonBaseUri =
+let RunTests jsonBaseUri includeRemoting =
     Runner.RunTests [|
-        Remoting.Tests
-        ClientSideJson.ClientTests
-        ClientSideJson.SiteletRoundTripTests jsonBaseUri
+        if includeRemoting then
+            yield Remoting.Tests
+            yield ClientSideJson.SiteletRoundTripTests jsonBaseUri
+        yield ClientSideJson.ClientTests
     |]
