@@ -100,6 +100,12 @@ module QUnit =
         [<Stub; Name "ok">]
         member this.Ok(value: bool, message: string) = X<unit>
 
+        [<Stub; Name "notOk">]
+        member this.NotOk(value: bool) = X<unit>
+
+        [<Stub; Name "notOk">]
+        member this.NotOk(value: bool, message: string) = X<unit>
+
         [<Stub; Name "equal">]
         member this.Equal<'T>(actual: 'T, expected: 'T) = X<unit>
 
@@ -619,7 +625,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> bool
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(not (value args))
+            asserter.NotOk(value args)
         )
 
     /// Checks that a boolean is false.
@@ -631,7 +637,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(not (value args), message)
+            asserter.NotOk(value args, message)
         )
 
     /// Checks that a boolean is false.
@@ -643,7 +649,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.Ok(not value)
+            return asserter.NotOk(value)
         })
 
     /// Checks that a boolean is false.
@@ -656,7 +662,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.Ok(not value, message)
+            return asserter.NotOk(value, message)
         })
 
     /// Runs a test for each element in a sequence.

@@ -74,10 +74,10 @@ type TestCategory() =
         asserter.Ok(value, message)
 
     member this.IsFalse(value) =
-        asserter.Ok(not value)
+        asserter.NotOk(value)
 
     member this.IsFalse(value, message) =
-        asserter.Ok(not value)
+        asserter.NotOk(value)
 
     member this.Raises(expr: Func<'T>) =
         try
