@@ -219,7 +219,7 @@ let (|ObjWithPropSetters|_|) expr =
 
 let bind key value body = Let (key, value, body)
 
-let globalId = { Module = JavaScriptFile "Runtime"; Address = Hashed [ "id" ] }
+let globalId = Address.Runtime "id"
 
 let rec removeLets expr =
     let func vars body isReturn =
@@ -490,8 +490,9 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Cctor _
         -> broken expr 
     | Function (args, body) ->
-        let args =
-            args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
+        // do not remove unused functions for now until we can fix up call points too.
+        //let args =
+        //    args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
         broken (Function (args, BreakStatement body)) 
     | CurriedApplication (f, xs) ->
         xs |> List.fold (fun e a -> Application (e, [a], NonPure, Some 1)) f |> br  
@@ -559,6 +560,8 @@ let rec breakExpr expr : Broken<BreakResult> =
         comb2 (fun (a, b) -> ItemGet(a, b, p)) a b
     | ItemSet (a, b, c) ->
         comb3 ItemSet a b c
+    | Binary ((I.Value _ as a), b, (I.Value _ as c)) ->
+        Binary(Cast(Var (Id.Any()), a), b, c) |> br  
     | Binary (a, b, c) ->
         match b with
         | BinaryOperator.``&&``
@@ -566,6 +569,8 @@ let rec breakExpr expr : Broken<BreakResult> =
             boolOp a b c
         | _ ->
             comb2 (fun (aE, cE) -> Binary(aE, b, cE)) a c
+    | Cast(a, b) ->
+        br b |> mapBroken (fun bB -> Cast(a, getExpr bB))
     | MutatingBinary (a, b, c) -> 
         comb2 (fun (aE, cE) -> MutatingBinary(aE, b, cE)) a c
     | Unary (a, b) ->

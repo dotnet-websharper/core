@@ -238,7 +238,7 @@ module Sitelet =
         | Some (embed, unembed) -> InferPartial embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
 
-type Sitelet<'T> with
+type Sitelet<'T when 'T : equality> with
     member internal this.Upcast =
         Sitelet.Upcast this
 

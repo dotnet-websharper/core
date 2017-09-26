@@ -212,6 +212,8 @@ let ExprDefs =
             , "JavaScript 'new' call"
         "Hole", [ Object "int", "index" ]
             , "Temporary - A hole in an expression for inlining"
+        "Cast", [ Expr, "typ"; Expr, "expression" ],
+            "TypeScript - type cast <...>..."
     ]    
 
 let StatementDefs =

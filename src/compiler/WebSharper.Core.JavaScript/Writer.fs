@@ -90,6 +90,7 @@ let PostfixOperatorAssociativity =
 
 let Precedence expression =
     match S.IgnoreExprPos expression with
+    | S.Cast _
     | S.Application _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
     | S.Conditional _ -> 15
@@ -107,19 +108,6 @@ let Associativity expression =
     | S.Postfix (_, _) -> PostfixOperatorAssociativity
     | S.Unary (op, _) -> PrefixOperatorAssociativity op
     | _ -> NonAssociative
-
-let (|QualifiedName|_|) expression =
-    let rec loop acc e =
-        match S.IgnoreExprPos e with
-        | S.ExprPos (x, _) ->
-            loop acc x
-        | S.Binary (x, B.``.``, S.IgnoreEPos (S.Constant (S.String y))) ->
-            loop (y :: acc) x
-        | S.Var _ | S.This ->
-            Some (e, List.rev acc)
-        | _ ->
-            None
-    loop [] expression
 
 let Keywords =
     System.Collections.Generic.HashSet [|
@@ -284,6 +272,7 @@ let rec Expression (expression) =
                 | S.Application _
                 | S.Binary (_, B.``.``, _)
                 | S.This
+                | S.Super
                 | S.Var _
                 | S.Constant _
                 | S.NewArray _
@@ -357,6 +346,9 @@ let rec Expression (expression) =
         Word "this"
     | S.Super ->
         Word "super"    
+    | S.Cast (t, e) ->
+        Token "<" ++ Expression t ++ Token ">"
+        ++ ParensExpression 1 e 
 
 and Statement canBeEmpty statement =
     match statement with

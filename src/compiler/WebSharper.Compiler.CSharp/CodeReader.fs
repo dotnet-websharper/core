@@ -331,7 +331,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 Some (NewArray [])
             else None
 
-        let id = Id.New x.Name
+        let id = Id.New(x.Name, opt = Option.isSome defValue)
         {
             ParameterId = id
             Symbol = x
@@ -1283,7 +1283,7 @@ type RoslynTransformer(env: Environment) =
             if symbol.HasExplicitDefaultValue then None
             else
                 Some (Value (ReadLiteral symbol.ExplicitDefaultValue))
-        let id = Id.New symbol.Name
+        let id = Id.New(symbol.Name, opt = Option.isSome defValue)
         {
             ParameterId = id
             Symbol = symbol
@@ -1306,7 +1306,7 @@ type RoslynTransformer(env: Environment) =
                 else None
         match x.Identifier with
         | ParameterIdentifier.IdentifierToken t -> 
-            let id = Id.New t
+            let id = Id.New(t, opt = Option.isSome defValue)
             {
                 ParameterId = id
                 Symbol = symbol

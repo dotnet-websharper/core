@@ -287,6 +287,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let mutable hasStubMember = false
 
+    let baseCls =
+        if cls.IsValueType || cls.IsStatic then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+        else
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
+
     for meth in members.OfType<IMethodSymbol>() do
         let meth = 
             match meth.PartialImplementationPart with
@@ -409,35 +417,30 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 syntax
                                 |> RoslynHelpers.ConstructorDeclarationData.FromNode 
                                 |> (cs model).TransformConstructorDeclaration
-                            let b =
+                            let chained =
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
-                                    CombineStatements [
-                                        ExprStatement (ChainedCtor(true, bTyp, bCtor, args) |> reorder)
-                                        c.Body
-                                    ]
+                                    ExprStatement (ChainedCtor(true, bTyp, bCtor, args) |> reorder)
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
-                                    CombineStatements [
-                                        ExprStatement (ChainedCtor(false, NonGeneric def, bCtor, args) |> reorder)
-                                        c.Body
-                                    ]
-                                | None -> c.Body
+                                    ExprStatement (ChainedCtor(false, NonGeneric def, bCtor, args) |> reorder)
+                                | None -> Empty
                             let b = 
                                 if meth.IsStatic then
                                     match staticInit with
                                     | Some si -> 
-                                        CombineStatements [ si; b ]
-                                    | _ -> b
+                                        CombineStatements [ si; c.Body ]
+                                    | _ -> c.Body
                                 else
                                     match c.Initializer with
-                                    | Some (CodeReader.ThisInitializer _) -> b
+                                    | Some (CodeReader.ThisInitializer _) -> CombineStatements [ chained; c.Body ]
                                     | _ ->
                                     if hasInit then 
                                         CombineStatements [ 
+                                            chained;
                                             ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
-                                            b
+                                            c.Body
                                         ]
-                                    else b
+                                    else CombineStatements [ chained; c.Body ]
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
@@ -507,9 +510,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             | Some si -> si
                             | _ -> Empty
                         else
-                            if hasInit then 
-                                ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
-                            else Empty
+                            let c =
+                                match baseCls with
+                                | Some bTyp ->
+                                    ExprStatement <| ChainedCtor(true, NonGeneric bTyp, ConstructorInfo.Default(), [])
+                                | _ -> Empty
+                            let i =
+                                if hasInit then 
+                                    ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                else Empty
+                            CombineStatements [ c; i ]
+
                     {
                         IsStatic = meth.IsStatic
                         Parameters = []
@@ -715,14 +726,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         elif (annot.IsJavaScript && cls.IsAbstract) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
-
-    let baseCls =
-        if cls.IsValueType || cls.IsStatic then
-            None
-        elif annot.Prototype = Some false then
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
-        else
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
     
     Some (
         def,

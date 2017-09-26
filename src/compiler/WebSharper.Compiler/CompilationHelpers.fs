@@ -302,6 +302,7 @@ let varEvalOrder (vars : Id list) expr =
             | UnionCaseGet (a, _, _, _)
             | UnionCaseTag (a, _)
             | UnionCaseTest (a, _, _)
+            | Cast (_, a)
                 -> eval a
             | Object a 
                 -> List.iter (snd >> eval) a 
@@ -512,6 +513,7 @@ type FixThisScope() =
     inherit Transformer()
     let mutable scope = 0
     let mutable thisVar = None
+    let mutable chainedCtor = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
     override this.TransformFunction(args, body) =
@@ -531,16 +533,25 @@ type FixThisScope() =
         else
             Function(args, trBody)
     
+    override this.TransformChainedCtor(a, b, c, d) =
+        let cc = Id.New()
+        chainedCtor <- Some cc 
+        Sequential [ ChainedCtor(a, b, c, d |> List.map this.TransformExpression); Var cc ] 
+
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
-        match thisVar with
-        | Some t -> Let (t, This, b)
+        match thisVar, chainedCtor with
+        | Some t, Some cc -> SubstituteVar(cc, NewVar(t, This)).TransformExpression(b) 
+        | Some t, _ -> Let (t, This, b)
+        | _, Some cc -> SubstituteVar(cc, Undefined).TransformExpression(b) 
         | _ -> b
 
     member this.Fix(statement) =
         let b = this.TransformStatement(statement)
-        match thisVar with
-        | Some t -> CombineStatements [ VarDeclaration(t, This); b ]
+        match thisVar, chainedCtor with
+        | Some t, Some cc -> SubstituteVar(cc, NewVar(t, This)).TransformStatement(b) 
+        | Some t, _ -> CombineStatements [ VarDeclaration(t, This); b ]
+        | _, Some cc -> SubstituteVar(cc, Undefined).TransformStatement(b) 
         | _ -> b
                 
     override this.TransformThis () =
@@ -708,6 +719,7 @@ module Resolve =
         let prototypes = Dictionary<TypeDefinition, HashSet<string>>()
 
         let rec getSubAddress (root: list<string>) (name: string) node =
+            let name = name.Replace('.', '_')
             let tryAddr = Hashed (name :: root)
             match statics.TryFind tryAddr, node with
             | Some _, Member
@@ -1053,7 +1065,8 @@ type HasNoThisVisitor() =
 
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
-let errorPlaceholder = Value (String "$$ERROR$$")
+let errorPlaceholder = 
+    Cast(Var (Id.Any()), Value (String "$$ERROR$$"))
 
 /// A transformer that tracks current source position
 type TransformerWithSourcePos(comp: Metadata.ICompilation) =
@@ -1210,7 +1223,7 @@ let (|CurriedLambda|_|) expr =
             let a = Id.New(mut = false)
             curr (a :: args) b
         | Lambda ([a], b, true) ->
-            curr (a :: args) b
+            curr (a.ToNonOptional() :: args) b
         | Lambda ([], b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
@@ -1218,7 +1231,7 @@ let (|CurriedLambda|_|) expr =
             else None
         | Lambda ([a], b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), b, false) 
+                Some (List.rev (a.ToNonOptional() :: args), b, false) 
             else None
         | _ -> 
             if List.length args > 1 then
@@ -1233,7 +1246,7 @@ let (|CurriedFunction|_|) expr =
             let a = Id.New(mut = false)
             curr (a :: args) b
         | Lambda ([a], b, true) ->
-            curr (a :: args) b
+            curr (a.ToNonOptional() :: args) b
         | Lambda ([], b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
@@ -1241,7 +1254,7 @@ let (|CurriedFunction|_|) expr =
             else None
         | Lambda ([a], b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), ExprStatement b) 
+                Some (List.rev (a.ToNonOptional() :: args), ExprStatement b) 
             else None
         | Function ([], b) ->
             if not (List.isEmpty args) then
@@ -1250,7 +1263,7 @@ let (|CurriedFunction|_|) expr =
             else None
         | Function ([a], b) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a :: args), b) 
+                Some (List.rev (a.ToNonOptional() :: args), b) 
             else None
         | _ -> 
             if List.length args > 1 then

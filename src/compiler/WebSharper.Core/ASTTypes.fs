@@ -67,6 +67,15 @@ type Id =
             Mutable = true
         }
 
+    member this.ToNonOptional() =
+        if this.Optional then
+            { this with
+                Optional = false
+            }
+        else this
+
+    member this.IsGlobal() = this.Id = -1L
+
     override this.GetHashCode() = int this.Id
     
     override this.Equals other =
@@ -643,14 +652,17 @@ type Address =
         | _ -> None
 
 module private Instances =
-    let GlobalId =
+    let uniqueId name i = 
         {
-            IdName = Some "<any>window"
-            Id = -1L
+            IdName = Some name
+            Id = i
             Mutable = false
             StrongName = true
             Optional = false
         }
+
+    let GlobalId = uniqueId "window" -1L
+    let AnyId = uniqueId "any" -2L
 
     let DefaultCtor =
         Constructor { CtorParameters = [] }
@@ -662,6 +674,7 @@ module private Instances =
 
 type Id with
     static member Global() = Instances.GlobalId
+    static member Any() = Instances.AnyId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor

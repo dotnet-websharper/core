@@ -799,13 +799,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.Instance name ->
             match baseCall with
             | Some true ->
-                match comp.TryLookupClassInfo(typ.Entity).Value.Address with
-                | Some ba ->
-                    Application(
-                        GlobalAccess ba |> getItem "prototype" |> getItem name |> getItem "call",
-                        This :: (trArgs()), opts.Purity, None)
-                | _ ->
-                    this.Error("Cannot translate base call, prototype not found.")
+                Application(Base |> getItem name, trArgs(), opts.Purity, None)
             | _ ->
                 Application(
                     trThisObj() |> Option.get |> getItem name,

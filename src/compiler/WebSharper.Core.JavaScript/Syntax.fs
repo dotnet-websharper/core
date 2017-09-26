@@ -137,6 +137,7 @@ and Expression =
     | Unary       of UnaryOperator * E
     | Var         of Id
     | VarNamed    of Id * string
+    | Cast        of Expression * Expression
     | ExprPos     of Expression * SourcePos
     | ExprComment of E * string
 

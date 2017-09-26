@@ -180,8 +180,15 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         let clsNodeIndex = graph.AddOrLookupNode(TypeNode def)
         graph.AddEdge(clsNodeIndex, asmNodeIndex)
-        for req in getRequires typ.CustomAttributes do
+        let reqs = getRequires typ.CustomAttributes
+        for req in reqs do
             graph.AddEdge(clsNodeIndex, ResourceNode req)
+
+        // there are some non-standard definitions in WS.JavaScript (Cookies)
+        let fromLibrary = 
+            match fromLibrary with
+            | None when not (List.isEmpty reqs) -> Some ""
+            | _ -> fromLibrary
 
         let baseDef =
             let b = typ.BaseType
@@ -282,7 +289,6 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         let address =
              prototypes.TryFind(def.Value.FullName)
              |> Option.map (fun s -> 
-                 // TODO: support for JS files
                  { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
              )
 

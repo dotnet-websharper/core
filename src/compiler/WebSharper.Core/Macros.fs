@@ -288,7 +288,7 @@ type Comp() =
             MacroError "comparisonMacro error"
 
 let formatExceptionTy, formatExceptionCtor =
-    match <@ new System.FormatException() @> with
+    match <@ new System.FormatException("") @> with
     | FSharp.Quotations.Patterns.NewObject (ci, _) ->
         Reflection.ReadTypeDefinition ci.DeclaringType,
         Reflection.ReadConstructor ci

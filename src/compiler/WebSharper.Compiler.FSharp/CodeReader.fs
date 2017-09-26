@@ -129,12 +129,10 @@ let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
-type FixCtorTransformer(?typ, ?thisExpr) =
+type FixCtorTransformer(?typ, ?btyp) =
     inherit Transformer()
 
-    let mutable firstOcc = true
-
-    let thisExpr = defaultArg thisExpr This
+    let mutable addedChainedCtor = false
 
     override this.TransformSequential (es) =
         match es with
@@ -153,16 +151,23 @@ type FixCtorTransformer(?typ, ?thisExpr) =
     override this.TransformStatementExpr(a, b) = StatementExpr (a, b)
 
     override this.TransformCtor (t, c, a) =
-        if not firstOcc then Ctor (t, c, a) else
-        firstOcc <- false
+        if addedChainedCtor then Ctor (t, c, a) else
+        addedChainedCtor <- true
+        if Option.isNone btyp then Undefined else
         let isBase =
             match typ with
             | None -> false
             | Some ct -> t.Entity <> ct
         ChainedCtor(isBase, t, c, a) 
 
-let fixCtor thisTyp expr =
-    FixCtorTransformer(thisTyp).TransformExpression(expr)
+    member this.Fix(expr) = 
+        let res = this.TransformExpression(expr)
+        match btyp with
+        | Some b when not addedChainedCtor -> Sequential [ ChainedCtor(true, NonGeneric b, ConstructorInfo.Default(), []); res ]
+        | _ -> res
+
+let fixCtor thisTyp baseTyp expr =
+    FixCtorTransformer(thisTyp, ?btyp = baseTyp).Fix(expr)
 
 module Definitions =
     let List =
@@ -563,7 +568,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
-                        let v = namedId false arg
+                        let t = arg.FullType
+                        let v = namedId (isUnit t || t.IsGenericParameter) arg
                         v, env.WithVar(v, arg)
                     ) 
                 let trBody = body |> transformExpression env
@@ -1008,7 +1014,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
             Let(r, CopyCtor(td, plainObj),
                 Sequential [
-                    yield FixCtorTransformer(thisExpr = Var r).TransformExpression(tr expr)
+                    yield FixCtorTransformer().TransformExpression(tr expr)
                     yield Var r
                 ]
             )

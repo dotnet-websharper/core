@@ -50,10 +50,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     match address.Module with
                     | StandardLibrary -> failwith "impossible, already handled"
                     | JavaScriptFile "" ->
-                        Undefined
+                        glob
+                    | JavaScriptFile "Runtime" ->
+                        declarations.Add <| ImportAll (None, "./WebSharper.Core.JavaScript/Runtime.js")
+                        glob
                     | JavaScriptFile js ->
                         declarations.Add <| ImportAll (None, js + ".js")
-                        Undefined
+                        glob
                     | TypeScriptModule ts ->
                         let var = Id.New (ts |> String.filter System.Char.IsUpper)
                         declarations.Add <| ImportAll (Some var, "./" + ts)
@@ -154,14 +157,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let rec packageClass (c: M.ClassInfo) name =
+    let rec packageClassInstances (c: M.ClassInfo) name =
 
         match c.BaseClass with
         | Some b ->
             match classes.TryFind b with
             | Some bc ->
                 classes.Remove b |> ignore
-                packageClass bc b.Value.FullName
+                packageClassInstances bc b.Value.FullName
             | _ -> ()
         | _ -> ()
 
@@ -172,15 +175,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.InstanceField n
             | M.OptionalField n ->
                 members.Add (ClassProperty (false, n)) 
-            | M.StaticField a ->
-                package a Undefined 
             | _ -> ()
-
-        match c.StaticConstructor with
-        | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
-        | Some(ccaddr, body) ->
-            package ccaddr body
-        | _ -> ()
 
         match c.Address with 
         | None -> ()
@@ -252,23 +247,41 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     members.Add (ClassConstructor (index :: cArgs, Some cBody))   
 
                 packageByName addr <| fun n -> Class(n, baseType, [], List.ofSeq members)
+            //else 
+            //    // import addresses for stub classes
+            //    c.Address |> Option.iter (fun a -> getAddress { a with Module = JavaScriptFile "" } |> ignore)
+            
+    while classes.Count > 0 do
+        let (KeyValue(t, c)) = classes |> Seq.head
+        classes.Remove t |> ignore
+        packageClassInstances c t.Value.FullName
+
+    let rec packageClassStatics (c: M.ClassInfo) name =
+        for f, _, _ in c.Fields.Values do
+            match f with
+            | M.StaticField a ->
+                package a Undefined 
+            | _ -> ()
+
+        match c.StaticConstructor with
+        | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
+        | Some(ccaddr, body) ->
+            package ccaddr body
+        | _ -> ()
 
         let smem info body = 
             match withoutMacros info with
             | M.Static maddr ->
-                if body <> Undefined then
-                    package maddr body
+                package maddr body
             | _ -> ()
         
         for info, _, body in c.Constructors.Values do
             smem info body
         for info, _, body in c.Methods.Values do
             smem info body
-            
-    while classes.Count > 0 do
-        let (KeyValue(t, c)) = classes |> Seq.head
-        classes.Remove t |> ignore
-        packageClass c t.Value.FullName
+
+    for (KeyValue(t, c)) in current.Classes do
+        packageClassStatics c t.Value.FullName
 
     toNamespace []
 

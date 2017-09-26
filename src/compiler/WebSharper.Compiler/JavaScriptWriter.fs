@@ -27,6 +27,7 @@ module I = WebSharper.Core.JavaScript.Identifier
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open System.Collections.Generic
 
 type P = WebSharper.Core.JavaScript.Preferences
 
@@ -42,17 +43,19 @@ type Environment =
         FuncDecls : ResizeArray<J.Statement>
         mutable InFuncScope : bool
         OuterScope : bool
+        UsedLabels : HashSet<Id>
     }
     static member New(pref) =
         {
             Preference = pref    
             ScopeNames = defaultNames
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "<any>window" ] 
+            ScopeIds = Map [ Id.Global(), "window" ] 
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = false
             OuterScope = true
+            UsedLabels = HashSet()
         }
 
     member this.NewInner(?ns) =
@@ -66,6 +69,7 @@ type Environment =
             FuncDecls = ResizeArray()
             InFuncScope = true
             OuterScope = outer
+            UsedLabels = HashSet()
         }
 
     member this.Declarations =
@@ -80,6 +84,10 @@ let transformId (env: Environment) (id: Id) =
     with _ -> 
         //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
         failwithf "Undefined variable during writing JavaScript: %s" (string id)
+
+let transformLabel (env: Environment) (id: Id) =
+    env.UsedLabels.Add id |> ignore
+    transformId env id
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
@@ -140,6 +148,10 @@ type CollectVariables(env: Environment) =
         env.ScopeNames <- env.ScopeNames |> Set.add n
         s |> List.iter this.VisitStatement
 
+    override this.VisitLabeled(l, s) =
+        defineId env VarDeclId l |> ignore
+        this.VisitStatement s
+
 let flattenJS s =
     let res = ResizeArray()
     let rec add a =
@@ -166,7 +178,11 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | This -> J.This
     | Base -> J.Super
     | Arguments -> J.Var "arguments"
-    | Var id -> J.Var (trI id)
+    | Var id -> 
+        if id.IsGlobal() then
+            J.Cast(J.Var "any", J.Var (trI id))
+        else
+            J.Var (trI id)
     | Value v ->
         match v with
         | Null     -> J.Literal.Null
@@ -288,6 +304,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             | [ n ] -> J.Var n
             | n :: r -> (get r).[J.Constant (J.String n)]
         get a.Value
+    | Cast (t, e) ->
+        J.Cast(trE t, trE e)
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -345,8 +363,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Empty
     | DoNotReturn
         -> J.Empty
-    | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
-    | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
+    | Break(a) -> J.Break (a |> Option.map (fun l -> transformLabel env l))
+    | Continue(a) -> J.Continue (a |> Option.map (fun l -> transformLabel env l))
     | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, (IgnoreSourcePos.Sequential s)))
     | ExprStatement (IgnoreSourcePos.Sequential s) -> block (sequentialE s |> List.map trS)
     | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, e))
@@ -412,7 +430,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> 
         withFuncDecls <| fun () -> 
-            J.Labelled(a.Name.Value, trS b)
+            let tB = trS b
+            if env.UsedLabels.Contains a then
+                J.Labelled(transformId env a, tB)        
+            else tB
     | TryWith(a, b, c) -> 
         withFuncDecls <| fun () ->
             J.TryWith(trS a, defineId env VarDeclId (match b with Some b -> b | _ -> Id.New()), trS c, None)

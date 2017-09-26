@@ -421,6 +421,7 @@ type TailCallTransformer(env) =
         let matchedBindings = ResizeArray() 
         let mutable funcCount = 0
         let mutable numArgs = 0
+        let mutable minArgs = System.Int32.MaxValue
         for var, value in bindings do
             if env.TailCalls.Contains(var) then
                 match value with
@@ -433,6 +434,7 @@ type TailCallTransformer(env) =
                         )
                     matchedBindings.Add(var, Choice1Of2 (args, fbody))
                     numArgs <- max numArgs args.Length 
+                    minArgs <- min minArgs args.Length 
                     funcCount <- funcCount + 1
                 | _ -> matchedBindings.Add(var, Choice2Of2 value)
             else matchedBindings.Add(var, Choice2Of2 value)
@@ -461,7 +463,7 @@ type TailCallTransformer(env) =
             let indexVar = Id.New "recI"
             let recFunc = Id.New("recF", mut = false)
             let mutable i = 0
-            let newArgs = Array.init numArgs (fun _ -> Id.New())
+            let newArgs = Array.init numArgs (fun i -> Id.New(opt = (i >= minArgs)))
             for var, value in matchedBindings do  
                 match value with     
                 | Choice1Of2 (args, _) ->

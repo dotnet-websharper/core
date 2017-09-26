@@ -129,6 +129,11 @@ let isAugmentedFSharpType (e: FSharpEntity) =
         )
     )
 
+let isOptionalParam (v: FSMFV) =
+    v.Attributes |> Seq.exists (fun a ->
+        a.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute"
+    )
+
 let isAbstractClass (e: FSharpEntity) =
     e.Attributes |> Seq.exists (fun a ->
         a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
@@ -340,6 +345,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         )
         |> HashSet
 
+    let baseCls =
+        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        else 
+            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+
     for m in members do
         match m with
         | SourceMember (meth, args, expr) ->        
@@ -370,7 +383,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let a, t = getArgsAndThis()
                 let isOpt = getParamIsOpt a
                 a |> List.map (fun p -> 
-                    CodeReader.namedId isOpt p
+                    CodeReader.namedId (isOpt || isOptionalParam p) p
                 ),
                 t |> Option.map (fun p -> CodeReader.namedId false p)
                
@@ -421,9 +434,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | Some t ->
                                     yield t, (CodeReader.namedId false t, CodeReader.ThisArg)
                                 | _ -> ()
-                                for p in a ->    
+                                for p in a ->   
                                     p, 
-                                    (CodeReader.namedId isOpt p, 
+                                    (CodeReader.namedId (isOpt || isOptionalParam p) p, 
                                         if CodeReader.isByRef p.FullType 
                                         then CodeReader.ByRefArg 
                                         else
@@ -463,7 +476,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = 
                                 match memdef with
                                 | Member.Constructor _ -> 
-                                    try CodeReader.fixCtor def b
+                                    try CodeReader.fixCtor def baseCls b
                                     with e ->
                                         let tryGetExprSourcePos expr =
                                             match expr with
@@ -696,14 +709,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
-
-    let baseCls =
-        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
-            None
-        elif annot.Prototype = Some false then
-            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
-        else 
-            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
 
     let hasWSPrototype =                
         hasWSPrototype ckind baseCls clsMembers

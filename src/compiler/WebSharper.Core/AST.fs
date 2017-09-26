@@ -167,6 +167,8 @@ and Expression =
     | New of Func:Expression * Arguments:list<Expression>
     /// Temporary - A hole in an expression for inlining
     | Hole of Index:int
+    /// TypeScript - type cast <...>...
+    | Cast of Typ:Expression * Expression:Expression
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -425,6 +427,9 @@ type Transformer() =
     /// Temporary - A hole in an expression for inlining
     abstract TransformHole : Index:int -> Expression
     override this.TransformHole a = Hole (a)
+    /// TypeScript - type cast <...>...
+    abstract TransformCast : Typ:Expression * Expression:Expression -> Expression
+    override this.TransformCast (a, b) = Cast (this.TransformExpression a, this.TransformExpression b)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -583,6 +588,7 @@ type Transformer() =
         | GlobalAccess a -> this.TransformGlobalAccess a
         | New (a, b) -> this.TransformNew (a, b)
         | Hole a -> this.TransformHole a
+        | Cast (a, b) -> this.TransformCast (a, b)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -787,6 +793,9 @@ type Visitor() =
     /// Temporary - A hole in an expression for inlining
     abstract VisitHole : Index:int -> unit
     override this.VisitHole a = (())
+    /// TypeScript - type cast <...>...
+    abstract VisitCast : Typ:Expression * Expression:Expression -> unit
+    override this.VisitCast (a, b) = this.VisitExpression a; this.VisitExpression b
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -943,6 +952,7 @@ type Visitor() =
         | GlobalAccess a -> this.VisitGlobalAccess a
         | New (a, b) -> this.VisitNew (a, b)
         | Hole a -> this.VisitHole a
+        | Cast (a, b) -> this.VisitCast (a, b)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1041,6 +1051,7 @@ module IgnoreSourcePos =
     let (|GlobalAccess|_|) x = match ignoreExprSourcePos x with GlobalAccess a -> Some a | _ -> None
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b) -> Some (a, b) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
+    let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1136,6 +1147,7 @@ module Debug =
         | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
         | New (a, b) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
+        | Cast (a, b) -> "Cast" + "(" + PrintExpression a + ", " + PrintExpression b + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""
