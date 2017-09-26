@@ -7,7 +7,6 @@ framework: net461, netstandard2.0
 source https://www.nuget.org/api/v2
 strategy: min
 
-nuget FAKE
 nuget Microsoft.NETCore.App ~> 2.0.0 framework: netstandard2.0
 nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget Microsoft.NETCore.Targets ~> 2.0.0
@@ -25,3 +24,9 @@ nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0 copy_local: true
 nuget FSharp.Compiler.Service ~> 14.0.2
+
+group build
+    framework: net45
+    source https://www.nuget.org/api/v2
+    nuget Paket.Core
+    nuget FAKE

@@ -25,12 +25,15 @@ module WebSharper.Fake
 
 #nowarn "211" // Don't warn about nonexistent #I
 #nowarn "20"  // Ignore string result of ==>
-#I "../packages/FAKE/tools"
-#I "../../../../packages/FAKE/tools"
+#I "../packages/build/FAKE/tools"
+#I "../../../../../packages/build/FAKE/tools"
 #r "FakeLib"
-#I "../.paket"
-#I "../../../../.paket"
-#r "paket.exe"
+#I "../packages/build/Paket.Core/lib/net45"
+#I "../packages/build/Chessie/lib/net40"
+#I "../../../../../packages/build/Paket.Core/lib/net45"
+#I "../../../../../packages/build/Chessie/lib/net40"
+#r "Chessie"
+#r "Paket.Core"
 #nowarn "49"
 
 open System
@@ -40,10 +43,13 @@ open Fake.AssemblyInfoFile
 
 let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies"
 
-let private mainGroup = depsFile.GetGroup(Paket.Domain.GroupName "Main")
+let private mainGroupName = Paket.Domain.GroupName "Main"
+let private mainGroup = depsFile.GetGroup mainGroupName
 
 let GetSemVerOf pkgName =
-    match Paket.NuGet.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+    match Paket.PackageResolver.GetPackageVersionsParameters.ofParams
+            mainGroup.Sources mainGroupName (Paket.Domain.PackageName pkgName)
+        |> Paket.NuGet.GetVersions true None "."
         |> Async.RunSynchronously
         |> List.map fst with
     | [] -> None

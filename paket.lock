@@ -5,7 +5,6 @@ RESTRICTION: || (== net461) (== netstandard2.0)
 NUGET
   remote: https://www.nuget.org/api/v2
     AjaxMin (5.14.5506.26202)
-    FAKE (4.63.2)
     FSharp.Compiler.Service (14.0.2)
       FSharp.Core (>= 4.1.18) - restriction: || (&& (== net461) (>= netstandard1.6)) (== netstandard2.0)
       NETStandard.Library (>= 1.6.1) - restriction: || (&& (== net461) (>= netstandard1.6)) (== netstandard2.0)
@@ -889,3 +888,21 @@ NUGET
       System.Xml.ReaderWriter (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       System.Xml.XDocument (>= 4.3) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       System.Xml.XPath (>= 4.3)
+
+GROUP build
+RESTRICTION: == net45
+NUGET
+  remote: https://www.nuget.org/api/v2
+    Chessie (0.6)
+      FSharp.Core
+    FAKE (4.63.2)
+    FSharp.Compiler.Tools (4.1.23)
+    FSharp.Core (4.2.3)
+    Mono.Cecil (0.10.0-beta6)
+    Newtonsoft.Json (10.0.3)
+    Paket.Core (5.100.2)
+      Chessie (>= 0.6)
+      FSharp.Compiler.Tools
+      FSharp.Core
+      Mono.Cecil (>= 0.10.0-beta6)
+      Newtonsoft.Json
