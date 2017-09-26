@@ -25,11 +25,13 @@ module WebSharper.Compiler.Packager
 open System.Collections.Generic
 
 open WebSharper.Core
+open WebSharper.Core.DependencyGraph
 open WebSharper.Core.AST
 
 module M = WebSharper.Core.Metadata
+module R = WebSharper.Core.Resources
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
+let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) isBundle =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -47,6 +49,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                 | [] ->
                     match address.Module with
                     | StandardLibrary -> failwith "impossible, already handled"
+                    | JavaScriptFile "" ->
+                        Undefined
                     | JavaScriptFile js ->
                         declarations.Add <| ImportAll (None, js + ".js")
                         Undefined
@@ -61,10 +65,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     | StandardLibrary ->
                         GlobalAccess address
                     | JavaScriptFile _ ->
-                        getAddress { address with Address = Hashed [] } |> ignore
-                        let var = Id.New name
-                        declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
-                        Var var
+                        match addresses.TryGetValue { address with Module = CurrentModule } with
+                        | true, v -> v
+                        | _ ->
+                            getAddress { address with Address = Hashed [] } |> ignore
+                            let var = Id.New name
+                            declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
+                            Var var
                     | TypeScriptModule _ ->
                         let parent = getAddress { address with Address = Hashed [] }
                         ItemGet(parent, Value (String name), Pure)
@@ -76,6 +83,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     ItemGet(parent, Value (String name), Pure)
             addresses.Add(address, res)
             res
+
+    for r in resources do
+        match r with
+        | :? R.IDownloadableResource as d ->
+            for m in d.GetImports() do
+                getAddress { Module = JavaScriptFile m; Address = Hashed [] } |> ignore
+        | _ -> ()
 
     let mutable currentNamespace = ResizeArray() 
     let mutable currentNamespaceContents = [ statements ]

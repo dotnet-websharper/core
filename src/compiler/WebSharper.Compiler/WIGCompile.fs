@@ -1449,7 +1449,8 @@ type Compiler() =
         let fromLibrary =
             match assemblyWideResources with
             | [ { Paths = [ p ] } ] -> Some p
-            | _ -> None
+            | _ -> 
+                if options.AssemblyName.StartsWith "WebSharper.JavaScript" then None else Some ""
         
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes fromLibrary def

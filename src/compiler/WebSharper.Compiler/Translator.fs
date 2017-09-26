@@ -57,7 +57,6 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
-    override this.TransformDoNotReturn () = if isInline then DoNotReturn else invalidForm "DoNotReturn" |> ExprStatement
 
     override this.TransformFunction(a, b) =
         let l = insideLoop

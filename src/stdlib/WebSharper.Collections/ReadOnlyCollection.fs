@@ -28,8 +28,8 @@ open System.Collections.Generic
 [<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
 [<Name "WebSharper.Collections.ReadOnlyCollection">]
 type ReadOnlyCollectionProxy<'T> =
-    [<Inline "WebSharper.Arrays.ofSeq($arr)">] 
-    new (arr: IList<'T>) = { }
+    [<Inline>] 
+    static member CtorProxy (arr: IList<'T>) = Array.ofSeq(arr)
     
     member this.Item with [<Inline "$this[$i]">] get (i: int) = X<'T>
 

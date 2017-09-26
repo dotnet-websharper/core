@@ -117,8 +117,13 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     
     TimedStage "Source position transformations"
 
+    let resources = 
+        match comp with
+        | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
+        | _ -> []
+
     let pkg = 
-        Packager.packageAssembly refMeta current false
+        Packager.packageAssembly refMeta current resources false
 
     TimedStage "Packaging assembly"
     

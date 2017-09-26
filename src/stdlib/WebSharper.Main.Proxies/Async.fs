@@ -120,7 +120,7 @@ type private CancellationTokenProxy =
 
     [<Inline>]
     member this.Register(callback: System.Action) =
-        As<CTR> (C.Register (As this) callback.Invoke)
+        As<CTR> (C.Register (As this) (As callback))
 
     [<Inline>]
     member this.ThrowIfCancellationRequested() =

@@ -64,6 +64,7 @@ and IResource =
 
 type IDownloadableResource =
     abstract Unpack : string -> unit    
+    abstract member GetImports : unit -> string[]
 
 let cleanLink dHttp (url: string) =
     if dHttp && url.StartsWith("//")
@@ -233,7 +234,9 @@ let tryGetUriFileName (u: string) =
     with _ -> None
 
 let EmptyResource =
-   { new IResource with member this.Render _ = ignore }
+    { new IResource with 
+        member this.Render _ = ignore 
+    }
 
 type BaseResource(kind: Kind) as this =
         
@@ -327,6 +330,24 @@ type BaseResource(kind: Kind) as this =
                 for x in xs do
                     download (b.TrimEnd('/') + "/" + x.TrimStart('/'))
 
+        member this.GetImports() = 
+            let getPath spec =
+                match tryFindWebResource self spec with 
+                | Some f -> "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
+                | _ -> spec
+            
+            match kind with
+            | Basic spec ->
+                if spec.EndsWith ".js" then
+                    [| getPath spec |]
+                else [||]
+            | Complex (b, xs) ->
+                xs |> Seq.choose (fun x ->
+                    if x.EndsWith ".js" then 
+                        let spec = b.TrimEnd('/') + "/" + x.TrimStart('/')
+                        Some (getPath spec) 
+                    else None    
+                ) |> Array.ofSeq 
 [<Sealed>]
 type Runtime() =
     interface IResource with

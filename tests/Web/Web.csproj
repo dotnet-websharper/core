@@ -37,6 +37,7 @@
     <TypeScriptSourceMap>False</TypeScriptSourceMap>
     <TypeScriptMapRoot />
     <TypeScriptSourceRoot />
+    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <PropertyGroup>
     <DebugType>pdbonly</DebugType>

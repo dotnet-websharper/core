@@ -1260,7 +1260,7 @@ type StringFormat() =
                             let idx = int m.Groups.[2].Value
 
                             let r =
-                                Application(Global ["WebSharper"; "Arrays"; "get"], [Var argsId; cInt idx], Pure, Some 2)
+                                ItemGet(Var argsId, cInt idx, Pure)
                                 |> safeToString
 
                             let spec = m.Groups.[4].Value

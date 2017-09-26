@@ -131,6 +131,8 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
             if dce then trimMetadata meta nodes 
             else meta
 
+        let resources = graph.GetResourcesOf nodes
+
         for d in graph.GetResourcesOf nodes do
             match mode with
             | BundleMode.HtmlHeaders -> d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
@@ -140,7 +142,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             
             let pkg =   
-                Packager.packageAssembly current current true
+                Packager.packageAssembly current current resources true
 
             let pref =
                 if mode = BundleMode.JavaScript then 

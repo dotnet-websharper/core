@@ -342,7 +342,9 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         else 
             f()
     match statement with
-    | Empty -> J.Empty
+    | Empty
+    | DoNotReturn
+        -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> l.Name.Value))
     | ExprStatement (IgnoreSourcePos.Unary(UnaryOperator.``void``, (IgnoreSourcePos.Sequential s)))
