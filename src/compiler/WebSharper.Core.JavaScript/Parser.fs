@@ -129,7 +129,7 @@ let (|UnaryOp|_|) (t: L.IToken) =
 let rec primExpr i =
     let t = peek i
     match t.Lexeme with
-    | L.Identifier x -> skipDiv i; S.Var x
+    | L.Identifier x -> skipDiv i; S.Var (S.Id.New x)
     | L.ReservedWord Kw.``this`` -> skipDiv i; S.This
     | L.ReservedWord Kw.``null`` -> skipDiv i; S.Constant S.Null
     | L.ReservedWord Kw.``false`` -> skipDiv i; S.Constant S.False
@@ -432,7 +432,7 @@ and stmt i =
             S.Labelled (id, stmt i)
         | _ ->
             let e =
-                S.Var id
+                S.Var (S.Id.New id)
                 |> lhsExprTail 0 i
                 |> assignExprTail true i
                 |> exprTail true i
@@ -470,8 +470,8 @@ and varDecl allowIn i =
     match t.Lexeme with
     | L.Identifier id ->
         match (peek i).Lexeme with
-        | L.Punctuator Sy.``=`` -> skipRx i; (id, Some (assignExpr allowIn i))
-        | _ -> (id, None)
+        | L.Punctuator Sy.``=`` -> skipRx i; (S.Id.New id, Some (assignExpr allowIn i))
+        | _ -> (S.Id.New id, None)
     | _ ->
         error t "Expected an identifier."
 
@@ -648,7 +648,7 @@ and tryStmt i =
     let c = catchOpt ()
     let f = finallyOpt ()
     match c, f with
-    | Some (id, b2), fin -> S.TryWith (b1, id, b2, fin)
+    | Some (id, b2), fin -> S.TryWith (b1, (S.Id.New id), b2, fin)
     | None, Some b2 -> S.TryFinally (b1, b2)
     | _ -> error t "Expecting `catch` or `finally`."
 
@@ -667,7 +667,7 @@ and funExpr i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Lambda (Some id, f, funBody i)
+        S.Lambda (Some (S.Id.New id), f, funBody i)
     | L.Punctuator Sy.``(`` ->
         let f = formals i
         S.Lambda (None, f, funBody i)
@@ -680,7 +680,7 @@ and funDecl i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Function (id, f, funBody i)
+        S.Function (S.Id.New id, f, funBody i)
     | _ ->
         error t "Expecting an identifier."
 
@@ -689,7 +689,7 @@ and formals i =
         let t = readRx i
         match t.Lexeme with
         | L.Punctuator Sy.``)`` -> List.rev acc
-        | L.Identifier id -> s1 (id :: acc)
+        | L.Identifier id -> s1 ((S.Id.New id) :: acc)
         | _ -> error t "Expecting ')' or an identifier."
     and s1 acc =
         let t = readRx i
@@ -700,7 +700,7 @@ and formals i =
     and s2 acc =
         let t = readRx i
         match t.Lexeme with
-        | L.Identifier id -> s1 (id :: acc)
+        | L.Identifier id -> s1 ((S.Id.New id) :: acc)
         | _ -> error t "Expecting an identifier."
     s0 []
 

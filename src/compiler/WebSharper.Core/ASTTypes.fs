@@ -24,6 +24,8 @@ namespace WebSharper.Core.AST
 
 open WebSharper.Core
 
+module S = WebSharper.Core.JavaScript.Syntax
+
 type private Ids() =
     static let mutable lastId = -1L
     static member New() =
@@ -662,7 +664,6 @@ module private Instances =
         }
 
     let GlobalId = uniqueId "window" -1L
-    let AnyId = uniqueId "any" -2L
 
     let DefaultCtor =
         Constructor { CtorParameters = [] }
@@ -674,7 +675,10 @@ module private Instances =
 
 type Id with
     static member Global() = Instances.GlobalId
-    static member Any() = Instances.AnyId
+
+module TSType =
+    let Any = Instances.uniqueId "any" -2L
+    let Never = Instances.uniqueId "never" -3L
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor

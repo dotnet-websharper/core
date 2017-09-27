@@ -21,12 +21,6 @@
 /// Defines the JavaScript abstract syntax tree.
 module WebSharper.Core.JavaScript.Syntax
 
-/// Represents JavaScript identifiers.
-/// Conventions:
-/// * starts with ' ' - no escaping
-/// * ends with '?' - optional
-type Id = string
-
 /// Represents JavaScript labels.
 type Label = string
 
@@ -120,6 +114,29 @@ type Literal =
         | String x -> System.String.Format("\"{0}\"", x)
         | True -> "true"
 
+/// Represents JavaScript identifiers.
+and Id =
+    {
+        Name : string
+        Optional : bool
+        Type : option<E>
+    }
+
+    member this.ToNonTyped() =
+        match this.Type with
+        | None -> this
+        | _ -> { this with Type = None }
+
+    member this.WithType(t) =
+        { this with Type = Some t }
+
+    static member New(name, ?opt, ?typ) =
+        {
+            Name = name
+            Optional = defaultArg opt false
+            Type = typ
+        }
+
 /// Represents JavaScript expressions.
 and Expression =
     | Application of E * list<E>
@@ -129,7 +146,7 @@ and Expression =
     | Lambda      of option<Id> * list<Id> * list<S>
     | New         of E * list<E>
     | NewArray    of list<option<E>>
-    | NewObject   of list<Id * E>
+    | NewObject   of list<string * E>
     | NewRegex    of Regex
     | Postfix     of E * PostfixOperator
     | This
@@ -203,6 +220,7 @@ and Statement =
     | Declare      of S
     | Namespace    of Id * list<S>
     | Class        of Id * bool * option<E> * list<E> * list<Member>
+    | Interface    of Id * list<E> * list<Member>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
 

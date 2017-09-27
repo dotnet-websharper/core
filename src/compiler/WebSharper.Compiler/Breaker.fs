@@ -561,7 +561,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | ItemSet (a, b, c) ->
         comb3 ItemSet a b c
     | Binary ((I.Value _ as a), b, (I.Value _ as c)) ->
-        Binary(Cast(Var (Id.Any()), a), b, c) |> br  
+        Binary(Cast(Var TSType.Any, a), b, c) |> br  
     | Binary (a, b, c) ->
         match b with
         | BinaryOperator.``&&``

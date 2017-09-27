@@ -41,7 +41,7 @@ module BundleUtility =
 
     let DocWrite w =
         let str x = JS.Constant (JS.String x)
-        JS.Application (JS.Binary (JS.Var "document", JS.BinaryOperator.``.``, str "write"), [str w])
+        JS.Application (JS.Binary (JS.Var (JS.Id.New "document"), JS.BinaryOperator.``.``, str "write"), [str w])
         |> W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
 
 [<Sealed>]

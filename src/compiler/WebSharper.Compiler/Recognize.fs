@@ -99,7 +99,7 @@ let GetMutableExternals (meta: M.Info) =
 
     res
 
-type Environment =
+type private Environment =
     {
         Vars : list<IDictionary<string, Expression>>
         Inputs : list<Expression>
@@ -151,25 +151,26 @@ type Environment =
 
     member this.WithNewScope (vars) =
         { this with 
-            Vars = (Dictionary(dict vars) :> _) :: this.Vars 
+            Vars = (Dictionary(vars |> Seq.map (fun (s: S.Id, i) -> s.Name, i) |> dict) :> _) :: this.Vars 
             Purity = NonPure
         }
 
-    member this.NewVar(name) =
-        let v = Id.New name
+    member this.NewVar(id: S.Id) =
+        let n = id.Name
+        let v = Id.New n
         match this.Vars with
         | [] -> failwith "no scope"
         | h :: t ->
-            h.Add(name, Var v)
+            h.Add(n, Var v)
             v
-            //{ this with Vars = (h |> Map.add name (Var v)) :: t }, v
 
-    member this.TryFindVar(name) =
+    member this.TryFindVar(id: S.Id) =
+        let n = id.Name
         let rec findIn scope =
             match scope with
             | [] -> None
             | (h : IDictionary<_,_>) :: t ->
-                match h.TryFind name with
+                match h.TryFind n with
                 | Some _ as res -> res
                 | _ -> findIn t
         findIn this.Vars
@@ -218,12 +219,12 @@ let makePossiblyImmutable expr (v: Id) =
         ReplaceId(v, vi).TransformExpression(expr)
     else expr         
 
-let checkNotMutating (env: Environment) a f =
+let private checkNotMutating (env: Environment) a f =
     if env.IsInput a then
         failwith "arguments of inlined functions should not be mutated"
     else f a
 
-let setValue (env: Environment) expr value =
+let private setValue (env: Environment) expr value =
     match expr with
     | GlobalAccess a ->
         match a.Address.Value with
@@ -284,7 +285,9 @@ let (|JSGlobalAccess|_|) e =
         | _ -> None
     | _ -> None
 
-let rec transformExpression (env: Environment) (expr: S.Expression) =
+let inline private trI (jsId: S.Id) = Id.New(jsId.Name, opt = jsId.Optional)
+
+let rec private transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
     let checkNotMutating a f =
         if env.IsInput a then
@@ -379,7 +382,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.True -> Bool true
         |> Value
     | S.Lambda (a, b, c) ->
-        let vars = b |> List.map (fun v -> Id.New v)
+        let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
         let fres =
@@ -417,28 +420,28 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.UnaryOperator.``~`` -> Unary(UnaryOperator.``~``, trE b)
         | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
-        match a with
+        match a.Name with
         | "$global"
         | "window" -> Global []
         | "$wsruntime" -> wsruntime
         | "arguments" -> Arguments
         | "undefined" -> Undefined
-        | _ ->
+        | n ->
         match env.TryFindVar a with
         | Some e -> e
         | None -> 
             match env.FromLibrary with
             | Some l ->
-                GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ a ] }
+                GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ n ] }
             | _ ->
-                Global [ a ]
+                Global [ n ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
 //        match b with
 //        | S.PostfixOperator.``++`` -> 
                                                                        
-and transformStatement (env: Environment) (statement: S.Statement) =
+and private transformStatement (env: Environment) (statement: S.Statement) =
     let inline trE e = transformExpression env e
     let inline trS s = transformStatement env s
     match statement with
@@ -453,7 +456,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.For (a, b, c, d) -> 
         For (Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | S.ForIn (a, b, c) ->
-        let i = env.NewVar "i"
+        let i = Id.New "i"
         ForIn(i, trE b, Block [ ExprStatement (setValue env (trE a) (Var i)); trS c ])
     | S.ForVarIn (a, b, c, d) -> 
         let v = env.NewVar a
@@ -504,7 +507,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.With (a, b) -> failwith "Unsupported: JS with statement"
     | S.Function (a, b, c) ->
         let f = env.NewVar a
-        let vars = b |> List.map (fun v -> Id.New v)
+        let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
         FuncDeclaration(f, vars, transformStatement innerEnv body)

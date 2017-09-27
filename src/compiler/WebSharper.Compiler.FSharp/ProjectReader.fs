@@ -468,7 +468,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     argsAndVars |> List.map (snd >> fst)
                                     |> if Option.isSome t then List.skip 1 else id    
                                 Some (mem, ca, args, Option.isSome t)
-                        
+
                         let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
                         let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr)  
                         let res =

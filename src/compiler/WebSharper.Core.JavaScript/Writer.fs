@@ -160,44 +160,6 @@ let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
     buf.AppendFormat(@"\u{0:x4}", int c)
     |> ignore
 
-let Id (id: string) =
-    if id.[0] = ' ' then
-        Word (id.Substring(1))
-    else
-    let id, isOptional =
-        let l = id.Length
-        if id.[l - 1] = '?' then
-            id.Substring(0, l - 1), true
-        else 
-            id, false
-    let buf = StringBuilder()
-    if System.String.IsNullOrEmpty id then
-        invalidArg "id" "Cannot escape null and empty identifiers."
-    let isFirst = function
-        | '_' | '$' -> true
-        | c when System.Char.IsLetter c -> true
-        | _ -> false
-    let isFollow c =
-        isFirst c || System.Char.IsDigit c
-    let writeChar i =
-        let c = id.[i]
-        if isFollow c then
-            buf.Append c |> ignore
-        else
-            WriteUnicodeEscape buf c
-    match id.[0] with
-    | k when not (isFirst k) || IsKeyword id ->
-        WriteUnicodeEscape buf id.[0]
-        for i in 1 .. id.Length - 1 do
-            writeChar i
-    | _ ->
-        for i in 0 .. id.Length - 1 do
-            writeChar i
-    if isOptional then
-        Word (string buf) ++ Token "?"
-    else
-        Word (string buf)
-
 let QuoteString (s: string) =
     let buf = StringBuilder()
     buf.Append '"' |> ignore
@@ -248,7 +210,20 @@ let BlockLayout items =
     -- ListLayout (fun a b -> a -- b) Indent items
     -- Token "}"
 
-let rec Expression (expression) =
+let inline Label (l: S.Label) =
+    Word l
+
+let rec Id (id: S.Id) =
+    Word id.Name
+    ++ Conditional (Token "?") id.Optional
+    ++ TypeAnnotation id.Type
+
+and TypeAnnotation a =
+    Optional (fun t -> Token ":" ++ Expression t) a
+
+and NonTypedId (id: S.Id) = Id (id.ToNonTyped())
+
+and Expression (expression) =
     match expression with
     | S.ExprPos (x, pos) -> 
         SourceMapping pos ++ Expression x ++ SourceMappingEnd pos
@@ -358,10 +333,10 @@ and Statement canBeEmpty statement =
         Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
         BlockLayout (List.map (Statement true) ss)
-    | S.Break id ->
-        Word "break" ++ Optional Id id ++ Token ";"
-    | S.Continue id ->
-        Word "continue" ++ Optional Id id ++ Token ";"
+    | S.Break label ->
+        Word "break" ++ Optional Label label ++ Token ";"
+    | S.Continue label ->
+        Word "continue" ++ Optional Label label ++ Token ";"
     | S.Debugger ->
         Word "debugger" ++ Token ";"
     | S.Do (s, e) ->
@@ -441,7 +416,7 @@ and Statement canBeEmpty statement =
         -- s1L
         -- s2L
     | S.Labelled (label, s) ->
-        Id label ++ Token ":" ++ Statement canBeEmpty s
+        Label label ++ Token ":" ++ Statement canBeEmpty s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e
@@ -483,10 +458,11 @@ and Statement canBeEmpty statement =
         -- Indent (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
-    | S.Function (name, formals, body) ->
+    | S.Function (id, formals, body) ->
         Word "function"
-        ++ Id name
+        ++ NonTypedId id
         ++ Parens (CommaSeparated Id formals)
+        ++ TypeAnnotation id.Type 
         -- BlockLayout (List.map (Statement true) body)
     | S.Export s ->
         Word "export" ++ Statement false s
@@ -506,14 +482,20 @@ and Statement canBeEmpty statement =
         ++ Optional (fun b -> Word "extends" ++ Expression b) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
         -- BlockLayout (List.map Member ms)
+    | S.Interface (n, i, ms) ->
+        Word "interface" 
+        ++ Id n 
+        ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
+        -- BlockLayout (List.map Member ms)
 
 and Member mem =
     match mem with
     | S.Method (s, n, args, body) ->
         Conditional (Word "abstract") (Option.isNone body)
         ++ Conditional (Word "static") s
-        ++ Id n
+        ++ NonTypedId n
         ++ Parens (CommaSeparated Id args)
+        ++ TypeAnnotation n.Type 
         -- Optional (List.map (Statement true) >> BlockLayout) body
     | S.Constructor (args, body) ->
         Word "constructor"

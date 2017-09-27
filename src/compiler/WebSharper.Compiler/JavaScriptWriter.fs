@@ -39,7 +39,7 @@ type Environment =
         mutable ScopeNames : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
-        ScopeVars : ResizeArray<J.Id>
+        ScopeVars : ResizeArray<string>
         FuncDecls : ResizeArray<J.Statement>
         mutable InFuncScope : bool
         OuterScope : bool
@@ -74,20 +74,21 @@ type Environment =
 
     member this.Declarations =
         if this.ScopeVars.Count = 0 then [] else
-            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> v, None) |> List.ofSeq) ]
+            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
 let transformId (env: Environment) (id: Id) =
-    if id.HasStrongName then " " + id.Name.Value else
-    try Map.find id env.ScopeIds
+    if id.HasStrongName then J.Id.New id.Name.Value else
+    try 
+        J.Id.New (Map.find id env.ScopeIds) 
     with _ -> 
         //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
         failwithf "Undefined variable during writing JavaScript: %s" (string id)
 
 let transformLabel (env: Environment) (id: Id) =
     env.UsedLabels.Add id |> ignore
-    transformId env id
+    (transformId env id).Name
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
@@ -106,13 +107,13 @@ type IdKind =
     | InnerId
 
 let defineId (env: Environment) kind (id: Id) =
-    if id.HasStrongName then " " + id.Name.Value else
+    if id.HasStrongName then J.Id.New(id.Name.Value, id.IsOptional) else
     let addToDecl, isParam =
         match kind with
         | VarDeclId -> false, false
         | FuncArgId -> false, true
         | InnerId -> true, false
-    let res =
+    let n =
         if env.Preference = P.Compact then
             let name = getCompactName env    
             env.ScopeIds <- env.ScopeIds |> Map.add id name
@@ -127,10 +128,7 @@ let defineId (env: Environment) kind (id: Id) =
             env.ScopeIds <- env.ScopeIds |> Map.add id name
             if addToDecl then env.ScopeVars.Add(name)
             name
-    if isParam && id.IsOptional then
-        res + "?"
-    else
-        res
+    J.Id.New(n, id.IsOptional)
        
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
@@ -163,10 +161,26 @@ let flattenJS s =
     List.ofSeq res    
 
 let flattenFuncBody s =
-    let b = flattenJS [s]
-    match List.rev b with
-    | J.IgnoreSPos (J.Return None) :: more -> List.rev more
-    | _ -> b
+    let res = ResizeArray()
+    let mutable go = true
+    let mutable throws = false
+    let rec add a =
+        if go then 
+            match J.IgnoreStatementPos a with
+            | J.Block b -> b |> List.iter add
+            | J.Empty -> ()
+            | J.Return None ->
+                go <- false
+            | J.Return _ ->
+                go <- false
+                res.Add a
+            | J.Throw _ ->
+                throws <- true
+                go <- false
+                res.Add a
+            | _ -> res.Add a
+    add s
+    throws, List.ofSeq res    
 
 let block s = J.Block (flattenJS s)
 
@@ -177,10 +191,10 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | Undefined -> undef
     | This -> J.This
     | Base -> J.Super
-    | Arguments -> J.Var "arguments"
+    | Arguments -> J.Var (J.Id.New "arguments")
     | Var id -> 
         if id.IsGlobal() then
-            J.Cast(J.Var "any", J.Var (trI id))
+            J.Cast(J.Var (J.Id.New "any"), J.Var (trI id))
         else
             J.Var (trI id)
     | Value v ->
@@ -217,11 +231,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv FuncArgId) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let body = b |> transformStatement innerEnv |> flattenFuncBody
-        //let useStrict =
-        //    if env.OuterScope then
-        //        [ J.Ignore (J.Constant (J.String "use strict")) ]
-        //    else []
+        let _, body = b |> transformStatement innerEnv |> flattenFuncBody
         J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body))
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
@@ -301,7 +311,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let rec get a =
             match a with
             | [] -> failwith "empty local address"
-            | [ n ] -> J.Var n
+            | [ n ] -> J.Var (J.Id.New n)
             | n :: r -> (get r).[J.Constant (J.String n)]
         get a.Value
     | Cast (t, e) ->
@@ -401,7 +411,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv FuncArgId) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let body = b |> transformStatement innerEnv |> flattenFuncBody
+        let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
+        let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
         let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
         if env.InFuncScope then
             f
@@ -432,7 +443,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         withFuncDecls <| fun () -> 
             let tB = trS b
             if env.UsedLabels.Contains a then
-                J.Labelled(transformId env a, tB)        
+                J.Labelled((transformId env a).Name, tB)        
             else tB
     | TryWith(a, b, c) -> 
         withFuncDecls <| fun () ->
@@ -451,14 +462,14 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.Declare (trS a)
     | Namespace (a, b) ->
         let innerEnv = env.NewInner(true)
-        J.Namespace (a, List.map (transformStatement innerEnv) b)
+        J.Namespace (J.Id.New a, List.map (transformStatement innerEnv) b)
     | Class (a, b, c, d) ->
         let isAbstract =
             d |> List.exists (function
                 | ClassMethod (_, _, _, None) -> true
                 | _ -> false
             )
-        J.Class(a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
+        J.Class(J.Id.New a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 
@@ -474,18 +485,22 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 CollectVariables(innerEnv).VisitStatement(b)
                 b |> transformStatement innerEnv |> flattenFuncBody
             )
-        J.Method(a, b, args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
+        let id =
+            match body with
+            | Some (true, _) ->  J.Id.New(b, typ = J.Var (J.Id.New "any"))
+            | _ -> J.Id.New b 
+        J.Method(a, id, args, body |> Option.map (fun (_, b) -> flattenJS (innerEnv.Declarations @ b)))   
     | ClassConstructor (a, b) ->
         let innerEnv = env.NewInner(false)
         let args = a |> List.map (defineId innerEnv FuncArgId) 
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
-                b |> transformStatement innerEnv |> flattenFuncBody
+                b |> transformStatement innerEnv |> flattenFuncBody |> snd
             )
         J.Constructor(args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
     | ClassProperty (a, b) ->
-        J.Property (a, b)
+        J.Property (a, J.Id.New b)
     | _ -> 
         invalidForm (GetUnionCaseName mem)
 

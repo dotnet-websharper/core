@@ -25,6 +25,10 @@ open System.Threading
 module P = WebSharper.Core.JavaScript.Parser
 module S = WebSharper.Core.JavaScript.Syntax
 
+module S =
+    let Var x = S.Var (S.Id.New x)
+    let Vars xs = S.Vars (xs |> List.map (fun (x, v) -> S.Id.New x, v))
+
 let private p s =
     P.ParseExpression (P.Source.FromString s)
 
