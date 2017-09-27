@@ -215,7 +215,8 @@ and Statement =
     | While        of E * S
     | With         of E * S
     | Function     of Id * list<Id> * list<S>
-    | Export       of S
+    | Export       of S 
+    | ExportAlias  of Id * Id 
     | ImportAll    of option<Id> * string
     | Declare      of S
     | Namespace    of Id * list<S>

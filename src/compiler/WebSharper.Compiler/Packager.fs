@@ -91,7 +91,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match r with
         | :? R.IDownloadableResource as d ->
             for m in d.GetImports() do
-                getAddress { Module = JavaScriptFile m; Address = Hashed [] } |> ignore
+                if m.EndsWith ".js" then
+                    getAddress { 
+                        Module = JavaScriptFile (m.Substring(0, m.Length - 3))
+                        Address = Hashed [] 
+                    } |> ignore
         | _ -> ()
 
     let mutable currentNamespace = ResizeArray() 

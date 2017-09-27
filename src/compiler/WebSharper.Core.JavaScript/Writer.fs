@@ -302,9 +302,14 @@ and Expression (expression) =
             Token (if Identifier.IsValid k then k else QuoteString k)
             ++ Token ":"
             ++ AssignmentExpression v
-        Token "{"
-        -- Indent (ListLayout (fun a b -> a ++ Token "," -- b) pair fields)
-        -- Token "}"
+        if fields.Length <= 2 then
+            Token "{"
+            ++ ListLayout (fun a b -> a ++ Token "," ++ b) pair fields
+            ++ Token "}"
+        else
+            Token "{"
+            -- Indent (ListLayout (fun a b -> a ++ Token "," -- b) pair fields)
+            -- Token "}"
     | S.Postfix (x, op) ->
         ParensExpression PostfixOperatorPrecedence x
         ++ Token (string op)
@@ -466,6 +471,8 @@ and Statement canBeEmpty statement =
         -- BlockLayout (List.map (Statement true) body)
     | S.Export s ->
         Word "export" ++ Statement false s
+    | S.ExportAlias (a, b) ->
+        Word "export" ++ Token "{" ++ Id a ++ Word "as" ++ Id b ++ Token "}"
     | S.ImportAll (None, m) ->
         Word "import " ++ Token (QuoteString m) 
     | S.ImportAll (Some i, m) ->

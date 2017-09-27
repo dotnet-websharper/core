@@ -42,7 +42,7 @@ module P = PathUtility
 module R = WebSharper.Core.Resources
 
 [<Literal>]
-let EMBEDDED_JS = "WebSharper.ts"
+let EMBEDDED_TS = "WebSharper.ts"
 
 [<Literal>]
 let EMBEDDED_MINJS = "WebSharper.min.js"
@@ -149,7 +149,7 @@ type State(conf: Config) =
 /// Gets the JavaScript filename of an assembly, for example `WebSharper.js`.
 let getAssemblyFileName (mode: Mode) (aN: string) =
     match mode with
-    | H.Debug -> String.Format("{0}.js", aN)
+    | H.Debug -> String.Format("{0}.ts", aN)
     | H.Release -> String.Format("{0}.min.js", aN)
 
 /// Gets the physical path to the assembly JavaScript.
@@ -220,7 +220,7 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
         | Some aP ->
             let embeddedResourceName =
                 match st.Config.Options.Mode with
-                | H.Debug -> EMBEDDED_JS
+                | H.Debug -> EMBEDDED_TS
                 | H.Release -> EMBEDDED_MINJS
             let p = getAssemblyJavaScriptPath st.Config aN
             writeEmbeddedResource st.Config aP embeddedResourceName p

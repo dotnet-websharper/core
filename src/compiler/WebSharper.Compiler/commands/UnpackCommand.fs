@@ -121,7 +121,7 @@ module UnpackCommand =
             | None -> () 
             | Some a ->
             let aid = PC.AssemblyId.Create(a.Name)
-            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+            emitWithMap a.ReadableJavaScript (pc.TypeScriptPath aid)
                 a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
             emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
                 a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)

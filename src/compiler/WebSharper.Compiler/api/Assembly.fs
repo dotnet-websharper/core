@@ -135,7 +135,7 @@ type Assembly =
         this.Definition.Write(path, par)
 
     member this.ReadableJavaScript =
-        ReadResource EMBEDDED_JS this.Definition
+        ReadResource EMBEDDED_TS this.Definition
 
     member this.MapFileForReadable =
         ReadResource EMBEDDED_MAP this.Definition
