@@ -53,7 +53,9 @@ module internal Internal =
                     [
                         runner
                         Function([id],
-                            Return (mkSample t (Application(gen, [Var id], Pure, Some 1)) (cInt 100)))
+                            // cast to "any" is needed because sometimes we are calling a generator function that does
+                            // not take any arguments
+                            Return (mkSample t (Application(Cast(Var TSType.Any, gen), [Var id], Pure, Some 1)) (cInt 100)))
                         attempt
                     ]
                 )

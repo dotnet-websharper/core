@@ -189,6 +189,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Methods = Dictionary()
                     Implementations = Dictionary()
                     HasWSPrototype = false
+                    IsStub = false
                     Macros = []
                 }
             ) 
@@ -848,13 +849,18 @@ type Compilation(meta: Info, ?hasGraph) =
                     if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
                 )
             let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
+            let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
                 match classes.TryFind typ with
                 | Some c -> MergedDictionary c.Methods :> IDictionary<_,_>
                 | _ -> Dictionary() :> _
+            let initAddress =
+                if hasWSPrototype || cls.ForceAddress || (isStub && Option.isSome cls.StrongName) then 
+                    someEmptyAddress 
+                else None
             classes.Add (typ,
                 {
-                    Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
+                    Address = initAddress
                     BaseClass = if hasWSPrototype then baseCls else None
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
@@ -862,6 +868,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Methods = methods
                     Implementations = Dictionary()
                     HasWSPrototype = hasWSPrototype
+                    IsStub = isStub
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                 }
             ) 

@@ -302,6 +302,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 Methods = methods 
                 Implementations = Map.empty // TODO
                 HasWSPrototype = false // do not overwrite external prototype
+                IsStub = true
                 Macros = []
             }
         )

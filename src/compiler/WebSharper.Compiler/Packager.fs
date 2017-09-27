@@ -247,9 +247,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     members.Add (ClassConstructor (index :: cArgs, Some cBody))   
 
                 packageByName addr <| fun n -> Class(n, baseType, [], List.ofSeq members)
-            //else 
-            //    // import addresses for stub classes
-            //    c.Address |> Option.iter (fun a -> getAddress { a with Module = JavaScriptFile "" } |> ignore)
+            
+            elif c.IsStub then
+                // import addresses for stub classes
+                c.Address |> Option.iter (fun a -> getAddress { a with Module = JavaScriptFile "" } |> ignore)
             
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head

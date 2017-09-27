@@ -152,6 +152,7 @@ type ClassInfo =
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
+        IsStub : bool // is the class just a declaration
         Macros : list<TypeDefinition * option<ParameterObject>>
     }
 
@@ -165,6 +166,7 @@ type ClassInfo =
             Methods = dict []
             Implementations = dict []
             HasWSPrototype = false
+            IsStub = true
             Macros = []
         }
         
@@ -321,6 +323,7 @@ type Info =
                     Implementations = Dict.union [a.Implementations; b.Implementations]
                     Macros = List.concat [a.Macros; b.Macros]
                     Methods = Dict.union [a.Methods; b.Methods]
+                    IsStub = a.IsStub && b.IsStub
                     StaticConstructor = combine a.StaticConstructor b.StaticConstructor
                 }
             else
