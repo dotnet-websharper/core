@@ -29,7 +29,7 @@
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>
-    <WebSharperTaskAssembly>$(Root)/build/$(Configuration)/CSharp/$(TargetFramework)/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly>$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\CSharp</OutputPath>
@@ -56,9 +56,6 @@
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
-  <PropertyGroup>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(Root)/build/$(Configuration)/CSharp/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-  </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
     <WebSharperTask 

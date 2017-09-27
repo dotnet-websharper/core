@@ -28,11 +28,11 @@
   </PropertyGroup>
   <Import Project="FSharp.targets" />
   <PropertyGroup>
-    <FscToolPath Condition="'$(TargetFramework)' == 'net461'">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
-    <FscToolPath Condition="'$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\publish\</FscToolPath>
-    <FscToolExe Condition="'$(TargetFramework)' == 'net461'">WebSharper.FSharp.exe</FscToolExe>
-    <FscToolExe Condition="'$(OS)' == 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.sh</FscToolExe>
-    <FscToolExe Condition="'$(OS)' != 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">wsfsc-netcore.cmd</FscToolExe>
+    <FscToolPath Condition="$(TargetFramework.StartsWith('net4'))">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
+    <FscToolExe Condition="$(TargetFramework.StartsWith('net4'))">wsfsc.exe</FscToolExe>
+    <FscToolPath Condition="!$(TargetFramework.StartsWith('net4'))">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\publish\</FscToolPath>
+    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' == 'Unix'">wsfsc.sh</FscToolExe>
+    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' != 'Unix'">wsfsc.cmd</FscToolExe>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
     <OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:"$(MSBuildProjectFullPath)"</OtherFlags>

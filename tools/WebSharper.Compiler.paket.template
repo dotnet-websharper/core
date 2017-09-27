@@ -10,11 +10,22 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
 files
-    ../build/Release/WebSharper.Compiler.dll ==> lib/net45
-    ../build/Release/WebSharper.Compiler.xml ==> lib/net45
-    ../build/Release/FSharp/WebSharper.Compiler.FSharp.dll ==> lib/net45
-    ../build/Release/FSharp/WebSharper.Compiler.FSharp.xml ==> lib/net45
-    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> lib/net45
-    ../build/Release/CSharp/WebSharper.Compiler.CSharp.xml ==> lib/net45
-    ../build/Release/WebSharper.Sitelets.Offline.dll ==> lib/net45
-    ../build/Release/WebSharper.Sitelets.Offline.xml ==> lib/net45
+    ../build/Release/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
+    ../build/Release/net461/WebSharper.Compiler.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Compiler.xml ==> lib/net461
+
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll ==> lib/netstandard2.0
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.xml ==> lib/netstandard2.0
+    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> lib/net461
+    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.xml ==> lib/net461
+
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> lib/netstandard2.0
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.xml ==> lib/netstandard2.0
+    ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> lib/net461
+    ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.xml ==> lib/net461
+
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/net461

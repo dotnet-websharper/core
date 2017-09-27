@@ -23,14 +23,10 @@ module WebSharper.Core.AssemblyConventions
 open System
 open System.Reflection
 
-let NetStandardAssembly =
-    AppDomain.CurrentDomain.GetAssemblies()
-    |> Array.tryFind (fun asm -> asm.GetName().Name = "netstandard")
-    |> function
-    | Some asm -> asm
-    | None -> failwith "Not referencing netstandard"
-
 let NetStandardName = "netstandard"
+
+// It is generally already be loaded, except when running WIG on .NET 4x.
+let NetStandardAssembly = AppDomain.CurrentDomain.Load(NetStandardName)
 
 let NetStandardFullName = NetStandardAssembly.FullName
 
@@ -42,7 +38,7 @@ let IsNetStandardType (fullName: string) =
 let StandardAssemblyNameForTypeNamed (fullName: string) =
     match NetStandardAssembly.GetType(fullName) with
     | null -> None
-    | _ -> Some "netstandard"
+    | _ -> Some NetStandardName
 
 let StandardAssemblyFullNameForTypeNamed (fullName: string) =
     match NetStandardAssembly.GetType(fullName) with

@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
@@ -29,7 +30,7 @@
     <Compile Include="UrlHelpers.fs" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup Condition="'$(TargetFramework)' == 'net461'">
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
