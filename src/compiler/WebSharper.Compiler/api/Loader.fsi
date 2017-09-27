@@ -39,3 +39,7 @@ module internal LoaderUtility =
     type Resolver =
         interface Mono.Cecil.IAssemblyResolver
         new : AssemblyResolver -> Resolver
+        member Resolve : string -> Mono.Cecil.AssemblyDefinition
+        member Resolve : string * Mono.Cecil.ReaderParameters -> Mono.Cecil.AssemblyDefinition
+        member Resolve : Mono.Cecil.AssemblyNameReference -> Mono.Cecil.AssemblyDefinition
+        member Resolve : Mono.Cecil.AssemblyNameReference * Mono.Cecil.ReaderParameters -> Mono.Cecil.AssemblyDefinition

@@ -21,26 +21,41 @@
 module WebSharper.Core.AssemblyConventions
 
 open System
+open System.Collections.Generic
+open System.IO
 open System.Reflection
 
 let NetStandardName = "netstandard"
 
-// It is generally already be loaded, except when running WIG on .NET 4x.
-let NetStandardAssembly = AppDomain.CurrentDomain.Load(NetStandardName)
+let NetStandardAssembly =
+    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "ref", "netstandard.dll")
+    |> Mono.Cecil.AssemblyDefinition.ReadAssembly
 
 let NetStandardFullName = NetStandardAssembly.FullName
 
+let IsDefinedInOrForwardedFrom (asm: Mono.Cecil.AssemblyDefinition) =
+    let exported = HashSet()
+    for e in asm.MainModule.ExportedTypes do
+        exported.Add(e.FullName) |> ignore
+    fun (fullName: string) ->
+        let n = fullName.Replace('+', '/')
+        exported.Contains(n)
+        ||
+        match asm.MainModule.GetType(n) with
+        | null -> false
+        | _ -> true
+
+let isInNS = IsDefinedInOrForwardedFrom NetStandardAssembly
+
 let IsNetStandardType (fullName: string) =
-    match NetStandardAssembly.GetType(fullName) with
-    | null -> false
-    | _ -> true
+    isInNS fullName
 
 let StandardAssemblyNameForTypeNamed (fullName: string) =
-    match NetStandardAssembly.GetType(fullName) with
-    | null -> None
-    | _ -> Some NetStandardName
+    if IsNetStandardType fullName
+    then Some NetStandardName
+    else None
 
 let StandardAssemblyFullNameForTypeNamed (fullName: string) =
-    match NetStandardAssembly.GetType(fullName) with
-    | null -> None
-    | _ -> Some NetStandardAssembly.FullName
+    if IsNetStandardType fullName
+    then Some NetStandardFullName
+    else None

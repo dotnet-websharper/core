@@ -240,24 +240,20 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName: string) =
+type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, fsCoreFullName: string) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
-    let netstandard =
-        AssemblyConventions.NetStandardAssembly.FullName
-        |> AssemblyNameReference.Parse
-        |> aR.Resolve
-    do assemblies.["netstandard"] <- netstandard
+    let netstandard = AssemblyConventions.NetStandardAssembly
+    do  assemblies.["netstandard"] <- netstandard
 
     let resolveAsm (asmName: string) (typeName: string) =
         match assemblies.TryGetValue(asmName) with
         | true, x -> x
         | false, _ ->
             let asm =
-                if AssemblyConventions.IsNetStandardType typeName
-                then netstandard
-                else aR.Resolve(AssemblyNameReference.Parse(asmName))
+                if AssemblyConventions.IsNetStandardType typeName then netstandard else
+                aR.Resolve(AssemblyNameReference.Parse(asmName))
             assemblies.[asmName] <- asm
             asm
 
@@ -280,7 +276,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
         | true, x -> x
         | false, _ ->
             let asm = resolveAsm ty.Assembly.FullName ty.FullName
-            doResolveTypeName asm ty.FullName
+            resolveTypeName asm ty.FullName
 
     let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
         if Seq.isEmpty args then
@@ -1262,7 +1258,7 @@ type Compiler() =
             | Some aR -> aR
             | None -> WebSharper.Compiler.AssemblyResolver.Create()
         let aR = aR.SearchPaths(opts.ReferencePaths)
-        (aR, new WebSharper.Compiler.LoaderUtility.Resolver(aR) :> IAssemblyResolver)
+        (aR, new WebSharper.Compiler.LoaderUtility.Resolver(aR))
 
     let getId (d: Code.NamespaceEntity) =
         d.Id

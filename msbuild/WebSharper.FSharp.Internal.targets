@@ -28,11 +28,8 @@
   </PropertyGroup>
   <Import Project="FSharp.targets" />
   <PropertyGroup>
-    <FscToolPath Condition="$(TargetFramework.StartsWith('net4'))">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
-    <FscToolExe Condition="$(TargetFramework.StartsWith('net4'))">wsfsc.exe</FscToolExe>
-    <FscToolPath Condition="!$(TargetFramework.StartsWith('net4'))">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\publish\</FscToolPath>
-    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' == 'Unix'">wsfsc.sh</FscToolExe>
-    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' != 'Unix'">wsfsc.cmd</FscToolExe>
+    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
+    <FscToolExe>wsfsc.exe</FscToolExe>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
     <OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:"$(MSBuildProjectFullPath)"</OtherFlags>

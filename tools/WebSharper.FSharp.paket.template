@@ -11,55 +11,22 @@ dependencies
     WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
-
-    ../build/Release/FSharp/net461/wsfsc.exe ==> tools/net461
-    ../build/Release/FSharp/netcoreapp2.0/wsfsc.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/netcoreapp2.0/wsfsc.sh ==> tools/netstandard2.0
-    ../build/Release/FSharp/netcoreapp2.0/wsfsc.cmd ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/wsfsc.exe.config ==> tools/net461
-    // ../build/Release/FSharp/netcoreapp2.0/wsfsc.dll.config ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> tools/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> tools/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll ==> tools/netstandard2.0
-
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/net461
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Core.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> tools/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0
-
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools/net461
-    ../packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.dll ==> tools/netstandard2.0
-
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools/net461
-    ../packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.sigdata ==> tools/netstandard2.0
-
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools/net461
-    ../packages/FSharp.Core/lib/netstandard1.6/FSharp.Core.optdata ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools/net461
-    ../build/Release/FSharp/netcoreapp2.0/publish/Mono.Cecil.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools/net461
-    ../build/Release/FSharp/netcoreapp2.0/publish/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools/net461
-    ../build/Release/FSharp/netcoreapp2.0/publish/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/FSharp.Compiler.Service.dll ==> tools/net461
-    ../build/Release/FSharp/netcoreapp2.0/publish/FSharp.Compiler.Service.dll ==> tools/netstandard2.0
-
-    ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools/net461
-    ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools/net461
-
+    ../build/Release/FSharp/net461/wsfsc.exe ==> tools
+    ../build/Release/FSharp/net461/wsfsc.exe.config ==> tools
+    ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> tools
+    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> tools
+    ../build/Release/net461/WebSharper.Sitelets.Offline.dll ==> tools
+    ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools
+    ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools
+    ../build/Release/FSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools
+    ../packages/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
+    ../packages/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
+    ../packages/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
+    ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools
+    ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools
+    ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools
+    ../build/Release/FSharp/net461/FSharp.Compiler.Service.dll ==> tools
+    ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools
+    ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools
+    ../build/Release/FSharp/net461/ref/netstandard.dll ==> tools/ref
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

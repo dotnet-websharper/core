@@ -29,16 +29,14 @@
     <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)\..</Root>
-    <WebSharperTaskAssembly>$(Root)/build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly>$(Root)/build/$(Configuration)/CSharp/net461/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\CSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
-    <ZafirCsFullPath Condition="'$(TargetFramework)' == 'net461'">$(Root)/build/$(Configuration)/CSharp/netcoreapp2.0/ZafirCs.exe</ZafirCsFullPath>
-    <ZafirCsFullPath Condition="'$(OS)' == 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">$(Root)/build/$(Configuration)/CSharp/netcoreapp2.0/publish/zafircs-netcore.sh</ZafirCsFullPath>
-    <ZafirCsFullPath Condition="'$(OS)' != 'Unix' and ( '$(TargetFramework)' == 'netstandard2.0' or '$(TargetFramework)' == 'netcoreapp2.0' )">$(Root)/build/$(Configuration)/CSharp/netcoreapp2.0/publish/zafircs-netcore.cmd</ZafirCsFullPath>
+    <ZafirCsFullPath>$(Root)/build/$(Configuration)/CSharp/net461/ZafirCs.exe</ZafirCsFullPath>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>

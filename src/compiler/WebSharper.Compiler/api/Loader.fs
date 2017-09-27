@@ -125,15 +125,27 @@ module LoaderUtility =
                 | Some par -> Mono.Cecil.AssemblyDefinition.ReadAssembly(x, par)
             | None -> defResolve(Mono.Cecil.AssemblyNameReference.Parse ref)
 
+        member x.Resolve(ref: string) =
+            resolve ref None
+
+        member x.Resolve(ref: string, par: Mono.Cecil.ReaderParameters) =
+            resolve ref (Some par)
+
+        member x.Resolve(ref: Mono.Cecil.AssemblyNameReference, par: Mono.Cecil.ReaderParameters) =
+            let ref = ref.FullName
+            resolve ref (Some par)
+
+        member x.Resolve(ref: Mono.Cecil.AssemblyNameReference) =
+            let ref = ref.FullName
+            resolve ref None
+
         interface Mono.Cecil.IAssemblyResolver with
 
-            member x.Resolve(ref: Mono.Cecil.AssemblyNameReference, par: Mono.Cecil.ReaderParameters) =
-                let ref = ref.FullName
-                resolve ref (Some par)
+            member x.Resolve(ref, par) =
+                x.Resolve(ref, par)
 
-            member x.Resolve(ref: Mono.Cecil.AssemblyNameReference) =
-                let ref = ref.FullName
-                resolve ref None
+            member x.Resolve(ref) =
+                x.Resolve(ref)
 
             member x.Dispose() =
 #if NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver

@@ -21,7 +21,7 @@ open System.IO
 open System.Reflection
 
 [<AutoOpen>]
-module Implemetnation =
+module Implementation =
 
     let isCompatible (ref: AssemblyName) (def: AssemblyName) =
         ref.Name = def.Name && (ref.Version = null || def.Version = null || ref.Version = def.Version)

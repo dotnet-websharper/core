@@ -7,6 +7,7 @@ framework: net461, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 
+nuget Microsoft.CSharp ~> 4.4.0
 nuget Microsoft.NETCore.App ~> 2.0.0 framework: netstandard2.0
 nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget Microsoft.NETCore.Targets ~> 2.0.0

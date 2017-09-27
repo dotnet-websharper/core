@@ -23,17 +23,7 @@ let buildSln sln mode =
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
         BuildAction = BuildAction.Custom <| fun mode ->
-            let publish project framework =
-                DotNetCli.Publish <| fun p ->
-                    { p with
-                        Project = sprintf "src/compiler/%s/%s.fsproj" project project
-                        Configuration = string mode
-                        Framework = framework
-                        AdditionalArgs = dotnetArgs
-                    }
             buildSln "WebSharper.Compiler.sln" mode
-            publish "WebSharper.FSharp" "netcoreapp2.0"
-            publish "WebSharper.CSharp" "netcoreapp2.0"
             buildSln "WebSharper.sln" mode
 }
 

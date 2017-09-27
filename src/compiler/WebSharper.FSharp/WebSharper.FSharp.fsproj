@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>net461</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
@@ -18,17 +18,16 @@
     <None Include="paket.references" />
   </ItemGroup>
   <Target Name="CopyToOutput" AfterTargets="Build;Publish">
-    <PropertyGroup>
-      <FSharpCoreFramework>netstandard1.6</FSharpCoreFramework>
-      <FSharpCoreFramework Condition="$(TargetFramework.StartsWith('net4'))">net45</FSharpCoreFramework>
-      <_BuildDestination>..\..\..\build\$(Configuration)\FSharp\netcoreapp2.0\publish</_BuildDestination>
-      <_BuildDestination Condition="$(TargetFramework.StartsWith('net4'))">..\..\..\build\$(Configuration)\FSharp\net461</_BuildDestination>
-    </PropertyGroup>
     <ItemGroup>
-      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\$(FSharpCoreFramework)\FSharp.Core.sigdata" />
-      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\$(FSharpCoreFramework)\FSharp.Core.optdata" />
+      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\net45\FSharp.Core.sigdata" />
+      <FSharpCoreExtraFiles Include="..\..\..\packages\FSharp.Core\lib\net45\FSharp.Core.optdata" />
     </ItemGroup>
-    <Copy SourceFiles="@(FSharpCoreExtraFiles)" DestinationFolder="$(_BuildDestination)" />
+    <Copy SourceFiles="@(FSharpCoreExtraFiles)"
+          DestinationFolder="..\..\..\build\$(Configuration)\FSharp\net461" />
+    <Copy SourceFiles="..\..\..\packages\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
+          DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\ref\netstandard.dll" />
+    <Copy SourceFiles="..\..\..\packages\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
+          DestinationFiles="..\..\..\build\$(Configuration)\CSharp\net461\ref\netstandard.dll" />
   </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />

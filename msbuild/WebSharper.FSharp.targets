@@ -32,11 +32,7 @@
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
-
-    <FscToolPath Condition="$(TargetFramework.StartsWith('net4'))">$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
-    <FscToolPath Condition="!$(TargetFramework.StartsWith('net4'))">$(MSBuildThisFileDirectory)/../tools/netstandard2.0</FscToolPath>
-    <FscToolExe Condition="$(TargetFramework.StartsWith('net4'))">wsfsc.exe</FscToolExe>
-    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' == 'Unix'">wsfsc-netcore.sh</FscToolExe>
-    <FscToolExe Condition="!$(TargetFramework.StartsWith('net4')) and '$(OS)' != 'Unix'">wsfsc-netcore.cmd</FscToolExe>
+    <FscToolPath>$(MSBuildThisFileDirectory)/../tools</FscToolPath>
+    <FscToolExe>wsfsc.exe</FscToolExe>
   </PropertyGroup>
 </Project>
