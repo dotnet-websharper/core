@@ -43,7 +43,7 @@ WSRuntime = {
     },
 
     Create: function (ctor, copyFrom) {
-      var obj = ctor();
+      var obj = new ctor();
       for (var f in copyFrom) { obj[f] = copyFrom[f] }
       return obj;
     },

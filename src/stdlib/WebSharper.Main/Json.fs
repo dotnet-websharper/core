@@ -55,15 +55,13 @@ let Stringify (obj: obj) = X<string>
 /// Lookups an object by its FQN.
 [<JavaScript>]
 let lookup<'T> (x: string []) : obj =
-    let k = x.Length
     let mutable r = JS.Global
-    let mutable i = 0
-    while i < k do
+    // first item is the module name, skip it for now
+    for i = 1 to x.Length - 1 do
         let n  = x.[i]
         let rn = (?) r n
         if JS.TypeOf rn <> JS.Undefined then
             r <- rn
-            i <- i + 1
         else
             failwith ("Invalid server reply. Failed to find type: " + n)
     r

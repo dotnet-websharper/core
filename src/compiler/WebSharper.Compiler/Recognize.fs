@@ -329,8 +329,8 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
                     if wsRuntimeFunctions.Contains f then
                         GlobalAccess (Address.Runtime f)
                     else
-                        failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
-                | _ -> failwith "expected a function of IntelliFactory.Runtime"     
+                        failwithf "Unrecognized WSRuntime function: %s" f
+                | _ -> failwith "expected a function of WSRuntime"     
             else
                 match trA, trC with
                 | JSGlobalAccess (m, a), Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->

@@ -88,8 +88,8 @@ module Content =
 
     let writeStartScript (tw: UI.HtmlTextWriter) =
         tw.WriteLine(@"<script type='{0}'>", CT.Text.JavaScript.Text)
-        tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        tw.WriteLine @"  IntelliFactory.Runtime.Start();"
+        tw.WriteLine @"if (WSRuntime)"
+        tw.WriteLine @"  WSRuntime.Start();"
         tw.WriteLine @"</script>"
 
     type RenderedResources =

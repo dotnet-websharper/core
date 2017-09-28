@@ -64,7 +64,7 @@ let RunTests() =
         Result.Tests
         Seq.Tests
         Stack.Tests
-        String.Tests
+        Strings.Tests
         Task.Tests
         TimeSpan.Tests
         Printf.Tests

@@ -22,6 +22,7 @@
 namespace WebSharper.Tests.Website.Dependencies
 
 open WebSharper
+open WebSharper.Core.Resources
 
 /// Declare how to load Twitter Bootstrap resources from the CDN.
 /// Declare that Twitter Bootstrap depends on jQuery (so that jQuery is included first).
@@ -30,6 +31,22 @@ open WebSharper
 type TwitterBootstrap() =
     inherit Resources.BaseResource("//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/",
         "js/bootstrap.min.js", "css/bootstrap-combined.min.css")
+
+[<Sealed>]
+type DummyRequire() =
+    inherit Resources.BaseResource("dummyrequire.js")
+
+[<Sealed>]
+type RequireJS() =
+    inherit Resources.BaseResource("https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.js")
+
+[<Sealed>]
+type RunSite() =
+    interface IResource with
+        member this.Render ctx =
+            fun writer ->
+                let writer = writer Scripts
+                writer.Write("<script>requirejs('./Website.js');</script>")
 
 //[<assembly: Require(typeof<TwitterBootstrap>)>]
 //do ()

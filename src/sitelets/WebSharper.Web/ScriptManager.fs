@@ -87,8 +87,8 @@ type ScriptManager() =
             resources |> Seq.iter (fun r -> Re.Rendering.RenderCached(ctx, r, (fun _ -> writer)))
             writer.WriteLine()
             writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
-            writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-            writer.WriteLine @"  IntelliFactory.Runtime.Start();"
+            writer.WriteLine @"if (WSRuntime)"
+            writer.WriteLine @"  WSRuntime.Start();"
             writer.WriteLine("</script>")
 
     /// Searches the page for a ScriptManager.

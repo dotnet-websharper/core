@@ -28,7 +28,7 @@
     <TypeScriptJSXEmit>None</TypeScriptJSXEmit>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
     <TypeScriptNoImplicitAny>False</TypeScriptNoImplicitAny>
-    <TypeScriptModuleKind>CommonJS</TypeScriptModuleKind>
+    <TypeScriptModuleKind>AMD</TypeScriptModuleKind>
     <TypeScriptRemoveComments>True</TypeScriptRemoveComments>
     <TypeScriptOutFile />
     <TypeScriptOutDir />
@@ -37,7 +37,7 @@
     <TypeScriptSourceMap>False</TypeScriptSourceMap>
     <TypeScriptMapRoot />
     <TypeScriptSourceRoot />
-    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>
+    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);WebSharperCompile</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <PropertyGroup>
     <DebugType>pdbonly</DebugType>

@@ -72,7 +72,7 @@ module internal Utility =
         writer.WriteLine()
         if withScript then
             writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
-        writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        writer.WriteLine @"  IntelliFactory.Runtime.Start();"
+        writer.WriteLine @"if (WSRuntime)"
+        writer.WriteLine @"  WSRuntime.Start();"
         if withScript then
             writer.WriteLine("</script>")

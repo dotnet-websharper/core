@@ -154,6 +154,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let n = toNamespaceWithName a
         addStatement <| Export (f n)
 
+    let packageCctor a expr =
+        let n = toNamespaceWithName a
+        match expr with
+        | Function ([], body) ->
+            let c = Id.New(n, str = true)
+            let removeSelf = ExprStatement (VarSet (c, ItemGet(glob, Value (String "ignore"), Pure)))    
+            let expr = Function([], Block [removeSelf; body])
+            addStatement <| Export (VarDeclaration(c, expr))   
+        | _ ->
+            failwithf "Static constructor must be a function"
+            
     let classes = Dictionary(current.Classes)
 
     let rec withoutMacros info =
@@ -271,7 +282,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match c.StaticConstructor with
         | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
         | Some(ccaddr, body) ->
-            package ccaddr body
+            packageCctor ccaddr body
         | _ -> ()
 
         let smem info body = 

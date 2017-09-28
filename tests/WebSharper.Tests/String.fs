@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.String
+module WebSharper.Tests.Strings
 
 open WebSharper
 open WebSharper.JavaScript
