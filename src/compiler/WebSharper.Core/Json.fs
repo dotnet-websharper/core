@@ -1522,7 +1522,7 @@ module TypedProviderInternals =
             | AST.StandardLibrary 
             | AST.JavaScriptFile _ ->
                 Array (Null :: (a.Address.Value |> List.rev |> List.map String))
-            | AST.TypeScriptModule m ->
+            | AST.WebSharperModule m ->
                 Array (String m :: (a.Address.Value |> List.rev |> List.map String))
         let types =
             Array (List.ofSeq (dict.Keys |> Seq.map encA))

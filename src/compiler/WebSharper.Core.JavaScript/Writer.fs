@@ -477,6 +477,10 @@ and Statement canBeEmpty statement =
         Word "import " ++ Token (QuoteString m) 
     | S.ImportAll (Some i, m) ->
         Word "import * as" ++ Id i ++ Word "from " ++ Token (QuoteString m) 
+    | S.ImportAlias (i, e) ->
+        Word "import" ++ Id i ++ Token "=" ++ Expression e
+    | S.TypeAlias (i, e) ->
+        Word "type" ++ Id i ++ Token "=" ++ Expression e
     | S.Declare s ->
         Word "declare" ++ Statement false s
     | S.Namespace (n, s) ->

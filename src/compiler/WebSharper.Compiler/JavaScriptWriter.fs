@@ -83,7 +83,7 @@ let transformId (env: Environment) (id: Id) =
     try 
         J.Id.New (Map.find id env.ScopeIds) 
     with _ -> 
-        //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
+        //J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
         failwithf "Undefined variable during writing JavaScript: %s" (string id)
 
 let transformLabel (env: Environment) (id: Id) =
@@ -102,16 +102,16 @@ let getCompactName (env: Environment) =
     name
 
 type IdKind =
-    | VarDeclId
-    | FuncArgId
+    | DeclarationId
+    | ArgumentId
     | InnerId
 
 let defineId (env: Environment) kind (id: Id) =
     if id.HasStrongName then J.Id.New(id.Name.Value, id.IsOptional) else
     let addToDecl, isParam =
         match kind with
-        | VarDeclId -> false, false
-        | FuncArgId -> false, true
+        | DeclarationId -> false, false
+        | ArgumentId -> false, true
         | InnerId -> true, false
     let n =
         if env.Preference = P.Compact then
@@ -137,17 +137,20 @@ type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
     override this.VisitFuncDeclaration(f, _, _) =
-        defineId env FuncArgId f |> ignore    
+        defineId env ArgumentId f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
         defineId env InnerId v |> ignore
+
+    override this.VisitImportAll(n, _) =
+        n |> Option.iter (defineId env DeclarationId >> ignore)
 
     override this.VisitNamespace(n, s) =
         env.ScopeNames <- env.ScopeNames |> Set.add n
         s |> List.iter this.VisitStatement
 
     override this.VisitLabeled(l, s) =
-        defineId env VarDeclId l |> ignore
+        defineId env DeclarationId l |> ignore
         this.VisitStatement s
 
 let flattenJS s =
@@ -229,7 +232,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv FuncArgId) 
+        let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
         J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body))
@@ -409,7 +412,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv FuncArgId) 
+        let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
         let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
@@ -447,15 +450,15 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             else tB
     | TryWith(a, b, c) -> 
         withFuncDecls <| fun () ->
-            J.TryWith(trS a, defineId env VarDeclId (match b with Some b -> b | _ -> Id.New()), trS c, None)
+            J.TryWith(trS a, defineId env DeclarationId (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
-            J.ForVarIn(defineId env VarDeclId a, None, trE b, trS c)
+            J.ForVarIn(defineId env DeclarationId a, None, trE b, trS c)
     | ImportAll (a, b) ->
-        J.ImportAll(a |> Option.map (defineId env VarDeclId), b)
+        J.ImportAll(a |> Option.map (transformId env), b)
     | Export a ->
         J.Export (trS a)
     | Declare a ->
@@ -479,7 +482,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     match mem with
     | ClassMethod (a, b, c, d) ->
         let innerEnv = env.NewInner(false)
-        let args = c |> List.map (defineId innerEnv FuncArgId) 
+        let args = c |> List.map (defineId innerEnv ArgumentId) 
         let body = 
             d |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
@@ -492,7 +495,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         J.Method(a, id, args, body |> Option.map (fun (_, b) -> flattenJS (innerEnv.Declarations @ b)))   
     | ClassConstructor (a, b) ->
         let innerEnv = env.NewInner(false)
-        let args = a |> List.map (defineId innerEnv FuncArgId) 
+        let args = a |> List.map (defineId innerEnv ArgumentId) 
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)

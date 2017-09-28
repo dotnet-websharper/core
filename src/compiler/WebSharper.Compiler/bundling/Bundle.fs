@@ -130,6 +130,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
         let current = 
             if dce then trimMetadata meta nodes 
             else meta
+            |> transformToLocalAddressInMetadata
 
         let resources = graph.GetResourcesOf nodes
 

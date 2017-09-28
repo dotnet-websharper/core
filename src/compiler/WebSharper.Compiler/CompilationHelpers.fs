@@ -868,10 +868,10 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
     { meta with Classes = classes}
 
 let private exposeAddress asmName (a: Address) =
-        match a.Module with
-        | CurrentModule ->
-            { a with Module = TypeScriptModule asmName }
-        | _ -> a
+    match a.Module with
+    | CurrentModule ->
+        { a with Module = WebSharperModule asmName }
+    | _ -> a
 
 type RemoveSourcePositionsAndUpdateModule (asmName) =
     inherit RemoveSourcePositions ()
@@ -951,6 +951,47 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
     match sp with
     | None -> [||]
     | Some t -> t.FileMap
+
+let private localizeAddress (a: Address) =
+    match a.Module with
+    | WebSharperModule _ ->
+        { a with Module = CurrentModule }
+    | _ -> a
+
+let rec private localizeCompiledMember m = 
+    match m with
+    | Static a -> Static <| localizeAddress a
+    | Macro (td, p, Some r) ->
+        Macro (td, p, Some (localizeCompiledMember r))
+    | _ -> m
+
+let private localizeCompiledField f =
+    match f with
+    | StaticField a -> StaticField <| localizeAddress a
+    | _ -> f
+
+type UpdateModuleToLocal() =
+    inherit Transformer()
+
+    override this.TransformGlobalAccess(a) =
+        GlobalAccess <| localizeAddress a
+
+let transformToLocalAddressInMetadata (meta: Info) =
+    let tr = UpdateModuleToLocal() 
+    { meta with 
+        Classes = 
+            meta.Classes |> Dict.map (fun c ->
+                { c with 
+                    Address = c.Address |> Option.map localizeAddress
+                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
+                    Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
+                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> localizeAddress a, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)
+                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
+                }
+            )
+        EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
+    }
 
 type Capturing(?var) =
     inherit Transformer()

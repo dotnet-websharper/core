@@ -637,7 +637,7 @@ type Member =
 type Module =
     | StandardLibrary
     | JavaScriptFile of string
-    | TypeScriptModule of string
+    | WebSharperModule of string
     | CurrentModule
 
 type Address =

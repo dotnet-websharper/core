@@ -57,7 +57,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | JavaScriptFile js ->
                         declarations.Add <| ImportAll (None, js + ".js")
                         glob
-                    | TypeScriptModule ts ->
+                    | WebSharperModule ts ->
                         let var = Id.New (ts |> String.filter System.Char.IsUpper)
                         declarations.Add <| ImportAll (Some var, "./" + ts)
                         Var var
@@ -75,7 +75,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             let var = Id.New name
                             declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
                             Var var
-                    | TypeScriptModule _ ->
+                    | WebSharperModule _ ->
                         let parent = getAddress { address with Address = Hashed [] }
                         ItemGet(parent, Value (String name), Pure)
                 | name :: r ->

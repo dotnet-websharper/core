@@ -218,6 +218,8 @@ and Statement =
     | Export       of S 
     | ExportAlias  of Id * Id 
     | ImportAll    of option<Id> * string
+    | ImportAlias  of Id * E
+    | TypeAlias    of Id * E
     | Declare      of S
     | Namespace    of Id * list<S>
     | Class        of Id * bool * option<E> * list<E> * list<Member>
