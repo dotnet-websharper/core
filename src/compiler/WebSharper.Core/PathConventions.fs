@@ -24,7 +24,6 @@ module PathConventions =
     open System
     open System.IO
     open System.Reflection
-    open System.Web
 
     type AssemblyId =
         {

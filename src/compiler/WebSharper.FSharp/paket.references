@@ -1,9 +1,7 @@
-﻿Mono.Cecil
-    exclude Mono.Cecil.Rocks.dll
-NETStandard.Library
+Mono.Cecil
+  exclude Mono.Cecil.Rocks.dll
 Microsoft.NETCore.App
 FSharp.Core
-
-    FSharp.Compiler.Service
-    System.Collections.Immutable
-    System.Reflection.Metadata
+FSharp.Compiler.Service
+System.Collections.Immutable
+System.Reflection.Metadata

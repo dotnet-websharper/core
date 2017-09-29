@@ -27,13 +27,13 @@ module WebSharper.Fake
 #nowarn "20"  // Ignore string result of ==>
 #I "../packages/build/FAKE/tools"
 #I "../../../../../packages/build/FAKE/tools"
-#r "FakeLib"
 #I "../packages/build/Paket.Core/lib/net45"
 #I "../packages/build/Chessie/lib/net40"
 #I "../../../../../packages/build/Paket.Core/lib/net45"
 #I "../../../../../packages/build/Chessie/lib/net40"
 #r "Chessie"
 #r "Paket.Core"
+#r "FakeLib"
 #nowarn "49"
 
 open System
@@ -152,6 +152,17 @@ let msbuildVerbosity = if verbose then MSBuildVerbosity.Normal else MSBuildVerbo
 let dotnetArgs = if verbose then [ "-v"; "n" ] else []
 MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
 
+let shell program cmd =
+    shellExec {
+        Program = program
+        WorkingDirectory = "."
+        CommandLine = cmd
+        Args = []
+    }
+    |> function
+        | 0 -> ()
+        | n -> failwithf "%s %s failed with code %i" program cmd n
+
 let MakeTargets (args: Args) =
 
     let dirtyDirs =
@@ -166,9 +177,7 @@ let MakeTargets (args: Args) =
     Target "WS-Update" <| fun () ->
         for { Name = Paket.Domain.PackageName(pkg, _) } in mainGroup.Packages do
             if pkg.Contains "WebSharper" || pkg.Contains "Zafir" then
-                Paket.UpdateProcess.UpdatePackage("./paket.dependencies", mainGroup.Name,
-                    Paket.Domain.PackageName pkg,
-                    None, Paket.UpdaterOptions.Default)
+                shell ".paket/paket.exe" (sprintf "update %s" pkg)
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [

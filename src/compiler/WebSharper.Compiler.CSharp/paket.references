@@ -1,7 +1,5 @@
-﻿NETStandard.Library
 FSharp.Core
-
-    Microsoft.CodeAnalysis.CSharp
-    Microsoft.CodeAnalysis.Common
-    System.Collections.Immutable
-    System.Reflection.Metadata    
+Microsoft.CodeAnalysis.CSharp
+Microsoft.CodeAnalysis.Common
+System.Collections.Immutable
+System.Reflection.Metadata

@@ -22,13 +22,9 @@ namespace WebSharper
 
 open System
 
-#if NETSTANDARD2_0
 [<Sealed; AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)>]
 type WebResourceAttribute(filename: string, mime: string) =
     inherit Attribute()
-#else
-type WebResourceAttribute = System.Web.UI.WebResourceAttribute
-#endif
 
 [<assembly: WebResource("Runtime.js", "text/javascript")>]
 [<assembly: WebResource("Runtime.min.js", "text/javascript")>]

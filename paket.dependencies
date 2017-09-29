@@ -15,11 +15,11 @@ nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.10-beta6
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget AjaxMin
-nuget NETStandard.Library ~> 2.0.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 2.3.2
 nuget System.CodeDom ~> 4.4.0
 nuget System.Reflection.Emit.Lightweight ~> 4.3.0
+nuget System.Reflection.Metadata ~> 1.5.0
 nuget System.Net.Http ~> 4.3.0
 nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0

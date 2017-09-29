@@ -19,14 +19,18 @@ files
     ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
-    ../packages/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
+    ../build/Release/FSharp/net461/FSharp.Compiler.Service.dll ==> tools
+    ../build/Release/FSharp/net461/FSharp.Core.dll ==> tools
+    ../build/Release/FSharp/net461/FSharp.Core.sigdata ==> tools
+    ../build/Release/FSharp/net461/FSharp.Core.optdata ==> tools
+    ../build/Release/FSharp/net461/Microsoft.Extensions.DependencyModel.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools
-    ../build/Release/FSharp/net461/FSharp.Compiler.Service.dll ==> tools
+    ../build/Release/FSharp/net461/System.Runtime.dll ==> tools
+    ../build/Release/FSharp/net461/System.IO.dll ==> tools
     ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools
     ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools
+    ../build/Release/FSharp/net461/netstandard.dll ==> tools
     ../build/Release/FSharp/net461/ref/netstandard.dll ==> tools/ref
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

@@ -1,8 +1,6 @@
-﻿Mono.Cecil
-    exclude Mono.Cecil.Rocks.dll
+Mono.Cecil
+  exclude Mono.Cecil.Rocks.dll
 System.Configuration.ConfigurationManager
-NETStandard.Library
 Microsoft.Extensions.DependencyModel
 FSharp.Core
-
-    System.CodeDom
+System.CodeDom

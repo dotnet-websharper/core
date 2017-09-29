@@ -26,8 +26,6 @@
           DestinationFolder="..\..\..\build\$(Configuration)\FSharp\net461" />
     <Copy SourceFiles="..\..\..\packages\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
           DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\ref\netstandard.dll" />
-    <Copy SourceFiles="..\..\..\packages\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
-          DestinationFiles="..\..\..\build\$(Configuration)\CSharp\net461\ref\netstandard.dll" />
   </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />

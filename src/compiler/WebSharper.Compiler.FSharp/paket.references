@@ -1,6 +1,4 @@
-﻿NETStandard.Library
 FSharp.Core
-
-    FSharp.Compiler.Service
-    System.Collections.Immutable
-    System.Reflection.Metadata
+FSharp.Compiler.Service
+System.Collections.Immutable
+System.Reflection.Metadata
