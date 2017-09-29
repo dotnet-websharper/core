@@ -41,6 +41,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     addresses.Add(Address.Global(), glob)
     addresses.Add(Address.Lib "window", glob)
 
+    let strId name = Id.New(name, mut = false, str = true)
+
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
@@ -65,24 +67,24 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | CurrentModule -> failwith "empty local address"
                 | [ name ] ->
                     match address.Module with
-                    | CurrentModule 
+                    | CurrentModule ->
+                        Var (strId name)
                     | StandardLibrary ->
-                        GlobalAccess address
+                        let var = Id.New name
+                        declarations.Add <| VarDeclaration(var, Var (strId name)) 
+                        Var var
                     | JavaScriptFile _ ->
                         match addresses.TryGetValue { address with Module = CurrentModule } with
                         | true, v -> v
                         | _ ->
                             getAddress { address with Address = Hashed [] } |> ignore
-                            let var = Id.New name
+                            let var = strId name
                             declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
                             Var var
                     | WebSharperModule _ ->
                         let parent = getAddress { address with Address = Hashed [] }
                         ItemGet(parent, Value (String name), Pure)
                 | name :: r ->
-                    match address.Module with
-                    | CurrentModule -> GlobalAccess address
-                    | _ ->
                     let parent = getAddress { address with Address = Hashed r }
                     ItemGet(parent, Value (String name), Pure)
             addresses.Add(address, res)

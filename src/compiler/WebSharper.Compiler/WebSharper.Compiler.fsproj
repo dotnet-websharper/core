@@ -23,6 +23,7 @@
     <Compile Include="Optimizations.fs" />
     <Compile Include="Breaker.fsi" />
     <Compile Include="Breaker.fs" />
+    <Compile Include="StandardLibNames.fs" />
     <Compile Include="Recognize.fs" />
     <Compile Include="Verifier.fs" />
     <Compile Include="CompilationTypes.fs" />

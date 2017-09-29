@@ -430,11 +430,14 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         match env.TryFindVar a with
         | Some e -> e
         | None -> 
-            match env.FromLibrary with
-            | Some l ->
-                GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ n ] }
-            | _ ->
+            if StandardLibNames.Set.Contains n then
                 Global [ n ]
+            else
+                match env.FromLibrary with
+                | Some l ->
+                    GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ n ] }
+                | _ ->
+                    Global [ n ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -529,7 +532,7 @@ type InlinedStatementsTransformer() =
         
         VarSetStatement(rv, expr)
 
-    override this.TransformFuncDeclaration(a, b, c)  = FuncDeclaration(a, b, c) 
+    override this.TransformFuncDeclaration(a, b, c) = FuncDeclaration(a, b, c) 
     
     member this.Run(st) =
         let res = this.TransformStatement(st)

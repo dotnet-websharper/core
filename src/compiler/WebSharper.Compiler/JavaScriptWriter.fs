@@ -44,6 +44,7 @@ type Environment =
         mutable InFuncScope : bool
         OuterScope : bool
         UsedLabels : HashSet<Id>
+        Namespaces : Dictionary<string, Environment> 
     }
     static member New(pref) =
         {
@@ -56,20 +57,21 @@ type Environment =
             InFuncScope = false
             OuterScope = true
             UsedLabels = HashSet()
+            Namespaces = Dictionary()
         }
 
-    member this.NewInner(?ns) =
-        let outer = defaultArg ns false
+    member this.NewInner(isNs) =
         {
             Preference = this.Preference    
-            ScopeNames = if outer then defaultNames else this.ScopeNames
+            ScopeNames = this.ScopeNames
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
-            OuterScope = outer
+            OuterScope = isNs
             UsedLabels = HashSet()
+            Namespaces = Dictionary()
         }
 
     member this.Declarations =
@@ -133,6 +135,29 @@ let defineId (env: Environment) kind (id: Id) =
 let invalidForm c =
     failwithf "invalid form at writing JavaScript: %s" c
 
+type CollectStrongNames(env: Environment) =
+    inherit StatementVisitor()
+
+    let addName n =
+        env.ScopeNames <- env.ScopeNames.Add n
+
+    let addId (i: Id) =
+        if i.HasStrongName then addName i.Name.Value
+        
+    override this.VisitFuncDeclaration(f, _, _) =
+        addId f
+
+    override this.VisitVarDeclaration(v, _) =
+        addId v
+
+    override this.VisitNamespace(n, s) =
+        printfn "Added namespace %s" n
+        addName n
+        s |> List.iter this.VisitStatement
+
+    override this.VisitClass(n, _, _, _) =
+        addName n
+
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
@@ -146,8 +171,15 @@ type CollectVariables(env: Environment) =
         n |> Option.iter (defineId env DeclarationId >> ignore)
 
     override this.VisitNamespace(n, s) =
-        env.ScopeNames <- env.ScopeNames |> Set.add n
-        s |> List.iter this.VisitStatement
+        let innerEnv =
+            match env.Namespaces.TryGetValue n with
+            | true, innerEnv -> innerEnv
+            | _ ->
+                let innerEnv = env.NewInner(true)
+                env.Namespaces.Add(n, innerEnv)
+                innerEnv
+        let collect = CollectVariables(innerEnv)
+        s |> List.iter collect.VisitStatement
 
     override this.VisitLabeled(l, s) =
         defineId env DeclarationId l |> ignore
@@ -231,7 +263,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             } : J.SourcePos
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
-        let innerEnv = env.NewInner()
+        let innerEnv = env.NewInner(false)
         let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
@@ -310,13 +342,6 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
-    | GlobalAccess { Module = StandardLibrary | CurrentModule; Address = a } ->
-        let rec get a =
-            match a with
-            | [] -> failwith "empty local address"
-            | [ n ] -> J.Var (J.Id.New n)
-            | n :: r -> (get r).[J.Constant (J.String n)]
-        get a.Value
     | Cast (t, e) ->
         J.Cast(trE t, trE e)
     | _ -> 
@@ -401,17 +426,19 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
+        let i = transformId env id
         if env.OuterScope then
             match e with
-            | IgnoreSourcePos.Undefined -> J.Vars [ transformId env id, None ]
-            | _ -> J.Vars [ transformId env id, Some (trE e) ]
+            | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
+            | IgnoreSourcePos.Undefined -> J.Vars [ i, None ]
+            | _ -> J.Vars [ i, Some (trE e) ]
         else
             match e with
             | IgnoreSourcePos.Undefined -> J.Empty 
-            | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
+            | _ -> J.Ignore(J.Binary(J.Var i, J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x
-        let innerEnv = env.NewInner()
+        let innerEnv = env.NewInner(false)
         let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
@@ -464,7 +491,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Declare a ->
         J.Declare (trS a)
     | Namespace (a, b) ->
-        let innerEnv = env.NewInner(true)
+        let innerEnv = env.Namespaces.[a]
         J.Namespace (J.Id.New a, List.map (transformStatement innerEnv) b)
     | Class (a, b, c, d) ->
         let isAbstract =
@@ -508,8 +535,11 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         invalidForm (GetUnionCaseName mem)
 
 let transformProgram pref statements =
+    if List.isEmpty statements then [] else
     let env = Environment.New(pref)
-    let collect = CollectVariables(env)
-    statements |> List.iter collect.VisitStatement
+    let cnames = CollectStrongNames(env)
+    statements |> List.iter cnames.VisitStatement
+    let cvars = CollectVariables(env)
+    statements |> List.iter cvars.VisitStatement
     J.Ignore (J.Constant (J.String "use strict")) ::
     (statements |> List.map (transformStatement env) |> flattenJS)
