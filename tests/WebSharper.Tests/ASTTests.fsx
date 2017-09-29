@@ -16,10 +16,10 @@
 #r "../../build/Release/WebSharper.Core.dll"
 #r "../../build/Release/WebSharper.JavaScript.dll"
 #r "../../build/Release/WebSharper.JQuery.dll"
-//#r "../../build/Release/WebSharper.Main.dll"
-//#r "../../build/Release/WebSharper.Collections.dll"
-//#r "../../build/Release/WebSharper.Control.dll"
-//#r "../../build/Release/WebSharper.Web.dll"
+#r "../../build/Release/WebSharper.Main.dll"
+#r "../../build/Release/WebSharper.Collections.dll"
+#r "../../build/Release/WebSharper.Control.dll"
+#r "../../build/Release/WebSharper.Web.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.FSharp.dll"
 
@@ -265,7 +265,7 @@ let wsRefs =
         "WebSharper.Core"
         "WebSharper.JavaScript"
         "WebSharper.JQuery"
-        //"WebSharper.Main"
+        "WebSharper.Main"
         //"WebSharper.Collections"
         //"WebSharper.Control"
         //"WebSharper.Web"
@@ -341,6 +341,13 @@ let translate source =
             "TestProject"
             wholeProjectResults
 
+    let printErrors() =
+        [
+            for pos, e in comp.Errors -> pos, string e, true
+            for pos, e in comp.Warnings -> pos, string e, false
+        ]
+        |> List.iter (printfn "%A")
+
     let expressions =
         Seq.concat [
             comp.CompilingMethods.Values |> Seq.map snd
@@ -351,6 +358,8 @@ let translate source =
         |> List.ofSeq
 
     WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+
+    if not (List.isEmpty comp.Errors) then printErrors() else
 
     let currentMeta = comp.ToCurrentMetadata()
     let compiledExpressions = 
@@ -364,16 +373,11 @@ let translate source =
         )
         |> List.ofSeq 
         
-    let errors =
-        [
-            for pos, e in comp.Errors -> pos, string e, true
-            for pos, e in comp.Warnings -> pos, string e, false
-        ]
-    errors |> List.iter (printfn "%A")
+    printErrors()
 
-    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta false
+    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta [] false
     
-    let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
+    let js, map = pkg |> WebSharper.Compiler.Packager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
     fsDeclarations |> List.iter (printfn "%s") 
     expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
@@ -381,14 +385,27 @@ let translate source =
     js |> printfn "%s" 
 
 translate """
-module M
-
 open WebSharper
-open System.Runtime.CompilerServices
+
+[<Prototype false>]
+type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
+
+    [<Inline "[]">]
+    new () =
+        ResizeArrayProxy<'T>([||])
+
+    [<Inline "[]">]
+    new (size: int) =
+        ResizeArrayProxy<'T>([||])
+
+    [<Inline>]
+    new (el: seq<'T>) =
+        ResizeArrayProxy<'T>(Seq.toArray el)
 
 [<JavaScript>]
-[<MethodImpl(MethodImplOptions.PreserveSig)>]
-let Fst (x: System.Tuple<'T1,'T2>) = x
+module M =
+    let f () =
+        ResizeArrayProxy([3])
 
     """
 

@@ -1297,29 +1297,39 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
                   
-    override this.TransformChainedCtor(isBase, typ, ctor, args) =
+    override this.TransformChainedCtor(isBase, expr, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
         let def () =
+            let isSuper =
+                match IgnoreExprSourcePos expr with
+                | This -> 
+                    match currentNode with
+                    | M.ConstructorNode(typ, ctor) ->
+                        comp.TryLookupClassInfo typ |> Option.exists (fun cls -> Option.isSome cls.BaseClass)
+                    | _ -> false
+                | _ -> false
             match norm with
             | New (func, a) ->
-                if isBase then
+                if isBase && isSuper then
                     Application(Base, a, NonPure, None)
                 else
-                    Application(func |> getItem "call", This :: a, NonPure, None)
+                    Application(func |> getItem "call", expr :: a, NonPure, None)
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                if isBase then
+                if isBase && isSuper then
                     Application(Base, [a1], NonPure, None)
                 else
-                    Application(func |> getItem "call", This :: [a1], NonPure, None)
+                    Application(func |> getItem "call", expr :: [a1], NonPure, None)
             | _ ->
                 let err = sprintf "Chained constructor is an Inline in a not supported form: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then
-            norm
+            match IgnoreExprSourcePos expr with
+            | This -> norm
+            | Var _ -> def()
+            | _ -> this.Error("Unrecognized this value in constructor inline")
         else def()
-
     override this.TransformCctor(typ) =
         let typ = comp.FindProxied typ
         if cctorCalls |> Set.contains typ then Undefined else

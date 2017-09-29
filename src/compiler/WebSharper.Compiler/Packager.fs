@@ -30,6 +30,7 @@ open WebSharper.Core.AST
 
 module M = WebSharper.Core.Metadata
 module R = WebSharper.Core.Resources
+module I = IgnoreSourcePos
 
 let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) isBundle =
     let addresses = Dictionary()
@@ -228,7 +229,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | M.New ->
                         if body <> Undefined then
                             match body with
-                            | Function ([], IgnoreSourcePos.Empty) -> 
+                            | Function ([], I.Empty) 
+                            | Function ([], I.ExprStatement(I.Application(I.Base, [], _, _))) -> 
                                 ()
                             | Function (args, b) ->                  
                                 members.Add (ClassConstructor (args, Some b))

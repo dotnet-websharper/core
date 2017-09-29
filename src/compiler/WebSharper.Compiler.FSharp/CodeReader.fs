@@ -129,10 +129,11 @@ let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
-type FixCtorTransformer(?typ, ?btyp) =
+type FixCtorTransformer(typ, btyp, ?thisExpr) =
     inherit Transformer()
 
     let mutable addedChainedCtor = false
+    let thisExpr = defaultArg thisExpr This
 
     override this.TransformSequential (es) =
         match es with
@@ -153,21 +154,21 @@ type FixCtorTransformer(?typ, ?btyp) =
     override this.TransformCtor (t, c, a) =
         if addedChainedCtor then Ctor (t, c, a) else
         addedChainedCtor <- true
-        if Option.isNone btyp then Undefined else
-        let isBase =
-            match typ with
-            | None -> false
-            | Some ct -> t.Entity <> ct
-        ChainedCtor(isBase, t, c, a) 
+        let isBase = t.Entity <> typ
+        if (not isBase || Option.isSome btyp) && not (typ.Value.FullName = "System.Object") then
+            ChainedCtor(isBase, thisExpr, t, c, a) 
+        else
+            thisExpr
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)
         match btyp with
-        | Some b when not addedChainedCtor -> Sequential [ ChainedCtor(true, NonGeneric b, ConstructorInfo.Default(), []); res ]
+        | Some b when not addedChainedCtor -> 
+            Sequential [ ChainedCtor(true, thisExpr, NonGeneric b, ConstructorInfo.Default(), []); res ]
         | _ -> res
 
 let fixCtor thisTyp baseTyp expr =
-    FixCtorTransformer(thisTyp, ?btyp = baseTyp).Fix(expr)
+    FixCtorTransformer(thisTyp, baseTyp).Fix(expr)
 
 module Definitions =
     let List =
@@ -1012,9 +1013,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     ]
                 )
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
+            let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+
             Let(r, CopyCtor(td, plainObj),
                 Sequential [
-                    yield FixCtorTransformer().TransformExpression(tr expr)
+                    yield FixCtorTransformer(td, baseTyp, Var r).TransformExpression(tr expr)
                     yield Var r
                 ]
             )
