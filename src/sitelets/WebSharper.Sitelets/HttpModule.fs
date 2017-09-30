@@ -20,87 +20,23 @@
 
 namespace WebSharper.Sitelets
 
+#if NET461 // ASP.NET: Sitelets HttpModule
+
 open System
 open System.Collections.Generic
 open System.Configuration
 open System.Diagnostics
 open System.IO
 open System.Reflection
-#if NET461 // ASP.NET: Sitelets HttpModule
 open System.Web
 open System.Web.Compilation
 open System.Web.Hosting
-#endif
 open WebSharper.Web
 module R = WebSharper.Core.Remoting
-
-module internal SiteLoading =
-
-    type private BF = BindingFlags
-
-    /// Looks up assembly-wide Website attribute and runs it if present
-    let TryLoadSiteA (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        match Attribute.GetCustomAttribute(assembly, aT) with
-        | :? WebsiteAttribute as attr ->
-            attr.Run () |> Some
-        | _ -> None
-    
-    /// Searches for static property with Website attribute and loads it if found
-    let TryLoadSiteB (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        assembly.GetModules(false)
-        |> Seq.collect (fun m ->
-            try m.GetTypes() |> Seq.ofArray
-            with
-            | :? ReflectionTypeLoadException as e ->
-                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))
-            | _ -> Seq.empty
-        )
-        |> Seq.tryPick (fun ty ->
-            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-            |> Array.tryPick (fun p ->
-                match Attribute.GetCustomAttribute(p, aT) with
-                | :? WebsiteAttribute ->
-                    try
-                        let sitelet = p.GetGetMethod().Invoke(null, [||])
-                        let upcastSitelet =
-                            sitelet.GetType()
-                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                                .GetGetMethod(nonPublic = true)
-                                .Invoke(sitelet, [||])
-                                :?> Sitelet<obj>
-                        Some (upcastSitelet, [])
-                    with e ->
-                        raise <| exn("Failed to initialize sitelet definition: " + ty.FullName + "." + p.Name, e)  
-                | _ -> None
-            )
-        )
-
-    let TryLoadSite (assembly: Assembly) =
-        match TryLoadSiteA assembly with
-        | Some _ as res -> res
-        | _ -> TryLoadSiteB assembly
-
-    let LoadFromAssemblies (assemblies: seq<Assembly>) =
-        Timed "Initialized sitelets" <| fun () ->
-            let sitelets, actions = 
-                Seq.choose TryLoadSite assemblies 
-                |> List.ofSeq |> List.unzip
-            (Sitelet.Sum sitelets, Seq.concat actions)
-
-#if NET461 // ASP.NET: Sitelets HttpModule
-    let LoadFromApplicationAssemblies () =
-        BuildManager.GetReferencedAssemblies()
-        |> Seq.cast<Assembly>
-        |> LoadFromAssemblies
 
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
-
-//    let currentSite =
-//        lazy fst (SiteLoading.LoadFromAssemblies())
 
     let getUri (req: HttpRequestBase) : Uri =
         match req.ApplicationPath with
@@ -218,13 +154,11 @@ type HttpHandler(request: Http.Request, action: obj, site: Sitelet<obj>, resCtx,
         member this.EndProcessRequest(result) = endAction result
 
     member this.ProcessRequest(ctx) = processRequest ctx
-#endif
 
 /// IIS module, processing the URLs and serving the pages.
 [<Sealed>]
 type HttpModule() =
 
-#if NET461 // ASP.NET: Sitelets HttpModule
     let mutable runtime = None
 
     let tryGetHandler (ctx: HttpContextBase) =
@@ -239,7 +173,7 @@ type HttpModule() =
         member this.Init app =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
-                SiteLoading.LoadFromApplicationAssemblies() |> fst,
+                Loading.LoadFromApplicationAssemblies() |> fst,
                 WebSharper.Web.ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
@@ -263,12 +197,5 @@ type HttpModule() =
     member this.TryProcessRequest(ctx: HttpContextBase) : option<Async<unit>> =
         tryGetHandler ctx
         |> Option.map (fun h -> h.ProcessRequest(ctx))
-#endif
 
-    static member DiscoverSitelet(assemblies: seq<Assembly>) =
-        let assemblies = Seq.cache assemblies
-        match Seq.tryPick SiteLoading.TryLoadSiteA assemblies with
-        | Some (s, _) -> Some s
-        | _ ->
-            Seq.tryPick SiteLoading.TryLoadSiteB assemblies
-            |> Option.map fst
+#endif

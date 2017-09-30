@@ -25,6 +25,7 @@
     <Compile Include="Application.fsi" />
     <Compile Include="Application.fs" />
     <Compile Include="Website.fs" />
+    <Compile Include="Loading.fs" />
     <Compile Include="HttpModule.fs" />
     <Compile Include="UrlHelpers.fsi" />
     <Compile Include="UrlHelpers.fs" />
