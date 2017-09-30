@@ -363,14 +363,14 @@ let Max (l: list<_>) = Seq.reduce max l
 
 [<Name "maxBy">]
 let MaxBy f (l: list<_>) =
-    Seq.reduce (fun x y -> if f x > f y then x else y) l
+    Seq.reduce (fun x y -> if f x >= f y then x else y) l
 
 [<Name "min">]
 let Min (l: list<_>) = Seq.reduce min l
 
 [<Name "minBy">]
 let MinBy f (l: list<_>) =
-    Seq.reduce (fun x y -> if f x < f y then x else y) l
+    Seq.reduce (fun x y -> if f x <= f y then x else y) l
 
 [<Inline>]
 let Get (l: list<_>) ix = Seq.nth ix l
