@@ -93,13 +93,17 @@ type internal HashSetProxy<'T when 'T : equality>
 
         do for x in init do add x |> ignore
 
+        [<Inline>]
         new () = HashSetProxy<'T>(Seq.empty, genEquals<'T>(), hash)
 
+        [<Inline>]
         new (init: seq<'T>) = new HashSetProxy<'T>(init, genEquals<'T>(), hash)
 
+        [<Inline>]
         new (comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(Seq.empty, equals comparer, getHashCode comparer)
 
+        [<Inline>]
         new (init: seq<'T>, comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(init, equals comparer, getHashCode comparer)
 

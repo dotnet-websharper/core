@@ -614,6 +614,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.FailedCompiledConstructor(typ, ctor)
             else
             currentIsInline <- isInline info
+            selfAddress <- 
+                comp.TryLookupClassInfo(typ) |> Option.bind (fun cls -> cls.Address)
             match info with
             | NotCompiled (i, _, opts) -> 
                 currentFuncArgs <- opts.FuncArgs
@@ -1333,7 +1335,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let bcall func args =
                 if isBase && isSuper then
                     Application(Base, args, NonPure, None)
-                elif currentIsInline then
+                elif currentIsInline || Option.isSome thisVar then
                     let t = match thisVar with Some v -> Var v | _ -> This
                     Application(func |> getItem "call", t :: args, NonPure, None)
                 else
@@ -1367,10 +1369,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | New (func, a) ->
                 bcall func a
             // This is allowing some simple inlines
-            | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                bcall func [a1]
+            | Let (i1, a1, New(func, Var v1 :: r)) when i1 = v1 ->
+                bcall func (a1 :: r)
             | _ ->
-                let err = sprintf "Chained constructor is an Inline in a not supported form: %s" (Debug.PrintExpression norm)
+                let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then

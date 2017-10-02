@@ -260,6 +260,8 @@ and Statement =
     | ClassConstructor of Parameters:list<Id> * Body:option<Statement>
     /// TypeScript - class plain property
     | ClassProperty of IsStatic:bool * Name:string
+    /// TypeScript - interface { ... }
+    | Interface of Name:string * Extending:list<Expression> * Members:list<Statement>
     /// TypeScript - type or import alias
     | Alias of Identifier:Id * IsType:bool * Expression:Expression
 /// Base class for code transformers.
@@ -533,6 +535,9 @@ type Transformer() =
     /// TypeScript - class plain property
     abstract TransformClassProperty : IsStatic:bool * Name:string -> Statement
     override this.TransformClassProperty (a, b) = ClassProperty (a, b)
+    /// TypeScript - interface { ... }
+    abstract TransformInterface : Name:string * Extending:list<Expression> * Members:list<Statement> -> Statement
+    override this.TransformInterface (a, b, c) = Interface (a, List.map this.TransformExpression b, List.map this.TransformStatement c)
     /// TypeScript - type or import alias
     abstract TransformAlias : Identifier:Id * IsType:bool * Expression:Expression -> Statement
     override this.TransformAlias (a, b, c) = Alias (this.TransformId a, b, this.TransformExpression c)
@@ -630,6 +635,7 @@ type Transformer() =
         | ClassMethod (a, b, c, d) -> this.TransformClassMethod (a, b, c, d)
         | ClassConstructor (a, b) -> this.TransformClassConstructor (a, b)
         | ClassProperty (a, b) -> this.TransformClassProperty (a, b)
+        | Interface (a, b, c) -> this.TransformInterface (a, b, c)
         | Alias (a, b, c) -> this.TransformAlias (a, b, c)
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
@@ -901,6 +907,9 @@ type Visitor() =
     /// TypeScript - class plain property
     abstract VisitClassProperty : IsStatic:bool * Name:string -> unit
     override this.VisitClassProperty (a, b) = (); ()
+    /// TypeScript - interface { ... }
+    abstract VisitInterface : Name:string * Extending:list<Expression> * Members:list<Statement> -> unit
+    override this.VisitInterface (a, b, c) = (); List.iter this.VisitExpression b; List.iter this.VisitStatement c
     /// TypeScript - type or import alias
     abstract VisitAlias : Identifier:Id * IsType:bool * Expression:Expression -> unit
     override this.VisitAlias (a, b, c) = this.VisitId a; (); this.VisitExpression c
@@ -998,6 +1007,7 @@ type Visitor() =
         | ClassMethod (a, b, c, d) -> this.VisitClassMethod (a, b, c, d)
         | ClassConstructor (a, b) -> this.VisitClassConstructor (a, b)
         | ClassProperty (a, b) -> this.VisitClassProperty (a, b)
+        | Interface (a, b, c) -> this.VisitInterface (a, b, c)
         | Alias (a, b, c) -> this.VisitAlias (a, b, c)
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
@@ -1099,6 +1109,7 @@ module IgnoreSourcePos =
     let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b) -> Some (a, b) | _ -> None
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b) -> Some (a, b) | _ -> None
+    let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
@@ -1194,6 +1205,7 @@ module Debug =
         | ClassMethod (a, b, c, d) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ")"
         | ClassConstructor (a, b) -> "ClassConstructor" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ")"
         | ClassProperty (a, b) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ")"
+        | Interface (a, b, c) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
         | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + PrintObject b + ", " + PrintExpression c + ")"
 // }}
 

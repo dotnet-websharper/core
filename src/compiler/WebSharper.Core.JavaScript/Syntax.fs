@@ -221,6 +221,7 @@ and Statement =
     | ImportAlias  of Id * E
     | TypeAlias    of Id * E
     | Declare      of S
+    | DeclareGlobal of list<S>
     | Namespace    of Id * list<S>
     | Class        of Id * bool * option<E> * list<E> * list<Member>
     | Interface    of Id * list<E> * list<Member>

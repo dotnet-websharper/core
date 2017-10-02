@@ -171,19 +171,25 @@ type internal Dictionary<'K,'V when 'K : equality>
         do for x in init do
             set x.Key x.Value
 
+        [<Inline>]
         new () = new Dictionary<'K,'V>([||], genEquals<'K>(), hash)
 
+        [<Inline>]
         new (capacity: int) = new Dictionary<'K,'V>()
 
+        [<Inline>]
         new (comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>([||], equals comparer, getHashCode comparer)
 
+        [<Inline>]
         new (capacity: int, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(comparer)
 
+        [<Inline>]
         new (dictionary: IDictionary<'K,'V>) =
             new Dictionary<'K,'V>(dictionary, genEquals<'K>(), hash)
 
+        [<Inline>]
         new (dictionary: IDictionary<'K,'V>, comparer: IEqualityComparer<'K>) =
             new Dictionary<'K,'V>(
                 dictionary,

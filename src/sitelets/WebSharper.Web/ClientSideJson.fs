@@ -231,8 +231,9 @@ module Provider =
 
 module Macro =
 
-    module M = WebSharper.Core.Metadata
+    open WebSharper.Core
     open WebSharper.Core.AST
+    module M = WebSharper.Core.Metadata
     module JI = WebSharper.Core.Json.Internal
     type private BF = System.Reflection.BindingFlags
 
@@ -365,7 +366,8 @@ module Macro =
                                 enc >>= fun e ->
                                 let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
                                 let vn = Value (String va.Address.Value.Head)
-                                let b = Lambda ([], Conditional(v, v, ItemSet(Global [top], vn, Application(e, [], NonPure, Some 0))))
+                                let a = { Module = CurrentModule; Address = Hashed [ top ] }
+                                let b = Lambda ([], Conditional(v, v, ItemSet(GlobalAccess a, vn, Application(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
                                 Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)

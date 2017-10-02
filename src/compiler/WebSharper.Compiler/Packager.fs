@@ -41,6 +41,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     addresses.Add(Address.Global(), glob)
     addresses.Add(Address.Lib "window", glob)
 
+    declarations.Add <| 
+        //declare namespace global {
+        //  interface Error {
+        //    inner: string;
+        //  }
+        //}
+        Declare (
+            Namespace ("global", 
+                [ 
+                    Interface ("Error", [], [ ClassProperty (false, "inner")]) 
+                    Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf")]) 
+                ]))
+                                                            
     let strId name = Id.New(name, mut = false, str = true)
 
     let rec getAddress (address: Address) =
@@ -216,13 +229,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 mem m info body
                             
             let baseType =
-                let tryFindClass c =
-                    match refMeta.Classes.TryFind c with
-                    | Some _ as res -> res
-                    | _ -> current.Classes.TryFind c
-                match c.BaseClass |> Option.bind tryFindClass |> Option.bind (fun b -> b.Address) with
-                | Some ba -> Some (GlobalAccess ba)
-                | _ -> None
+                match c.BaseClass with
+                | None -> None
+                | Some b ->
+                    if b.Value.FullName = "System.Exception" then
+                        Some (Global [ "Error" ])
+                    else
+                        let bCls =
+                            match refMeta.Classes.TryFind b with
+                            | Some _ as res -> res
+                            | _ -> current.Classes.TryFind b
+                        match bCls |> Option.bind (fun bc -> bc.Address) with
+                        | Some ba -> Some (GlobalAccess ba)
+                        | _ -> None
 
             if c.HasWSPrototype then
                 let indexedCtors = Dictionary()

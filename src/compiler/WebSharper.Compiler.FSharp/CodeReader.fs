@@ -154,12 +154,33 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
         if addedChainedCtor then Ctor (t, c, a) else
         addedChainedCtor <- true
         let isBase = t.Entity <> typ
-        if (not isBase || Option.isSome btyp) && not (typ.Value.FullName = "System.Object") then
-            ChainedCtor(isBase, thisVar, t, c, a) 
-        else
+        let thisExpr =
             match thisVar with
             | Some v -> Var v
             | _ -> This
+        let tn = typ.Value.FullName
+        if (not isBase || Option.isSome btyp) && not (tn = "System.Object" || tn = "System.Exception") then
+            if t.Entity.Value.FullName = "System.Exception" then 
+                let args, inner =
+                    match a with
+                    | [] -> [], None
+                    | [_] -> a, None
+                    | [msg; inner] -> [msg], Some inner 
+                    | _ -> failwith "Too many arguments for Error"
+                Sequential [
+                    yield Application (Base, args, NonPure, None)
+                    match inner with
+                    | Some i ->
+                        yield ItemSet(thisExpr, Value (String "inner"), i)
+                    | None -> ()
+                    yield Application(
+                        ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
+                        , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
+                    //Object.setPrototypeOf(this, FooError.prototype);
+                ]
+            else
+                ChainedCtor(isBase, thisVar, t, c, a) 
+        else thisExpr
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)

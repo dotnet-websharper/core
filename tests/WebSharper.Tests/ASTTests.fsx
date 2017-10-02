@@ -387,18 +387,16 @@ let translate source =
 translate """
 open WebSharper
 
-[<Prototype false; JavaScript>]
-type ResizeArrayProxy<'T> (arr: 'T []) =
-
-    new () =
-        ResizeArrayProxy<'T>([||])
-
-    member this.Arr = arr
-
 [<JavaScript>]
 module M =
-    let f () =
-        ResizeArrayProxy()
+    let b() =
+        let rec f x y z =
+            if x = 0 then 
+                if y = 0 then g z else y + z
+            else f (x - 1) y z
+        and g x = 
+            f 0 1 x
+        f 5 0 5
 
     """
 

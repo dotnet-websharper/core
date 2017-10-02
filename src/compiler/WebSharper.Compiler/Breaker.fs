@@ -824,7 +824,7 @@ let rec breakExpr expr : Broken<BreakResult> =
         brL (a :: b)
         |> mapBroken2L (fun aE bE -> New (aE, bE))
     | e ->
-        failwithf "Break expression error: %A" e
+        failwithf "Break expression error, not handled: %s" (Debug.PrintExpression e)
 
 /// break expression to statements, if result would be a temporary var,
 /// use `f` (Return or Throw) to transform it to a statement
@@ -893,7 +893,7 @@ and private breakSt statement : Statement seq =
                 ]
                 |> Seq.ofList
         | _ ->
-            brA |> toStatementsSpec Return
+            brA |> toStatementsSpec Return |> List.ofSeq |> CombineStatements |> Seq.singleton
     | Block a ->
         if a |> List.forall (function I.ExprStatement _ -> true | _ -> false) then
             a |> List.map (function I.ExprStatement e -> e | _ -> failwith "impossible")
@@ -1032,6 +1032,8 @@ and private breakSt statement : Statement seq =
         brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
     | Continuation(a, b) ->
         brE b |> toStatements (fun bE -> Continuation(a, bE))
+    | e ->
+        failwithf "Break statement error, not handled: %s" (Debug.PrintStatement e)
 
 and BreakStatement statement =
     match breakSt statement |> List.ofSeq with

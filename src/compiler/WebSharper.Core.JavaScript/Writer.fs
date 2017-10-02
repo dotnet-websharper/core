@@ -483,6 +483,9 @@ and Statement canBeEmpty statement =
         Word "type" ++ Id i ++ Token "=" ++ Expression e
     | S.Declare s ->
         Word "declare" ++ Statement false s
+    | S.DeclareGlobal s ->
+        Word "declare global"
+        -- BlockLayout (List.map (Statement true) s)
     | S.Namespace (n, s) ->
         Word "namespace" ++ Id n
         -- BlockLayout (List.map (Statement true) s)

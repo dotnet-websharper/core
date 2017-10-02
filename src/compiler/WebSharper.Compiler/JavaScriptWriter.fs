@@ -151,7 +151,6 @@ type CollectStrongNames(env: Environment) =
         addId v
 
     override this.VisitNamespace(n, s) =
-        printfn "Added namespace %s" n
         addName n
         s |> List.iter this.VisitStatement
 
@@ -399,7 +398,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             f()
     match statement with
     | Empty
-    | DoNotReturn
         -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> transformLabel env l))
     | Continue(a) -> J.Continue (a |> Option.map (fun l -> transformLabel env l))
@@ -488,6 +486,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.ImportAll(a |> Option.map (transformId env), b)
     | Export a ->
         J.Export (trS a)
+    | Declare (Namespace ("global", a)) ->
+        J.DeclareGlobal (a |> List.map trS)
     | Declare a ->
         J.Declare (trS a)
     | Namespace (a, b) ->
@@ -500,6 +500,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ -> false
             )
         J.Class(J.Id.New a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
+    | Interface (a, b, c) ->
+        J.Interface(J.Id.New a, List.map trE b, List.map (transformMember env) c)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 

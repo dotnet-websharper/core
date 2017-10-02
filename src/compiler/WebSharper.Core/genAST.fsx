@@ -290,6 +290,8 @@ let StatementDefs =
             "TypeScript - class method"
         "ClassProperty", [ Bool, "isStatic"; Str, "name" ],
             "TypeScript - class plain property"
+        "Interface", [ Str, "name"; List Expr, "extending"; List Statement, "members" ],
+            "TypeScript - interface { ... }"
         "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ],
             "TypeScript - type or import alias"
     ]
