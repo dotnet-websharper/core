@@ -363,9 +363,6 @@ namespace WebSharper.CSharp.Tests
             Equal($"My name is {lastName}. {firstName} {lastName}.", "My name is Bond. James Bond.");
 
             Equal($"align:{"x", 2 + 3}", "align:    x");
-
-            var d = new DateTime(2010, 4, 8, 15, 5, 39);
-            Equal($"format:{d:hh}", "format:03");
         }
 
         [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787")]

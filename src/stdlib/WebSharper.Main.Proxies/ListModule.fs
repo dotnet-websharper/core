@@ -358,19 +358,63 @@ let MapIndexed2 (f: int -> 'T1 -> 'T2 -> 'T3) (x1: list<'T1>) (x2: list<'T2>) =
     setTail r []
     res
 
+let private nonEmpty (l: list<_>) =
+    if List.isEmpty l then
+        listEmpty()
+
 [<Name "max">]
-let Max (l: list<_>) = Seq.reduce max l
+let Max (list: list<_>) = 
+    nonEmpty list
+    let mutable m = unsafeHead list
+    let mutable l = unsafeTail list
+    while notEmpty l do
+        let x = unsafeHead l
+        if x > m then
+            m <- x
+        l <- unsafeTail l
+    m
 
 [<Name "maxBy">]
-let MaxBy f (l: list<_>) =
-    Seq.reduce (fun x y -> if f x > f y then x else y) l
+let MaxBy f (list: list<_>) =
+    nonEmpty list
+    let mutable m = unsafeHead list
+    let mutable fm = f m
+    let mutable l = unsafeTail list
+    while notEmpty l do
+        let x = unsafeHead l
+        let fx = f x
+        if fx > fm then
+            m <- x
+            fm <- fx
+        l <- unsafeTail l
+    m
 
 [<Name "min">]
-let Min (l: list<_>) = Seq.reduce min l
+let Min (list: list<_>) =
+    nonEmpty list
+    let mutable m = unsafeHead list
+    let mutable l = unsafeTail list
+    while notEmpty l do
+        let x = unsafeHead l
+        if x < m then
+            m <- x
+        l <- unsafeTail l
+    m
 
 [<Name "minBy">]
-let MinBy f (l: list<_>) =
-    Seq.reduce (fun x y -> if f x < f y then x else y) l
+let MinBy f (list: list<_>) =
+    nonEmpty list
+    let mutable m = unsafeHead list
+    let mutable fm = f m
+    let mutable l = unsafeTail list
+    while notEmpty l do
+        let x = unsafeHead l
+        let fx = f x
+        if fx < fm then
+            m <- x
+            fm <- fx
+        l <- unsafeTail l
+    m
 
 [<Inline>]
 let Get (l: list<_>) ix = Seq.nth ix l
@@ -420,7 +464,13 @@ let Pick f (l: list<_>) = Seq.pick f l
 
 [<Inline>]
 let Reduce (f: 'T -> 'T -> 'T) (list: list<'T>) : 'T =
-    Seq.reduce f list
+    nonEmpty list
+    let mutable r = unsafeHead list
+    let mutable l = unsafeTail list
+    while notEmpty l do
+        r <- f r (unsafeHead l)
+        l <- unsafeTail l
+    r
 
 [<Name "reduceBack">]
 let ReduceBack f (l: list<_>) =
@@ -455,11 +505,15 @@ let Sort (l: list<_>) =
 
 [<Name "sortBy">]
 let SortBy f (l: list<_>) =
-    List.sortWith (fun x y -> compare (f x) (f y)) l
+    let a = Array.ofList l
+    Array.sortInPlaceBy f a
+    List.ofArray a
 
 [<Name "sortByDescending">]
 let SortByDescending f (l: list<_>) =
-    List.sortWith (fun x y -> - compare (f x) (f y)) l
+    let a = Array.ofList l
+    ArraySortInPlaceByDescending f a
+    List.ofArray a
 
 [<Name "sortDescending">]
 let SortDescending (l: list<_>) =
@@ -598,8 +652,7 @@ let GroupBy (f: 'T -> 'K when 'K : equality)
 
 [<Name "last">]
 let Last (list : list<'T>) : 'T =
-    if List.isEmpty list then
-        listEmpty()
+    nonEmpty list
     let mutable r = list
     let mutable t = unsafeTail r
     while notEmpty t do
