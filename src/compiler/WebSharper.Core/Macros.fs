@@ -96,7 +96,7 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
                 if isIn smallIntegralTypes t
                 then (a ^/ b) ^>> !~(Int 0)
                 elif isIn bigIntegralTypes t
-                then Application(Global ["Math"; "trunc"], [a ^/ b], Pure, Some 1)
+                then MathTrunc (a ^/ b)
                 elif isIn scalarTypes t
                 then a ^/ b
                 else traitCallOp c [a; b]

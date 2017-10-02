@@ -266,6 +266,9 @@ let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|N
     elif n = "System.String" then StringType
     else NonNumericType
 
+let MathTrunc expr =
+    Application(ItemGet(Cast (Var TSType.Any, Global ["Math"]), Value (String "trunc"), Pure), [expr], Pure, Some 1)
+
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     match fromTyp.Value.FullName, toTyp.Value.FullName with
     | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
@@ -277,7 +280,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | ScalarType, SmallIntegralType
         -> expr ^>> !~(Int 0)
     | ScalarType, BigIntegralType
-        -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
+        -> MathTrunc expr
     | (SmallIntegralType | BigIntegralType | ScalarType), CharType
         -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
