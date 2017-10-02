@@ -16,6 +16,6 @@ files
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.xml ==> lib/net461
     ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> lib/net461
     ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.xml ==> lib/net461
-    ../build/Release/CSharp/net461/ref/netstandard.dll ==> lib/net461/ref
+    ../build/Release/CSharp/net461/netstandard.dll.ref ==> lib/net461
     ../build/Release/net461/WebSharper.Sitelets.Offline.dll ==> lib/net461
     ../build/Release/net461/WebSharper.Sitelets.Offline.xml ==> lib/net461

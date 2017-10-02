@@ -58,5 +58,12 @@ files
     ../build/Release/netstandard2.0/WebSharper.JQuery.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JQuery.xml ==> lib/netstandard2.0
 
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> lib/netstandard2.0
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> lib/net461
+
     ../docs ==> docs
     ../src/htmllib/tags.csv ==> tools
+
+    !../tools/*
+dependencies
+    Mono.Cecil ~> 0.10.0-beta6

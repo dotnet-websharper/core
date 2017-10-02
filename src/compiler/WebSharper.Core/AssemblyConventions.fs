@@ -28,8 +28,19 @@ open System.Reflection
 let NetStandardName = "netstandard"
 
 let NetStandardAssembly =
-    Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "ref", "netstandard.dll")
-    |> Mono.Cecil.AssemblyDefinition.ReadAssembly
+    try
+        Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "netstandard.dll.ref")
+        |> Mono.Cecil.AssemblyDefinition.ReadAssembly
+    with _ ->
+        let isNetStandard (asm: Assembly) = asm.GetName().Name = NetStandardName
+        AppDomain.CurrentDomain.ReflectionOnlyGetAssemblies()
+        |> Array.tryFind isNetStandard
+        |> Option.orElseWith (fun () ->
+            AppDomain.CurrentDomain.GetAssemblies()
+            |> Array.tryFind isNetStandard
+        )
+        |> Option.defaultWith (fun () -> failwith "Cannot find netstandard.dll")
+        |> fun asm -> Mono.Cecil.AssemblyDefinition.ReadAssembly asm.Location
 
 let NetStandardFullName = NetStandardAssembly.FullName
 

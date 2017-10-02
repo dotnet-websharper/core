@@ -25,7 +25,7 @@
     <Copy SourceFiles="@(FSharpCoreExtraFiles)"
           DestinationFolder="..\..\..\build\$(Configuration)\FSharp\net461" />
     <Copy SourceFiles="..\..\..\packages\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
-          DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\ref\netstandard.dll" />
+          DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\netstandard.dll.ref" />
   </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />

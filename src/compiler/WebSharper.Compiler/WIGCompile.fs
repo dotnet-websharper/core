@@ -247,6 +247,36 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let netstandard = AssemblyConventions.NetStandardAssembly
     do  assemblies.["netstandard"] <- netstandard
 
+    let correctType (t: TypeReference) =
+        if AssemblyConventions.IsNetStandardType t.FullName then
+            t.Scope <- AssemblyConventions.NetStandardAssembly.Name
+
+    let rec correctMethod (m: MethodReference) =
+        correctType m.ReturnType
+        correctType m.DeclaringType
+        for p in m.Parameters do
+            correctParameter p
+
+    and correctParameter (p: ParameterDefinition) =
+        correctType p.ParameterType
+        for a in p.CustomAttributes do
+            correctAttribute a
+
+    and correctAttribute (a: CustomAttribute) =
+        correctMethod a.Constructor
+        for a in a.ConstructorArguments do
+            correctAttributeArg a
+        for a in a.Properties do
+            correctAttributeNamedArg a
+        for a in a.Fields do
+            correctAttributeNamedArg a
+
+    and correctAttributeArg (a: CustomAttributeArgument) =
+        correctType a.Type
+
+    and correctAttributeNamedArg (a: CustomAttributeNamedArgument) =
+        correctAttributeArg a.Argument
+
     let resolveAsm (asmName: string) (typeName: string) =
         match assemblies.TryGetValue(asmName) with
         | true, x -> x
@@ -327,6 +357,10 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let wsCore =
         let t = typeof<WebSharper.InlineAttribute>
         resolveAsm t.Assembly.FullName t.FullName
+
+    member b.CorrectType t = correctType t; t
+
+    member b.CorrectMethod m = correctMethod m; m
 
     member b.SystemAssembly = netstandard
 
@@ -564,7 +598,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.ImportReference x
+            | Some x -> def.MainModule.ImportReference (tB.CorrectMethod x)
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -1175,7 +1209,7 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
         generate fileName
 
 [<Sealed>]
-type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, systemAssembly: AssemblyDefinition) =
+type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder) =
 
     let writerParams =
         match options.StrongNameKeyPair with
@@ -1218,7 +1252,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
             |]
         let getSystemTypeDef (t: Type) =
-            systemAssembly.MainModule.GetType(t.FullName)
+            tB.SystemAssembly.MainModule.GetType(t.FullName)
             |> def.MainModule.ImportReference
         let stringTypeDef =
             getSystemTypeDef typeof<string>
@@ -1229,6 +1263,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 && m.HasParameters
                 && m.Parameters.Count = 1
                 && m.Parameters.[0].ParameterType.FullName = stringTypeDef.FullName)
+            |> tB.CorrectMethod
             |> def.MainModule.ImportReference
         let setAttr (t: Type) (v: string) =
             let ty = getSystemTypeDef t
@@ -1410,7 +1445,7 @@ type Compiler() =
         WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
 
         let doc = XmlDocGenerator(def, comments)
-        let r = CompiledAssembly(def, doc, options, tB.SystemAssembly)
+        let r = CompiledAssembly(def, doc, options, tB)
         match originalAssembly with
         | None -> ()
         | Some assem -> r.SetAssemblyAttributes(assem)

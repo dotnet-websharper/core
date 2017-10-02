@@ -71,7 +71,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         argError "Output assembly not found"
 
     TimedStage "F# compilation"
-            
+
+    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
@@ -79,6 +80,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         ]        
     let aR =
         AssemblyResolver.Create()
+            .SearchDirectories([compilerDir])
             .SearchPaths(paths)
 
     if config.ProjectType = Some WIG then  

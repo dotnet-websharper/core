@@ -28,9 +28,10 @@ files
     ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools
     ../build/Release/FSharp/net461/System.Runtime.dll ==> tools
+    ../build/Release/FSharp/net461/System.Globalization.dll ==> tools
     ../build/Release/FSharp/net461/System.IO.dll ==> tools
     ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools
     ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools
     ../build/Release/FSharp/net461/netstandard.dll ==> tools
-    ../build/Release/FSharp/net461/ref/netstandard.dll ==> tools/ref
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> tools
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools
