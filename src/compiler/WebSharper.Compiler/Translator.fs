@@ -1274,8 +1274,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Failed to translate union case tag.")
 
     override this.TransformCtor(typ, ctor, args) =
-        let node = comp.LookupConstructorInfo(typ.Entity, ctor)
-        match node with
+        match comp.LookupConstructorInfo(typ.Entity, ctor) with
         | Compiled (info, opts, expr) -> 
             this.CompileCtor(info, opts, expr, typ, ctor, args)
         | Compiling (info, expr) ->
@@ -1297,39 +1296,90 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.AddError (this.CurrentSourcePos, err)
             Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
                   
-    override this.TransformChainedCtor(isBase, expr, typ, ctor, args) =
+    override this.TransformChainedCtor(isBase, thisVar, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
+        let trBaseCall x =
+            match thisVar with
+            | None -> x 
+            | Some v ->
+                let baseAddr =
+                    if isBase then
+                        match comp.TryLookupClassInfo(typ.Entity) with
+                        | Some { Address = Some a } -> Some a
+                        | _ -> None
+                    else
+                        match comp.TryLookupClassInfo(typ.Entity) with
+                        | Some { BaseClass = Some bTyp } ->
+                            match comp.TryLookupClassInfo(bTyp) with
+                            | Some { Address = Some a } -> Some a
+                            | _ -> None
+                        | _ -> None
+                match baseAddr with
+                | Some a ->
+                    TransformBaseCall(fun args ->
+                        Application(GlobalAccess a |> getItem "call", Var v :: args, NonPure, None)    
+                    ).TransformExpression(x)
+                | None -> Undefined
         let def () =
             let isSuper =
-                match IgnoreExprSourcePos expr with
-                | This -> 
+                match thisVar with
+                | None -> 
                     match currentNode with
                     | M.ConstructorNode(typ, ctor) ->
                         comp.TryLookupClassInfo typ |> Option.exists (fun cls -> Option.isSome cls.BaseClass)
                     | _ -> false
                 | _ -> false
+            let bind key value body = Let (key, value, body)
+            let bcall func args =
+                if isBase && isSuper then
+                    Application(Base, args, NonPure, None)
+                elif currentIsInline then
+                    let t = match thisVar with Some v -> Var v | _ -> This
+                    Application(func |> getItem "call", t :: args, NonPure, None)
+                else
+                    let subs info expr =
+                        match info with
+                        | M.Inline ->
+                            norm
+                        | _ ->
+                        match expr with
+                        | I.Function (cargs, cbody) ->
+                            let args =
+                                match info with
+                                | M.NewIndexed _ ->
+                                    // remove index parameter
+                                    List.tail args
+                                | _ -> args
+                            List.foldBack2 bind cargs args (StatementExpr (cbody, None))   
+                        | _ ->
+                            failwith "Expecting a function as compiled form of constructor"
+                    match comp.LookupConstructorInfo(typ.Entity, ctor) with
+                    | Compiled (info, _, expr) ->
+                        subs info expr
+                    | Compiling (info, expr) ->
+                        this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
+                        match comp.LookupConstructorInfo(typ.Entity, ctor) with
+                        | Compiled (info, _, expr) ->
+                            subs info expr
+                        | _ -> failwith "should be compiled"
+                    | _ -> failwith "should be compiled"
             match norm with
             | New (func, a) ->
-                if isBase && isSuper then
-                    Application(Base, a, NonPure, None)
-                else
-                    Application(func |> getItem "call", expr :: a, NonPure, None)
+                bcall func a
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
-                if isBase && isSuper then
-                    Application(Base, [a1], NonPure, None)
-                else
-                    Application(func |> getItem "call", expr :: [a1], NonPure, None)
+                bcall func [a1]
             | _ ->
                 let err = sprintf "Chained constructor is an Inline in a not supported form: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
         if currentIsInline then
-            match IgnoreExprSourcePos expr with
-            | This -> norm
-            | Var _ -> def()
-            | _ -> this.Error("Unrecognized this value in constructor inline")
+            match thisVar with
+            | None -> norm
+            | Some _ -> def()
         else def()
+        |> trBaseCall
+
     override this.TransformCctor(typ) =
         let typ = comp.FindProxied typ
         if cctorCalls |> Set.contains typ then Undefined else

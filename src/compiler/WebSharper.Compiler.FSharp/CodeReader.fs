@@ -129,11 +129,10 @@ let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
-type FixCtorTransformer(typ, btyp, ?thisExpr) =
+type FixCtorTransformer(typ, btyp, ?thisVar) =
     inherit Transformer()
 
     let mutable addedChainedCtor = false
-    let thisExpr = defaultArg thisExpr This
 
     override this.TransformSequential (es) =
         match es with
@@ -156,15 +155,17 @@ type FixCtorTransformer(typ, btyp, ?thisExpr) =
         addedChainedCtor <- true
         let isBase = t.Entity <> typ
         if (not isBase || Option.isSome btyp) && not (typ.Value.FullName = "System.Object") then
-            ChainedCtor(isBase, thisExpr, t, c, a) 
+            ChainedCtor(isBase, thisVar, t, c, a) 
         else
-            thisExpr
+            match thisVar with
+            | Some v -> Var v
+            | _ -> This
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)
         match btyp with
         | Some b when not addedChainedCtor -> 
-            Sequential [ ChainedCtor(true, thisExpr, NonGeneric b, ConstructorInfo.Default(), []); res ]
+            Sequential [ ChainedCtor(true, thisVar, NonGeneric b, ConstructorInfo.Default(), []); res ]
         | _ -> res
 
 let fixCtor thisTyp baseTyp expr =
@@ -1017,7 +1018,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
 
             Let(r, CopyCtor(td, plainObj),
                 Sequential [
-                    yield FixCtorTransformer(td, baseTyp, Var r).TransformExpression(tr expr)
+                    yield FixCtorTransformer(td, baseTyp, r).TransformExpression(tr expr)
                     yield Var r
                 ]
             )

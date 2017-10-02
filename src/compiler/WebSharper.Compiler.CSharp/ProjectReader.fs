@@ -420,9 +420,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let chained =
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
-                                    ExprStatement (ChainedCtor(true, This, bTyp, bCtor, args) |> reorder)
+                                    ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
-                                    ExprStatement (ChainedCtor(false, This, NonGeneric def, bCtor, args) |> reorder)
+                                    ExprStatement (ChainedCtor(false, None, NonGeneric def, bCtor, args) |> reorder)
                                 | None -> Empty
                             let b = 
                                 if meth.IsStatic then
@@ -513,7 +513,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let c =
                                 match baseCls with
                                 | Some bTyp ->
-                                    ExprStatement <| ChainedCtor(true, This, NonGeneric bTyp, ConstructorInfo.Default(), [])
+                                    ExprStatement <| ChainedCtor(true, None, NonGeneric bTyp, ConstructorInfo.Default(), [])
                                 | _ -> Empty
                             let i =
                                 if hasInit then 

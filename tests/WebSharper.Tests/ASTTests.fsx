@@ -387,25 +387,18 @@ let translate source =
 translate """
 open WebSharper
 
-[<Prototype false>]
-type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
+[<Prototype false; JavaScript>]
+type ResizeArrayProxy<'T> (arr: 'T []) =
 
-    [<Inline "[]">]
     new () =
         ResizeArrayProxy<'T>([||])
 
-    [<Inline "[]">]
-    new (size: int) =
-        ResizeArrayProxy<'T>([||])
-
-    [<Inline>]
-    new (el: seq<'T>) =
-        ResizeArrayProxy<'T>(Seq.toArray el)
+    member this.Arr = arr
 
 [<JavaScript>]
 module M =
     let f () =
-        ResizeArrayProxy([3])
+        ResizeArrayProxy()
 
     """
 

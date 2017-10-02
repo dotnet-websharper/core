@@ -508,6 +508,16 @@ type Substitution(args, ?thisObj) =
             let n = i.Clone()
             refresh.Add(i, n)
             n
+
+type TransformBaseCall(f) =
+    inherit Transformer()
+
+    override this.TransformApplication(a, b, c, d) =
+        match a with
+        | Base ->
+            f b
+        | _ ->
+            base.TransformApplication(a, b, c, d)
    
 type FixThisScope() =
     inherit Transformer()
@@ -536,7 +546,7 @@ type FixThisScope() =
     override this.TransformChainedCtor(a, b, c, d, e) =
         let cc = Id.New()
         chainedCtor <- Some cc 
-        Sequential [ ChainedCtor(a, this.TransformExpression b, c, d, e |> List.map this.TransformExpression); Var cc ] 
+        Sequential [ ChainedCtor(a, b, c, d, e |> List.map this.TransformExpression); Var cc ] 
 
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
