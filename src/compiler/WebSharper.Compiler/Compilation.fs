@@ -962,6 +962,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledStaticMember a (nr : NotResolvedMethod) =
             match nr.Kind with
+            | N.Constructor
             | N.Static -> Static a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
@@ -1073,6 +1074,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 
                 if isError then () else
                 
+                let canHavePrototype = not cls.ForceNoPrototype
                 match strongName, isStatic with
                 | Some sn, Some true ->
                     if namedCls || sn.Contains "." then
@@ -1109,10 +1111,10 @@ type Compilation(meta: Info, ?hasGraph) =
                 | None, Some true ->
                     match m with 
                     | M.Constructor (cDef, nr) ->
-                        if nr.Kind = N.Constructor then
+                        if canHavePrototype && nr.Kind = N.Constructor then
                             constructors.Add (cDef, nr)
                         else
-                        Dict.addToMulti remainingStaticMembers typ m
+                            Dict.addToMulti remainingStaticMembers typ m
                     | _ ->
                         Dict.addToMulti remainingStaticMembers typ m
                 | None, Some false ->
@@ -1184,12 +1186,16 @@ type Compilation(meta: Info, ?hasGraph) =
             match m with
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember la nr
-                if nr.Compiled && Option.isNone res.StaticConstructor then
-                    let isPure =
-                        nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
-                else
-                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res nr.Body))
+                let body =
+                    match nr.Body with
+                    | Function(cargs, cbody) ->
+                        let o = Id.New "o"
+                        let b = 
+                            Let(o, Object[], Sequential [ StatementExpr (ReplaceThisWithVar(o).TransformStatement(cbody), None); Var o ])
+                        Function(cargs, Return b)
+                    | _ -> 
+                        failwith "Expecting a function as compiled form of constructor"
+                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res body))
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField la, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->

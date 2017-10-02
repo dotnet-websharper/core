@@ -41,12 +41,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     addresses.Add(Address.Global(), glob)
     addresses.Add(Address.Lib "window", glob)
 
+    // TODO: only add when necessary
     declarations.Add <| 
-        //declare namespace global {
-        //  interface Error {
-        //    inner: string;
-        //  }
-        //}
         Declare (
             Namespace ("global", 
                 [ 

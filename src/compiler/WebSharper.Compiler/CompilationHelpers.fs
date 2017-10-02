@@ -587,7 +587,12 @@ type ReplaceThisWithVar(v) =
     inherit Transformer()
 
     override this.TransformThis () = Var v
-    override this.TransformBase () = failwith "Base call is not allowed inside inlined member"
+    
+    override this.TransformBase () =
+        failwith "Base call is not allowed inside inlined member on constructor compiled to static"
+    
+    override this.TransformChainedCtor(a, b, c, d, e) =
+        base.TransformChainedCtor(a, (match b with None -> Some v | _ -> b), c, d, e)
 
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
