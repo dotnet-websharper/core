@@ -420,7 +420,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let chained =
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
-                                    ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
+                                    match baseCls with
+                                    | Some _ ->
+                                       ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
+                                    | _ -> Empty
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
                                     ExprStatement (ChainedCtor(false, None, NonGeneric def, bCtor, args) |> reorder)
                                 | None -> Empty

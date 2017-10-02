@@ -425,15 +425,18 @@ type CompilationError =
         | NameConflict (msg, a) -> sprintf "%s at JavaScript address: '%s'" msg a
         | TypeNotFound typ -> sprintf "Type not found in JavaScript compilation: %s" typ.Value.FullName
         | MethodNotFound (typ, meth, candidates) ->
-            sprintf "Method not found in JavaScript compilation: %s, Candidates: %s" 
+            sprintf "Method not found in JavaScript compilation: %s.%s, Candidates: %s" 
+                typ.Value.FullName 
                 (string meth.Value) 
                 (candidates |> Seq.map (fun m -> string m.Value) |> String.concat ", ")
         | MethodNameNotFound (typ, meth, candidates) ->
-            sprintf "Method name not found in JavaScript compilation: %s, Members: %s" 
+            sprintf "Method name not found in JavaScript compilation: %s.%s, Members: %s" 
+                typ.Value.FullName 
                 (string meth.Value) 
                 (candidates |> String.concat ", ")
         | ConstructorNotFound (typ, ctor, candidates) ->
-            sprintf "Constructor not found in JavaScript compilation: %s, Candidates: %s" 
+            sprintf "Constructor not found in JavaScript compilation: new %s(%s), Candidates: %s" 
+                typ.Value.FullName 
                 (string ctor.Value) 
                 (candidates |> Seq.map (fun c -> string c.Value) |> String.concat ", ")
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
