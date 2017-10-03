@@ -99,10 +99,10 @@ type internal MulticastDelegateProxy =
     member this.Equals(x: obj) = X<bool>
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
-    static member op_Equality(a: Delegate, b: Delegate) = X<bool>
+    static member op_Equality(a: MulticastDelegate, b: MulticastDelegate) = X<bool>
 
     [<Inline "!$wsruntime.DelegateEqual($0, $1)">]
-    static member op_Inequality(a: Delegate, b: Delegate) = X<bool>
+    static member op_Inequality(a: MulticastDelegate, b: MulticastDelegate) = X<bool>
 
     [<Inline>]
     member this.GetHashCode() = hash this
