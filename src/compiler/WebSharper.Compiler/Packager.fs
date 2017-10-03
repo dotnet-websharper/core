@@ -32,25 +32,50 @@ module M = WebSharper.Core.Metadata
 module R = WebSharper.Core.Resources
 module I = IgnoreSourcePos
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) isBundle =
+let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) moduleName isBundle =
     let addresses = Dictionary()
+    let directives = ResizeArray()
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
     let glob = Var (Id.Global())
     addresses.Add(Address.Global(), glob)
     addresses.Add(Address.Lib "window", glob)
-
-    // TODO: only add when necessary
-    declarations.Add <| 
-        Declare (
-            Namespace ("global", 
-                [ 
-                    Interface ("Error", [], [ ClassProperty (false, "inner")]) 
-                    Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf")]) 
-                ]))
                                                             
     let strId name = Id.New(name, mut = false, str = true)
+
+    let isModule = Option.isSome moduleName
+
+    // TODO: only add what is necessary
+    let libExtensions =
+        [ 
+            Interface ("Error", [], [ ClassProperty (false, "inner")]) 
+            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf")]) 
+            Interface ("Math", [], [ ClassProperty (false, "trunc")]) 
+        ]
+    if isModule then
+        declarations.Add <| Declare (Namespace ("global", libExtensions))
+    else
+        libExtensions |> List.iter declarations.Add 
+
+    let importJS js =
+        if isModule then
+            declarations.Add <| ImportAll (None, js)
+        glob
+
+    let importTS ts =
+        if isModule then
+            let var = Id.New (ts |> String.filter System.Char.IsUpper)
+            declarations.Add <| ImportAll (Some var, "./" + ts)
+            Var var
+        else
+            directives.Add <| XmlComment  (sprintf "<reference path=\"%s.ts\" />" ts)
+            Undefined
+
+    match moduleName with
+    | Some n ->
+        directives.Add <| XmlComment (sprintf "<amd-module name=\"%s\"/>" n)
+    | _ -> ()
 
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
@@ -64,15 +89,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | JavaScriptFile "" ->
                         glob
                     | JavaScriptFile "Runtime" ->
-                        declarations.Add <| ImportAll (None, "./WebSharper.Core.JavaScript/Runtime.js")
-                        glob
+                        importJS "./WebSharper.Core.JavaScript/Runtime.js"
                     | JavaScriptFile js ->
-                        declarations.Add <| ImportAll (None, js + ".js")
-                        glob
+                        importJS (js + ".js")
                     | WebSharperModule ts ->
-                        let var = Id.New (ts |> String.filter System.Char.IsUpper)
-                        declarations.Add <| ImportAll (Some var, "./" + ts)
-                        Var var
+                        importTS ts
                     | CurrentModule -> failwith "empty local address"
                 | [ name ] ->
                     match address.Module with
@@ -92,7 +113,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             Var var
                     | WebSharperModule _ ->
                         let parent = getAddress { address with Address = Hashed [] }
-                        ItemGet(parent, Value (String name), Pure)
+                        if isModule then
+                            ItemGet(parent, Value (String name), Pure)
+                        else
+                            getAddress { address with Module = CurrentModule }
                 | name :: r ->
                     let parent = getAddress { address with Address = Hashed r }
                     ItemGet(parent, Value (String name), Pure)
@@ -116,6 +140,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let commonLength s1 s2 =
         Seq.zip s1 s2 |> Seq.takeWhile (fun (a, b) -> a = b) |> Seq.length
 
+    let export x =
+        if isModule || currentNamespace.Count > 0 then Export x else x
+
     let closeNamespace() =
         match currentNamespaceContents with
         | contents :: (parentContents :: _ as pc) ->
@@ -123,7 +150,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let name = currentNamespace.[l]
             currentNamespace.RemoveAt(l)
             currentNamespaceContents <- pc
-            parentContents.Add(Export (Namespace (name, List.ofSeq contents)))
+            parentContents.Add(export (Namespace (name, List.ofSeq contents)))
         | _  -> ()
 
     let toNamespace a =
@@ -160,11 +187,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             match expr with
             | Function(args, body) -> FuncDeclaration(i, args, body)
             | _ -> VarDeclaration (i, expr)
-        addStatement <| Export exp
+        addStatement <| export exp
 
     let packageByName (a: Address) f =
         let n = toNamespaceWithName a
-        addStatement <| Export (f n)
+        addStatement <| export (f n)
 
     let packageCctor a expr =
         let n = toNamespaceWithName a
@@ -173,7 +200,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let c = Id.New(n, str = true)
             let removeSelf = ExprStatement (VarSet (c, ItemGet(glob, Value (String "ignore"), Pure)))    
             let expr = Function([], Block [removeSelf; body])
-            addStatement <| Export (VarDeclaration(c, expr))   
+            addStatement <| export (VarDeclaration(c, expr))   
         | _ ->
             failwithf "Static constructor must be a function"
             
@@ -330,7 +357,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     if List.isEmpty trStatements then 
         [] 
     else
-        List.ofSeq declarations @ trStatements 
+        List.ofSeq directives @ List.ofSeq declarations @ trStatements 
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with

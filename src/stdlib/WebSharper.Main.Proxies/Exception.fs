@@ -23,7 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<JavaScript>]
-module Error =
+module Exception =
     let withInner (msg, inner) =
         let e = Error(msg)
         e?inner <- inner
@@ -39,7 +39,7 @@ type private ExceptionProxy =
     new (message: string) = { }
 
     [<Inline>]
-    static member CtorProxy (message: string, inner: exn) = Error.withInner (message, inner)
+    static member CtorProxy (message: string, inner: exn) = Exception.withInner (message, inner)
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
     member this.InnerException with [<Inline "$this.inner">] get () = X<System.Exception>

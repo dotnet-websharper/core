@@ -31,6 +31,4 @@ type WebsiteEntryPoint() =
 
 [<assembly: Website(typeof<WebsiteEntryPoint>)>]
 [<assembly: Require(typeof<Dependencies.TwitterBootstrap>)>]
-[<assembly: Require(typeof<Dependencies.DummyRequire>)>]
-[<assembly: System.Web.UI.WebResource("dummyrequire.js", "text/javascript")>]
 do ()

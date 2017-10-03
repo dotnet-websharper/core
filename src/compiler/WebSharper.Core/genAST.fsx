@@ -294,6 +294,8 @@ let StatementDefs =
             "TypeScript - interface { ... }"
         "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ],
             "TypeScript - type or import alias"
+        "XmlComment", [ Str, "xml"],
+            "TypeScript - triple-slash directive"
     ]
 
 let binaryOps =

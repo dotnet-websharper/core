@@ -206,9 +206,12 @@ let Conditional layout pred =
     if pred then layout else Empty
 
 let BlockLayout items =
-    Token "{"
-    -- ListLayout (fun a b -> a -- b) Indent items
-    -- Token "}"
+    if List.isEmpty items then 
+        Token "{}" 
+    else
+        Token "{"
+        -- ListLayout (fun a b -> a -- b) Indent items
+        -- Token "}"
 
 let inline Label (l: S.Label) =
     Word l
@@ -335,7 +338,11 @@ and Statement canBeEmpty statement =
     | S.StatementPos (x, pos) -> 
         SourceMapping pos ++ Statement canBeEmpty x ++ SourceMappingEnd pos
     | S.StatementComment (x, c) ->
-        Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
+        match x with
+        | S.Empty when c.StartsWith "<" && c.EndsWith "/>" ->
+            Word ("/// " + c)   
+        | _ ->
+            Statement canBeEmpty x ++ Word ("/*" + c +  "*/")
     | S.Block ss ->
         BlockLayout (List.map (Statement true) ss)
     | S.Break label ->

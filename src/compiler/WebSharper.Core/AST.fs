@@ -264,6 +264,8 @@ and Statement =
     | Interface of Name:string * Extending:list<Expression> * Members:list<Statement>
     /// TypeScript - type or import alias
     | Alias of Identifier:Id * IsType:bool * Expression:Expression
+    /// TypeScript - triple-slash directive
+    | XmlComment of Xml:string
 /// Base class for code transformers.
 /// Provides virtual methods for transforming each AST case separately.
 type Transformer() =
@@ -541,6 +543,9 @@ type Transformer() =
     /// TypeScript - type or import alias
     abstract TransformAlias : Identifier:Id * IsType:bool * Expression:Expression -> Statement
     override this.TransformAlias (a, b, c) = Alias (this.TransformId a, b, this.TransformExpression c)
+    /// TypeScript - triple-slash directive
+    abstract TransformXmlComment : Xml:string -> Statement
+    override this.TransformXmlComment a = XmlComment (a)
     abstract TransformExpression : Expression -> Expression
     override this.TransformExpression x =
         match x with
@@ -637,6 +642,7 @@ type Transformer() =
         | ClassProperty (a, b) -> this.TransformClassProperty (a, b)
         | Interface (a, b, c) -> this.TransformInterface (a, b, c)
         | Alias (a, b, c) -> this.TransformAlias (a, b, c)
+        | XmlComment a -> this.TransformXmlComment a
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
     override this.TransformId x = x
@@ -913,6 +919,9 @@ type Visitor() =
     /// TypeScript - type or import alias
     abstract VisitAlias : Identifier:Id * IsType:bool * Expression:Expression -> unit
     override this.VisitAlias (a, b, c) = this.VisitId a; (); this.VisitExpression c
+    /// TypeScript - triple-slash directive
+    abstract VisitXmlComment : Xml:string -> unit
+    override this.VisitXmlComment a = (())
     abstract VisitExpression : Expression -> unit
     override this.VisitExpression x =
         match x with
@@ -1009,6 +1018,7 @@ type Visitor() =
         | ClassProperty (a, b) -> this.VisitClassProperty (a, b)
         | Interface (a, b, c) -> this.VisitInterface (a, b, c)
         | Alias (a, b, c) -> this.VisitAlias (a, b, c)
+        | XmlComment a -> this.VisitXmlComment a
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
     override this.VisitId x = ()
@@ -1111,6 +1121,7 @@ module IgnoreSourcePos =
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b) -> Some (a, b) | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
     let rec PrintExpression x =
@@ -1207,6 +1218,7 @@ module Debug =
         | ClassProperty (a, b) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ")"
         | Interface (a, b, c) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
         | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + PrintObject b + ", " + PrintExpression c + ")"
+        | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"
 // }}
 
     let PrintExpressionWithPos x =

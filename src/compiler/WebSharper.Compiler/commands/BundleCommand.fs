@@ -87,7 +87,7 @@ module BundleCommand =
 
         let loader = Loader.Create resolver ignore
 
-        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, config.SourceMap, config.DeadCodeElimination, ?appConfig = config.AppConfigFile)
+        let bundle = Bundle((config.AssemblyPaths |> List.map loader.LoadFile), resolver, config.SourceMap, config.DeadCodeElimination, config.FileName, ?appConfig = config.AppConfigFile)
         System.IO.Directory.CreateDirectory config.OutputDirectory |> ignore
         let write (c: Content) (ext: string) =
             c.WriteFile(Path.Combine(config.OutputDirectory, config.FileName + ext))

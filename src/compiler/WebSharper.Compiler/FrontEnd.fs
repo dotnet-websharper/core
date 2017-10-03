@@ -123,7 +123,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         | _ -> []
 
     let pkg = 
-        Packager.packageAssembly refMeta current resources false
+        Packager.packageAssembly refMeta current resources None false
 
     TimedStage "Packaging assembly"
     

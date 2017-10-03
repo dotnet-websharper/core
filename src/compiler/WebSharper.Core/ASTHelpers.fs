@@ -267,7 +267,7 @@ let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|N
     else NonNumericType
 
 let MathTrunc expr =
-    Application(ItemGet(Cast (Var TSType.Any, Global ["Math"]), Value (String "trunc"), Pure), [expr], Pure, Some 1)
+    Application(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
 
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     match fromTyp.Value.FullName, toTyp.Value.FullName with

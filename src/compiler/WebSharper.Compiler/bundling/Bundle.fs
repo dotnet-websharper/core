@@ -45,7 +45,7 @@ module BundleUtility =
         |> W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact
 
 [<Sealed>]
-type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfig: string) =
+type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleName, ?appConfig: string) =
 
     let metas =
         set
@@ -143,7 +143,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
         | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             
             let pkg =   
-                Packager.packageAssembly current current resources true
+                Packager.packageAssembly current current resources (Some moduleName) true
 
             let pref =
                 if mode = BundleMode.JavaScript then 

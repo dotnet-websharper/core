@@ -31,8 +31,6 @@ open System.Collections.Generic
 
 type P = WebSharper.Core.JavaScript.Preferences
 
-let defaultNames = Set [ "window" ] 
-
 type Environment =
     {
         Preference : WebSharper.Core.JavaScript.Preferences
@@ -49,7 +47,7 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = defaultNames
+            ScopeNames = Set [ "window" ] 
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "window" ] 
             ScopeVars = ResizeArray()
@@ -502,6 +500,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.Class(J.Id.New a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
     | Interface (a, b, c) ->
         J.Interface(J.Id.New a, List.map trE b, List.map (transformMember env) c)
+    | XmlComment a ->
+        J.StatementComment (J.Empty, a)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 
@@ -543,5 +543,5 @@ let transformProgram pref statements =
     statements |> List.iter cnames.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
-    J.Ignore (J.Constant (J.String "use strict")) ::
+    //J.Ignore (J.Constant (J.String "use strict")) ::
     (statements |> List.map (transformStatement env) |> flattenJS)
