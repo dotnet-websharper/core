@@ -20,6 +20,8 @@
 
 namespace WebSharper.Web
 
+open System
+
 /// Manages user sessions in a web application.
 type IUserSession =
 
@@ -30,8 +32,12 @@ type IUserSession =
     abstract GetLoggedInUser : unit -> Async<option<string>>
 
     /// Log in the given user.
-    /// Set `persistent` to true to persist the login across browser sessions.
+    /// Set `persistent` to true to persist the login indefinitely across browser sessions.
     abstract LoginUser : string * ?persistent: bool -> Async<unit>
+
+    /// Log in the given user.
+    /// Persist the login across browser sessions for the given amount of time.
+    abstract LoginUser : string * duration: TimeSpan -> Async<unit>
 
     /// Log out the current user.
     abstract Logout : unit -> Async<unit>
@@ -46,7 +52,8 @@ module FSharpIUserSessionExtension =
             { new IUserSession with
                 member this.IsAvailable = false
                 member this.GetLoggedInUser() = async { return None }
-                member this.LoginUser(name, ?persistent) = async { return () }
+                member this.LoginUser(name: string, ?persistent: bool) = async { return () }
+                member this.LoginUser(name: string, duration: TimeSpan) = async { return () }
                 member this.Logout() = async { return () }
             }
 
@@ -65,8 +72,13 @@ type IUserSessionExtensions =
         |> Async.StartAsTask
 
     [<Extension>]
-    static member LoginUserAsync(this: IUserSession, name, [<Optional>] persistent) =
-        this.LoginUser(name, persistent) 
+    static member LoginUserAsync(this: IUserSession, name, [<Optional>] persistent: bool) =
+        this.LoginUser(name, persistent)
+        |> Async.StartAsTask :> System.Threading.Tasks.Task
+
+    [<Extension>]
+    static member LoginUserAsync(this: IUserSession, name, duration: TimeSpan) =
+        this.LoginUser(name, duration)
         |> Async.StartAsTask :> System.Threading.Tasks.Task
 
     [<Extension>]
