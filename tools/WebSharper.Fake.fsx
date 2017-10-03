@@ -4,8 +4,8 @@
 Uses the following environment variables (some of which are overridden by WSTargets options):
   * BUILD_NUMBER: the build number to use (last component of the version).
     Automatically set by Jenkins.
-  * PushOnlyAllowedChanges: whether to check that we're only committing paket.lock.
-    Default: true
+  * BuildBranch: the name of the branch to switch to before building, and to push to on success.
+    Default: current branch
   * PushRemote: the name of the git remote to push to
     Default: origin
   * NuGetPublishUrl: the URL of the NuGet server
@@ -129,8 +129,8 @@ type Args =
         Attributes : seq<Attribute>
         StrongName : bool
         BaseBranch : string
-        PushByMergingOnto : option<string>
-        PushOnlyAllowedChanges : bool
+        WorkBranch : option<string>
+        MergeMaster : bool
         PushRemote : string
     }
 
@@ -162,6 +162,9 @@ let shell program cmd =
     |> function
         | 0 -> ()
         | n -> failwithf "%s %s failed with code %i" program cmd n
+
+let git cmd =
+    Printf.kprintf (Git.CommandHelper.directRunGitCommandAndFail ".") cmd
 
 let MakeTargets (args: Args) =
 
@@ -218,43 +221,23 @@ let MakeTargets (args: Args) =
             }
 
     Target "WS-Checkout" <| fun () ->
-        match args.PushByMergingOnto with
+        match args.WorkBranch with
         | None -> ()
         | Some branch ->
-            try Git.Branches.checkoutBranch "." branch
-            with _ -> Git.Branches.checkoutNewBranch "." args.BaseBranch branch
-            Git.Merge.merge "." "" args.BaseBranch
+            try git "checkout %s" branch
+            with e ->
+                try git "checkout -b %s" branch
+                with _ -> raise e
+            if args.MergeMaster then
+                git "merge --no-ff --no-commit %s" args.BaseBranch
 
     Target "WS-Commit" <| fun () ->
-        let changes =
-            Git.FileStatus.getChangedFilesInWorkingCopy "." "HEAD"
-            |> Seq.map snd
-            |> Set
-        let allowedChanges = Set ["paket.lock"]
-        let badChanges = changes - allowedChanges
-        if args.PushOnlyAllowedChanges && not (Set.isEmpty badChanges) then
-            let msg =
-                "[GIT] Not committing because these files have changed:\n    * "
-                + String.concat "\n    * " badChanges
-            raise (BuildException(msg, []))
-        else
-            let tag = "v" + args.Version.AsString
-            if Set.isEmpty changes then
-                trace "[GIT] OK -- no changes"
-            else
-                match args.PushByMergingOnto with
-                | None ->
-                    tracefn "[GIT] OK -- committing %s" (String.concat ", " changes)
-                    Git.Staging.StageAll "."
-                    Git.Commit.Commit "." ("[CI] " + tag)
-                | Some branch ->
-                    tracefn "[GIT] OK -- merging onto %s: %s" branch (String.concat ", " changes)
-                    Git.Staging.StageAll "."
-                    Git.Commit.Commit "." ("[CI] " + tag)
-                Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
-                    
-            Git.CommandHelper.directRunGitCommand "." ("tag " + tag) |> ignore
-            Git.Branches.pushTag "." args.PushRemote tag
+        let tag = "v" + args.Version.AsString
+        git "add ."
+        git "commit --allow-empty -m \"[CI] %s\"" tag
+        git "tag %s" tag
+        git "push %s %s" args.PushRemote (Git.Information.getBranchName ".")
+        git "push %s %s" args.PushRemote tag
 
     Target "WS-Publish" <| fun () ->
         match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
@@ -305,15 +288,20 @@ let MakeTargets (args: Args) =
 
 type WSTargets with
 
-    static member Default (version) =
+    static member Default (version: Paket.SemVerInfo) =
+        let buildBranch = environVarOrNone "BuildBranch"
+        let version =
+            match buildBranch with
+            | Some b -> Paket.SemVer.Parse (version.AsString + "-" + b)
+            | None -> version
         {
             Version = version
             BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."
-            PushByMergingOnto = Some "ci"
-            PushOnlyAllowedChanges = environVarOrDefault "PushOnlyAllowedChanges" "true" |> bool.Parse
+            WorkBranch = buildBranch
+            MergeMaster = buildBranch = Some "staging"
             PushRemote = environVarOrDefault "PushRemote" "origin"
         }
 
