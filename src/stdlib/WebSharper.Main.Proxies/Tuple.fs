@@ -250,3 +250,8 @@ type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7, 'TRest>
     member this.Rest 
         with [<Inline "$0.slice(7)" >] get() = X<'TRest>
         //and  [<Inline "Array.prototype.splice.apply($0, [7, $0.length - 7].concat($v))" >] set (v: 'TRest) = ()
+
+[<Proxy("System.TupleExtensions, System.ValueTuple")>]
+[<Macro(typeof<WebSharper.Core.Macros.TupleExtensions>)>]
+type internal TupleExtensionsProxy =
+    class end

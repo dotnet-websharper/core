@@ -891,12 +891,14 @@ type RoslynTransformer(env: Environment) =
             | NewVar(nv, _) ->
                 NewVar(nv, v) 
             | NewArray ds ->
+                let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
                 let dvalue =
-                    if rTyp.IsTupleType then
+                    if rTyp.IsTupleType || t.Entity.Value.FullName.StartsWith "System.Tuple" then
                         v 
                     else
                         // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
                         let len = ds.Length
+                        //env.SemanticModel.LookupSymbols(value.
                         let decM =
                             rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
                                 | :? IMethodSymbol as m ->
@@ -909,7 +911,6 @@ type RoslynTransformer(env: Environment) =
                         match decM with
                         | Some decM ->
                             let vars = List.init len (fun _ -> Id.New(mut = false))
-                            let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
                             Sequential [
                                 for v in vars do yield NewVar(v, Undefined)
                                 yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
