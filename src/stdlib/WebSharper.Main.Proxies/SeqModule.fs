@@ -32,6 +32,9 @@ open WebSharper.CollectionInternals
 let safeDispose (x: System.IDisposable) =
     if x <> null then x.Dispose()
 
+let seqEmpty() =
+    failwith "The input sequence was empty."
+
 [<Name "allPairs">]
 let AllPairs (source1: seq<_>) (source2: seq<_>) =
     let cached = Seq.cache source2
@@ -70,7 +73,7 @@ let Average<'T> (s: seq<'T>) : 'T =
             (0, 0.)
             s
     if count = 0 then
-        invalidArg "source" "The input sequence was empty."
+        seqEmpty()
     else
         As<'T> (sum / As<float> count)
 
@@ -82,7 +85,7 @@ let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
             (0, 0.)
             s
     if count = 0 then
-        invalidArg "source" "The input sequence was empty."
+        seqEmpty()
     else
         As<'U> (sum / As<float> count)
 
@@ -386,19 +389,57 @@ let Map2 (f: 'T -> 'U -> 'V) (s1: seq<'T>) (s2: seq<'U>) : seq<'V> =
 
 [<Name "maxBy">]
 let MaxBy (f: 'T -> 'U) (s: seq<'T>) : 'T =
-    Seq.reduce (fun x y -> if f x >= f y then x else y) s
+    use e = Enumerator.Get s
+    if not (e.MoveNext()) then
+        seqEmpty()
+    let mutable m = e.Current
+    let mutable fm = f m
+    while e.MoveNext() do
+        let x = e.Current
+        let fx = f x
+        if fx > fm then
+            m <- x
+            fm <- fx
+    m
 
 [<Name "minBy">]
 let MinBy (f: 'T -> 'U) (s: seq<'T>) : 'T =
-    Seq.reduce (fun x y -> if f x <= f y then x else y) s
+    use e = Enumerator.Get s
+    if not (e.MoveNext()) then
+        seqEmpty()
+    let mutable m = e.Current
+    let mutable fm = f m
+    while e.MoveNext() do
+        let x = e.Current
+        let fx = f x
+        if fx < fm then
+            m <- x
+            fm <- fx
+    m
 
 [<Name "max">]
 let Max (s: seq<'T>) : 'T =
-    Seq.reduce (fun x y -> if x >= y then x else y) s
+    use e = Enumerator.Get s
+    if not (e.MoveNext()) then
+        seqEmpty()
+    let mutable m = e.Current
+    while e.MoveNext() do
+        let x = e.Current
+        if x > m then
+            m <- x
+    m
 
 [<Name "min">]
 let Min (s: seq<'T>) : 'T =
-    Seq.reduce (fun x y -> if x <= y then x else y) s
+    use e = Enumerator.Get s
+    if not (e.MoveNext()) then
+        seqEmpty()
+    let mutable m = e.Current
+    while e.MoveNext() do
+        let x = e.Current
+        if x < m then
+            m <- x
+    m
 
 [<Name "nth">]
 let Get index (s: seq<'T>) =
@@ -442,7 +483,7 @@ let ReadOnly (s: seq<'T>) : seq<'T> =
 let Reduce (f: 'T -> 'T -> 'T) (source: seq<'T>) : 'T =
     use e = Enumerator.Get source
     if not (e.MoveNext()) then
-        failwith "The input sequence was empty"
+        seqEmpty()
     let mutable r = e.Current
     while e.MoveNext() do
         r <- f r e.Current

@@ -40,6 +40,12 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
             let principal = GenericPrincipal(FormsIdentity(ticket), [||])
             ctx.User <- principal
 
+    let mkCookie (user: string) (duration: option<TimeSpan>) =
+        let cookie = FormsAuthentication.GetAuthCookie(user, duration.IsSome)
+        if duration.IsSome then cookie.Expires <- DateTime.UtcNow.Add(duration.Value)
+        ctx.Response.SetCookie cookie
+        refresh cookie
+
     do  // Using `try ... with` because `FormsAuthentication.Decrypt`
         // throws an exception when there is a cookie but its format is invalid
         try refresh ctx.Request.Cookies.[FormsAuthentication.FormsCookieName]
@@ -59,11 +65,18 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
                     else return None
             }
 
-        member this.LoginUser(user, ?persistent) =
+        member this.LoginUser(user: string, ?persistent: bool) =
             async {
-                let cookie = FormsAuthentication.GetAuthCookie(user, defaultArg persistent false)
-                ctx.Response.SetCookie cookie
-                return refresh cookie
+                let durationOpt =
+                    match persistent with
+                    | Some true -> Some (TimeSpan.FromDays(1000.*365.))
+                    | _ -> None
+                mkCookie user durationOpt
+            }
+
+        member this.LoginUser(user: string, duration: TimeSpan) =
+            async {
+                mkCookie user (Some duration)
             }
 
         member this.Logout() =

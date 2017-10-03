@@ -352,6 +352,12 @@ let Tests =
 
         Test "Array.minBy" {
             equal (Array.minBy id [| 4; 5; 3; 5; 4 |]) 3
+            let count = ref 0
+            let f x =
+                incr count
+                fst x            
+            equal (Array.minBy f [|(5, 2); (3, 2); (3, 1); (4, 1)|]) (3, 2)
+            equal !count 4
         }
 
         Test "Array.ofList" {

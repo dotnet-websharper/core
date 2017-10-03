@@ -50,6 +50,22 @@ namespace WebSharper.CSharp.Tests
             Equal(r.ToArray(), new[] { 0, 3, 0, 3 });
         }
 
+        [Test]
+        public void Conversions()
+        {
+            var t = (0, "hello").ToTuple();
+            Equal(t.Item1, 0);
+            Equal(t.Item2, "hello");
+            var (x, y) = t; // deconstructing a System.Tuple
+            Equal(x, 0);
+            Equal(y, "hello");
+            var (x2, _) = t;
+            Equal(x2, 0);
+            var vt = t.ToValueTuple();
+            Equal(vt.Item1, 0);
+            Equal(vt.Item2, "hello");
+        }
+
         // Mutable structs are not yet supported
 
         //[Test]

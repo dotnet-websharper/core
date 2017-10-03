@@ -376,6 +376,12 @@ let Tests =
 
         Test "Seq.minBy" {
             equal (Seq.minBy (fun x -> x + 1) [4; 5; 3; 5; 4]) 3
+            let count = ref 0
+            let f x =
+                incr count
+                fst x            
+            equal (Seq.minBy f [(5, 2); (3, 2); (3, 1); (4, 1)]) (3, 2)
+            equal !count 4
         }
 
         Test "Seq.nth" {

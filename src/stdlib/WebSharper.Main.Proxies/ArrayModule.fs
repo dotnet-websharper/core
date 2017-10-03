@@ -289,19 +289,56 @@ let MapFold<'T,'S,'R> f zero arr = ArrayMapFold<'T, 'S, 'R> f zero arr
 [<Inline>]
 let MapFoldBack f arr zero = ArrayMapFoldBack f arr zero
 
+let private nonEmpty (arr: _ []) =
+    if Array.length arr = 0 then
+        failwith "The input array was empty."
+
 [<Name "max">]
-let Max x = Array.reduce max x
+let Max arr =
+    nonEmpty arr
+    let mutable m = arr.JS.[0]
+    for i = 1 to Array.length arr - 1 do
+        let x = arr.JS.[i]
+        if x > m then
+            m <- x
+    m
 
 [<Name "maxBy">]
 let MaxBy f arr =
-    Array.reduce (fun x y -> if f x > f y then x else y) arr
+    nonEmpty arr
+    let mutable m = arr.JS.[0]
+    let mutable fm = f m
+    for i = 1 to Array.length arr - 1 do
+        let x = arr.JS.[i]
+        let fx = f x
+        if fx > fm then
+            m <- x
+            fm <- fx
+    m
 
 [<Name "min">]
-let Min x = Array.reduce min x
+let Min arr =
+    nonEmpty arr
+    let mutable m = arr.JS.[0]
+    for i = 1 to Array.length arr - 1 do
+        let x = arr.JS.[i]
+        if x < m then
+            m <- x
+    m
+
 
 [<Name "minBy">]
 let MinBy f arr =
-    Array.reduce (fun x y -> if f x < f y then x else y) arr
+    nonEmpty arr
+    let mutable m = arr.JS.[0]
+    let mutable fm = f m
+    for i = 1 to Array.length arr - 1 do
+        let x = arr.JS.[i]
+        let fx = f x
+        if fx < fm then
+            m <- x
+            fm <- fx
+    m
 
 [<Name "ofList">]
 let OfList<'T> (xs: list<'T>) =
@@ -348,10 +385,6 @@ let Pick f (arr: _ []) =
     match Array.tryPick f arr with
     | Some x -> x
     | None   -> failwith "KeyNotFoundException"
-
-let private nonEmpty (arr: _ []) =
-    if Array.length arr = 0 then
-        failwith "The input array was empty."
 
 [<Name "reduce">]
 let Reduce f (arr: _ []) =

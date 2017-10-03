@@ -1295,3 +1295,26 @@ type StringFormat() =
             
             | _ -> MacroFallback
         | _ -> MacroError "proxy is for System.String.Format"
+
+[<Sealed>]
+type TupleExtensions() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        match c.Method.Entity.Value.MethodName with
+        | "Deconstruct" ->
+            match c.Arguments with
+            | t :: args ->
+                let v = Id.New "t"
+                let writeOuts =
+                    args |> List.mapi (fun i a ->
+                        Application(ItemGet(a, cString "set", Pure), [ ItemGet(Var v, cInt i, Pure) ], NonPure, Some 1)
+                    ) |> Sequential
+                MacroOk <| Let (v, t, writeOuts)
+            | _ -> MacroError "Expecting a tuple argument for System.TupleExtensions.Deconstruct" 
+        | "ToTuple"
+        | "ToValueTuple" ->
+            match c.Arguments with
+            | [ x ] -> MacroOk x
+            | _ -> MacroError "Expecting only a this argument for System.TupleExtensions.ToTuple/ToValueTuple"
+        | n ->  MacroError ("Unrecognized method of System.TupleExtensions: " + n)
