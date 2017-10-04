@@ -333,7 +333,7 @@ type BaseResource(kind: Kind) as this =
         member this.GetImports() = 
             let getPath spec =
                 match tryFindWebResource self spec with 
-                | Some f -> "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
+                | Some f -> "./" + this.GetLocalName() + "/" + f
                 | _ -> spec
             
             match kind with

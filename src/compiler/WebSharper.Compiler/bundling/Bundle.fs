@@ -79,6 +79,8 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleNam
     let mutable map = None
     let mutable minmap = None
 
+    let unpacked = ResizeArray()
+
     let render (mode: BundleMode) (writer: StringWriter) =
         aR.Wrap <| fun () ->
         use htmlHeadersWriter =
@@ -89,15 +91,6 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleNam
             match mode with
             | BundleMode.MinifiedJavaScript -> false
             | _ -> true
-        let renderWebResource cType (c: string) =
-            match cType, mode with
-            | CT.JavaScript, BundleMode.JavaScript
-            | CT.JavaScript, BundleMode.MinifiedJavaScript ->
-                writer.Write(c)
-                writer.WriteLine(";")
-            | CT.Css, BundleMode.CSS ->
-                writer.WriteLine(c)
-            | _ -> ()
         let getSetting =
             match appConfig with
             | None -> fun _ -> None
@@ -117,8 +110,13 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleNam
                 GetAssemblyRendering = fun _ -> Res.Skip
                 GetSetting = getSetting
                 GetWebResourceRendering = fun ty name ->
-                    let (c, cT) = Utility.ReadWebResource ty name
-                    renderWebResource cT c
+                    let c, cType = Utility.ReadWebResource ty name
+                    match cType, mode with
+                    | CT.JavaScript, BundleMode.JavaScript ->
+                        unpacked.Add (ty.Assembly.GetName().Name + "/" + name, Content.Create (lazy c))                    
+                    | CT.Css, BundleMode.CSS ->
+                        writer.WriteLine(c)
+                    | _ -> ()
                     Res.Skip
                 RenderingCache = null
                 ResourceDependencyCache = null
@@ -189,8 +187,6 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleNam
     let htmlHeaders = content None BundleMode.HtmlHeaders
     let javaScriptHeaders = htmlHeaders.Map(DocWrite)
     let javaScript = content None BundleMode.JavaScript
-    let minifedJavaScript = content None BundleMode.MinifiedJavaScript
-    let typeScript = content None BundleMode.TypeScript // (Some domFix.Value) BundleMode.TypeScript
 
     let mapping =
         if sourceMap then 
@@ -201,20 +197,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, moduleNam
             Some (Content.Create(t))
         else None
 
-    let minmapping =
-        if sourceMap then 
-            let t = 
-                lazy
-                minifedJavaScript.Text |> ignore
-                minmap.Value
-            Some (Content.Create(t))
-        else None
-
     member b.CSS = css
-    member b.HtmlHeaders = htmlHeaders
     member b.JavaScript = javaScript
-    member b.JavaScriptHeaders = javaScriptHeaders
-    member b.MinifiedJavaScript = minifedJavaScript
-    member b.TypeScript = typeScript
     member b.Mapping = mapping
-    member b.MinifiedMapping = minmapping
+    member b.Resources = unpacked :> _ seq

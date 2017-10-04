@@ -25,10 +25,6 @@ namespace WebSharper.Compiler
 type Bundle =
     new : list<Assembly> * AssemblyResolver * sourceMap:bool * dce:bool * moduleName:string * ?appConfig:string -> Bundle
     member CSS : Content
-    member HtmlHeaders : Content
     member JavaScript : Content
-    member JavaScriptHeaders : Content
-    member MinifiedJavaScript : Content
-    member TypeScript : Content
     member Mapping : Content option
-    member MinifiedMapping : Content option
+    member Resources : seq<string * Content>

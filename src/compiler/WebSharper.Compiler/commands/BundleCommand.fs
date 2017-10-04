@@ -94,7 +94,7 @@ module BundleCommand =
         let writeMapped (c: Content) m (ext: string) =
             write c ext
             m |> Option.iter (fun mc ->
-                let mapExt = ext.Replace(".js", ".map")
+                let mapExt = ext.Replace(".ts", ".map")
                 write mc mapExt
                 File.AppendAllLines(
                     Path.Combine(config.OutputDirectory, config.FileName + ext),
@@ -102,12 +102,11 @@ module BundleCommand =
                 )
             )
         write bundle.CSS ".css"
-        write bundle.HtmlHeaders ".head.html"
-        write bundle.JavaScriptHeaders ".head.js"
-        writeMapped bundle.JavaScript bundle.Mapping ".js"
-        writeMapped bundle.MinifiedJavaScript bundle.MinifiedMapping ".min.js"
-        //write bundle.TypeScript ".d.ts"
-        // TODO : correct .d.ts output for bundles (WIG types currenty not included)
+        writeMapped bundle.JavaScript bundle.Mapping ".ts"
+
+        for path, c in bundle.Resources do
+            c.WriteFile(Path.Combine(config.OutputDirectory, path))
+
         C.Ok
 
     let Description =

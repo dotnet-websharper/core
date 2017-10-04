@@ -109,7 +109,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         | _ ->
                             getAddress { address with Address = Hashed [] } |> ignore
                             let var = strId name
-                            declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
+                            if not <| StandardLibNames.Set.Contains name then
+                                declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
                             Var var
                     | WebSharperModule _ ->
                         let parent = getAddress { address with Address = Hashed [] }

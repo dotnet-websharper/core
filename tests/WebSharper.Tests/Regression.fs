@@ -703,10 +703,10 @@ let Tests =
             isTrue (match u3 with Union2Of2 Singleton -> true | _ -> false)
         }
 
-        Test "Do not import missing outside namespaces if not needed" {
-            // this should fail here, and not globally
-            raises (tryDoSomethingButFail()) 
-        }
+        //Test "Do not import missing outside namespaces if not needed" {
+        //    // this should fail here, and not globally
+        //    raises (tryDoSomethingButFail()) 
+        //}
 
         Test "Do not import missing outside namespaces prematurely" {
             JS.Global?OutSideCode <- New [ 
