@@ -462,7 +462,7 @@ let Permute f (l: list<_>) =
 [<Inline>]
 let Pick f (l: list<_>) = Seq.pick f l
 
-[<Inline>]
+[<Name "reduce">]
 let Reduce (f: 'T -> 'T -> 'T) (list: list<'T>) : 'T =
     nonEmpty list
     let mutable r = unsafeHead list
