@@ -11,13 +11,6 @@ using WebSharper.JavaScript;
 
 namespace WebSharper.CSharp.Tests
 {
-    [JavaScript]
-    public static class Extensions
-    {
-        public static FSharpFunc<T, U> ToFSharpFunc<T, U>(this Func<T, U> f)
-            => FSharpFunc<T, U>.FromConverter(WebSharper.JavaScript.Pervasives.As<Converter<T, U>>(f));
-    }
-
     [JavaScript, Test("C#/F# interop tests")]
     public class Interop : TestCategory
     {

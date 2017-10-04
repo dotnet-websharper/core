@@ -1,15 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" TreatAsLocalProperty="Configuration">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{10efc79a-9592-4db2-a033-d29b7c7c917e}</ProjectGuid>
-    <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{F2A71F9B-5D33-465A-A702-920D77279786}</ProjectTypeGuids>
-    <OutputType>Library</OutputType>
-    <Name>WebSharper.SPA.Tests</Name>
+    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <WebSharperProject>Bundle</WebSharperProject>
-    <FSharp40>True</FSharp40>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-    <Tests>True</Tests>
-    <UseIISExpress>true</UseIISExpress>
+    <WebSharperBundleOutputDir>Content</WebSharperBundleOutputDir>
     <TypeScriptToolsVersion>2.5</TypeScriptToolsVersion>
     <TypeScriptTarget>ES5</TypeScriptTarget>
     <TypeScriptJSXEmit>None</TypeScriptJSXEmit>
@@ -26,163 +19,30 @@
     <TypeScriptSourceRoot />
     <!--<CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>-->
   </PropertyGroup>
-  <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
-  <Import Project="$(VSToolsPath)\TypeScript\Microsoft.TypeScript.targets" />
   <ItemGroup>
     <TypeScriptCompile Include="Content\*.ts" />
     <Compile Include="Main.fs" />
-    <Content Include="index.html" />
     <Content Include="Web.config" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj">
-      <Name>WebSharper.Compiler</Name>
-      <Project>{bfb21b61-fda9-4814-a728-7d43038e0b57}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj">
-      <Name>WebSharper.Core.JavaScript</Name>
-      <Project>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj">
-      <Name>WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj">
-      <Name>WebSharper.Web</Name>
-      <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj">
-      <Name>WebSharper.Collections</Name>
-      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj">
-      <Name>WebSharper.Control</Name>
-      <Project>{666977bf-e022-4c8f-b53d-5d294d41010f}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
-      <Name>WebSharper.JavaScript</Name>
-      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj">
-      <Name>WebSharper.JQuery</Name>
-      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj">
-      <Name>WebSharper.CSharp.Tests</Name>
-      <Project>{c78f4ffd-9c51-466b-8e35-99588a419d60}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj">
-      <Name>WebSharper.Html5.Tests</Name>
-      <Project>{3958f5e1-dda2-4a22-bf29-794a25bb14f7}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj">
-      <Name>WebSharper.Sitelets.Tests</Name>
-      <Project>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj">
-      <Name>WebSharper.Tests</Name>
-      <Project>{87d32671-869d-4f33-9f24-380a4070b2dc}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj">
-      <Name>WebSharper.Web.Tests</Name>
-      <Project>{2605322f-851c-4c6a-a204-f4eee9e21252}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
-      <Name>WebSharper.Testing</Name>
-      <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj">
-      <Name>WebSharper.Main</Name>
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
-      <Name>WebSharper.Collections.Tests</Name>
-      <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">
-      <Name>WebSharper.InterfaceGenerator.Tests</Name>
-      <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.Linq" />
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
+    <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />
+    <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
   </ItemGroup>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
-      <ItemGroup>
-        <Reference Include="System.ValueTuple">
-          <HintPath>..\..\packages\fsharp4\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <ProjectExtensions>
-    <VisualStudio>
-      <FlavorProperties Guid="{349c5851-65df-11da-9384-00065b846f21}">
-        <WebProjectProperties>
-          <UseIIS>True</UseIIS>
-          <AutoAssignPort>True</AutoAssignPort>
-          <DevelopmentServerPort>0</DevelopmentServerPort>
-          <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:3146/</IISUrl>
-          <NTLMAuthentication>False</NTLMAuthentication>
-          <UseCustomServer>False</UseCustomServer>
-          <CustomServerUrl>
-          </CustomServerUrl>
-          <SaveServerSettingsInUserFile>False</SaveServerSettingsInUserFile>
-        </WebProjectProperties>
-      </FlavorProperties>
-      <FlavorProperties Guid="{349c5851-65df-11da-9384-00065b846f21}" User="">
-        <WebProjectProperties>
-          <StartPageUrl>
-          </StartPageUrl>
-          <StartAction>CurrentPage</StartAction>
-          <AspNetDebugging>True</AspNetDebugging>
-          <SilverlightDebugging>False</SilverlightDebugging>
-          <NativeDebugging>False</NativeDebugging>
-          <SQLDebugging>False</SQLDebugging>
-          <ExternalProgram>
-          </ExternalProgram>
-          <StartExternalURL>
-          </StartExternalURL>
-          <StartCmdLineArguments>
-          </StartCmdLineArguments>
-          <StartWorkingDirectory>
-          </StartWorkingDirectory>
-          <EnableENC>True</EnableENC>
-          <AlwaysStartWebServerOnDebug>True</AlwaysStartWebServerOnDebug>
-        </WebProjectProperties>
-      </FlavorProperties>
-    </VisualStudio>
-  </ProjectExtensions>
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

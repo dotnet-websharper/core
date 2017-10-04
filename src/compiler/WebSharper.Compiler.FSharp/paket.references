@@ -1,9 +1,4 @@
-﻿System.ValueTuple
-
-group fcs
-    FSharp.Compiler.Service
-    System.Collections.Immutable
-    System.Reflection.Metadata
-
-group fsharp4
-    FSharp.Core
+FSharp.Core
+FSharp.Compiler.Service
+System.Collections.Immutable
+System.Reflection.Metadata

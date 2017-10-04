@@ -49,7 +49,7 @@
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
-	  WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
       ZafirToolPath="$(MSBuildThisFileDirectory)/../tools/ZafirCs.exe"
       TargetType="$(OutputType)"
       NoConfig="true"

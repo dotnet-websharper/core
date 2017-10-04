@@ -4,8 +4,8 @@
 Uses the following environment variables (some of which are overridden by WSTargets options):
   * BUILD_NUMBER: the build number to use (last component of the version).
     Automatically set by Jenkins.
-  * PushOnlyAllowedChanges: whether to check that we're only committing paket.lock.
-    Default: true
+  * BuildBranch: the name of the branch to switch to before building, and to push to on success.
+    Default: current branch
   * PushRemote: the name of the git remote to push to
     Default: origin
   * NuGetPublishUrl: the URL of the NuGet server
@@ -25,12 +25,15 @@ module WebSharper.Fake
 
 #nowarn "211" // Don't warn about nonexistent #I
 #nowarn "20"  // Ignore string result of ==>
-#I "../packages/FAKE/tools"
-#I "../../../../packages/FAKE/tools"
+#I "../packages/build/FAKE/tools"
+#I "../../../../../packages/build/FAKE/tools"
+#I "../packages/build/Paket.Core/lib/net45"
+#I "../packages/build/Chessie/lib/net40"
+#I "../../../../../packages/build/Paket.Core/lib/net45"
+#I "../../../../../packages/build/Chessie/lib/net40"
+#r "Chessie"
+#r "Paket.Core"
 #r "FakeLib"
-#I "../.paket"
-#I "../../../../.paket"
-#r "paket.exe"
 #nowarn "49"
 
 open System
@@ -40,10 +43,13 @@ open Fake.AssemblyInfoFile
 
 let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies"
 
-let private mainGroup = depsFile.GetGroup(Paket.Domain.GroupName "Main")
+let private mainGroupName = Paket.Domain.GroupName "Main"
+let private mainGroup = depsFile.GetGroup mainGroupName
 
 let GetSemVerOf pkgName =
-    match Paket.NuGet.GetVersions true None "." (mainGroup.Sources, Paket.Domain.PackageName pkgName)
+    match Paket.PackageResolver.GetPackageVersionsParameters.ofParams
+            mainGroup.Sources mainGroupName (Paket.Domain.PackageName pkgName)
+        |> Paket.NuGet.GetVersions true None "."
         |> Async.RunSynchronously
         |> List.map fst with
     | [] -> None
@@ -100,15 +106,31 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     ) "%i.%i.%i.%s%s" baseVersion.Major baseVersion.Minor patch build
         (match baseVersion.PreRelease with Some r -> "-" + r.Origin | None -> "")
 
+type BuildMode =
+    | Debug
+    | Release
+
+    override this.ToString() =
+        match this with
+        | Debug -> "Debug"
+        | Release -> "Release"
+
+type BuildAction =
+    | Projects of seq<string>
+    | Custom of (BuildMode -> unit)
+
+    static member Solution s =
+        BuildAction.Projects (!!s)
+
 type Args =
     {
         Version : Paket.SemVerInfo
-        SolutionFile : string
+        BuildAction : BuildAction
         Attributes : seq<Attribute>
         StrongName : bool
         BaseBranch : string
-        PushByMergingOnto : option<string>
-        PushOnlyAllowedChanges : bool
+        WorkBranch : option<string>
+        MergeMaster : bool
         PushRemote : string
     }
 
@@ -121,15 +143,35 @@ type WSTargets =
     }
 
     member this.AddPrebuild s =
-        "WS-Clean" ==> s ==> "WS-BuildDebug"
+        "WS-Clean" ?=> s ==> "WS-BuildDebug"
         "WS-Update" ?=> s ==> "WS-BuildRelease"
         ()
+
+let verbose = EnvironmentHelper.getEnvironmentVarAsBoolOrDefault "verbose" false
+let msbuildVerbosity = if verbose then MSBuildVerbosity.Normal else MSBuildVerbosity.Minimal
+let dotnetArgs = if verbose then [ "-v"; "n" ] else []
+MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
+
+let shell program cmd =
+    shellExec {
+        Program = program
+        WorkingDirectory = "."
+        CommandLine = cmd
+        Args = []
+    }
+    |> function
+        | 0 -> ()
+        | n -> failwithf "%s %s failed with code %i" program cmd n
+
+let git cmd =
+    Printf.kprintf (Git.CommandHelper.directRunGitCommandAndFail ".") cmd
 
 let MakeTargets (args: Args) =
 
     let dirtyDirs =
         !! "/**/bin"
-        ++ "/**/obj"
+        ++ "/**/obj/Debug"
+        ++ "/**/obj/Release"
         ++ "build"
 
     Target "WS-Clean" <| fun () ->
@@ -138,9 +180,7 @@ let MakeTargets (args: Args) =
     Target "WS-Update" <| fun () ->
         for { Name = Paket.Domain.PackageName(pkg, _) } in mainGroup.Packages do
             if pkg.Contains "WebSharper" || pkg.Contains "Zafir" then
-                Paket.UpdateProcess.UpdatePackage("./paket.dependencies", mainGroup.Name,
-                    Paket.Domain.PackageName pkg,
-                    None, Paket.UpdaterOptions.Default)
+                shell ".paket/paket.exe" (sprintf "update %s" pkg)
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
@@ -155,16 +195,23 @@ let MakeTargets (args: Args) =
                         yield Attribute.KeyFile (p </> "keys" </> "IntelliFactory.snk")
             ]
 
-    let build f =
-        !! args.SolutionFile
-        |> f "" "Build"
-        |> Log "AppBuild-Output: "
+    let build mode =
+        match args.BuildAction with
+        | BuildAction.Projects files ->
+            let f =
+                match mode with
+                | BuildMode.Debug -> MSBuildDebug
+                | BuildMode.Release -> MSBuildRelease
+            files
+            |> f "" "Build"
+            |> Log "AppBuild-Output: "
+        | Custom f -> f mode
 
     Target "WS-BuildDebug" <| fun () ->
-        build MSBuildDebug
+        build BuildMode.Debug
 
     Target "WS-BuildRelease" <| fun () ->
-        build MSBuildRelease
+        build BuildMode.Release
 
     Target "WS-Package" <| fun () ->
         Paket.Pack <| fun p ->
@@ -174,43 +221,23 @@ let MakeTargets (args: Args) =
             }
 
     Target "WS-Checkout" <| fun () ->
-        match args.PushByMergingOnto with
+        match args.WorkBranch with
         | None -> ()
         | Some branch ->
-            try Git.Branches.checkoutBranch "." branch
-            with _ -> Git.Branches.checkoutNewBranch "." args.BaseBranch branch
-            Git.Merge.merge "." "" args.BaseBranch
+            try git "checkout %s" branch
+            with e ->
+                try git "checkout -b %s" branch
+                with _ -> raise e
+            if args.MergeMaster then
+                git "merge --no-ff --no-commit %s" args.BaseBranch
 
     Target "WS-Commit" <| fun () ->
-        let changes =
-            Git.FileStatus.getChangedFilesInWorkingCopy "." "HEAD"
-            |> Seq.map snd
-            |> Set
-        let allowedChanges = Set ["paket.lock"]
-        let badChanges = changes - allowedChanges
-        if args.PushOnlyAllowedChanges && not (Set.isEmpty badChanges) then
-            let msg =
-                "[GIT] Not committing because these files have changed:\n    * "
-                + String.concat "\n    * " badChanges
-            raise (BuildException(msg, []))
-        else
-            let tag = "v" + args.Version.AsString
-            if Set.isEmpty changes then
-                trace "[GIT] OK -- no changes"
-            else
-                match args.PushByMergingOnto with
-                | None ->
-                    tracefn "[GIT] OK -- committing %s" (String.concat ", " changes)
-                    Git.Staging.StageAll "."
-                    Git.Commit.Commit "." ("[CI] " + tag)
-                | Some branch ->
-                    tracefn "[GIT] OK -- merging onto %s: %s" branch (String.concat ", " changes)
-                    Git.Staging.StageAll "."
-                    Git.Commit.Commit "." ("[CI] " + tag)
-                Git.Branches.pushBranch "." args.PushRemote (Git.Information.getBranchName ".")
-                    
-            Git.CommandHelper.directRunGitCommand "." ("tag " + tag) |> ignore
-            Git.Branches.pushTag "." args.PushRemote tag
+        let tag = "v" + args.Version.AsString
+        git "add ."
+        git "commit --allow-empty -m \"[CI] %s\"" tag
+        git "tag %s" tag
+        git "push %s %s" args.PushRemote (Git.Information.getBranchName ".")
+        git "push %s %s" args.PushRemote tag
 
     Target "WS-Publish" <| fun () ->
         match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
@@ -228,7 +255,7 @@ let MakeTargets (args: Args) =
 
     "WS-Clean"
         ==> "WS-GenAssemblyInfo"
-        ==> "WS-BuildDebug"
+        ?=> "WS-BuildDebug"
 
     "WS-Clean"
         ==> "WS-Update"
@@ -261,15 +288,20 @@ let MakeTargets (args: Args) =
 
 type WSTargets with
 
-    static member Default (version) =
+    static member Default (version: Paket.SemVerInfo) =
+        let buildBranch = environVarOrNone "BuildBranch"
+        let version =
+            match buildBranch with
+            | Some b -> Paket.SemVer.Parse (version.AsString + "-" + b)
+            | None -> version
         {
             Version = version
-            SolutionFile = "*.sln"
+            BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
             BaseBranch = Git.Information.getBranchName "."
-            PushByMergingOnto = Some "ci"
-            PushOnlyAllowedChanges = environVarOrDefault "PushOnlyAllowedChanges" "true" |> bool.Parse
+            WorkBranch = buildBranch
+            MergeMaster = buildBranch = Some "staging"
             PushRemote = environVarOrDefault "PushRemote" "origin"
         }
 

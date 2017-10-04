@@ -66,8 +66,7 @@ module AssemblyUtility =
     let ParseWebResourcesUnchecked (def: Mono.Cecil.AssemblyDefinition) =
         def.CustomAttributes
         |> Seq.choose (fun attr ->
-            let wra = "System.Web.UI.WebResourceAttribute"
-            if attr.AttributeType.FullName = wra then
+            if Utility.IsWebResourceAttribute attr.AttributeType.FullName then
                 match Seq.toList attr.ConstructorArguments with
                 | [StringArg resourceName; StringArg contentType] ->
                     ReadResourceBytes resourceName def
@@ -110,9 +109,11 @@ type Assembly =
 
     member this.OutputParameters(keyPair) =
         let par = Mono.Cecil.WriterParameters()
+#if NET461 // TODO dotnet: strong naming
         match keyPair with
         | Some kp -> par.StrongNameKeyPair <- kp
         | None -> ()
+#endif
         par
 
     member this.RawBytes(kP: option<StrongNameKeyPair>) =
@@ -124,14 +125,15 @@ type Assembly =
 
     member this.Write(kP: option<StrongNameKeyPair>)(path: string) =
         let par = this.OutputParameters kP
-        match this.Debug with
-        | Some (Mdb _) ->
-            par.WriteSymbols <- true
-            par.SymbolWriterProvider <- Mono.Cecil.Mdb.MdbWriterProvider()
-        | Some (Pdb _) ->
-            par.WriteSymbols <- true
-            par.SymbolWriterProvider <- Mono.Cecil.Pdb.PdbWriterProvider()
-        | None -> ()
+        //// TODO: Fix pdb output
+        // match this.Debug with
+        // | Some (Mdb _) ->
+        //     par.WriteSymbols <- true
+        //     par.SymbolWriterProvider <- Mono.Cecil.Mdb.MdbWriterProvider()
+        // | Some (Pdb _) ->
+        //     par.WriteSymbols <- true
+        //     par.SymbolWriterProvider <- Mono.Cecil.Pdb.PdbWriterProvider()
+        // | None -> ()
         this.Definition.Write(path, par)
 
     member this.ReadableJavaScript =

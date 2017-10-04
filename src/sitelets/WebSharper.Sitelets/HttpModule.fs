@@ -20,6 +20,8 @@
 
 namespace WebSharper.Sitelets
 
+#if NET461 // ASP.NET: Sitelets HttpModule
+
 open System
 open System.Collections.Generic
 open System.Configuration
@@ -32,70 +34,9 @@ open System.Web.Hosting
 open WebSharper.Web
 module R = WebSharper.Core.Remoting
 
-module internal SiteLoading =
-
-    type private BF = BindingFlags
-
-    /// Looks up assembly-wide Website attribute and runs it if present
-    let TryLoadSiteA (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        match Attribute.GetCustomAttribute(assembly, aT) with
-        | :? WebsiteAttribute as attr ->
-            attr.Run () |> Some
-        | _ -> None
-    
-    /// Searches for static property with Website attribute and loads it if found
-    let TryLoadSiteB (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        assembly.GetModules(false)
-        |> Seq.collect (fun m ->
-            try m.GetTypes() |> Seq.ofArray
-            with
-            | :? ReflectionTypeLoadException as e ->
-                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))
-            | _ -> Seq.empty
-        )
-        |> Seq.tryPick (fun ty ->
-            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-            |> Array.tryPick (fun p ->
-                match Attribute.GetCustomAttribute(p, aT) with
-                | :? WebsiteAttribute ->
-                    try
-                        let sitelet = p.GetGetMethod().Invoke(null, [||])
-                        let upcastSitelet =
-                            sitelet.GetType()
-                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                                .GetGetMethod(nonPublic = true)
-                                .Invoke(sitelet, [||])
-                                :?> Sitelet<obj>
-                        Some (upcastSitelet, [])
-                    with e ->
-                        raise <| exn("Failed to initialize sitelet definition: " + ty.FullName + "." + p.Name, e)  
-                | _ -> None
-            )
-        )
-
-    let TryLoadSite (assembly: Assembly) =
-        match TryLoadSiteA assembly with
-        | Some _ as res -> res
-        | _ -> TryLoadSiteB assembly
-
-    let LoadFromAssemblies (app: HttpApplication) =
-        Timed "Initialized sitelets" <| fun () ->
-            let assemblies =
-                BuildManager.GetReferencedAssemblies()
-                |> Seq.cast<Assembly>
-            let sitelets, actions = 
-                Seq.choose TryLoadSite assemblies 
-                |> List.ofSeq |> List.unzip
-            (Sitelet.Sum sitelets, Seq.concat actions)
-
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
-
-//    let currentSite =
-//        lazy fst (SiteLoading.LoadFromAssemblies())
 
     let getUri (req: HttpRequestBase) : Uri =
         match req.ApplicationPath with
@@ -141,13 +82,21 @@ module private WebUtils =
             Body = req.InputStream
             Post = new Http.ParameterCollection(req.Form)
             Get  = new Http.ParameterCollection(req.QueryString)
-            Cookies = req.Cookies
             ServerVariables = new Http.ParameterCollection(req.ServerVariables)
             Files =
                 let fs = req.Files
                 seq {
-                    for i = 1 to fs.Count do
-                        yield fs.[i-1]
+                    for i = 0 to fs.Count - 1 do
+                        let f = req.Files.[i]
+                        let k = fs.GetKey(i)
+                        yield { new Http.IPostedFile with
+                            member this.Key = k
+                            member this.ContentLength = f.ContentLength
+                            member this.ContentType = f.ContentType
+                            member this.FileName = f.FileName
+                            member this.InputStream = f.InputStream
+                            member this.SaveAs(n) = f.SaveAs(n)
+                        }
                 }
         }
 
@@ -182,7 +131,7 @@ module private WebUtils =
             resp.Status <- response.Status.ToString()
             for header in response.Headers do
                 resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+            if req.Cookies.[RpcHandler.CsrfTokenKey].IsNone then
                 RpcHandler.SetCsrfCookie resp
             response.WriteBody resp.OutputStream
             resp.End()
@@ -224,7 +173,7 @@ type HttpModule() =
         member this.Init app =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
-                SiteLoading.LoadFromAssemblies(app) |> fst,
+                Loading.LoadFromApplicationAssemblies() |> fst,
                 WebSharper.Web.ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
@@ -249,10 +198,4 @@ type HttpModule() =
         tryGetHandler ctx
         |> Option.map (fun h -> h.ProcessRequest(ctx))
 
-    static member DiscoverSitelet(assemblies: seq<Assembly>) =
-        let assemblies = Seq.cache assemblies
-        match Seq.tryPick SiteLoading.TryLoadSiteA assemblies with
-        | Some (s, _) -> Some s
-        | _ ->
-            Seq.tryPick SiteLoading.TryLoadSiteB assemblies
-            |> Option.map fst
+#endif

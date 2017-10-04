@@ -18,8 +18,14 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Core.JavaScript
+namespace WebSharper
 
-[<assembly: System.Web.UI.WebResource("Runtime.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("Runtime.min.js", "text/javascript")>]
+open System
+
+[<Sealed; AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)>]
+type WebResourceAttribute(filename: string, mime: string) =
+    inherit Attribute()
+
+[<assembly: WebResource("Runtime.js", "text/javascript")>]
+[<assembly: WebResource("Runtime.min.js", "text/javascript")>]
 do ()

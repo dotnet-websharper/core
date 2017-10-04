@@ -65,62 +65,77 @@ type WebSharperTask() =
 
     override this.GenerateFullPathToTool() = this.ZafirToolPath
 
-    override this.GenerateCommandLineCommands() =
-        let builder = CommandLineBuilder()
+    member this.WriteAtFileName(filename: string) =
+        use f = File.OpenWrite(filename)
+        use w = new StreamWriter(f)
                 
         if bool.TryParse this.NoConfig ||> (&&) then
-            builder.AppendSwitch "/noconfig"
+            w.WriteLine "/noconfig"
 
         if bool.TryParse this.NoStandardLib ||> (&&) then
-            builder.AppendSwitch "/nostdlib+"
+            w.WriteLine "/nostdlib+"
 
-        builder.AppendSwitchIfNotNull("/target:", this.TargetType) 
+        let writeStringIfSet (name: string) (value: string) =
+            if not (String.IsNullOrEmpty value) then
+                w.WriteLine(name + value)
 
-        builder.AppendSwitchIfNotNull("/debug:", this.DebugType) 
+        let writeItemIfSet (name: string) (value: ITaskItem) =
+            match value with
+            | null -> ()
+            | value -> writeStringIfSet name value.ItemSpec
 
-        builder.AppendSwitchIfNotNull("/subsystemversion:", this.SubsystemVersion) 
+        writeStringIfSet "/target:" this.TargetType
 
-        builder.AppendSwitchIfNotNull("/langVersion:", this.LangVersion) 
+        writeStringIfSet "/debug" this.DebugType
 
-        builder.AppendSwitchIfNotNull("/doc:", this.DocumentationFile) 
+        writeStringIfSet "/subsystemversion" this.SubsystemVersion
 
-        builder.AppendSwitchIfNotNull("/out:", this.OutputAssembly) 
+        writeStringIfSet "/langVersion" this.LangVersion
 
-        builder.AppendSwitchIfNotNull("--ws:", this.WebSharperProject)
+        writeStringIfSet "/doc:" this.DocumentationFile
 
-        builder.AppendSwitchIfNotNull("--project:", this.MSBuildProjectFullPath)
+        writeItemIfSet "/out:" this.OutputAssembly
 
-        builder.AppendSwitchIfNotNull("/keyfile:", this.KeyOriginatorFile)
+        writeStringIfSet "--ws:" this.WebSharperProject
 
-        builder.AppendSwitchIfNotNull("--wsoutput:", this.WebProjectOutputDir)
-        builder.AppendSwitchIfNotNull("--wsoutput:", this.WebSharperBundleOutputDir)
-        builder.AppendSwitchIfNotNull("--wsoutput:", this.WebSharperHtmlDirectory)
+        writeStringIfSet "--project:" this.MSBuildProjectFullPath
+
+        writeStringIfSet "/keyfile:" this.KeyOriginatorFile
+
+        writeStringIfSet "--wsoutput:" this.WebProjectOutputDir
+        writeStringIfSet "--wsoutput:" this.WebSharperBundleOutputDir
+        writeStringIfSet "--wsoutput:" this.WebSharperHtmlDirectory
 
         if bool.TryParse this.WebSharperErrorsAsWarnings ||> (&&) then
-            builder.AppendSwitch "--wswarnonly"
+            w.WriteLine "--wswarnonly"
 
         match bool.TryParse this.WebSharperDeadCodeElimination with
         | true, false ->
-            builder.AppendSwitch "--dce-"
+            w.WriteLine "--dce-"
         | _ -> ()
 
         if bool.TryParse this.WebSharperDownloadResources ||> (&&) then
-            builder.AppendSwitch "--dlres"
+            w.WriteLine "--dlres"
 
-        builder.AppendSwitchIfNotNull("--closures:", this.WebSharperAnalyzeClosures)
+        writeStringIfSet "--closures:" this.WebSharperAnalyzeClosures
 
         if bool.TryParse this.WebSharperSourceMap ||> (&&) then
-            builder.AppendSwitch "--jsmap"
+            w.WriteLine "--jsmap"
 
         if this.WebProjectOutputDir <> null && this.WebSharperProject = null then
-            builder.AppendSwitch("--site")
+            w.WriteLine "--site"
 
-        builder.AppendSwitchIfNotNull("/define:", this.DefineConstants)
+        writeStringIfSet "/define:" this.DefineConstants
 
         for r in this.References do
-            builder.AppendSwitchIfNotNull("/reference:", r)
+            writeItemIfSet "/reference:" r
             
         for s in this.Sources do
-            builder.AppendFileNameIfNotNull s
-         
+            writeItemIfSet "" s
+
+    override this.GenerateCommandLineCommands() =
+        let atFileName = Path.Combine(Path.GetTempPath(), Path.GetTempFileName())
+        this.WriteAtFileName atFileName
+        let builder = CommandLineBuilder()
+        builder.AppendFileNameIfNotNull ("@" + atFileName)
         string builder

@@ -1,44 +1,33 @@
-version 5.92.3
+version 5.108.0
 
 references: strict
 redirects: on
 
-framework: net45, net46
+framework: net46, net461, netstandard2.0
 source https://api.nuget.org/v3/index.json
+strategy: min
 
-nuget FAKE
-nuget FSharp.Compiler.Tools
-
-nuget Mono.Cecil ~> 0.10-beta
-nuget System.ValueTuple 4.3.0
-
+nuget Microsoft.CSharp ~> 4.4.0
+nuget Microsoft.NETCore.App ~> 2.0.0 framework: netstandard2.0
+nuget Microsoft.NETCore.Platforms ~> 2.0.0
+nuget Microsoft.NETCore.Targets ~> 2.0.0
+nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
+nuget Mono.Cecil ~> 0.10-beta6
+nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget AjaxMin
+nuget System.Configuration.ConfigurationManager ~> 4.4.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 2.3.2
+nuget System.CodeDom ~> 4.4.0
+nuget System.Reflection.Emit.Lightweight ~> 4.3.0
+nuget System.Reflection.Metadata ~> 1.5.0
+nuget System.Net.Http ~> 4.3.0
+nuget System.Threading.Timer ~> 4.3.0
+nuget System.ValueTuple ~> 4.4.0
+nuget FSharp.Core ~> 4.2.0 copy_local: true
+nuget FSharp.Compiler.Service ~> 14.0.2
 
-group fsharp4
-    framework: net45, net46
-    source https://api.nuget.org/v3/index.json
- 
-    nuget System.ValueTuple 4.3.0
-	nuget FSharp.Core 4.1.17
-
-group fsharp3
-    framework: net40
-    source https://api.nuget.org/v3/index.json
-
-    nuget FSharp.Core 3.0.2
-
-group roslyn
-    framework: net46
-    source https://api.nuget.org/v3/index.json
-    strategy: min
-
-    nuget System.ValueTuple 4.3.0
-    nuget Microsoft.CodeAnalysis.CSharp ~2.3
-
-group fcs
+group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    strategy: min
-
-    nuget System.ValueTuple 4.3.0
-    nuget FSharp.Compiler.Service ~14.0.2
+    nuget Paket.Core
+    nuget FAKE

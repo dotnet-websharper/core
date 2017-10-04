@@ -1063,7 +1063,10 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
 
     let argCurrying = ArgCurrying.ResolveFuncArgs(comp)
 
-    for file in checkResults.AssemblyContents.ImplementationFiles do
+    checkResults.AssemblyContents.ImplementationFiles
+    |> List.sortByDescending (fun f -> List.isEmpty f.Declarations)
+    |> List.distinctBy (fun f -> f.FileName)
+    |> Seq.iter (fun file ->
         if List.isEmpty file.Declarations then () else
         let filePath =
             match file.Declarations.Head with
@@ -1163,6 +1166,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             
         if sc.IsValueCreated then
             getStartupCodeClass sc.Value |> comp.AddClass
+    )
     
     TimedStage "Parsing with FCS"
 

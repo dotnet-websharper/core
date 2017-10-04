@@ -74,10 +74,10 @@ module Server =
             member this.Write(ctx, w) =
                 w.WriteBeginTag(name)
                 attributes |> Array.iter (fun n -> n.Write(ctx, w))
-                if Array.isEmpty children && System.Web.UI.HtmlTextWriter.IsSelfClosingTag(name) then
-                    w.Write(System.Web.UI.HtmlTextWriter.SelfClosingTagEnd)
+                if Array.isEmpty children && WebSharper.Core.Resources.HtmlTextWriter.IsSelfClosingTag(name) then
+                    w.Write(WebSharper.Core.Resources.HtmlTextWriter.SelfClosingTagEnd)
                 else
-                    w.Write(System.Web.UI.HtmlTextWriter.TagRightChar)
+                    w.Write(WebSharper.Core.Resources.HtmlTextWriter.TagRightChar)
                     children |> Array.iter (fun n -> n.Write(ctx, w))
                     w.WriteEndTag(name)
             member this.IsAttribute = false

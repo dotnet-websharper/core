@@ -1,13 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{891cb1bd-128a-4455-8f02-a726b0b2eacf}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <Name>WebSharper.Core.JavaScript</Name>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFSharpCoreVersion>4.3.0.0</TargetFSharpCoreVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Preferences.fs" />
@@ -25,18 +21,9 @@
     <EmbeddedResource Include="Runtime.min.js" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <Reference Include="System.Web" />
   </ItemGroup>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\packages\fsharp3\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

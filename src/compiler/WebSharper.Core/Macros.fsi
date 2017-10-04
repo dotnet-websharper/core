@@ -141,6 +141,11 @@ type StringFormat =
     inherit Macro
 
 [<Sealed>]
+type Tuple =
+    new : unit -> Tuple
+    inherit Macro
+
+[<Sealed>]
 type TupleExtensions =
     new : unit -> TupleExtensions
     inherit Macro

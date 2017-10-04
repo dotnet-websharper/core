@@ -31,7 +31,8 @@ open WebSharper.Compiler.FrontEnd
 open System.Diagnostics
 open ErrorPrinting
 
-exception ArgumentError of string
+exception ArgumentError of msg: string with
+    override this.Message = this.msg
 let argError msg = raise (ArgumentError msg)
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
@@ -70,7 +71,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         argError "Output assembly not found"
 
     TimedStage "F# compilation"
-            
+
+    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
@@ -78,6 +80,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         ]        
     let aR =
         AssemblyResolver.Create()
+            .SearchDirectories([compilerDir])
             .SearchPaths(paths)
 
     if config.ProjectType = Some WIG then  
@@ -87,7 +90,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             TimedStage "WIG running time"
             0
         with e ->
-            PrintGlobalError (sprintf "Error running WIG assembly: %s at %s" e.Message e.StackTrace)
+            PrintGlobalError (sprintf "Error running WIG assembly: %A" e)
             1
     
     else    

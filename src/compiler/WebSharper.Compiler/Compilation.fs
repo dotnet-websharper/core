@@ -37,25 +37,25 @@ module private WSDefinitions =
 
     let seq0Ty =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Collections.IEnumerable"
         } 
 
     let seqTy =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Collections.Generic.IEnumerable`1"
         } 
 
     let enum0Ty =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Collections.IEnumerator"
         } 
 
     let enumTy =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Collections.Generic.IEnumerator`1"
         }
 
@@ -518,7 +518,7 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some intf -> 
             match intf.Methods.TryFind meth with
             | Some m ->
-                if typ.Value.Assembly = "mscorlib" then
+                if typ.Value.Assembly = "netstandard" then
                     match typ.Value.FullName with
                     | "System.Collections.IEnumerable" ->
                         let body = Call(None, NonGeneric wsEnumeratorModule, NonGeneric wsGetEnumerator0, [Hole 0]) 
@@ -1447,7 +1447,9 @@ type Compilation(meta: Info, ?hasGraph) =
             graph.AddOverride(Definitions.Obj, Definitions.Obj, toString)
 
             let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]
-            let uchEqIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
+            let uchEqIndex =
+                try graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
+                with e -> failwithf "%A | %A" uncheckedMdl.Value uncheckedEquals.Value
 
             graph.AddEdge(objEqIndex, uchEqIndex)
             graph.AddEdge(uchEqIndex, objEqIndex)
