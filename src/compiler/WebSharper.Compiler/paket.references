@@ -1,5 +1,6 @@
-﻿Mono.Cecil
-    exclude Mono.Cecil.Rocks.dll
-
-group fsharp4
-    FSharp.Core
+Mono.Cecil
+  exclude Mono.Cecil.Rocks.dll
+System.Configuration.ConfigurationManager
+Microsoft.Extensions.DependencyModel
+FSharp.Core
+System.CodeDom

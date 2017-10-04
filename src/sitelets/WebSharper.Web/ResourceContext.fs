@@ -8,8 +8,6 @@ module ResourceContext =
     open System.Diagnostics
     open System.IO
     open System.Reflection
-    open System.Web
-    open System.Web.Hosting
     module M = WebSharper.Core.Metadata
     module R = WebSharper.Core.Remoting
     module Re = WebSharper.Core.Resources
@@ -19,7 +17,12 @@ module ResourceContext =
 
     let ResourceContext (appPath: string) : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
-            let isDebug = HttpContext.Current.IsDebuggingEnabled
+            let isDebug =
+#if NET461 // TODO dotnet: System.Web.HttpContext.Current.IsDebuggingEnabled
+                System.Web.HttpContext.Current.IsDebuggingEnabled
+#else
+                false
+#endif
             let pu = P.PathUtility.VirtualPaths(appPath)
             {
                 DebuggingEnabled = isDebug

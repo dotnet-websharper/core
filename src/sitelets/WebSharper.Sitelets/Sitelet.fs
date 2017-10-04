@@ -24,7 +24,6 @@ namespace WebSharper.Sitelets
 
 open System
 open System.Collections.Generic
-open System.Web.UI
 
 type Sitelet<'T when 'T : equality> =
     {

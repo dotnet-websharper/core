@@ -23,8 +23,84 @@ module WebSharper.Core.Resources
 open System
 open System.IO
 open System.Reflection
-open System.Web
-open System.Web.UI
+
+#if NET461 // ASP.NET: HtmlTextWriter
+
+type private HTW = System.Web.UI.HtmlTextWriter
+
+type HtmlTextWriter =
+    inherit HTW
+    new(w: TextWriter, i: string) = { inherit HTW(w, i) }
+    new(w: TextWriter) = { inherit HTW(w) }
+
+#else
+    
+type HtmlTextWriter(w: TextWriter, indentString: string) =
+    inherit System.IO.TextWriter(w.FormatProvider)
+
+    let mutable tagStack = System.Collections.Generic.Stack()
+    let currentAttributes = ResizeArray()
+
+    let encodeText (text: string) =
+        text // TODO dotnet: do encode
+
+    new (w) = new HtmlTextWriter(w, "\t")
+
+    override this.Write(c: char) = w.Write(c)
+    override this.Write(s: string) = w.Write(s)
+    override this.Encoding = w.Encoding
+
+    member this.PushTag(name: string) =
+        tagStack.Push(name)
+
+    member this.PopTag() =
+        if tagStack.Count = 0 then
+            raise (System.InvalidOperationException("A PopEndTag was called without a corresponding PushEndTag."))
+        tagStack.Pop()
+
+    // TODO dotnet: newlines and indentation
+    member this.RenderBeginTag(name: string) =
+        this.PushTag(name)
+        this.Write('<')
+        this.Write(name)
+        if currentAttributes.Count > 0 then
+            for struct (name, value) in currentAttributes do
+                this.WriteAttribute(name, value)
+            currentAttributes.Clear()
+        this.Write('>')
+
+    member this.RenderEndTag() =
+        this.WriteEndTag(this.PopTag())
+
+    member this.WriteBeginTag(name: string) =
+        this.Write("<")
+        this.Write(name)
+
+    member this.WriteFullBeginTag(name: string) =
+        this.WriteBeginTag(name)
+        this.Write(">")
+
+    member this.WriteEndTag(name) =
+        this.Write("</")
+        this.Write(name)
+        this.Write(">")
+
+    member this.WriteEncodedText(text: string) =
+        this.Write(encodeText text)
+        
+    member this.AddAttribute(name: string, value: string) =
+        currentAttributes.Add(struct (name, value))
+
+    member this.WriteAttribute(name: string, value: string) =
+        this.Write(" {0}=\"{1}\"", name, encodeText value)
+
+    static member SelfClosingTagEnd = " />"
+
+    static member TagLeftChar = '>'
+
+    static member TagRightChar = '>'
+
+#endif
 
 module CT = ContentTypes
 
@@ -104,15 +180,18 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
+#if NET461 // ASP.NET: References from System.Web.Compilation.BuildManager
     let fromWeb =
         try
             System.Web.Compilation.BuildManager.GetReferencedAssemblies()
             |> Seq.cast<System.Reflection.Assembly>
             |> Seq.toList
-        with _ -> []
+        with _ ->
+            []
     match fromWeb with
     | _::_ -> fromWeb
     | [] ->
+#endif
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)

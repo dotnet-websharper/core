@@ -1,29 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{b5503fd3-638e-4e54-96fc-1affd780e9e9}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <Name>WebSharper.MSBuild.CSharp</Name>
-    <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
-    <TargetFrameworkProfile />
-    <FSharp40>True</FSharp40>
+    <TargetFrameworks>net46</TargetFrameworks>
     <CSharpTool>True</CSharpTool>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <StartAction>Program</StartAction>
-    <StartProgram>C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe</StartProgram>
-    <StartArguments>WebSharper.CSharp.Tests.csproj</StartArguments>
-    <StartWorkingDirectory>C:\repo\websharper.csharp\tests\WebSharper.CSharp.Tests</StartWorkingDirectory>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <StartAction>Program</StartAction>
-    <StartProgram>C:\Program Files (x86)\MSBuild\14.0\Bin\MSBuild.exe</StartProgram>
-    <StartArguments>WebSharper.CSharp.Tests.csproj</StartArguments>
-    <StartWorkingDirectory>C:\repo\websharper.csharp\tests\WebSharper.CSharp.Tests</StartWorkingDirectory>
-  </PropertyGroup>
-  <Import Project="../../../msbuild/FSharp.targets" />
   <ItemGroup>
     <Compile Include="WebSharperTask.fsi" />
     <Compile Include="WebSharperTask.fs" />
@@ -32,32 +11,7 @@
   <ItemGroup>
     <Reference Include="Microsoft.Build.Framework" />
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Data.Linq" />
-    <Reference Include="System.IO.FileSystem">
-      <HintPath>..\..\..\packages\System.IO.FileSystem\lib\net46\System.IO.FileSystem.dll</HintPath>
-    </Reference>
   </ItemGroup>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\packages\fsharp4\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
-      <ItemGroup>
-        <Reference Include="System.ValueTuple">
-          <HintPath>..\..\..\packages\fsharp4\System.ValueTuple\lib\netstandard1.0\System.ValueTuple.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

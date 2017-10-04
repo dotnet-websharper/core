@@ -157,11 +157,31 @@ let numericTypes =
     ]
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
+    let getTypeFullName (t: ITypeSymbol) =
+        let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
+            match symbol.ContainingNamespace with
+            | null -> acc |> String.concat "."
+            | ns -> getNamespaceOrTypeAddress (symbol.MetadataName :: acc) ns   
+
+        let rec getTypeAddress acc (symbol: ITypeSymbol) =
+            match symbol.ContainingType with
+            | null -> 
+                let ns = getNamespaceOrTypeAddress [] symbol
+                if List.isEmpty acc then ns else
+                    ns :: acc |> String.concat "+" 
+            | t -> getTypeAddress (symbol.MetadataName :: acc) t
+        getTypeAddress [] t
 
     let getContainingAssemblyName (t: ITypeSymbol) =
         match t.ContainingAssembly with
         | null -> comp.AssemblyName
-        | a -> a.Name
+        | a ->
+            match getTypeFullName t with
+            | "" -> a.Name
+            | t ->
+                match AssemblyConventions.StandardAssemblyNameForTypeNamed t with
+                | Some n -> n
+                | None -> a.Name
 
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
@@ -184,23 +204,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 comp.AddCustomType(def, info)
 
     member this.ReadNamedTypeDefinition (x: INamedTypeSymbol) =
-        let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
-            match symbol.ContainingNamespace with
-            | null -> acc |> String.concat "."
-            | ns -> getNamespaceOrTypeAddress (symbol.MetadataName :: acc) ns   
-
-        let rec getTypeAddress acc (symbol: INamedTypeSymbol) =
-            match symbol.ContainingType with
-            | null -> 
-                let ns = getNamespaceOrTypeAddress [] symbol
-                if List.isEmpty acc then ns else
-                    ns :: acc |> String.concat "+" 
-            | t -> getTypeAddress (symbol.MetadataName :: acc) t           
-
         let res =
             Hashed {
                 Assembly = getContainingAssemblyName x
-                FullName = getTypeAddress [] x
+                FullName = getTypeFullName x
             }
 
         this.RegisterCustomType res x
@@ -413,7 +420,7 @@ type Environment =
 module Definitions =
     let Decimal =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Decimal"    
         }
 
@@ -1624,7 +1631,7 @@ type RoslynTransformer(env: Environment) =
         let disp e =
             Call(
                 Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.IDisposable" }),
+                NonGeneric (TypeDefinition { Assembly = "netstandard"; FullName = "System.IDisposable" }),
                 NonGeneric (Method { MethodName = "Dispose"; Parameters = []; ReturnType = VoidType; Generics = 0 }),
                 []            
             )

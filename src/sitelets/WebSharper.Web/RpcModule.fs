@@ -24,9 +24,11 @@ open System
 open System.IO
 open System.Security.Cryptography
 open System.Security.Principal
+module R = WebSharper.Core.Remoting
+
+#if NET461 // ASP.Net: RPC HttpModule
 open System.Web.Security
 open System.Web
-module R = WebSharper.Core.Remoting
 
 type AspNetFormsUserSession(ctx: HttpContextBase) =
 
@@ -85,6 +87,7 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
                     cookie.Expires <- DateTime.Now.AddDays(-1.)
                     return refresh null
             }
+#endif
 
 module private RpcUtil =
     let [<Literal>] HttpContextKey = "HttpContext"
@@ -142,6 +145,7 @@ type RpcHandler() =
         | _ ->
             Ok headers
 
+#if NET461 // ASP.NET: RPC module
     let server = R.Server.Create Shared.Metadata Shared.Json
     let rootFolder = HttpRuntime.AppDomainAppPath
     let appPath = HttpRuntime.AppDomainAppVirtualPath
@@ -214,6 +218,7 @@ type RpcHandler() =
             | null -> None
             | x -> Some x
         R.IsRemotingRequest getHeader
+#endif
 
     static member CsrfTokenKey = RpcUtil.CsrfTokenKey
 
@@ -223,15 +228,17 @@ type RpcHandler() =
         rng.GetBytes(bytes)
         Convert.ToBase64String bytes
 
+#if NET461 // ASP.NET: RPC HttpModule
     static member SetCsrfCookie (resp: HttpResponseBase) =
         HttpCookie(RpcUtil.CsrfTokenKey, RpcHandler.MakeCsrfCookie(),
             Expires = System.DateTime.UtcNow.AddYears(1000))
         |> resp.SetCookie
+#endif
 
     static member CorsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie =
         corsAndCsrfCheck reqMethod reqUrl getCookie getHeader setInfiniteCookie
 
-
+#if NET461 // ASP.NET: RPC HttpModule
 /// The WebSharper RPC HttpModule. Handles RPC requests.
 [<Sealed>]
 type RpcModule() =
@@ -268,3 +275,4 @@ type RpcModule() =
         if R.IsRemotingRequest getHeader then
             Some (handler.ProcessRequest(ctx))
         else None
+#endif

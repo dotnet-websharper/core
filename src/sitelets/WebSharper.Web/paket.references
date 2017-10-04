@@ -1,2 +1,2 @@
-group fsharp3
-    FSharp.Core
+System.Configuration.ConfigurationManager
+FSharp.Core

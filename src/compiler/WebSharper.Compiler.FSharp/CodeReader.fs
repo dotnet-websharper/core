@@ -51,21 +51,29 @@ let isUnit (t: FSharpType) =
     if t.IsTupleType || t.IsFunctionType then false else
     let td = t.TypeDefinition
     if td.IsArrayType || td.IsByRef then false
+#if NET461 // TODO dotnet: erased type providers
     elif td.IsProvidedAndErased then false
+#endif
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
 
 let isOption (t: FSharpType) =
     let t = getOrigType t
     t.HasTypeDefinition &&
         let td = t.TypeDefinition
-        not td.IsProvidedAndErased && td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
+#if NET461 // TODO dotnet: erased type providers
+        not td.IsProvidedAndErased &&
+#endif
+        td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
 
 let rec isSeq (t: FSharpType) = 
     let t = getOrigType t
     (
         t.HasTypeDefinition &&
             let td = t.TypeDefinition
-            not td.IsProvidedAndErased && td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
+#if NET461 // TODO dotnet: erased type providers
+            not td.IsProvidedAndErased &&
+#endif
+            td.TryFullName = Some "System.Collections.Generic.IEnumerable`1"
     ) || (
         t.IsGenericParameter && 
             t.GenericParameter.Constraints
@@ -195,7 +203,7 @@ module Definitions =
 
     let Array =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Array"
         }
 
@@ -273,58 +281,67 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
+    let readSimpleName (a: FSharpAssembly) typeFullName =
+        if Option.isNone a.FileName then // currently compiled assembly
+            comp.AssemblyName
+        else
+            match AssemblyConventions.StandardAssemblyNameForTypeNamed typeFullName with
+            | Some n -> n
+            | None -> a.SimpleName
+
     let attrReader =
         { new A.AttributeReader<FSharpAttribute>() with
-            override this.GetAssemblyName attr = self.ReadSimpleName attr.AttributeType.Assembly
+            override this.GetAssemblyName attr =
+                readSimpleName attr.AttributeType.Assembly (attr.AttributeType.QualifiedName.Split([|','|]).[0])
             override this.GetName attr = attr.AttributeType.LogicalName
             override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
             override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
         }
 
-    member this.ReadSimpleName (a: FSharpAssembly) =
-        match a.FileName with
-        | None -> comp.AssemblyName
-        | _ -> a.SimpleName
-
     member this.ReadTypeDefinition (td: FSharpEntity) =
         if td.IsArrayType then
             TypeDefinition {
-                Assembly = "mscorlib"
+                Assembly = "netstandard"
                 FullName = "System.Array`1"
             }
         else
         let td = getOrigDef td
+        let fullName =
+#if NET461 // TODO dotnet: erased type providers
+            if td.IsProvidedAndErased then td.LogicalName else
+#endif
+            td.QualifiedName.Split([|','|]).[0] 
         let res =
             {
-                Assembly = this.ReadSimpleName td.Assembly 
-                FullName = if td.IsProvidedAndErased then td.LogicalName else td.QualifiedName.Split([|','|]).[0] 
+                Assembly = readSimpleName td.Assembly fullName
+                FullName = fullName
             }
         // TODO: more measure types
         match res.Assembly with
         | "FSharp.Core" ->
             match res.FullName with
             | "Microsoft.FSharp.Core.byte`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.Byte" }   
+                { Assembly = "netstandard"; FullName = "System.Byte" }   
             | "Microsoft.FSharp.Core.syte`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.SByte" }   
+                { Assembly = "netstandard"; FullName = "System.SByte" }   
             | "Microsoft.FSharp.Core.int16`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.Int16" }   
+                { Assembly = "netstandard"; FullName = "System.Int16" }   
             | "Microsoft.FSharp.Core.int`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.Int32" }   
+                { Assembly = "netstandard"; FullName = "System.Int32" }   
             | "Microsoft.FSharp.Core.uint16`1" ->
-                { Assembly = "mscorlib"; FullName = "System.UInt16" }   
+                { Assembly = "netstandard"; FullName = "System.UInt16" }   
             | "Microsoft.FSharp.Core.uint32`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.UInt32" }   
+                { Assembly = "netstandard"; FullName = "System.UInt32" }   
             | "Microsoft.FSharp.Core.decimal`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.Decimal" }   
+                { Assembly = "netstandard"; FullName = "System.Decimal" }   
             | "Microsoft.FSharp.Core.int64`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.Int64" }   
+                { Assembly = "netstandard"; FullName = "System.Int64" }   
             | "Microsoft.FSharp.Core.uint64`1" -> 
-                { Assembly = "mscorlib"; FullName = "System.UInt64" }   
+                { Assembly = "netstandard"; FullName = "System.UInt64" }   
             | "Microsoft.FSharp.Core.float32`1" ->
-                { Assembly = "mscorlib"; FullName = "System.Single" }   
+                { Assembly = "netstandard"; FullName = "System.Single" }   
             | "Microsoft.FSharp.Core.float`1" ->
-                { Assembly = "mscorlib"; FullName = "System.Double" }   
+                { Assembly = "netstandard"; FullName = "System.Double" }   
             | _ -> res
         | _ -> res
         |> fun x -> TypeDefinition x |> comp.FindProxied
@@ -359,7 +376,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
         else
             let fn = 
-                if td.IsProvidedAndErased then td.LogicalName else td.FullName
+#if NET461 // TODO dotnet: erased type providers
+                if td.IsProvidedAndErased then td.LogicalName else
+#endif
+                td.FullName
             if fn.StartsWith "System.Tuple" then
                 getTupleType false
             elif fn.StartsWith "System.ValueTuple" then

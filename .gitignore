@@ -19,5 +19,5 @@ IntelliFactory.WebSharper.JQuery/*.js
 /.vs
 /msbuild.log
 /.fake
-/.paket/paket.exe
 /.vscode/
+/tests/WebSharper.SPA.Tests/Content/*

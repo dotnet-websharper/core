@@ -157,9 +157,13 @@ let Compile config =
         TimedStage "Unpacking"
     | _ -> ()
 
-let compileMain argv =
+let rec compileMain (argv: string[]) =
 
     match List.ofArray argv with
+    | [ f ] when f.StartsWith "@" ->
+        f.[1..]
+        |> File.ReadAllLines
+        |> compileMain
     | Cmd BundleCommand.Instance r -> r 
     | Cmd HtmlCommand.Instance r -> r
     | Cmd UnpackCommand.Instance r -> r

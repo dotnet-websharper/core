@@ -8,25 +8,62 @@ description
 tags
     Web JavaScript F# C#
 files
-    ../build/Release/WebSharper.Core.JavaScript.dll ==> lib/net40
-    ../build/Release/WebSharper.Core.JavaScript.xml ==> lib/net40
-    ../build/Release/WebSharper.Core.dll ==> lib/net40
-    ../build/Release/WebSharper.Core.xml ==> lib/net40
-    ../build/Release/WebSharper.InterfaceGenerator.dll ==> lib/net40
-    ../build/Release/WebSharper.InterfaceGenerator.xml ==> lib/net40
-    ../build/Release/WebSharper.Sitelets.dll ==> lib/net40
-    ../build/Release/WebSharper.Sitelets.xml ==> lib/net40
-    ../build/Release/WebSharper.Web.dll ==> lib/net40
-    ../build/Release/WebSharper.Web.xml ==> lib/net40
-    ../build/Release/WebSharper.Main.dll ==> lib/net40
-    ../build/Release/WebSharper.Main.xml ==> lib/net40
-    ../build/Release/WebSharper.Collections.dll ==> lib/net40
-    ../build/Release/WebSharper.Collections.xml ==> lib/net40
-    ../build/Release/WebSharper.Control.dll ==> lib/net40
-    ../build/Release/WebSharper.Control.xml ==> lib/net40
-    ../build/Release/WebSharper.JavaScript.dll ==> lib/net40
-    ../build/Release/WebSharper.JavaScript.xml ==> lib/net40
-    ../build/Release/WebSharper.JQuery.dll ==> lib/net40
-    ../build/Release/WebSharper.JQuery.xml ==> lib/net40
+    ../build/Release/net461/WebSharper.Core.JavaScript.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Core.JavaScript.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Core.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Core.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.InterfaceGenerator.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.InterfaceGenerator.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Sitelets.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Sitelets.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Web.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Web.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Web.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Web.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Main.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Main.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Main.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Main.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Collections.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Collections.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Collections.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Collections.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.Control.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Control.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Control.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Control.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.JavaScript.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.JavaScript.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.JavaScript.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.JavaScript.xml ==> lib/netstandard2.0
+
+    ../build/Release/net461/WebSharper.JQuery.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.JQuery.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.JQuery.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.JQuery.xml ==> lib/netstandard2.0
+
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> lib/netstandard2.0
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> lib/net461
+
     ../docs ==> docs
-    ../src/htmllib/tags.csv ==> tools/net40
+    ../src/htmllib/tags.csv ==> tools
+
+    !../tools/*
+dependencies
+    Mono.Cecil ~> 0.10.0-beta6

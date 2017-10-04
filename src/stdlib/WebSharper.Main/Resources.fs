@@ -22,6 +22,7 @@
 /// Re-exports functionality from WebSharper.Core.Resources.
 module WebSharper.Resources
 
+open WebSharper
 module R = WebSharper.Core.Resources
 
 /// Re-exports BaseResource.
@@ -36,8 +37,8 @@ type Runtime = R.Runtime
 /// Re-exports IResource.
 type IResource = R.IResource
 
-[<assembly: System.Web.UI.WebResource("Json.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("Json.min.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("AnimFrame.js", "text/javascript")>]
-[<assembly: System.Web.UI.WebResource("AnimFrame.min.js", "text/javascript")>]
+[<assembly: WebResource("Json.js", "text/javascript")>]
+[<assembly: WebResource("Json.min.js", "text/javascript")>]
+[<assembly: WebResource("AnimFrame.js", "text/javascript")>]
+[<assembly: WebResource("AnimFrame.min.js", "text/javascript")>]
 do ()

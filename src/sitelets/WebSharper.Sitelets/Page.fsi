@@ -20,8 +20,8 @@
 
 namespace WebSharper.Sitelets
 
-open System.Web.UI
 open WebSharper
+type private HtmlTextWriter = WebSharper.Core.Resources.HtmlTextWriter
 type private Writer = HtmlTextWriter -> unit
 
 /// Represents HTML pages with embedded WebSharper controls.

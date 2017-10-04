@@ -14,7 +14,7 @@ let baseVersion =
 
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
-        SolutionFile = "WebSharper.sln"
+        BuildAction = BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
 }
 
 let NeedsBuilding input output =

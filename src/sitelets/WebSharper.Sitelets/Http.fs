@@ -26,8 +26,6 @@ module Http =
     open System.Collections.Generic
     open System.Collections.Specialized
     open System.IO
-    open System.Web
-    open System.Web.UI
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -130,6 +128,14 @@ module Http =
             }
             |> Seq.toList
 
+    type IPostedFile =
+        abstract Key : string
+        abstract ContentLength : int
+        abstract ContentType : string
+        abstract FileName : string
+        abstract InputStream : Stream
+        abstract SaveAs : filename: string -> unit
+
     /// Represents HTTP requests.
     type Request =
         {
@@ -138,11 +144,21 @@ module Http =
             Headers : seq<Header>
             Post : ParameterCollection
             Get : ParameterCollection
-            Cookies : HttpCookieCollection
             ServerVariables : ParameterCollection
             Body : Stream
-            Files : seq<HttpPostedFileBase>
+            Files : seq<IPostedFile>
         }
+
+        member this.Cookies =
+            let d = NameValueCollection()
+            match this.Headers |> Seq.tryFind (fun h -> h.Name = "Cookie") with
+            | None -> ()
+            | Some h ->
+                for s in h.Value.Split([|"; "|], StringSplitOptions.None) do
+                    match s.IndexOf '=' with
+                    | -1 -> failwith "Cookie header syntax invalid"
+                    | i -> d.Add(s.[..i-1], s.[i+1..])
+            ParameterCollection(d)
 
     /// Represents the status of HTTP responses.
     /// TODO

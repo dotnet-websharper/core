@@ -597,13 +597,13 @@ module Definitions =
 
     let Obj =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Object"    
         }
 
     let ValueType =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.ValueType"    
         }
 
@@ -627,13 +627,13 @@ module Definitions =
         
     let Task =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Threading.Tasks.Task"
         }
 
     let Task1 =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Threading.Tasks.Task`1"
         }
 
@@ -645,19 +645,19 @@ module Definitions =
 
     let String =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.String"
         }
 
     let Int =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Int32"
         }
 
     let Bool =
         TypeDefinition {
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = "System.Boolean"
         }
 

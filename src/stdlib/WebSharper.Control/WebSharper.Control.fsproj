@@ -1,12 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <ProjectGuid>{666977bf-e022-4c8f-b53d-5d294d41010f}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <Name>WebSharper.Control</Name>
+    <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-  <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Disposable.fs" />
     <Compile Include="Observer.fs" />
@@ -20,36 +17,11 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">
-      <Name>WebSharper.Core</Name>
-      <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Collections\WebSharper.Collections.fsproj">
-      <Name>WebSharper.Collections</Name>
-      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
-      <Name>WebSharper.JavaScript</Name>
-      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\WebSharper.Main\WebSharper.Main.fsproj">
-      <Name>WebSharper.Main</Name>
-      <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
-      <Private>True</Private>
-    </ProjectReference>
+    <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.Collections\WebSharper.Collections.fsproj" />
+    <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\WebSharper.Main\WebSharper.Main.fsproj" />
   </ItemGroup>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.0'">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\packages\fsharp3\FSharp.Core\lib\net40\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
+  <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
