@@ -4,7 +4,7 @@ set PATH=%GitToolPath%;%PATH%
 
 cls
 
-.paket\paket.exe restore
+dotnet restore WebSharper.sln
 if errorlevel 1 (
   exit /b %errorlevel%
 )
