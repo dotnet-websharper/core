@@ -12,19 +12,9 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
-let buildSln sln mode =
-    DotNetCli.Build <| fun p ->
-        { p with
-            Project = sln
-            Configuration = string mode
-            AdditionalArgs = dotnetArgs
-        }
-
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
-        BuildAction = BuildAction.Custom <| fun mode ->
-            buildSln "WebSharper.Compiler.sln" mode
-            buildSln "WebSharper.sln" mode
+        BuildAction = BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
 }
 
 let NeedsBuilding input output =
@@ -64,9 +54,6 @@ targets.BuildDebug ==> "Build"
 
 Target "CI-Release" DoNothing
 targets.Publish ==> "CI-Release"
-
-Target "Libs" <| fun () ->
-    buildSln "WebSharper.sln" BuildMode.Debug
 
 Target "Run" <| fun () ->
     shellExec {
