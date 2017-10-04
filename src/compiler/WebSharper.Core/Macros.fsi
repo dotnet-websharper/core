@@ -139,3 +139,8 @@ type InlineJS =
 type StringFormat =
     new : unit -> StringFormat
     inherit Macro
+
+[<Sealed>]
+type TupleExtensions =
+    new : unit -> TupleExtensions
+    inherit Macro
