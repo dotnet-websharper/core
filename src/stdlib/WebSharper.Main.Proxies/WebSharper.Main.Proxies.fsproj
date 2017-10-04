@@ -77,7 +77,7 @@
     <Compile Include="../WebSharper.Main.Proxies/Interop.fs">
       <Link>Interop.fs</Link>
     </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/JSObject.fs">
+    <Compile Include="../WebSharper.Main/JSObject.fs">
       <Link>JSObject.fs</Link>
     </Compile>
     <None Include="../WebSharper.Main.Proxies/genInterop.fsx">
