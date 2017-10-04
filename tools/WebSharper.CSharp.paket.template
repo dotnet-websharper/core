@@ -15,7 +15,7 @@ files
     ../build/Release/CSharp/net461/ZafirCs.exe.config ==> tools
     ../build/Release/CSharp/net461/WebSharper.Compiler.dll ==> tools
     ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.MSBuild.CSharp.dll ==> tools
+    ../build/Release/CSharp/net46/WebSharper.MSBuild.CSharp.dll ==> tools
     ../build/Release/CSharp/net461/WebSharper.CSharp.Analyzer.dll ==> tools
     ../build/Release/net461/WebSharper.Sitelets.Offline.dll ==> tools
     ../build/Release/CSharp/net461/WebSharper.Core.dll ==> tools
