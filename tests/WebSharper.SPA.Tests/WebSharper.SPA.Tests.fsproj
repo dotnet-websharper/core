@@ -1,29 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>netcoreapp2.0</TargetFrameworks>
     <WebSharperProject>Bundle</WebSharperProject>
     <WebSharperBundleOutputDir>Content</WebSharperBundleOutputDir>
     <TypeScriptToolsVersion>2.5</TypeScriptToolsVersion>
-    <TypeScriptTarget>ES5</TypeScriptTarget>
-    <TypeScriptJSXEmit>None</TypeScriptJSXEmit>
-    <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
-    <TypeScriptNoImplicitAny>False</TypeScriptNoImplicitAny>
-    <TypeScriptModuleKind>AMD</TypeScriptModuleKind>
-    <TypeScriptRemoveComments>True</TypeScriptRemoveComments>
-    <TypeScriptOutFile />
-    <TypeScriptOutDir />
-    <TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
-    <TypeScriptNoEmitOnError>True</TypeScriptNoEmitOnError>
-    <TypeScriptSourceMap>False</TypeScriptSourceMap>
-    <TypeScriptMapRoot />
-    <TypeScriptSourceRoot />
-    <!--<CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>-->
   </PropertyGroup>
   <ItemGroup>
-    <TypeScriptCompile Include="Content\*.ts" />
+    <None Remove="Content\WebSharper.SPA.Tests.ts" />
     <Compile Include="Main.fs" />
-    <Content Include="Web.config" />
-    <None Include="paket.references" />
+    <TypeScriptCompile Include="Content\WebSharper.SPA.Tests.ts" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
@@ -44,5 +29,5 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
   </ItemGroup>
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <!--<Import Project="..\..\.paket\Paket.Restore.targets" />-->
 </Project>
