@@ -32,13 +32,10 @@ let private trace =
 let private loadMetadata () =
     let before = System.DateTime.UtcNow
     let filterExpressions : M.Info -> M.Info =
-        let config =
-            try System.Configuration.ConfigurationManager.AppSettings.["WebSharperSharedMetadata"]
-            with _ -> "Full"
-        match config with
-        | "Inlines" -> fun m -> m.DiscardNotInlineExpressions()
-        | "NotInlines" -> fun m -> m.DiscardInlineExpressions()
-        | "Full" -> id
+        match Context.GetSetting "WebSharperSharedMetadata" with
+        | Some "Inlines" -> fun m -> m.DiscardNotInlineExpressions()
+        | Some "NotInlines" -> fun m -> m.DiscardInlineExpressions()
+        | Some "Full" | None -> id
         | _ -> fun m -> m.DiscardExpressions()
     let metas =
         WebSharper.Core.Resources.AllReferencedAssemblies.Value

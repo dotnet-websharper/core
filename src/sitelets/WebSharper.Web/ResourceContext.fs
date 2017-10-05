@@ -4,7 +4,6 @@ module ResourceContext =
     open System
     open System.Collections.Generic
     open System.Collections.Concurrent
-    open System.Configuration
     open System.Diagnostics
     open System.IO
     open System.Reflection
@@ -17,20 +16,12 @@ module ResourceContext =
 
     let ResourceContext (appPath: string) : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
-            let isDebug =
-#if NET461 // TODO dotnet: System.Web.HttpContext.Current.IsDebuggingEnabled
-                System.Web.HttpContext.Current.IsDebuggingEnabled
-#else
-                false
-#endif
             let pu = P.PathUtility.VirtualPaths(appPath)
+            let isDebug = Context.IsDebug()
             {
                 DebuggingEnabled = isDebug
                 DefaultToHttp = false
-                GetSetting = fun (name: string) ->
-                    match ConfigurationManager.AppSettings.[name] with
-                    | null -> None
-                    | x -> Some x
+                GetSetting = Context.GetSetting
                 GetAssemblyRendering = fun name ->
                     let aid = P.AssemblyId.Create(name)
                     let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
