@@ -55,7 +55,7 @@ module internal Internal =
                         Function([id],
                             // cast to "any" is needed because sometimes we are calling a generator function that does
                             // not take any arguments
-                            Return (mkSample t (Application(Cast(Var TSType.Any, gen), [Var id], Pure, Some 1)) (cInt 100)))
+                            Return (mkSample t (Application(Cast(TSType.Any, gen), [Var id], Pure, Some 1)) (cInt 100)))
                         attempt
                     ]
                 )

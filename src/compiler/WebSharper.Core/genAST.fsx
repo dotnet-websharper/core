@@ -97,6 +97,7 @@ let Str = Object "string"
 let Type = Object "Type"
 let Int = Object "int"
 let Bool = Object "bool"
+let TSType = Object "TSType"
 
 let ExprDefs = 
     [
@@ -212,7 +213,7 @@ let ExprDefs =
             , "JavaScript 'new' call"
         "Hole", [ Object "int", "index" ]
             , "Temporary - A hole in an expression for inlining"
-        "Cast", [ Expr, "typ"; Expr, "expression" ],
+        "Cast", [ TSType, "targetType"; Expr, "expression" ],
             "TypeScript - type cast <...>..."
     ]    
 
@@ -230,7 +231,7 @@ let StatementDefs =
             , "Return a value"
         "Block", [ List Statement, "statements" ]
             , "Block of statements"
-        "VarDeclaration", [ Id, "variable"; Expr, "value" ]
+        "VarDeclaration", [ Id, "variable"; Expr, "value";  ]
             , "Variable declaration"
         "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
             , "Function declaration"
@@ -284,11 +285,11 @@ let StatementDefs =
             "TypeScript - namespace { ... }"
         "Class", [ Str, "name"; Option Expr, "baseClass"; List Expr, "implementations"; List Statement, "members" ],
             "TypeScript - class { ... }"
-        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body" ],
+        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature"; ],
             "TypeScript - class method"
-        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body" ],
+        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body"; TSType, "signature"; ],
             "TypeScript - class method"
-        "ClassProperty", [ Bool, "isStatic"; Str, "name" ],
+        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ],
             "TypeScript - class plain property"
         "Interface", [ Str, "name"; List Expr, "extending"; List Statement, "members" ],
             "TypeScript - interface { ... }"

@@ -676,10 +676,6 @@ module private Instances =
 type Id with
     static member Global() = Instances.GlobalId
 
-module TSType =
-    let Any = Instances.uniqueId "any" -2L
-    let Never = Instances.uniqueId "never" -3L
-
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 

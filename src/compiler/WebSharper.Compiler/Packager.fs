@@ -48,10 +48,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
     // TODO: only add what is necessary
     let libExtensions =
+        let t n = TSType.Basic "Error" 
         [ 
-            Interface ("Error", [], [ ClassProperty (false, "inner")]) 
-            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf")]) 
-            Interface ("Math", [], [ ClassProperty (false, "trunc")]) 
+            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")]) 
+            Interface ("Object", [], [ ClassMethod (true, "setPrototypeOf", [strId "obj"; strId "prototype"], None, TSType.Lambda ([TSType.Object; TSType.Union [TSType.Object; TSType.Null]], TSType.Object)) ])  
+            Interface ("Math", [], [ ClassMethod (true, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number))]) 
         ]
     if isModule then
         declarations.Add <| Declare (Namespace ("global", libExtensions))
@@ -229,7 +230,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             match f with
             | M.InstanceField n
             | M.OptionalField n ->
-                members.Add (ClassProperty (false, n)) 
+                members.Add (ClassProperty (false, n, TSType.Any)) 
             | _ -> ()
 
         match c.Address with 
@@ -240,10 +241,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 | M.Instance mname ->
                     match IgnoreExprSourcePos body with
                     | Function (args, b) ->
-                        members.Add (ClassMethod(false, mname, args, Some b))
+                        members.Add (ClassMethod(false, mname, args, Some b, TSType.Any))
                     | Undefined ->
                         let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
-                        members.Add (ClassMethod(false, mname, args, None))
+                        members.Add (ClassMethod(false, mname, args, None, TSType.Any))
                     | _ -> failwith "unexpected form for class member"
                 | _ -> ()
                     
@@ -278,7 +279,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             | Function ([], I.ExprStatement(I.Application(I.Base, [], _, _))) -> 
                                 ()
                             | Function (args, b) ->                  
-                                members.Add (ClassConstructor (args, Some b))
+                                members.Add (ClassConstructor (args, Some b, TSType.Any))
                             | _ ->
                                 failwithf "Invalid form for translated constructor"
                     | M.NewIndexed i ->
@@ -286,7 +287,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             match body with
                             | Function (args, b) ->  
                                 let index = Id.New("i: " + string i, str = true)
-                                members.Add (ClassConstructor (index :: args, None))
+                                members.Add (ClassConstructor (index :: args, None, TSType.Any))
                                 indexedCtors.Add (i, (args, b))
                             | _ ->
                                 failwithf "Invalid form for translated constructor"
@@ -306,7 +307,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                                 ]
                             ) |> List.ofSeq
                         )
-                    members.Add (ClassConstructor (index :: cArgs, Some cBody))   
+                    members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
 
                 packageByName addr <| fun n -> Class(n, baseType, [], List.ofSeq members)
             

@@ -340,7 +340,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
     | Cast (t, e) ->
-        J.Cast(trE t, trE e)
+        J.Cast(transformType env t, trE e)
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -494,7 +494,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Class (a, b, c, d) ->
         let isAbstract =
             d |> List.exists (function
-                | ClassMethod (_, _, _, None) -> true
+                | ClassMethod (_, _, _, None, _) -> true
                 | _ -> false
             )
         J.Class(J.Id.New a, isAbstract, Option.map trE b, List.map trE c, List.map (transformMember env) d)
@@ -505,11 +505,35 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 
+and transformTypeName (env: Environment) (typ: TSType) =
+    match typ with
+    | TSType.Any -> "any"
+    | TSType.Basic n -> n
+    | TSType.Named ns -> ns |> String.concat "."
+    | TSType.Generic (ns, g) -> (ns |> String.concat ".") + "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ")  + ">"
+    | TSType.Var i -> (transformId env i).Name
+    | TSType.Lambda (a, r)  -> 
+        match a with
+        | [ a ] -> transformTypeName env a
+        | _ -> "(" + (a |> Seq.map (transformTypeName env) |> String.concat ", ") + ")"
+        + " => " + transformTypeName env r
+    | TSType.Tuple ts -> "[" + (ts |> Seq.map (transformTypeName env) |> String.concat ", ") + "]"
+    | TSType.Union cs -> cs |> Seq.map (transformTypeName env) |> String.concat " | "
+    | TSType.Param n -> n
+
+and transformType (env: Environment) (typ: TSType) =
+    transformTypeName env typ |> J.Id.New |> J.Var
+
+and transformTypeOpt (env: Environment) (typ: TSType) =
+    match typ with
+    | TSType.Any -> None
+    | _ -> Some (transformType env typ)
+
 and transformMember (env: Environment) (mem: Statement) : J.Member =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     match mem with
-    | ClassMethod (a, b, c, d) ->
+    | ClassMethod (a, b, c, d, e) ->
         let innerEnv = env.NewInner(false)
         let args = c |> List.map (defineId innerEnv ArgumentId) 
         let body = 
@@ -519,10 +543,10 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             )
         let id =
             match body with
-            | Some (true, _) ->  J.Id.New(b, typ = J.Var (J.Id.New "any"))
-            | _ -> J.Id.New b 
+            | Some (true, _) ->  J.Id.New(b, typ = J.Var (J.Id.New "never"))
+            | _ -> J.Id.New(b, ?typ = transformTypeOpt env e) 
         J.Method(a, id, args, body |> Option.map (fun (_, b) -> flattenJS (innerEnv.Declarations @ b)))   
-    | ClassConstructor (a, b) ->
+    | ClassConstructor (a, b, c) ->
         let innerEnv = env.NewInner(false)
         let args = a |> List.map (defineId innerEnv ArgumentId) 
         let body = 
@@ -531,8 +555,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 b |> transformStatement innerEnv |> flattenFuncBody |> snd
             )
         J.Constructor(args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
-    | ClassProperty (a, b) ->
-        J.Property (a, J.Id.New b)
+    | ClassProperty (a, b, c) ->
+        J.Property (a, J.Id.New(b, ?typ = transformTypeOpt env c))
     | _ -> 
         invalidForm (GetUnionCaseName mem)
 

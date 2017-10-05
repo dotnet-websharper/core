@@ -1122,7 +1122,7 @@ type HasNoThisVisitor() =
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
 let errorPlaceholder = 
-    Cast(Var TSType.Any, Value (String "$$ERROR$$"))
+    Cast(TSType.Any, Value (String "$$ERROR$$"))
 
 /// A transformer that tracks current source position
 type TransformerWithSourcePos(comp: Metadata.ICompilation) =

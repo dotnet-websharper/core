@@ -310,3 +310,12 @@ type ReplaceIds(repl : System.Collections.Generic.IDictionary<Id, Id>) =
 let EmbedAST<'T> (v: Expression) : FSharp.Quotations.Expr<'T> =
     FSharp.Quotations.Expr.Value(v, typeof<'T>) 
     |> FSharp.Quotations.Expr.Cast
+
+module TSType =
+    let private basic x = TSType.Basic x
+    
+    let Object = basic "object"
+    let Null = basic "null"
+    let String = basic "string"
+    let Number = basic "number"
+    let Never = basic "never"
