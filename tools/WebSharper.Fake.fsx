@@ -291,9 +291,10 @@ type WSTargets with
     static member Default (version: Paket.SemVerInfo) =
         let buildBranch = environVarOrNone "BuildBranch"
         let version =
-            match buildBranch with
-            | Some b -> Paket.SemVer.Parse (version.AsString + "-" + b)
-            | None -> version
+            match buildBranch, version.PreRelease with
+            | None, _ -> version
+            | Some b, Some p when b = p.Origin -> version
+            | Some b, _ -> Paket.SemVer.Parse (version.AsString + "-" + b)
         {
             Version = version
             BuildAction = BuildAction.Solution "*.sln"
