@@ -92,6 +92,9 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         currentAttributes.Add(struct (name, value))
 
     member this.WriteAttribute(name: string, value: string) =
+        this.WriteAttribute(name, value, false)
+
+    member this.WriteAttribute(name: string, value: string, encoded: bool) =
         this.Write(" {0}=\"{1}\"", name, encodeText value)
 
     static member SelfClosingTagEnd = " />"
@@ -101,6 +104,30 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
     static member TagRightChar = '>'
 
 #endif
+
+    /// Checks whether an element should be rendered as self-closing,
+    /// ie. <x /> instead of <x></x>
+    static member IsSelfClosingTag (name: string) =
+        List.exists ((=) (name.ToLowerInvariant())) [
+            "area"
+            "base"
+            "basefont"
+            "br"
+            "col"
+            "embed"
+            "frame"
+            "hr"
+            "img"
+            "input"
+            "isindex"
+            "keygen"
+            "link"
+            "meta"
+            "param"
+            "source"
+            "track"
+            "wbr"
+        ]
 
 module CT = ContentTypes
 

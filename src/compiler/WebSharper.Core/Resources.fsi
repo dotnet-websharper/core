@@ -36,12 +36,14 @@ type HtmlTextWriter =
     member WriteEncodedText : string -> unit
     member AddAttribute : string * string -> unit
     member WriteAttribute : string * string -> unit
+    member WriteAttribute : string * string * bool -> unit
     static member SelfClosingTagEnd : string
     static member TagLeftChar : char
     static member TagRightChar : char
 #endif
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
+    static member IsSelfClosingTag : string -> bool
 
 val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 
