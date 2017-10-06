@@ -219,7 +219,7 @@ let flattenFuncBody s =
 
 let block s = J.Block (flattenJS s)
 
-let generics i j =
+let genericParams i j =
     if j = 0 then "" else
         "<" + (seq { i .. j - 1 } |> Seq.map (fun t -> "T" + string t) |> String.concat ",") + ">"
 
@@ -413,28 +413,33 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             match e with
             | IgnoreSourcePos.Undefined -> J.Empty 
             | _ -> J.Ignore(J.Binary(J.Var i, J.BinaryOperator.``=``, trE e))
-    let funcDeclaration x ids b t =
+    let funcDeclaration x ids b t g =
         let innerEnv = env.NewInner(false)
-        let id, args =
-            match t with
-            | Some (TSType.Lambda (ta, tr)) ->      
-                try
-                    transformId env x |> withType env tr
-                    , (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t) 
-                with _ ->
-                    failwithf "incompatible signature %O(%s): %A" x (ids |> Seq.map string |> String.concat ", ") t
-            | _ ->
-                transformId env x
-                , ids |> List.map (defineId innerEnv ArgumentId) 
-        CollectVariables(innerEnv).VisitStatement(b)
-        let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
-        let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
-        let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
-        if env.InFuncScope then
-            f
-        else
-            env.FuncDecls.Add f 
-            J.Empty
+        try
+            let id = transformId env x
+            let id =
+                if g = 0 then id else
+                    { id with Name = id.Name + genericParams 0 g }
+            let id, args =
+                match t with
+                | Some (TSType.Lambda (ta, tr)) ->      
+                        id |> withType env tr
+                        , (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t) 
+                | _ ->
+                    id
+                    , ids |> List.map (defineId innerEnv ArgumentId) 
+            CollectVariables(innerEnv).VisitStatement(b)
+            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
+            let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
+            let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
+            if env.InFuncScope then
+                f
+            else
+                env.FuncDecls.Add f 
+                J.Empty
+        with _ ->
+            J.Ignore (J.Var (J.Id.New ("WRONGSIGNATURE")))
+            //failwithf "incompatible signature %O(%s): %A" x (ids |> Seq.map string |> String.concat ", ") t
 
     match statement with
     | Empty
@@ -466,11 +471,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | VarDeclaration (id, e) ->
         varDeclaration id e None
     | FuncDeclaration (x, ids, b) ->
-        funcDeclaration x ids b None
+        funcDeclaration x ids b None 0
     | TypedDeclaration(VarDeclaration (id, e), s, _) ->
         varDeclaration id e (Some s)
     | TypedDeclaration(FuncDeclaration (x, ids, b), s, g) ->
-        funcDeclaration x ids b (Some s)
+        funcDeclaration x ids b (Some s) g 
     | While(a, b) -> 
         withFuncDecls <| fun () -> 
             J.While (trE a, trS b)
@@ -524,7 +529,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | ClassMethod (_, _, _, None, _, _) -> true
                 | _ -> false
             )
-        let n = n + generics 0 cg
+        let n = n + genericParams 0 cg
         J.Class(J.Id.New n, isAbstract, Option.map trE b, List.map trE i, List.map (transformMember innerEnv) m)
     | Interface (a, b, c, ig) ->
         J.Interface(J.Id.New a, List.map trE b, List.map (transformMember env) c)
@@ -536,11 +541,17 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
 and transformTypeName (env: Environment) (typ: TSType) =
     match typ with
     | TSType.Any -> "any"
+    | TSType.Basic "Array" ->
+        "any[]"
     | TSType.Basic n -> n
+    | TSType.Generic (TSType.Basic "Array", [ TSType.Basic n ]) ->
+        n + "[]"
+    | TSType.Generic (TSType.Basic "Array", [ t ]) ->
+        "(" + transformTypeName env t + ")[]"
     | TSType.Generic (t, g) -> (transformTypeName env t) + "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ")  + ">"
     | TSType.Var i -> (transformId env i).Name
     | TSType.Lambda (a, r)  -> 
-        "(" + (a |> Seq.map (transformTypeName env) |> String.concat ", ") + ")"
+        "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + transformTypeName env t) |> String.concat ", ") + ")"
         + " => " + transformTypeName env r
     | TSType.New _ -> "any" // TODO constructor signature
     | TSType.Tuple ts -> "[" + (ts |> Seq.map (transformTypeName env) |> String.concat ", ") + "]"
@@ -574,7 +585,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 CollectVariables(innerEnv).VisitStatement(b)
                 b |> transformStatement innerEnv |> flattenFuncBody
             )
-        let n = n + generics env.ClassGenerics mg
+        let n = n + genericParams env.ClassGenerics mg
         let id =
             match body with
             | Some (true, _) ->  J.Id.New(n, typ = J.Var (J.Id.New "never"))

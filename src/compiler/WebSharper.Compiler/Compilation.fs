@@ -831,7 +831,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 for mem in cls.Members do
                     match mem with
                     | NotResolvedMember.Method (_, mi) when mi.Kind = NotResolvedMemberKind.Instance ->
-                        mi.Kind <- NotResolvedMemberKind.Static         
+                        mi.Kind <- NotResolvedMemberKind.AsStatic         
                         mi.Body <- 
                             match mi.Body with
                             | Function(args, b) ->
@@ -966,6 +966,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match nr.Kind with
             | N.Constructor
             | N.Static -> Static a
+            | N.AsStatic -> AsStatic a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -1066,6 +1067,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Abstract
                         | N.Instance -> sn, Some false, false
                         | N.Static
+                        | N.AsStatic
                         | N.Constructor -> sn, Some true, false
                         | N.Remote _
                         | N.Inline

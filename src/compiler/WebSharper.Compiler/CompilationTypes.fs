@@ -38,6 +38,7 @@ module NotResolved =
         | Instance
         | Abstract
         | Static
+        | AsStatic
         | Constructor
         | Override of TypeDefinition
         | Implementation of TypeDefinition

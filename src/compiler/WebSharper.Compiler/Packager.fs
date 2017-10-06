@@ -34,7 +34,7 @@ module I = IgnoreSourcePos
 
 type StaticMembers =
     {
-        Members : ResizeArray<Address * Expression * TSType>
+        Members : ResizeArray<Address * Expression * TSType * int>
         Namespaces : Dictionary<string, StaticMembers>
     }
 
@@ -196,7 +196,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             override this.TransformGlobalAccess a = getAddress a
         }
 
-    let package (a: Address) expr (t: TSType) =
+    let package (a: Address) expr (t: TSType) g =
         let n = toNamespaceWithName a
         let i = Id.New (n, str = true)
         let exp =
@@ -206,7 +206,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let texp =
             match t with
             | TSType.Any -> exp
-            | _ -> TypedDeclaration (exp, t, 0)
+            | _ -> TypedDeclaration (exp, t, g)
         addStatement <| export texp
 
     let packageByName (a: Address) f =
@@ -287,7 +287,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
     let statics = StaticMembers.Empty
 
-    let addStatic (a: Address) (e, s) =
+    let addStatic (a: Address) (e, s, g) =
         let rec getDict (s: StaticMembers) a =
             match a with
             | [] -> s
@@ -299,7 +299,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     s.Namespaces.Add(h, ns)
                     getDict ns t
 
-        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s)    
+        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s, g)    
 
     let rec packageClassInstances (t: TypeDefinition) (c: M.ClassInfo) =
 
@@ -330,7 +330,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.OptionalField n ->
                 members.Add (ClassProperty (false, n, typ)) 
             | M.StaticField a ->
-                smem a (fun n -> ClassProperty (true, n, typ)) (fun () -> Undefined, typ)
+                smem a (fun n -> ClassProperty (true, n, typ)) (fun () -> Undefined, typ, 0)
             | _ -> ()
 
         match c.StaticConstructor with
@@ -344,35 +344,67 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             //        | _ -> failwith "static constuctor translated form must be a function"
             //    ) 
             //    (fun () -> body, TSType.Any)
-            addStatic ccaddr (body, TSType.Any)
+            addStatic ccaddr (body, TSType.Any, 0)
         | _ -> ()
 
-        let mem (m: Method) info body =
-            let signature =
-                TSType.Lambda(m.Value.Parameters |> List.map tsTypeOf, tsTypeOf m.Value.ReturnType)
+        let typeOfParams (opts: M.Optimizations) (ps: list<Type>) =
+            match opts.FuncArgs with
+            | None -> ps |> List.map tsTypeOf
+            | Some fa -> 
+                (ps, fa) ||> List.map2 (fun p o ->
+                    match o with
+                    | NotOptimizedFuncArg -> tsTypeOf p
+                    | CurriedFuncArg i ->
+                        let rec decurry i acc t =
+                            if i = 0 then
+                                TSType.Lambda(List.rev acc, tsTypeOf t)
+                            else
+                                match t with
+                                | FSharpFuncType (a, r) ->
+                                    decurry (i - 1) (tsTypeOf a :: acc) r
+                                | _ -> failwith "Error decurrying function parameter type"
+                        decurry i [] p
+                    | TupledFuncArg i -> 
+                        match p with
+                        | FSharpFuncType (TupleType (ts, _), r) ->
+                            TSType.Lambda(ts |> List.map tsTypeOf, tsTypeOf r)
+                        | _ ->  failwith "Error detupling function parameter type"
+                )
+
+        let mem (m: Method) info opts body =
+            let getSignature isInstToStatic =         
+                let p = typeOfParams opts m.Value.Parameters
+                let p =
+                    if isInstToStatic then
+                        tsTypeOf (NonGenericType t) :: p
+                    else p
+                TSType.Lambda(p, tsTypeOf m.Value.ReturnType)
+            let g = m.Value.Generics
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
-                    ClassMethod(isStatic, n, args, Some b, signature, m.Value.Generics)
+                    ClassMethod(isStatic, n, args, Some b, getSignature false, g)
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
-                    ClassMethod(isStatic, n, args, None, TSType.Any, m.Value.Generics)
+                    ClassMethod(isStatic, n, args, None, TSType.Any, g)
                 | _ -> failwith "unexpected form for class member"
             match withoutMacros info with
             | M.Instance mname ->
                 members.Add (getMember false mname)
             | M.Static maddr ->
-                smem maddr (getMember true) (fun () -> body, signature)
+                smem maddr (getMember true) (fun () -> body, getSignature false, g)
+            | M.AsStatic maddr ->
+                smem maddr (getMember true) (fun () -> body, getSignature true, getGenerics t + g)
             | _ -> ()
                     
-        for KeyValue(m, (info, _, body)) in c.Methods do
-            mem m info body 
+        for KeyValue(m, (info, opts, body)) in c.Methods do
+            mem m info opts body 
         for KeyValue((_, m), (info, body)) in c.Implementations do
-            mem m info body
+            mem m info M.Optimizations.None body
 
         let indexedCtors = Dictionary()
 
-        for KeyValue(ctor, (info, _, body)) in c.Constructors do
+        for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then
@@ -382,7 +414,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         ()
                     | Function (args, b) ->                  
                         let signature =
-                            TSType.New(ctor.Value.CtorParameters |> List.map tsTypeOf)
+                            TSType.New(typeOfParams opts ctor.Value.CtorParameters)
                         members.Add (ClassConstructor (args, Some b, signature))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -392,14 +424,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | Function (args, b) ->  
                         let index = Id.New("i: " + string i, str = true)
                         let signature =
-                            TSType.New(TSType.Any :: (ctor.Value.CtorParameters |> List.map tsTypeOf))
+                            TSType.New(TSType.Any :: (typeOfParams opts ctor.Value.CtorParameters))
                         members.Add (ClassConstructor (index :: args, None, signature))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.Static maddr ->
                 let signature =
-                    TSType.Lambda(ctor.Value.CtorParameters |> List.map tsTypeOf, tsTypeOf (NonGenericType t))
+                    TSType.Lambda(typeOfParams opts ctor.Value.CtorParameters, tsTypeOf (NonGenericType t))
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
@@ -407,7 +439,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             ClassMethod(true, n, args, Some b, signature, 0)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
-                    (fun () -> body, signature)
+                    (fun () -> body, signature, 0)
             | _ -> ()
 
         match classAddress with 
@@ -425,9 +457,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             | Some _ as res -> res
                             | _ -> current.Classes.TryFind b
                         match bCls |> Option.bind (fun bc -> bc.Address) with
-                        | Some ba -> Some (GlobalAccess ba)
+                        | Some ba -> 
+                            let genericParams j =
+                                if j = 0 then "" else
+                                    "<" + (seq { 0 .. j - 1 } |> Seq.map (fun t -> "T" + string t) |> String.concat ",") + ">"
+                            let addGenerics a = 
+                                match a with
+                                | h :: t -> h + genericParams (getGenerics b) :: t // TODO correct mapping
+                                | _ -> a
+                            let ga = { ba with Address = Hashed (addGenerics ba.Address.Value) }
+                            Some (GlobalAccess ga)
                         | _ -> None
-
 
             if indexedCtors.Count > 0 then
                 let index = Id.New("i", mut = false)
@@ -457,8 +497,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         packageClassInstances t c
     
     let rec packageStatics (s: StaticMembers) =
-        for a, e, t in s.Members do 
-            package a e t
+        for a, e, t, g in s.Members do 
+            package a e t g
         
         for n in s.Namespaces.Values do
             packageStatics n

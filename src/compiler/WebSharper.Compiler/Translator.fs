@@ -807,9 +807,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     trThisObj() |> Option.get |> getItem name,
                     trArgs(), opts.Purity, None) 
         | M.Static address ->
+            Application(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length)
+        | M.AsStatic address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
-            Application(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length)
+            Application(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1))
         | M.Inline ->
             Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
         | M.NotCompiledInline ->
@@ -1013,7 +1015,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiled (info, _, _)
         | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _, _)), _) ->
             match info with 
-            | M.Static address -> 
+            | M.Static address 
+            | M.AsStatic address ->
                 GlobalAccess address
             | M.Instance name -> 
                 match comp.TryLookupClassInfo typ.Entity with

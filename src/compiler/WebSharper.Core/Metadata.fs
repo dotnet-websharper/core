@@ -110,6 +110,7 @@ type ParameterObject =
 type CompiledMember =
     | Instance of string
     | Static of Address
+    | AsStatic of Address
     | New
     | NewIndexed of int
     | Inline
