@@ -231,7 +231,7 @@ let StatementDefs =
             , "Return a value"
         "Block", [ List Statement, "statements" ]
             , "Block of statements"
-        "VarDeclaration", [ Id, "variable"; Expr, "value";  ]
+        "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
         "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
             , "Function declaration"
@@ -269,34 +269,36 @@ let StatementDefs =
             , "Temporary - C# 'switch' statement"
         "GotoCase", [ Option Expr, "caseExpression" ]
             , "Temporary - C# 'goto case' statement"
-//        "Statements", [ List Statement, "statements" ]
 
-        "DoNotReturn", [],
-            ".NET - F# tail call position"
+        // F#
+        "DoNotReturn", []
+            , ".NET - F# tail call position"
 
         // TypeScript
-        "ImportAll", [ Option Id, "identifier"; Str, "moduleName" ],
-            "TypeScript - import * as ... from ..."
-        "Export", [ Statement, "statement" ],
-            "TypeScript - export"
-        "Declare", [ Statement, "statement" ], 
-            "TypeScript - declare ..."
-        "Namespace", [ Str, "name"; List Statement, "statements" ], 
-            "TypeScript - namespace { ... }"
-        "Class", [ Str, "name"; Option Expr, "baseClass"; List Expr, "implementations"; List Statement, "members" ],
-            "TypeScript - class { ... }"
-        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature"; ],
-            "TypeScript - class method"
-        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body"; TSType, "signature"; ],
-            "TypeScript - class method"
-        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ],
-            "TypeScript - class plain property"
-        "Interface", [ Str, "name"; List Expr, "extending"; List Statement, "members" ],
-            "TypeScript - interface { ... }"
-        "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ],
-            "TypeScript - type or import alias"
-        "XmlComment", [ Str, "xml"],
-            "TypeScript - triple-slash directive"
+        "ImportAll", [ Option Id, "identifier"; Str, "moduleName" ]
+            , "TypeScript - import * as ... from ..."
+        "Export", [ Statement, "statement" ]
+            , "TypeScript - export"
+        "Declare", [ Statement, "statement" ]
+            , "TypeScript - declare ..."
+        "Namespace", [ Str, "name"; List Statement, "statements" ]
+            , "TypeScript - namespace { ... }"
+        "Class", [ Str, "name"; Option Expr, "baseClass"; List Expr, "implementations"; List Statement, "members"; Int, "generics" ]
+            , "TypeScript - class { ... }"
+        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature"; Int, "generics" ]
+            , "TypeScript - class method"
+        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
+            , "TypeScript - class method"
+        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ]
+            , "TypeScript - class plain property"
+        "Interface", [ Str, "name"; List Expr, "extending"; List Statement, "members"; Int, "generics" ]
+            , "TypeScript - interface { ... }"
+        "TypedDeclaration", [ Statement, "statement"; TSType, "typeOrSignature"; Int, "generics" ]
+            , "TypeScript - function and var declaration with type or signature"
+        "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ]
+            , "TypeScript - type or import alias"
+        "XmlComment", [ Str, "xml"]
+            , "TypeScript - triple-slash directive"
     ]
 
 let binaryOps =
@@ -327,7 +329,7 @@ let binaryOps =
 
 let NL = System.Environment.NewLine
 
-let letters = [| "a"; "b"; "c"; "d"; "e" |]
+let letters = [| "a"; "b"; "c"; "d"; "e"; "f" |]
 
 let code = 
     let code = ResizeArray()

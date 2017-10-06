@@ -154,6 +154,7 @@ type ClassInfo =
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         IsStub : bool // is the class just a declaration
         Macros : list<TypeDefinition * option<ParameterObject>>
+        Type : option<TSType>
     }
 
     static member None =
@@ -168,6 +169,7 @@ type ClassInfo =
             HasWSPrototype = false
             IsStub = true
             Macros = []
+            Type = None
         }
         
 type IClassInfo =
@@ -325,6 +327,7 @@ type Info =
                     Methods = Dict.union [a.Methods; b.Methods]
                     IsStub = a.IsStub && b.IsStub
                     StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                    Type = combine a.Type b.Type
                 }
             else
                 None

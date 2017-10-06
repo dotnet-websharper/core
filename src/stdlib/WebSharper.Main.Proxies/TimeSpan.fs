@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.TimeSpan>)>]
+[<Type "number">]
 type private TimeSpanProxy =
 
     [<Inline "0">]

@@ -55,6 +55,7 @@ type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]
 [<Prototype false>]
+[<Type "Array">]
 type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
 
     [<Inline "[]">]

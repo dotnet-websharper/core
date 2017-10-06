@@ -99,6 +99,14 @@ let getName attrs =
         else None
     )
 
+let getTSType attrs =
+    attrs
+    |> Seq.tryPick (fun (a: Mono.Cecil.CustomAttribute) -> 
+        if a.AttributeType.FullName = "WebSharper.TypeAttribute" then
+            Some (TSType.Parse (a.ConstructorArguments.[0].Value :?> string))
+        else None
+    )
+
 let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
@@ -304,6 +312,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 HasWSPrototype = false // do not overwrite external prototype
                 IsStub = true
                 Macros = []
+                Type = getTSType typ.CustomAttributes
             }
         )
 

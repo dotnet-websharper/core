@@ -25,6 +25,7 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Object>)>]
 [<Name "WebSharper.Obj">]
+[<Type "any">]
 type private ObjectProxy() =
 
     [<Inline>]

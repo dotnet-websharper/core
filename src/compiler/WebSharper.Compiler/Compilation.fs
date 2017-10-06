@@ -191,6 +191,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     HasWSPrototype = false
                     IsStub = false
                     Macros = []
+                    Type = None
                 }
             ) 
             generatedClass <- Some td
@@ -870,6 +871,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     HasWSPrototype = hasWSPrototype
                     IsStub = isStub
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
+                    Type = cls.Type
                 }
             ) 
             // set up dependencies

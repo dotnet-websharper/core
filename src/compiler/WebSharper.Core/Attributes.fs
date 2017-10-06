@@ -219,3 +219,12 @@ type PrototypeAttribute() =
     /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
     /// usable only for sealed classes and F# unions and records.
     new (force: bool) = PrototypeAttribute()
+
+/// Specifies TypeScript type annotation for a Proxy or Stub type declaration.
+[<Sealed; U(T.Class|||T.Struct|||T.Interface|||T.Enum)>]
+type TypeAttribute =
+    inherit A
+    
+    /// Occurrecnes of this or the proxied .NET type will be annotated with this TypeScript type.
+    /// Supports generics, generic parameter name must match the .NET generic parameter name.
+    new (tsType: string) = { inherit A() }

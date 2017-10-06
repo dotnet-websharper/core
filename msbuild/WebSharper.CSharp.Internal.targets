@@ -57,6 +57,7 @@
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">15.0</VisualStudioVersion>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
   </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">

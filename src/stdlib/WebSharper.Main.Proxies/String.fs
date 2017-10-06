@@ -181,6 +181,7 @@ let SFormat (format: string) (args: obj[]) =
     ))
 
 [<Proxy(typeof<string>)>]
+[<Type "string">]
 type private StringProxy =
 
     [<Inline "''">]

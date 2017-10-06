@@ -319,3 +319,10 @@ module TSType =
     let String = basic "string"
     let Number = basic "number"
     let Never = basic "never"
+    let Void = basic "void"
+    let Array = basic "Array"
+
+    let Parse x =
+        match x with
+        | "any" -> TSType.Any
+        | _ -> TSType.Basic x

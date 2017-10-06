@@ -970,6 +970,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
             ForceAddress = hasSingletonCase
+            Type = annot.Type
         }
     )
 
@@ -1159,6 +1160,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 Macros = []
                 ForceNoPrototype = false
                 ForceAddress = false
+                Type = None
             }
             
         if sc.IsValueCreated then

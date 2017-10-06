@@ -742,6 +742,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false)
             ForceAddress = false
+            Type = annot.Type
         }
     )
 

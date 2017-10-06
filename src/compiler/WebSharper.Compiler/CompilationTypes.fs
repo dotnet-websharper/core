@@ -94,6 +94,7 @@ module NotResolved =
             Macros : list<TypeDefinition * option<obj>> 
             ForceNoPrototype : bool
             ForceAddress : bool
+            Type : option<TSType>
         }
 
     type NotResolvedInterface =

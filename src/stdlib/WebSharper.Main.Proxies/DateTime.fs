@@ -99,6 +99,7 @@ module private DateTimeHelpers =
     let LongTime (d: obj) = X<string>
                 
 [<Proxy(typeof<System.DateTime>)>]
+[<Type "number">]
 type private DateTimeProxy =
     [<Inline "0">]
     new () = {}

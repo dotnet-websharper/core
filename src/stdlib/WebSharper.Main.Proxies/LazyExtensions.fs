@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Name "Lazy">]
+[<WebSharper.Name "WebSharper.Lazy">]
 [<WebSharper.Proxy
     "Microsoft.FSharp.Control.LazyExtensions, \
      FSharp.Core, Culture=neutral, \
