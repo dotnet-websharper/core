@@ -153,15 +153,17 @@ let dotnetArgs = if verbose then [ "-v"; "n" ] else []
 MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
 
 let shell program cmd =
-    shellExec {
-        Program = program
-        WorkingDirectory = "."
-        CommandLine = cmd
-        Args = []
-    }
-    |> function
-        | 0 -> ()
-        | n -> failwithf "%s %s failed with code %i" program cmd n
+    Printf.kprintf (fun cmd ->
+        shellExec {
+            Program = program
+            WorkingDirectory = "."
+            CommandLine = cmd
+            Args = []
+        }
+        |> function
+            | 0 -> ()
+            | n -> failwithf "%s %s failed with code %i" program cmd n
+    ) cmd
 
 let git cmd =
     Printf.kprintf (Git.CommandHelper.directRunGitCommandAndFail ".") cmd
@@ -178,9 +180,7 @@ let MakeTargets (args: Args) =
         DeleteDirs dirtyDirs
 
     Target "WS-Update" <| fun () ->
-        for { Name = Paket.Domain.PackageName(pkg, _) } in mainGroup.Packages do
-            if pkg.Contains "WebSharper" || pkg.Contains "Zafir" then
-                shell ".paket/paket.exe" (sprintf "update %s" pkg)
+        shell ".paket/paket.exe" "update \"(WebSharper|Zafir).*\" --filter"
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
