@@ -29,5 +29,5 @@ nuget FSharp.Compiler.Service ~> 14.0.2
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core
+    nuget Paket.Core 5.108.0
     nuget FAKE
