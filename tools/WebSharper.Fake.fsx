@@ -282,6 +282,7 @@ let MakeTargets (args: Args) =
 
     "WS-Checkout"
         ==> "WS-Commit"
+        ==> "WS-CommitPublish"
 
     {
         BuildDebug = "WS-BuildDebug"
