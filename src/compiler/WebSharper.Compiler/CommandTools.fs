@@ -192,20 +192,21 @@ module ExecuteCommands =
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
         |> SendResult
 
-let LoadInterfaceGeneratorAssembly (aR: AssemblyResolver) (file: string) =
-        let genFile = Path.ChangeExtension(file, ".Generator.dll")
-        if File.Exists genFile then File.Delete genFile
-        File.Copy(file, genFile)
-        let asm = Assembly.Load(File.ReadAllBytes(genFile))
-        let name = asm.GetName()
-        match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
-        | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
-            name, attr.GetAssembly(), asm
-        | _ ->
-            failwith "No ExtensionAttribute set on the input assembly"
+let LoadInterfaceGeneratorAssembly (file: string) =
+    let genFile = Path.ChangeExtension(file, ".Generator.dll")
+    if File.Exists genFile then File.Delete genFile
+    File.Copy(file, genFile)
+    let asm = Assembly.Load(File.ReadAllBytes(genFile))
+    let name = asm.GetName()
+    match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
+    | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
+        name, attr.GetAssembly(), asm
+    | _ ->
+        failwith "No ExtensionAttribute set on the input assembly"
 
-let RunInterfaceGenerator aR snk config =
-        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly aR config.AssemblyFile
+let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
+    aR.Wrap <| fun () ->
+        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile
         let cfg =
             {
                 InterfaceGenerator.CompilerOptions.Default(name.Name) with
