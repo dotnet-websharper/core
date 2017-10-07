@@ -180,7 +180,11 @@ let MakeTargets (args: Args) =
         DeleteDirs dirtyDirs
 
     Target "WS-Update" <| fun () ->
-        shell ".paket/paket.exe" "update \"(WebSharper|Zafir).*\" --filter"
+        let needsUpdate =
+            mainGroup.Packages
+            |> Seq.exists (fun { Name = Paket.Domain.PackageName(pkg, _) } ->
+                pkg.Contains "WebSharper" || pkg.Contains "Zafir")
+        if needsUpdate then shell ".paket/paket.exe" "update"
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
