@@ -166,7 +166,10 @@ let shell program cmd =
     ) cmd
 
 let git cmd =
-    Printf.kprintf (Git.CommandHelper.directRunGitCommandAndFail ".") cmd
+    Printf.kprintf (fun s ->
+        logfn "> git %s" s
+        Git.CommandHelper.directRunGitCommandAndFail "." s
+    ) cmd
 
 let MakeTargets (args: Args) =
 
