@@ -128,7 +128,7 @@ type Args =
         BuildAction : BuildAction
         Attributes : seq<Attribute>
         StrongName : bool
-        BaseBranch : string
+        BaseRef : string
         WorkBranch : option<string>
         MergeMaster : bool
         PushRemote : string
@@ -236,7 +236,7 @@ let MakeTargets (args: Args) =
                 try git "checkout -b %s" branch
                 with _ -> raise e
             if args.MergeMaster then
-                git "merge --no-ff --no-commit %s" args.BaseBranch
+                git "merge --no-ff --no-commit %s" args.BaseRef
 
     Target "WS-Commit" <| fun () ->
         let tag = "v" + args.Version.AsString
@@ -308,7 +308,7 @@ type WSTargets with
             BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
-            BaseBranch = Git.Information.getBranchName "."
+            BaseRef = Git.Information.getCurrentSHA1 "."
             WorkBranch = buildBranch
             MergeMaster = buildBranch = Some "staging"
             PushRemote = environVarOrDefault "PushRemote" "origin"
