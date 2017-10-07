@@ -231,9 +231,9 @@ let MakeTargets (args: Args) =
         match args.WorkBranch with
         | None -> ()
         | Some branch ->
-            try git "checkout %s" branch
+            try git "checkout -f %s" branch
             with e ->
-                try git "checkout -b %s" branch
+                try git "checkout -f -b %s" branch
                 with _ -> raise e
             if args.MergeMaster then
                 git "merge --no-ff --no-commit %s" args.BaseRef
