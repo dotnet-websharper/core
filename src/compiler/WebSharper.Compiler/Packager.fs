@@ -191,11 +191,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | contents :: _ -> contents.Add(s)
         | _ -> failwith "impossible"
 
-    let globalAccessTransformer =
-        { new Transformer() with
-            override this.TransformGlobalAccess a = getAddress a
-        }
-
     let package (a: Address) expr (t: TSType) g =
         let n = toNamespaceWithName a
         let i = Id.New (n, str = true)
@@ -301,7 +296,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s, g)    
 
-    let rec packageClassInstances (t: TypeDefinition) (c: M.ClassInfo) =
+    let getIntf i =
+        let d =
+            match refMeta.Interfaces.TryFind i with
+            | Some _ as res -> res
+            | _ -> current.Interfaces.TryFind i
+        GlobalAccess d.Value.Address
+
+    let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
 
         let classAddress = 
             if c.HasWSPrototype then c.Address else None
@@ -311,7 +313,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             match classes.TryFind b with
             | Some bc ->
                 classes.Remove b |> ignore
-                packageClassInstances b bc
+                packageClass b bc
             | _ -> ()
         | _ -> ()
 
@@ -485,7 +487,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     )
                 members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
 
-            packageByName addr <| fun n -> Class(n, baseType, [], List.ofSeq members, getGenerics t)
+            let impls =
+                c.Implementations.Keys |> Seq.map fst |> Seq.distinct |> Seq.map getIntf |> List.ofSeq
+            
+            packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, getGenerics t)
             
         if c.IsStub then
             // import addresses for stub classes
@@ -494,7 +499,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
-        packageClassInstances t c
+        packageClass t c
     
     let rec packageStatics (s: StaticMembers) =
         for a, e, t, g in s.Members do 
@@ -505,6 +510,21 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
     packageStatics statics
 
+    for KeyValue(td, i) in current.Interfaces do       
+        let mem =
+            i.Methods |> Seq.map (fun (KeyValue (m, n)) ->
+                let args, argTypes =
+                    m.Value.Parameters |> List.mapi (fun i p ->
+                        strId (string ('a' + char i)), tsTypeOf p
+                    ) |> List.unzip
+                let signature = TSType.Lambda(argTypes, tsTypeOf m.Value.ReturnType)
+
+                ClassMethod(false, n, args, None, signature, m.Value.Generics)    
+            ) |> List.ofSeq
+
+        packageByName i.Address <| fun n ->
+           Interface(n, i.Extends |> List.map getIntf, mem, getGenerics td)
+
     toNamespace []
 
     if isBundle then
@@ -512,6 +532,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | Some ep -> addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
+    let globalAccessTransformer =
+        { new Transformer() with
+            override this.TransformGlobalAccess a =
+                match addresses.TryGetValue a with
+                | true, v -> v
+                | _ -> Var (strId (a.Address.Value |> List.rev |> String.concat "."))
+        }
+
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
     if List.isEmpty trStatements then 

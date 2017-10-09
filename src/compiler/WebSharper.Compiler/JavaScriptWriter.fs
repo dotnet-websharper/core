@@ -522,17 +522,18 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Namespace (a, b) ->
         let innerEnv = env.Namespaces.[a]
         J.Namespace (J.Id.New a, List.map (transformStatement innerEnv) b)
-    | Class (n, b, i, m, cg) ->
-        let innerEnv = env.NewInner(false, cg)
+    | Class (n, b, i, m, g) ->
+        let innerEnv = env.NewInner(false, g)
         let isAbstract =
             m |> List.exists (function
                 | ClassMethod (_, _, _, None, _, _) -> true
                 | _ -> false
             )
-        let n = n + genericParams 0 cg
+        let n = n + genericParams 0 g
         J.Class(J.Id.New n, isAbstract, Option.map trE b, List.map trE i, List.map (transformMember innerEnv) m)
-    | Interface (a, b, c, ig) ->
-        J.Interface(J.Id.New a, List.map trE b, List.map (transformMember env) c)
+    | Interface (n, e, m, g) ->
+        let n = n + genericParams 0 g
+        J.Interface(J.Id.New n, List.map trE e, List.map (transformMember env) m)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | _ -> 

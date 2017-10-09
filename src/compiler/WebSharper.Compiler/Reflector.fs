@@ -336,6 +336,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         interfaces.Add(def,
             {
+                Address = Address.Lib "TODO_WIG_Interfaces"
                 Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition ii.InterfaceType) |> List.ofSeq
                 Methods = 
                     dict [

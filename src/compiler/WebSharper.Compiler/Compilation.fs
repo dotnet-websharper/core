@@ -750,6 +750,9 @@ type Compilation(meta: Info, ?hasGraph) =
         
         let printerrf x = Printf.kprintf (fun s -> this.AddError (None, SourceError s)) x
 
+        let stronglyNamedTypes = ResizeArray()
+        let remainingTypes = ResizeArray()
+
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             let allMembers = HashSet()
             let allNames = HashSet()
@@ -800,11 +803,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
             let resNode =
                 {
+                    Address = Address.Empty()
                     Extends = nr.Extends
                     Methods = resMethods
                 }
             interfaces.Add(typ, resNode)
             notResolvedInterfaces.Remove typ |> ignore
+            remainingTypes.Add (typ, false)
         
         while notResolvedInterfaces.Count > 0 do
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
@@ -1015,10 +1020,12 @@ type Compilation(meta: Info, ?hasGraph) =
             else
                 extraClassAddresses.[typ] <- clAddr.Value
 
+        let setInterfaceAddress typ clAddr =
+            let res = interfaces.[typ]
+            interfaces.[typ] <- { res with Address = this.LocalAddress clAddr }
+            
         // split to resolve steps
-        let stronglyNamedClasses = ResizeArray()
         let fullyNamedStaticMembers = ResizeArray()
-        let remainingClasses = ResizeArray()
         let remainingNamedStaticMembers = Dictionary()
         let namedInstanceMembers = Dictionary() // includes implementations
         let remainingStaticMembers = Dictionary()
@@ -1037,10 +1044,10 @@ type Compilation(meta: Info, ?hasGraph) =
             let namedCls =
                 match cls.StrongName with
                 | Some sn ->
-                    stronglyNamedClasses.Add (typ, sn)
+                    stronglyNamedTypes.Add (typ, sn)
                     true
                 | _ -> 
-                    remainingClasses.Add typ
+                    remainingTypes.Add (typ, true)
                     false
             
             let cc = classes.[typ]
@@ -1172,7 +1179,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 for i, ctor in Seq.indexed constructors do
                     addConstructor ctor (NewIndexed i)
 
-        for typ, sn in stronglyNamedClasses do
+        for typ, sn in stronglyNamedTypes do
             let addr = 
                 match sn.Split('.') with
                 | [||] -> 
@@ -1268,14 +1275,17 @@ type Compilation(meta: Info, ?hasGraph) =
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
             nameStaticMember typ (Hashed addr) m
               
-        for typ in remainingClasses do
+        for typ, isClass in remainingTypes do
             let removeGen (n: string) =
                 match n.LastIndexOf '`' with
                 | -1 -> n
                 | i -> n.[.. i - 1]
             let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
-            r.ClassAddress(addr, classes.[typ].HasWSPrototype)
-            |> setClassAddress typ
+            let a = r.ClassAddress(addr, isClass && classes.[typ].HasWSPrototype)
+            if isClass then
+                setClassAddress typ a
+            else 
+                setInterfaceAddress typ a
         
         for KeyValue(typ, ms) in remainingNamedStaticMembers do
             let clAddr = getClassAddress typ

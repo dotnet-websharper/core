@@ -187,6 +187,7 @@ type IClassInfo =
 
 type InterfaceInfo =
     {
+        Address : Address
         Extends : list<TypeDefinition>
         Methods : IDictionary<Method, string>
     }

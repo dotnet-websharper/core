@@ -502,17 +502,17 @@ and Statement canBeEmpty statement =
         ++ Id n 
         ++ Optional (fun b -> Word "extends" ++ Expression b) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
-        -- BlockLayout (List.map Member ms)
+        -- BlockLayout (List.map (Member true) ms)
     | S.Interface (n, i, ms) ->
         Word "interface" 
         ++ Id n 
         ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
-        -- BlockLayout (List.map Member ms)
+        -- BlockLayout (List.map (Member false) ms)
 
-and Member mem =
+and Member isClass mem =
     match mem with
     | S.Method (s, n, args, body) ->
-        Conditional (Word "abstract") (Option.isNone body)
+        Conditional (Word "abstract") (isClass && Option.isNone body)
         ++ Conditional (Word "static") s
         ++ NonTypedId n
         ++ Parens (CommaSeparated Id args)
