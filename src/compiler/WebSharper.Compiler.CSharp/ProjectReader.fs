@@ -98,7 +98,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
     Some (def, 
         {
             StrongName = annot.Name
-            Extends = intf.Interfaces |> Seq.map (fun i -> sr.ReadNamedTypeDefinition i) |> List.ofSeq
+            Extends = intf.Interfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
             NotResolvedMethods = List.ofSeq methodNames 
         }
     )
@@ -291,9 +291,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         if cls.IsValueType || cls.IsStatic then
             None
         elif annot.Prototype = Some false then
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+            cls.BaseType |> sr.ReadNamedType |> ignoreSystemObject
         else
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
+            cls.BaseType |> sr.ReadNamedType |> Some
+
+    let implements =
+        cls.AllInterfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
 
     for meth in members.OfType<IMethodSymbol>() do
         let meth = 
@@ -516,7 +519,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let c =
                                 match baseCls with
                                 | Some bTyp ->
-                                    ExprStatement <| ChainedCtor(true, None, NonGeneric bTyp, ConstructorInfo.Default(), [])
+                                    ExprStatement <| ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), [])
                                 | _ -> Empty
                             let i =
                                 if hasInit then 
@@ -735,6 +738,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         {
             StrongName = strongName
             BaseClass = baseCls
+            Implements = implements
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind

@@ -1314,7 +1314,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | _ -> None
                     else
                         match comp.TryLookupClassInfo(typ.Entity) with
-                        | Some { BaseClass = Some bTyp } ->
+                        | Some { BaseClass = Some { Entity = bTyp } } ->
                             match comp.TryLookupClassInfo(bTyp) with
                             | Some { Address = Some a } -> Some a
                             | _ -> None

@@ -197,16 +197,20 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             match fromLibrary with
             | None when not (List.isEmpty reqs) -> Some ""
             | _ -> fromLibrary
-
+                
         let baseDef =
             let b = typ.BaseType
             if isNull b then None else
-                getTypeDefinition b
+                getType 0 b 
+                |> getConcreteType
                 |> ignoreSystemObject
+
+        let implements = 
+            typ.Interfaces |> Seq.map (fun i -> i.InterfaceType |> getType 0 |> getConcreteType) |> List.ofSeq
 
         match baseDef with 
         | Some b ->
-            graph.AddEdge(TypeNode def, TypeNode b)
+            graph.AddEdge(TypeNode def, TypeNode b.Entity)
         | _ -> ()
 
         let methods = Dictionary()
@@ -304,6 +308,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             {
                 Address = address
                 BaseClass = baseDef
+                Implements = implements
                 Constructors = constructors
                 Fields = Map.empty 
                 StaticConstructor = None         
@@ -337,7 +342,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         interfaces.Add(def,
             {
                 Address = Address.Lib "TODO_WIG_Interfaces"
-                Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition ii.InterfaceType) |> List.ofSeq
+                Extends = typ.Interfaces |> Seq.map (fun ii -> getType 0 ii.InterfaceType |> getConcreteType) |> List.ofSeq
                 Methods = 
                     dict [
                         for meth in typ.Methods do

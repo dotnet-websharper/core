@@ -1048,8 +1048,8 @@ type PrintF() =
 let rec isImplementing (comp: M.ICompilation) typ intf =
     comp.GetClassInfo typ
     |> Option.map (fun cls ->
-        cls.Implementations |> Seq.exists (fun (KeyValue ((i, _), _)) -> i = intf)
-        || cls.BaseClass |> Option.exists (fun b -> isImplementing comp b intf |> Option.exists id) 
+        cls.Implements |> Seq.exists (fun i -> i.Entity = intf)
+        || cls.BaseClass |> Option.exists (fun b -> isImplementing comp b.Entity intf |> Option.exists id) 
     )
 
 [<Sealed>]
@@ -1060,7 +1060,7 @@ type EqualityComparer() =
         TypeDefinition {
             Assembly = "mscorlib"
             FullName = "System.IEquatable`1"
-        } 
+        }
 
     static member GetDefault(comp: M.ICompilation, t: Type) =
         if t.IsParameter then MacroNeedsResolvedTypeArg t else

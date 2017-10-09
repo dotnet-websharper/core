@@ -710,8 +710,14 @@ module Definitions =
             Generics = 0
         }
     
-let ignoreSystemObject td =
-    if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
+let getConcreteType t =
+    match t with
+    | ConcreteType ct -> ct
+    | t -> failwithf "invalid base type or interface form: %O" t
+
+let ignoreSystemObject t =
+    let td = t.Entity
+    if td = Definitions.Obj || td = Definitions.ValueType then None else Some t
 
 module Resolve =
     open System.Collections.Generic

@@ -226,34 +226,65 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let tsTypeOfDef (t: TypeDefinition) =
-        match t.Value.FullName with
-        | _ ->
-            let cls =
-                match refMeta.Classes.TryFind t with
-                | Some _ as res -> res
-                | _ -> current.Classes.TryFind t
-            match cls with
-            | Some c -> 
-                match c.Type with
-                | Some t -> t
-                | _ ->
-                    match c.Address with
-                    | Some a -> TSType.Basic (a.Address.Value |> List.rev |> String.concat ".")
-                    | _ -> TSType.Any
-            | _ -> TSType.Any
+    let mappedTypes = Dictionary()
 
-    let rec tsTypeOf (t: Type) =
+    let tsTypeOfAddress (a: Address) =
+        let acc = a.Address.Value |> List.rev |> String.concat "."
+        match a.Module with
+        | StandardLibrary
+        | JavaScriptFile _
+        | CurrentModule -> TSType.Basic acc
+        | WebSharperModule m ->
+            match getAddress { a with Address = Hashed [] } with
+            | Var v ->
+                TSType.Imported(v, acc)
+            | Undefined ->
+                TSType.Basic acc
+            | _ -> failwith "expecting a Var or Undefined for module import"
+
+    let tsTypeOfDef (t: TypeDefinition) =
+        match mappedTypes.TryGetValue t with
+        | true, tt -> tt
+        | _ ->
+            let res =
+                match t.Value.FullName with
+                | _ ->
+                    let cls =
+                        match refMeta.Classes.TryFind t with
+                        | Some _ as res -> res
+                        | _ -> current.Classes.TryFind t
+                    match cls with
+                    | Some c -> 
+                        match c.Type with
+                        | Some t -> t
+                        | _ ->
+                            match c.Address with
+                            | Some a -> tsTypeOfAddress a
+                            | _ -> TSType.Any
+                    | _ -> 
+                        let intf = 
+                            match refMeta.Interfaces.TryFind t with
+                            | Some _ as res -> res
+                            | _ -> current.Interfaces.TryFind t
+                        match intf with
+                        | Some i -> tsTypeOfAddress i.Address
+                        | _ -> TSType.Any
+            mappedTypes.Add(t, res)
+            res
+
+    let rec tsTypeOfConcrete (t: Concrete<TypeDefinition>) =
+        match t.Generics with
+        | [] -> tsTypeOfDef t.Entity
+        | g -> 
+            let td = tsTypeOfDef t.Entity
+            match td with
+            | TSType.Basic _ ->
+                TSType.Generic(td, g |> List.map tsTypeOf)
+            | _ -> td
+
+    and tsTypeOf (t: Type) =
         match t with 
-        | ConcreteType t -> 
-            match t.Generics with
-            | [] -> tsTypeOfDef t.Entity
-            | g -> 
-                let td = tsTypeOfDef t.Entity
-                match td with
-                | TSType.Basic _ ->
-                    TSType.Generic(td, g |> List.map tsTypeOf)
-                | _ -> td
+        | ConcreteType t -> tsTypeOfConcrete t
         | ArrayType (t, a) -> TSType.Generic (TSType.Array, [ tsTypeOf t ])
         | TupleType (ts, _) -> TSType.Tuple (ts |> List.map tsTypeOf)
         | FSharpFuncType (a, r) -> 
@@ -294,14 +325,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     s.Namespaces.Add(h, ns)
                     getDict ns t
 
-        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s, g)    
-
-    let getIntf i =
-        let d =
-            match refMeta.Interfaces.TryFind i with
-            | Some _ as res -> res
-            | _ -> current.Interfaces.TryFind i
-        GlobalAccess d.Value.Address
+        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s, g)        
 
     let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
 
@@ -309,7 +333,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             if c.HasWSPrototype then c.Address else None
 
         match c.BaseClass with
-        | Some b ->
+        | Some { Entity = b } ->
             match classes.TryFind b with
             | Some bc ->
                 classes.Remove b |> ignore
@@ -447,30 +471,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match classAddress with 
         | None -> ()
         | Some addr ->
-            let baseType =
+            let baseType = 
                 match c.BaseClass with
+                | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Basic "WebSharper.Obj") 
+                | Some b -> Some (tsTypeOfConcrete b)
                 | None -> None
-                | Some b ->
-                    if b.Value.FullName = "System.Exception" then
-                        Some (Global [ "Error" ])
-                    else
-                        let bCls =
-                            match refMeta.Classes.TryFind b with
-                            | Some _ as res -> res
-                            | _ -> current.Classes.TryFind b
-                        match bCls |> Option.bind (fun bc -> bc.Address) with
-                        | Some ba -> 
-                            let genericParams j =
-                                if j = 0 then "" else
-                                    "<" + (seq { 0 .. j - 1 } |> Seq.map (fun t -> "T" + string t) |> String.concat ",") + ">"
-                            let addGenerics a = 
-                                match a with
-                                | h :: t -> h + genericParams (getGenerics b) :: t // TODO correct mapping
-                                | _ -> a
-                            let ga = { ba with Address = Hashed (addGenerics ba.Address.Value) }
-                            Some (GlobalAccess ga)
-                        | _ -> None
-
             if indexedCtors.Count > 0 then
                 let index = Id.New("i", mut = false)
                 let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
@@ -487,8 +492,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     )
                 members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
 
-            let impls =
-                c.Implementations.Keys |> Seq.map fst |> Seq.distinct |> Seq.map getIntf |> List.ofSeq
+            let impls = c.Implements |> List.map tsTypeOfConcrete
             
             packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, getGenerics t)
             
@@ -523,7 +527,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             ) |> List.ofSeq
 
         packageByName i.Address <| fun n ->
-           Interface(n, i.Extends |> List.map getIntf, mem, getGenerics td)
+           Interface(n, i.Extends |> List.map tsTypeOfConcrete, mem, getGenerics td)
 
     toNamespace []
 

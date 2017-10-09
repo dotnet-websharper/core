@@ -102,10 +102,14 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
                 | Member.Method (_, md) -> md
                 | _ -> failwith "invalid interface member"
             methodNames.Add(md, mAnnot.Name)
+
+    let tparams =
+        intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
     Some (def, 
         {
             StrongName = annot.Name 
-            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadTypeDefinition i.TypeDefinition) |> List.ofSeq
+            Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadType tparams i |> getConcreteType) |> List.ofSeq
             NotResolvedMethods = List.ofSeq methodNames 
         }
     )
@@ -325,7 +329,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         cls.IsFSharpModule || cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
 
     let clsTparams =
-        lazy 
         cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
     let inlinesOfClass =
@@ -349,9 +352,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
             None
         elif annot.Prototype = Some false then
-            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+            cls.BaseType |> Option.bind (fun t -> t |> sr.ReadType clsTparams |> getConcreteType |> ignoreSystemObject)
         else 
-            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+            cls.BaseType |> Option.map (fun t -> t |> sr.ReadType clsTparams |> getConcreteType)
+
+    let implements =
+        cls.AllInterfaces |> Seq.map (fun t -> t |> sr.ReadType clsTparams |> getConcreteType) |> List.ofSeq
 
     for m in members do
         match m with
@@ -764,7 +770,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     |> Seq.map (fun f ->
                                         {
                                             Name = f.Name
-                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            UnionFieldType = sr.ReadType clsTparams f.FieldType
                                             DateTimeFormat = 
                                                 cAnnot.DateTimeFormat 
                                                 |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
@@ -828,7 +834,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let cdef =
                 Hashed {
                     CtorParameters =
-                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams.Value f.FieldType) |> List.ofSeq
+                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
                 }
             let body =
                 let vars =
@@ -870,7 +876,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             for f in cls.FSharpFields do
                 let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
-                let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                let fTyp = sr.ReadType clsTparams f.FieldType
             
                 let getDef =
                     Hashed {
@@ -902,7 +908,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 cls.FSharpFields |> Seq.map (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                    let fTyp = sr.ReadType clsTparams f.FieldType
 
                     {
                         Name = f.Name
@@ -931,7 +937,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     
                     match fAnnot.Name with Some n -> n | _ -> f.Name
                     , 
-                    DefaultValueOf (sr.ReadType clsTparams.Value f.FieldType)
+                    DefaultValueOf (sr.ReadType clsTparams f.FieldType)
                 )
                 |> List.ofSeq
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
@@ -946,7 +952,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 IsStatic = f.IsStatic
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
                 IsReadonly = not f.IsMutable
-                FieldType = sr.ReadType clsTparams.Value f.FieldType
+                FieldType = sr.ReadType clsTparams f.FieldType
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
@@ -963,6 +969,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         {
             StrongName = strongName
             BaseClass = baseCls
+            Implements = implements
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind
@@ -1153,6 +1160,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             {
                 StrongName = None
                 BaseClass = None
+                Implements = []
                 Requires = [] //annot.Requires
                 Members = members
                 Kind = NotResolvedClassKind.Static

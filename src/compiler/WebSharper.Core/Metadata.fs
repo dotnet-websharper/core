@@ -146,7 +146,8 @@ type Optimizations =
 type ClassInfo =
     {
         Address : option<Address>
-        BaseClass : option<TypeDefinition>
+        BaseClass : option<Concrete<TypeDefinition>>
+        Implements : list<Concrete<TypeDefinition>>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
         Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
@@ -162,6 +163,7 @@ type ClassInfo =
         {
             Address = None
             BaseClass = None
+            Implements = []
             Constructors = dict []
             Fields = dict []
             StaticConstructor = None
@@ -175,7 +177,8 @@ type ClassInfo =
         
 type IClassInfo =
     abstract member Address : option<Address>
-    abstract member BaseClass : option<TypeDefinition>
+    abstract member BaseClass : option<Concrete<TypeDefinition>>
+    abstract member Implements : list<Concrete<TypeDefinition>>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
     /// value: field info, is readonly
     abstract member Fields : IDictionary<string, CompiledField * bool * Type>
@@ -188,7 +191,7 @@ type IClassInfo =
 type InterfaceInfo =
     {
         Address : Address
-        Extends : list<TypeDefinition>
+        Extends : list<Concrete<TypeDefinition>>
         Methods : IDictionary<Method, string>
     }
 
@@ -321,6 +324,7 @@ type Info =
                 Some {
                     Address = combine a.Address b.Address
                     BaseClass = combine a.BaseClass b.BaseClass
+                    Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
                     Constructors = Dict.union [a.Constructors; b.Constructors]
                     Fields = Dict.union [a.Fields; b.Fields]
                     HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype

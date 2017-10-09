@@ -183,6 +183,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 {
                     Address = None
                     BaseClass = None
+                    Implements = []
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = None 
@@ -215,6 +216,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 Some { new IClassInfo with
                     member this.Address = cls.Address
                     member this.BaseClass = cls.BaseClass
+                    member this.Implements = cls.Implements
                     member this.Constructors = MappedDictionary(cls.Constructors, fstOf3) :> _
                     member this.Fields = cls.Fields
                     member this.StaticConstructor = cls.StaticConstructor |> Option.map fst
@@ -483,8 +485,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.IsImplementing (typ, intf) : bool option =
         classes.TryFind(this.FindProxied typ)
         |> Option.map (fun cls ->
-            cls.Implementations |> Seq.exists (fun (KeyValue ((i, _), _)) -> i = intf)
-            || cls.BaseClass |> Option.exists (fun b -> this.IsImplementing(b, intf) |> Option.exists id) 
+            cls.Implements |> List.contains intf
+            || cls.BaseClass |> Option.exists (fun b -> this.IsImplementing(b.Entity, intf) |> Option.exists id) 
         )
 
     member this.HasType(typ) =
@@ -765,8 +767,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         printerrf "Failed to look up interface '%s'" i.Value.FullName 
                     None
 
-            let rec addInherited i (n: InterfaceInfo) =
+            let rec addInherited (i: TypeDefinition) (n: InterfaceInfo) =
                 for i in n.Extends do
+                    let i = i.Entity
                     getInterface i |> Option.iter (addInherited i)
                 for KeyValue(m, n) in n.Methods do
                     if not (allMembers.Add (i, m)) then
@@ -774,6 +777,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             printerrf "Interface method name collision: %s on %s" n typ.Value.FullName
             
             for i in nr.Extends do
+                let i = i.Entity
                 notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
                 getInterface i |> Option.iter (addInherited i)
             
@@ -851,9 +855,11 @@ type Compilation(meta: Info, ?hasGraph) =
             let cctor = cls.Members |> Seq.tryPick (function M.StaticConstructor e -> Some e | _ -> None)
             let baseCls =
                 cls.BaseClass |> Option.bind (fun b ->
-                    let b = this.FindProxied b
-                    if classes.ContainsKey b || notResolvedClasses.ContainsKey b then Some b else None
+                    let be = this.FindProxied b.Entity
+                    if classes.ContainsKey be || notResolvedClasses.ContainsKey be then Some { b with Entity = be } else None
                 )
+            let implements =
+                cls.Implements |> List.filter (fun i -> interfaces.ContainsKey i.Entity)
             let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
             let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
@@ -868,6 +874,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 {
                     Address = initAddress
                     BaseClass = if hasWSPrototype then baseCls else None
+                    Implements = implements
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
@@ -885,7 +892,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 graph.AddEdge(clsNodeIndex, asmNodeIndex)
                 for req in cls.Requires do
                     graph.AddEdge(clsNodeIndex, resNode req)
-                cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (this.FindProxied b)))
+                cls.BaseClass |> Option.iter (fun b -> graph.AddEdge(clsNodeIndex, TypeNode (this.FindProxied b.Entity)))
                 for m in cls.Members do
                     match m with
                     | M.Constructor (ctor, { Kind = k; Requires = reqs }) -> 
@@ -1335,7 +1342,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 // inherit members
                 match cls.BaseClass with
                 | None -> ()
-                | Some bTyp ->
+                | Some { Entity = bTyp } ->
                     match classes.Current.TryFind bTyp with
                     | Some bCls ->
                         let bMs =
@@ -1507,7 +1514,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.VerifyRPCs () =
         let rec isWebControl (cls: ClassInfo) =
             match cls.BaseClass with
-            | Some bT ->
+            | Some { Entity = bT } ->
                 bT.Value.FullName = "WebSharper.Web.Control" || isWebControl classes.[bT]
             | _ -> false
         let iControlBody =

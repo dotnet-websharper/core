@@ -354,6 +354,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
+    let inline trT x = transformType env x
     let sequential s effect =
         match List.rev s with
         | h :: t -> effect h :: List.map ExprStatement t |> List.rev          
@@ -530,10 +531,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ -> false
             )
         let n = n + genericParams 0 g
-        J.Class(J.Id.New n, isAbstract, Option.map trE b, List.map trE i, List.map (transformMember innerEnv) m)
+        J.Class(J.Id.New n, isAbstract, Option.map trT b, List.map trT i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let n = n + genericParams 0 g
-        J.Interface(J.Id.New n, List.map trE e, List.map (transformMember env) m)
+        J.Interface(J.Id.New n, List.map trT e, List.map (transformMember env) m)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | _ -> 
@@ -550,7 +551,7 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Generic (TSType.Basic "Array", [ t ]) ->
         "(" + transformTypeName env t + ")[]"
     | TSType.Generic (t, g) -> (transformTypeName env t) + "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ")  + ">"
-    | TSType.Var i -> (transformId env i).Name
+    | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
     | TSType.Lambda (a, r)  -> 
         "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + transformTypeName env t) |> String.concat ", ") + ")"
         + " => " + transformTypeName env r

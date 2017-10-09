@@ -87,7 +87,8 @@ module NotResolved =
     type NotResolvedClass =
         {
             StrongName : option<string>
-            BaseClass : option<TypeDefinition>
+            BaseClass : option<Concrete<TypeDefinition>>
+            Implements : list<Concrete<TypeDefinition>>
             Requires : list<TypeDefinition * option<obj>> 
             Members : list<NotResolvedMember>
             Kind : NotResolvedClassKind
@@ -101,18 +102,18 @@ module NotResolved =
     type NotResolvedInterface =
         {
             StrongName : option<string>
-            Extends : list<TypeDefinition>
+            Extends : list<Concrete<TypeDefinition>>
             NotResolvedMethods : list<Method * option<string>>
         }
 
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
 
-    let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
+    let hasWSPrototype ckind (baseCls: Concrete<TypeDefinition> option) cmembers =
         let nonObjBaseClass() = 
             match baseCls with
             | None -> false
-            | Some td when td = Definitions.Obj -> false
+            | Some td when td.Entity = Definitions.Obj -> false
             | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false

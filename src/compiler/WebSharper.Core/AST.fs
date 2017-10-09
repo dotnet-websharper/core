@@ -61,7 +61,7 @@ and [<RequireQualifiedAccess>] TSType =
     | Any
     | Basic of string
     | Generic of TSType * list<TSType>
-    | Var of Id
+    | Imported of Id * string
     | Lambda of list<TSType> * TSType
     | New of list<TSType>
     | Tuple of list<TSType>
@@ -281,7 +281,7 @@ and Statement =
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
     /// TypeScript - class { ... }
-    | Class of Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement> * Generics:int
+    | Class of Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:int
     /// TypeScript - class method
     | ClassMethod of IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType * Generics:int
     /// TypeScript - class method
@@ -289,7 +289,7 @@ and Statement =
     /// TypeScript - class plain property
     | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType
     /// TypeScript - interface { ... }
-    | Interface of Name:string * Extending:list<Expression> * Members:list<Statement> * Generics:int
+    | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:int
     /// TypeScript - function and var declaration with type or signature
     | TypedDeclaration of Statement:Statement * TypeOrSignature:TSType * Generics:int
     /// TypeScript - type or import alias
@@ -556,8 +556,8 @@ type Transformer() =
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
     /// TypeScript - class { ... }
-    abstract TransformClass : Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement> * Generics:int -> Statement
-    override this.TransformClass (a, b, c, d, e) = Class (a, Option.map this.TransformExpression b, List.map this.TransformExpression c, List.map this.TransformStatement d, e)
+    abstract TransformClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:int -> Statement
+    override this.TransformClass (a, b, c, d, e) = Class (a, b, c, List.map this.TransformStatement d, e)
     /// TypeScript - class method
     abstract TransformClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType * Generics:int -> Statement
     override this.TransformClassMethod (a, b, c, d, e, f) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e, f)
@@ -568,8 +568,8 @@ type Transformer() =
     abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> Statement
     override this.TransformClassProperty (a, b, c) = ClassProperty (a, b, c)
     /// TypeScript - interface { ... }
-    abstract TransformInterface : Name:string * Extending:list<Expression> * Members:list<Statement> * Generics:int -> Statement
-    override this.TransformInterface (a, b, c, d) = Interface (a, List.map this.TransformExpression b, List.map this.TransformStatement c, d)
+    abstract TransformInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:int -> Statement
+    override this.TransformInterface (a, b, c, d) = Interface (a, b, List.map this.TransformStatement c, d)
     /// TypeScript - function and var declaration with type or signature
     abstract TransformTypedDeclaration : Statement:Statement * TypeOrSignature:TSType * Generics:int -> Statement
     override this.TransformTypedDeclaration (a, b, c) = TypedDeclaration (this.TransformStatement a, b, c)
@@ -936,8 +936,8 @@ type Visitor() =
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
     /// TypeScript - class { ... }
-    abstract VisitClass : Name:string * BaseClass:option<Expression> * Implementations:list<Expression> * Members:list<Statement> * Generics:int -> unit
-    override this.VisitClass (a, b, c, d, e) = (); Option.iter this.VisitExpression b; List.iter this.VisitExpression c; List.iter this.VisitStatement d; ()
+    abstract VisitClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:int -> unit
+    override this.VisitClass (a, b, c, d, e) = (); (); (); List.iter this.VisitStatement d; ()
     /// TypeScript - class method
     abstract VisitClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType * Generics:int -> unit
     override this.VisitClassMethod (a, b, c, d, e, f) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; (); ()
@@ -948,8 +948,8 @@ type Visitor() =
     abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> unit
     override this.VisitClassProperty (a, b, c) = (); (); ()
     /// TypeScript - interface { ... }
-    abstract VisitInterface : Name:string * Extending:list<Expression> * Members:list<Statement> * Generics:int -> unit
-    override this.VisitInterface (a, b, c, d) = (); List.iter this.VisitExpression b; List.iter this.VisitStatement c; ()
+    abstract VisitInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:int -> unit
+    override this.VisitInterface (a, b, c, d) = (); (); List.iter this.VisitStatement c; ()
     /// TypeScript - function and var declaration with type or signature
     abstract VisitTypedDeclaration : Statement:Statement * TypeOrSignature:TSType * Generics:int -> unit
     override this.VisitTypedDeclaration (a, b, c) = this.VisitStatement a; (); ()
@@ -1251,11 +1251,11 @@ module Debug =
         | Export a -> "Export" + "(" + PrintStatement a + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
-        | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + PrintObject e + ")"
+        | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + PrintObject e + ")"
         | ClassMethod (a, b, c, d, e, f) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ", " + PrintObject f + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ")"
-        | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + PrintObject d + ")"
+        | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + PrintObject d + ")"
         | TypedDeclaration (a, b, c) -> "TypedDeclaration" + "(" + PrintStatement a + ", " + PrintObject b + ", " + PrintObject c + ")"
         | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + PrintObject b + ", " + PrintExpression c + ")"
         | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"

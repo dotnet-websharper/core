@@ -186,7 +186,7 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
         let res = this.TransformExpression(expr)
         match btyp with
         | Some b when not addedChainedCtor -> 
-            Sequential [ ChainedCtor(true, thisVar, NonGeneric b, ConstructorInfo.Default(), []); res ]
+            Sequential [ ChainedCtor(true, thisVar, b, ConstructorInfo.Default(), []); res ]
         | _ -> res
 
 let fixCtor thisTyp baseTyp expr =
@@ -1035,7 +1035,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     ]
                 )
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
-            let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+            let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> t |> sr.ReadType env.TParams |> getConcreteType) 
 
             Let(r, CopyCtor(td, plainObj),
                 Sequential [
