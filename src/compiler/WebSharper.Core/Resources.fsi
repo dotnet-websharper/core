@@ -37,10 +37,10 @@ type HtmlTextWriter =
     member AddAttribute : string * string -> unit
     member WriteAttribute : string * string -> unit
     member WriteAttribute : string * string * bool -> unit
+#endif
     static member SelfClosingTagEnd : string
     static member TagLeftChar : char
     static member TagRightChar : char
-#endif
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
     static member IsSelfClosingTag : string -> bool

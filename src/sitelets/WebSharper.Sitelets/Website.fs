@@ -115,7 +115,12 @@ type WebsiteAttribute private (arg: option<System.Type * obj>) =
 
     member this.Run() =
         match arg with
-        | Some (t, website) -> Utils.GetSitelet t (website, None)
+        | Some (t, website) ->
+#if NET461 // ASP.NET: HttpApplication
+            Utils.GetSitelet t (website, None)
+#else
+            Utils.GetSitelet t website
+#endif
         | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
 
 #if NET461 // ASP.NET: HttpApplication

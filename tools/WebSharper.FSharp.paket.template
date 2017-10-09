@@ -15,7 +15,7 @@ files
     ../build/Release/FSharp/net461/wsfsc.exe.config ==> tools
     ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> tools
-    ../build/Release/net461/WebSharper.Sitelets.Offline.dll ==> tools
+    ../build/Release/FSharp/net461/WebSharper.Sitelets.Offline.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools
     ../build/Release/FSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools
