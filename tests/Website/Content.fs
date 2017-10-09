@@ -74,7 +74,10 @@ let TestsPage (ctx: Context<FullAction>) =
         |> SampleSite.Json
         |> SiteletsTests
         |> ctx.Link
-    let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
+    let jsonBaseUri =
+        match jsonBaseUri.LastIndexOf '/' with
+        | -1 -> jsonBaseUri
+        | n -> jsonBaseUri.[..n]
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = (

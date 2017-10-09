@@ -97,13 +97,13 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
     member this.WriteAttribute(name: string, value: string, encoded: bool) =
         this.Write(" {0}=\"{1}\"", name, encodeText value)
 
+#endif
+
     static member SelfClosingTagEnd = " />"
 
     static member TagLeftChar = '>'
 
     static member TagRightChar = '>'
-
-#endif
 
     /// Checks whether an element should be rendered as self-closing,
     /// ie. <x /> instead of <x></x>
