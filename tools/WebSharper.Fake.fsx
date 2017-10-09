@@ -236,7 +236,7 @@ let MakeTargets (args: Args) =
                 try git "checkout -f -b %s" branch
                 with _ -> raise e
             if args.MergeMaster then
-                git "merge --no-ff --no-commit %s" args.BaseRef
+                git "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef
 
     Target "WS-Commit" <| fun () ->
         let tag = "v" + args.Version.AsString
