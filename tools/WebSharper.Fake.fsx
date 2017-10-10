@@ -116,7 +116,7 @@ module Hg =
         )
 
     let branchExists (b: string) =
-        hg' "branches -T {branch}"
+        hg' """branches -T "{branch}\n" """
         |> splitLines
         |> Array.contains b
 
