@@ -6,7 +6,7 @@ Uses the following environment variables (some of which are overridden by WSTarg
     Automatically set by Jenkins.
   * BuildBranch: the name of the branch to switch to before building, and to push to on success.
     Default: current branch
-  * PushRemote: the name of the git remote to push to
+  * PushRemote: the name of the git or hg remote to push to
     Default: origin
   * NuGetPublishUrl: the URL of the NuGet server
     Default: https://nuget.intellifactory.com/nuget
@@ -37,6 +37,7 @@ module WebSharper.Fake
 #nowarn "49"
 
 open System
+open System.IO
 open System.Text.RegularExpressions
 open Fake
 open Fake.AssemblyInfoFile
@@ -55,20 +56,109 @@ let GetSemVerOf pkgName =
     | [] -> None
     | l -> Some (List.max l)
 
+let shell program cmd =
+    Printf.kprintf (fun cmd ->
+        shellExec {
+            Program = program
+            WorkingDirectory = "."
+            CommandLine = cmd
+            Args = []
+        }
+        |> function
+            | 0 -> ()
+            | n -> failwithf "%s %s failed with code %i" program cmd n
+    ) cmd
+
+let shellOut program cmd =
+    Printf.kprintf (fun cmd ->
+        let psi =
+            System.Diagnostics.ProcessStartInfo(
+                FileName = program,
+                Arguments = cmd,
+                RedirectStandardOutput = true,
+                UseShellExecute = false
+            )
+        let proc = System.Diagnostics.Process.Start(psi)
+        let out = proc.StandardOutput.ReadToEnd()
+        proc.WaitForExit()
+        match proc.ExitCode with
+        | 0 -> out
+        | n -> failwithf "%s %s failed with code %i" program cmd n
+    ) cmd
+
+let git cmd =
+    Printf.kprintf (fun s ->
+        logfn "> git %s" s
+        Git.CommandHelper.directRunGitCommandAndFail "." s
+    ) cmd
+
+let hg cmd = shell "hg" cmd
+let hg' cmd = shellOut "hg" cmd
+
+let private splitLines (s: string) =
+    s.Split([| "\r\n"; "\n" |], StringSplitOptions.None)
+
+module Hg =
+    let getBookmarks() =
+        hg' """bookmark -T "{bookmark} {node|short}\n" """
+        |> splitLines
+        |> Array.map (fun s -> s.Split(' ').[0])
+
+    let getCurrentCommitId() =
+        (hg' "id -i").Trim()
+
+    let commitIdForBookmark (b: string) =
+        hg' """bookmark -T "{bookmark} {node|short}\n" """
+        |> splitLines
+        |> Array.pick (fun s ->
+            let a = s.Split(' ')
+            if a.[0] = b then Some a.[1] else None
+        )
+
+    let branchExists (b: string) =
+        hg' "branches -T {branch}"
+        |> splitLines
+        |> Array.contains b
+
+    let isAncestorOfCurrent (ref: string) =
+        let currentRef = getCurrentCommitId()
+        let o = hg' """log --rev "ancestors(.) and %s" """ ref
+        not (String.IsNullOrWhiteSpace o)
+
+module VC =
+    let isGit = Directory.Exists ".git"
+
+    let getTags() =
+        if isGit then
+            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag --merged"
+            out.ToArray()
+        else
+            Hg.getBookmarks()
+
+    let getCurrentCommitId() =
+        if isGit then
+            Git.Information.getCurrentSHA1 "."
+        else
+            Hg.getCurrentCommitId()
+
+    let commitIdForTag tag =
+        if isGit then
+            Git.Branches.getSHA1 "." ("refs/tags/" + tag)
+        else Hg.commitIdForBookmark tag
+
 let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
     let lastVersion, tag =
         try
-            let ok, out, err = Git.CommandHelper.runGitCommand "." "tag --merged"
+            let tags = VC.getTags()
             let re = Regex("""^(?:[a-zA-Z]+[-.]?)?([0-9]+(?:\.[0-9]+){0,3})(?:-.*)?$""")
-            match out.ToArray()
-                |> Array.choose (fun tag ->
-                    try
-                        let m = re.Match(tag)
-                        if m.Success then
-                            let v = m.Groups.[1].Value |> Paket.SemVer.Parse
-                            Some (v, Some tag)
-                        else None
-                    with _ -> None) with
+            match tags |> Array.choose (fun tag ->
+                try
+                    let m = re.Match(tag)
+                    if m.Success then
+                        let v = m.Groups.[1].Value |> Paket.SemVer.Parse
+                        Some (v, Some tag)
+                    else None
+                with _ -> None) with
             | [||] ->
                 traceImportant "Warning: no latest tag found"
                 Paket.SemVer.Zero, None
@@ -84,10 +174,10 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
             if lastVersion.Major <> baseVersion.Major || lastVersion.Minor <> baseVersion.Minor then
                 0u
             else
-                let head = Git.Information.getCurrentSHA1 "."
+                let head = VC.getCurrentCommitId()
                 let tagged =
                     match tag with
-                    | Some tag -> Git.Branches.getSHA1 "." ("refs/tags/" + tag)
+                    | Some tag -> VC.commitIdForTag tag
                     | None -> head
                 if head = tagged then
                     lastVersion.Patch
@@ -152,25 +242,6 @@ let msbuildVerbosity = if verbose then MSBuildVerbosity.Normal else MSBuildVerbo
 let dotnetArgs = if verbose then [ "-v"; "n" ] else []
 MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
 
-let shell program cmd =
-    Printf.kprintf (fun cmd ->
-        shellExec {
-            Program = program
-            WorkingDirectory = "."
-            CommandLine = cmd
-            Args = []
-        }
-        |> function
-            | 0 -> ()
-            | n -> failwithf "%s %s failed with code %i" program cmd n
-    ) cmd
-
-let git cmd =
-    Printf.kprintf (fun s ->
-        logfn "> git %s" s
-        Git.CommandHelper.directRunGitCommandAndFail "." s
-    ) cmd
-
 let MakeTargets (args: Args) =
 
     let dirtyDirs =
@@ -231,20 +302,34 @@ let MakeTargets (args: Args) =
         match args.WorkBranch with
         | None -> ()
         | Some branch ->
-            try git "checkout -f %s" branch
-            with e ->
-                try git "checkout -f -b %s" branch
-                with _ -> raise e
-            if args.MergeMaster then
-                git "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef
+            if VC.isGit then
+                try git "checkout -f %s" branch
+                with e ->
+                    try git "checkout -f -b %s" branch
+                    with _ -> raise e
+                if args.MergeMaster then
+                    git "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef
+            else
+                if Hg.branchExists branch
+                then hg "update -C %s" branch
+                else hg "branch %s" branch
+                if args.MergeMaster && not (Hg.isAncestorOfCurrent args.BaseRef) then
+                    hg "merge --tool internal:other %s" args.BaseRef
 
     Target "WS-Commit" <| fun () ->
         let tag = "v" + args.Version.AsString
-        git "add ."
-        git "commit --allow-empty -m \"[CI] %s\"" tag
-        git "tag %s" tag
-        git "push %s %s" args.PushRemote (Git.Information.getBranchName ".")
-        git "push %s %s" args.PushRemote tag
+        if VC.isGit then
+            git "add ."
+            git "commit --allow-empty -m \"[CI] %s\"" tag
+            git "tag %s" tag
+            git "push %s %s" args.PushRemote (Git.Information.getBranchName ".")
+            git "push %s %s" args.PushRemote tag
+        else
+            hg "add ."
+            hg "commit -m \"[CI] %s\"" tag
+            hg "bookmark -i %s" tag
+            hg "push --new-branch -b %s %s" (hg' "branch") args.PushRemote
+            hg "push -B %s %s" tag args.PushRemote
 
     Target "WS-Publish" <| fun () ->
         match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
@@ -308,7 +393,7 @@ type WSTargets with
             BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
-            BaseRef = Git.Information.getCurrentSHA1 "."
+            BaseRef = VC.getCurrentCommitId()
             WorkBranch = buildBranch
             MergeMaster = buildBranch = Some "staging"
             PushRemote = environVarOrDefault "PushRemote" "origin"
