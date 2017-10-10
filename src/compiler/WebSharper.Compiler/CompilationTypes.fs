@@ -50,6 +50,7 @@ module NotResolved =
         {
             mutable Kind : NotResolvedMemberKind
             StrongName : option<string>
+            GenericConstraints : GenericConstraints
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
             Compiled : bool
@@ -89,6 +90,7 @@ module NotResolved =
             StrongName : option<string>
             BaseClass : option<Concrete<TypeDefinition>>
             Implements : list<Concrete<TypeDefinition>>
+            GenericConstraints : GenericConstraints
             Requires : list<TypeDefinition * option<obj>> 
             Members : list<NotResolvedMember>
             Kind : NotResolvedClassKind
@@ -103,7 +105,8 @@ module NotResolved =
         {
             StrongName : option<string>
             Extends : list<Concrete<TypeDefinition>>
-            NotResolvedMethods : list<Method * option<string>>
+            NotResolvedMethods : list<Method * option<string> * GenericConstraints>
+            GenericConstraints : GenericConstraints
         }
 
     type N = NotResolvedMemberKind
@@ -445,8 +448,8 @@ type CompilationError =
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =
-    | Compiled of CompiledMember * Optimizations * Expression
-    | Compiling of CompilingMember * Expression
+    | Compiled of CompiledMember * Optimizations * GenericConstraints * Expression
+    | Compiling of CompilingMember * GenericConstraints * Expression
     | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 
 

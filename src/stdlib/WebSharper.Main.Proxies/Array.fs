@@ -28,6 +28,9 @@ type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 type private JSArray<'T> = WebSharper.JavaScript.Array<'T>
 type private Comparer<'T> = System.Collections.Generic.Comparer<'T>
 
+type Pacc<'T when 'T :> IComparer> =
+    abstract P: int -> 'T
+
 [<AutoOpen; JavaScript>]
 module ArrayProxy =
 
@@ -411,4 +414,4 @@ type private ArrayProxy =
         with [<Inline>] get() = F.GetLength (As this)   
 
     [<Inline>]
-    member this.GetEnumerator() = Enumerator.Get0 (As this)         
+    member this.GetEnumerator() = As<System.Collections.IEnumerator> (Enumerator.Get (As this))         

@@ -535,7 +535,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      
-    member this.CompileMethod(info, expr, typ, meth) =
+    member this.CompileMethod(info, constraints, expr, typ, meth) =
         try
             currentNode <- M.MethodNode(typ, meth) 
 #if DEBUG
@@ -564,7 +564,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     { opts with
                         IsPure = notVirtual && (opts.IsPure || isPureFunction res)
                     } 
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, constraints, res)
             | NotGenerated (g, p, i, notVirtual, opts) ->
                 let m = GeneratedMethod(typ, meth)
                 let res = this.Generate (g, p, m) |> breakExpr
@@ -573,7 +573,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     { opts with
                         IsPure = notVirtual && (opts.IsPure || isPureFunction res)
                     }
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, constraints, res)
 #if DEBUG
             logTransformations <- false
 #endif
@@ -582,7 +582,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match info with
             | NotCompiled (i, _, opts) 
             | NotGenerated (_, _, i, _, opts) ->
-                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
+                comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, constraints, res)
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
@@ -681,8 +681,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
-                let (KeyValue((t, m), (i, e))) = Seq.head comp.CompilingMethods
-                toJS.CompileMethod(i, e, t, m)
+                let (KeyValue((t, m), (i, c, e))) = Seq.head comp.CompilingMethods
+                toJS.CompileMethod(i, c, e, t, m)
 
         compileMethods()
         comp.CloseMacros()
@@ -936,11 +936,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.Error("Static method on dynamic object not tranlated: " + n)
         else
         match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
-        | Compiled (info, opts, expr) ->
+        | Compiled (info, opts, _, expr) ->
             this.CompileCall(info, opts, expr, thisObj, typ, meth, args)
-        | Compiling (info, expr) ->
+        | Compiling (info, gc, expr) ->
             if isInline info then
-                this.AnotherNode().CompileMethod(info, expr, typ.Entity, meth.Entity)
+                this.AnotherNode().CompileMethod(info, gc, expr, typ.Entity, meth.Entity)
                 this.TransformCall (thisObj, typ, meth, args)
             else
                 match info with
@@ -1012,8 +1012,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.Warning("Creating delegate from inlined call, equality may not work.")
             call        
         match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
-        | Compiled (info, _, _)
-        | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _, _)), _) ->
+        | Compiled (info, _, _, _)
+        | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
             match info with 
             | M.Static address 
             | M.AsStatic address ->
@@ -1280,9 +1280,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformCtor(typ, ctor, args) =
         match comp.LookupConstructorInfo(typ.Entity, ctor) with
-        | Compiled (info, opts, expr) -> 
+        | Compiled (info, opts, _, expr) -> 
             this.CompileCtor(info, opts, expr, typ, ctor, args)
-        | Compiling (info, expr) ->
+        | Compiling (info, _, expr) ->
             if isInline info then
                 this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
                 this.TransformCtor(typ, ctor, args)
@@ -1359,12 +1359,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | _ ->
                             failwith "Expecting a function as compiled form of constructor"
                     match comp.LookupConstructorInfo(typ.Entity, ctor) with
-                    | Compiled (info, _, expr) ->
+                    | Compiled (info, _, _, expr) ->
                         subs info expr
-                    | Compiling (info, expr) ->
+                    | Compiling (info, _, expr) ->
                         this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
                         match comp.LookupConstructorInfo(typ.Entity, ctor) with
-                        | Compiled (info, _, expr) ->
+                        | Compiled (info, _, _, expr) ->
                             subs info expr
                         | _ -> failwith "should be compiled"
                     | _ -> failwith "should be compiled"
@@ -1486,8 +1486,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth) with
-        | Compiled (M.Instance name, _, _) 
-        | Compiling ((NotCompiled ((M.Instance name), _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
+        | Compiled (M.Instance name, _, _, _) 
+        | Compiling ((NotCompiled ((M.Instance name), _, _) | NotGenerated (_,_,M.Instance name, _, _)), _, _) ->
             Value (String name)
         | LookupMemberError err ->
             this.Error err
@@ -1697,7 +1697,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
                             warnIgnoringGenerics()
-                            let shortestName = ii.Methods.Values |> Seq.minBy String.length
+                            let shortestName, _ = ii.Methods.Values |> Seq.minBy (fst >> String.length)
                             Binary(
                                 Value (String shortestName),
                                 BinaryOperator.``in``,

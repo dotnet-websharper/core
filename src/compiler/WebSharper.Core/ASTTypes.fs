@@ -593,6 +593,19 @@ and Type =
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
 
+[<RequireQualifiedAccess>]
+type TSType =
+    | Any
+    | Basic of string
+    | Generic of TSType * list<TSType>
+    | Imported of Id * string
+    | Lambda of list<TSType> * TSType
+    | New of list<TSType>
+    | Tuple of list<TSType>
+    | Union of list<TSType>
+    | Param of int
+    | Constraint of TSType * list<TSType>
+
 type MethodInfo =
     {
         MethodName : string

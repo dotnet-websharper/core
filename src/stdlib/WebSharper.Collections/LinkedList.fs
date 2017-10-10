@@ -54,6 +54,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     interface IEnumerator<'T> with
         member this.Current = c.Value
         
+        [<Inline>]
         member this.Current = c.Value |> box
 
         member this.MoveNext() =
@@ -62,6 +63,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
 
         member this.Dispose() = ()
 
+        [<JavaScript false>]
         member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]

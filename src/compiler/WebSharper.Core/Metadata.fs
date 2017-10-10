@@ -143,15 +143,18 @@ type Optimizations =
 
     member this.Purity = if this.IsPure then Pure else NonPure
 
+type GenericConstraints = list<list<Type>>
+
 type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<Concrete<TypeDefinition>>
         Implements : list<Concrete<TypeDefinition>>
+        GenericConstraints : GenericConstraints
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
         Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
-        Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
+        Methods : IDictionary<Method, CompiledMember * Optimizations * GenericConstraints * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         IsStub : bool // is the class just a declaration
@@ -164,6 +167,7 @@ type ClassInfo =
             Address = None
             BaseClass = None
             Implements = []
+            GenericConstraints = []
             Constructors = dict []
             Fields = dict []
             StaticConstructor = None
@@ -192,7 +196,8 @@ type InterfaceInfo =
     {
         Address : Address
         Extends : list<Concrete<TypeDefinition>>
-        Methods : IDictionary<Method, string>
+        Methods : IDictionary<Method, string * GenericConstraints>
+        GenericConstraints : GenericConstraints
     }
 
 type DelegateInfo =
@@ -313,7 +318,7 @@ type Info =
             && Dict.isEmpty c.Implementations
             && List.isEmpty c.Macros
             && Option.isNone c.StaticConstructor
-            && c.Methods.Values |> Seq.forall (function | Instance _,_,_ -> false | _ -> true)
+            && c.Methods.Values |> Seq.forall (function | Instance _,_,_,_ -> false | _ -> true)
 
         let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
             let combine (left: 'a option) (right: 'a option) =
@@ -325,6 +330,7 @@ type Info =
                     Address = combine a.Address b.Address
                     BaseClass = combine a.BaseClass b.BaseClass
                     Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
+                    GenericConstraints = a.GenericConstraints
                     Constructors = Dict.union [a.Constructors; b.Constructors]
                     Fields = Dict.union [a.Fields; b.Fields]
                     HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
@@ -374,7 +380,7 @@ type Info =
                     { ci with
                         Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
                         StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
-                        Methods = ci.Methods |> Dict.map (fun (a, b, _) -> a, b, Undefined)
+                        Methods = ci.Methods |> Dict.map (fun (a, b, c, _) -> a, b, c, Undefined)
                         Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
                     } 
                 )
@@ -393,7 +399,7 @@ type Info =
                 this.Classes |> Dict.map (fun ci ->
                     { ci with
                         Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
+                        Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardInline i)
                     } 
                 )
             EntryPoint = this.EntryPoint
@@ -411,7 +417,7 @@ type Info =
                 this.Classes |> Dict.map (fun ci ->
                     { ci with
                         Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
+                        Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardNotInline i)
                     } 
                 )
             EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
@@ -437,7 +443,7 @@ module internal Utilities =
     let getRemoteMethods meta =
         let remotes = Dictionary()
         for KeyValue(cDef, c) in meta.Classes do
-            for KeyValue(mDef, (m, _, _)) in c.Methods do
+            for KeyValue(mDef, (m, _, _, _)) in c.Methods do
                 match ignoreMacro m with
                 | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))

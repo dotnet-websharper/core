@@ -148,6 +148,13 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
+let getConstraints (genParams: seq<Mono.Cecil.GenericParameter>) tgen =
+    genParams |> Seq.map (fun p -> 
+        p.Constraints |> Seq.map (fun c ->
+            c |> getType tgen
+        ) |> List.ofSeq
+    ) |> List.ofSeq
+
 let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) fromLibrary isTSasm =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
@@ -292,7 +299,9 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
 
-                    try methods.Add(mdef, (kind, opts, body))
+                    let gc = getConstraints meth.GenericParameters tgen
+
+                    try methods.Add(mdef, (kind, opts, gc, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
         
@@ -309,6 +318,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 Address = address
                 BaseClass = baseDef
                 Implements = implements
+                GenericConstraints = getConstraints typ.GenericParameters 0 
                 Constructors = constructors
                 Fields = Map.empty 
                 StaticConstructor = None         
@@ -358,8 +368,10 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                                 match getName meth.CustomAttributes with
                                 | Some n -> n
                                 | _ -> meth.Name
-                            yield mdef, name
+                            let gc = getConstraints meth.GenericParameters tgen
+                            yield mdef, (name, gc)
                     ]
+                GenericConstraints = getConstraints typ.GenericParameters 0  
             }
         )    
     

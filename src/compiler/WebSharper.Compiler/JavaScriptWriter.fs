@@ -43,7 +43,6 @@ type Environment =
         OuterScope : bool
         UsedLabels : HashSet<Id>
         Namespaces : Dictionary<string, Environment> 
-        ClassGenerics : int
     }
     static member New(pref) =
         {
@@ -57,7 +56,6 @@ type Environment =
             OuterScope = true
             UsedLabels = HashSet()
             Namespaces = Dictionary()
-            ClassGenerics = 0
         }
 
     member this.NewInner(isNs, ?cg) =
@@ -72,7 +70,6 @@ type Environment =
             OuterScope = isNs
             UsedLabels = HashSet()
             Namespaces = Dictionary()
-            ClassGenerics = defaultArg cg 0
         }
 
     member this.Declarations =
@@ -218,10 +215,6 @@ let flattenFuncBody s =
     throws, List.ofSeq res    
 
 let block s = J.Block (flattenJS s)
-
-let genericParams i j =
-    if j = 0 then "" else
-        "<" + (seq { i .. j - 1 } |> Seq.map (fun t -> "T" + string t) |> String.concat ",") + ">"
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -414,13 +407,19 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             match e with
             | IgnoreSourcePos.Undefined -> J.Empty 
             | _ -> J.Ignore(J.Binary(J.Var i, J.BinaryOperator.``=``, trE e))
-    let funcDeclaration x ids b t g =
+    let funcDeclaration x ids b t =
         let innerEnv = env.NewInner(false)
         try
             let id = transformId env x
+            let t, gen = 
+                match t with
+                | Some t -> 
+                    let t, gen = getGenericParams env t
+                    Some t, gen
+                | _ -> None, ""
             let id =
-                if g = 0 then id else
-                    { id with Name = id.Name + genericParams 0 g }
+                if gen = "" then id else
+                    { id with Name = gen }
             let id, args =
                 match t with
                 | Some (TSType.Lambda (ta, tr)) ->      
@@ -472,11 +471,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | VarDeclaration (id, e) ->
         varDeclaration id e None
     | FuncDeclaration (x, ids, b) ->
-        funcDeclaration x ids b None 0
-    | TypedDeclaration(VarDeclaration (id, e), s, _) ->
+        funcDeclaration x ids b None
+    | TypedDeclaration(VarDeclaration (id, e), s) ->
         varDeclaration id e (Some s)
-    | TypedDeclaration(FuncDeclaration (x, ids, b), s, g) ->
-        funcDeclaration x ids b (Some s) g 
+    | TypedDeclaration(FuncDeclaration (x, ids, b), s) ->
+        funcDeclaration x ids b (Some s) 
     | While(a, b) -> 
         withFuncDecls <| fun () -> 
             J.While (trE a, trS b)
@@ -527,13 +526,15 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let innerEnv = env.NewInner(false, g)
         let isAbstract =
             m |> List.exists (function
-                | ClassMethod (_, _, _, None, _, _) -> true
+                | ClassMethod (_, _, _, None, _) -> true
                 | _ -> false
             )
-        let n = n + genericParams 0 g
+        let gen = "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+        let n = n + gen
         J.Class(J.Id.New n, isAbstract, Option.map trT b, List.map trT i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
-        let n = n + genericParams 0 g
+        let gen = "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+        let n = n + gen
         J.Interface(J.Id.New n, List.map trT e, List.map (transformMember env) m)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
@@ -541,6 +542,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         invalidForm (GetUnionCaseName statement)
 
 and transformTypeName (env: Environment) (typ: TSType) =
+    let inline trN x = transformTypeName env x
     match typ with
     | TSType.Any -> "any"
     | TSType.Basic "Array" ->
@@ -549,16 +551,17 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Generic (TSType.Basic "Array", [ TSType.Basic n ]) ->
         n + "[]"
     | TSType.Generic (TSType.Basic "Array", [ t ]) ->
-        "(" + transformTypeName env t + ")[]"
-    | TSType.Generic (t, g) -> (transformTypeName env t) + "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ")  + ">"
+        "(" + trN t + ")[]"
+    | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
     | TSType.Lambda (a, r)  -> 
-        "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + transformTypeName env t) |> String.concat ", ") + ")"
-        + " => " + transformTypeName env r
+        "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
+        + " => " + trN r
     | TSType.New _ -> "any" // TODO constructor signature
-    | TSType.Tuple ts -> "[" + (ts |> Seq.map (transformTypeName env) |> String.concat ", ") + "]"
-    | TSType.Union cs -> cs |> Seq.map (transformTypeName env) |> String.concat " | "
-    | TSType.Param n -> n
+    | TSType.Tuple ts -> "[" + (ts |> Seq.map (trN) |> String.concat ", ") + "]"
+    | TSType.Union cs -> cs |> Seq.map (trN) |> String.concat " | "
+    | TSType.Param n -> "T" + string n
+    | TSType.Constraint (t, g) -> trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
 
 and transformType (env: Environment) (typ: TSType) =
     transformTypeName env typ |> J.Id.New |> J.Var
@@ -568,12 +571,21 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) =
     | TSType.Any -> i
     | _ -> i.WithType(transformType env typ)
 
+and getGenericParams (env: Environment) (typ: TSType) =
+    match typ with
+    | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+    | _ -> typ, ""
+
 and transformMember (env: Environment) (mem: Statement) : J.Member =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     match mem with
-    | ClassMethod (s, n, p, b, t, mg) ->
+    | ClassMethod (s, n, p, b, t) ->
         let innerEnv = env.NewInner(false)
+        let t, gen =
+            match t with
+            | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+            | _ -> t, ""
         let args, tr =
             match t with 
             | TSType.Lambda (ta, tr) -> 
@@ -587,7 +599,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 CollectVariables(innerEnv).VisitStatement(b)
                 b |> transformStatement innerEnv |> flattenFuncBody
             )
-        let n = n + genericParams env.ClassGenerics mg
+        let n = n + gen
         let id =
             match body with
             | Some (true, _) ->  J.Id.New(n, typ = J.Var (J.Id.New "never"))

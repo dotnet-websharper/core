@@ -25,26 +25,24 @@ open WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
-[<Sealed>]
-type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
-    [<Inline; JavaScript>] 
+[<Sealed; JavaScript>]
+type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
+    [<Name "MoveNext">] 
     member this.MoveNext() = n this
     member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
+    [<Name "Current">] 
     member this.Current with [<Inline; JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
 
     interface System.Collections.IEnumerator with
-        [<JavaScript>] 
-        member this.MoveNext() = n this
-        [<JavaScript>]
+        member this.MoveNext() = this.MoveNext() 
         member this.Current with get() = box c
-        member this.Reset() = failwith "IEnumerator.Reset not supported"
+        [<JavaScript false>]
+        member this.Reset() = X<unit>
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        [<JavaScript>]
         member this.Current with get() = c
 
     interface System.IDisposable with
-        [<JavaScript>] 
         member this.Dispose() = if As d then d this
 
 /// Constructs a new `IEnumerator` by unfolding a function.
@@ -57,9 +55,6 @@ let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
 [<JavaScript>]
 let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
-
-[<Inline "$x.GetEnumerator()">]
-let getEnumerator (x: obj) : IE<'T> = X
 
 [<JavaScript>]
 let ArrayEnumerator (s: obj[]) =
@@ -83,6 +78,9 @@ let StringEnumerator (s: string) =
         else
             false)
 
+[<Inline "$x.GetEnumerator()">]
+let getEnumerator (x: obj) : IE<'T> = X
+
 [<JavaScript>]
 let Get (x: seq<'T>) : IE<'T> =
     if x :? System.Array then
@@ -91,16 +89,3 @@ let Get (x: seq<'T>) : IE<'T> =
         StringEnumerator (As x)
     else
         getEnumerator x
-
-[<Inline "'GetEnumerator0' in $x ? $x.GetEnumerator0() : $x.GetEnumerator()">]
-let getEnumerator0 (x: obj) : System.Collections.IEnumerator = X
-
-[<JavaScript>]
-let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
-    if x :? System.Array then
-        As (ArrayEnumerator (As x))
-    elif JS.TypeOf x = JS.String then
-        As (StringEnumerator (As x))
-    else
-        getEnumerator0 x
-

@@ -34,7 +34,7 @@ module I = IgnoreSourcePos
 
 type StaticMembers =
     {
-        Members : ResizeArray<Address * Expression * TSType * int>
+        Members : ResizeArray<Address * Expression * TSType>
         Namespaces : Dictionary<string, StaticMembers>
     }
 
@@ -62,9 +62,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let libExtensions =
         let t n = TSType.Basic "Error" 
         [ 
-            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")], 0) 
-            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any) ], 0)  
-            Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any) ], 0)  
+            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")], []) 
+            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any) ], [])  
+            Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any) ], [])  
             //Interface ("Object", [], [ ClassMethod (true, "setPrototypeOf", [strId "obj"; strId "prototype"], None, TSType.Lambda ([TSType.Object; TSType.Union [TSType.Object; TSType.Null]], TSType.Object), 0) ], 0)  
             //Interface ("Math", [], [ ClassMethod (true, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number), 0)], 0) 
         ]
@@ -191,7 +191,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | contents :: _ -> contents.Add(s)
         | _ -> failwith "impossible"
 
-    let package (a: Address) expr (t: TSType) g =
+    let package (a: Address) expr (t: TSType) =
         let n = toNamespaceWithName a
         let i = Id.New (n, str = true)
         let exp =
@@ -201,7 +201,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let texp =
             match t with
             | TSType.Any -> exp
-            | _ -> TypedDeclaration (exp, t, g)
+            | _ -> TypedDeclaration (exp, t)
         addStatement <| export texp
 
     let packageByName (a: Address) f =
@@ -296,24 +296,37 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | ByRefType t -> TSType.Any // TODO byrefs
         | VoidType -> TSType.Void
         | TypeParameter i 
-        | StaticTypeParameter i -> TSType.Param ("T" + string i)
+        | StaticTypeParameter i -> TSType.Param i
         | LocalTypeParameter -> TSType.Any
 
-    let getGenerics (t: TypeDefinition) =
-        let tn = t.Value.FullName
-        let ns =
-            match tn.LastIndexOf('.') with
-            | -1 -> tn
-            | i -> tn.Substring(i + 1)
-        ns.Split('+') |> Array.sumBy (fun n ->
-            match n.LastIndexOf('`') with
-            | -1 -> 0
-            | i -> n.Substring(i + 1) |> int
+    //let getGenerics (t: TypeDefinition) =
+    //    let tn = t.Value.FullName
+    //    let ns =
+    //        match tn.LastIndexOf('.') with
+    //        | -1 -> tn
+    //        | i -> tn.Substring(i + 1)
+    //    ns.Split('+') |> Array.sumBy (fun n ->
+    //        match n.LastIndexOf('`') with
+    //        | -1 -> 0
+    //        | i -> n.Substring(i + 1) |> int
+    //    )
+
+    let getGenerics j (gc: M.GenericConstraints) =
+        gc |> List.mapi (fun i c ->
+            let p = TSType.Param (j + i)
+            match c with 
+            | [] -> p
+            | _ -> TSType.Constraint(p, c |> List.map tsTypeOf)
         )
+
+    let addGenerics g t =
+        match g with
+        | [] -> t
+        | _ -> TSType.Generic(t, g)
 
     let statics = StaticMembers.Empty
 
-    let addStatic (a: Address) (e, s, g) =
+    let addStatic (a: Address) (e, s) =
         let rec getDict (s: StaticMembers) a =
             match a with
             | [] -> s
@@ -325,7 +338,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     s.Namespaces.Add(h, ns)
                     getDict ns t
 
-        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s, g)        
+        (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s)        
 
     let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
 
@@ -356,7 +369,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.OptionalField n ->
                 members.Add (ClassProperty (false, n, typ)) 
             | M.StaticField a ->
-                smem a (fun n -> ClassProperty (true, n, typ)) (fun () -> Undefined, typ, 0)
+                smem a (fun n -> ClassProperty (true, n, typ)) (fun () -> Undefined, typ)
             | _ -> ()
 
         match c.StaticConstructor with
@@ -370,7 +383,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             //        | _ -> failwith "static constuctor translated form must be a function"
             //    ) 
             //    (fun () -> body, TSType.Any)
-            addStatic ccaddr (body, TSType.Any, 0)
+            addStatic ccaddr (body, TSType.Any)
         | _ -> ()
 
         let typeOfParams (opts: M.Optimizations) (ps: list<Type>) =
@@ -397,7 +410,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         | _ ->  failwith "Error detupling function parameter type"
                 )
 
-        let mem (m: Method) info opts body =
+        let cgen = List.length c.GenericConstraints
+
+        let mem (m: Method) info gc opts body =
             let getSignature isInstToStatic =         
                 let p = typeOfParams opts m.Value.Parameters
                 let p =
@@ -405,28 +420,28 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         tsTypeOf (NonGenericType t) :: p
                     else p
                 TSType.Lambda(p, tsTypeOf m.Value.ReturnType)
-            let g = m.Value.Generics
+            let g = getGenerics cgen gc
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
-                    ClassMethod(isStatic, n, args, Some b, getSignature false, g)
+                    ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics g)
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
-                    ClassMethod(isStatic, n, args, None, TSType.Any, g)
+                    ClassMethod(isStatic, n, args, None, TSType.Any |> addGenerics g)
                 | _ -> failwith "unexpected form for class member"
             match withoutMacros info with
             | M.Instance mname ->
                 members.Add (getMember false mname)
             | M.Static maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature false, g)
+                smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics g)
             | M.AsStatic maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature true, getGenerics t + g)
+                smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics g)
             | _ -> ()
                     
-        for KeyValue(m, (info, opts, body)) in c.Methods do
-            mem m info opts body 
+        for KeyValue(m, (info, opts, gc, body)) in c.Methods do
+            mem m info gc opts body 
         for KeyValue((_, m), (info, body)) in c.Implementations do
-            mem m info M.Optimizations.None body
+            mem m info [] M.Optimizations.None body
 
         let indexedCtors = Dictionary()
 
@@ -462,10 +477,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     (fun n ->
                         match IgnoreExprSourcePos body with
                         | Function (args, b) ->
-                            ClassMethod(true, n, args, Some b, signature, 0)
+                            ClassMethod(true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
-                    (fun () -> body, signature, 0)
+                    (fun () -> body, signature)
             | _ -> ()
 
         match classAddress with 
@@ -494,7 +509,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
             let impls = c.Implements |> List.map tsTypeOfConcrete
             
-            packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, getGenerics t)
+            packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, getGenerics 0 c.GenericConstraints)
             
         if c.IsStub then
             // import addresses for stub classes
@@ -506,8 +521,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         packageClass t c
     
     let rec packageStatics (s: StaticMembers) =
-        for a, e, t, g in s.Members do 
-            package a e t g
+        for a, e, t in s.Members do 
+            package a e t
         
         for n in s.Namespaces.Values do
             packageStatics n
@@ -515,19 +530,21 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     packageStatics statics
 
     for KeyValue(td, i) in current.Interfaces do       
+        let igen = List.length i.GenericConstraints
+
         let mem =
-            i.Methods |> Seq.map (fun (KeyValue (m, n)) ->
+            i.Methods |> Seq.map (fun (KeyValue (m, (n, gc))) ->
                 let args, argTypes =
                     m.Value.Parameters |> List.mapi (fun i p ->
                         strId (string ('a' + char i)), tsTypeOf p
                     ) |> List.unzip
                 let signature = TSType.Lambda(argTypes, tsTypeOf m.Value.ReturnType)
 
-                ClassMethod(false, n, args, None, signature, m.Value.Generics)    
+                ClassMethod(false, n, args, None, signature |> addGenerics (getGenerics igen gc))    
             ) |> List.ofSeq
 
         packageByName i.Address <| fun n ->
-           Interface(n, i.Extends |> List.map tsTypeOfConcrete, mem, getGenerics td)
+           Interface(n, i.Extends |> List.map tsTypeOfConcrete, mem, getGenerics 0 i.GenericConstraints)
 
     toNamespace []
 

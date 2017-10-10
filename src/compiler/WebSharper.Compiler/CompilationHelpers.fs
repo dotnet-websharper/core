@@ -827,6 +827,13 @@ let refreshAllIds (i: Info) =
         | Macro (_, _, Some f) -> refreshNotInline (f, p, e)
         | _ -> i, p, r.TransformExpression e
 
+    let rec refreshNotInlineM (i, p, c, e) =
+        match i with
+        | Inline
+        | NotCompiledInline -> i, p, c, e
+        | Macro (_, _, Some f) -> refreshNotInlineM (f, p, c, e)
+        | _ -> i, p, c, r.TransformExpression e
+
     { i with
         Classes =
             i.Classes |> Dict.map (fun c ->
@@ -836,7 +843,7 @@ let refreshAllIds (i: Info) =
                     StaticConstructor = 
                         c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
                     Methods = 
-                        c.Methods |> Dict.map refreshNotInline
+                        c.Methods |> Dict.map refreshNotInlineM
                     Implementations = 
                         c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
                 }
@@ -963,7 +970,7 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                     Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
                     Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
                     StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> exposeAddress asmName a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> exposeCompiledMember asmName i, p, c, tr.TransformExpression e)
                     Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
                 }
             )
@@ -1007,7 +1014,7 @@ let transformToLocalAddressInMetadata (meta: Info) =
                     Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
                     Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
                     StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> localizeAddress a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)
+                    Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
                     Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
                 }
             )

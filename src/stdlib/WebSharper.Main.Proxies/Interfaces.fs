@@ -25,7 +25,7 @@ module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<System.IComparable>)>]
 type private IComparableProxy =
-    [<Name "CompareTo0">]
+    [<Name "CompareTo">]
     abstract CompareTo : obj -> int
 
 [<Proxy(typeof<System.IComparable<_>>)>]
@@ -35,9 +35,9 @@ type private IComparableProxy<'T> =
 
 [<Proxy(typeof<System.Collections.IEqualityComparer>)>]
 type private IEqualityComparerProxy =
-    [<Name "CEquals0">]
+    [<Name "CEquals">]
     abstract Equals : obj * obj -> bool 
-    [<Name "CGetHashCode0">]
+    [<Name "CGetHashCode">]
     abstract GetHashCode : obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IEqualityComparer<_>>)>]
@@ -51,20 +51,26 @@ type private IEqualityComparerProxy<'T> =
 [<Name "WebSharper.Collections.EqualityComparer">]
 [<AbstractClass>]
 type private EqualityComparerProxy<'T>() =
+    [<Name "CEquals">]
     abstract Equals : 'T * 'T -> bool 
+    [<Name "CGetHashCode">]
     abstract GetHashCode : 'T -> int
     interface System.Collections.Generic.IEqualityComparer<'T> with
+        [<Inline>]
         member this.Equals(x, y) = this.Equals(x, y)
+        [<Inline>]
         member this.GetHashCode(x) = this.GetHashCode(x)
     interface System.Collections.IEqualityComparer with
+        [<Inline>]
         member this.Equals(x, y) = this.Equals(As x, As y)
+        [<Inline>]
         member this.GetHashCode(x) = this.GetHashCode(As x)
     [<Macro(typeof<M.EqualityComparer>)>]
     static member Default = X<System.Collections.Generic.EqualityComparer<'T>>
 
 [<Proxy(typeof<System.Collections.IComparer>)>]
 type private IComparerProxy =
-    [<Name "Compare0">]
+    [<Name "Compare">]
     abstract Compare : obj * obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IComparer<_>>)>]
@@ -76,10 +82,13 @@ type private IComparerProxy<'T> =
 [<Name "WebSharper.Collections.Comparer">]
 [<AbstractClass>]
 type private ComparerProxy<'T>() =
+    [<Name "Compare">]
     abstract Compare : 'T * 'T -> int
     interface System.Collections.Generic.IComparer<'T> with
+        [<Inline>]
         member this.Compare(x, y) = this.Compare(x, y)
     interface System.Collections.IComparer with
+        [<Inline>]
         member this.Compare(x, y) = this.Compare(As x, As y)
     [<Macro(typeof<M.Comparer>)>]
     static member Default = X<System.Collections.Generic.Comparer<'T>>
@@ -109,7 +118,7 @@ type private IDisposableProxy =
 [<Proxy(typeof<System.Collections.IEnumerable>)>]  
 type private IEnumerableProxy =
 
-    [<Name "GetEnumerator0">]
+    [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
 
 [<Proxy(typeof<seq<_>>)>]  
@@ -120,17 +129,13 @@ type private IEnumerableProxy<'T> =
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
     
 [<Proxy(typeof<System.Collections.IEnumerator>)>]
-[<Name "WebSharper.IEnumerator">]
 type private IEnumeratorProxy =
-    [<Name "Current0">]
+    [<Name "Current">]
     abstract member Current  : obj
     [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
-    [<Name "Reset">]
-    abstract member Reset    : unit -> unit
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
-[<Name "WebSharper.IEnumerator1">]
 type private IEnumeratorProxy<'T> =
     [<Name "Current">]
     abstract member Current : 'T

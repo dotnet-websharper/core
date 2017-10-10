@@ -53,7 +53,7 @@ let GetMutableExternals (meta: M.Info) =
                     res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
 
-        for KeyValue(m, (_, _, e)) in cls.Methods do
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
             addMember m e
        
         for KeyValue((_, m), (_, e)) in cls.Implementations do
@@ -91,7 +91,7 @@ let GetMutableExternals (meta: M.Info) =
                     tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
 
-        for KeyValue(m, (_, _, e)) in cls.Methods do
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
             addMember m e
        
         for KeyValue((_, m), (_, e)) in cls.Implementations do

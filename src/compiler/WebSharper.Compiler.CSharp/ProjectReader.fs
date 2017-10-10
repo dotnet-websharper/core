@@ -79,9 +79,16 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
         | _ -> mAnnot
     | _ -> mAnnot
 
+let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReader.SymbolReader) =
+    genParams |> Seq.map (fun p ->
+        p.ConstraintTypes |> Seq.map (fun c ->
+            sr.ReadType c
+        ) |> List.ofSeq
+    ) |> List.ofSeq
+
 let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None else
-    let methodNames = ResizeArray()
+    let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 
@@ -94,12 +101,15 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             match sr.ReadMember m with
             | Member.Method (_, md) -> md
             | _ -> failwith "invalid interface member"
-        methodNames.Add(md, mAnnot.Name)
+        let gc = getConstraints m.TypeParameters sr
+        methods.Add(md, mAnnot.Name, gc)
+    
     Some (def, 
         {
             StrongName = annot.Name
             Extends = intf.Interfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
-            NotResolvedMethods = List.ofSeq methodNames 
+            NotResolvedMethods = List.ofSeq methods 
+            GenericConstraints = getConstraints intf.TypeParameters sr
         }
     )
 
@@ -176,10 +186,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let members = cls.GetMembers()
 
-    let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
+    let getUnresolved (mem: option<IMethodSymbol>) (mAnnot: A.MemberAnnotation) kind compiled expr = 
         {
             Kind = kind
             StrongName = mAnnot.Name
+            GenericConstraints =
+                match mem with
+                | None -> []
+                | Some m -> getConstraints m.TypeParameters sr
             Macros = mAnnot.Macros
             Generator = 
                 match mAnnot.Kind with
@@ -194,11 +208,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Warn = mAnnot.Warn
         }
 
-    let addMethod mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
+    let addMethod mem mAnnot def kind compiled expr =
+        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mem mAnnot kind compiled expr)))
         
-    let addConstructor mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
+    let addConstructor mem mAnnot def kind compiled expr =
+        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mem mAnnot kind compiled expr)))
 
     let inits = ResizeArray()                                               
     let staticInits = ResizeArray()                                               
@@ -278,7 +292,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let hasInit =
         if inits.Count = 0 then false else 
         Function([], ExprStatement (Sequential (inits |> List.ofSeq)))
-        |> addMethod A.MemberAnnotation.BasicJavaScript initDef N.Instance false
+        |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
     let staticInit =
@@ -329,11 +343,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
                 err |> Option.iter error
-                addMethod mAnnot mdef N.Inline true expr
+                addMethod (Some meth) mAnnot mdef N.Inline true expr
             | Member.Constructor cdef ->
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
-                addConstructor mAnnot cdef N.Inline true expr
+                addConstructor (Some meth) mAnnot cdef N.Inline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
@@ -353,7 +367,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         mdef.Value.Parameters,
                         mdef.Value.ReturnType
                     )
-                addMethod mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
+                addMethod (Some meth) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
             let memdef = sr.ReadMember meth
@@ -567,7 +581,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Member.Implementation (t, _) -> N.Implementation t
                     | _ -> failwith "impossible"
                 let jsMethod isInline =
-                    addMethod mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                    addMethod (Some meth) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -576,27 +590,25 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Member.Override (bTyp, _) -> 
                             if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
                                 error "Override methods cannot be marked with Inline, Macro or Constant attributes."
-                        | Member.Implementation _ ->
-                            error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                         | _ -> ()
                 match kind with
                 | A.MemberKind.NoFallback ->
                     checkNotAbstract()
-                    addMethod mAnnot mdef N.NoFallback true Undefined
+                    addMethod (Some meth) mAnnot mdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     checkNotAbstract() 
                     try 
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addMethod mAnnot mdef N.Inline true parsed
+                        addMethod (Some meth) mAnnot mdef N.Inline true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Constant c ->
                     checkNotAbstract() 
-                    addMethod mAnnot mdef N.Inline true (Value c)                        
+                    addMethod (Some meth) mAnnot mdef N.Inline true (Value c)                        
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addMethod mAnnot mdef (getKind()) true parsed
+                        addMethod (Some meth) mAnnot mdef (getKind()) true parsed
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript ->
@@ -609,13 +621,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
                         let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..]), Pure))
-                        addMethod mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef N.Inline true i
                     elif mN.StartsWith "set_" then  
                         let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
-                        addMethod mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef N.Inline true i
                     else error "OptionalField attribute not on property"
                 | A.MemberKind.Generated _ ->
-                    addMethod mAnnot mdef (getKind()) false Undefined
+                    addMethod (Some meth) mAnnot mdef (getKind()) false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -631,33 +643,33 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
                         // TODO : correct generics
                         Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
+                        |> addMethod (Some meth) A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
                         if isInline then 
-                            addConstructor mAnnot cdef N.Inline false (getBody true)
+                            addConstructor (Some meth) mAnnot cdef N.Inline false (getBody true)
                         else
-                            addConstructor mAnnot cdef N.Constructor false (getBody false)
+                            addConstructor (Some meth) mAnnot cdef N.Constructor false (getBody false)
                 match kind with
                 | A.MemberKind.NoFallback ->
-                    addConstructor mAnnot cdef N.NoFallback true Undefined
+                    addConstructor (Some meth) mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addConstructor mAnnot cdef N.Inline true parsed 
+                        addConstructor (Some meth) mAnnot cdef N.Inline true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addConstructor mAnnot cdef N.Static true parsed 
+                        addConstructor (Some meth) mAnnot cdef N.Static true parsed 
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript -> jsCtor false
                 | A.MemberKind.InlineJavaScript -> jsCtor true
                 | A.MemberKind.Generated _ ->
-                    addConstructor mAnnot cdef N.Static false Undefined
+                    addConstructor (Some meth) mAnnot cdef N.Static false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -739,6 +751,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             StrongName = strongName
             BaseClass = baseCls
             Implements = implements
+            GenericConstraints = getConstraints cls.TypeParameters sr
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind

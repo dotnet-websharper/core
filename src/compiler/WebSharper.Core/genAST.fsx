@@ -283,17 +283,17 @@ let StatementDefs =
             , "TypeScript - declare ..."
         "Namespace", [ Str, "name"; List Statement, "statements" ]
             , "TypeScript - namespace { ... }"
-        "Class", [ Str, "name"; Option TSType, "baseClass"; List TSType, "implementations"; List Statement, "members"; Int, "generics" ]
+        "Class", [ Str, "name"; Option TSType, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - class { ... }"
-        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature"; Int, "generics" ]
+        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "TypeScript - class method"
         "ClassConstructor", [ List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "TypeScript - class method"
         "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ]
             , "TypeScript - class plain property"
-        "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; Int, "generics" ]
+        "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
-        "TypedDeclaration", [ Statement, "statement"; TSType, "typeOrSignature"; Int, "generics" ]
+        "TypedDeclaration", [ Statement, "statement"; TSType, "typeOrSignature" ]
             , "TypeScript - function and var declaration with type or signature"
         "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ]
             , "TypeScript - type or import alias"

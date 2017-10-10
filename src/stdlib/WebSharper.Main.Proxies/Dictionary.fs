@@ -77,12 +77,15 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.KeyCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
             
     interface IEnumerable<'K> with
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 [<Name "WebSharper.Collections.ValueCollection">]
@@ -90,12 +93,15 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.ValueCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
             
     interface IEnumerable<'V> with
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]

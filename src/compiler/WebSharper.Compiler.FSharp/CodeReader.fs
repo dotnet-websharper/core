@@ -353,6 +353,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         if t.IsGenericParameter then
             match tparams.TryFind t.GenericParameter.Name with
             | Some i -> 
+                t.GenericParameter.Constraints
                 if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
             | _ ->
                 LocalTypeParameter

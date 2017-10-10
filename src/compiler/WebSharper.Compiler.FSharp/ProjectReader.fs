@@ -82,15 +82,27 @@ let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinit
             collectClassAnnotations d sr annot ent nmembers
         | _ -> ()
 
+let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeReader.SymbolReader) tparams =
+    genParams |> Seq.map (fun p ->
+        p.Constraints |> Seq.choose (fun c ->
+            if c.IsCoercesToConstraint then
+                Some <| sr.ReadType tparams c.CoercesToTarget
+            else None
+        ) |> List.ofSeq
+    ) |> List.ofSeq
+
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
     let annot =
        sr.AttributeReader.GetTypeAnnot(parentAnnot, intf.Attributes)
     if annot.IsForcedNotJavaScript then None else
-    let methodNames = ResizeArray()
+    let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d
         | _ -> sr.ReadTypeDefinition intf
+
+    let tparams =
+        intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
@@ -101,16 +113,15 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
                 match sr.ReadMember m with
                 | Member.Method (_, md) -> md
                 | _ -> failwith "invalid interface member"
-            methodNames.Add(md, mAnnot.Name)
-
-    let tparams =
-        intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-
+            let gc = getConstraints m.GenericParameters sr tparams
+            methods.Add(md, mAnnot.Name, gc)
+    
     Some (def, 
         {
             StrongName = annot.Name 
             Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadType tparams i |> getConcreteType) |> List.ofSeq
-            NotResolvedMethods = List.ofSeq methodNames 
+            NotResolvedMethods = List.ofSeq methods
+            GenericConstraints = getConstraints intf.GenericParameters sr tparams
         }
     )
 
@@ -178,11 +189,18 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let clsMembers = ResizeArray()
     
-    let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
+    let clsTparams =
+        cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+
+    let getUnresolved (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
         let nr =
             {
                 Kind = kind
                 StrongName = mAnnot.Name
+                GenericConstraints =
+                    match mem with
+                    | None -> []
+                    | Some (m, _) -> getConstraints m.GenericParameters sr clsTparams
                 Macros = mAnnot.Macros
                 Generator = 
                     match mAnnot.Kind with
@@ -242,7 +260,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let msg = sprintf "Proxy member do not match any member signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mem mAnnot kind compiled curriedArgs expr)))
         
     let addConstructor (mem: option<FSMFV * Member>) mAnnot (def: Constructor) kind compiled curriedArgs expr =
         match proxied, mem with
@@ -255,7 +273,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mem mAnnot kind compiled curriedArgs expr)))
 
     let annotations = Dictionary ()
         
@@ -327,9 +345,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let fsharpSpecific = 
         cls.IsFSharpModule || cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
-
-    let clsTparams =
-        cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
     let inlinesOfClass =
         members |> Seq.choose (fun m ->
@@ -612,8 +627,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | Member.Override (bTyp, _) -> 
                                 if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
                                     error "Override methods cannot be marked with Inline, Macro or Constant attributes."
-                            | Member.Implementation _ ->
-                                error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                             | _ -> ()
                     match kind with
                     | A.MemberKind.NoFallback ->
@@ -761,7 +774,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 let caseField = Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
-                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved a N.Static false None expr)))
+                                clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved None a N.Static false None expr)))
                                 hasSingletonCase <- true
                                 SingletonFSharpUnionCase
                             else
@@ -968,6 +981,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         def,
         {
             StrongName = strongName
+            GenericConstraints = getConstraints cls.GenericParameters sr clsTparams
             BaseClass = baseCls
             Implements = implements
             Requires = annot.Requires
@@ -1159,6 +1173,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             def,
             {
                 StrongName = None
+                GenericConstraints = []
                 BaseClass = None
                 Implements = []
                 Requires = [] //annot.Requires
