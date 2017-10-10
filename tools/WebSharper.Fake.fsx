@@ -107,6 +107,9 @@ module Hg =
     let getCurrentCommitId() =
         (hg' "id -i").Trim()
 
+    let getCurrentBranch() =
+        (hg' "branch").Trim()
+
     let commitIdForBookmark (b: string) =
         hg' """bookmark -T "{bookmark} {node|short}\n" """
         |> splitLines
@@ -328,7 +331,7 @@ let MakeTargets (args: Args) =
             hg "add ."
             hg "commit -m \"[CI] %s\"" tag
             hg "bookmark -i %s" tag
-            hg "push --new-branch -b %s %s" (hg' "branch") args.PushRemote
+            hg "push --new-branch -b %s %s" (Hg.getCurrentBranch()) args.PushRemote
             hg "push -B %s %s" tag args.PushRemote
 
     Target "WS-Publish" <| fun () ->
