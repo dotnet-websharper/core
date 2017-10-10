@@ -3,6 +3,7 @@
     <TargetFrameworks>net461</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FSharpTool>true</FSharpTool>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PathUtility.fsi" />

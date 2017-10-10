@@ -230,10 +230,7 @@ module Router =
         New route (fun _ -> None)
 
     let FromJsonParameter<'T when 'T : equality>(name: string) : Router<'T> =
-        let decoder =
-            (* TODO: Consider that Shared.Json relies on ASP.NET-specific
-               initialization. Does this limit the utility of this method? *)
-            WebSharper.Web.Shared.Json.GetDecoder<'T>()
+        let decoder = WebSharper.Web.Shared.Json.GetDecoder<'T>()
         let route (req: Http.Request) =
             if req.Method = Http.Method.Post then
                 req.Post.[name]

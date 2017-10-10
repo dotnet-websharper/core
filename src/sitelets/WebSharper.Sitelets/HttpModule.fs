@@ -169,12 +169,17 @@ type HttpModule() =
             |> Option.map (fun action ->
                 HttpHandler(request, action, site, resCtx, appPath, rootFolder)))
 
+    do  Context.IsDebug <- fun () -> HttpContext.Current.IsDebuggingEnabled
+        Context.GetSetting <- fun s ->
+            ConfigurationManager.AppSettings.[s]
+            |> Option.ofObj
+
     interface IHttpModule with
         member this.Init app =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
                 Loading.LoadFromApplicationAssemblies() |> fst,
-                WebSharper.Web.ResourceContext.ResourceContext appPath,
+                ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
             )

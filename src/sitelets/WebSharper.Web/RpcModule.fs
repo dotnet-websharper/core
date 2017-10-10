@@ -29,6 +29,7 @@ module R = WebSharper.Core.Remoting
 #if NET461 // ASP.Net: RPC HttpModule
 open System.Web.Security
 open System.Web
+open System.Configuration
 
 type AspNetFormsUserSession(ctx: HttpContextBase) =
 
@@ -146,6 +147,11 @@ type RpcHandler() =
             Ok headers
 
 #if NET461 // ASP.NET: RPC module
+    do  Context.IsDebug <- fun () -> HttpContext.Current.IsDebuggingEnabled
+        Context.GetSetting <- fun s ->
+            ConfigurationManager.AppSettings.[s]
+            |> Option.ofObj
+
     let server = R.Server.Create Shared.Metadata Shared.Json
     let rootFolder = HttpRuntime.AppDomainAppPath
     let appPath = HttpRuntime.AppDomainAppVirtualPath

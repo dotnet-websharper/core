@@ -38,6 +38,14 @@ type Context() =
         | false, false -> a + "/" + b
         | _ -> a + b
 
+    /// Get or set runtime configuration settings.
+    static member val GetSetting : (string -> option<string>) = (fun _ -> None)
+        with get, set
+
+    /// Get or set whether the application is running in debug mode.
+    static member val IsDebug : (unit -> bool) = (fun () -> false)
+        with get, set
+
     /// Virtual application root path on the server.
     abstract member ApplicationPath : string
 
@@ -65,7 +73,7 @@ type Context() =
     /// WebSharper resource rendering context required for resources.
     abstract member ResourceContext : WebSharper.Core.Resources.Context
 
-    // Generates a URL respecting the application path.
+    /// Generates a URL respecting the application path.
     member this.ResolveUrl(url: string) =
         if url.StartsWith "~" then
             Context.JoinWithSlash(this.ApplicationPath, url.Substring(1))

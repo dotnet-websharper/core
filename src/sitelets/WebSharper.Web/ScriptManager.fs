@@ -31,16 +31,15 @@ type private Conf = System.Configuration.ConfigurationManager
 type private D<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 type private Q<'T> = System.Collections.Generic.Queue<'T>
 
+#if NET461 // ASP.NET: Control
 /// The script manager control takes care of providing resources
 /// for the WebSharper pagelets used on the page. Every
 /// ASP.NET page should have one instance of this
 /// control in the head section.
 [<Sealed>]
 type ScriptManager() =
-#if NET461 // ASP.NET: Control
     inherit System.Web.UI.Control()
     do base.ID <- Shared.SCRIPT_MANAGER_ID
-#endif
 
     let registry = D()
     let nodes = Q()
@@ -63,10 +62,8 @@ type ScriptManager() =
         |> List.iter (fun (k, v) -> registry.[k] <- v)
         id
 
-#if NET461 // ASP.NET: Control
     override this.Render writer =
         this.Render(new Re.HtmlTextWriter(writer))
-#endif
 
     /// Renders the resources.
     member this.Render (writer: Re.HtmlTextWriter) =
@@ -99,7 +96,6 @@ type ScriptManager() =
             writer.WriteLine @"  WSRuntime.Start();"
             writer.WriteLine("</script>")
 
-#if NET461 // ASP.NET: Control
     /// Searches the page for a ScriptManager.
     static member private TryFind(page: System.Web.UI.Page) =
         match page.Header with
@@ -121,4 +117,5 @@ type ScriptManager() =
                  set to SERVER."
         | Some c ->
             c
+
 #endif
