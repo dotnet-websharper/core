@@ -25,6 +25,7 @@ nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0 copy_local: true
 nuget FSharp.Compiler.Service ~> 14.0.2
+nuget Microsoft.TypeScript.MSBuild ~> 2.5.3
 
 group build
     framework: net45

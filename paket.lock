@@ -153,6 +153,7 @@ NUGET
     Microsoft.NETCore.App (2.0) - restriction: == netstandard2.0
     Microsoft.NETCore.Platforms (2.0)
     Microsoft.NETCore.Targets (2.0)
+    Microsoft.TypeScript.MSBuild (2.5.3)
     Microsoft.Win32.Primitives (4.0.1) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (&& (== net461) (< net46)) (== netstandard2.0)
       Microsoft.NETCore.Platforms (>= 1.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       Microsoft.NETCore.Targets (>= 1.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
