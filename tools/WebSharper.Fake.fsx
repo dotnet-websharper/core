@@ -396,7 +396,9 @@ type WSTargets with
             BaseRef = VC.getCurrentCommitId()
             WorkBranch = buildBranch
             MergeMaster = buildBranch = Some "staging"
-            PushRemote = environVarOrDefault "PushRemote" "origin"
+            PushRemote =
+                environVarOrDefault "PushRemote"
+                    (if VC.isGit then "origin" else "default")
         }
 
     static member Default () =
