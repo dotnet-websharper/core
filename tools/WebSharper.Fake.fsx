@@ -332,7 +332,6 @@ let MakeTargets (args: Args) =
             hg "commit -m \"[CI] %s\"" tag
             hg "bookmark -i %s" tag
             hg "push --new-branch -b %s %s" (Hg.getCurrentBranch()) args.PushRemote
-            hg "push -B %s %s" tag args.PushRemote
 
     Target "WS-Publish" <| fun () ->
         match environVarOrNone "NugetPublishUrl", environVarOrNone "NugetApiKey" with
