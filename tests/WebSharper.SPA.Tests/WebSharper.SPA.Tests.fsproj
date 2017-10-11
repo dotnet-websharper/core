@@ -15,11 +15,9 @@
     <TypeScriptGeneratesDeclarations>False</TypeScriptGeneratesDeclarations>
     <TypeScriptNoEmitOnError>True</TypeScriptNoEmitOnError>
     <TypeScriptSourceMap>False</TypeScriptSourceMap>
-    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />
-    <TypeScriptCompile Include="Content/WebSharper.SPA.Tests.ts" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />

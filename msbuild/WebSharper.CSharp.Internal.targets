@@ -54,37 +54,5 @@
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
-  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
-    <WebSharperTask 
-      DefineConstants="$(DefineConstants)"
-      NoStandardLib="$(NoCompilerStandardLib)"
-      Sources="@(Compile)"  
-      OutputAssembly="@(IntermediateAssembly)"
-      References="@(ReferencePath)"
-      Configuration="$(Configuration)"
-      DocumentationFile="$(DocumentationFile)"
-      EmbeddedResources="@(EmbeddedResource)"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
-      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
-      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
-      Name="$(AssemblyName)"
-      OutputPath="$(OutputPath)"
-      WebProjectOutputDir="$(WebProjectOutputDir)"
-      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperSourceMap="$(WebSharperSourceMap)"          
-      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
-      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
-      WebSharperProject="$(WebSharperProject)" 
-      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
-      WebSharperDownloadResources="$(WebSharperDownloadResources)"
-      WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
-      ZafirToolPath="$(ZafirCsFullPath)"
-      TargetType="$(OutputType)"
-      NoConfig="true"
-      DebugType="$(DebugType)"
-      SubsystemVersion="$(SubsystemVersion)"
-      LangVersion="$(LangVersion)"
-    />
-  </Target>
+  <Import Project="WebSharper.CSharp.targets" />
 </Project>
