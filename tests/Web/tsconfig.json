@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": false,
+    "module": "AMD",
+    "noEmitOnError": true,
+    "removeComments": true,
+    "sourceMap": false,
+    "target": "es5",
+    "declaration": false
+  },
+  "include": [
+    "Scripts/WebSharper/*.ts"
+  ]
+}
