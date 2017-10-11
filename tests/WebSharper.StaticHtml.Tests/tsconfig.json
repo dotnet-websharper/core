@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "noImplicitAny": false,
-    "module": "CommonJs",
+    "module": "AMD",
     "noEmitOnError": true,
     "removeComments": true,
     "sourceMap": false,
@@ -9,6 +9,6 @@
     "declaration": false
   },
   "files": [
-    "Content/WebSharper.SPA.Tests.ts"
+    "bin/html/Scripts/WebSharper/WebSharper.StaticHtml.Tests.ts"
   ]
 }

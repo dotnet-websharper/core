@@ -21,6 +21,23 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Ensure TypeScript runs after WebSharper -->
+  <PropertyGroup>
+    <WebSharperAndTypeScriptCompileDependsOn>WebSharperCompile</WebSharperAndTypeScriptCompileDependsOn>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(TypeScriptTaskAssembly)' != '' ">
+    <WebSharperAndTypeScriptCompileDependsOn>
+      $(WebSharperAndTypeScriptCompileDependsOn);
+      CompileTypeScript;
+      CompileTypeScriptWithTSConfig;
+    </WebSharperAndTypeScriptCompileDependsOn>
+    <CompileTypeScriptDependsOn>
+      $(CompileTypeScriptDependsOn);
+      WebSharperCompile;
+    </CompileTypeScriptDependsOn>
+    <CompileDependsOn>$([System.Text.RegularExpressions.Regex]::Replace($(CompileDependsOn), `\bCompileTypeScript[a-zA-Z]*\b`, ``))</CompileDependsOn>
+    <CompileDependsOn>$([MSBuild]::Unescape($(CompileDependsOn)))</CompileDependsOn>
+  </PropertyGroup>
   <PropertyGroup>
     <!-- Normalize project type -->
     <WebSharperProject Condition=" '$(WebSharperProject)' == '' ">Website</WebSharperProject>
@@ -32,23 +49,14 @@
     <WebSharperOutputDir>$(WebProjectOutputDir)</WebSharperOutputDir>
     <WebSharperOutputDir Condition=" '$(WebSharperProject)' == 'Html' and '$(WebSharperHtmlDirectory)' != '' ">$(WebSharperHtmlDirectory)</WebSharperOutputDir>
     <WebSharperOutputDir Condition=" '$(WebSharperProject)' == 'Bundle' and '$(WebSharperBundleOutputDir)' != '' ">$(WebSharperBundleOutputDir)</WebSharperOutputDir>
-    <!-- Ensure TypeScript runs after WebSharper -->
-    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>
   </PropertyGroup>
-  <!-- Add TypeScript outputs -->
-  <ItemGroup Condition=" '$(WebSharperProject)' == 'Bundle' ">
-    <TypeScriptCompile Include="$(WebSharperOutputDir)/$(MSBuildProjectName).ts" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(WebSharperProject)' == 'Website' ">
-    <TypeScriptCompile Include="$(WebSharperOutputDir)/Content/WebSharper/$(MSBuildProjectName).ts" />
-  </ItemGroup>
   <!-- Add the WebSharper compiler -->
   <PropertyGroup>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirCsFullPath Condition=" '$(ZafirCsFullPath)' == '' ">$(MSBuildThisFileDirectory)/../tools/ZafirCs.exe</ZafirCsFullPath>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+  <Target Name="WebSharperCompile" DependsOnTargets="CoreCompile">
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"
@@ -80,6 +88,8 @@
       SubsystemVersion="$(SubsystemVersion)"
       LangVersion="$(LangVersion)"
   />
+  </Target>
+  <Target Name="WebSharperAndTypeScriptCompile" DependsOnTargets="$(WebSharperAndTypeScriptCompileDependsOn)" AfterTargets="CoreCompile">
   </Target>
   <ItemGroup>
     <T4ParameterValues Include="WebSharperCSharpToolsFolder">

@@ -1,14 +1,14 @@
 {
   "compilerOptions": {
     "noImplicitAny": false,
-    "module": "CommonJs",
+    "module": "AMD",
     "noEmitOnError": true,
     "removeComments": true,
     "sourceMap": false,
     "target": "es5",
     "declaration": false
   },
-  "files": [
-    "Content/WebSharper.SPA.Tests.ts"
+  "include": [
+    "Scripts/WebSharper/*.ts"
   ]
 }
