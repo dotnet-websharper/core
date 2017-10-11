@@ -41,4 +41,4 @@ group fcs
     strategy: min
 
     nuget System.ValueTuple 4.3.0
-    nuget FSharp.Compiler.Service ~14.0.2
+    nuget FSharp.Compiler.Service ~16.0.2
