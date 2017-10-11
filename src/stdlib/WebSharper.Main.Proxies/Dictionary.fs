@@ -226,15 +226,19 @@ type internal Dictionary<'K,'V when 'K : equality>
             with get (k: 'K) : 'V = get k
             and set (k: 'K) (v: 'V) = set k v
 
-        member this.GetEnumerator() = As<D<'K,'V>.Enumerator> ((this :> System.Collections.IEnumerable).GetEnumerator())
+        [<Name "GetEnumerator">]
+        member this.GetEnumerator() =
+            let s = JS.GetFieldValues data
+            (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+            |> As<D<'K,'V>.Enumerator>
 
         interface System.Collections.IEnumerable with
-            member this.GetEnumerator() = 
-                let s = JS.GetFieldValues data
-                (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+            [<Inline>]
+            member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
             
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> ((this :> System.Collections.IEnumerable).GetEnumerator())
+            [<Inline>]
+            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> (this.GetEnumerator())
 
         member this.Remove(k: 'K) =
             remove k

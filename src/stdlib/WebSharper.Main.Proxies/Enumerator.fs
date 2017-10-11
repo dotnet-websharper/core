@@ -34,12 +34,15 @@ type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
     member this.Current with [<Inline; JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
 
     interface System.Collections.IEnumerator with
+        [<Inline>]
         member this.MoveNext() = this.MoveNext() 
+        [<Inline>]
         member this.Current with get() = box c
         [<JavaScript false>]
         member this.Reset() = X<unit>
 
     interface System.Collections.Generic.IEnumerator<'T> with
+        [<Inline>]
         member this.Current with get() = c
 
     interface System.IDisposable with

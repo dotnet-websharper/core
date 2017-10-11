@@ -121,7 +121,7 @@ type private IEnumerableProxy =
     [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
 
-[<Proxy(typeof<seq<_>>)>]  
+[<Proxy(typeof<System.Collections.Generic.IEnumerable<_>>)>]  
 type private IEnumerableProxy<'T> =
     inherit System.Collections.IEnumerable 
     
@@ -137,6 +137,8 @@ type private IEnumeratorProxy =
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
 type private IEnumeratorProxy<'T> =
+    inherit System.IDisposable
+    inherit System.Collections.IEnumerator
     [<Name "Current">]
     abstract member Current : 'T
 

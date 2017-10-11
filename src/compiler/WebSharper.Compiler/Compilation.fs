@@ -1073,12 +1073,12 @@ type Compilation(meta: Info, ?hasGraph) =
                                 None, Some false, false
                         | N.Abstract
                         | N.Instance -> sn, Some false, false
+                        | N.InlineImplementation _ -> None, Some false, false
                         | N.Static
                         | N.AsStatic
                         | N.Constructor -> sn, Some true, false
                         | N.Remote _
                         | N.Inline
-                        | N.InlineImplementation _
                         | N.NoFallback -> None, None, false
                     | M.Field (_, { StrongName = sn; IsStatic = s }) -> 
                         sn, Some s, false 

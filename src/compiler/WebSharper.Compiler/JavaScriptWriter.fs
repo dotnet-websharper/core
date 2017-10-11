@@ -419,7 +419,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ -> None, ""
             let id =
                 if gen = "" then id else
-                    { id with Name = gen }
+                    { id with Name = id.Name + gen }
             let id, args =
                 match t with
                 | Some (TSType.Lambda (ta, tr)) ->      
@@ -529,11 +529,15 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | ClassMethod (_, _, _, None, _) -> true
                 | _ -> false
             )
-        let gen = "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+        let gen = 
+            if List.isEmpty g then "" else
+                "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
         let n = n + gen
         J.Class(J.Id.New n, isAbstract, Option.map trT b, List.map trT i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
-        let gen = "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+        let gen = 
+            if List.isEmpty g then "" else
+                "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
         let n = n + gen
         J.Interface(J.Id.New n, List.map trT e, List.map (transformMember env) m)
     | XmlComment a ->
@@ -547,11 +551,19 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Any -> "any"
     | TSType.Basic "Array" ->
         "any[]"
+    //| TSType.Basic "System.Collections.IEnumerable" ->
+    //    "System.Collections.IEnumerable | any[] | string"
     | TSType.Basic n -> n
     | TSType.Generic (TSType.Basic "Array", [ TSType.Basic n ]) ->
         n + "[]"
     | TSType.Generic (TSType.Basic "Array", [ t ]) ->
         "(" + trN t + ")[]"
+    //| TSType.Generic (TSType.Basic "System.Collections.Generic.IEnumerable", [ t ]) ->
+    //    match trN t with
+    //    | "string" ->
+    //        "System.Collections.IEnumerable<string> | (string)[] | string"
+    //    | tt -> 
+    //        "System.Collections.IEnumerable<" + tt + "> | (" + tt + ")[]"
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
     | TSType.Lambda (a, r)  -> 
@@ -573,6 +585,7 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) =
 
 and getGenericParams (env: Environment) (typ: TSType) =
     match typ with
+    | TSType.Generic (t, []) -> t, ""
     | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
     | _ -> typ, ""
 

@@ -400,14 +400,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         let cgen = List.length c.GenericConstraints
 
-        let mem (m: Method) info gc opts body =
+        let mem (m: Method) info gc opts intfGen body =
             let getSignature isInstToStatic =         
-                let p = typeOfParams opts m.Value.Parameters
-                let p =
+                let p, r = 
+                    match intfGen with 
+                    | None -> m.Value.Parameters, m.Value.ReturnType
+                    | Some ig -> 
+                        m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
+                        , m.Value.ReturnType.SubstituteGenerics ig 
+                let pts =
                     if isInstToStatic then
-                        tsTypeOf (NonGenericType t) :: p
-                    else p
-                TSType.Lambda(p, tsTypeOf m.Value.ReturnType)
+                        tsTypeOf (NonGenericType t) :: (typeOfParams opts p)
+                    else typeOfParams opts p
+                TSType.Lambda(pts, tsTypeOf r)
             let g = getGenerics cgen gc
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
@@ -427,9 +432,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | _ -> ()
                     
         for KeyValue(m, (info, opts, gc, body)) in c.Methods do
-            mem m info gc opts body 
-        for KeyValue((_, m), (info, body)) in c.Implementations do
-            mem m info [] M.Optimizations.None body
+            mem m info gc opts None body 
+        let intfGenerics =
+            c.Implements |> Seq.map (fun i -> i.Entity, Array.ofList i.Generics) |> dict
+        for KeyValue((i, m), (info, body)) in c.Implementations do
+            mem m info [] M.Optimizations.None (Some intfGenerics.[i]) body
 
         let indexedCtors = Dictionary()
 

@@ -389,39 +389,20 @@ let translate source =
     js |> printfn "%s" 
 
 translate """
+module GenericTest
+
 open WebSharper
 open WebSharper.JavaScript
 
-[<Name "WebSharper.Collections.ListEnumerator">]
-[<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
-type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
-    let mutable i = -1
+[<JavaScript>]
+type Foo<'T> =
+    [<Name "Foo">]
+    abstract Foo: unit -> 'T
 
-    [<Name "MoveNext">]
-    member this.MoveNext() =
-        i <- i + 1
-        i < arr.Length
-
-    [<Name "Current">]
-    member this.Current with get() = arr.[i]
-
-    interface System.Collections.IEnumerator with
-        [<Inline>]
-        member this.MoveNext() = this.MoveNext()
-        
-        [<Inline>]
-        member this.Current with get() = box this.Current
-        
-        [<JavaScript false>]
-        member this.Reset() = ()
-
-    interface System.Collections.Generic.IEnumerator<'T> with
-        [<Inline>]
-        member this.Current with get() = this.Current
-
-    interface System.IDisposable with
-        [<JavaScript>] 
-        member this.Dispose() = ()
+[<JavaScript>]
+type Bar<'T, 'U> (u: 'U) =
+    interface Foo<'U> with
+        member this.Foo() = u
 
     """
 let translateQ q =
