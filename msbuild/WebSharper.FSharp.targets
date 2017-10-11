@@ -22,16 +22,35 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-    <OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory.TrimEnd('\'))"</OtherFlags>
+    <!-- Normalize project type -->
+    <WebSharperProject Condition=" '$(WebSharperProject)' == '' ">Website</WebSharperProject>
+    <WebSharperProject Condition=" '$(WebSharperProject)' == 'Site' ">Website</WebSharperProject>
+    <WebSharperProject Condition=" '$(WebSharperProject)' == 'Web' ">Website</WebSharperProject>
+    <WebSharperProject Condition=" '$(WebSharperProject)' == 'Export' ">Website</WebSharperProject>
+    <WebSharperProject Condition=" '$(WebSharperProject)' == 'InterfaceGenerator' ">Extension</WebSharperProject>
+    <!-- Normalize project output directory -->
+    <WebSharperOutputDir>$(WebProjectOutputDir)</WebSharperOutputDir>
+    <WebSharperOutputDir Condition=" '$(WebSharperProject)' == 'Html' and '$(WebSharperHtmlDirectory)' != '' ">$(WebSharperHtmlDirectory)</WebSharperOutputDir>
+    <WebSharperOutputDir Condition=" '$(WebSharperProject)' == 'Bundle' and '$(WebSharperBundleOutputDir)' != '' ">$(WebSharperBundleOutputDir)</WebSharperOutputDir>
+    <!-- Add compilation flags for wsfsc -->
+    <OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath)"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperOutputDir.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
-    <FscToolPath>$(MSBuildThisFileDirectory)/../tools/</FscToolPath>
-    <FscToolExe>WsFsc.exe</FscToolExe>
+    <!-- Use wsfsc as compiler instead of fsc -->
+    <FscToolPath>$(MSBuildThisFileDirectory)/../tools</FscToolPath>
+    <FscToolExe>wsfsc.exe</FscToolExe>
+    <!-- Ensure TypeScript runs after WebSharper -->
+    <CompileTypeScriptDependsOn>$(CompileTypeScriptDependsOn);CoreCompile</CompileTypeScriptDependsOn>
   </PropertyGroup>
+  <!-- Add TypeScript outputs -->
+  <ItemGroup Condition=" '$(WebSharperProject)' == 'Bundle' ">
+    <TypeScriptCompile Include="$(WebSharperOutputDir)/$(MSBuildProjectName).ts" />
+  </ItemGroup>
+  <ItemGroup Condition=" '$(WebSharperProject)' == 'Website' ">
+    <TypeScriptCompile Include="$(WebSharperOutputDir)/Content/WebSharper/$(MSBuildProjectName).ts" />
+  </ItemGroup>
 </Project>

@@ -50,17 +50,8 @@
     <DocumentationFile>$(Root)\build\Release\$(Name).xml</DocumentationFile>
   </PropertyGroup>
   <Import Project="FSharp.targets" />
-  <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-	<OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:"$(MSBuildProjectFullPath)"</OtherFlags>
-	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir)"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir)"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory)"</OtherFlags>
-	<OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --webroot:"$(WebProjectOutputDir)"</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
-	<OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
-	<FscToolPath>$(Root)/build/$(Configuration)/FSharp/</FscToolPath>
-	<FscToolExe>WsFsc.exe</FscToolExe>
+  <Import Project="WebSharper.FSharp.targets" />
+  <PropertyGroup>
+    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
   </PropertyGroup>
 </Project>
