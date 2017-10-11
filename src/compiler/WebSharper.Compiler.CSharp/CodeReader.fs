@@ -564,6 +564,8 @@ type RoslynTransformer(env: Environment) =
                 let typ, meth = getTypeAndMethod m
                 NewDelegate(Some This, typ, meth)
             else failwithf "TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
+        | :? IDiscardSymbol ->
+            Undefined
         | null -> 
             err x.Node "TransformIdentifierName: Symbol is null. This is possibly a Roslyn bug, putting it in parentheses can help."
         | _ -> 
@@ -888,6 +890,8 @@ type RoslynTransformer(env: Environment) =
         let v = Id.New ("$m", mut = false)
         let rec trDesignation v e =
             match IgnoreExprSourcePos e with
+            | Var x ->
+                VarSet(x, v) 
             | NewVar(nv, _) ->
                 NewVar(nv, v) 
             | NewArray ds ->
@@ -1075,7 +1079,6 @@ type RoslynTransformer(env: Environment) =
         | :? IPropertySymbol as leftSymbol ->
             let typ, setter = getTypeAndMethod leftSymbol.SetMethod
             //if leftSymbol.IsIndexer // TODO property indexers
-            
             match x.Kind with
             | AssignmentExpressionKind.SimpleAssignmentExpression ->
                 let right = x.Right |> trR.TransformExpression
@@ -2129,13 +2132,14 @@ type RoslynTransformer(env: Environment) =
     member this.TransformDeclarationPattern (x: DeclarationPatternData) : (Id -> Expression) =
         let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         let designation = x.Designation |> this.TransformVariableDesignation
+        let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Node).Type
         fun v -> 
             let c = Id.New("$c", mut = false)
             Let (c, 
                 TypeCheck(Var v, typ), 
                 Conditional(
                     Var c, 
-                    Sequential [ this.PatternSet(designation, Var v, null); Value (Bool true) ],
+                    Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ],
                     Value (Bool false)
                 )
             )

@@ -25,6 +25,11 @@ namespace WebSharper.CSharp.Tests
             Equal(y, "hello");
             var (x2, _) = t;
             Equal(x2, 0);
+
+            var ct = new Tuple<int, int>(2, 3);
+            var cvt = new ValueTuple<int, int>(2, 3);
+            Equal(ct, (2, 3).ToTuple());
+            Equal(cvt, (2, 3));
         }
 
         [Test]
@@ -64,6 +69,36 @@ namespace WebSharper.CSharp.Tests
             var vt = t.ToValueTuple();
             Equal(vt.Item1, 0);
             Equal(vt.Item2, "hello");
+        }
+
+        [Test]
+        public void Methods()
+        {
+            IsTrue((1, 2).Equals((1, 2)));
+            IsTrue((1, 2).ToTuple().Equals((1, 2).ToTuple()));
+            Equal((1, 2).CompareTo((1, 3)), -1);
+            NotEqual((1, 2).GetHashCode(), (1, 3).GetHashCode());
+            NotEqual((1, 2).ToTuple().GetHashCode(), (1, 3).ToTuple().GetHashCode());
+            Equal((1, 2).ToString(), "1,2"); // not using custom ToString yet
+            Equal((1, 2).ToTuple().ToString(), "1,2");
+        }
+
+        [Test]
+        public void Deconstruction()
+        {
+            var t = (1, "hello");
+            var st = (2, "hi").ToTuple();
+            int a; string b;
+            (a, b) = t; // deconstruct to existing vars
+            Equal(a, 1);
+            Equal(b, "hello");
+            (a, b) = st;
+            Equal(a, 2);
+            Equal(b, "hi");
+            (a, _) = t;
+            _ = (3, "");
+            Equal(a, 1);
+            Equal(b, "hi");
         }
 
         // Mutable structs are not yet supported

@@ -150,13 +150,15 @@ let toBinaryOperator cmp =
     | Comparison.``=``  -> BinaryOperator.``===``
     | _                 -> BinaryOperator.``!==``
 
-let opUncheckedTy, equalsMeth, compareMeth =
+let opUncheckedTy, equalsMeth, compareMeth, hashMeth =
     match <@ Unchecked.equals 1 1 @> with
     | FSharp.Quotations.Patterns.Call (_, mi, _) ->
         let cmi = mi.DeclaringType.GetMethod("Compare")
+        let hmi = mi.DeclaringType.GetMethod("Hash")
         Reflection.ReadTypeDefinition mi.DeclaringType,
         Reflection.ReadMethod mi,
-        Reflection.ReadMethod cmi
+        Reflection.ReadMethod cmi,
+        Reflection.ReadMethod hmi
     | _ -> failwith "Expecting a Call pattern"
 
 let makeComparison cmp x y =
@@ -1295,6 +1297,25 @@ type StringFormat() =
             
             | _ -> MacroFallback
         | _ -> MacroError "proxy is for System.String.Format"
+
+[<Sealed>]
+type Tuple() =
+    inherit Macro()
+
+    override __.TranslateCtor(c) =
+        MacroOk <| NewArray c.Arguments
+
+    override __.TranslateCall(c) =
+        let mname = c.Method.Entity.Value.MethodName
+        if mname.StartsWith "get_Item" then
+            MacroOk <| ItemGet(c.This.Value, cInt (int mname.[8]), Pure)
+        else
+            match mname with
+            | "ToString" -> MacroOk <| Application(Global ["String"], [c.This.Value], Pure, Some 1)
+            | "GetHashCode" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, NonGeneric hashMeth, [c.This.Value]) 
+            | "Equals" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, NonGeneric equalsMeth, [c.This.Value; c.Arguments.Head]) 
+            | "CompareTo" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, NonGeneric compareMeth, [c.This.Value; c.Arguments.Head]) 
+            | n ->  MacroError ("Unrecognized method of System.Tuple/ValueTuple: " + n)
 
 [<Sealed>]
 type TupleExtensions() =
