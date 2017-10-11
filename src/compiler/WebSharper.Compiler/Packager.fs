@@ -273,10 +273,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             res
 
     let rec tsTypeOfConcrete (t: Concrete<TypeDefinition>) =
+        let td = tsTypeOfDef t.Entity
         match t.Generics with
-        | [] -> tsTypeOfDef t.Entity
+        | [] -> td
         | g -> 
-            let td = tsTypeOfDef t.Entity
             match td with
             | TSType.Basic _ ->
                 TSType.Generic(td, g |> List.map tsTypeOf)
@@ -298,18 +298,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | TypeParameter i 
         | StaticTypeParameter i -> TSType.Param i
         | LocalTypeParameter -> TSType.Any
-
-    //let getGenerics (t: TypeDefinition) =
-    //    let tn = t.Value.FullName
-    //    let ns =
-    //        match tn.LastIndexOf('.') with
-    //        | -1 -> tn
-    //        | i -> tn.Substring(i + 1)
-    //    ns.Split('+') |> Array.sumBy (fun n ->
-    //        match n.LastIndexOf('`') with
-    //        | -1 -> 0
-    //        | i -> n.Substring(i + 1) |> int
-    //    )
 
     let getGenerics j (gc: M.GenericConstraints) =
         gc |> List.mapi (fun i c ->

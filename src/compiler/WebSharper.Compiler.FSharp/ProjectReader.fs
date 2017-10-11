@@ -583,6 +583,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Member.Implementation (t, _) -> N.Implementation t
                         | _ -> failwith "impossible"
                     
+                    let getInlineKind() =
+                        match memdef with
+                        | Member.Implementation (t, _) -> 
+                            N.InlineImplementation t
+                        | _ -> N.Inline
+
                     let addModuleValueProp kind body =
                         if List.isEmpty args && (CodeReader.getEnclosingEntity meth).IsFSharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
@@ -613,7 +619,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addM = addMethod (Some (meth, memdef)) mAnnot mdef
 
                     let jsMethod isInline =
-                        let kind = if isInline then N.Inline else getKind()
+                        let kind = if isInline then getInlineKind() else getKind()
                         let ca, body = getBody isInline                        
                         if addModuleValueProp kind body then
                             addMethod None mAnnot mdef kind false ca body  

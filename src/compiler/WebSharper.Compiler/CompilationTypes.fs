@@ -44,6 +44,7 @@ module NotResolved =
         | Implementation of TypeDefinition
         | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
         | Inline
+        | InlineImplementation of TypeDefinition
         | NoFallback
 
     type NotResolvedMethod =

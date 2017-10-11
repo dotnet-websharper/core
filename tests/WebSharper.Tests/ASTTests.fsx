@@ -17,9 +17,9 @@
 #r "../../build/Release/WebSharper.JavaScript.dll"
 #r "../../build/Release/WebSharper.JQuery.dll"
 #r "../../build/Release/WebSharper.Main.dll"
-#r "../../build/Release/WebSharper.Collections.dll"
-#r "../../build/Release/WebSharper.Control.dll"
-#r "../../build/Release/WebSharper.Web.dll"
+//#r "../../build/Release/WebSharper.Collections.dll"
+//#r "../../build/Release/WebSharper.Control.dll"
+//#r "../../build/Release/WebSharper.Web.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.FSharp.dll"
 
@@ -335,6 +335,8 @@ let translate source =
     let fsDeclarations = 
          file1.Declarations |> Utils.printDeclarations None |> List.ofSeq
 
+    fsDeclarations |> List.iter (printfn "%s") 
+
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
@@ -350,12 +352,14 @@ let translate source =
 
     let expressions =
         Seq.concat [
-            comp.CompilingMethods.Values |> Seq.map snd
+            comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
         ]
         |> List.ofSeq
+
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
 
     WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
 
@@ -365,7 +369,7 @@ let translate source =
     let compiledExpressions = 
         currentMeta.Classes.Values |> Seq.collect (fun c ->
             Seq.concat [
-                c.Methods.Values |> Seq.map (fun (_,_,a) -> a)
+                c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
                 c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
                 c.Implementations.Values |> Seq.map snd
                 c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
@@ -373,33 +377,53 @@ let translate source =
         )
         |> List.ofSeq 
         
+    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
+
     printErrors()
 
-    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta [] false
+    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta [] (Some "") false
     
     let js, map = pkg |> WebSharper.Compiler.Packager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-    fsDeclarations |> List.iter (printfn "%s") 
-    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
 translate """
 open WebSharper
+open WebSharper.JavaScript
 
-[<JavaScript>]
-module M =
-    let b() =
-        let rec f x y z =
-            if x = 0 then 
-                if y = 0 then g z else y + z
-            else f (x - 1) y z
-        and g x = 
-            f 0 1 x
-        f 5 0 5
+[<Name "WebSharper.Collections.ListEnumerator">]
+[<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
+type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
+    let mutable i = -1
+
+    [<Name "MoveNext">]
+    member this.MoveNext() =
+        i <- i + 1
+        i < arr.Length
+
+    [<Name "Current">]
+    member this.Current with get() = arr.[i]
+
+    interface System.Collections.IEnumerator with
+        [<Inline>]
+        member this.MoveNext() = this.MoveNext()
+        
+        [<Inline>]
+        member this.Current with get() = box this.Current
+        
+        [<JavaScript false>]
+        member this.Reset() = ()
+
+    interface System.Collections.Generic.IEnumerator<'T> with
+        [<Inline>]
+        member this.Current with get() = this.Current
+
+    interface System.IDisposable with
+        [<JavaScript>] 
+        member this.Dispose() = ()
 
     """
-
 let translateQ q =
     let comp = 
         WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false)
@@ -426,7 +450,7 @@ let getBody expr =
     match AST.Reflection.ReadMember mi |> Option.get with
     | AST.Member.Method (_, meth) 
     | AST.Member.Override (_, meth) ->
-        let _, _, expr = cls.Methods.[meth]
+        let _, _, _, expr = cls.Methods.[meth]
         expr
     | AST.Member.Implementation (intf, meth) ->
         let _, expr = cls.Implementations.[intf, meth]

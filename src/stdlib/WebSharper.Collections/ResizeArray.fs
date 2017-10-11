@@ -37,20 +37,23 @@ type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
     [<Name "Current">]
     member this.Current with get() = arr.[i]
 
+    interface System.Collections.IEnumerator with
+        [<Inline>]
+        member this.MoveNext() = this.MoveNext()
+        
+        [<Inline>]
+        member this.Current with get() = box this.Current
+        
+        [<JavaScript false>]
+        member this.Reset() = ()
+
     interface System.Collections.Generic.IEnumerator<'T> with
         [<Inline>]
         member this.Current with get() = this.Current
-        
-        [<Inline>]
-        member this.Current with get() = this.Current |> box
 
-        [<Inline>]
-        member this.MoveNext() = this.MoveNext()
-
+    interface System.IDisposable with
+        [<JavaScript>] 
         member this.Dispose() = ()
-
-        [<JavaScript false>]
-        member this.Reset() = ()
 
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]

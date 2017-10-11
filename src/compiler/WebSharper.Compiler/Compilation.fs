@@ -976,7 +976,8 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledNoAddressMember (nr : NotResolvedMethod) =
             match nr.Kind with
-            | N.Inline -> Inline
+            | N.Inline 
+            | N.InlineImplementation _ -> Inline
             | N.Remote (k, h, r) -> Remote (k, h, r |> Option.map (fun (t, p) -> t, p |> Option.map ParameterObject.OfObj))
             | N.NoFallback -> Inline // will be erased
             | _ -> failwith "Invalid not compiled member kind"
@@ -1077,7 +1078,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Constructor -> sn, Some true, false
                         | N.Remote _
                         | N.Inline
-                        | N.NoFallback -> sn, None, false
+                        | N.InlineImplementation _
+                        | N.NoFallback -> None, None, false
                     | M.Field (_, { StrongName = sn; IsStatic = s }) -> 
                         sn, Some s, false 
                     | M.StaticConstructor _ -> None, Some true, false
@@ -1160,6 +1162,8 @@ type Compilation(meta: Info, ?hasGraph) =
                             | _ -> printerrf "Failed to look up name for implemented member: %s.%s in type %s" td.Value.FullName mDef.Value.MethodName typ.Value.FullName 
                         | _ ->
                             printerrf "Failed to look up interface for implementing: %s by type %s" td.Value.FullName typ.Value.FullName
+                    | M.Method (mDef, ({ Kind = N.InlineImplementation td } as nr)) ->
+                        () // TODO check redirection
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m    
                         

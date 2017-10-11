@@ -580,8 +580,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Member.Override (t, _) -> N.Override t 
                     | Member.Implementation (t, _) -> N.Implementation t
                     | _ -> failwith "impossible"
+                let getInlineKind() =
+                    match memdef with
+                    | Member.Implementation (t, _) -> N.InlineImplementation t
+                    | _ -> N.Inline
                 let jsMethod isInline =
-                    addMethod (Some meth) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                    addMethod (Some meth) mAnnot mdef (if isInline then getInlineKind() else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
