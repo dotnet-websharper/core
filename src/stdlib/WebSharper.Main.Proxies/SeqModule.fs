@@ -66,7 +66,7 @@ let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
                     false)) 
 
 [<Name "average">]
-let Average<'T> (s: seq<'T>) : 'T =
+let Average<[<Type "number">] 'T> (s: seq<'T>) : 'T =
     let (count, sum) =
         Seq.fold
             (fun (n, s) x -> (n + 1, s + As<float> x))

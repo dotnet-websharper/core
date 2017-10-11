@@ -57,14 +57,13 @@ module ArrayProxy =
 
     [<Name "WebSharper.Arrays.binarySearchComparer">]
     let objBinarySearchComparer (needle: obj) =
-       // Check for an implementation of IComparable
-       if needle?CompareTo0 then
-           As<IComparable>(needle).CompareTo
-       else
-           fun x ->
-               if x?CompareTo0 then
-                   -As<IComparable>(x).CompareTo(needle)
-               else
+        match needle with
+        | :? IComparable as c -> c.CompareTo
+        | _ ->
+            fun x ->
+               match box x with
+               | :? IComparable as c -> -(c.CompareTo needle)
+               | _ ->
                    InvalidOperationException(
                        "Failed to compare two elements in the array.",
                        ArgumentException("At least one object must implement IComparable."))

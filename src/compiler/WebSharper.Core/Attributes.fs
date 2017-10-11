@@ -221,7 +221,7 @@ type PrototypeAttribute() =
     new (force: bool) = PrototypeAttribute()
 
 /// Specifies TypeScript type annotation for a Proxy or Stub type declaration.
-[<Sealed; U(T.Class|||T.Struct|||T.Interface|||T.Enum)>]
+[<Sealed; U(T.Class|||T.Struct|||T.Interface|||T.Enum|||T.GenericParameter)>]
 type TypeAttribute =
     inherit A
     

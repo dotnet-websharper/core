@@ -551,19 +551,11 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Any -> "any"
     | TSType.Basic "Array" ->
         "any[]"
-    //| TSType.Basic "System.Collections.IEnumerable" ->
-    //    "System.Collections.IEnumerable | any[] | string"
     | TSType.Basic n -> n
     | TSType.Generic (TSType.Basic "Array", [ TSType.Basic n ]) ->
         n + "[]"
     | TSType.Generic (TSType.Basic "Array", [ t ]) ->
         "(" + trN t + ")[]"
-    //| TSType.Generic (TSType.Basic "System.Collections.Generic.IEnumerable", [ t ]) ->
-    //    match trN t with
-    //    | "string" ->
-    //        "System.Collections.IEnumerable<string> | (string)[] | string"
-    //    | tt -> 
-    //        "System.Collections.IEnumerable<" + tt + "> | (" + tt + ")[]"
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
     | TSType.Lambda (a, r)  -> 
@@ -571,7 +563,8 @@ and transformTypeName (env: Environment) (typ: TSType) =
         + " => " + trN r
     | TSType.New _ -> "any" // TODO constructor signature
     | TSType.Tuple ts -> "[" + (ts |> Seq.map (trN) |> String.concat ", ") + "]"
-    | TSType.Union cs -> cs |> Seq.map (trN) |> String.concat " | "
+    | TSType.Union cs -> "(" + (cs |> Seq.map (trN) |> String.concat " | ") + ")"
+    | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
     | TSType.Param n -> "T" + string n
     | TSType.Constraint (t, g) -> trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
 

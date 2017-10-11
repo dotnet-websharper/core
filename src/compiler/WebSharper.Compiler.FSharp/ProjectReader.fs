@@ -35,7 +35,7 @@ module QR = WebSharper.Compiler.QuotationReader
 type FSIFD = FSharpImplementationFileDeclaration
 type FSMFV = FSharpMemberOrFunctionOrValue
 
-type private StartupCode = ResizeArray<Statement> * HashSet<string> 
+type private StartupCode = ResizeArray<Statement> * Dictionary<string, Type> 
 
 type private N = NotResolvedMemberKind
 
@@ -512,7 +512,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     b
                                 else
                                     let scDef, (scContent, scFields) = sc.Value   
-                                    let name = Resolve.getRenamed meth.CompiledName scFields
+                                    let mtyp =
+                                        match memdef with
+                                        | Member.Method (_, mdef) -> mdef.Value.ReturnType
+                                        | _ -> failwith "F# Module value or member should be represented as a static method"
+                                    let name = Resolve.getRenamedInDict meth.CompiledName mtyp scFields
                                     scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
                                     Lambda([], FieldGet(None, NonGeneric scDef, name))
                             else
@@ -1107,7 +1111,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                     FullName = name
                 }
             def, 
-            (ResizeArray(), HashSet() : StartupCode)
+            (ResizeArray(), Dictionary() : StartupCode)
 
         let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
@@ -1163,14 +1167,14 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             let cctor = Function ([], Block (List.ofSeq statements))
             let members =
                 [
-                    for f in fields -> 
+                    for KeyValue(f, t) in fields -> 
                         NotResolvedMember.Field(f, 
                             {
                                 StrongName = None
                                 IsStatic = true
                                 IsOptional = false
                                 IsReadonly = true
-                                FieldType = VoidType // field types are only needed for adding code dependencies for activator
+                                FieldType = t
                             } 
                         )
                     yield NotResolvedMember.StaticConstructor cctor

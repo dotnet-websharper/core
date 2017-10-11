@@ -800,6 +800,13 @@ module Resolve =
                      
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
+
+    let rec getRenamedInDict name v (s: Dictionary<string, _>) =
+        if s.ContainsKey name then
+            getRenamedInDict name v s
+        else
+            s.Add(name, v) 
+            name
  
 open WebSharper.Core.Metadata 
 open System.Collections.Generic

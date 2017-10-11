@@ -603,6 +603,7 @@ type TSType =
     | New of list<TSType>
     | Tuple of list<TSType>
     | Union of list<TSType>
+    | Intersection of list<TSType>
     | Param of int
     | Constraint of TSType * list<TSType>
 

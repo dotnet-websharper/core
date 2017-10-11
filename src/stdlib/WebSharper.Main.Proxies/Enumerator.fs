@@ -29,9 +29,9 @@ type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
     [<Name "MoveNext">] 
     member this.MoveNext() = n this
-    member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
+    member this.State with [<Inline>] get() = s and [<Inline>] set (v: 'S) = this?s <- v
     [<Name "Current">] 
-    member this.Current with [<Inline; JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
+    member this.Current with get() = c and [<Inline>] set (v: 'T) = this?c <- v
 
     interface System.Collections.IEnumerator with
         [<Inline>]
