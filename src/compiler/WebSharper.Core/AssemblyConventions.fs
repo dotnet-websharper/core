@@ -29,9 +29,16 @@ let NetStandardName = "netstandard"
 
 let NetStandardAssembly =
     let dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let p1 = Path.Combine(dir, "netstandard.dll.ref")
-    if File.Exists p1 then p1 else Path.Combine(dir, "netstandard.dll")
-    |> Mono.Cecil.AssemblyDefinition.ReadAssembly
+    let p =
+        let p1 = Path.Combine(dir, "netstandard.dll.ref")
+        if File.Exists p1 then p1 else
+        let p2 = Path.Combine(dir, "netstandard.dll")
+        if File.Exists p2 then p2 else
+        match AppDomain.CurrentDomain.GetAssemblies()
+            |> Array.tryFind (fun a -> a.GetName().Name = "netstandard") with
+        | Some a -> a.Location
+        | None -> failwith "Could not find netstandard.dll"
+    Mono.Cecil.AssemblyDefinition.ReadAssembly p
 
 let NetStandardFullName = NetStandardAssembly.FullName
 
