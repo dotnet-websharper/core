@@ -81,9 +81,14 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
 
 let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReader.SymbolReader) =
     genParams |> Seq.map (fun p ->
-        p.ConstraintTypes |> Seq.map (fun c ->
-            sr.ReadType c
-        ) |> List.ofSeq
+        let annot = sr.AttributeReader.GetTypeParamAnnot(p.GetAttributes())
+        {
+            Type = annot.Type
+            Constraints =
+                p.ConstraintTypes |> Seq.map (fun c ->
+                    sr.ReadType c
+                ) |> List.ofSeq
+        }
     ) |> List.ofSeq
 
 let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
@@ -109,7 +114,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             StrongName = annot.Name
             Extends = intf.Interfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
             NotResolvedMethods = List.ofSeq methods 
-            GenericConstraints = getConstraints intf.TypeParameters sr
+            Generics = getConstraints intf.TypeParameters sr
         }
     )
 
@@ -190,7 +195,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         {
             Kind = kind
             StrongName = mAnnot.Name
-            GenericConstraints =
+            Generics =
                 match mem with
                 | None -> []
                 | Some m -> getConstraints m.TypeParameters sr
@@ -755,7 +760,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             StrongName = strongName
             BaseClass = baseCls
             Implements = implements
-            GenericConstraints = getConstraints cls.TypeParameters sr
+            Generics = getConstraints cls.TypeParameters sr
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind

@@ -75,7 +75,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     let mutableExternals = Recognize.GetMutableExternals meta
 
-    let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * GenericConstraints * Expression>()
+    let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * list<GenericParam> * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
@@ -152,7 +152,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Address = None
                     BaseClass = None
                     Implements = []
-                    GenericConstraints = []
+                    Generics = []
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = None 
@@ -350,7 +350,7 @@ type Compilation(meta: Info, ?hasGraph) =
             Classes = 
                 classes.Current |> Dict.map (fun c ->
                     match c.Methods with
-                    | :? MergedDictionary<Method, CompiledMember * Optimizations * GenericConstraints * Expression> as m -> 
+                    | :? MergedDictionary<Method, CompiledMember * Optimizations * list<GenericParam> * Expression> as m -> 
                         { c with Methods = m.Current }
                     | _ -> c
                 )
@@ -767,11 +767,16 @@ type Compilation(meta: Info, ?hasGraph) =
                     Address = Address.Empty()
                     Extends = nr.Extends
                     Methods = resMethods
-                    GenericConstraints = nr.GenericConstraints
+                    Generics = nr.Generics
                 }
             interfaces.Add(typ, resNode)
             notResolvedInterfaces.Remove typ |> ignore
-            remainingTypes.Add (typ, false)
+            match nr.StrongName with
+            | Some sn ->
+                stronglyNamedTypes.Add (typ, sn, false)
+            | _ -> 
+                remainingTypes.Add (typ, false)
+            
         
         while notResolvedInterfaces.Count > 0 do
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
@@ -844,7 +849,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Address = initAddress
                     BaseClass = if hasWSPrototype then baseCls else None
                     Implements = implements
-                    GenericConstraints = cls.GenericConstraints
+                    Generics = cls.Generics
                     Constructors = Dictionary() 
                     Fields = Dictionary() 
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
@@ -1022,7 +1027,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let namedCls =
                 match cls.StrongName with
                 | Some sn ->
-                    stronglyNamedTypes.Add (typ, sn)
+                    stronglyNamedTypes.Add (typ, sn, true)
                     true
                 | _ -> 
                     remainingTypes.Add (typ, true)
@@ -1092,11 +1097,11 @@ type Compilation(meta: Info, ?hasGraph) =
                             try
                                 let isPure =
                                     nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Methods.Add (mDef, (comp, opts isPure nr, nr.GenericConstraints, nr.Body))
+                                cc.Methods.Add (mDef, (comp, opts isPure nr, nr.Generics, nr.Body))
                             with _ ->
                                 printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
                         else 
-                            compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.GenericConstraints, addCctorCall typ cc nr.Body)) 
+                            compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.Generics, addCctorCall typ cc nr.Body)) 
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
                     match m with 
@@ -1160,7 +1165,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 for i, ctor in Seq.indexed constructors do
                     addConstructor ctor (NewIndexed i)
 
-        for typ, sn in stronglyNamedTypes do
+        for typ, sn, isClass in stronglyNamedTypes do
             let addr = 
                 match sn.Split('.') with
                 | [||] -> 
@@ -1168,9 +1173,12 @@ type Compilation(meta: Info, ?hasGraph) =
                     ["$$ERROR$$"]
                 | a -> List.ofArray a
                 |> List.rev
-            if not (r.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
-                this.AddError(None, NameConflict ("Class name conflict", sn))
-            setClassAddress typ (Hashed addr)
+            if isClass then
+                if not (r.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
+                    this.AddError(None, NameConflict ("Class name conflict", sn))
+                setClassAddress typ (Hashed addr)
+            else
+                setInterfaceAddress typ (Hashed addr)
 
         let nameStaticMember typ a m = 
             let la = this.LocalAddress a
@@ -1195,9 +1203,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods.Add(mDef, (comp, opts isPure nr, nr.GenericConstraints, nr.Body))
+                    res.Methods.Add(mDef, (comp, opts isPure nr, nr.Generics, nr.Body))
                 else
-                    compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.GenericConstraints, addCctorCall typ res nr.Body))
+                    compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body))
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 let cls = classes.[typ]
@@ -1230,9 +1238,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods |> add mDef (comp, opts isPure nr, nr.GenericConstraints, nr.Body)
+                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                     else
-                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.GenericConstraints, addCctorCall typ res nr.Body)
+                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body)
             | _ -> failwith "Invalid instance member kind"   
 
         let getClassAddress typ =

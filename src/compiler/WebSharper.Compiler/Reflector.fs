@@ -150,9 +150,13 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
 
 let getConstraints (genParams: seq<Mono.Cecil.GenericParameter>) tgen =
     genParams |> Seq.map (fun p -> 
-        p.Constraints |> Seq.map (fun c ->
-            c |> getType tgen
-        ) |> List.ofSeq
+        {   
+            Type = None
+            Constraints =
+                p.Constraints |> Seq.map (fun c ->
+                    c |> getType tgen
+                ) |> List.ofSeq
+        }
     ) |> List.ofSeq
 
 let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) fromLibrary isTSasm =
@@ -318,7 +322,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 Address = address
                 BaseClass = baseDef
                 Implements = implements
-                GenericConstraints = getConstraints typ.GenericParameters 0 
+                Generics = getConstraints typ.GenericParameters 0 
                 Constructors = constructors
                 Fields = Map.empty 
                 StaticConstructor = None         
@@ -371,7 +375,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                             let gc = getConstraints meth.GenericParameters tgen
                             yield mdef, (name, gc)
                     ]
-                GenericConstraints = getConstraints typ.GenericParameters 0  
+                Generics = getConstraints typ.GenericParameters 0  
             }
         )    
     

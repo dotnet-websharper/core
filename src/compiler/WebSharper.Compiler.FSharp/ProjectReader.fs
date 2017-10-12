@@ -84,11 +84,16 @@ let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinit
 
 let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeReader.SymbolReader) tparams =
     genParams |> Seq.map (fun p ->
-        p.Constraints |> Seq.choose (fun c ->
-            if c.IsCoercesToConstraint then
-                Some <| sr.ReadType tparams c.CoercesToTarget
-            else None
-        ) |> List.ofSeq
+        let annot = sr.AttributeReader.GetTypeParamAnnot(p.Attributes)
+        {
+            Type = annot.Type
+            Constraints =
+                p.Constraints |> Seq.choose (fun c ->
+                    if c.IsCoercesToConstraint then
+                        Some <| sr.ReadType tparams c.CoercesToTarget
+                    else None
+                ) |> List.ofSeq
+        }
     ) |> List.ofSeq
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
@@ -121,7 +126,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
             StrongName = annot.Name 
             Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadType tparams i |> getConcreteType) |> List.ofSeq
             NotResolvedMethods = List.ofSeq methods
-            GenericConstraints = getConstraints intf.GenericParameters sr tparams
+            Generics = getConstraints intf.GenericParameters sr tparams
         }
     )
 
@@ -197,7 +202,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             {
                 Kind = kind
                 StrongName = mAnnot.Name
-                GenericConstraints =
+                Generics =
                     match mem with
                     | None -> []
                     | Some (m, _) -> getConstraints m.GenericParameters sr clsTparams
@@ -991,7 +996,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         def,
         {
             StrongName = strongName
-            GenericConstraints = getConstraints cls.GenericParameters sr clsTparams
+            Generics = getConstraints cls.GenericParameters sr clsTparams
             BaseClass = baseCls
             Implements = implements
             Requires = annot.Requires
@@ -1183,7 +1188,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             def,
             {
                 StrongName = None
-                GenericConstraints = []
+                Generics = []
                 BaseClass = None
                 Implements = []
                 Requires = [] //annot.Requires

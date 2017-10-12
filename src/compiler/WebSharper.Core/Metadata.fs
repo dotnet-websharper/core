@@ -143,18 +143,28 @@ type Optimizations =
 
     member this.Purity = if this.IsPure then Pure else NonPure
 
-type GenericConstraints = list<list<Type>>
+type GenericParam = 
+    {
+        Type : option<TSType>
+        Constraints : list<Type>
+    }
+
+    static member None =
+        {
+            Type = None
+            Constraints = []
+        }
 
 type ClassInfo =
     {
         Address : option<Address>
         BaseClass : option<Concrete<TypeDefinition>>
         Implements : list<Concrete<TypeDefinition>>
-        GenericConstraints : GenericConstraints
+        Generics : list<GenericParam>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
         Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
-        Methods : IDictionary<Method, CompiledMember * Optimizations * GenericConstraints * Expression>
+        Methods : IDictionary<Method, CompiledMember * Optimizations * list<GenericParam> * Expression>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         IsStub : bool // is the class just a declaration
@@ -167,7 +177,7 @@ type ClassInfo =
             Address = None
             BaseClass = None
             Implements = []
-            GenericConstraints = []
+            Generics = []
             Constructors = dict []
             Fields = dict []
             StaticConstructor = None
@@ -196,8 +206,8 @@ type InterfaceInfo =
     {
         Address : Address
         Extends : list<Concrete<TypeDefinition>>
-        Methods : IDictionary<Method, string * GenericConstraints>
-        GenericConstraints : GenericConstraints
+        Methods : IDictionary<Method, string * list<GenericParam>>
+        Generics : list<GenericParam>
     }
 
 type DelegateInfo =
@@ -330,7 +340,7 @@ type Info =
                     Address = combine a.Address b.Address
                     BaseClass = combine a.BaseClass b.BaseClass
                     Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
-                    GenericConstraints = a.GenericConstraints
+                    Generics = a.Generics
                     Constructors = Dict.union [a.Constructors; b.Constructors]
                     Fields = Dict.union [a.Fields; b.Fields]
                     HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype

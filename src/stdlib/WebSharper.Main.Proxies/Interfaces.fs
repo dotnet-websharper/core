@@ -24,12 +24,13 @@ open WebSharper.JavaScript
 module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<System.IComparable>)>]
-[<Name "CompareTo">]
+[<Name "WebSharper.IComparable">]
 type private IComparableProxy =
     [<Name "CompareTo">]
     abstract CompareTo : obj -> int
 
 [<Proxy(typeof<System.IComparable<_>>)>]
+[<Name "WebSharper.Generic.IComparable">]
 type private IComparableProxy<'T> =
     [<Name "CompareTo">]
     abstract CompareTo : 'T -> int

@@ -275,40 +275,49 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             mappedTypes.Add(t, res)
             res
 
-    let rec tsTypeOfConcrete (t: Concrete<TypeDefinition>) =
+    let rec tsTypeOfConcrete gs (t: Concrete<TypeDefinition>) =
         let td = tsTypeOfDef t.Entity
         match t.Generics with
         | [] -> td
         | g -> 
             match td with
             | TSType.Basic _ ->
-                TSType.Generic(td, g |> List.map tsTypeOf)
+                TSType.Generic(td, g |> List.map (tsTypeOf gs))
             | _ -> td
 
-    and tsTypeOf (t: Type) =
+    and tsTypeOf (gs: M.GenericParam[]) (t: Type) =
         match t with 
-        | ConcreteType t -> tsTypeOfConcrete t
-        | ArrayType (t, a) -> TSType.Generic (TSType.Array, [ tsTypeOf t ])
-        | TupleType (ts, _) -> TSType.Tuple (ts |> List.map tsTypeOf)
+        | ConcreteType t -> tsTypeOfConcrete gs t
+        | ArrayType (t, a) -> TSType.Generic (TSType.Array, [ tsTypeOf gs t ])
+        | TupleType (ts, _) -> TSType.Tuple (ts |> List.map (tsTypeOf gs))
         | FSharpFuncType (a, r) -> 
             let ta =
                 match a with
                 | VoidType -> []
-                | _ -> [tsTypeOf a]
-            TSType.Lambda(ta, tsTypeOf r)
+                | _ -> [tsTypeOf gs a]
+            TSType.Lambda(ta, tsTypeOf gs r)
         | ByRefType t -> TSType.Any // TODO byrefs
         | VoidType -> TSType.Void
         | TypeParameter i 
-        | StaticTypeParameter i -> TSType.Param i
+        | StaticTypeParameter i -> 
+            if i >= gs.Length then TSType.Param i else 
+            match gs.[i].Type with
+            | Some t -> t
+            | _ -> TSType.Param i
         | LocalTypeParameter -> TSType.Any
 
-    let getGenerics j (gc: M.GenericConstraints) =
-        gc |> List.mapi (fun i c ->
-            let p = TSType.Param (j + i)
-            match c with 
-            | [] -> p
-            | _ -> TSType.Constraint(p, c |> List.map tsTypeOf)
-        )
+    let getGenerics j (gs: list<M.GenericParam>) =
+        let gsArr = Array.ofList gs
+        gs |> Seq.indexed |> Seq.choose (fun (i, c) ->
+            match c.Type with
+            | Some t -> None
+            | _ ->
+                let p = TSType.Param (j + i)
+                match c.Constraints with 
+                | [] -> p
+                | cs -> TSType.Constraint(p, cs |> List.map (tsTypeOf gsArr))
+                |> Some
+        ) |> List.ofSeq
 
     let addGenerics g t =
         match g with
@@ -353,8 +362,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 members.Add (inClass a.Address.Value.Head)     
             | _ -> addStatic a (inNamespace())
 
+        let gsArr = Array.ofList c.Generics
+
         for f, _, t in c.Fields.Values do
-            let typ = tsTypeOf t
+            let typ = tsTypeOf gsArr t
             match f with
             | M.InstanceField n
             | M.OptionalField n ->
@@ -377,33 +388,34 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             addStatic ccaddr (body, TSType.Any)
         | _ -> ()
 
-        let typeOfParams (opts: M.Optimizations) (ps: list<Type>) =
+        let typeOfParams (opts: M.Optimizations) gsArr (ps: list<Type>) =
             match opts.FuncArgs with
-            | None -> ps |> List.map tsTypeOf
+            | None -> ps |> List.map (tsTypeOf gsArr)
             | Some fa -> 
                 (ps, fa) ||> List.map2 (fun p o ->
                     match o with
-                    | NotOptimizedFuncArg -> tsTypeOf p
+                    | NotOptimizedFuncArg -> tsTypeOf gsArr p
                     | CurriedFuncArg i ->
                         let rec decurry i acc t =
                             if i = 0 then
-                                TSType.Lambda(List.rev acc, tsTypeOf t)
+                                TSType.Lambda(List.rev acc, tsTypeOf gsArr t)
                             else
                                 match t with
                                 | FSharpFuncType (a, r) ->
-                                    decurry (i - 1) (tsTypeOf a :: acc) r
+                                    decurry (i - 1) (tsTypeOf gsArr a :: acc) r
                                 | _ -> failwith "Error decurrying function parameter type"
                         decurry i [] p
                     | TupledFuncArg i -> 
                         match p with
                         | FSharpFuncType (TupleType (ts, _), r) ->
-                            TSType.Lambda(ts |> List.map tsTypeOf, tsTypeOf r)
+                            TSType.Lambda(ts |> List.map (tsTypeOf gsArr), tsTypeOf gsArr r)
                         | _ ->  failwith "Error detupling function parameter type"
                 )
 
-        let cgen = List.length c.GenericConstraints
+        let cgen = List.length c.Generics
 
         let mem (m: Method) info gc opts intfGen body =
+            let gsArr = Array.append gsArr (Array.ofList gc)
             let getSignature isInstToStatic =         
                 let p, r = 
                     match intfGen with 
@@ -416,9 +428,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             failwithf "failed to substitute interface generics: %A to %A" ig m
                 let pts =
                     if isInstToStatic then
-                        tsTypeOf (NonGenericType t) :: (typeOfParams opts p)
-                    else typeOfParams opts p
-                TSType.Lambda(pts, tsTypeOf r)
+                        tsTypeOf gsArr (NonGenericType t) :: (typeOfParams opts gsArr p)
+                    else typeOfParams opts gsArr p
+                TSType.Lambda(pts, tsTypeOf gsArr r)
             let g = getGenerics cgen gc
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
@@ -460,7 +472,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         ()
                     | Function (args, b) ->                  
                         let signature =
-                            TSType.New(typeOfParams opts ctor.Value.CtorParameters)
+                            TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters)
                         members.Add (ClassConstructor (args, Some b, signature))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -470,14 +482,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | Function (args, b) ->  
                         let index = Id.New("i: " + string i, str = true)
                         let signature =
-                            TSType.New(TSType.Any :: (typeOfParams opts ctor.Value.CtorParameters))
+                            TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters))
                         members.Add (ClassConstructor (index :: args, None, signature))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.Static maddr ->
                 let signature =
-                    TSType.Lambda(typeOfParams opts ctor.Value.CtorParameters, tsTypeOf (NonGenericType t))
+                    TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, tsTypeOf gsArr (NonGenericType t))
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
@@ -494,7 +506,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let baseType = 
                 match c.BaseClass with
                 | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Basic "WebSharper.Obj") 
-                | Some b -> Some (tsTypeOfConcrete b)
+                | Some b -> Some (tsTypeOfConcrete gsArr b)
                 | None -> None
             if indexedCtors.Count > 0 then
                 let index = Id.New("i", mut = false)
@@ -512,9 +524,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     )
                 members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
 
-            let impls = c.Implements |> List.map tsTypeOfConcrete
-            let gen = getGenerics 0 c.GenericConstraints
-
+            let impls = c.Implements |> List.map (tsTypeOfConcrete gsArr)
+            let gen = getGenerics 0 c.Generics
 
             match current.CustomTypes.TryGetValue t with
             | true, M.FSharpUnionInfo u ->
@@ -529,7 +540,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                                 [ 
                                     yield ClassProperty (false, "$", TSType.Basic (string tag)) 
                                     for f in fields do
-                                        yield ClassProperty (false, f.Name, tsTypeOf f.UnionFieldType)
+                                        yield ClassProperty (false, f.Name, tsTypeOf gsArr f.UnionFieldType)
                                 ]
                             addExport <| Interface(uc.Name, [], mem, gen)
                             TSType.Basic (unionNested + uc.Name) |> addGenerics gen
@@ -569,21 +580,24 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     packageStatics statics
 
     for KeyValue(td, i) in current.Interfaces do       
-        let igen = List.length i.GenericConstraints
+        let igen = List.length i.Generics
+
+        let gsArr = Array.ofList i.Generics
 
         let mem =
             i.Methods |> Seq.map (fun (KeyValue (m, (n, gc))) ->
+                let gsArr = Array.append gsArr (Array.ofList gc)
                 let args, argTypes =
                     m.Value.Parameters |> List.mapi (fun i p ->
-                        strId (string ('a' + char i)), tsTypeOf p
+                        strId (string ('a' + char i)), tsTypeOf gsArr p
                     ) |> List.unzip
-                let signature = TSType.Lambda(argTypes, tsTypeOf m.Value.ReturnType)
+                let signature = TSType.Lambda(argTypes, tsTypeOf gsArr m.Value.ReturnType)
 
                 ClassMethod(false, n, args, None, signature |> addGenerics (getGenerics igen gc))    
             ) |> List.ofSeq
 
         packageByName i.Address <| fun n ->
-           Interface(n, i.Extends |> List.map tsTypeOfConcrete, mem, getGenerics 0 i.GenericConstraints)
+           Interface(n, i.Extends |> List.map (tsTypeOfConcrete gsArr), mem, getGenerics 0 i.Generics)
 
     toNamespace []
 

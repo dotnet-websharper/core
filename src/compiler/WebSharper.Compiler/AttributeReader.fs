@@ -162,6 +162,12 @@ type AssemblyAnnotation =
             JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
         }
 
+/// Contains information from all WebSharper-specific attributes for a type parameter
+type TypeParamAnnotation =
+    {
+        Type : option<TSType>
+    }
+
 /// Base class for reading WebSharper-specific attributes.
 [<AbstractClass>]
 type AttributeReader<'A>() =
@@ -387,6 +393,19 @@ type AttributeReader<'A>() =
             IsJavaScript = isJavaScript
             JavaScriptTypesAndFiles = jsTypesAndFiles |> List.ofSeq
         }        
+
+    member this.GetTypeParamAnnot (attrs: seq<'A>) =
+        let mutable tsType = None
+        for a in attrs do
+            match this.GetAssemblyName a with
+            | "WebSharper.Core" ->
+                match this.Read a with
+                | A.Type t -> tsType <- Some (TSType.Parse t) 
+                | _ -> ()
+            | _ -> ()
+        {
+            Type = tsType
+        }
            
 type ReflectionAttributeReader() =
     inherit AttributeReader<System.Reflection.CustomAttributeData>()
