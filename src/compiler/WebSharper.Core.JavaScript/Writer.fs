@@ -91,6 +91,7 @@ let PostfixOperatorAssociativity =
 let Precedence expression =
     match S.IgnoreExprPos expression with
     | S.Cast _
+    | S.Lambda(_, _, _, true)
     | S.Application _ -> 2
     | S.Binary (_, op, _) -> BinaryOperatorPrecedence op
     | S.Conditional _ -> 15

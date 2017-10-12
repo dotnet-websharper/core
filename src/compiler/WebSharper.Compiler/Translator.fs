@@ -1664,20 +1664,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             OtherTypeCheck 
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
-        let trExpr() = this.TransformExpression(expr)
-        match toTyp with
-        | ConcreteType td ->
-            match td.Entity.Value.FullName with
-            | "System.Collections.IEnumerable"
-            | "System.Collections.Generic.IEnumerable`1" ->
-                match fromTyp with
-                | ConcreteType { Entity = Hashed { FullName = "System.String" } } ->
-                    this.TransformCtor(wsEnumerableString, wsEnumerableStringCtor, [ expr ])     
-                | ArrayType _ ->
-                    this.TransformCtor(wsEnumerableArray, wsEnumerableArrayCtor, [ expr ])     
-                | _ -> trExpr()
-            | _ -> trExpr()
-        | _ -> trExpr()
+        this.TransformExpression(expr)
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with

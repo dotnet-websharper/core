@@ -59,15 +59,20 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let isModule = Option.isSome moduleName
 
     // TODO: only add what is necessary
+    // TODO: set Array.prototype.GetEnumerator and String.prototype.GetEnumerator 
     let libExtensions =
-        let t n = TSType.Basic "Error" 
+        let ie t = TSType.Generic(TSType.Basic "System.Collections.Generic.IEnumerable", [ t ])
+        let T = TSType.Basic "T"
         [ 
             Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")], []) 
             Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any) ], [])  
             Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any) ], [])  
+            Interface ("Array", [ ie T ], [], [ T ])
+            Interface ("String", [ ie (TSType.Basic "string") ], [], [])
             //Interface ("Object", [], [ ClassMethod (true, "setPrototypeOf", [strId "obj"; strId "prototype"], None, TSType.Lambda ([TSType.Object; TSType.Union [TSType.Object; TSType.Null]], TSType.Object), 0) ], 0)  
             //Interface ("Math", [], [ ClassMethod (true, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number), 0)], 0) 
         ]
+
     if isModule then
         declarations.Add <| Declare (Namespace ("global", libExtensions))
     else
@@ -542,7 +547,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                                     for f in fields do
                                         yield ClassProperty (false, f.Name, tsTypeOf gsArr f.UnionFieldType)
                                 ]
-                            addExport <| Interface(uc.Name, [], mem, gen)
+                            addExport <| Interface(uc.Name, [ unionClass ], mem, gen)
                             TSType.Basic (unionNested + uc.Name) |> addGenerics gen
                         match uc.Kind with
                         | M.NormalFSharpUnionCase uci -> case uci
@@ -556,7 +561,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 match addr.Address.Value with
                 | n :: a ->
                     toNamespace a
-                    addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Intersection [ unionClass; TSType.Union cases ])
+                    addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
                 | _ -> failwith "empty address for union type"
             | _ ->
                 packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
@@ -564,7 +569,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         if c.IsStub then
             // import addresses for stub classes
             c.Address |> Option.iter (fun a -> getAddress { a with Module = JavaScriptFile "" } |> ignore)
-            
+    
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
