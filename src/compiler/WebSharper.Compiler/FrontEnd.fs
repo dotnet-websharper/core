@@ -188,10 +188,11 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let js, map = pkg |> WebSharper.Compiler.Packager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        addRes EMBEDDED_TS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
+        addRes EMBEDDED_TS (Some (pu.TypeScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
             addRes EMBEDDED_MAP None (Some (getBytes m)))
-        TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
+        TimedStage "Writing .ts"
+        // TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
         //let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         //addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
         //minMap |> Option.iter (fun m ->
