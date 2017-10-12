@@ -456,13 +456,11 @@ let Get index (s: seq<'T>) =
 [<Inline>]
 let Item index (s: seq<'T>) = Get index s
 
-[<Inline "$a">]
-[<Name "ofArray">]
-let OfArray (a: 'T[]) = X<seq<'T>>
+[<Inline>]
+let OfArray (a: 'T[]) = a :> _ seq
 
-[<Inline "$l">]
-[<Name "ofList">]
-let OfList (l: list<'T>) = X<seq<'T>>
+[<Inline>]
+let OfList (l: list<'T>) = l :> _ seq
 
 [<Name "pairwise">]
 let Pairwise (s: seq<'T>) : seq<'T * 'T> =
@@ -505,9 +503,8 @@ let Scan<'T,'S> (f: 'S -> 'T -> 'S) (x: 'S) (s: seq<'T>) : seq<'S> =
                 e.State <- true
                 true
 
-[<Inline "[$x]">]
 [<Name "singleton">]
-let Singleton<'T> (x: 'T) = X<seq<'T>>
+let Singleton<'T> (x: 'T) = [ x ] :> _ seq
 
 [<Name "skip">]
 let Skip (n: int) (s: seq<'T>) : seq<'T> =

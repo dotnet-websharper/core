@@ -285,7 +285,7 @@ type private StringProxy =
     member this.GetHashCode() = hash this
 
     [<Inline>]
-    member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
+    member this.GetEnumerator() = Enumerator.Get (As<string>this :> seq<char>) |> As<System.CharEnumerator>
 
     [<Inline "$this.indexOf($s)">]
     member this.IndexOf(s: string) = X<int>

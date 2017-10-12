@@ -1134,10 +1134,16 @@ type HasNoThisVisitor() =
 
     let mutable ok = true
 
-    override this.VisitThis() = ok <- false
+    override this.VisitThis() = 
+        ok <- false
 
+    override this.VisitFunction (_, _) = ()
+        
+
+    override this.VisitFuncDeclaration (_, _, _) = ()
+    
     member this.Check(e) =
-        this.VisitExpression e
+        this.VisitStatement e
         ok
 
 /// A placeholder expression when encountering a translation error

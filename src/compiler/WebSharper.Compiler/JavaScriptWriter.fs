@@ -264,7 +264,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
-        J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body))
+        let hasNoThis = HasNoThisVisitor().Check(b)
+        J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body), hasNoThis)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->

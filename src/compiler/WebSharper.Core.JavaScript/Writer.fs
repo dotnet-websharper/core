@@ -289,11 +289,18 @@ and Expression (expression) =
         SourceName n ++ Id x
     | S.Var x ->
         Id x
-    | S.Lambda (name, formals, body) ->
-        Word "function"
-        ++ Optional Id name
-        ++ Parens (CommaSeparated Id formals)
-        -- BlockLayout (List.map (Statement true) body)
+    | S.Lambda (name, formals, body, isArrow) ->
+        let args = Parens (CommaSeparated Id formals) 
+        if isArrow then
+            match body with
+            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Token "=>" ++ Token "{}"
+            | [ S.IgnoreSPos (S.Return (Some e)) ] -> args ++ Token "=>" ++ Expression e
+            | _ -> args ++ Token "=>" -- BlockLayout (List.map (Statement true) body)
+        else
+            Word "function"
+            ++ Optional Id name
+            ++ args
+            -- BlockLayout (List.map (Statement true) body)
     | S.New (x, xs) ->
         Word "new"
         ++ MemberExpression x

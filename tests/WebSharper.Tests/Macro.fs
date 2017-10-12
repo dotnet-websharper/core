@@ -44,7 +44,7 @@ type HelloASTGenerator() =
 type HelloJSGenerator() =
     inherit Generator()
     override this.Generate _ =
-        S.Lambda (None, [S.Id.New "w"], [ S.Return (Some (!~(S.String "Hello ") + S.Var (S.Id.New "w") + !~(S.String "!"))) ])
+        S.Lambda (None, [S.Id.New "w"], [ S.Return (Some (!~(S.String "Hello ") + S.Var (S.Id.New "w") + !~(S.String "!"))) ], true)
         |> GeneratedJavaScript
 
 [<Sealed>]

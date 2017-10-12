@@ -477,7 +477,7 @@ let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 [<Inline>]
 let ToList arr = List.ofArray arr
 
-[<Inline "$arr">]
+[<Inline>]
 let ToSeq (arr: _ []) = arr :> seq<_>
 
 [<Name "tryFind">]

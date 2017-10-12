@@ -667,10 +667,10 @@ and funExpr i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Lambda (Some (S.Id.New id), f, funBody i)
+        S.Lambda (Some (S.Id.New id), f, funBody i, false)
     | L.Punctuator Sy.``(`` ->
         let f = formals i
-        S.Lambda (None, f, funBody i)
+        S.Lambda (None, f, funBody i, false)
     | _ ->
         error t "Expecting '(' or an identifier."
 

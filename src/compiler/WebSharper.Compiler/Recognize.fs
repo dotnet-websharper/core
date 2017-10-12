@@ -381,7 +381,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.String x -> String x
         | S.True -> Bool true
         |> Value
-    | S.Lambda (a, b, c) ->
+    | S.Lambda (a, b, c, _) ->
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
