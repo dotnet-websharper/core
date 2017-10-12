@@ -175,6 +175,8 @@ let ExprDefs =
             , ".NET - Null-coalescing"
         "TypeCheck", [ Expr, "expression"; Type, "type" ]
             , ".NET - Type check, returns bool"
+        "Coerce", [ Expr, "expression"; Type, "fromType"; Type, "toType" ]
+            , ".NET - Type coercion"
         "OverrideName", [ NonGenericTypeDefinition, "typeDefinition"; NonGenericMethod, "method" ]
             , ".NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions"
         "NewDelegate", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method" ]
@@ -295,7 +297,7 @@ let StatementDefs =
             , "TypeScript - interface { ... }"
         "TypedDeclaration", [ Statement, "statement"; TSType, "typeOrSignature" ]
             , "TypeScript - function and var declaration with type or signature"
-        "Alias", [ Id, "identifier"; Bool, "isType"; Expr, "expression" ]
+        "Alias", [ TSType, "alias"; TSType, "origType" ]
             , "TypeScript - type or import alias"
         "XmlComment", [ Str, "xml"]
             , "TypeScript - triple-slash directive"

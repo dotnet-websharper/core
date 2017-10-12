@@ -280,9 +280,15 @@ type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
         let captures, body = cases.[index]    
         body |> List.foldBack (fun (c, r) body -> Let (c, r, body)) (List.zip captures results)
 
+let rec IgnoreCoerce expr =
+    match expr with
+    | ExprSourcePos(_, e) -> IgnoreCoerce e
+    | Coerce(e, _, _) -> IgnoreCoerce e
+    | _ -> expr
+
 let removeListOfArray (argType: FSharpType) (expr: Expression) =
     if isSeq argType then
-        match IgnoreExprSourcePos expr with
+        match IgnoreCoerce expr with
         | Call (None, td, meth, [ NewArray _ as arr ]) 
             when td.Entity = Definitions.ListModule && meth.Entity = Definitions.ListOfArray  ->
                 arr
@@ -353,7 +359,6 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         if t.IsGenericParameter then
             match tparams.TryFind t.GenericParameter.Name with
             | Some i -> 
-                t.GenericParameter.Constraints
                 if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
             | _ ->
                 LocalTypeParameter
@@ -784,7 +789,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.TypeTest (typ, expr) ->
             TypeCheck (tr expr, sr.ReadType env.TParams typ)
         | P.Coerce (typ, expr) ->
-            tr expr // TODO: type check when possible
+            Coerce (tr expr, sr.ReadType env.TParams expr.Type, sr.ReadType env.TParams typ)  
         | P.NewUnionCase (typ, case, exprs) ->
             let t =
                 match sr.ReadType env.TParams typ with

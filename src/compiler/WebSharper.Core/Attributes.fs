@@ -216,7 +216,7 @@ type PrototypeAttribute() =
     inherit A()
     
     /// Prototype(true) is equivalent to Prototype().
-    /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
+    /// Prototype(false) forces to have no prototype, translating instance methods to static,
     /// usable only for sealed classes and F# unions and records.
     new (force: bool) = PrototypeAttribute()
 

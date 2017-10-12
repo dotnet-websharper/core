@@ -48,6 +48,7 @@ type internal Grouping<'K, 'T> (k: 'K, v: seq<'T>) =
 [<Proxy(typeof<IOrderedEnumerable<_>>)>]
 type internal IOrderedEnumerableProxy<'T> =
     inherit seq<'T>
+    [<Name "CreateOrderedEnumerable">]
     abstract CreateOrderedEnumerable<'K>
         : keySelector: Func<'T, 'K>
         * comparer: IComparer<'K>

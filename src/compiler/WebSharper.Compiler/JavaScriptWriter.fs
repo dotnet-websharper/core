@@ -540,6 +540,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
         let n = n + gen
         J.Interface(J.Id.New n, List.map trT e, List.map (transformMember env) m)
+    | Alias (a, t) ->
+        J.TypeAlias(J.Id.New (transformTypeName env a), trT t)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | _ -> 

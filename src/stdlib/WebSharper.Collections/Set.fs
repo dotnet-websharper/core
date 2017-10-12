@@ -71,6 +71,7 @@ type private FSharpSet<'T when 'T : comparison>
         member this.Remove v : Set<'T> =
             As (FSharpSet<'T>(T.Remove v tree))
 
+        [<Name "GetEnumerator">]
         member this.GetEnumerator() =
             (T.Ascend tree).GetEnumerator()
 
@@ -88,9 +89,11 @@ type private FSharpSet<'T when 'T : comparison>
             && Seq.forall2 ( = ) this (As<FSharpSet<'T>> other)
 
         interface IEnumerable with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator() :> _
 
         interface IEnumerable<'T> with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator()
 
         interface System.IComparable with

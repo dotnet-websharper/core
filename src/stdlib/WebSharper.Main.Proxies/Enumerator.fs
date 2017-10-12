@@ -50,45 +50,52 @@ type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
 
 /// Constructs a new `IEnumerator` by unfolding a function.
 [<Inline>]
-[<JavaScript>]
 let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, As JS.Undefined)) 
 
 [<Inline>]
-[<JavaScript>]
 let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
 
 [<JavaScript>]
-let ArrayEnumerator (s: obj[]) =
-    New 0 (fun e ->
-        let i = e.State
-        if i < s.Length then
-            e.Current <- As s.[i]
-            e.State <- i + 1
-            true
-        else
-            false)
+type internal EnumerableArray<'T> (s: 'T[]) =
+    [<Name "GetEnumerator">]
+    member this.GetEnumerator() : IE<'T> = 
+        New 0 (fun e ->
+            let i = e.State
+            if i < s.Length then
+                e.Current <- As s.[i]
+                e.State <- i + 1
+                true
+            else
+                false)
+    
+    interface System.Collections.Generic.IEnumerable<'T> with
+        [<Inline>]
+        member this.GetEnumerator() = this.GetEnumerator()
+        
+        [<Inline>]
+        member this.GetEnumerator() = this.GetEnumerator() :> System.Collections.IEnumerator
 
 [<JavaScript>]
-let StringEnumerator (s: string) =
-    New 0 (fun e ->
-        let i = e.State
-        if i < s.Length then
-            e.Current <- As s.[i]
-            e.State <- i + 1
-            true
-        else
-            false)
+type internal EnumerableString (s: string) =
+    [<Name "GetEnumerator">]
+    member this.GetEnumerator() : IE<char> = 
+        New 0 (fun e ->
+            let i = e.State
+            if i < s.Length then
+                e.Current <- As s.[i]
+                e.State <- i + 1
+                true
+            else
+                false)
+    interface System.Collections.Generic.IEnumerable<char> with
+        [<Inline>]
+        member this.GetEnumerator() = this.GetEnumerator()
+        
+        [<Inline>]
+        member this.GetEnumerator() = this.GetEnumerator() :> System.Collections.IEnumerator
 
-[<Inline "$x.GetEnumerator()">]
-let getEnumerator (x: obj) : IE<'T> = X
-
-[<JavaScript>]
+[<Inline>]
 let Get (x: seq<'T>) : IE<'T> =
-    if x :? System.Array then
-        ArrayEnumerator (As x)
-    elif JS.TypeOf x = JS.String then
-        StringEnumerator (As x)
-    else
-        getEnumerator x
+    x.GetEnumerator()

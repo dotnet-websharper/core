@@ -44,6 +44,7 @@ type private ListProxy<'T> =
     member this.Item with get (x: int) : 'T = List.nth (As this) x
 
     interface System.Collections.IEnumerable with
+        [<Inline>]
         member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _
 
     interface seq<'T> with

@@ -134,6 +134,8 @@ and Expression =
     | Coalesce of Expression:Expression * Type:Type * WhenNull:Expression
     /// .NET - Type check, returns bool
     | TypeCheck of Expression:Expression * Type:Type
+    /// .NET - Type coercion
+    | Coerce of Expression:Expression * FromType:Type * ToType:Type
     /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
     | OverrideName of TypeDefinition:TypeDefinition * Method:Method
     /// .NET - Creates a new delegate
@@ -270,7 +272,7 @@ and Statement =
     /// TypeScript - function and var declaration with type or signature
     | TypedDeclaration of Statement:Statement * TypeOrSignature:TSType
     /// TypeScript - type or import alias
-    | Alias of Identifier:Id * IsType:bool * Expression:Expression
+    | Alias of Alias:TSType * OrigType:TSType
     /// TypeScript - triple-slash directive
     | XmlComment of Xml:string
 /// Base class for code transformers.
@@ -383,6 +385,9 @@ type Transformer() =
     /// .NET - Type check, returns bool
     abstract TransformTypeCheck : Expression:Expression * Type:Type -> Expression
     override this.TransformTypeCheck (a, b) = TypeCheck (this.TransformExpression a, b)
+    /// .NET - Type coercion
+    abstract TransformCoerce : Expression:Expression * FromType:Type * ToType:Type -> Expression
+    override this.TransformCoerce (a, b, c) = Coerce (this.TransformExpression a, b, c)
     /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
     abstract TransformOverrideName : TypeDefinition:TypeDefinition * Method:Method -> Expression
     override this.TransformOverrideName (a, b) = OverrideName (a, b)
@@ -551,8 +556,8 @@ type Transformer() =
     abstract TransformTypedDeclaration : Statement:Statement * TypeOrSignature:TSType -> Statement
     override this.TransformTypedDeclaration (a, b) = TypedDeclaration (this.TransformStatement a, b)
     /// TypeScript - type or import alias
-    abstract TransformAlias : Identifier:Id * IsType:bool * Expression:Expression -> Statement
-    override this.TransformAlias (a, b, c) = Alias (this.TransformId a, b, this.TransformExpression c)
+    abstract TransformAlias : Alias:TSType * OrigType:TSType -> Statement
+    override this.TransformAlias (a, b) = Alias (a, b)
     /// TypeScript - triple-slash directive
     abstract TransformXmlComment : Xml:string -> Statement
     override this.TransformXmlComment a = XmlComment (a)
@@ -594,6 +599,7 @@ type Transformer() =
         | NewVar (a, b) -> this.TransformNewVar (a, b)
         | Coalesce (a, b, c) -> this.TransformCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.TransformTypeCheck (a, b)
+        | Coerce (a, b, c) -> this.TransformCoerce (a, b, c)
         | OverrideName (a, b) -> this.TransformOverrideName (a, b)
         | NewDelegate (a, b, c) -> this.TransformNewDelegate (a, b, c)
         | StatementExpr (a, b) -> this.TransformStatementExpr (a, b)
@@ -652,7 +658,7 @@ type Transformer() =
         | ClassProperty (a, b, c) -> this.TransformClassProperty (a, b, c)
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
         | TypedDeclaration (a, b) -> this.TransformTypedDeclaration (a, b)
-        | Alias (a, b, c) -> this.TransformAlias (a, b, c)
+        | Alias (a, b) -> this.TransformAlias (a, b)
         | XmlComment a -> this.TransformXmlComment a
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
@@ -765,6 +771,9 @@ type Visitor() =
     /// .NET - Type check, returns bool
     abstract VisitTypeCheck : Expression:Expression * Type:Type -> unit
     override this.VisitTypeCheck (a, b) = this.VisitExpression a; ()
+    /// .NET - Type coercion
+    abstract VisitCoerce : Expression:Expression * FromType:Type * ToType:Type -> unit
+    override this.VisitCoerce (a, b, c) = this.VisitExpression a; (); ()
     /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
     abstract VisitOverrideName : TypeDefinition:TypeDefinition * Method:Method -> unit
     override this.VisitOverrideName (a, b) = (); ()
@@ -931,8 +940,8 @@ type Visitor() =
     abstract VisitTypedDeclaration : Statement:Statement * TypeOrSignature:TSType -> unit
     override this.VisitTypedDeclaration (a, b) = this.VisitStatement a; ()
     /// TypeScript - type or import alias
-    abstract VisitAlias : Identifier:Id * IsType:bool * Expression:Expression -> unit
-    override this.VisitAlias (a, b, c) = this.VisitId a; (); this.VisitExpression c
+    abstract VisitAlias : Alias:TSType * OrigType:TSType -> unit
+    override this.VisitAlias (a, b) = (); ()
     /// TypeScript - triple-slash directive
     abstract VisitXmlComment : Xml:string -> unit
     override this.VisitXmlComment a = (())
@@ -974,6 +983,7 @@ type Visitor() =
         | NewVar (a, b) -> this.VisitNewVar (a, b)
         | Coalesce (a, b, c) -> this.VisitCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.VisitTypeCheck (a, b)
+        | Coerce (a, b, c) -> this.VisitCoerce (a, b, c)
         | OverrideName (a, b) -> this.VisitOverrideName (a, b)
         | NewDelegate (a, b, c) -> this.VisitNewDelegate (a, b, c)
         | StatementExpr (a, b) -> this.VisitStatementExpr (a, b)
@@ -1032,7 +1042,7 @@ type Visitor() =
         | ClassProperty (a, b, c) -> this.VisitClassProperty (a, b, c)
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
         | TypedDeclaration (a, b) -> this.VisitTypedDeclaration (a, b)
-        | Alias (a, b, c) -> this.VisitAlias (a, b, c)
+        | Alias (a, b) -> this.VisitAlias (a, b)
         | XmlComment a -> this.VisitXmlComment a
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
@@ -1077,6 +1087,7 @@ module IgnoreSourcePos =
     let (|NewVar|_|) x = match ignoreExprSourcePos x with NewVar (a, b) -> Some (a, b) | _ -> None
     let (|Coalesce|_|) x = match ignoreExprSourcePos x with Coalesce (a, b, c) -> Some (a, b, c) | _ -> None
     let (|TypeCheck|_|) x = match ignoreExprSourcePos x with TypeCheck (a, b) -> Some (a, b) | _ -> None
+    let (|Coerce|_|) x = match ignoreExprSourcePos x with Coerce (a, b, c) -> Some (a, b, c) | _ -> None
     let (|OverrideName|_|) x = match ignoreExprSourcePos x with OverrideName (a, b) -> Some (a, b) | _ -> None
     let (|NewDelegate|_|) x = match ignoreExprSourcePos x with NewDelegate (a, b, c) -> Some (a, b, c) | _ -> None
     let (|StatementExpr|_|) x = match ignoreExprSourcePos x with StatementExpr (a, b) -> Some (a, b) | _ -> None
@@ -1136,7 +1147,7 @@ module IgnoreSourcePos =
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|TypedDeclaration|_|) x = match ignoreStatementSourcePos x with TypedDeclaration (a, b) -> Some (a, b) | _ -> None
-    let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
 module Debug =
     let private PrintObject x = sprintf "%A" x
@@ -1177,6 +1188,7 @@ module Debug =
         | NewVar (a, b) -> "NewVar" + "(" + string a + ", " + PrintExpression b + ")"
         | Coalesce (a, b, c) -> "Coalesce" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
         | TypeCheck (a, b) -> "TypeCheck" + "(" + PrintExpression a + ", " + PrintObject b + ")"
+        | Coerce (a, b, c) -> "Coerce" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintObject c + ")"
         | OverrideName (a, b) -> "OverrideName" + "(" + a.Value.FullName + ", " + PrintObject b + ")"
         | NewDelegate (a, b, c) -> "NewDelegate" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ")"
         | StatementExpr (a, b) -> "StatementExpr" + "(" + PrintStatement a + ", " + defaultArg (Option.map string b) "_" + ")"
@@ -1234,7 +1246,7 @@ module Debug =
         | ClassProperty (a, b, c) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | TypedDeclaration (a, b) -> "TypedDeclaration" + "(" + PrintStatement a + ", " + PrintObject b + ")"
-        | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + PrintObject b + ", " + PrintExpression c + ")"
+        | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"
         | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"
 // }}
 

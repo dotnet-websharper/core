@@ -191,6 +191,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | contents :: _ -> contents.Add(s)
         | _ -> failwith "impossible"
 
+    let addExport s =
+        addStatement (export s) 
+
     let package (a: Address) expr (t: TSType) =
         let n = toNamespaceWithName a
         let i = Id.New (n, str = true)
@@ -202,11 +205,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             match t with
             | TSType.Any -> exp
             | _ -> TypedDeclaration (exp, t)
-        addStatement <| export texp
+        addExport texp
 
     let packageByName (a: Address) f =
         let n = toNamespaceWithName a
-        addStatement <| export (f n)
+        addExport <| f n
 
     let packageCctor a expr =
         let n = toNamespaceWithName a
@@ -215,7 +218,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let c = Id.New(n, str = true)
             let removeSelf = ExprStatement (VarSet (c, ItemGet(glob, Value (String "ignore"), Pure)))    
             let expr = Function([], Block [removeSelf; body])
-            addStatement <| export (VarDeclaration(c, expr))   
+            addExport <| VarDeclaration(c, expr)  
         | _ ->
             failwithf "Static constructor must be a function"
             
@@ -406,8 +409,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     match intfGen with 
                     | None -> m.Value.Parameters, m.Value.ReturnType
                     | Some ig -> 
-                        m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
-                        , m.Value.ReturnType.SubstituteGenerics ig 
+                        try
+                            m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
+                            , m.Value.ReturnType.SubstituteGenerics ig 
+                        with _ ->
+                            failwithf "failed to substitute interface generics: %A to %A" ig m
                 let pts =
                     if isInstToStatic then
                         tsTypeOf (NonGenericType t) :: (typeOfParams opts p)
@@ -436,7 +442,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let intfGenerics =
             c.Implements |> Seq.map (fun i -> i.Entity, Array.ofList i.Generics) |> dict
         for KeyValue((i, m), (info, body)) in c.Implementations do
-            mem m info [] M.Optimizations.None (Some intfGenerics.[i]) body
+            let intfGen = 
+                match m.Value.Generics with
+                | 0 -> intfGenerics.[i]
+                | mgen -> Array.append (intfGenerics.[i]) (Array.init mgen (fun i -> TypeParameter (cgen + i)))
+            mem m info [] M.Optimizations.None (Some intfGen) body
 
         let indexedCtors = Dictionary()
 
@@ -503,8 +513,42 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
 
             let impls = c.Implements |> List.map tsTypeOfConcrete
-            
-            packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, getGenerics 0 c.GenericConstraints)
+            let gen = getGenerics 0 c.GenericConstraints
+
+
+            match current.CustomTypes.TryGetValue t with
+            | true, M.FSharpUnionInfo u ->
+                toNamespace addr.Address.Value
+                addExport <| Class("$", baseType, impls, List.ofSeq members, gen)
+                let unionNested = (addr.Address.Value |> List.rev |> String.concat ".") + "."
+                let unionClass = TSType.Basic (unionNested + "$") |> addGenerics gen
+                let cases = 
+                    u.Cases |> List.mapi (fun tag uc ->
+                        let case (fields: list<M.UnionCaseFieldInfo>) =
+                            let mem =
+                                [ 
+                                    yield ClassProperty (false, "$", TSType.Basic (string tag)) 
+                                    for f in fields do
+                                        yield ClassProperty (false, f.Name, tsTypeOf f.UnionFieldType)
+                                ]
+                            addExport <| Interface(uc.Name, [], mem, gen)
+                            TSType.Basic (unionNested + uc.Name) |> addGenerics gen
+                        match uc.Kind with
+                        | M.NormalFSharpUnionCase uci -> case uci
+                        | M.ConstantFSharpUnionCase v ->
+                            match v with
+                            | String s -> TSType.Basic ("'" + s + "'")
+                            | Null -> TSType.Basic "null"
+                            | _ -> TSType.Basic (string v.Value)
+                        | M.SingletonFSharpUnionCase -> case []
+                    )
+                match addr.Address.Value with
+                | n :: a ->
+                    toNamespace a
+                    addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Intersection [ unionClass; TSType.Union cases ])
+                | _ -> failwith "empty address for union type"
+            | _ ->
+                packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
             
         if c.IsStub then
             // import addresses for stub classes
@@ -551,9 +595,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let globalAccessTransformer =
         { new Transformer() with
             override this.TransformGlobalAccess a =
-                match addresses.TryGetValue a with
-                | true, v -> v
-                | _ -> Var (strId (a.Address.Value |> List.rev |> String.concat "."))
+                getAddress a
+                //match addresses.TryGetValue a with
+                //| true, v -> v
+                //| _ -> 
+                //    Var (strId (a.Address.Value |> List.rev |> String.concat "."))
         }
 
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq

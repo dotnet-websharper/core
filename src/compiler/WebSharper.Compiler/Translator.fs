@@ -270,6 +270,28 @@ let private asyncRpcMethodNode = rpcMethodNode "Async" (GenericType Definitions.
 let private taskRpcMethodNode = rpcMethodNode "Task" (GenericType Definitions.Task1 [objTy])
 let private sendRpcMethodNode = rpcMethodNode "Send" VoidType
 
+let private wsEnumerableArray =
+    NonGeneric <| TypeDefinition {
+        Assembly = "WebSharper.Main"
+        FullName = "WebSharper.Enumerator+EnumerableArray`1"
+    }
+
+let private wsEnumerableArrayCtor = 
+    Constructor {
+        CtorParameters = [ ArrayType (TypeParameter 0, 1) ]
+    }
+
+let private wsEnumerableString =
+     NonGeneric <| TypeDefinition {
+        Assembly = "WebSharper.Main"
+        FullName = "WebSharper.Enumerator+EnumerableString"
+    }
+
+let private wsEnumerableStringCtor =
+    Constructor {
+        CtorParameters = [ NonGenericType Definitions.String ]
+    }
+
 type TypeCheckKind =
     | TypeOf of string
     | InstanceOf of Address
@@ -1640,6 +1662,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         OtherTypeCheck
         | _ ->
             OtherTypeCheck 
+
+    override this.TransformCoerce(expr, fromTyp, toTyp) =
+        let trExpr() = this.TransformExpression(expr)
+        match toTyp with
+        | ConcreteType td ->
+            match td.Entity.Value.FullName with
+            | "System.Collections.IEnumerable"
+            | "System.Collections.Generic.IEnumerable`1" ->
+                match fromTyp with
+                | ConcreteType { Entity = Hashed { FullName = "System.String" } } ->
+                    this.TransformCtor(wsEnumerableString, wsEnumerableStringCtor, [ expr ])     
+                | ArrayType _ ->
+                    this.TransformCtor(wsEnumerableArray, wsEnumerableArrayCtor, [ expr ])     
+                | _ -> trExpr()
+            | _ -> trExpr()
+        | _ -> trExpr()
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with

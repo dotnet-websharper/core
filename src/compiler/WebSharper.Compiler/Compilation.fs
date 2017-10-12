@@ -58,30 +58,6 @@ module private WSDefinitions =
             Assembly = "mscorlib"
             FullName = "System.Collections.Generic.IEnumerator`1"
         }
-
-    let getEnumerator0 =
-        Method {
-            MethodName = "GetEnumerator"
-            Parameters = []
-            ReturnType = ConcreteType (NonGeneric enum0Ty)
-            Generics = 0
-        } 
-                
-    let getEnumerator =
-        Method {
-            MethodName = "GetEnumerator"
-            Parameters = []
-            ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-            Generics = 0
-        } 
-
-    let wsGetEnumerator =
-        Method {
-            MethodName = "Get"
-            Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
-            ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-            Generics = 1
-        } 
     
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
@@ -513,16 +489,7 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some intf -> 
             match intf.Methods.TryFind meth with
             | Some (m, c) ->
-                if typ.Value.Assembly = "mscorlib" then
-                    match typ.Value.FullName with
-                    | "System.Collections.IEnumerable"
-                    | "System.Collections.Generic.IEnumerable`1" ->
-                        let body = Call(None, NonGeneric wsEnumeratorModule, NonGeneric wsGetEnumerator, [Hole 0]) 
-                        Compiled (NotCompiledInline, Optimizations.None, [], body)
-                    | _ -> 
-                        Compiled (Instance m, Optimizations.None, c, Undefined)
-                else
-                    Compiled (Instance m, Optimizations.None, c, Undefined)              
+                Compiled (Instance m, Optimizations.None, c, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 
@@ -850,7 +817,18 @@ type Compilation(meta: Info, ?hasGraph) =
                     if classes.ContainsKey be || notResolvedClasses.ContainsKey be then Some { b with Entity = be } else None
                 )
             let implements =
-                cls.Implements |> List.filter (fun i -> interfaces.ContainsKey i.Entity)
+                cls.Implements |> List.filter (fun i -> 
+                    let ie = i.Entity
+                    interfaces.ContainsKey ie && 
+                    cls.Members |> List.exists (function
+                        | NotResolvedMember.Method (_, mi) ->
+                            match mi.Kind with
+                            | NotResolvedMemberKind.Implementation ii
+                            | NotResolvedMemberKind.InlineImplementation ii -> ii = ie
+                            | _ -> false
+                        | _ -> false
+                    )
+                )
             let hasWSPrototype = hasWSPrototype cls.Kind baseCls cls.Members                
             let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
@@ -1151,9 +1129,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             | Some p ->
                                 p, M.Method(mDef, { nr with Kind = N.Implementation p }) 
                             | _ -> td, m
-                        if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
-                            Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
-                        else 
+                        //if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
+                        //    Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
+                        //else 
                         match interfaces.TryFind td with
                         | Some i ->
                             match i.Methods.TryFind mDef with
@@ -1396,12 +1374,9 @@ type Compilation(meta: Info, ?hasGraph) =
         for KeyValue(typ, ms) in remainingInstanceMembers do
             resolveRemainingInstanceMembers typ classes.[typ] ms    
 
-        // Add graph edges for GetEnumerator and Object methods redirection
+        // Add graph edges for Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
             
-            graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator))
-            graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
-
             let equals =
                 Method {
                     MethodName = "Equals"

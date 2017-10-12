@@ -303,6 +303,7 @@ let varEvalOrder (vars : Id list) expr =
             | UnionCaseTag (a, _)
             | UnionCaseTest (a, _, _)
             | Cast (_, a)
+            | Coerce (a, _, _)
                 -> eval a
             | Object a 
                 -> List.iter (snd >> eval) a 

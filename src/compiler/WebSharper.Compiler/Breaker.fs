@@ -571,6 +571,8 @@ let rec breakExpr expr : Broken<BreakResult> =
             comb2 (fun (aE, cE) -> Binary(aE, b, cE)) a c
     | Cast(a, b) ->
         br b |> mapBroken (fun bB -> Cast(a, getExpr bB))
+    | Coerce(a, b, c) ->
+        br a |> mapBroken (fun bA -> Coerce(getExpr bA, b, c))
     | MutatingBinary (a, b, c) -> 
         comb2 (fun (aE, cE) -> MutatingBinary(aE, b, cE)) a c
     | Unary (a, b) ->
