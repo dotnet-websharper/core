@@ -9,6 +9,7 @@ tags
     Web JavaScript C#
 dependencies
     WebSharper == CURRENTVERSION
+    Microsoft.TypeScript.MSBuild ~> 2.5.3
 files
     ../msbuild/WebSharper.CSharp.targets ==> build
     ../build/Release/CSharp/net461/ZafirCs.exe ==> tools
