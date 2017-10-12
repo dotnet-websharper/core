@@ -188,7 +188,7 @@ let ListLayout separator brush items =
             |> Seq.reduce (fun a b -> separator a b)
 
 let CommaSeparated brush items =
-    ListLayout (fun a b -> a ++ Token "," ++ b) brush items
+    ListLayout (fun a b -> a ++ Token ", " ++ b) brush items
 
 let Parens layout =
     Token "(" ++ layout ++ Token ")"
@@ -208,11 +208,11 @@ let Conditional layout pred =
 
 let BlockLayout items =
     if List.isEmpty items then 
-        Token "{}" 
+        Word "{ }" 
     else
-        Token "{"
+        Word "{"
         -- ListLayout (fun a b -> a -- b) Indent items
-        -- Token "}"
+        -- Word "}"
 
 let inline Label (l: S.Label) =
     Word l
@@ -238,7 +238,7 @@ and Expression (expression) =
         ++ Parens (CommaSeparated (AssignmentExpression) xs)
     | S.NewArray xs ->
         let element = function
-            | None -> Token ","
+            | None -> Token ", "
             | Some x -> AssignmentExpression x
         Token "[" ++ CommaSeparated element xs ++ Token "]"
     | S.Binary (x, op, y) ->
@@ -294,14 +294,21 @@ and Expression (expression) =
         let args = Parens (CommaSeparated Id formals) 
         if isArrow then
             match body with
-            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Token "=>" ++ Token "{}"
-            | [ S.IgnoreSPos (S.Return (Some e)) ] -> args ++ Token "=>" ++ Expression e
-            | _ -> args ++ Token "=>" -- BlockLayout (List.map (Statement true) body)
+            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word "=>" ++ Word "{ }"
+            | [ S.IgnoreSPos (S.Return (Some e)) ] -> 
+                args ++ Word "=>" 
+                ++ (
+                    match e with 
+                    | S.IgnoreEPos (S.NewObject _) ->
+                        Parens (Expression e)
+                    | _ -> Expression e
+                )
+            | _ -> args ++ Word "=>" ++ BlockLayout (List.map (Statement true) body)
         else
             Word "function"
             ++ Optional Id name
             ++ args
-            -- BlockLayout (List.map (Statement true) body)
+            ++ BlockLayout (List.map (Statement true) body)
     | S.New (x, xs) ->
         Word "new"
         ++ MemberExpression x
@@ -315,11 +322,11 @@ and Expression (expression) =
             ++ AssignmentExpression v
         if fields.Length <= 2 then
             Token "{"
-            ++ ListLayout (fun a b -> a ++ Token "," ++ b) pair fields
+            ++ ListLayout (fun a b -> a ++ Token ", " ++ b) pair fields
             ++ Token "}"
         else
             Token "{"
-            -- Indent (ListLayout (fun a b -> a ++ Token "," -- b) pair fields)
+            -- Indent (ListLayout (fun a b -> a ++ Token ", " -- b) pair fields)
             -- Token "}"
     | S.Postfix (x, op) ->
         ParensExpression PostfixOperatorPrecedence x
@@ -366,7 +373,7 @@ and Statement canBeEmpty statement =
         ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
-        if canBeEmpty then Empty else Token "{}"
+        if canBeEmpty then Empty else Word "{ }"
     | S.Ignore e ->
         let rec dangerous e =
             match e with
@@ -416,12 +423,12 @@ and Statement canBeEmpty statement =
     | S.If (e, s, S.IgnoreSPos S.Empty) ->
         Word "if"
         ++ Parens (Expression e)
-        -- Indent (Statement false s)
+        ++ (Statement false s)
     | S.If (e, s1, s2) ->
         let s1L =
             match S.IgnoreStatementPos s1 with
             | S.If (_,_,_) -> BlockLayout [ Statement true s1 ]
-            | _ -> Indent (Statement false s1)
+            | _ -> Statement false s1
         let rec isEmpty s =
             match S.IgnoreStatementPos s with
             | S.Empty -> true
@@ -430,13 +437,13 @@ and Statement canBeEmpty statement =
         let s2L =
             if isEmpty s2 then Empty else
                 Word "else"
-                -- Indent (Statement false s2)
+                ++ (Statement false s2)
         Word "if"
         ++ Parens (Expression e)
-        -- s1L
+        ++ s1L
         -- s2L
     | S.Labelled (label, s) ->
-        Label label ++ Token ":" ++ Statement canBeEmpty s
+        Label label ++ Token ": " ++ Statement canBeEmpty s
     | S.Return e ->
         Word "return"
         ++ Optional Expression e
@@ -444,7 +451,7 @@ and Statement canBeEmpty statement =
     | S.Switch (e, cases) ->
         Word "switch"
         ++ Parens (Expression e)
-        -- BlockLayout [
+        ++ BlockLayout [
             for c in cases do
                 match c with
                 | S.Default ss ->
@@ -460,22 +467,22 @@ and Statement canBeEmpty statement =
         Word "throw" ++ Expression e ++ Token ";"
     | S.TryWith (s1, id, s2, f) ->
         Word "try"
-        -- Block s1
+        ++ Block s1
         -- Word "catch" ++ Parens (Id id)
-        -- Block s2
+        ++ Block s2
         -- Optional (fun x -> Word "finally" ++ Block x) f
     | S.TryFinally (s1, s2) ->
         Word "try"
-        -- Block s1
+        ++ Block s1
         -- Word "finally"
-        -- Block s2
+        ++ Block s2
     | S.Vars [] ->
         Empty
     | S.Vars vs ->
         Word "var" ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
         Word "while" ++ Parens (Expression e)
-        -- Indent (Statement false s)
+        ++ (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
     | S.Function (id, formals, body) ->
@@ -483,11 +490,11 @@ and Statement canBeEmpty statement =
         ++ NonTypedId id
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
-        -- BlockLayout (List.map (Statement true) body)
+        ++ BlockLayout (List.map (Statement true) body)
     | S.Export s ->
         Word "export" ++ Statement false s
     | S.ExportAlias (a, b) ->
-        Word "export" ++ Token "{" ++ Id a ++ Word "as" ++ Id b ++ Token "}"
+        Word "export" ++ Word "{" ++ Id a ++ Word "as" ++ Id b ++ Word "}"
     | S.ImportAll (None, m) ->
         Word "import " ++ Token (QuoteString m) 
     | S.ImportAll (Some i, m) ->
@@ -500,22 +507,22 @@ and Statement canBeEmpty statement =
         Word "declare" ++ Statement false s
     | S.DeclareGlobal s ->
         Word "declare global"
-        -- BlockLayout (List.map (Statement true) s)
+        ++ BlockLayout (List.map (Statement true) s)
     | S.Namespace (n, s) ->
         Word "namespace" ++ Id n
-        -- BlockLayout (List.map (Statement true) s)
+        ++ BlockLayout (List.map (Statement true) s)
     | S.Class (n, a, b, i, ms) ->
         Conditional (Word "abstract") a
         ++ Word "class" 
         ++ Id n 
         ++ Optional (fun b -> Word "extends" ++ Expression b) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
-        -- BlockLayout (List.map (Member true) ms)
+        ++ BlockLayout (List.map (Member true) ms)
     | S.Interface (n, i, ms) ->
         Word "interface" 
         ++ Id n 
         ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
-        -- BlockLayout (List.map (Member false) ms)
+        ++ BlockLayout (List.map (Member false) ms)
 
 and Member isClass mem =
     match mem with
@@ -525,11 +532,11 @@ and Member isClass mem =
         ++ NonTypedId n
         ++ Parens (CommaSeparated Id args)
         ++ TypeAnnotation n.Type 
-        -- Optional (List.map (Statement true) >> BlockLayout) body
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Constructor (args, body) ->
         Word "constructor"
         ++ Parens (CommaSeparated Id args)
-        -- Optional (List.map (Statement true) >> BlockLayout) body
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Property (s, n) ->
         Conditional (Word "static") s
         ++ Id n
