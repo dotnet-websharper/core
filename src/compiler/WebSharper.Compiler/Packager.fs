@@ -468,7 +468,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         | _ ->  failwith "Error detupling function parameter type"
                 )
 
-        let cgen = List.length c.Generics
+        let cgenl = List.length c.Generics
 
         let mem (m: Method) info gc opts intfGen body =
             let gsArr = Array.append gsArr (Array.ofList gc)
@@ -487,7 +487,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         tsTypeOf gsArr (NonGenericType t) :: (typeOfParams opts gsArr p)
                     else typeOfParams opts gsArr p
                 TSType.Lambda(pts, tsTypeOf gsArr r)
-            let g = getGenerics cgen gc
+            let g = getGenerics cgenl gc
             let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
@@ -514,14 +514,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let intfGen = 
                 match m.Value.Generics with
                 | 0 -> intfGenerics.[i]
-                | mgen -> Array.append (intfGenerics.[i]) (Array.init mgen (fun i -> TypeParameter (cgen + i)))
+                | mgen -> Array.append (intfGenerics.[i]) (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
             mem m info [] M.Optimizations.None (Some intfGen) body
 
         let indexedCtors = Dictionary()
+        
+        let cgen = getGenerics 0 c.Generics
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
-            let thisTSType = tsTypeOf gsArr (NonGenericType t)
+            let thisTSType = tsTypeOf gsArr (NonGenericType t) |> addGenerics cgen 
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then
@@ -551,7 +553,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.Static maddr ->
                 let signature =
                     TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
-                let g = getGenerics 0 c.Generics
+                
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
@@ -559,7 +561,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             ClassMethod(true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
-                    (fun () -> body, signature |> addGenerics g)
+                    (fun () -> body, signature |> addGenerics cgen)
             | _ -> ()
 
         match classAddress with 
