@@ -45,7 +45,7 @@ type StaticMembers =
             Namespaces = Dictionary()
         }
 
-type BodyTransformer(toTSType) =
+type BodyTransformer(toTSType, getModule) =
     inherit Transformer()
 
     override this.TransformNewTuple(a, t) =
@@ -53,6 +53,9 @@ type BodyTransformer(toTSType) =
         match t with
         | [] -> res
         | _ -> Cast(toTSType(TupleType (t, false)), res) 
+
+    override this.TransformCast(t, e) =
+        Cast(t.ResolveModule getModule, e)
 
 let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) moduleName isBundle =
     let addresses = Dictionary()
@@ -154,6 +157,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             addresses.Add(address, res)
             res
 
+    let getModule m =
+        match importTS m with
+        | Var v ->
+            Some v
+        | Undefined ->
+            None
+        | _ -> failwith "expecting a Var or Undefined for module import"
+    
     for r in resources do
         match r with
         | :? R.IDownloadableResource as d ->
@@ -261,85 +272,35 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 TSType.Basic acc
             | _ -> failwith "expecting a Var or Undefined for module import"
 
-    let rec tsTypeOfDef (t: TypeDefinition) =
-        match mappedTypes.TryGetValue t with
-        | true, tt -> tt
+    let lookupType (t: TypeDefinition) =
+        match t.Value.FullName with
         | _ ->
-            let res =
-                match t.Value.FullName with
-                | _ ->
-                let cls =
-                    match refMeta.Classes.TryFind t with
-                    | Some _ as res -> res
-                    | _ -> current.Classes.TryFind t
-                match cls with
-                | Some c -> 
-                    match c.Type with
-                    | Some t -> t
-                    | _ ->
-                        match c.Address with
-                        | Some a -> tsTypeOfAddress a
-                        | _ -> TSType.Any
-                | _ -> 
-                let intf = 
-                    match refMeta.Interfaces.TryFind t with
-                    | Some _ as res -> res
-                    | _ -> current.Interfaces.TryFind t
-                match intf with
-                | Some i -> tsTypeOfAddress i.Address
-                | _ ->
-                let cust = 
-                    match refMeta.CustomTypes.TryFind t with
-                    | Some _ as res -> res
-                    | _ -> current.CustomTypes.TryFind t
-                match cust with
-                | Some (_, DelegateInfo i) ->
-                    TSType.Lambda(i.DelegateArgs |> List.map (tsTypeOf [||]), tsTypeOf [||] i.ReturnType)
-                | Some (_, EnumInfo t) -> tsTypeOfDef t
-                | Some (Hashed (_ :: _) as a, _) ->
-                    tsTypeOfAddress { Module = CurrentModule; Address = a }  
-                | _ -> TSType.Any
-            mappedTypes.Add(t, res)
-            res
-
-    and tsTypeOfGenParam i (p: M.GenericParam) =
-        match p.Type with
-        | Some t -> t
-        | _ -> TSType.Param i
-
-    and tsTypeOfConcrete (gs: M.GenericParam[]) (t: Concrete<TypeDefinition>) =
-        let td = tsTypeOfDef t.Entity
-        match t.Generics with
-        | [] -> td
-        | g -> 
-            match td with
-            | TSType.Basic _ ->
-                TSType.Generic(td, g |> List.map (tsTypeOf gs))
-            | TSType.Lambda _ ->
-                td.SubstituteGenerics (g |> Seq.map (tsTypeOf gs) |> Array.ofSeq)
-            | _ -> td
-
-    and tsTypeOf (gs: M.GenericParam[]) (t: Type) =
-        match t with 
-        | ConcreteType t -> tsTypeOfConcrete gs t
-        | ArrayType (t, a) -> 
-            match a with
-            | 1 -> TSType.ArrayOf (tsTypeOf gs t)
-            | 2 -> TSType.ArrayOf (TSType.ArrayOf (tsTypeOf gs t))
-            | _ -> failwith "only 1 and 2-dim arrays are supported"
-        | TupleType (ts, _) -> TSType.Tuple (ts |> List.map (tsTypeOf gs))
-        | FSharpFuncType (a, r) -> 
-            let ta =
-                match a with
-                | VoidType -> []
-                | _ -> [tsTypeOf gs a]
-            TSType.Lambda(ta, tsTypeOf gs r)
-        | ByRefType t -> TSType.Any // TODO byrefs
-        | VoidType -> TSType.Void
-        | TypeParameter i 
-        | StaticTypeParameter i -> 
-            if i >= gs.Length then TSType.Param i else tsTypeOfGenParam i gs.[i]
-        | LocalTypeParameter -> TSType.Any
+        let cls =
+            match refMeta.Classes.TryFind t with
+            | Some _ as res -> res
+            | _ -> current.Classes.TryFind t
+        match cls with
+        | Some c -> TypeTranslator.Class c
+        | _ -> 
+        let intf = 
+            match refMeta.Interfaces.TryFind t with
+            | Some _ as res -> res
+            | _ -> current.Interfaces.TryFind t
+        match intf with
+        | Some i -> TypeTranslator.Interface i
+        | _ ->
+        let cust = 
+            match refMeta.CustomTypes.TryFind t with
+            | Some _ as res -> res
+            | _ -> current.CustomTypes.TryFind t
+        match cust with
+        | Some c -> TypeTranslator.CustomType c
+        | _ -> TypeTranslator.Unknown
+    
+    let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
+    
+    let inline tsTypeOfConcrete gs i = typeTranslator.TSTypeOfConcrete gs i
+    let inline tsTypeOf gs t = typeTranslator.TSTypeOf gs t
 
     let getGenerics j (gs: list<M.GenericParam>) =
         let gsArr = Array.ofList gs
@@ -526,7 +487,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     else typeOfParams opts gsArr p
                 TSType.Lambda(pts, tsTypeOf gsArr r)
             let g = getGenerics cgen gc
-            let body = BodyTransformer(tsTypeOf gsArr).TransformExpression(body)
+            let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
@@ -558,7 +519,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let indexedCtors = Dictionary()
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
-            let body = BodyTransformer(tsTypeOf gsArr).TransformExpression(body)
+            let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
             let thisTSType = tsTypeOf gsArr (NonGenericType t)
             match withoutMacros info with
             | M.New ->

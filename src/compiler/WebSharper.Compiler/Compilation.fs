@@ -92,6 +92,23 @@ type Compilation(meta: Info, ?hasGraph) =
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
 
+    let typeTranslator =
+        TypeTranslator.TypeTranslator(fun t ->
+            let t =
+                match proxies.TryFind t with
+                | Some p -> p 
+                | _ -> t
+            match classes.TryFind t with
+            | Some c -> TypeTranslator.Class c
+            | _ ->
+            match interfaces.TryFind t with
+            | Some i -> TypeTranslator.Interface i
+            | _ ->
+            match customTypes.TryFind t with
+            | Some c -> TypeTranslator.CustomType c
+            | _ -> TypeTranslator.Unknown
+        )
+
     member val UseLocalMacros = true with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
@@ -104,6 +121,8 @@ type Compilation(meta: Info, ?hasGraph) =
     member val LookupConstructorAttributes = fun _ _ -> None with get, set
 
     member this.MutableExternals = mutableExternals
+
+    member this.TypeTranslator = typeTranslator
 
     member this.FindProxied typ =
         match proxies.TryFind typ with

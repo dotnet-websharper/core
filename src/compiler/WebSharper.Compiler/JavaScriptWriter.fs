@@ -567,6 +567,7 @@ and transformTypeName (env: Environment) (typ: TSType) =
         "(" + trN t + ")[]"
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
+    | TSType.Importing (m, a) -> failwith "TypeScript type from an unresolved module"
     | TSType.Lambda (a, r)  -> 
         "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
         + " => " + trN r

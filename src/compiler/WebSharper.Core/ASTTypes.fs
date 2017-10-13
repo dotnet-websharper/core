@@ -608,6 +608,7 @@ type TSType =
     | Basic of string
     | Generic of TSType * list<TSType>
     | Imported of Id * string
+    | Importing of string * string
     | Lambda of list<TSType> * TSType
     | New of list<TSType> * TSType
     | Tuple of list<TSType>
@@ -620,7 +621,9 @@ type TSType =
         match this with 
         | Any
         | Basic _
-        | Imported _ -> this
+        | Imported _
+        | Importing _
+            -> this
         | Param i -> gs.[i]
         | Generic (e, g) -> Generic (e.SubstituteGenerics gs, g |> List.map (fun p -> p.SubstituteGenerics gs))
         | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.SubstituteGenerics gs), r.SubstituteGenerics gs)
@@ -629,7 +632,26 @@ type TSType =
         | Union ts -> Union (ts |> List.map (fun p -> p.SubstituteGenerics gs))
         | Intersection ts -> Intersection (ts |> List.map (fun p -> p.SubstituteGenerics gs))
         | Constraint (t, c) -> Constraint (t.SubstituteGenerics gs, c |> List.map (fun p -> p.SubstituteGenerics gs))
-        
+    
+    member this.ResolveModule (getModule: string -> Id option) =
+        match this with 
+        | Any
+        | Basic _
+        | Imported _
+        | Param _
+            -> this
+        | Importing (m, a) ->
+            match getModule m with
+            | Some v -> Imported(v, a)
+            | _ -> Basic a
+        | Generic (e, g) -> Generic (e.ResolveModule getModule, g |> List.map (fun p -> p.ResolveModule getModule))
+        | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
+        | New (a, r) -> New (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
+        | Tuple ts -> Tuple (ts |> List.map (fun p -> p.ResolveModule getModule))
+        | Union ts -> Union (ts |> List.map (fun p -> p.ResolveModule getModule))
+        | Intersection ts -> Intersection (ts |> List.map (fun p -> p.ResolveModule getModule))
+        | Constraint (t, c) -> Constraint (t.ResolveModule getModule, c |> List.map (fun p -> p.ResolveModule getModule))
+
 type MethodInfo =
     {
         MethodName : string

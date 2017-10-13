@@ -26,6 +26,7 @@
     <Compile Include="StandardLibNames.fs" />
     <Compile Include="Recognize.fs" />
     <Compile Include="Verifier.fs" />
+    <Compile Include="TypeTranslator.fs" />
     <Compile Include="CompilationTypes.fs" />
     <Compile Include="Compilation.fs" />
     <Compile Include="QuotationReader.fs" />

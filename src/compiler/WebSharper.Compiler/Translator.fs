@@ -57,6 +57,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
+    override this.TransformCoerce (a, b, c) = if isInline then base.TransformCoerce(a, b, c) else invalidForm "Coerce"
 
     override this.TransformFunction(a, b) =
         let l = insideLoop
@@ -1664,7 +1665,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             OtherTypeCheck 
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
-        this.TransformExpression(expr)
+        let trExpr = this.TransformExpression(expr)
+        let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
+        let t = comp.TypeTranslator.TSTypeOf [||] toTyp
+        match f, t with
+        | _ when f = t -> trExpr
+        | TSType.Any, _ -> trExpr
+        | _ ->
+        if currentIsInline then
+            hasDelayedTransform <- true
+            Coerce(trExpr, fromTyp, toTyp)
+        else
+            Cast(t, trExpr) 
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with
