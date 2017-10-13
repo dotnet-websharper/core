@@ -144,7 +144,7 @@ type private ArrayProxy =
 
     [<Name "WebSharper.Arrays.clear">]
     static member Clear(array: System.Array, index: int, length: int) : unit =
-        if isNull array then raise (ArgumentNullException(array))
+        if isNull array then raise (ArgumentNullException("array"))
         if index < 0 || length < 0 || index + length > array.Length then raise (IndexOutOfRangeException())
         for i = index to index + length - 1 do
             (As<JSArray[]> array).[i] <-

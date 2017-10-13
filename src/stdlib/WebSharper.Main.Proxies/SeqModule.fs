@@ -126,8 +126,8 @@ let Choose (f: 'T -> option<'U>) (s: seq<'T>) : seq<'U> =
     s
     |> Seq.collect (fun x ->
         match f x with
-        | Some v -> [v]
-        | None   -> [])
+        | Some v -> [|v|]
+        | None   -> [||])
 
 [<Inline>]
 let ChunkBySize (size: int) (s: seq<'T>) = SeqChunkBySize size s
@@ -574,11 +574,11 @@ let SortDescending<'T when 'T : comparison> (s: seq<'T>) =
     SortByDescending id s
 
 [<Name "sum">]
-let Sum<'T> (s: seq<'T>) : 'T =
+let Sum<[<Type "number">] 'T> (s: seq<'T>) : 'T =
     box (Seq.fold (fun s x -> s + (box x :?> _)) 0. s) :?> _
 
 [<Name "sumBy">]
-let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
+let SumBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
     box (Seq.fold (fun s x -> s + (box (f x) :?> _)) 0. s) :?> _
 
 [<Name "take">]

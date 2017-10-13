@@ -273,7 +273,7 @@ let NaN = nan
 [<Inline "!$x">]
 let Not (x: bool) = X<bool>
 
-let Pown<'T> (a: 'T) (n: int) =
+let Pown<[<Type "number">] 'T> (a: 'T) (n: int) =
     let a = box a :?> double
     let rec p n =
         match n with
@@ -325,7 +325,7 @@ let inline Tan (x: 'T) = X<'T>
 [<Inline "(Math.exp(2*$x)-1)/(Math.exp(2*$x)+1)">]
 let Tanh (x: 'T) = X<'T>
 
-let inline Truncate<'T> (x: 'T) =
+let inline Truncate<[<Type "number">] 'T> (x: 'T) =
     if x <. 0 then Ceiling x else Floor x
 
 [<Inline "$x">]
