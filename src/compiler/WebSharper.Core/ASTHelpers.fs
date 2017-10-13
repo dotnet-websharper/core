@@ -320,7 +320,8 @@ module TSType =
     let Number = basic "number"
     let Never = basic "never"
     let Void = basic "void"
-    let Array = basic "Array"
+    let private Array = basic "Array"
+    let ArrayOf t = TSType.Generic(Array, [ t ])
 
     let Parse x =
         match x with

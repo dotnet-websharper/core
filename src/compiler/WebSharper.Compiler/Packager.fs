@@ -261,37 +261,53 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 TSType.Basic acc
             | _ -> failwith "expecting a Var or Undefined for module import"
 
-    let tsTypeOfDef (t: TypeDefinition) =
+    let rec tsTypeOfDef (t: TypeDefinition) =
         match mappedTypes.TryGetValue t with
         | true, tt -> tt
         | _ ->
             let res =
                 match t.Value.FullName with
                 | _ ->
-                    let cls =
-                        match refMeta.Classes.TryFind t with
-                        | Some _ as res -> res
-                        | _ -> current.Classes.TryFind t
-                    match cls with
-                    | Some c -> 
-                        match c.Type with
-                        | Some t -> t
-                        | _ ->
-                            match c.Address with
-                            | Some a -> tsTypeOfAddress a
-                            | _ -> TSType.Any
-                    | _ -> 
-                        let intf = 
-                            match refMeta.Interfaces.TryFind t with
-                            | Some _ as res -> res
-                            | _ -> current.Interfaces.TryFind t
-                        match intf with
-                        | Some i -> tsTypeOfAddress i.Address
+                let cls =
+                    match refMeta.Classes.TryFind t with
+                    | Some _ as res -> res
+                    | _ -> current.Classes.TryFind t
+                match cls with
+                | Some c -> 
+                    match c.Type with
+                    | Some t -> t
+                    | _ ->
+                        match c.Address with
+                        | Some a -> tsTypeOfAddress a
                         | _ -> TSType.Any
+                | _ -> 
+                let intf = 
+                    match refMeta.Interfaces.TryFind t with
+                    | Some _ as res -> res
+                    | _ -> current.Interfaces.TryFind t
+                match intf with
+                | Some i -> tsTypeOfAddress i.Address
+                | _ ->
+                let cust = 
+                    match refMeta.CustomTypes.TryFind t with
+                    | Some _ as res -> res
+                    | _ -> current.CustomTypes.TryFind t
+                match cust with
+                | Some (_, DelegateInfo i) ->
+                    TSType.Lambda(i.DelegateArgs |> List.map (tsTypeOf [||]), tsTypeOf [||] i.ReturnType)
+                | Some (_, EnumInfo t) -> tsTypeOfDef t
+                | Some (Hashed (_ :: _) as a, _) ->
+                    tsTypeOfAddress { Module = CurrentModule; Address = a }  
+                | _ -> TSType.Any
             mappedTypes.Add(t, res)
             res
 
-    let rec tsTypeOfConcrete gs (t: Concrete<TypeDefinition>) =
+    and tsTypeOfGenParam i (p: M.GenericParam) =
+        match p.Type with
+        | Some t -> t
+        | _ -> TSType.Param i
+
+    and tsTypeOfConcrete (gs: M.GenericParam[]) (t: Concrete<TypeDefinition>) =
         let td = tsTypeOfDef t.Entity
         match t.Generics with
         | [] -> td
@@ -299,12 +315,18 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             match td with
             | TSType.Basic _ ->
                 TSType.Generic(td, g |> List.map (tsTypeOf gs))
+            | TSType.Lambda _ ->
+                td.SubstituteGenerics (g |> Seq.map (tsTypeOf gs) |> Array.ofSeq)
             | _ -> td
 
     and tsTypeOf (gs: M.GenericParam[]) (t: Type) =
         match t with 
         | ConcreteType t -> tsTypeOfConcrete gs t
-        | ArrayType (t, a) -> TSType.Generic (TSType.Array, [ tsTypeOf gs t ])
+        | ArrayType (t, a) -> 
+            match a with
+            | 1 -> TSType.ArrayOf (tsTypeOf gs t)
+            | 2 -> TSType.ArrayOf (TSType.ArrayOf (tsTypeOf gs t))
+            | _ -> failwith "only 1 and 2-dim arrays are supported"
         | TupleType (ts, _) -> TSType.Tuple (ts |> List.map (tsTypeOf gs))
         | FSharpFuncType (a, r) -> 
             let ta =
@@ -316,10 +338,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | VoidType -> TSType.Void
         | TypeParameter i 
         | StaticTypeParameter i -> 
-            if i >= gs.Length then TSType.Param i else 
-            match gs.[i].Type with
-            | Some t -> t
-            | _ -> TSType.Param i
+            if i >= gs.Length then TSType.Param i else tsTypeOfGenParam i gs.[i]
         | LocalTypeParameter -> TSType.Any
 
     let getGenerics j (gs: list<M.GenericParam>) =
@@ -521,6 +540,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             let body = BodyTransformer(tsTypeOf gsArr).TransformExpression(body)
+            let thisTSType = tsTypeOf gsArr (NonGenericType t)
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then
@@ -530,7 +550,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         ()
                     | Function (args, b) ->                  
                         let signature =
-                            TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters)
+                            TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
                         members.Add (ClassConstructor (args, Some b, signature))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -540,14 +560,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | Function (args, b) ->  
                         let index = Id.New("i: " + string i, str = true)
                         let signature =
-                            TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters))
+                            TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters), thisTSType)
                         members.Add (ClassConstructor (index :: args, None, signature))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.Static maddr ->
                 let signature =
-                    TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, tsTypeOf gsArr (NonGenericType t))
+                    TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with

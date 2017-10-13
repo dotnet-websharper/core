@@ -600,13 +600,27 @@ type TSType =
     | Generic of TSType * list<TSType>
     | Imported of Id * string
     | Lambda of list<TSType> * TSType
-    | New of list<TSType>
+    | New of list<TSType> * TSType
     | Tuple of list<TSType>
     | Union of list<TSType>
     | Intersection of list<TSType>
     | Param of int
     | Constraint of TSType * list<TSType>
 
+    member this.SubstituteGenerics (gs : TSType[]) =
+        match this with 
+        | Any
+        | Basic _
+        | Imported _ -> this
+        | Param i -> gs.[i]
+        | Generic (e, g) -> Generic (e.SubstituteGenerics gs, g |> List.map (fun p -> p.SubstituteGenerics gs))
+        | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.SubstituteGenerics gs), r.SubstituteGenerics gs)
+        | New (a, r) -> New (a |> List.map (fun p -> p.SubstituteGenerics gs), r.SubstituteGenerics gs)
+        | Tuple ts -> Tuple (ts |> List.map (fun p -> p.SubstituteGenerics gs))
+        | Union ts -> Union (ts |> List.map (fun p -> p.SubstituteGenerics gs))
+        | Intersection ts -> Intersection (ts |> List.map (fun p -> p.SubstituteGenerics gs))
+        | Constraint (t, c) -> Constraint (t.SubstituteGenerics gs, c |> List.map (fun p -> p.SubstituteGenerics gs))
+        
 type MethodInfo =
     {
         MethodName : string

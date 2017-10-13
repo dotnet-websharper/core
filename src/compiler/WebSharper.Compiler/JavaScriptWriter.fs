@@ -570,7 +570,9 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Lambda (a, r)  -> 
         "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
         + " => " + trN r
-    | TSType.New _ -> "any" // TODO constructor signature
+    | TSType.New (a, r)  -> 
+        "new (" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
+        + " => " + trN r
     | TSType.Tuple ts -> "[" + (ts |> Seq.map (trN) |> String.concat ", ") + "]"
     | TSType.Union cs -> "(" + (cs |> Seq.map (trN) |> String.concat " | ") + ")"
     | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
@@ -624,7 +626,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let innerEnv = env.NewInner(false)
         let args =
             match t with 
-            | TSType.New ta -> 
+            | TSType.New (ta, _) -> 
                 (p, ta) ||> List.map2 (fun a t -> defineId innerEnv ArgumentId a |> withType env t) 
             | _ ->
                 p |> List.map (defineId innerEnv ArgumentId)
