@@ -137,6 +137,12 @@ and Id =
             Type = typ
         }
 
+and Modifiers =
+    | None = 0
+    | Private = 1
+    | Public = 2
+    | ReadOnly = 4
+
 /// Represents JavaScript expressions.
 and Expression =
     | Application of E * list<E>
@@ -230,7 +236,7 @@ and Statement =
 
 and Member =
     | Method      of bool * Id * list<Id> * option<list<S>>
-    | Constructor of list<Id> * option<list<S>>
+    | Constructor of list<Id * Modifiers> * option<list<S>>
     | Property    of bool * Id 
 
 /// Represents switch elements.

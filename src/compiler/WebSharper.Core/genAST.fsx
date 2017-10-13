@@ -27,6 +27,7 @@ type Case =
     | Id
     | Object of string
     | Empty
+    | Modifiers
     static member (*) (a, b) =
         match a with
         | Tuple at -> Tuple (at @ [b])
@@ -47,6 +48,7 @@ let rec shape c =
     | Statement -> Some Statement
     | Object _ -> None
     | Empty -> None
+    | Modifiers -> None
 
 let rec toType c =
     match c with
@@ -61,6 +63,7 @@ let rec toType c =
     | Id -> "Id"
     | Object o -> o
     | Empty -> "unit"
+    | Modifiers -> "Modifiers"
 
 let capitalize (s: string) = s.[0 .. 0].ToUpper() + s.[1 ..]
 
@@ -84,6 +87,7 @@ let rec info c =
     | Statement -> None
     | Id -> None
     | Empty -> None
+    | Modifiers -> None
 
 let Literal = Object "Literal"
 let NonGenericTypeDefinition = Object "TypeDefinition"
@@ -290,7 +294,7 @@ let StatementDefs =
             , "TypeScript - class { ... }"
         "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "TypeScript - class method"
-        "ClassConstructor", [ List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
+        "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "TypeScript - class method"
         "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ]
             , "TypeScript - class plain property"
@@ -399,6 +403,7 @@ let code =
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
             | List (Tuple [List (Option Expr); Statement]) -> "List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) " + x
+            | List (Tuple [Id; Modifiers]) -> "List.map (fun (x, m) -> this.TransformId x, m) " + x
             | Object _ -> x
             | List (Object _) -> x
             | Option (Object _) -> x
@@ -464,6 +469,7 @@ let code =
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
             | List (Tuple [List (Option Expr); Statement]) -> "List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) " + x
+            | List (Tuple [Id; Modifiers]) -> "List.iter (fst >> this.VisitId) " + x
             | Object _ -> "()"
             | List (Object _) -> "()"
             | Option (Object _) -> "()"
@@ -552,6 +558,7 @@ let code =
                 | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
+                | List (Tuple [Id; Modifiers]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m))) + \"]\""
                 | Object "TypeDefinition" -> x + ".Value.FullName"
                 | Object "Concrete<TypeDefinition>" -> x + ".Entity.Value.FullName"
                 | Object "Concrete<Method>" -> x + ".Entity.Value.MethodName"

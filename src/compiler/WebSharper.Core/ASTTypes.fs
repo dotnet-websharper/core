@@ -31,6 +31,8 @@ type private Ids() =
     static member New() =
         System.Threading.Interlocked.Increment(&lastId)
 
+type Modifiers = S.Modifiers
+
 [<CustomComparison; CustomEquality>]
 /// An identifier for a variable or label.
 type Id =
@@ -93,6 +95,13 @@ type Id =
 
     override this.ToString() =
         (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
+
+    member this.ToString(m: Modifiers) =
+        String.concat "" [
+            if m.HasFlag Modifiers.Private then yield "private "
+            if m.HasFlag Modifiers.Public then yield "public "
+            if m.HasFlag Modifiers.ReadOnly then yield "readonly"
+        ] + string this
 
 /// Specifies a curried or tupled F# function argument that is translated to a flat function
 type FuncArgOptimization =

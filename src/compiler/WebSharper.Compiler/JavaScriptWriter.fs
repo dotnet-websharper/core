@@ -627,9 +627,9 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let args =
             match t with 
             | TSType.New (ta, _) -> 
-                (p, ta) ||> List.map2 (fun a t -> defineId innerEnv ArgumentId a |> withType env t) 
+                (p, ta) ||> List.map2 (fun (a, m) t -> defineId innerEnv ArgumentId a |> withType env t, m)
             | _ ->
-                p |> List.map (defineId innerEnv ArgumentId)
+                p |> List.map (fun (a, m) -> defineId innerEnv ArgumentId a, m)
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)

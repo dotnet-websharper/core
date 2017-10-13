@@ -829,35 +829,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i, not annot.IsJavaScript)
 
-            let maxCaseFields =
-                cases |> Seq.map (fun c ->
-                    match c.Kind with
-                    | NormalFSharpUnionCase cs -> List.length cs
-                    | _ -> 0
-                ) |> Seq.max
-            
-            let tag =
-                {
-                    StrongName = Some "$"
-                    IsStatic = false
-                    IsOptional = false
-                    IsReadonly = true
-                    FieldType = NonGenericType Definitions.Int
-                }
-            clsMembers.Add (NotResolvedMember.Field ("$", tag))
-
-            for i = 0 to maxCaseFields - 1 do
-                let name = "$" + string i
-                let caseField =
-                    {
-                        StrongName = Some name
-                        IsStatic = false
-                        IsOptional = false
-                        IsReadonly = true
-                        FieldType = NonGenericType Definitions.Obj
-                    }
-                clsMembers.Add (NotResolvedMember.Field (name, caseField))
-
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =
                 Hashed {

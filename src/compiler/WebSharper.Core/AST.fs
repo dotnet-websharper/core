@@ -264,7 +264,7 @@ and Statement =
     /// TypeScript - class method
     | ClassMethod of IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
     /// TypeScript - class method
-    | ClassConstructor of Parameters:list<Id> * Body:option<Statement> * Signature:TSType
+    | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
     /// TypeScript - class plain property
     | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType
     /// TypeScript - interface { ... }
@@ -544,8 +544,8 @@ type Transformer() =
     abstract TransformClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
     /// TypeScript - class method
-    abstract TransformClassConstructor : Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
-    override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map this.TransformId a, Option.map this.TransformStatement b, c)
+    abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
+    override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (x, m) -> this.TransformId x, m) a, Option.map this.TransformStatement b, c)
     /// TypeScript - class plain property
     abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> Statement
     override this.TransformClassProperty (a, b, c) = ClassProperty (a, b, c)
@@ -928,8 +928,8 @@ type Visitor() =
     abstract VisitClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
     /// TypeScript - class method
-    abstract VisitClassConstructor : Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
-    override this.VisitClassConstructor (a, b, c) = List.iter this.VisitId a; Option.iter this.VisitStatement b; ()
+    abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
+    override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
     /// TypeScript - class plain property
     abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> unit
     override this.VisitClassProperty (a, b, c) = (); (); ()
@@ -1242,7 +1242,7 @@ module Debug =
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
         | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
-        | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
+        | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | TypedDeclaration (a, b) -> "TypedDeclaration" + "(" + PrintStatement a + ", " + PrintObject b + ")"

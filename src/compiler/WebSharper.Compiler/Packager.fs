@@ -378,12 +378,31 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let packageUnion (u: M.FSharpUnionInfo) (addr: Address) proto gsArr =
         toNamespace addr.Address.Value
         proto |> Option.iter (fun (baseType, impls, members, gen) ->
-            let members = members |> List.map (function
-                | ClassProperty(false, "$", _) ->
-                    ClassProperty(false, "$", TSType.Union (List.map (string >> TSType.Basic) [0..u.Cases.Length-1]))
-                | m -> m
-            )
-            addExport <| Class("$", baseType, impls, members, gen))
+            let mutable numArgs = 0
+            let strId x = Id.New(x, str = true)
+            let specCtors =
+                u.Cases |> List.mapi (fun tag uc ->
+                    let fields =
+                        match uc.Kind with
+                        | M.NormalFSharpUnionCase fields -> fields
+                        | M.SingletonFSharpUnionCase | M.ConstantFSharpUnionCase _ -> []
+                    numArgs <- max numArgs (List.length fields)
+                    let args =
+                        (strId "$", Modifiers.None)
+                        :: (fields |> List.mapi (fun i _ -> strId("$" + string i), Modifiers.None))
+                    let argsType =
+                        TSType.Basic (string tag)
+                        :: (fields |> List.map (fun f -> tsTypeOf gsArr f.UnionFieldType))
+                    let signature = TSType.New(argsType, TSType.Any)
+                    ClassConstructor(args, None, signature)
+                )
+            let genCtor =
+                let args =
+                    (strId "$", Modifiers.Public)
+                    :: List.init numArgs (fun i -> Id.New("$" + string i, str = true, opt = true), Modifiers.Public)
+                ClassConstructor(args, Some (Statement.Block []), TSType.Any)
+            addExport <| Class("$", baseType, impls, specCtors @ genCtor :: members, gen)
+        )
         let gen =
             match proto with
             | Some (_, _, _, gen) -> gen
@@ -549,6 +568,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | Function ([], I.ExprStatement(I.Application(I.Base, [], _, _))) -> 
                         ()
                     | Function (args, b) ->                  
+                        let args = List.map (fun x -> x, Modifiers.None) args
                         let signature =
                             TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
                         members.Add (ClassConstructor (args, Some b, signature))
@@ -559,9 +579,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     match body with
                     | Function (args, b) ->  
                         let index = Id.New("i: " + string i, str = true)
+                        let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
                         let signature =
                             TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters), thisTSType)
-                        members.Add (ClassConstructor (index :: args, None, signature))
+                        members.Add (ClassConstructor (allArgs, None, signature))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -600,7 +621,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             ]
                         ) |> List.ofSeq
                     )
-                members.Add (ClassConstructor (index :: cArgs, Some cBody, TSType.Any))   
+                let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
+                members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
 
             let impls = c.Implements |> List.map (tsTypeOfConcrete gsArr)
             let gen = getGenerics 0 c.Generics

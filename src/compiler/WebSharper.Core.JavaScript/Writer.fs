@@ -222,6 +222,12 @@ let rec Id (id: S.Id) =
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
+and IdAndModifiers (id: S.Id, modifiers: S.Modifiers) =
+    (if modifiers.HasFlag S.Modifiers.Private then Word "private" else Empty)
+    ++ (if modifiers.HasFlag S.Modifiers.Public then Word "public" else Empty)
+    ++ (if modifiers.HasFlag S.Modifiers.ReadOnly then Word "readonly" else Empty)
+    ++ Id id
+
 and TypeAnnotation a =
     Optional (fun t -> Token ":" ++ Expression t) a
 
@@ -535,7 +541,7 @@ and Member isClass mem =
         ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Constructor (args, body) ->
         Word "constructor"
-        ++ Parens (CommaSeparated Id args)
+        ++ Parens (CommaSeparated IdAndModifiers args)
         ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Property (s, n) ->
         Conditional (Word "static") s
