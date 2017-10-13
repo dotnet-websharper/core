@@ -300,7 +300,7 @@ type Info =
         Dependencies : GraphData
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
         Classes : IDictionary<TypeDefinition, ClassInfo>
-        CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
+        CustomTypes : IDictionary<TypeDefinition, PlainAddress * CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
         ResourceHashes : IDictionary<string, int>

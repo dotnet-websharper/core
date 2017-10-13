@@ -792,6 +792,9 @@ module Resolve =
             if hasPrototype then
                 getExactSubAddress addr "prototype" Member |> ignore    
             res
+
+        member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
+            this.ClassAddress(typ.FullName.Split [| '.'; '+' |] |> Array.rev |> List.ofArray, hasPrototype)
                     
         member this.ExactStaticAddress addr =
             getExactFullAddress addr Member 
