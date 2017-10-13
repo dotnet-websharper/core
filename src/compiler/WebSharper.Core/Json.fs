@@ -1554,7 +1554,7 @@ module TypedProviderInternals =
                             f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with
-                    | true, M.FSharpRecordInfo fs -> 
+                    | true, (_, M.FSharpRecordInfo fs) ->
                         fun f ->
                             fs |> List.pick (fun rf -> 
                                 if rf.Name = f then 

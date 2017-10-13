@@ -27,6 +27,7 @@ open System.Collections.Generic
 open WebSharper.Core
 open WebSharper.Core.DependencyGraph
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 module M = WebSharper.Core.Metadata
 module R = WebSharper.Core.Resources
@@ -228,6 +229,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             failwithf "Static constructor must be a function"
             
     let classes = Dictionary(current.Classes)
+    let customTypes = Dictionary(current.CustomTypes)
 
     let rec withoutMacros info =
         match info with
@@ -344,6 +346,46 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     getDict ns t
 
         (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s)        
+
+    let packageUnion (u: M.FSharpUnionInfo) (addr: Address) proto gsArr =
+        toNamespace addr.Address.Value
+        proto |> Option.iter (fun (baseType, impls, members, gen) ->
+            let members = members |> List.map (function
+                | ClassProperty(false, "$", _) ->
+                    ClassProperty(false, "$", TSType.Union (List.map (string >> TSType.Basic) [0..u.Cases.Length-1]))
+                | m -> m
+            )
+            addExport <| Class("$", baseType, impls, members, gen))
+        let gen =
+            match proto with
+            | Some (_, _, _, gen) -> gen
+            | None -> []
+        let unionNested = (addr.Address.Value |> List.rev |> String.concat ".") + "."
+        let unionClass = proto |> Option.map (fun _ -> TSType.Basic (unionNested + "$") |> addGenerics gen)
+        let cases = 
+            u.Cases |> List.mapi (fun tag uc ->
+                let case (fields: list<M.UnionCaseFieldInfo>) =
+                    let tag = ClassProperty (false, "$", TSType.Basic (string tag))
+                    let mem =
+                        fields |> List.mapi (fun i f ->
+                            ClassProperty (false, "$" + string i, tsTypeOf gsArr f.UnionFieldType)
+                        )
+                    addExport <| Interface(uc.Name, Option.toList unionClass, tag :: mem, gen)
+                    TSType.Basic (unionNested + uc.Name) |> addGenerics gen
+                match uc.Kind with
+                | M.NormalFSharpUnionCase uci -> case uci
+                | M.ConstantFSharpUnionCase v ->
+                    match v with
+                    | String s -> TSType.Basic ("'" + s + "'")
+                    | Null -> TSType.Basic "null"
+                    | _ -> TSType.Basic (string v.Value)
+                | M.SingletonFSharpUnionCase -> case []
+            )
+        match addr.Address.Value with
+        | n :: a ->
+            if Option.isSome unionClass then toNamespace a
+            addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
+        | _ -> failwith "empty address for union type"
 
     let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
 
@@ -533,36 +575,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let gen = getGenerics 0 c.Generics
 
             match current.CustomTypes.TryGetValue t with
-            | true, M.FSharpUnionInfo u ->
-                toNamespace addr.Address.Value
-                addExport <| Class("$", baseType, impls, List.ofSeq members, gen)
-                let unionNested = (addr.Address.Value |> List.rev |> String.concat ".") + "."
-                let unionClass = TSType.Basic (unionNested + "$") |> addGenerics gen
-                let cases = 
-                    u.Cases |> List.mapi (fun tag uc ->
-                        let case (fields: list<M.UnionCaseFieldInfo>) =
-                            let mem =
-                                [ 
-                                    yield ClassProperty (false, "$", TSType.Basic (string tag)) 
-                                    for f in fields do
-                                        yield ClassProperty (false, f.Name, tsTypeOf gsArr f.UnionFieldType)
-                                ]
-                            addExport <| Interface(uc.Name, [ unionClass ], mem, gen)
-                            TSType.Basic (unionNested + uc.Name) |> addGenerics gen
-                        match uc.Kind with
-                        | M.NormalFSharpUnionCase uci -> case uci
-                        | M.ConstantFSharpUnionCase v ->
-                            match v with
-                            | String s -> TSType.Basic ("'" + s + "'")
-                            | Null -> TSType.Basic "null"
-                            | _ -> TSType.Basic (string v.Value)
-                        | M.SingletonFSharpUnionCase -> case []
-                    )
-                match addr.Address.Value with
-                | n :: a ->
-                    toNamespace a
-                    addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
-                | _ -> failwith "empty address for union type"
+            | true, (_, M.FSharpUnionInfo u) ->
+                packageUnion u addr (Some (baseType, impls, List.ofSeq members, gen)) gsArr
             | _ ->
                 packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
             
@@ -573,7 +587,31 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
+        customTypes.Remove t |> ignore
         packageClass t c
+
+    let rec packageUnannotatedCustomType (t: TypeDefinition) (addr: Address) (c: CustomTypeInfo) =
+        match c with
+        | CustomTypeInfo.FSharpRecordInfo fields ->
+            let fields =
+                fields |> List.map (fun f ->
+                    let t = tsTypeOf [||] f.RecordFieldType
+                    ClassProperty(false, f.JSName, t)
+                )
+            // TODO: generics?
+            packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, [])
+        | CustomTypeInfo.FSharpUnionInfo u ->
+            packageUnion u addr None [||]
+        | CustomTypeInfo.FSharpUnionCaseInfo _
+        | CustomTypeInfo.DelegateInfo _
+        | CustomTypeInfo.EnumInfo _
+        | CustomTypeInfo.StructInfo
+        | CustomTypeInfo.NotCustomType -> ()
+
+    while customTypes.Count > 0 do
+        let (KeyValue(t, (a, c))) = customTypes |> Seq.head
+        customTypes.Remove t |> ignore
+        packageUnannotatedCustomType t { Module = CurrentModule; Address = a } c
     
     let rec packageStatics (s: StaticMembers) =
         for a, e, t in s.Members do 

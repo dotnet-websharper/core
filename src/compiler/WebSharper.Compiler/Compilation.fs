@@ -81,7 +81,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
 
     let mutable generatedClass = None
-    let mutable resolver = None : option<Resolve.Resolver>
+    let resolver = Resolve.Resolver()
     let generatedMethodAddresses = Dictionary()
 
     let errors = ResizeArray()
@@ -206,7 +206,7 @@ type Compilation(meta: Info, ?hasGraph) =
             Substitution(args).TransformExpression(parsed)
         
         member this.NewGenerated addr =
-            let resolved = resolver.Value.StaticAddress (List.rev addr)
+            let resolved = resolver.StaticAddress (List.rev addr)
             let td = this.GetGeneratedClass()
             let meth = 
                 Method {
@@ -355,7 +355,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _ -> c
                 )
             CustomTypes = 
-                customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
+                customTypes.Current |> Dict.filter (fun _ (_, v) -> v <> NotCustomType)
             EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
             ResourceHashes = Dictionary()
@@ -389,12 +389,14 @@ type Compilation(meta: Info, ?hasGraph) =
         with _ ->
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
-    member this.AddCustomType(typ, ct, ?notAnnotated) =
+    member this.AddCustomType(typ: TypeDefinition, ct, ?notAnnotated) =
+        let annotated = Option.isNone notAnnotated || not notAnnotated.Value
         let toDict =
-            if Option.isNone notAnnotated || not notAnnotated.Value then
+            if annotated then
                 customTypes :> IDictionary<_,_>
-            else notAnnotatedCustomTypes :> _   
-        toDict.Add(typ, ct)
+            else notAnnotatedCustomTypes :> _
+        let addr = resolver.ClassAddress(typ.Value, annotated)
+        toDict.Add(typ, (addr, ct))
         match ct with
         | FSharpUnionInfo u ->
             for c in u.Cases do
@@ -406,7 +408,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         Assembly = typ.Value.Assembly
                         FullName = typ.Value.FullName + "+" + c.Name
                     } 
-                toDict.Add(cTyp, FSharpUnionCaseInfo c)
+                toDict.Add(cTyp, (addr, FSharpUnionCaseInfo c))
         | _ -> ()
 
     member this.HasCustomTypeInfo(typ) =
@@ -415,14 +417,14 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.GetCustomType(typ) = 
         let typ = this.FindProxied typ
         match customTypes.TryFind typ with
-        | Some res -> res
+        | Some res -> snd res
         | _ ->
         let res =
             match notAnnotatedCustomTypes.TryFind typ with
             | Some res -> res // TODO unions with cases 
-            | _ -> this.CustomTypesReflector typ
+            | _ -> resolver.ClassAddress(typ.Value, false), this.CustomTypesReflector typ
         customTypes.Add(typ, res)
-        res
+        snd res
 
     member this.TryLookupClassInfo typ =   
         classes.TryFind(this.FindProxied typ)
@@ -782,9 +784,6 @@ type Compilation(meta: Info, ?hasGraph) =
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
             resolveInterface typ nr
 
-        let r = Resolve.Resolver()
-        resolver <- Some r
-
         let someEmptyAddress = Some (Address.Empty())
         let unresolvedCctor = Some (Address.Empty(), Undefined)
 
@@ -920,7 +919,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _ -> ()
 
         if hasGraph then
-            for KeyValue(ct, cti) in Seq.append customTypes notAnnotatedCustomTypes do
+            for KeyValue(ct, (_, cti)) in Seq.append customTypes notAnnotatedCustomTypes do
                 let clsNodeIndex = lazy graph.AddOrLookupNode(TypeNode ct)
                 let rec addTypeDeps (t: Type) =
                     match t with
@@ -1174,7 +1173,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | a -> List.ofArray a
                 |> List.rev
             if isClass then
-                if not (r.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
+                if not (resolver.ExactClassAddress(addr, classes.[typ].HasWSPrototype)) then
                     this.AddError(None, NameConflict ("Class name conflict", sn))
                 setClassAddress typ (Hashed addr)
             else
@@ -1250,7 +1249,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match extraClassAddresses.TryFind typ with
             | Some a -> a
             | _ ->
-                let a = r.ClassAddress(typ.Value.FullName.Split('.') |> List.ofArray |> List.rev, false).Value    
+                let a = resolver.ClassAddress(typ.Value, false).Value    
                 extraClassAddresses.Add(typ, a)
                 a
                                      
@@ -1263,7 +1262,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | [| n |] -> 
                     n :: getClassAddress typ
                 | a -> List.ofArray (Array.rev a)
-            if not (r.ExactStaticAddress addr) then
+            if not (resolver.ExactStaticAddress addr) then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
             nameStaticMember typ (Hashed addr) m
               
@@ -1273,7 +1272,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | -1 -> n
                 | i -> n.[.. i - 1]
             let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
-            let a = r.ClassAddress(addr, isClass && classes.[typ].HasWSPrototype)
+            let a = resolver.ClassAddress(addr, isClass && classes.[typ].HasWSPrototype)
             if isClass then
                 setClassAddress typ a
             else 
@@ -1283,13 +1282,13 @@ type Compilation(meta: Info, ?hasGraph) =
             let clAddr = getClassAddress typ
             for m, n in ms do
                 let addr = n :: clAddr
-                if not (r.ExactStaticAddress addr) then
+                if not (resolver.ExactStaticAddress addr) then
                     this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
                 nameStaticMember typ (Hashed addr) m
            
         // TODO: check nothing is hiding (exclude overrides and implementations)
         for KeyValue(typ, ms) in namedInstanceMembers do
-            let pr = r.LookupPrototype typ
+            let pr = resolver.LookupPrototype typ
             for m, n in ms do
                 pr.Add n |> ignore
 //                if not (pr.Add n) then
@@ -1315,7 +1314,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             (n.Split('.') |> List.ofArray |> List.rev |> List.tail) @ clAddr
                         else n :: clAddr
                     | M.StaticConstructor _ -> "$cctor" :: clAddr
-                let addr = r.StaticAddress uaddr
+                let addr = resolver.StaticAddress uaddr
                 nameStaticMember typ addr m
 
         let resolved = HashSet()
@@ -1323,7 +1322,7 @@ type Compilation(meta: Info, ?hasGraph) =
         // TODO: add abstract/interface methods even if there are no implementations
         let rec resolveRemainingInstanceMembers typ (cls: ClassInfo) ms =
             if resolved.Add typ then
-                let pr = r.LookupPrototype typ
+                let pr = resolver.LookupPrototype typ
                 // inherit members
                 match cls.BaseClass with
                 | None -> ()
@@ -1336,7 +1335,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             | _ -> []  
                         resolveRemainingInstanceMembers bTyp bCls bMs
                     | _ -> ()
-                    pr.UnionWith(r.LookupPrototype bTyp) 
+                    pr.UnionWith(resolver.LookupPrototype bTyp) 
                 
                 let ms =
                     let nonOverrides, overrides = 
@@ -1518,7 +1517,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 Interfaces = interfaces
                 Classes = classes        
                 CustomTypes = 
-                    customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
+                    customTypes |> Dict.filter (fun _ (_, v) -> v <> NotCustomType)
                 EntryPoint = None
                 MacroEntries = macroEntries
                 ResourceHashes = Dictionary()

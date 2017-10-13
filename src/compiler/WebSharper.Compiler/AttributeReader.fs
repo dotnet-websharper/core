@@ -422,7 +422,6 @@ let private mdelTy = typeof<System.MulticastDelegate>
 let reflectCustomType (typ : TypeDefinition) =
     try
         let t = Reflection.LoadTypeDefinition typ
-        let typName() = typ.Value.FullName.Split(',').[0]
         if t.BaseType = mdelTy then
             let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
             M.DelegateInfo {

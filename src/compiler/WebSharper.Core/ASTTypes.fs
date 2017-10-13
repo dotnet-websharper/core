@@ -654,10 +654,12 @@ type Module =
     | WebSharperModule of string
     | CurrentModule
 
+type PlainAddress = Hashed<list<string>>
+
 type Address =
     {
         Module : Module
-        Address : Hashed<list<string>>
+        Address : PlainAddress
     }
 
     member this.JSAddress =
