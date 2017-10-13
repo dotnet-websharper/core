@@ -550,6 +550,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.Static maddr ->
                 let signature =
                     TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
+                let g = getGenerics 0 c.Generics
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
@@ -557,7 +558,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             ClassMethod(true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
-                    (fun () -> body, signature)
+                    (fun () -> body, signature |> addGenerics g)
             | _ -> ()
 
         match classAddress with 

@@ -80,6 +80,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | [] -> td
         | g -> 
             match td with
+            | TSType.Importing _
+            | TSType.Imported _
             | TSType.Basic _ ->
                 TSType.Generic(td, g |> List.map (this.TSTypeOf gs))
             | TSType.Lambda _ ->

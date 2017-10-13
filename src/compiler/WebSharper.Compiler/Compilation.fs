@@ -1090,8 +1090,24 @@ type Compilation(meta: Info, ?hasGraph) =
                 let canHavePrototype = not cls.ForceNoPrototype
                 match strongName, isStatic with
                 | Some sn, Some true ->
-                    if namedCls || sn.Contains "." then
-                        fullyNamedStaticMembers.Add (typ, m, sn) 
+                    let multiPart = sn.Contains "."
+                    if namedCls || multiPart then
+                        if multiPart && not (List.isEmpty cls.Generics) then
+                            let m = 
+                                match m with
+                                | NotResolvedMember.Constructor (c, nr) -> 
+                                    NotResolvedMember.Constructor (c, { nr with Generics = cls.Generics @ nr.Generics })
+                                | NotResolvedMember.Method (m, nr) -> 
+                                    NotResolvedMember.Method (m, { nr with Generics = cls.Generics @ nr.Generics })
+                                | NotResolvedMember.Field _ -> 
+                                    printerrf "Field of %s cannot have a fully qualified strong name %s" typ.Value.FullName sn
+                                    m
+                                | NotResolvedMember.StaticConstructor _ -> 
+                                    printerrf "Static constructor of %s cannot have a fully qualified strong name %s" typ.Value.FullName sn
+                                    m
+                            fullyNamedStaticMembers.Add (typ, m, sn)
+                        else
+                            fullyNamedStaticMembers.Add (typ, m, sn) 
                     else 
                         Dict.addToMulti remainingNamedStaticMembers typ (m, sn)
                 | Some sn, Some false ->
