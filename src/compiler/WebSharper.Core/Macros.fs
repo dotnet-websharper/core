@@ -565,14 +565,17 @@ let getFieldsList q =
 [<Sealed>]
 type New() =
     inherit Macro()
-    override this.TranslateCall(c) =
-        match c.Arguments with
+
+    let translate = function
         | [x] -> 
             match getFieldsList x with
             | Some xl ->
                 MacroOk <| Object (xl |> List.map (fun (n, v) -> n, v))
             | _ -> MacroFallback
         | _ -> MacroError "New macro Error"
+
+    override this.TranslateCall(c) = translate c.Arguments
+    override this.TranslateCtor(c) = translate c.Arguments
 
 //type FST = Reflection.FSharpType
 

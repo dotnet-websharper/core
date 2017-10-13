@@ -71,7 +71,9 @@ module Definition =
                 "" =@ a |> Indexed T<string>            
             ]
         |+> Static [
-                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+                Constructor (!|(T<string> * a))?nameValuePairs
+                |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+                |> WithMacro typeof<WebSharper.Core.Macros.New>
             ]
 
     /// A resgular expression is an object that describes a pattern of characters.

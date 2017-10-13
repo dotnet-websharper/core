@@ -68,7 +68,7 @@ let PadRight (s: string) (n: int) =
 let Remove (x: string) (ix: int) (ct: int) = X<string>
 
 [<Direct "$string.replace($search,$replace)">]
-let ReplaceOnce string search replace = X<string>
+let ReplaceOnce (string: string) (search: string) (replace: string) = X<string>
 
 let Replace (subject: string) (search: string) (replace: string) =
     let rec replaceLoop (subj: string) =
