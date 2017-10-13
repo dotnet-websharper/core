@@ -44,6 +44,15 @@ type StaticMembers =
             Namespaces = Dictionary()
         }
 
+type BodyTransformer(toTSType) =
+    inherit Transformer()
+
+    override this.TransformNewTuple(a, t) =
+        let res = NewTuple(List.map this.TransformExpression a, [])
+        match t with
+        | [] -> res
+        | _ -> Cast(toTSType(TupleType (t, false)), res) 
+
 let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) moduleName isBundle =
     let addresses = Dictionary()
     let directives = ResizeArray()
@@ -437,6 +446,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     else typeOfParams opts gsArr p
                 TSType.Lambda(pts, tsTypeOf gsArr r)
             let g = getGenerics cgen gc
+            let body = BodyTransformer(tsTypeOf gsArr).TransformExpression(body)
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
@@ -468,6 +478,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let indexedCtors = Dictionary()
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
+            let body = BodyTransformer(tsTypeOf gsArr).TransformExpression(body)
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then

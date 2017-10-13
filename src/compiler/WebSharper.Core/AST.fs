@@ -83,7 +83,7 @@ and Expression =
     /// Sequential evaluation of expressions, value is taken from the last
     | Sequential of Expressions:list<Expression>
     /// Creating a new array
-    | NewArray of Items:list<Expression>
+    | NewTuple of Items:list<Expression> * TupleType:list<Type>
     /// Conditional operation
     | Conditional of Condition:Expression * WhenTrue:Expression * WhenFalse:Expression
     /// Indexer get without side effects
@@ -306,8 +306,8 @@ type Transformer() =
     abstract TransformSequential : Expressions:list<Expression> -> Expression
     override this.TransformSequential a = Sequential (List.map this.TransformExpression a)
     /// Creating a new array
-    abstract TransformNewArray : Items:list<Expression> -> Expression
-    override this.TransformNewArray a = NewArray (List.map this.TransformExpression a)
+    abstract TransformNewTuple : Items:list<Expression> * TupleType:list<Type> -> Expression
+    override this.TransformNewTuple (a, b) = NewTuple (List.map this.TransformExpression a, b)
     /// Conditional operation
     abstract TransformConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> Expression
     override this.TransformConditional (a, b, c) = Conditional (this.TransformExpression a, this.TransformExpression b, this.TransformExpression c)
@@ -573,7 +573,7 @@ type Transformer() =
         | Function (a, b) -> this.TransformFunction (a, b)
         | VarSet (a, b) -> this.TransformVarSet (a, b)
         | Sequential a -> this.TransformSequential a
-        | NewArray a -> this.TransformNewArray a
+        | NewTuple (a, b) -> this.TransformNewTuple (a, b)
         | Conditional (a, b, c) -> this.TransformConditional (a, b, c)
         | ItemGet (a, b, c) -> this.TransformItemGet (a, b, c)
         | ItemSet (a, b, c) -> this.TransformItemSet (a, b, c)
@@ -694,8 +694,8 @@ type Visitor() =
     abstract VisitSequential : Expressions:list<Expression> -> unit
     override this.VisitSequential a = (List.iter this.VisitExpression a)
     /// Creating a new array
-    abstract VisitNewArray : Items:list<Expression> -> unit
-    override this.VisitNewArray a = (List.iter this.VisitExpression a)
+    abstract VisitNewTuple : Items:list<Expression> * TupleType:list<Type> -> unit
+    override this.VisitNewTuple (a, b) = List.iter this.VisitExpression a; ()
     /// Conditional operation
     abstract VisitConditional : Condition:Expression * WhenTrue:Expression * WhenFalse:Expression -> unit
     override this.VisitConditional (a, b, c) = this.VisitExpression a; this.VisitExpression b; this.VisitExpression c
@@ -957,7 +957,7 @@ type Visitor() =
         | Function (a, b) -> this.VisitFunction (a, b)
         | VarSet (a, b) -> this.VisitVarSet (a, b)
         | Sequential a -> this.VisitSequential a
-        | NewArray a -> this.VisitNewArray a
+        | NewTuple (a, b) -> this.VisitNewTuple (a, b)
         | Conditional (a, b, c) -> this.VisitConditional (a, b, c)
         | ItemGet (a, b, c) -> this.VisitItemGet (a, b, c)
         | ItemSet (a, b, c) -> this.VisitItemSet (a, b, c)
@@ -1061,7 +1061,7 @@ module IgnoreSourcePos =
     let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b) -> Some (a, b) | _ -> None
     let (|VarSet|_|) x = match ignoreExprSourcePos x with VarSet (a, b) -> Some (a, b) | _ -> None
     let (|Sequential|_|) x = match ignoreExprSourcePos x with Sequential a -> Some a | _ -> None
-    let (|NewArray|_|) x = match ignoreExprSourcePos x with NewArray a -> Some a | _ -> None
+    let (|NewTuple|_|) x = match ignoreExprSourcePos x with NewTuple (a, b) -> Some (a, b) | _ -> None
     let (|Conditional|_|) x = match ignoreExprSourcePos x with Conditional (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ItemGet|_|) x = match ignoreExprSourcePos x with ItemGet (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ItemSet|_|) x = match ignoreExprSourcePos x with ItemSet (a, b, c) -> Some (a, b, c) | _ -> None
@@ -1162,7 +1162,7 @@ module Debug =
         | Function (a, b) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + PrintStatement b + ")"
         | VarSet (a, b) -> "VarSet" + "(" + string a + ", " + PrintExpression b + ")"
         | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
-        | NewArray a -> "NewArray" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
+        | NewTuple (a, b) -> "NewTuple" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ")"
         | Conditional (a, b, c) -> "Conditional" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
         | ItemGet (a, b, c) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintObject c + ")"
         | ItemSet (a, b, c) -> "ItemSet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
@@ -1292,3 +1292,15 @@ module ExtraForms =
     let VarSetStatement(a, b) = ExprStatement (VarSet(a, b))
     
     let Void(a) = Unary(UnaryOperator.``void``, a)
+
+    let NewArray(a) = NewTuple(a, [])
+
+    let (|NewArray|_|) expr = 
+        match expr with 
+        | NewTuple(a, _) -> Some a
+        | _ -> None
+
+    let (|INewArray|_|) expr = 
+        match expr with 
+        | I.NewTuple(a, _) -> Some a
+        | _ -> None

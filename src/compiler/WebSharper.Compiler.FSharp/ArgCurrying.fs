@@ -142,7 +142,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         | ArgIndex i ->
             if appl.[i] = 1 then
                 match args with 
-                | [ I.NewArray _ ] -> ()
+                | [ INewArray _ ] -> ()
                 | _ -> setAppl margs.[i] 0
             else
                 setAppl margs.[i] 1
@@ -198,7 +198,7 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             match cargs.TryGetValue f with
             | true, TupledFuncArg a ->
                 match args with
-                | [ I.NewArray es ] ->
+                | [ INewArray es ] ->
                     Application(Var f, List.map this.TransformExpression es, p, Some (List.length es))
                 | _ ->
                     failwith "tupled function not applied with a known tuple"    

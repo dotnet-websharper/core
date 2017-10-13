@@ -746,8 +746,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 , Some res)
         | P.NewArray (_, items) ->
             NewArray (items |> List.map tr)              
-        | P.NewTuple (_, items) ->
-            NewArray (items |> List.map tr)              
+        | P.NewTuple (typ, items) ->
+            match sr.ReadType env.TParams typ with
+            | TupleType (ts, _) ->
+                NewTuple ((items |> List.map tr), ts)    
+            | _ -> failwith "Expecting a tuple type for NewTuple"
         | P.WhileLoop (cond, body) ->
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | P.ValueSet (var, value) ->

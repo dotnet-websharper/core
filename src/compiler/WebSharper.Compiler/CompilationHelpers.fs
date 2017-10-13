@@ -40,7 +40,7 @@ let rec removePureParts expr =
     | Self
         -> Undefined
     | Sequential a
-    | NewArray a 
+    | NewArray a
         -> CombineExpressions (a |> List.map removePureParts) 
     | Conditional (a, b, c) 
         -> Conditional (a, removePureParts b, removePureParts c) 
@@ -75,7 +75,7 @@ let rec isPureExpr expr =
     | Self
         -> true
     | Sequential a 
-    | NewArray a 
+    | NewArray a
         -> List.forall isPureExpr a 
     | Conditional (a, b, c) 
         -> isPureExpr a && isPureExpr b && isPureExpr c
@@ -132,7 +132,7 @@ let rec isStronglyPureExpr expr =
         match List.rev a with
         | [] -> true
         | h :: t -> isStronglyPureExpr h && List.forall isPureExpr t
-    | NewArray a 
+    | NewArray a
         -> List.forall isStronglyPureExpr a 
     | Conditional (a, b, c) 
         -> isStronglyPureExpr a && isStronglyPureExpr b && isStronglyPureExpr c
@@ -1382,7 +1382,7 @@ type OptimizeLocalTupledFunc(var, tupling) =
         match func with
         | I.Var v when v = var ->                    
             match args with
-            | [ I.NewArray ts ] when ts.Length = tupling ->
+            | [ INewArray ts ] when ts.Length = tupling ->
                 Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
             | [ t ] ->
                 Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, None)               

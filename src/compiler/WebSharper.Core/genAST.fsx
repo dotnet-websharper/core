@@ -98,6 +98,7 @@ let Type = Object "Type"
 let Int = Object "int"
 let Bool = Object "bool"
 let TSType = Object "TSType"
+let VarKind = Object "VarKind"
 
 let ExprDefs = 
     [
@@ -123,7 +124,7 @@ let ExprDefs =
             , "Variable set"
         "Sequential", [ List Expr, "expressions" ]
             , "Sequential evaluation of expressions, value is taken from the last"
-        "NewArray", [ List Expr, "items" ]
+        "NewTuple", [ List Expr, "items"; List Type, "tupleType" ]
             , "Creating a new array"
         "Conditional", [ Expr, "condition"; Expr, "whenTrue"; Expr, "whenFalse" ]  
             , "Conditional operation"

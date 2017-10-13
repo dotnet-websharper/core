@@ -186,7 +186,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         | Patterns.NewArray (_, items) ->
             NewArray (items |> List.map tr)              
         | Patterns.NewTuple (items) ->
-            NewArray (items |> List.map tr)              
+            NewTuple ((items |> List.map tr), (items |> List.map (fun i -> Reflection.ReadType i.Type)))              
         | Patterns.WhileLoop (cond, body) ->
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | Patterns.VarSet (var, value) ->

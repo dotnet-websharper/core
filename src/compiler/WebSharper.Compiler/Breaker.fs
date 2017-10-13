@@ -257,7 +257,7 @@ let rec removeLets expr =
     | Let(a, b, c) ->
         let optimizeTupled  =
             match b with
-            | I.NewArray items ->
+            | INewArray items ->
                 match c with
                 | AlwaysTupleGet a items.Length (_, (|TupleGet|_|)) ->
                     let vars = List.init items.Length (fun _ -> Id.New(mut = false))
@@ -314,7 +314,7 @@ let optimize expr =
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, body)) 
-    | Application(TupledLambda(vars, body, isReturn), [ I.NewArray args ], _, Some _)
+    | Application(TupledLambda(vars, body, isReturn), [ INewArray args ], _, Some _)
         when vars.Length = args.Length && not (needsScoping vars args body) ->
         if isReturn then
             List.foldBack2 bind vars args body
@@ -540,10 +540,10 @@ let rec breakExpr expr : Broken<BreakResult> =
                     @ (extraExprs |> List.map ExprStatement)
                 Variables = brA.Variables |> List.filter (fun (v, _) -> removeVars |> List.contains v |> not)
             }
-    | NewArray [ a ] ->
-        br a |> mapBroken (fun a -> NewArray [getExpr a])
-    | NewArray a ->
-        brL a |> mapBroken NewArray
+    | NewTuple ([ a ], b) ->
+        br a |> mapBroken (fun a -> NewTuple ([getExpr a], b))
+    | NewTuple (a, b) ->
+        brL a |> mapBroken (fun a -> NewTuple(a, b))
     | Conditional (I.Sequential a, b, c) ->
         match List.rev a with
         | [] -> br c

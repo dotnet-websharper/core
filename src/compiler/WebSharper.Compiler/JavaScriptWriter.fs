@@ -71,20 +71,26 @@ type Environment =
             UsedLabels = HashSet()
             Namespaces = Dictionary()
         }
-
+        
     member this.Declarations =
         if this.ScopeVars.Count = 0 then [] else
             [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
+let undefVar (id: Id) =
+#if DEBUG
+    J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
+#else
+    failwithf "Undefined variable during writing JavaScript: %s" (string id)
+#endif
+
 let transformId (env: Environment) (id: Id) =
     if id.HasStrongName then J.Id.New id.Name.Value else
     try 
         J.Id.New (Map.find id env.ScopeIds) 
     with _ -> 
-        //J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
-        failwithf "Undefined variable during writing JavaScript: %s" (string id)
+        undefVar id
 
 let transformLabel (env: Environment) (id: Id) =
     env.UsedLabels.Add id |> ignore
