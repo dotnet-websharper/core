@@ -319,7 +319,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let addGenerics g t =
         match g with
         | [] -> t
-        | _ -> TSType.Generic(t, g)
+        | _ -> 
+            match t with
+            | TSType.Any -> TSType.Any
+            | _ ->
+                TSType.Generic(t, g)
 
     let statics = StaticMembers.Empty
 
@@ -469,24 +473,30 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 )
 
         let cgenl = List.length c.Generics
+        let thisTSTypeDef = tsTypeOf gsArr (NonGenericType t)
 
         let mem (m: Method) info gc opts intfGen body =
             let gsArr = Array.append gsArr (Array.ofList gc)
             let getSignature isInstToStatic =         
-                let p, r = 
-                    match intfGen with 
-                    | None -> m.Value.Parameters, m.Value.ReturnType
-                    | Some ig -> 
-                        try
-                            m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
-                            , m.Value.ReturnType.SubstituteGenerics ig 
-                        with _ ->
-                            failwithf "failed to substitute interface generics: %A to %A" ig m
-                let pts =
-                    if isInstToStatic then
-                        tsTypeOf gsArr (NonGenericType t) :: (typeOfParams opts gsArr p)
-                    else typeOfParams opts gsArr p
-                TSType.Lambda(pts, tsTypeOf gsArr r)
+                match body with
+                | Function _ ->
+                    let p, r = 
+                        match intfGen with 
+                        | None -> m.Value.Parameters, m.Value.ReturnType
+                        | Some ig -> 
+                            try
+                                m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
+                                , m.Value.ReturnType.SubstituteGenerics ig 
+                            with _ ->
+                                failwithf "failed to substitute interface generics: %A to %A" ig m
+                    let pts =
+                        if isInstToStatic then
+                            tsTypeOf gsArr (NonGenericType t) :: (typeOfParams opts gsArr p)
+                        else typeOfParams opts gsArr p
+                    TSType.Lambda(pts, tsTypeOf gsArr r)
+                | _ ->
+                    thisTSTypeDef |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
+
             let g = getGenerics cgenl gc
             let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
             let getMember isStatic n =
@@ -523,7 +533,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
-            let thisTSType = tsTypeOf gsArr (NonGenericType t) |> addGenerics cgen 
+            let thisTSType = thisTSTypeDef |> addGenerics cgen 
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then

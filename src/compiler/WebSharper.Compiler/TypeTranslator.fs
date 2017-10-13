@@ -75,7 +75,18 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | _ -> TSType.Param i
 
     member this.TSTypeOfConcrete (gs: GenericParam[]) (t: Concrete<TypeDefinition>) =
-        let td = this.TSTypeOfDef t.Entity
+        let e = t.Entity
+        let tn = e.Value.FullName
+        if tn = "WebSharper.JavaScript.Optional`1" then
+            match t.Generics with
+            | [] -> TSType.Basic "undefined"
+            | _ -> this.TSTypeOf gs t.Generics.Head
+        elif tn.StartsWith "WebSharper.JavaScript.Union`" then
+            TSType.Union (t.Generics |> List.map (this.TSTypeOf gs))
+        elif tn = "WebSharper.JavaScript.Object`1" then
+            TSType.Generic(TSType.Basic "WebSharper.ObjectOf", t.Generics |> List.map (this.TSTypeOf gs))
+        else
+        let td = this.TSTypeOfDef e
         match t.Generics with
         | [] -> td
         | g -> 
