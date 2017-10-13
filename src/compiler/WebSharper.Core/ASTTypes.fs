@@ -616,6 +616,7 @@ type TSType =
     | Intersection of list<TSType>
     | Param of int
     | Constraint of TSType * list<TSType>
+    | TypeGuard of Id * TSType
 
     member this.SubstituteGenerics (gs : TSType[]) =
         match this with 
@@ -632,7 +633,8 @@ type TSType =
         | Union ts -> Union (ts |> List.map (fun p -> p.SubstituteGenerics gs))
         | Intersection ts -> Intersection (ts |> List.map (fun p -> p.SubstituteGenerics gs))
         | Constraint (t, c) -> Constraint (t.SubstituteGenerics gs, c |> List.map (fun p -> p.SubstituteGenerics gs))
-    
+        | TypeGuard (a, t) -> TypeGuard(a, t.SubstituteGenerics gs)
+
     member this.ResolveModule (getModule: string -> Id option) =
         match this with 
         | Any
@@ -651,6 +653,7 @@ type TSType =
         | Union ts -> Union (ts |> List.map (fun p -> p.ResolveModule getModule))
         | Intersection ts -> Intersection (ts |> List.map (fun p -> p.ResolveModule getModule))
         | Constraint (t, c) -> Constraint (t.ResolveModule getModule, c |> List.map (fun p -> p.ResolveModule getModule))
+        | TypeGuard (a, t) -> TypeGuard(a, t.ResolveModule getModule)
 
 type MethodInfo =
     {

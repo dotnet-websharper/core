@@ -1734,12 +1734,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
                             warnIgnoringGenerics()
-                            let shortestName, _ = ii.Methods.Values |> Seq.minBy (fst >> String.length)
-                            Binary(
-                                Value (String shortestName),
-                                BinaryOperator.``in``,
-                                trExpr
-                            )
+                            match ii.Address.Address.Value with
+                            | n :: r ->
+                                let addr = { ii.Address with Address = Hashed ("is" + n :: r) }
+                                Application(GlobalAccess addr, [ trExpr ], Pure, Some 1)
+                            | _ ->
+                                this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
                         | _ ->
                             this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
