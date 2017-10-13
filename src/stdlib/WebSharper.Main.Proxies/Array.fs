@@ -28,9 +28,6 @@ type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 type private JSArray<'T> = WebSharper.JavaScript.Array<'T>
 type private Comparer<'T> = System.Collections.Generic.Comparer<'T>
 
-type Pacc<'T when 'T :> IComparer> =
-    abstract P: int -> 'T
-
 [<AutoOpen; JavaScript>]
 module ArrayProxy =
 

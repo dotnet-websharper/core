@@ -451,7 +451,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupClassAddressOrCustomType typ =   
         // unions may have an address for singleton fields but no prototype, treat this case first
         match this.TryLookupClassInfo typ, this.GetCustomType typ with
-        | Some c, ((FSharpUnionInfo _ | FSharpUnionCaseInfo _) as ct) when not c.HasWSPrototype -> Choice2Of2 ct
+        | Some c, ((FSharpUnionInfo _ | FSharpUnionCaseInfo _) as ct) -> 
+            if not c.HasWSPrototype then Choice2Of2 ct
+            else Choice1Of2 (c.Address |> Option.map (fun a -> a.Sub("$")))
         | Some c, _ -> Choice1Of2 c.Address
         | _, ct -> Choice2Of2 ct
     
@@ -1090,8 +1092,24 @@ type Compilation(meta: Info, ?hasGraph) =
                 let canHavePrototype = not cls.ForceNoPrototype
                 match strongName, isStatic with
                 | Some sn, Some true ->
-                    if namedCls || sn.Contains "." then
-                        fullyNamedStaticMembers.Add (typ, m, sn) 
+                    let multiPart = sn.Contains "."
+                    if namedCls || multiPart then
+                        if multiPart && not (List.isEmpty cls.Generics) then
+                            let m = 
+                                match m with
+                                | NotResolvedMember.Constructor (c, nr) -> 
+                                    NotResolvedMember.Constructor (c, { nr with Generics = cls.Generics @ nr.Generics })
+                                | NotResolvedMember.Method (m, nr) -> 
+                                    NotResolvedMember.Method (m, { nr with Generics = cls.Generics @ nr.Generics })
+                                | NotResolvedMember.Field _ -> 
+                                    printerrf "Field of %s cannot have a fully qualified strong name %s" typ.Value.FullName sn
+                                    m
+                                | NotResolvedMember.StaticConstructor _ -> 
+                                    printerrf "Static constructor of %s cannot have a fully qualified strong name %s" typ.Value.FullName sn
+                                    m
+                            fullyNamedStaticMembers.Add (typ, m, sn)
+                        else
+                            fullyNamedStaticMembers.Add (typ, m, sn) 
                     else 
                         Dict.addToMulti remainingNamedStaticMembers typ (m, sn)
                 | Some sn, Some false ->

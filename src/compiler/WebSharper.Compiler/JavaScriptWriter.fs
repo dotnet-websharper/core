@@ -430,8 +430,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             let id, args =
                 match t with
                 | Some (TSType.Lambda (ta, tr)) ->      
-                        id |> withType env tr
-                        , (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t) 
+                    // argument ids have to be resolved first because return type can be a TypeGuard
+                    let args = (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
+                    id |> withType innerEnv tr
+                    , args
                 | _ ->
                     id
                     , ids |> List.map (defineId innerEnv ArgumentId) 
@@ -444,9 +446,9 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             else
                 env.FuncDecls.Add f 
                 J.Empty
-        with _ ->
+        with e ->
             J.Ignore (J.Var (J.Id.New ("WRONGSIGNATURE")))
-            //failwithf "incompatible signature %O(%s): %A" x (ids |> Seq.map string |> String.concat ", ") t
+            //failwithf "incompatible signature %O(%s): %A. Error: %s" x (ids |> Seq.map string |> String.concat ", ") t e.Message
 
     match statement with
     | Empty
@@ -579,6 +581,8 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
     | TSType.Param n -> "T" + string n
     | TSType.Constraint (t, g) -> trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
+    | TSType.TypeGuard (i, t) ->
+        (transformId env i).Name + " is " + transformTypeName env t
 
 and transformType (env: Environment) (typ: TSType) =
     transformTypeName env typ |> J.Id.New |> J.Var

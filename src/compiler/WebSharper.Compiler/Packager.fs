@@ -299,6 +299,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     
     let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
     
+    let inline tsTypeOfDef t = typeTranslator.TSTypeOfDef t
     let inline tsTypeOfConcrete gs i = typeTranslator.TSTypeOfConcrete gs i
     let inline tsTypeOf gs t = typeTranslator.TSTypeOf gs t
 
@@ -550,6 +551,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.Static maddr ->
                 let signature =
                     TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
+                let g = getGenerics 0 c.Generics
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
@@ -557,7 +559,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             ClassMethod(true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
-                    (fun () -> body, signature)
+                    (fun () -> body, signature |> addGenerics g)
             | _ -> ()
 
         match classAddress with 
@@ -653,8 +655,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 ClassMethod(false, n, args, None, signature |> addGenerics (getGenerics igen gc))    
             ) |> List.ofSeq
 
+        let gen = getGenerics 0 i.Generics
+
         packageByName i.Address <| fun n ->
-           Interface(n, i.Extends |> List.map (tsTypeOfConcrete gsArr), mem, getGenerics 0 i.Generics)
+            Interface(n, i.Extends |> List.map (tsTypeOfConcrete gsArr), mem, gen)
+
+        packageByName i.Address <| fun n ->
+            let x = Id.New "x"
+            let shortestName, _ = i.Methods.Values |> Seq.minBy (fst >> String.length)
+            let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
+            let signature = 
+                TSType.Lambda([TSType.Any], TSType.TypeGuard(x, tsTypeOfDef td |> addGenerics gen))
+                |> addGenerics gen
+            TypedDeclaration(FuncDeclaration(strId ("is" + n), [x], Return check), signature) 
 
     toNamespace []
 

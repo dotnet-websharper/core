@@ -1734,14 +1734,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
                             warnIgnoringGenerics()
-                            let shortestName, _ = ii.Methods.Values |> Seq.minBy (fst >> String.length)
-                            Binary(
-                                Value (String shortestName),
-                                BinaryOperator.``in``,
-                                trExpr
-                            )
+                            Application(GlobalAccess (ii.Address.MapName(fun n -> "is" + n)), [ trExpr ], Pure, Some 1)
                         | _ ->
                             this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
+                    | _ ->
+                        this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true
