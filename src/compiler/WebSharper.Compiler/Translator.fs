@@ -1734,14 +1734,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match comp.TryLookupInterfaceInfo t with
                         | Some ii ->
                             warnIgnoringGenerics()
-                            match ii.Address.Address.Value with
-                            | n :: r ->
-                                let addr = { ii.Address with Address = Hashed ("is" + n :: r) }
-                                Application(GlobalAccess addr, [ trExpr ], Pure, Some 1)
-                            | _ ->
-                                this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
+                            Application(GlobalAccess (ii.Address.MapName(fun n -> "is" + n)), [ trExpr ], Pure, Some 1)
                         | _ ->
                             this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
+                    | _ ->
+                        this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true

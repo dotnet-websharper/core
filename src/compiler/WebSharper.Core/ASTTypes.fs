@@ -717,6 +717,16 @@ type Address =
             Some this.Address
         | _ -> None
 
+    member this.MapName f =
+        match this.Address.Value with
+        | n :: r ->
+            { this with Address = Hashed (f n :: r) }
+        | _ ->
+            failwith "MapName on empty address"
+
+    member this.Sub n =
+        { this with Address = Hashed (n :: this.Address.Value) }
+
 module private Instances =
     let uniqueId name i = 
         {
