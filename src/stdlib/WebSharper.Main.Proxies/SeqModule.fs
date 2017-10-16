@@ -78,7 +78,7 @@ let Average<[<Type "number">] 'T> (s: seq<'T>) : 'T =
         As<'T> (sum / As<float> count)
 
 [<Name "averageBy">]
-let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
+let AverageBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
     let (count, sum) =
         Seq.fold
             (fun (n, s) x -> (n + 1, s + As<float> (f x)))

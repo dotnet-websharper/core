@@ -29,7 +29,7 @@ open WebSharper.JavaScript
 [<AutoOpen>]
 module private HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
-    let concat (o: Array<Array<'T>>) = X<Array<'T>>
+    let concat (o: Array<Array<'T>>) = X<'T[]>
     
 open DictionaryUtil
 
@@ -131,7 +131,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         [<Name "GetEnumerator">]
         member this.GetEnumerator() =
-           As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
+           As<HashSet<'T>.Enumerator>((concat data).GetEnumerator())
 
         interface IEnumerable with
             [<Inline>]
@@ -162,7 +162,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
-            As<_[]>(concat data) |> Array.forall other.Contains
+            concat data |> Array.forall other.Contains
 
         member x.IsSupersetOf(xs: seq<'T>) =
             xs |> Seq.forall x.Contains
