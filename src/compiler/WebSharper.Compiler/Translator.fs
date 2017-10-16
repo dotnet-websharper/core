@@ -1676,17 +1676,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
         let trExpr = this.TransformExpression(expr)
-        let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
-        let t = comp.TypeTranslator.TSTypeOf [||] toTyp
-        match f, t with
-        | _ when f = t -> trExpr
-        | TSType.Any, _ -> trExpr
-        | _ ->
-        if currentIsInline then
-            hasDelayedTransform <- true
-            Coerce(trExpr, fromTyp, toTyp)
-        else
-            Cast(t, trExpr) 
+        trExpr
+        //let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
+        //let t = comp.TypeTranslator.TSTypeOf [||] toTyp
+        //match f, t with
+        //| _ when f = t -> trExpr
+        //| TSType.Any, _ -> trExpr
+        //| _ ->
+        //if currentIsInline then
+        //    hasDelayedTransform <- true
+        //    Coerce(trExpr, fromTyp, toTyp)
+        //else
+        //    Cast(t, trExpr) 
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with
