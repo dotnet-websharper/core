@@ -543,7 +543,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
                 | M.SingletonFSharpUnionCase -> 
-                    this.TransformCopyCtor(typ.Entity, Object [ "$", Value (Int i) ])
+                    this.UnionCtor(typ.Entity, i, [])
                 | M.NormalFSharpUnionCase _ -> 
                     failwith "A union case with a property getter should not have fields"
             else
@@ -1138,6 +1138,21 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             JSRuntime.Create (GlobalAccess a) (this.TransformExpression objExpr)
         | _ -> this.TransformExpression objExpr
 
+    member this.UnionCtor(typ, i, args) =
+        let trArgs = args |> List.map this.TransformExpression
+        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.HasWSPrototype then c.Address else None) with
+        | Some a ->
+            if comp.HasGraph then
+                this.AddTypeDependency typ
+            New (GlobalAccess (a.Sub("$")), Value (Int i) :: trArgs)
+        | _ -> 
+            let objExpr =
+                Object (
+                    ("$", Value (Int i)) ::
+                    (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
+                )
+            this.TransformExpression objExpr
+
     override this.TransformNewRecord(typ, args) =
         match comp.TryGetRecordConstructor typ.Entity with
         | Some rctor ->
@@ -1191,12 +1206,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ItemGet(GlobalAccess a, Value (String case), Pure)
                 | None -> this.Error("Failed to find address for singleton union case.")
             | M.NormalFSharpUnionCase _ ->
-                let objExpr =
-                    Object (
-                        ("$", Value (Int i)) ::
-                        (args |> List.mapi (fun j e -> "$" + string j, e)) 
-                    )
-                this.TransformCopyCtor(td, objExpr)
+                this.UnionCtor(td, i, args)  
         | _ -> this.Error("Failed to translate union case creation.")
 
     override this.TransformUnionCaseTest(expr, typ, case) = 

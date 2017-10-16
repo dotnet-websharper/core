@@ -43,6 +43,8 @@ type Environment =
         OuterScope : bool
         UsedLabels : HashSet<Id>
         Namespaces : Dictionary<string, Environment> 
+        CurrentNamespaceRev : list<string>
+        CurrentNamespace : list<string>
     }
     static member New(pref) =
         {
@@ -56,9 +58,12 @@ type Environment =
             OuterScope = true
             UsedLabels = HashSet()
             Namespaces = Dictionary()
+            CurrentNamespaceRev = []
+            CurrentNamespace = []
         }
 
-    member this.NewInner(isNs, ?cg) =
+    member this.NewInner(?ns, ?cg) =
+        let nsr = match ns with Some n -> n :: this.CurrentNamespaceRev | _ -> this.CurrentNamespaceRev
         {
             Preference = this.Preference    
             ScopeNames = this.ScopeNames
@@ -67,14 +72,27 @@ type Environment =
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
-            OuterScope = isNs
+            OuterScope = Option.isSome ns
             UsedLabels = HashSet()
             Namespaces = Dictionary()
+            CurrentNamespaceRev = nsr
+            CurrentNamespace = if Option.isSome ns then List.rev nsr else this.CurrentNamespace
         }
         
     member this.Declarations =
         if this.ScopeVars.Count = 0 then [] else
             [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq) ]
+
+    member this.ShortenFullAccess a =
+        let res =
+            List.fold (fun (a, ns) n -> 
+                match ns with
+                | h :: r when h = n -> a, r
+                | _ -> n :: a, []
+            ) ([], this.CurrentNamespace) a
+        match res with
+        | [], _ -> [ List.last a ]
+        | t, _ -> List.rev t
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
@@ -178,7 +196,7 @@ type CollectVariables(env: Environment) =
             match env.Namespaces.TryGetValue n with
             | true, innerEnv -> innerEnv
             | _ ->
-                let innerEnv = env.NewInner(true)
+                let innerEnv = env.NewInner(n)
                 env.Namespaces.Add(n, innerEnv)
                 innerEnv
         let collect = CollectVariables(innerEnv)
@@ -266,7 +284,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             } : J.SourcePos
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
-        let innerEnv = env.NewInner(false)
+        let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
@@ -348,6 +366,32 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
     | Cast (t, e) ->
         J.Cast(transformType env t, trE e)
+    | GlobalAccess a ->
+        match a.Module with
+        | ImportedModule v ->
+            List.foldBack (fun n e -> 
+                e.[J.Constant (J.String n)]
+            ) a.Address.Value (J.Var (trI v))
+        | CurrentModule ->
+            let strId name = Id.New(name, mut = false, str = true)
+            let a = a.Address.Value
+            let res =
+                List.foldBack (fun n (e: J.Expression option, ns) -> 
+                    match ns with
+                    | h :: r when h = n -> e, r
+                    | _ ->
+                        match e with
+                        | None -> Some (J.Var (J.Id.New n)), []
+                        | Some e -> Some (e.[J.Constant (J.String n)]), []
+                ) a (None, env.CurrentNamespace)
+            match res with
+            | None, _ -> 
+                match a with
+                | h :: _ -> J.Var (J.Id.New h)
+                | _ -> J.Var (J.Id.New "window")
+            | Some e, _ -> e    
+        | _ -> 
+            failwith "Addresses must be resolved to ImportedModule or CurrentModule before writing JavaScript"
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -415,7 +459,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | IgnoreSourcePos.Undefined -> J.Empty 
             | _ -> J.Ignore(J.Binary(J.Var i, J.BinaryOperator.``=``, trE e))
     let funcDeclaration x ids b t =
-        let innerEnv = env.NewInner(false)
+        let innerEnv = env.NewInner()
         try
             let id = transformId env x
             let t, gen = 
@@ -532,7 +576,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let innerEnv = env.Namespaces.[a]
         J.Namespace (J.Id.New a, List.map (transformStatement innerEnv) b)
     | Class (n, b, i, m, g) ->
-        let innerEnv = env.NewInner(false, g)
+        let innerEnv = env.NewInner(cg = g)
         let isAbstract =
             m |> List.exists (function
                 | ClassMethod (_, _, _, None, _) -> true
@@ -560,15 +604,24 @@ and transformTypeName (env: Environment) (typ: TSType) =
     let inline trN x = transformTypeName env x
     match typ with
     | TSType.Any -> "any"
-    | TSType.Basic "Array" ->
+    | TSType.Named ["Array"] ->
         "any[]"
-    | TSType.Basic n -> n
-    | TSType.Generic (TSType.Basic "Array", [ TSType.Basic n ]) ->
-        n + "[]"
-    | TSType.Generic (TSType.Basic "Array", [ t ]) ->
+    | TSType.Named n -> 
+        let res =
+            List.fold (fun (a, ns) n -> 
+                match ns with
+                | h :: r when h = n -> a, r
+                | _ -> n :: a, []
+            ) ([], env.CurrentNamespace) n
+        match res with
+        | [], _ -> List.last n
+        | t, _ -> String.concat "." (List.rev t)
+    | TSType.Generic (TSType.Named ["Array"], [ TSType.Named _ as n ]) ->
+        trN n + "[]"
+    | TSType.Generic (TSType.Named ["Array"], [ t ]) ->
         "(" + trN t + ")[]"
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
-    | TSType.Imported (i, addr) -> (transformId env i).Name + "." + addr
+    | TSType.Imported (i, n) -> (transformId env i).Name + "." + String.concat "." n 
     | TSType.Importing (m, a) -> failwith "TypeScript type from an unresolved module"
     | TSType.Lambda (a, r)  -> 
         "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
@@ -582,7 +635,9 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Param n -> "T" + string n
     | TSType.Constraint (t, g) -> trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
     | TSType.TypeGuard (i, t) ->
-        (transformId env i).Name + " is " + transformTypeName env t
+        (transformId env i).Name + " is " + trN t
+    | TSType.ObjectOf t ->
+        "{[a:string]:" + trN t + "}"
 
 and transformType (env: Environment) (typ: TSType) =
     transformTypeName env typ |> J.Id.New |> J.Var
@@ -603,7 +658,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     let inline trS x = transformStatement env x
     match mem with
     | ClassMethod (s, n, p, b, t) ->
-        let innerEnv = env.NewInner(false)
+        let innerEnv = env.NewInner()
         let t, gen =
             match t with
             | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
@@ -628,7 +683,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             | _ -> J.Id.New(n) |> withType env tr 
         J.Method(s, id, args, body |> Option.map (fun (_, b) -> flattenJS (innerEnv.Declarations @ b)))   
     | ClassConstructor (p, b, t) ->
-        let innerEnv = env.NewInner(false)
+        let innerEnv = env.NewInner()
         let args =
             match t with 
             | TSType.New (ta, _) -> 

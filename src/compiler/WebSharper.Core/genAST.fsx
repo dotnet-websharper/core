@@ -32,22 +32,6 @@ type Case =
         | Tuple at -> Tuple (at @ [b])
         | _ -> Tuple [a; b]
 
-let rec shape c =
-    match c with
-    | Tuple l ->
-        match l |> List.choose shape with
-        | [] -> None
-        | cl -> Some (Tuple cl)
-    | List a ->
-        shape a |> Option.map List
-    | Id -> Some Id 
-    | Option a -> 
-        shape a |> Option.map Option
-    | Expr -> Some Expr
-    | Statement -> Some Statement
-    | Object _ -> None
-    | Empty -> None
-
 let rec toType c =
     match c with
     | Tuple l ->
@@ -555,7 +539,7 @@ let code =
                 | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
-                | List (Tuple [Id; Object _]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m))) + \"]\""
+                | List (Tuple [Id; Object _]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m)) + \"]\""
                 | Object "TypeDefinition" -> x + ".Value.FullName"
                 | Object "Concrete<TypeDefinition>" -> x + ".Entity.Value.FullName"
                 | Object "Concrete<Method>" -> x + ".Entity.Value.MethodName"

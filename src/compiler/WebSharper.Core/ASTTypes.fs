@@ -605,10 +605,10 @@ and Type =
 [<RequireQualifiedAccess>]
 type TSType =
     | Any
-    | Basic of string
+    | Named of list<string>
     | Generic of TSType * list<TSType>
-    | Imported of Id * string
-    | Importing of string * string
+    | Imported of Id * list<string>
+    | Importing of string * list<string>
     | Lambda of list<TSType> * TSType
     | New of list<TSType> * TSType
     | Tuple of list<TSType>
@@ -617,11 +617,12 @@ type TSType =
     | Param of int
     | Constraint of TSType * list<TSType>
     | TypeGuard of Id * TSType
+    | ObjectOf of TSType
 
     member this.SubstituteGenerics (gs : TSType[]) =
         match this with 
         | Any
-        | Basic _
+        | Named _
         | Imported _
         | Importing _
             -> this
@@ -634,18 +635,19 @@ type TSType =
         | Intersection ts -> Intersection (ts |> List.map (fun p -> p.SubstituteGenerics gs))
         | Constraint (t, c) -> Constraint (t.SubstituteGenerics gs, c |> List.map (fun p -> p.SubstituteGenerics gs))
         | TypeGuard (a, t) -> TypeGuard(a, t.SubstituteGenerics gs)
+        | ObjectOf a -> ObjectOf(a.SubstituteGenerics gs)
 
     member this.ResolveModule (getModule: string -> Id option) =
         match this with 
         | Any
-        | Basic _
+        | Named _
         | Imported _
         | Param _
             -> this
         | Importing (m, a) ->
             match getModule m with
             | Some v -> Imported(v, a)
-            | _ -> Basic a
+            | _ -> Named a
         | Generic (e, g) -> Generic (e.ResolveModule getModule, g |> List.map (fun p -> p.ResolveModule getModule))
         | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
         | New (a, r) -> New (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
@@ -654,6 +656,25 @@ type TSType =
         | Intersection ts -> Intersection (ts |> List.map (fun p -> p.ResolveModule getModule))
         | Constraint (t, c) -> Constraint (t.ResolveModule getModule, c |> List.map (fun p -> p.ResolveModule getModule))
         | TypeGuard (a, t) -> TypeGuard(a, t.ResolveModule getModule)
+        | ObjectOf a -> ObjectOf(a.ResolveModule getModule)
+
+    //member this.TransformNames f =
+    //    match this with 
+    //    | Any
+    //    | Imported _
+    //    | Importing _
+    //    | Param _
+    //        -> this
+    //    | Named n -> Named (f n)
+    //    | Generic (e, g) -> Generic (e.TransformNames f, g |> List.map (fun p -> p.TransformNames f))
+    //    | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.TransformNames f), r.TransformNames f)
+    //    | New (a, r) -> New (a |> List.map (fun p -> p.TransformNames f), r.TransformNames f)
+    //    | Tuple ts -> Tuple (ts |> List.map (fun p -> p.TransformNames f))
+    //    | Union ts -> Union (ts |> List.map (fun p -> p.TransformNames f))
+    //    | Intersection ts -> Intersection (ts |> List.map (fun p -> p.TransformNames f))
+    //    | Constraint (t, c) -> Constraint (t.TransformNames f, c |> List.map (fun p -> p.TransformNames f))
+    //    | TypeGuard (a, t) -> TypeGuard(a, t.TransformNames f)
+    //    | ObjectOf a -> ObjectOf(a.TransformNames f)
 
 type MethodInfo =
     {
@@ -701,6 +722,7 @@ type Module =
     | JavaScriptFile of string
     | WebSharperModule of string
     | CurrentModule
+    | ImportedModule of Id
 
 type PlainAddress = Hashed<list<string>>
 

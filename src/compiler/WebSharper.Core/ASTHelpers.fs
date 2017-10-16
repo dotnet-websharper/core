@@ -312,18 +312,19 @@ let EmbedAST<'T> (v: Expression) : FSharp.Quotations.Expr<'T> =
     |> FSharp.Quotations.Expr.Cast
 
 module TSType =
-    let private basic x = TSType.Basic x
+    let Basic x = TSType.Named [ x ]
     
-    let Object = basic "object"
-    let Null = basic "null"
-    let String = basic "string"
-    let Number = basic "number"
-    let Never = basic "never"
-    let Void = basic "void"
-    let private Array = basic "Array"
+    let Object = Basic "object"
+    let Null = Basic "null"
+    let String = Basic "string"
+    let Number = Basic "number"
+    let Never = Basic "never"
+    let Void = Basic "void"
+    let private Array = Basic "Array"
     let ArrayOf t = TSType.Generic(Array, [ t ])
 
     let Parse x =
         match x with
         | "any" -> TSType.Any
-        | _ -> TSType.Basic x
+        | _ -> 
+            TSType.Named (List.ofArray (x.Split('.')))

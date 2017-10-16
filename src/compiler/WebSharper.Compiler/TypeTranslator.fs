@@ -33,12 +33,13 @@ type LookupTypeResult =
 
 type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAddress) =
     let defaultTsTypeOfAddress (a: Address) =
-        let acc = a.Address.Value |> List.rev |> String.concat "."
+        let t = a.Address.Value |> List.rev
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _
-        | CurrentModule -> TSType.Basic acc
-        | WebSharperModule m -> TSType.Importing (m, acc)
+        | CurrentModule -> TSType.Named t
+        | WebSharperModule m -> TSType.Importing (m, t)
+        | ImportedModule m -> TSType.Imported(m, t) 
 
     let tsTypeOfAddress = defaultArg tsTypeOfAddress defaultTsTypeOfAddress
 
@@ -84,7 +85,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         elif tn.StartsWith "WebSharper.JavaScript.Union`" then
             TSType.Union (t.Generics |> List.map (this.TSTypeOf gs))
         elif tn = "WebSharper.JavaScript.Object`1" then
-            TSType.Generic(TSType.Basic "WebSharper.ObjectOf", t.Generics |> List.map (this.TSTypeOf gs))
+            TSType.ObjectOf(this.TSTypeOf gs t.Generics.Head)
         else
         let td = this.TSTypeOfDef e
         match t.Generics with
@@ -93,7 +94,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
             match td with
             | TSType.Importing _
             | TSType.Imported _
-            | TSType.Basic _ ->
+            | TSType.Named _ ->
                 TSType.Generic(td, g |> List.map (this.TSTypeOf gs))
             | TSType.Lambda _ ->
                 td.SubstituteGenerics (g |> Seq.map (this.TSTypeOf gs) |> Array.ofSeq)

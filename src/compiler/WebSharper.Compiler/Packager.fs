@@ -45,8 +45,11 @@ type StaticMembers =
             Namespaces = Dictionary()
         }
 
-type BodyTransformer(toTSType, getModule) =
+type BodyTransformer(toTSType, getAddress) =
     inherit Transformer()
+
+    let resWSModule m =
+        getAddress { Module = WebSharperModule m; Address = Hashed [] } |> fst 
 
     override this.TransformNewTuple(a, t) =
         let res = NewTuple(List.map this.TransformExpression a, [])
@@ -55,7 +58,12 @@ type BodyTransformer(toTSType, getModule) =
         | _ -> Cast(toTSType(TupleType (t, false)), res) 
 
     override this.TransformCast(t, e) =
-        Cast(t.ResolveModule getModule, e)
+        Cast(t.ResolveModule resWSModule, this.TransformExpression e)
+
+    override this.TransformGlobalAccess(a) =
+        match getAddress a with
+        | Some v, acc -> GlobalAccess { Module = ImportedModule v; Address = Hashed acc } 
+        | None, acc -> GlobalAccess { Module = CurrentModule; Address = Hashed acc }
 
 let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResource>) moduleName isBundle =
     let addresses = Dictionary()
@@ -64,8 +72,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let statements = ResizeArray()
 
     let glob = Var (Id.Global())
-    addresses.Add(Address.Global(), glob)
-    addresses.Add(Address.Lib "window", glob)
                                                             
     let strId name = Id.New(name, mut = false, str = true)
 
@@ -94,17 +100,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let importJS js =
         if isModule then
             declarations.Add <| ImportAll (None, js)
-        glob
+        None
 
     let importTS ts =
         if isModule then
             let var = Id.New (ts |> String.filter System.Char.IsUpper)
             declarations.Add <| ImportAll (Some var, "./" + ts)
-            Var var
+            Some var
         else
             directives.Add <| XmlComment  (sprintf "<reference path=\"%s.ts\" />" ts)
-            Undefined
-
+            None
     match moduleName with
     | Some n ->
         directives.Add <| XmlComment (sprintf "<amd-module name=\"%s\"/>" n)
@@ -118,9 +123,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 match address.Address.Value with
                 | [] ->
                     match address.Module with
-                    | StandardLibrary -> failwith "impossible, already handled"
+                    | StandardLibrary -> None
                     | JavaScriptFile "" ->
-                        glob
+                        None
                     | JavaScriptFile "Runtime" ->
                         importJS "./WebSharper.Core.JavaScript/Runtime.js"
                     | JavaScriptFile js ->
@@ -128,14 +133,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | WebSharperModule ts ->
                         importTS ts
                     | CurrentModule -> failwith "empty local address"
+                    | ImportedModule v -> Some v
+                    , []
                 | [ name ] ->
                     match address.Module with
                     | CurrentModule ->
-                        Var (strId name)
+                        None, [ name ]
                     | StandardLibrary ->
                         let var = Id.New name
                         declarations.Add <| VarDeclaration(var, Var (strId name)) 
-                        Var var
+                        Some var, []
                     | JavaScriptFile _ ->
                         match addresses.TryGetValue { address with Module = CurrentModule } with
                         | true, v -> v
@@ -144,36 +151,30 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             let var = strId name
                             if not <| StandardLibNames.Set.Contains name then
                                 declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
-                            Var var
+                            Some var, []
                     | WebSharperModule _ ->
-                        let parent = getAddress { address with Address = Hashed [] }
+                        let m, a = getAddress { address with Address = Hashed [] }
                         if isModule then
-                            ItemGet(parent, Value (String name), Pure)
+                            m, name :: a
                         else
                             getAddress { address with Module = CurrentModule }
+                    | ImportedModule _ ->
+                        let m, a = getAddress { address with Address = Hashed [] }
+                        m, [ name ]
                 | name :: r ->
-                    let parent = getAddress { address with Address = Hashed r }
-                    ItemGet(parent, Value (String name), Pure)
+                    let m, a = getAddress { address with Address = Hashed r }
+                    m, name :: a
             addresses.Add(address, res)
             res
-
-    let getModule m =
-        match importTS m with
-        | Var v ->
-            Some v
-        | Undefined ->
-            None
-        | _ -> failwith "expecting a Var or Undefined for module import"
     
+    let getModule m = getAddress { Module = m; Address = Hashed [] } |> fst 
+
     for r in resources do
         match r with
         | :? R.IDownloadableResource as d ->
             for m in d.GetImports() do
                 if m.EndsWith ".js" then
-                    getAddress { 
-                        Module = JavaScriptFile (m.Substring(0, m.Length - 3))
-                        Address = Hashed [] 
-                    } |> ignore
+                    getModule (JavaScriptFile (m.Substring(0, m.Length - 3))) |> ignore
         | _ -> ()
 
     let mutable currentNamespace = ResizeArray() 
@@ -256,21 +257,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let mappedTypes = Dictionary()
-
     let tsTypeOfAddress (a: Address) =
-        let acc = a.Address.Value |> List.rev |> String.concat "."
+        let t = a.Address.Value |> List.rev
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _
-        | CurrentModule -> TSType.Basic acc
-        | WebSharperModule m ->
-            match getAddress { a with Address = Hashed [] } with
-            | Var v ->
-                TSType.Imported(v, acc)
-            | Undefined ->
-                TSType.Basic acc
-            | _ -> failwith "expecting a Var or Undefined for module import"
+        | CurrentModule -> TSType.Named t
+        | WebSharperModule _ ->
+            match getModule a.Module with
+            | Some v ->
+                TSType.Imported(v, t)
+            | None ->
+                TSType.Named t
+        | ImportedModule v -> TSType.Imported(v, t)
 
     let lookupType (t: TypeDefinition) =
         match t.Value.FullName with
@@ -445,6 +444,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             //        | _ -> failwith "static constuctor translated form must be a function"
             //    ) 
             //    (fun () -> body, TSType.Any)
+            let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             addStatic ccaddr (body, TSType.Any)
         | _ -> ()
 
@@ -498,7 +498,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     thisTSTypeDef |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
 
             let g = getGenerics cgenl gc
-            let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
+            let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
@@ -532,7 +532,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let cgen = getGenerics 0 c.Generics
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
-            let body = BodyTransformer(tsTypeOf gsArr, getModule).TransformExpression(body)
+            let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             let thisTSType = thisTSTypeDef |> addGenerics cgen 
             match withoutMacros info with
             | M.New ->
@@ -579,7 +579,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | Some addr ->
             let baseType = 
                 match c.BaseClass with
-                | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Basic "WebSharper.Obj") 
+                | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Named [ "WebSharper"; "Obj" ]) 
                 | Some b -> Some (tsTypeOfConcrete gsArr b)
                 | None -> None
             if indexedCtors.Count > 0 then
@@ -688,22 +688,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | Some ep -> addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
-    let globalAccessTransformer =
-        { new Transformer() with
-            override this.TransformGlobalAccess a =
-                getAddress a
-                //match addresses.TryGetValue a with
-                //| true, v -> v
-                //| _ -> 
-                //    Var (strId (a.Address.Value |> List.rev |> String.concat "."))
-        }
-
-    let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
-
-    if List.isEmpty trStatements then 
+    if statements.Count = 0 then 
         [] 
     else
-        List.ofSeq directives @ List.ofSeq declarations @ trStatements 
+        List.ofSeq (Seq.concat [ directives; declarations; statements ])
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
