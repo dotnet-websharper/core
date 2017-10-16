@@ -794,7 +794,11 @@ module Resolve =
             res
 
         member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
-            this.ClassAddress(typ.FullName.Split [| '.'; '+' |] |> Array.rev |> List.ofArray, hasPrototype)
+            let n =
+                match typ.FullName.IndexOf "`" with
+                | -1 -> typ.FullName
+                | i -> typ.FullName.[..i-1]
+            this.ClassAddress(n.Split [| '.'; '+' |] |> Array.rev |> List.ofArray, hasPrototype)
                     
         member this.ExactStaticAddress addr =
             getExactFullAddress addr Member 

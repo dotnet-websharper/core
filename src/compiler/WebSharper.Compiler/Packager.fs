@@ -402,6 +402,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
         | _ -> failwith "empty address for union type"
 
+    let packageRecord fields addr (t: TypeDefinition) =
+        let fields =
+            fields |> List.map (fun f ->
+                let t = tsTypeOf [||] f.RecordFieldType
+                ClassProperty(false, f.JSName, t)
+            )
+        let numGenerics =
+            match t.Value.FullName.IndexOf '`' with
+            | -1 -> 0
+            | i -> int t.Value.FullName.[i+1..]
+        let generics = List.init numGenerics TSType.Param
+        packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, generics)
+
     let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
 
         let classAddress = 
@@ -618,21 +631,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     while classes.Count > 0 do
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
-        customTypes.Remove t |> ignore
+        if c.HasWSPrototype then customTypes.Remove t |> ignore
         packageClass t c
 
-    let rec packageUnannotatedCustomType (t: TypeDefinition) (addr: Address) (c: CustomTypeInfo) =
+    let packageUnannotatedCustomType (t: TypeDefinition) (addr: Address) (c: CustomTypeInfo) =
         match c with
-        | CustomTypeInfo.FSharpRecordInfo fields ->
-            let fields =
-                fields |> List.map (fun f ->
-                    let t = tsTypeOf [||] f.RecordFieldType
-                    ClassProperty(false, f.JSName, t)
-                )
-            // TODO: generics?
-            packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, [])
-        | CustomTypeInfo.FSharpUnionInfo u ->
-            packageUnion u addr None [||]
+        | CustomTypeInfo.FSharpRecordInfo r -> packageRecord r addr t
+        | CustomTypeInfo.FSharpUnionInfo u -> packageUnion u addr None [||]
         | CustomTypeInfo.FSharpUnionCaseInfo _
         | CustomTypeInfo.DelegateInfo _
         | CustomTypeInfo.EnumInfo _
