@@ -26,83 +26,6 @@ open WebSharper.Core
 
 module S = WebSharper.Core.JavaScript.Syntax
 
-type private Ids() =
-    static let mutable lastId = -1L
-    static member New() =
-        System.Threading.Interlocked.Increment(&lastId)
-
-type Modifiers = S.Modifiers
-
-[<CustomComparison; CustomEquality>]
-/// An identifier for a variable or label.
-type Id =
-    private {
-        mutable IdName : string option
-        Id: int64
-        Mutable : bool
-        StrongName : bool
-        Optional : bool
-    }
-
-    member this.Name 
-        with get () = this.IdName
-        and set n = this.IdName <- n
-
-    member this.IsMutable = this.Mutable
-    member this.HasStrongName = this.StrongName
-    member this.IsOptional = this.Optional
-    
-    static member New(?name, ?mut, ?str, ?opt) =
-        {
-            IdName = name
-            Id = Ids.New()
-            Mutable = defaultArg mut true
-            StrongName = defaultArg str false
-            Optional = defaultArg opt false
-        }
-
-    member this.Clone() =
-        { this with
-            Id = if this.Id < 0L then this.Id else Ids.New()
-        }
-
-    member this.ToMutable() =
-        { this with
-            Mutable = true
-        }
-
-    member this.ToNonOptional() =
-        if this.Optional then
-            { this with
-                Optional = false
-            }
-        else this
-
-    member this.IsGlobal() = this.Id = -1L
-
-    override this.GetHashCode() = int this.Id
-    
-    override this.Equals other =
-        match other with
-        | :? Id as o -> this.Id = o.Id
-        | _ -> false
-
-    interface System.IComparable with
-        member this.CompareTo other =
-            match other with
-            | :? Id as o -> compare this.Id o.Id
-            | _ -> invalidArg "other" "Invalid comparison."
-
-    override this.ToString() =
-        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
-
-    member this.ToString(m: Modifiers) =
-        String.concat "" [
-            if m.HasFlag Modifiers.Private then yield "private "
-            if m.HasFlag Modifiers.Public then yield "public "
-            if m.HasFlag Modifiers.ReadOnly then yield "readonly"
-        ] + string this
-
 /// Specifies a curried or tupled F# function argument that is translated to a flat function
 type FuncArgOptimization =
     | NotOptimizedFuncArg
@@ -430,8 +353,101 @@ module Definitions =
             FullName = "Microsoft.FSharp.Core.FSharpChoice`" + string arity
         }
 
+type private Ids() =
+    static let mutable lastId = -1L
+    static member New() =
+        System.Threading.Interlocked.Increment(&lastId)
+
+type Modifiers = S.Modifiers
+
+[<CustomComparison; CustomEquality>]
+/// An identifier for a variable or label.
+type Id =
+    private {
+        mutable IdName : string option
+        Id: int64
+        Mutable : bool
+        StrongName : bool
+        Optional : bool
+        Type : Type option
+    }
+
+    member this.Name 
+        with get () = this.IdName
+        and set n = this.IdName <- n
+
+    member this.IsMutable = this.Mutable
+    member this.HasStrongName = this.StrongName
+    member this.IsOptional = this.Optional
+    
+    static member New(?name, ?mut, ?str, ?opt, ?typ) =
+        {
+            IdName = name
+            Id = Ids.New()
+            Mutable = defaultArg mut true
+            StrongName = defaultArg str false
+            Optional = defaultArg opt false
+            Type = typ
+        }
+
+    member this.Clone() =
+        { this with
+            Id = if this.Id < 0L then this.Id else Ids.New()
+        }
+
+    member this.ToMutable() =
+        { this with
+            Mutable = true
+        }
+
+    member this.ToNonOptional() =
+        if this.Optional then
+            { this with
+                Optional = false
+            }
+        else this
+
+    member this.ToTSType(toTSType) =
+        match this.Type with
+        | None -> this
+        | Some t ->
+            match toTSType t with
+            | TSType.Any -> this
+            | ts ->
+                { this with Type = Some (TSType ts) }
+
+    member this.TSType =
+        match this.Type with
+        | Some (TSType t) -> Some t
+        | _ -> None
+
+    member this.IsGlobal() = this.Id = -1L
+
+    override this.GetHashCode() = int this.Id
+    
+    override this.Equals other =
+        match other with
+        | :? Id as o -> this.Id = o.Id
+        | _ -> false
+
+    interface System.IComparable with
+        member this.CompareTo other =
+            match other with
+            | :? Id as o -> compare this.Id o.Id
+            | _ -> invalidArg "other" "Invalid comparison."
+
+    override this.ToString() =
+        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
+
+    member this.ToString(m: Modifiers) =
+        String.concat "" [
+            if m.HasFlag Modifiers.Private then yield "private "
+            if m.HasFlag Modifiers.Public then yield "public "
+            if m.HasFlag Modifiers.ReadOnly then yield "readonly"
+        ] + string this
+
 /// Stores a definition and type parameter information
-type Concrete<'T> =
+and Concrete<'T> =
     {
         Generics : list<Type>
         Entity : 'T
@@ -457,6 +473,8 @@ and Type =
     | StaticTypeParameter of ordinal: int
     /// used for F# inner generics
     | LocalTypeParameter
+    /// Translated type
+    | TSType of tsType: TSType
 
     override this.ToString() =
         match this with
@@ -473,6 +491,7 @@ and Type =
         | VoidType -> "unit"
         | StaticTypeParameter i -> "^T" + string i
         | LocalTypeParameter -> "'?"
+        | TSType _ -> "TSType"
 
     member this.IsParameter =
         match this with
@@ -515,6 +534,7 @@ and Type =
             | ByRefType t -> getNameAndAsm t
             | VoidType -> "Microsoft.FSharp.Core.Unit", "FSharp.Core"
             | LocalTypeParameter -> "$?", ""
+            | TSType _ -> invalidOp "TypeScript type has no AssemblyQualifiedName"
         getNameAndAsm this |> combine
 
     member this.TypeDefinition =
@@ -528,6 +548,7 @@ and Type =
         | FSharpFuncType _ -> Definitions.FSharpFunc
         | ByRefType t -> t.TypeDefinition
         | VoidType -> Definitions.Unit
+        | TSType _ -> invalidOp "TypeScript type has no TypeDefinition"
 
     member this.SubstituteGenerics (gs : Type[]) =
         match this with 
@@ -540,6 +561,7 @@ and Type =
         | VoidType 
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenerics"
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -552,6 +574,7 @@ and Type =
         | VoidType 
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenericsToSame"
 
     member this.GetStableHash()  =
         let inline (++) a b = StableHash.tuple (a, b)
@@ -574,6 +597,7 @@ and Type =
         | VoidType -> 6
         | StaticTypeParameter i -> 7 ++ i
         | LocalTypeParameter -> 8
+        | TSType _ -> invalidOp "TypeScript type does not support GetStableHash"
 
     member this.Normalize() =
         match this with
@@ -601,9 +625,9 @@ and Type =
         | VoidType 
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support Normalize"
 
-[<RequireQualifiedAccess>]
-type TSType =
+and [<RequireQualifiedAccess>] TSType =
     | Any
     | Named of list<string>
     | Generic of TSType * list<TSType>
@@ -757,6 +781,7 @@ module private Instances =
             Mutable = false
             StrongName = true
             Optional = false
+            Type = None
         }
 
     let GlobalId = uniqueId "window" -1L

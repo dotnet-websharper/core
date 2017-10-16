@@ -233,22 +233,6 @@ module Definitions =
             FullName = "Microsoft.FSharp.Core.Operators"
         }
     
-
-let newId() = Id.New(mut = false)
-let namedId isOpt (i: FSharpMemberOrFunctionOrValue) =
-    if i.IsCompilerGenerated then
-        let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
-        if n.Length > 0 then
-            Id.New(n.Substring(0, 1), i.IsMutable, opt = isOpt)
-        else
-            Id.New(mut = i.IsMutable, opt = isOpt)
-    elif i.IsActivePattern then
-        Id.New(i.DisplayName.Split('|').[1], i.IsMutable)
-    else
-        let n = i.DisplayName
-        if n = "( builder@ )" then Id.New("b", i.IsMutable, opt = isOpt)
-        else Id.New(n, i.IsMutable, opt = isOpt) 
-
 type MatchValueVisitor(okToInline: int[]) =
     inherit Visitor()
 
@@ -542,6 +526,22 @@ type Environment =
         | Some var -> var
         | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
     
+let newId() = Id.New(mut = false)
+let namedId (env: option<Environment>) isOpt (i: FSharpMemberOrFunctionOrValue) =
+    let typ = env |> Option.bind (fun env -> i.FullTypeSafe |> Option.map (env.SymbolReader.ReadType env.TParams))
+    if i.IsCompilerGenerated then
+        let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
+        if n.Length > 0 then
+            Id.New(n.Substring(0, 1), i.IsMutable, opt = isOpt, ?typ = typ)
+        else
+            Id.New(mut = i.IsMutable, opt = isOpt, ?typ = typ)
+    elif i.IsActivePattern then
+        Id.New(i.DisplayName.Split('|').[1], i.IsMutable, ?typ = typ)
+    else
+        let n = i.DisplayName
+        if n = "( builder@ )" then Id.New("b", i.IsMutable, opt = isOpt, ?typ = typ)
+        else Id.New(n, i.IsMutable, opt = isOpt, ?typ = typ) 
+
 let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
     match expr with 
     | P.Let((clo1, value), P.Lambda (x1, (P.Application(P.Value clo2, _, [P.Value x2]) | CompGenClosure(P.Application(P.Value clo2, _, [P.Value x2]))))) 
@@ -591,14 +591,14 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 if isUnit arg.FullType then 
                     lam [] (tr body) (isUnit body.Type)
                 else 
-                    let v = namedId arg.FullType.IsGenericParameter arg
+                    let v = namedId (Some env) arg.FullType.IsGenericParameter arg
                     let env = env.WithVar(v, arg)
                     lam [v] (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
                         let t = arg.FullType
-                        let v = namedId (isUnit t || t.IsGenericParameter) arg
+                        let v = namedId (Some env) (isUnit t || t.IsGenericParameter) arg
                         v, env.WithVar(v, arg)
                     ) 
                 let trBody = body |> transformExpression env
@@ -607,7 +607,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let compGenCurriedAppl (env: Environment) ids body =
                 let vars, env =
                     (env, ids) ||> List.mapFold (fun env arg ->
-                        let v = namedId false arg
+                        let v = namedId (Some env) false arg
                         v, env.WithVar(v, arg)
                     ) 
                 let inline tr x = transformExpression env x
@@ -616,7 +616,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let trArg x = tr x |> removeListOfArray x.Type
             match func with
             | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
-                let ov = namedId false o
+                let ov = namedId (Some env) false o
                 Let(ov, tr objectArg, compGenCurriedAppl (env.WithVar(ov, o)) ids body)    
             | CompGenLambda args.Length (ids, body) ->
                 compGenCurriedAppl env ids body   
@@ -638,7 +638,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | CompGenClosure value ->
             tr value
         | P.Let((id, value), body) ->
-            let i = namedId false id
+            let i = namedId (Some env) false id
             let trValue = tr value
             let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
             let inline tr x = transformExpression env x
@@ -649,7 +649,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.LetRec(defs, body) ->
             let mutable env = env
             let ids = defs |> List.map (fun (id, _) ->
-                let i = namedId false id
+                let i = namedId (Some env) false id
                 env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
                 i
             )
@@ -737,7 +737,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let res = newId()
             StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
         | P.TryWith (body, var, filter, e, catch) -> // TODO: var, filter?
-            let err = namedId false e
+            let err = namedId (Some env) false e
             let res = newId()
             StatementExpr (
                 TryWith(VarSetStatement(res, tr body), 
@@ -880,7 +880,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     let mutable env = env 
                     let captures =
                         ci |> List.map (fun cv ->
-                            let i = namedId false cv
+                            let i = namedId (Some env) false cv
                             env <- env.WithVar (i, cv)
                             i
                         )
@@ -1028,11 +1028,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let thisVar, vars =
                                 match ovr.CurriedParameterGroups with
                                 | [t] :: a ->
-                                    let thisVar = namedId false t
+                                    let thisVar = namedId (Some env) false t
                                     env <- env.WithVar(thisVar, t)
                                     thisVar,
                                     a |> Seq.concat |> Seq.map (fun v ->
-                                        let vv = namedId false v
+                                        let vv = namedId (Some env) false v
                                         env <- env.WithVar(vv, v)
                                         vv
                                     ) |> List.ofSeq 
@@ -1072,7 +1072,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let mutable env = env
                 let args = 
                     vars |> List.map (fun v -> 
-                        let vv = namedId false v
+                        let vv = namedId (Some env) false v
                         env <- env.WithVar(vv, v)
                         vv
                     )

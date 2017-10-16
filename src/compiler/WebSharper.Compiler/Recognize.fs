@@ -500,7 +500,7 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         match d with
         | None -> tw
         | Some d -> TryFinally (tw, trS d)
-    | S.Vars a ->
+    | S.Vars (a, _) ->
         match a with
         | [var, value] -> 
             VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)

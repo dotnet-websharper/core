@@ -452,7 +452,7 @@ and block i =
 and varStmt i =
     let vs = vars true i
     ``;`` i
-    S.Vars vs
+    S.Vars (vs, S.VarDecl)
 
 and vars allowIn i =
     varsTail allowIn [varDecl allowIn i] i

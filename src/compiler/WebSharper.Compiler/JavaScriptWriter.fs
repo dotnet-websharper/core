@@ -79,21 +79,6 @@ type Environment =
             CurrentNamespace = if Option.isSome ns then List.rev nsr else this.CurrentNamespace
         }
         
-    member this.Declarations =
-        if this.ScopeVars.Count = 0 then [] else
-            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq) ]
-
-    member this.ShortenFullAccess a =
-        let res =
-            List.fold (fun (a, ns) n -> 
-                match ns with
-                | h :: r when h = n -> a, r
-                | _ -> n :: a, []
-            ) ([], this.CurrentNamespace) a
-        match res with
-        | [], _ -> [ List.last a ]
-        | t, _ -> List.rev t
-        
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
 let undefVar (id: Id) =
@@ -289,7 +274,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
         let hasNoThis = HasNoThisVisitor().Check(b)
-        J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body), hasNoThis)
+        J.Lambda(None, args, flattenJS body, hasNoThis)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -448,16 +433,21 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             f()
     let varDeclaration id e t =
         let i = transformId env id
-        let i = match t with Some t -> withType env t i | _ -> i
-        if env.OuterScope then
-            match e with
-            | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
-            | IgnoreSourcePos.Undefined -> J.Vars [ i, None ]
-            | _ -> J.Vars [ i, Some (trE e) ]
-        else
-            match e with
-            | IgnoreSourcePos.Undefined -> J.Empty 
-            | _ -> J.Ignore(J.Binary(J.Var i, J.BinaryOperator.``=``, trE e))
+        let typed() =
+            match t with 
+            | Some t -> i |> withType env t 
+            | _ ->
+                match id.TSType with
+                | Some t -> i |> withType env t
+                | _ -> i
+        match e with
+        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
+        | IgnoreSourcePos.Undefined -> 
+            //let k = if env.OuterScope then J.VarDecl else J.LetDecl
+            J.Vars ([ (typed()), None ], J.VarDecl)
+        | _ -> 
+            //let k = if env.OuterScope then J.VarDecl elif id.IsMutable then J.LetDecl else J.ConstDecl
+            J.Vars ([ (typed()), Some (trE e) ], J.VarDecl)
     let funcDeclaration x ids b t =
         let innerEnv = env.NewInner()
         try
@@ -484,7 +474,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             CollectVariables(innerEnv).VisitStatement(b)
             let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
             let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
-            let f = J.Function(id, args, flattenJS (innerEnv.Declarations @ body))
+            let f = J.Function(id, args, flattenJS body)
             if env.InFuncScope then
                 f
             else
@@ -642,6 +632,17 @@ and transformTypeName (env: Environment) (typ: TSType) =
 and transformType (env: Environment) (typ: TSType) =
     transformTypeName env typ |> J.Id.New |> J.Var
 
+//and transformIdTyped (env: Environment) (id: Id) =
+//    if id.HasStrongName then J.Id.New id.Name.Value else
+//    try 
+//        match id.TSType with
+//        | None ->
+//            J.Id.New (Map.find id env.ScopeIds) 
+//        | Some t -> 
+//            J.Id.New (Map.find id env.ScopeIds, typ = transformType env t) 
+//    with _ -> 
+//        undefVar id
+
 and withType (env: Environment) (typ: TSType) (i: J.Id) =
     match typ with
     | TSType.Any -> i
@@ -681,7 +682,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             match body with
             | Some (true, _) ->  J.Id.New(n, typ = J.Var (J.Id.New "never"))
             | _ -> J.Id.New(n) |> withType env tr 
-        J.Method(s, id, args, body |> Option.map (fun (_, b) -> flattenJS (innerEnv.Declarations @ b)))   
+        J.Method(s, id, args, body |> Option.map (fun (_, b) -> flattenJS b))   
     | ClassConstructor (p, b, t) ->
         let innerEnv = env.NewInner()
         let args =
@@ -695,7 +696,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 CollectVariables(innerEnv).VisitStatement(b)
                 b |> transformStatement innerEnv |> flattenFuncBody |> snd
             )
-        J.Constructor(args, body |> Option.map (fun b -> flattenJS (innerEnv.Declarations @ b)))   
+        J.Constructor(args, body |> Option.map (fun b -> flattenJS b))   
     | ClassProperty (s, n, t) ->
         J.Property (s, J.Id.New(n) |> withType env t)
     | _ -> 

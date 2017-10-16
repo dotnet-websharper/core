@@ -409,9 +409,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let a, t = getArgsAndThis()
                 let isOpt = getParamIsOpt a
                 a |> List.map (fun p -> 
-                    CodeReader.namedId (isOpt || isOptionalParam p) p
+                    CodeReader.namedId None (isOpt || isOptionalParam p) p
                 ),
-                t |> Option.map (fun p -> CodeReader.namedId false p)
+                t |> Option.map (fun p -> CodeReader.namedId None false p)
                
             let error m = comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
             let warn m = comp.AddWarning(Some (CodeReader.getRange meth.DeclarationLocation), SourceWarning m)
@@ -458,11 +458,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             [
                                 match t with
                                 | Some t ->
-                                    yield t, (CodeReader.namedId false t, CodeReader.ThisArg)
+                                    yield t, (CodeReader.namedId None false t, CodeReader.ThisArg)
                                 | _ -> ()
                                 for p in a ->   
                                     p, 
-                                    (CodeReader.namedId (isOpt || isOptionalParam p) p, 
+                                    (CodeReader.namedId None (isOpt || isOptionalParam p) p, 
                                         if CodeReader.isByRef p.FullType 
                                         then CodeReader.ByRefArg 
                                         else

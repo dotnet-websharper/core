@@ -535,6 +535,9 @@ type RoslynTransformer(env: Environment) =
         let typ, meth = getTypeAndMethod symbol
         Call(thisOpt, typ, meth, args)
 
+    let trLocalId (s: ILocalSymbol) = 
+        Id.New(s.Name, not s.IsConst, typ = sr.ReadType(s.Type))
+
     member this.TransformIdentifierName (x: IdentifierNameData) : Expression =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
         let getTarget() =
@@ -946,7 +949,7 @@ type RoslynTransformer(env: Environment) =
         let id, ftyp = 
             match symbol with
             | :? ILocalSymbol as s ->
-                let id = Id.New(s.Name, not s.IsConst)
+                let id = trLocalId s
                 env.Vars.Add(s, id)
                 id, None
             | :? IFieldSymbol as s ->

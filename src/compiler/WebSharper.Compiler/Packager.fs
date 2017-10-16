@@ -51,6 +51,9 @@ type BodyTransformer(toTSType, getAddress) =
     let resWSModule m =
         getAddress { Module = WebSharperModule m; Address = Hashed [] } |> fst 
 
+    override this.TransformId(a) =
+        a.ToTSType(toTSType)
+
     override this.TransformNewTuple(a, t) =
         let res = NewTuple(List.map this.TransformExpression a, [])
         match t with
@@ -80,7 +83,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     // TODO: only add what is necessary
     // TODO: set Array.prototype.GetEnumerator and String.prototype.GetEnumerator 
     let libExtensions =
-        let ie t = TSType.Generic(TSType.Basic "System.Collections.Generic.IEnumerable", [ t ])
+        let ie t = TSType.Generic(TSType.Named [ "WebSharper"; "IEnumerable" ], [ t ])
         let T = TSType.Basic "T"
         [ 
             Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")], []) 

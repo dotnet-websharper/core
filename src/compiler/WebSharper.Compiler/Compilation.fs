@@ -739,18 +739,10 @@ type Compilation(meta: Info, ?hasGraph) =
             let allMembers = HashSet()
             let allNames = HashSet()
             
-            let getInterface i =
-                match interfaces.TryFind i with
-                | Some i -> Some i
-                | _ ->
-                    if i <> Definitions.Obj then
-                        printerrf "Failed to look up interface '%s'" i.Value.FullName 
-                    None
-
             let rec addInherited (i: TypeDefinition) (n: InterfaceInfo) =
                 for i in n.Extends do
                     let i = i.Entity
-                    getInterface i |> Option.iter (addInherited i)
+                    interfaces.TryFind i |> Option.iter (addInherited i)
                 for KeyValue(m, (n, c)) in n.Methods do
                     if not (allMembers.Add (i, m)) then
                         if not (allNames.Add n) then
@@ -759,7 +751,7 @@ type Compilation(meta: Info, ?hasGraph) =
             for i in nr.Extends do
                 let i = i.Entity
                 notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
-                getInterface i |> Option.iter (addInherited i)
+                interfaces.TryFind i |> Option.iter (addInherited i)
             
             let resMethods = Dictionary()
                             
@@ -788,7 +780,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let resNode =
                 {
                     Address = Address.Empty()
-                    Extends = nr.Extends
+                    Extends = nr.Extends |> List.filter (fun i -> interfaces.ContainsKey i.Entity)
                     Methods = resMethods
                     Generics = nr.Generics
                 }

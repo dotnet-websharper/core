@@ -24,18 +24,19 @@ open WebSharper.JavaScript
 module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<System.IComparable>)>]
-[<Name "WebSharper.IComparable">]
+[<Name "WebSharper.IComparableAny">]
 type private IComparableProxy =
     [<Name "CompareTo">]
     abstract CompareTo : obj -> int
 
 [<Proxy(typeof<System.IComparable<_>>)>]
-[<Name "WebSharper.Generic.IComparable">]
+[<Name "WebSharper.IComparable">]
 type private IComparableProxy<'T> =
     [<Name "CompareTo">]
     abstract CompareTo : 'T -> int
 
 [<Proxy(typeof<System.Collections.IEqualityComparer>)>]
+[<Name "WebSharper.IEqualityComparerAny">]
 type private IEqualityComparerProxy =
     [<Name "CEquals">]
     abstract Equals : obj * obj -> bool 
@@ -43,6 +44,7 @@ type private IEqualityComparerProxy =
     abstract GetHashCode : obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IEqualityComparer<_>>)>]
+[<Name "WebSharper.IEqualityComparer">]
 type private IEqualityComparerProxy<'T> =
     [<Name "CEquals">]
     abstract Equals : 'T * 'T -> bool 
@@ -71,11 +73,13 @@ type private EqualityComparerProxy<'T>() =
     static member Default = X<System.Collections.Generic.EqualityComparer<'T>>
 
 [<Proxy(typeof<System.Collections.IComparer>)>]
+[<Name "WebSharper.IComparerAny">]
 type private IComparerProxy =
     [<Name "Compare">]
     abstract Compare : obj * obj -> int
 
 [<Proxy(typeof<System.Collections.Generic.IComparer<_>>)>]
+[<Name "WebSharper.IComparer">]
 type private IComparerProxy<'T> =
     [<Name "Compare">]
     abstract Compare : 'T * 'T -> int
@@ -96,11 +100,13 @@ type private ComparerProxy<'T>() =
     static member Default = X<System.Collections.Generic.Comparer<'T>>
 
 [<Proxy(typeof<System.IEquatable<_>>)>]
+[<Name "WebSharper.IEquatable">]
 type private IEquatableProxy<'T> =
     [<Name "EEquals">]
     abstract Equals : 'T -> bool
 
 [<Proxy(typeof<System.Collections.IStructuralEquatable>)>]
+[<Name "WebSharper.IStructuralEquatable">]
 type private IStructuralEquatableProxy =
     [<Name "SEquals">]
     abstract Equals : obj * System.Collections.IEqualityComparer -> bool 
@@ -108,22 +114,26 @@ type private IStructuralEquatableProxy =
     abstract GetHashCode : System.Collections.IEqualityComparer -> int
 
 [<Proxy(typeof<System.Collections.IStructuralComparable>)>]
+[<Name "WebSharper.IStructuralComparable">]
 type private IStructuralComparableProxy =
     [<Name "SCompareTo">]
     abstract CompareTo : obj * System.Collections.IComparer -> int 
 
 [<Proxy(typeof<System.IDisposable>)>]
+[<Name "WebSharper.IDisposable">]
 type private IDisposableProxy =
     [<Name "Dispose">]
     abstract member Dispose : unit -> unit
 
 [<Proxy(typeof<System.Collections.IEnumerable>)>]  
+[<Name "WebSharper.IEnumerableAny">]
 type private IEnumerableProxy =
 
     [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerable<_>>)>]  
+[<Name "WebSharper.IEnumerable">]
 type private IEnumerableProxy<'T> =
     inherit System.Collections.IEnumerable 
     
@@ -131,6 +141,7 @@ type private IEnumerableProxy<'T> =
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
     
 [<Proxy(typeof<System.Collections.IEnumerator>)>]
+[<Name "WebSharper.IEnumeratorAny">]
 type private IEnumeratorProxy =
     [<Name "Current">]
     abstract member Current  : obj
@@ -138,6 +149,7 @@ type private IEnumeratorProxy =
     abstract member MoveNext : unit -> bool
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
+[<Name "WebSharper.IEnumerator">]
 type private IEnumeratorProxy<'T> =
     inherit System.IDisposable
     inherit System.Collections.IEnumerator
@@ -145,11 +157,13 @@ type private IEnumeratorProxy<'T> =
     abstract member Current : 'T
 
 [<Proxy(typeof<System.IObservable<_>>)>]
+[<Name "WebSharper.IObservableAny">]
 type private IObservableProxy<'T> =
     [<Name "Subscribe">]
     abstract member Subscribe : System.IObserver<'T> -> System.IDisposable
 
 [<Proxy(typeof<System.IObserver<_>>)>]
+[<Name "WebSharper.IObserver">]
 type private IObserverProxy<'T> =
     [<Name "OnCompleted">]
     abstract member OnCompleted : unit -> unit
@@ -159,6 +173,7 @@ type private IObserverProxy<'T> =
     abstract member OnNext : 'T -> unit
 
 [<Proxy(typeof<IDelegateEvent<_>>)>]
+[<Name "WebSharper.IDelegateEvent">]
 type private IDelegateEventProxy<'D> =
     [<Name "AddHandler">]
     abstract AddHandler : 'D -> unit

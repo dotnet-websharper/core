@@ -143,6 +143,11 @@ and Modifiers =
     | Public = 2
     | ReadOnly = 4
 
+and DeclKind =
+    | VarDecl
+    | ConstDecl
+    | LetDecl
+
 /// Represents JavaScript expressions.
 and Expression =
     | Application of E * list<E>
@@ -217,7 +222,7 @@ and Statement =
     | Throw        of E
     | TryFinally   of S * S
     | TryWith      of S * Id * S * option<S>
-    | Vars         of list<Id * option<E>>
+    | Vars         of list<Id * option<E>> * DeclKind
     | While        of E * S
     | With         of E * S
     | Function     of Id * list<Id> * list<S>

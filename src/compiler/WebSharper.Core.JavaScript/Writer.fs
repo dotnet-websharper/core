@@ -482,10 +482,15 @@ and Statement canBeEmpty statement =
         ++ Block s1
         -- Word "finally"
         ++ Block s2
-    | S.Vars [] ->
+    | S.Vars ([], _) ->
         Empty
-    | S.Vars vs ->
-        Word "var" ++ Vars vs ++ Token ";"
+    | S.Vars (vs, k) ->
+        let keyword =
+            match k with
+            | S.VarDecl -> "var"
+            | S.ConstDecl -> "const"
+            | S.LetDecl -> "let"
+        Word keyword ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
         Word "while" ++ Parens (Expression e)
         ++ (Statement false s)
