@@ -591,7 +591,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 if isUnit arg.FullType then 
                     lam [] (tr body) (isUnit body.Type)
                 else 
-                    let v = namedId (Some env) arg.FullType.IsGenericParameter arg
+                    let t = arg.FullType
+                    let v = namedId (Some env) (isUnit t || t.IsGenericParameter) arg
                     let env = env.WithVar(v, arg)
                     lam [v] (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
@@ -627,12 +628,9 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | trFunc ->
                 match args with
                 | [a] when isUnit a.Type ->
-                    let trA = trArg a
-                    match IgnoreExprSourcePos trA with
-                    | Undefined | Value Null -> Application (trFunc, [], NonPure, Some 0)
-                    | _ -> Sequential [ trA; Application (trFunc, [], NonPure, Some 0) ]
+                    applyUnitArg trFunc (trArg a)
                 | _ ->
-                    let trArgs = args |> List.map trArg
+                    let trArgs = args |> List.map (fun a -> isUnit a.Type, trArg a)
                     curriedApplication trFunc trArgs
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
@@ -1027,11 +1025,15 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             let mutable env = env
                             let thisVar, vars =
                                 match ovr.CurriedParameterGroups with
-                                | [t] :: a ->
+                                | [t] :: args ->
                                     let thisVar = namedId (Some env) false t
                                     env <- env.WithVar(thisVar, t)
+                                    let args = 
+                                        match args with
+                                        | [[ a ]] when isUnit a.FullType -> [[]]
+                                        | _ -> args
                                     thisVar,
-                                    a |> Seq.concat |> Seq.map (fun v ->
+                                    args |> Seq.concat |> Seq.map (fun v ->
                                         let vv = namedId (Some env) false v
                                         env <- env.WithVar(vv, v)
                                         vv

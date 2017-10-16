@@ -265,9 +265,10 @@ namespace WebSharper.CSharp.Tests
                 return ((IEnumerable<int>)Values).GetEnumerator();
             }
 
+            [Inline]
             IEnumerator IEnumerable.GetEnumerator()
             {
-                return ((IEnumerable<int>)Values).GetEnumerator();
+                return this.GetEnumerator();
             }
         }
 

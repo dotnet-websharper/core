@@ -296,8 +296,13 @@ let optimize expr =
     | Function (vars, I.Return (I.Application (f, args, _, Some i)))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
-    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars args body) ->
+    | CurriedApplicationSeparate (CurriedLambda(vars, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
         let moreArgsCount = args.Length - vars.Length
+        let bind key (isUnit, value) body = 
+            if isUnit then
+                Sequential [value; body]
+            else
+                Let (key, value, body)
         if moreArgsCount = 0 then
             if isReturn then
                 List.foldBack2 bind vars args body
@@ -495,7 +500,7 @@ let rec breakExpr expr : Broken<BreakResult> =
         //    args |> List.rev |> List.skipWhile (fun a -> CountVarOccurence(a).GetForStatement(body) = 0) |> List.rev
         broken (Function (args, BreakStatement body)) 
     | CurriedApplication (f, xs) ->
-        xs |> List.fold (fun e a -> Application (e, [a], NonPure, Some 1)) f |> br  
+        xs |> List.fold applyFSharpArg f |> br  
     | Application (ItemGet(a, b, p), c, d, e) ->
         brL (a :: b :: c)
         |> mapBroken3L (fun aE bE cE -> Application (ItemGet(aE, bE, p), cE, d, e))

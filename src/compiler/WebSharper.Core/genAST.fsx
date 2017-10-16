@@ -137,8 +137,8 @@ let ExprDefs =
             , ".NET - Method call"
         "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , "Temporary - Partial application, workaround for FCS issue #414"
-        "CurriedApplication", [ Expr, "func"; List Expr, "arguments" ]
-            , "Temporary - F# function application"
+        "CurriedApplication", [ Expr, "func"; List (Bool * Expr), "arguments" ]
+            , "Temporary - F# function application, bool indicates if the argument has type unit"
         "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt"]
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 

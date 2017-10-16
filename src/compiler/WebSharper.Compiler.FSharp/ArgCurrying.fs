@@ -135,7 +135,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         | ArgIndex i ->
             setAppl margs.[i] (List.length args)
         | f -> this.VisitExpression f
-        args |> List.iter this.VisitExpression            
+        args |> List.iter (snd >> this.VisitExpression)            
 
     override this.VisitApplication(f, args, _, _) =
         match IgnoreExprSourcePos f with
@@ -173,19 +173,19 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             | _ -> Hole i
         else Hole i
 
-    override this.TransformCurriedApplication(func, args: Expression list) =
+    override this.TransformCurriedApplication(func, args: (bool * Expression) list) =
         match func with
         | I.Var f ->
             match cargs.TryGetValue f with
             | true, CurriedFuncArg a ->
-                let ucArgs, restArgs = args |> List.map this.TransformExpression |> List.splitAt a
-                let inner = Application(Var f, ucArgs, NonPure, Some a)
+                let ucArgs, restArgs = args |> List.map (fun (u, a) -> u, this.TransformExpression a) |> List.splitAt a
+                let inner = Application(Var f, ucArgs |> List.map snd, NonPure, Some a)
                 curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
                 | t :: rArgs ->
-                    curriedApplication (this.TransformApplication(func, [t], NonPure, Some 1))
-                        (List.map this.TransformExpression rArgs)
+                    curriedApplication (applyFSharpArg func t)
+                        (List.map (fun (u, a) -> u, this.TransformExpression a) rArgs)
                 | _ -> failwith "tupled func must have arguments"
             | _ -> base.TransformCurriedApplication(func, args)
         | _ -> base.TransformCurriedApplication(func, args)

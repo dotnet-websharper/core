@@ -256,6 +256,13 @@ type GenericInlineResolver (generics) =
             typ |> subs
         )
 
+    override this.TransformCoalesce(expr, typ, onNullExpr) =
+        Coalesce (
+            expr |> this.TransformExpression,
+            typ |> subs, 
+            onNullExpr |> this.TransformExpression
+        )
+
     override this.TransformCoerce(expr, fromTyp, toTyp) =
         Coerce (
             expr |> this.TransformExpression,
@@ -762,7 +769,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 f
             | _ ->
                 let cargs = List.init currying (fun _ -> Id.New(mut = false))
-                Lambda(cargs, CurriedApplication(expr, cargs |> List.map Var))  
+                // todo get types of arguments to know about units
+                Lambda(cargs, CurriedApplication(expr, cargs |> List.map (fun e -> false, Var e)))  
         | TupledFuncArg tupling -> 
             match expr with
             | TupledLambda (args, body, _) ->

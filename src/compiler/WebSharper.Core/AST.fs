@@ -110,8 +110,8 @@ and Expression =
     | Call of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression>
     /// Temporary - Partial application, workaround for FCS issue #414
     | CallNeedingMoreArgs of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression>
-    /// Temporary - F# function application
-    | CurriedApplication of Func:Expression * Arguments:list<Expression>
+    /// Temporary - F# function application, bool indicates if the argument has type unit
+    | CurriedApplication of Func:Expression * Arguments:list<bool * Expression>
     /// Temporary - optimized curried or tupled F# function argument
     | OptimizedFSharpArg of FuncVar:Expression * Opt:FuncArgOptimization
     /// .NET - Constructor call
@@ -349,9 +349,9 @@ type Transformer() =
     /// Temporary - Partial application, workaround for FCS issue #414
     abstract TransformCallNeedingMoreArgs : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
     override this.TransformCallNeedingMoreArgs (a, b, c, d) = CallNeedingMoreArgs (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
-    /// Temporary - F# function application
-    abstract TransformCurriedApplication : Func:Expression * Arguments:list<Expression> -> Expression
-    override this.TransformCurriedApplication (a, b) = CurriedApplication (this.TransformExpression a, List.map this.TransformExpression b)
+    /// Temporary - F# function application, bool indicates if the argument has type unit
+    abstract TransformCurriedApplication : Func:Expression * Arguments:list<bool * Expression> -> Expression
+    override this.TransformCurriedApplication (a, b) = CurriedApplication (this.TransformExpression a, List.map (fun (a, b) -> a, this.TransformExpression b) b)
     /// Temporary - optimized curried or tupled F# function argument
     abstract TransformOptimizedFSharpArg : FuncVar:Expression * Opt:FuncArgOptimization -> Expression
     override this.TransformOptimizedFSharpArg (a, b) = OptimizedFSharpArg (this.TransformExpression a, b)
@@ -735,9 +735,9 @@ type Visitor() =
     /// Temporary - Partial application, workaround for FCS issue #414
     abstract VisitCallNeedingMoreArgs : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression> -> unit
     override this.VisitCallNeedingMoreArgs (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
-    /// Temporary - F# function application
-    abstract VisitCurriedApplication : Func:Expression * Arguments:list<Expression> -> unit
-    override this.VisitCurriedApplication (a, b) = this.VisitExpression a; List.iter this.VisitExpression b
+    /// Temporary - F# function application, bool indicates if the argument has type unit
+    abstract VisitCurriedApplication : Func:Expression * Arguments:list<bool * Expression> -> unit
+    override this.VisitCurriedApplication (a, b) = this.VisitExpression a; List.iter (fun (a, b) -> this.VisitExpression b) b
     /// Temporary - optimized curried or tupled F# function argument
     abstract VisitOptimizedFSharpArg : FuncVar:Expression * Opt:FuncArgOptimization -> unit
     override this.VisitOptimizedFSharpArg (a, b) = this.VisitExpression a; ()
@@ -1176,7 +1176,7 @@ module Debug =
         | Base  -> "Base" + ""
         | Call (a, b, c, d) -> "Call" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | CallNeedingMoreArgs (a, b, c, d) -> "CallNeedingMoreArgs" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + b.Entity.Value.FullName + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
-        | CurriedApplication (a, b) -> "CurriedApplication" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | CurriedApplication (a, b) -> "CurriedApplication" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) b) + "]" + ")"
         | OptimizedFSharpArg (a, b) -> "OptimizedFSharpArg" + "(" + PrintExpression a + ", " + PrintObject b + ")"
         | Ctor (a, b, c) -> "Ctor" + "(" + a.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | ChainedCtor (a, b, c, d, e) -> "ChainedCtor" + "(" + PrintObject a + ", " + defaultArg (Option.map string b) "_" + ", " + c.Entity.Value.FullName + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression e) + "]" + ")"

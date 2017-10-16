@@ -112,7 +112,7 @@ type TailCallAnalyzer(env) =
             ()
         | _ ->
             this.VisitExpression f    
-        args |> List.iter this.VisitExpression
+        args |> List.iter (snd >> this.VisitExpression)
 
     override this.VisitConditional(c, a, b) =
         let p = nextTailPos()

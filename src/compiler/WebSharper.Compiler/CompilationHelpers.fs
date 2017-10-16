@@ -1365,9 +1365,10 @@ let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
         | Application(func, [], p, Some _) ->
-            appl (Value Null :: args) func 
+            appl ((true, Value Null) :: args) func 
         | Application(func, [a], p, Some _) ->
-            appl (a :: args) func 
+            // TODO : what if a has type unit but has side effect?
+            appl ((false, a) :: args) func 
         | CurriedApplication(func, a) ->
             appl (a @ args) func
         | _ ->
@@ -1396,14 +1397,30 @@ type OptimizeLocalTupledFunc(var, tupling) =
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
         | _ -> base.TransformApplication(func, args, isPure, length)
 
-let curriedApplication func args =
+let applyUnitArg func a =
+    match IgnoreExprSourcePos a with
+    | Undefined | Value Null ->
+        Application (func, [], NonPure, Some 0)
+    | _ ->
+        // if argument expression is not trivial, it might have a side effect which should
+        // be ran before the application but after evaluating the function
+        let x = Id.New(mut = false)
+        Let (x, func, Sequential [a; Application (Var x, [], NonPure, Some 0)])
+
+let applyFSharpArg func (isUnit, a) =
+    if isUnit then
+        applyUnitArg func a
+    else
+        Application (func, [ a ], NonPure, Some 1)
+
+let curriedApplication func (args: (bool * Expression) list) =
     let func, args =
         match func with
         | CurriedApplicationSeparate (f, fa) -> f, fa @ args
         | _ -> func, args
-    match List.length args with
-    | 0 -> func
-    | 1 -> Application (func, args, NonPure, Some 1)
+    match args with
+    | [] -> func
+    | [ a ] -> applyFSharpArg func a
     | _ -> CurriedApplication(func, args)
 
 type OptimizeLocalCurriedFunc(var, currying) =
@@ -1420,8 +1437,8 @@ type OptimizeLocalCurriedFunc(var, currying) =
         | Var v when v = var ->
             if args.Length >= currying then
                 let cargs, moreArgs = args |> List.splitAt currying
-                let f = Application(func, cargs |> List.map this.TransformExpression, NonPure, Some currying)  
-                curriedApplication f (moreArgs |> List.map this.TransformExpression)
+                let f = Application(func, cargs |> List.map (fun (u, a) -> this.TransformExpression a), NonPure, Some currying)  
+                curriedApplication f (moreArgs |> List.map (fun (u, a) -> u, this.TransformExpression a))
             else
                 base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
