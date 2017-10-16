@@ -29,6 +29,7 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<IGrouping<_, _>>)>]
 type internal IGroupingProxy<'K, 'T> =
+    inherit seq<KeyValuePair<'K, 'T>>
     abstract Key : 'K
 
 [<JavaScript>]
