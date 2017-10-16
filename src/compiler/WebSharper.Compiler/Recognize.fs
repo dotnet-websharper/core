@@ -303,7 +303,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
             match trE a with
             | ItemGet (a, b, _) -> ItemGet (a, b, Pure)
             | trA -> trA
-        Application (trA, b |> List.map trE, env.Purity, None) 
+        Appl (trA, b |> List.map trE, env.Purity, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)

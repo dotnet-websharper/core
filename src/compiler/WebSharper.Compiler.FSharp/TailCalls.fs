@@ -98,7 +98,7 @@ type TailCallAnalyzer(env) =
     override this.VisitStatementSourcePos(_, st) =
         base.VisitStatement st
     
-    override this.VisitApplication(f, args, _, _) =
+    override this.VisitApplication(f, args, _) =
         match f with
         | I.Var f when hasInScope f 1 ->
             ()
@@ -269,7 +269,7 @@ type AddCapturing(vars : seq<Id>) =
                 if captured.Count > 0 then
                     let cVars = captured |> List.ofSeq
                     let cArgs = cVars |> List.map (fun v -> Id.New(?name = v.Name, mut = false))
-                    Application(
+                    Appl(
                         Function(cArgs, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
                         cVars |> List.map Var, NonPure, None) 
                 else f
@@ -370,13 +370,13 @@ type TailCallTransformer(env) =
                 yield StatementExpr (DoNotReturn, None)
         ]
 
-    override this.TransformApplication(f, args, p, l) =
+    override this.TransformApplication(f, args, info) =
         match f with
         | I.Var f when transforming.ContainsKey f ->
             let fArgs, origArgs, index = transforming.[f]
             this.Recurse(fArgs, origArgs, args, index)
         | _ ->
-            base.TransformApplication(f, args, p, l)
+            base.TransformApplication(f, args, info)
 
     override this.TransformCurriedApplication(f, args) =
         match f with
@@ -486,7 +486,7 @@ type TailCallTransformer(env) =
                     let recArgs = Value (Int i) :: List.map Var args
                     trBindings.Add(var, 
                         Function(args, 
-                            Return (Application (Var recFunc, recArgs, NonPure, Some (numArgs + 1)))))                    
+                            Return (Appl (Var recFunc, recArgs, NonPure, Some (numArgs + 1)))))                    
                     i <- i + 1
                 | Choice2Of2 value ->
                     trBindings.Add(var, value)

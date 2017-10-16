@@ -517,7 +517,7 @@ type RoslynTransformer(env: Environment) =
         }                
 
     let jsConcat expr args =
-        Application(ItemGet(expr, Value (String "concat"), Pure), args, Pure, None)
+        Appl(ItemGet(expr, Value (String "concat"), Pure), args, Pure, None)
 
     let queryCall (symbol: IMethodSymbol) args =
         let qtyp = sr.ReadNamedType symbol.ContainingType
@@ -664,7 +664,7 @@ type RoslynTransformer(env: Environment) =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if isNull symbol then
             // for dynamic
-            Application(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, NonPure, None)
+            Appl(x.Expression |> this.TransformExpression, x.ArgumentList |> this.TransformArgumentList |> List.map snd, NonPure, None)
         else
         let eSymbol, isExtensionMethod =
             match symbol.ReducedFrom with
@@ -688,7 +688,7 @@ type RoslynTransformer(env: Environment) =
 
         if symbol.MethodKind = MethodKind.LocalFunction then
             let f = env.GetLocalFunctionId(symbol)
-            Application(Var f, args, NonPure, Some args.Length)
+            Appl(Var f, args, NonPure, Some args.Length)
         elif isExtensionMethod || symbol.IsStatic then
             Call(None, typ, meth, args)
         else        
@@ -749,7 +749,7 @@ type RoslynTransformer(env: Environment) =
                         Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                     | _ ->
                         MakeRef e (fun value -> FieldSet(None, t, f, value))  
-                | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+                | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                     r
                 | Call (thisOpt, typ, getter, args) ->
                     MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
@@ -1121,7 +1121,7 @@ type RoslynTransformer(env: Environment) =
             | Var id -> VarSet(id, right)
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
             | ItemGet(obj, i, _) -> ItemSet (obj, i, right)
-            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
@@ -1186,7 +1186,7 @@ type RoslynTransformer(env: Environment) =
                 let j = Id.New ()
                 let leftWithM = ItemGet (Var m, Var j, NoSideEffect)
                 Let (m, obj, Let (j, i, ItemSet(Var m, Var j, Call(None, opTyp, operator, [leftWithM; right]))))
-            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv ->
@@ -1580,7 +1580,7 @@ type RoslynTransformer(env: Environment) =
                     Let (ov, o, FieldSet(Some (Var ov), t, f, rv))
             | _ ->
                 withResultValue false operand <| fun rv -> FieldSet(None, t, f, rv)
-        | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+        | Application(ItemGet (r, Value (String "get"), _), [], _) ->
             withResultValue true operand <| SetRef r
         | Call (thisOpt, typ, getter, args) ->
             withResultValue true operand <| fun rv ->

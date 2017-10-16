@@ -256,7 +256,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | UInt64 v -> J.Number (string v)
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
         |> J.Constant
-    | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
+    | Application (e, ps, _) -> J.Application (trE e, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 
         let jpos =

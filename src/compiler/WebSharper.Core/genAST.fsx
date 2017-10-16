@@ -84,6 +84,7 @@ let Bool = Object "bool"
 let TSType = Object "TSType"
 let VarKind = Object "VarKind"
 let Modifiers = Object "Modifiers"
+let ApplicationInfo = Object "ApplicationInfo"
 
 let ExprDefs = 
     [
@@ -97,7 +98,7 @@ let ExprDefs =
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
-        "Application", [ Expr, "func" ; List Expr, "arguments"; Purity, "pure"; Option Int, "knownLength" ]
+        "Application", [ Expr, "func" ; List Expr, "arguments"; ApplicationInfo, "info" ]
             , "Function application with extra information. \
                The `pure` field should be true only when the function called has no side effects, so the side effects of \
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
@@ -337,7 +338,7 @@ let code =
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
             cprintfn "    member a.Item b = ItemGet (a, b, NonPure)"
-            cprintfn "    member a.Item b = Application (a, b, NonPure, None)"
+            cprintfn "    member a.Item b = Application (a, b, ApplicationInfo.None)"
 
     let ExprAndStatementDefs =
         seq {
@@ -511,6 +512,8 @@ let code =
 
     cprintfn "module Debug =" 
     cprintfn "    let private PrintObject x = sprintf \"%%A\" x" 
+    cprintfn "    let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
+    cprintfn "    let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
     for isExrps, tl in [ true, ExprDefs; false, StatementDefs ] do
         if isExrps then 
             cprintfn "    let rec PrintExpression x =" 
@@ -541,8 +544,8 @@ let code =
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
                 | List (Tuple [Id; Object _]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m)) + \"]\""
                 | Object "TypeDefinition" -> x + ".Value.FullName"
-                | Object "Concrete<TypeDefinition>" -> x + ".Entity.Value.FullName"
-                | Object "Concrete<Method>" -> x + ".Entity.Value.MethodName"
+                | Object "Concrete<TypeDefinition>" -> "PrintTypeDefinition " + x
+                | Object "Concrete<Method>" -> "PrintMethod " + x
                 | Object "Constructor" -> "\".ctor\""
                 | Object "Literal" -> "PrintObject " + x + ".Value"
                 | Object _ -> "PrintObject " + x

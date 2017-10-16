@@ -565,7 +565,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                         | _ -> b
                     let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Application (b, allVars |> List.map Var, NonPure, None))
+                    makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
                 else
                     Function(args, parsed.Body)
 

@@ -535,10 +535,10 @@ type Compilation(meta: Info, ?hasGraph) =
         match classes.TryFind typ with
         | Some cls ->
             match cls.Methods.TryFind meth with
-            | Some m -> Compiled m
+            | Some (mem, opts, gc, e) -> Compiled (mem, opts, cls.Generics @ gc, e)
             | _ -> 
                 match compilingMethods.TryFind (typ, meth) with
-                | Some m -> Compiling m
+                | Some (mem, gc, e) -> Compiling (mem, cls.Generics @ gc, e)
                 | _ -> 
                     if not (List.isEmpty cls.Macros) then
                         let info =
@@ -636,10 +636,10 @@ type Compilation(meta: Info, ?hasGraph) =
         match classes.TryFind typ with
         | Some cls ->
             match cls.Constructors.TryFind ctor with
-            | Some (m, o, e) -> Compiled (m, o, [], e)
+            | Some (m, o, e) -> Compiled (m, o, cls.Generics, e)
             | _ -> 
                 match compilingConstructors.TryFind (typ, ctor) with
-                | Some  (m, e) -> Compiling (m, [], e)
+                | Some  (m, e) -> Compiling (m,  cls.Generics, e)
                 | _ -> 
                     if not (List.isEmpty cls.Macros) then
                         let info =
@@ -687,8 +687,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CompilingMethods = compilingMethods  
 
-    member this.AddCompiledMethod(typ, meth, info, opts, gc, comp) =
+    member this.AddCompiledMethod(typ, meth, info, opts, comp) =
         let typ = this.FindProxied typ 
+        let _, gc, _ = compilingMethods.[typ, meth]
         compilingMethods.Remove(typ, meth) |> ignore
         let cls = classes.[typ]
         match cls.Methods.TryFind meth with

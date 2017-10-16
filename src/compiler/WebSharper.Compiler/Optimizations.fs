@@ -42,12 +42,12 @@ let (|Global|_|) e =
     
 let (|AppItem|_|) e =
     match e with
-    | Application (ItemGet (obj, Value (String item), _), args, _, _) -> Some (obj, item, args)
+    | Application (ItemGet (obj, Value (String item), _), args, _) -> Some (obj, item, args)
     | _ -> None
 
 let (|AppRuntime|_|) e =
     match e with
-    | Application (Runtime rtFunc, args, _, _) -> Some (rtFunc, args)
+    | Application (Runtime rtFunc, args, _) -> Some (rtFunc, args)
     | _ -> None
 
 let (|GetPrototypeConstuctor|_|) e =
@@ -56,7 +56,7 @@ let (|GetPrototypeConstuctor|_|) e =
     | _ -> None
 
 let AppItem (obj, item, args) =
-    Application(ItemGet(obj, Value (String item), Pure), args, NonPure, None)
+    ApplAny(ItemGet(obj, Value (String item), Pure), args)
 
 let func vars body isReturn =
     if isReturn then Lambda(vars, body) else Function(vars, ExprStatement body)
@@ -69,16 +69,16 @@ let globalArray = Address.Lib "Array"
 let cleanRuntime force expr =
 //    let tr = Transform clean
     match expr with
-    | Application (Global "id", [ x ], _, _) -> 
+    | Application (Global "id", [ x ], _) -> 
         x
-    | Application (Global "ignore", [ x ], _, _) -> 
+    | Application (Global "ignore", [ x ], _) -> 
         Unary(UnaryOperator.``void``, x)
-    | Application (AppRuntime ("Bind", [f; obj]), args, _, _) -> 
+    | Application (AppRuntime ("Bind", [f; obj]), args, _) -> 
         AppItem(f, "call", obj :: args)
-    | Application(Application(AppRuntime("Curried2", [ f ]), [ a ], _, _), [ b ], isPure, _) ->
-        Application(f, [ a; b ], isPure, Some 2)
-    | Application(Application(Application(AppRuntime("Curried3", [ f ]), [ a ], _, _), [ b ], _, _), [ c ], isPure, _) ->
-        Application(f, [ a; b; c ], isPure, Some 3)
+    | Application(Application(AppRuntime("Curried2", [ f ]), [ a ], _), [ b ], info) ->
+        Application(f, [ a; b ], { info with KnownLength = Some 2 })
+    | Application(Application(Application(AppRuntime("Curried3", [ f ]), [ a ], _), [ b ], _), [ c ], info) ->
+        Application(f, [ a; b; c ], { info with KnownLength = Some 3 })
 
     | AppItem(NewArray arr, "concat", [ NewArray rest ]) ->
         NewArray (arr @ rest)    
@@ -89,18 +89,18 @@ let cleanRuntime force expr =
         
         //used by functions with rest argument
         | "Apply", [GlobalAccess mf; Value Null ] ->
-            Application (GlobalAccess mf, [], NonPure, None)
+            ApplAny (GlobalAccess mf, [])
         | "Apply", [GlobalAccess mf; Value Null; NewArray arr ] ->
-            Application (GlobalAccess mf, arr, NonPure, None)
+            ApplAny (GlobalAccess mf, arr)
         | "Apply", [GlobalAccess mf; Value Null; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] ->
-            Application (GlobalAccess mf, arr @ rest, NonPure, None)
+            ApplAny (GlobalAccess mf, arr @ rest)
 
         | "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
-            Application (GlobalAccess mf, [], NonPure, None)
+            ApplAny (GlobalAccess mf, [])
         | "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
-            Application (GlobalAccess mf, arr, NonPure, None)
+            ApplAny (GlobalAccess mf, arr)
         | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Module = m.Module && mf.Address.Value = m.Address.Value ->
-            Application (GlobalAccess mf, arr @ rest, NonPure, None)
+            ApplAny (GlobalAccess mf, arr @ rest)
         
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->
             if m1 = globalArray then NewArray []
@@ -112,9 +112,9 @@ let cleanRuntime force expr =
             if m1 = globalArray then NewArray (arr @ rest)
             else New(GlobalAccess m1, arr @ rest)
 
-        | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], isPure, _); ignoredObj; NewArray args ] 
+        | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], info); ignoredObj; NewArray args ] 
             when args.Length = l && isPureExpr ignoredObj ->
-                Application(f, args, isPure, Some l)
+                Application(f, args, { info with KnownLength = Some l })
         | "Apply", [f; obj; args] when force ->
             AppItem(f, "apply", [ obj; args ])
         | "Apply", [f; obj] when force ->
@@ -209,7 +209,7 @@ let cleanRuntime force expr =
         let transformIfAlwaysInterop rtFunc getJsFunc =
             let (|WithInterop|_|) e =
                 match e with
-                | Application (Runtime f, [ Var v ], _, _) when f = rtFunc && v = var -> Some ()
+                | Application (Runtime f, [ Var v ], _) when f = rtFunc && v = var -> Some ()
                 | _ -> None
             let rec isWithInterop e =
                 match e with

@@ -58,7 +58,7 @@ let rec removePureParts expr =
         -> a |> List.map (snd >> removePureParts) |> CombineExpressions
     | LetRec (a, b) 
         -> LetRec (a, removePureParts b)
-    | Application(a, b, (NoSideEffect | Pure), _) ->
+    | Application(a, b, { Purity = NoSideEffect | Pure }) ->
         CombineExpressions ((a :: b) |> List.map removePureParts)
     | _ -> expr
 
@@ -92,7 +92,7 @@ let rec isPureExpr expr =
         -> List.forall (snd >> isPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isPureExpr) a && isPureExpr b
-    | Application(a, b, (NoSideEffect | Pure), _) ->
+    | Application(a, b, { Purity = NoSideEffect | Pure }) ->
         isPureExpr a && List.forall isPureExpr b    
     | _ -> false
 
@@ -153,7 +153,7 @@ let rec isStronglyPureExpr expr =
         -> List.forall (snd >> isStronglyPureExpr) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
-    | Application(a, b, Pure, _) ->
+    | Application(a, b, { Purity = Pure }) ->
         isStronglyPureExpr a && List.forall isStronglyPureExpr b    
     | _ -> false
 
@@ -337,10 +337,10 @@ let varEvalOrder (vars : Id list) expr =
                 eval a
                 eval c
                 stop()                 
-            | Application(a, b, c, _) ->
+            | Application(a, b, c) ->
                 eval a
                 List.iter eval b
-                if c = NonPure then stop()
+                if c.Purity = NonPure then stop()
             | New(a, b) ->
                 eval a
                 List.iter eval b
@@ -513,12 +513,12 @@ type Substitution(args, ?thisObj) =
 type TransformBaseCall(f) =
     inherit Transformer()
 
-    override this.TransformApplication(a, b, c, d) =
+    override this.TransformApplication(a, b, c) =
         match a with
         | Base ->
             f b
         | _ ->
-            base.TransformApplication(a, b, c, d)
+            base.TransformApplication(a, b, c)
    
 type FixThisScope() =
     inherit Transformer()
@@ -606,8 +606,8 @@ let makeExprInline (vars: Id list) expr =
 let CurrentGlobal a = GlobalAccess { Module = CurrentModule; Address = Hashed (List.rev a) }
 
 module JSRuntime =
-    let private runtimeFunc f p args = Application(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
-    let private runtimeFuncI f p i args = Application(GlobalAccess (Address.Runtime f), args, p, Some i)
+    let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
+    let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
     let Create obj props = runtimeFunc "Create" Pure [obj; props]
     let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
@@ -1092,8 +1092,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Application (Function ([], Return res), [], NonPure, None)
-            | Some c -> Application (Function ([c], Return res), [Var var.Value], NonPure, None)        
+            | None -> Appl (Function ([], Return res), [], NonPure, None)
+            | Some c -> Appl (Function ([c], Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -1225,7 +1225,7 @@ let callArraySlice =
     (Global ["Array"]).[Value (String "prototype")].[Value (String "slice")].[Value (String "call")]   
 
 let sliceFromArguments slice =
-    Application (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], Pure, None)
+    Appl (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], Pure, None)
 
 let (|Lambda|_|) e = 
     match e with
@@ -1364,9 +1364,9 @@ let (|CurriedFunction|_|) expr =
 let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
         match expr with
-        | Application(func, [], p, Some _) ->
+        | Application(func, [], { Purity = p; KnownLength = Some _ }) ->
             appl ((true, Value Null) :: args) func 
-        | Application(func, [a], p, Some _) ->
+        | Application(func, [a], { Purity = p; KnownLength = Some _ }) ->
             // TODO : what if a has type unit but has side effect?
             appl ((false, a) :: args) func 
         | CurriedApplication(func, a) ->
@@ -1383,35 +1383,35 @@ type OptimizeLocalTupledFunc(var, tupling) =
     override this.TransformVar(v) =
         if v = var then
             let t = Id.New(mut = false)
-            Lambda([t], Application(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
+            Lambda([t], Appl(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
         else Var v  
 
-    override this.TransformApplication(func, args, isPure, length) =
+    override this.TransformApplication(func, args, info) =
         match func with
         | I.Var v when v = var ->                    
             match args with
             | [ INewArray ts ] when ts.Length = tupling ->
-                Application (func, ts |> List.map this.TransformExpression, isPure, Some tupling)
+                Application (func, ts |> List.map this.TransformExpression, { info with KnownLength = Some tupling })
             | [ t ] ->
-                Application((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], isPure, None)               
+                Application ((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], { info with KnownLength = None })               
             | _ -> failwith "unexpected tupled FSharpFunc applied with multiple arguments"
-        | _ -> base.TransformApplication(func, args, isPure, length)
+        | _ -> base.TransformApplication(func, args, info)
 
 let applyUnitArg func a =
     match IgnoreExprSourcePos a with
     | Undefined | Value Null ->
-        Application (func, [], NonPure, Some 0)
+        Appl (func, [], NonPure, Some 0)
     | _ ->
         // if argument expression is not trivial, it might have a side effect which should
         // be ran before the application but after evaluating the function
         let x = Id.New(mut = false)
-        Let (x, func, Sequential [a; Application (Var x, [], NonPure, Some 0)])
+        Let (x, func, Sequential [a; Appl (Var x, [], NonPure, Some 0)])
 
 let applyFSharpArg func (isUnit, a) =
     if isUnit then
         applyUnitArg func a
     else
-        Application (func, [ a ], NonPure, Some 1)
+        Appl (func, [ a ], NonPure, Some 1)
 
 let curriedApplication func (args: (bool * Expression) list) =
     let func, args =
@@ -1429,7 +1429,7 @@ type OptimizeLocalCurriedFunc(var, currying) =
     override this.TransformVar(v) =
         if v = var then
             let ids = List.init currying (fun _ -> Id.New(mut = false))
-            CurriedLambda(ids, Application(Var v, ids |> List.map Var, NonPure, Some currying))    
+            CurriedLambda(ids, Appl(Var v, ids |> List.map Var, NonPure, Some currying))    
         else Var v  
 
     override this.TransformCurriedApplication(func, args) =
@@ -1437,7 +1437,7 @@ type OptimizeLocalCurriedFunc(var, currying) =
         | Var v when v = var ->
             if args.Length >= currying then
                 let cargs, moreArgs = args |> List.splitAt currying
-                let f = Application(func, cargs |> List.map (fun (u, a) -> this.TransformExpression a), NonPure, Some currying)  
+                let f = Appl(func, cargs |> List.map (fun (u, a) -> this.TransformExpression a), NonPure, Some currying)  
                 curriedApplication f (moreArgs |> List.map (fun (u, a) -> u, this.TransformExpression a))
             else
                 base.TransformCurriedApplication(func, args)             

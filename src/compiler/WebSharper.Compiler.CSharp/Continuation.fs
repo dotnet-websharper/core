@@ -511,7 +511,7 @@ type AsyncTransformer(labels, returns) =
                 yield VarDeclaration(v, Undefined)
             yield! this.LocalFunctions
             yield ExprStatement <| VarSet(run, Function ([], inner))
-            yield ExprStatement <| Application (Var run, [], NonPure, Some 0)
+            yield ExprStatement <| Appl (Var run, [], NonPure, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)
         ]

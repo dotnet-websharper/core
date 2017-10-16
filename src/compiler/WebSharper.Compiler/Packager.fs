@@ -555,7 +555,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 if body <> Undefined then
                     match body with
                     | Function ([], I.Empty) 
-                    | Function ([], I.ExprStatement(I.Application(I.Base, [], _, _))) -> 
+                    | Function ([], I.ExprStatement(I.Application(I.Base, [], _))) -> 
                         ()
                     | Function (args, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args

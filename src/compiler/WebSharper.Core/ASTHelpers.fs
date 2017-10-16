@@ -173,11 +173,11 @@ let MakeRef getVal setVal =
 
 /// Gets the value from a by-address value proxy
 let GetRef r =
-    Application(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
+    Appl(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
 
 /// Sets the value of a by-address value proxy
 let SetRef r v =
-    Application(ItemGet (r, Value (String "set"), Pure), [v], NonPure, Some 1)
+    Appl(ItemGet (r, Value (String "set"), Pure), [v], NonPure, Some 1)
 
 /// recognizes .NET names for binary operators
 let (|BinaryOpName|_|) = function
@@ -267,7 +267,7 @@ let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|N
     else NonNumericType
 
 let MathTrunc expr =
-    Application(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
+    Appl(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
 
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     match fromTyp.Value.FullName, toTyp.Value.FullName with
@@ -282,13 +282,13 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | ScalarType, BigIntegralType
         -> MathTrunc expr
     | (SmallIntegralType | BigIntegralType | ScalarType), CharType
-        -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+        -> Appl(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
-        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [ Value (Int 0) ], Pure, None) 
+        -> Appl(ItemGet(expr, Value (String "charCodeAt"), Pure), [ Value (Int 0) ], Pure, None) 
     | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
-        -> Application(Global ["String"], [expr], Pure, Some 1)
+        -> Appl(Global ["String"], [expr], Pure, Some 1)
     | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
-        -> Application(Global ["Number"], [expr], Pure, Some 1)
+        -> Appl(Global ["Number"], [expr], Pure, Some 1)
     | _ -> expr
 
 /// Change every occurence of one Id to another

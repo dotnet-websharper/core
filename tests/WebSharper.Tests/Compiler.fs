@@ -64,19 +64,19 @@ module Server =
         async.Return [|
             
             testWithMatch <@ Optimizations.TupledArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.TupledArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CurriedArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
@@ -84,11 +84,11 @@ module Server =
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues() @> <| function
-            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], NonPure, None) )) -> true
+            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues2() @> <| function
-            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], NonPure, None) )) -> true
+            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues3() @> <| function

@@ -120,7 +120,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                     [i]
             Lambda(lArg, (tr body))
         | Patterns.Application(func, arg) ->
-            Application(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
+            Appl(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
             let i = Id.New(id.Name, id.IsMutable)
             env.AddVar(i, id, if id.Type.IsByRef then ByRefArg else LocalVar)

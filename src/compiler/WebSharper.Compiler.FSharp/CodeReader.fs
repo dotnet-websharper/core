@@ -168,12 +168,12 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
                     | [msg; inner] -> [msg], Some inner 
                     | _ -> failwith "Too many arguments for Error"
                 Sequential [
-                    yield Application (Base, args, NonPure, None)
+                    yield Appl (Base, args, NonPure, None)
                     match inner with
                     | Some i ->
                         yield ItemSet(thisExpr, Value (String "inner"), i)
                     | None -> ()
-                    yield Application(
+                    yield Appl(
                         ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
                         , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
                     //Object.setPrototypeOf(this, FooError.prototype);
@@ -668,7 +668,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         let ta = tr a
                         if isByRef a.Type then
                             match IgnoreExprSourcePos ta with
-                            | Application(ItemGet (r, Value (String "get"), _), [], _, _) -> r
+                            | Application(ItemGet (r, Value (String "get"), _), [], _) -> r
                             | _ -> ta
                         else ta |> removeListOfArray a.Type
                     )
@@ -994,7 +994,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
                 | _ ->
                     MakeRef e (fun value -> FieldSet(None, t, f, value))  
-            | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+            | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 r   
             | Call(None, td, m, []) ->
                 let me = m.Entity.Value

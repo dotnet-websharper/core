@@ -137,7 +137,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         | f -> this.VisitExpression f
         args |> List.iter (snd >> this.VisitExpression)            
 
-    override this.VisitApplication(f, args, _, _) =
+    override this.VisitApplication(f, args, _) =
         match IgnoreExprSourcePos f with
         | ArgIndex i ->
             if appl.[i] = 1 then
@@ -179,7 +179,7 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             match cargs.TryGetValue f with
             | true, CurriedFuncArg a ->
                 let ucArgs, restArgs = args |> List.map (fun (u, a) -> u, this.TransformExpression a) |> List.splitAt a
-                let inner = Application(Var f, ucArgs |> List.map snd, NonPure, Some a)
+                let inner = Appl(Var f, ucArgs |> List.map snd, NonPure, Some a)
                 curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
@@ -190,16 +190,16 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             | _ -> base.TransformCurriedApplication(func, args)
         | _ -> base.TransformCurriedApplication(func, args)
 
-    override this.TransformApplication(func, args, p, l) =
+    override this.TransformApplication(func, args, info) =
         let normal() =
-            Application(this.TransformExpression func, List.map this.TransformExpression args, p, l)
+            Application(this.TransformExpression func, List.map this.TransformExpression args, info)
         match func with
         | I.Var f ->
             match cargs.TryGetValue f with
             | true, TupledFuncArg a ->
                 match args with
                 | [ INewArray es ] ->
-                    Application(Var f, List.map this.TransformExpression es, p, Some (List.length es))
+                    Application(Var f, List.map this.TransformExpression es, { info with KnownLength = Some (List.length es) })
                 | _ ->
                     failwith "tupled function not applied with a known tuple"    
             | _ -> normal()    
