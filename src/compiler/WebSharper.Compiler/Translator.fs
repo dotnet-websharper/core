@@ -256,6 +256,13 @@ type GenericInlineResolver (generics) =
             typ |> subs
         )
 
+    override this.TransformCoerce(expr, fromTyp, toTyp) =
+        Coerce (
+            expr |> this.TransformExpression,
+            fromTyp |> subs, 
+            toTyp |> subs
+        )
+
 let private objTy = NonGenericType Definitions.Obj
 
 let rpcMethodNode name ret =
@@ -1676,18 +1683,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
         let trExpr = this.TransformExpression(expr)
-        trExpr
-        //let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
-        //let t = comp.TypeTranslator.TSTypeOf [||] toTyp
-        //match f, t with
-        //| _ when f = t -> trExpr
-        //| TSType.Any, _ -> trExpr
-        //| _ ->
-        //if currentIsInline then
-        //    hasDelayedTransform <- true
-        //    Coerce(trExpr, fromTyp, toTyp)
-        //else
-        //    Cast(t, trExpr) 
+        let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
+        let t = comp.TypeTranslator.TSTypeOf [||] toTyp
+        match f, t with
+        | _ when f = t -> trExpr
+        | TSType.Any, _ -> trExpr
+        | _ ->
+        if currentIsInline then
+            hasDelayedTransform <- true
+            Coerce(trExpr, fromTyp, toTyp)
+        else
+            Cast(t, trExpr) 
 
     override this.TransformTypeCheck(expr, typ) =
         match typ with
