@@ -28,36 +28,51 @@ module private WebSharper.LazyExtensionsProxy
 open WebSharper.JavaScript
 
 [<JavaScript; Prototype false>]
-type LazyRecord<'T> =
-    {
-        [<Name "c">] mutable created : bool
-        [<Name "v">] mutable evalOrVal : obj
-        [<Name "f">] mutable force : unit -> 'T
-    }
+[<Proxy(typeof<System.Lazy<_>>)>]
+[<Name "WebSharper.Lazy">]
+type LazyProxy<'T> =
+    [<Name "c">] val mutable public created : bool
+    [<Name "v">] val mutable public evalOrVal : obj
+    [<Name "f">] val mutable public force : unit -> 'T
 
-let cachedLazy<'T> () =
-    JS.This.evalOrVal
+    new (f: System.Func<'T>) =
+        {
+            created = false
+            evalOrVal = f.Invoke
+            force = LazyProxy<'T>.forceLazy
+        }
 
-let forceLazy<'T> () =
-    let v = (As JS.This.evalOrVal)()
-    JS.This.created <- true
-    JS.This.evalOrVal <- v
-    JS.This.force <- As cachedLazy
-    v
+    new (v: 'T) =
+        {
+            created = true
+            evalOrVal = v
+            force = LazyProxy<'T>.cachedLazy
+        }
 
-let Create (f: unit -> 'T) : Lazy<'T> =
-    As {
-        created = false
-        evalOrVal = f
-        force = As forceLazy
-    }
+    static member forceLazy () =
+        let v = (As JS.This<LazyProxy<'T>>.evalOrVal)()
+        JS.This<LazyProxy<'T>>.created <- true
+        JS.This<LazyProxy<'T>>.evalOrVal <- v
+        JS.This<LazyProxy<'T>>.force <- As LazyProxy<'T>.cachedLazy
+        v
 
-let CreateFromValue (v: 'T) : Lazy<'T> =
-    As {
-        created = true
-        evalOrVal = v
-        force = As cachedLazy
-    }
+    static member cachedLazy () =
+        As JS.This<LazyProxy<'T>>.evalOrVal
 
-let Force (x: Lazy<'T>) : 'T =
-    As<LazyRecord<'T>>(x).force()
+    member this.IsValueCreated
+        with [<Inline>] get () = this.created
+
+    member this.Value
+        with [<Inline>] get () = this.force()
+
+[<Inline>]
+let Create (f: unit -> 'T) =
+    new LazyProxy<'T>(f)
+
+[<Inline>]
+let CreateFromValue (v: 'T) =
+    new LazyProxy<'T>(v)
+
+[<Inline>]
+let Force (x: LazyProxy<'T>) : 'T =
+    x.force()
