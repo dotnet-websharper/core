@@ -277,6 +277,12 @@ module Server =
         async { return (d, a) }
 
     [<Remote>]
+    let f24 (a: System.Collections.Generic.Stack<string>) =
+        let d = a.Pop()
+        a.Push("test")
+        async { return (d, a) }
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -495,6 +501,16 @@ module Remoting =
                 let! x, q = Queue [ "Hello"; "world" ] |> Server.f23
                 equal x "Hello"
                 equal (q.ToArray()) [| "world"; "test" |]
+            }
+
+            Test "Stack" {
+                let s = Stack()
+                s.Push("Hello")
+                s.Push("world")
+                let! x, s2 = Server.f24 s
+                equal x "world"
+                equal (s2.Pop()) "test"
+                equal (s2.Pop()) "Hello"
             }
 
             // currently failing

@@ -143,6 +143,7 @@ module Json =
         | [<Json "x">] DateTime of x: System.DateTime
         | [<Json "x">] ResizeArray of x: ResizeArray<int>
         | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
+        | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
 
     let Content = function
         | Int x -> Content.Json x
@@ -167,3 +168,4 @@ module Json =
         | DateTime x -> Content.Json x
         | ResizeArray x -> Content.Json x
         | Queue x -> Content.Json x
+        | Stack x -> Content.Json x

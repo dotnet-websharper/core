@@ -397,6 +397,16 @@ module ClientSideJson =
                 equal (Json.Deserialize "[87,9,124]") (Queue [87;9;124])
             }
 
+            Test "serialize Stack" {
+                equal (Json.Serialize (Stack<int>())) "[]"
+                equal (Json.Serialize (Stack [3; 0; 423])) "[423,0,3]"
+            }
+
+            Test "deserialize Stack" {
+                equal (Json.Deserialize "[]") (Stack<int>())
+                equal (Json.Deserialize "[87,9,124]") (Stack [124;9;87])
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
@@ -559,5 +569,12 @@ module ClientSideJson =
                     echo "Queue" (Json.Serialize r) Json.Decode<Queue<int>>
                 equalAsync (f (Queue())) (Queue())
                 equalAsync (f (Queue [34; 5; 58])) (Queue [34; 5; 58])
+            }
+
+            Test "Stack" {
+                let f (r: Stack<int>) =
+                    echo "Stack" (Json.Serialize r) Json.Decode<Stack<int>>
+                equalAsync (f (Stack())) (Stack())
+                equalAsync (f (Stack [34; 5; 58])) (Stack [34; 5; 58])
             }
         }
