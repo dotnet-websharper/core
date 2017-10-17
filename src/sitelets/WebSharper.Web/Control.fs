@@ -194,8 +194,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the assembly needs to be compiled with WsFsc.exe" 
                         (getLocation()) declType.Value.FullName meth.Value.MethodName
                 match meta.Classes.TryFind declType with
-                | None -> fail()
-                | Some cls ->
+                | Some (_, _, Some cls) ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _, _) ->
                         funcName <- Array.ofList (List.rev a.Address.Value)
@@ -203,6 +202,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                         failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                             (getLocation()) declType.Value.FullName meth.Value.MethodName
                     | None -> fail()
+                | _ -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =
@@ -290,8 +290,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include Zafir.CSharp.targets" 
                         declType.Value.FullName meth.Value.MethodName
                 match meta.Classes.TryFind declType with
-                | None -> fail()
-                | Some cls ->
+                | Some (_, _, Some cls) ->
                     match cls.Methods.TryFind meth with
                     | Some (M.Static a, _, _, _) ->
                         funcName <- Array.ofList (List.rev a.Address.Value)
@@ -299,6 +298,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                         failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
                             declType.Value.FullName meth.Value.MethodName
                     | None -> fail()
+                | _ -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires =

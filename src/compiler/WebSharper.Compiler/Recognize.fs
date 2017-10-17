@@ -63,12 +63,12 @@ let GetMutableExternals (meta: M.Info) =
         match typ with
         | ConcreteType ct ->
             match meta.Classes.TryGetValue ct.Entity with
-            | true, fcls ->
+            | true, (_, _, Some fcls) ->
                 a.JSAddress |> Option.iter (registerInstanceAddresses fcls)
             | _ -> ()
         | _ -> ()
     
-    for KeyValue(_, cls) in meta.Classes do
+    for cls in meta.ClassInfos do
         for fi, readOnly, ftyp in cls.Fields.Values do
             match fi with
             | M.StaticField a ->

@@ -250,12 +250,12 @@ type ResolveFuncArgs(comp: Compilation) =
     member this.GetCompiled(mem, i) =
         match mem with
         | Method(typ, meth) ->
-            comp.TryLookupClassInfo(typ) |> Option.map (fun cls -> 
+            comp.TryLookupClassInfo(typ) |> Option.map (fun (_, cls) -> 
                 let (m, o, _, e) = cls.Methods.[meth]
                 (m, o, e)
             )
         | Constructor(typ, ctor) ->
-            comp.TryLookupClassInfo(typ) |> Option.map (fun cls -> cls.Constructors.[ctor])
+            comp.TryLookupClassInfo(typ) |> Option.map (fun (_, cls) -> cls.Constructors.[ctor])
         |> Option.bind (fun (_, opts, _) ->
             opts.FuncArgs |> Option.map (fun ca -> ca.[i])
         )

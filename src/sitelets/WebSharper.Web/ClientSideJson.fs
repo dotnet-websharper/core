@@ -411,7 +411,7 @@ module Macro =
                         | Some cls -> 
                             addTypeDep td 
                             if cls.HasWSPrototype then
-                                GlobalAccess cls.Address.Value
+                                GlobalAccess cls.Address
                             else Undefined
                         | _ -> Undefined
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
@@ -507,7 +507,7 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address.Value
+                                    GlobalAccess cls.Address
                                 else
                                     Undefined
                             | _ -> Undefined
@@ -593,7 +593,7 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td 
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address.Value
+                                    GlobalAccess cls.Address
                                 else Undefined
                             | _ -> Undefined
                         if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->

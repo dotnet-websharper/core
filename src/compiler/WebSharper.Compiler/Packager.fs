@@ -253,7 +253,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             failwithf "Static constructor must be a function"
             
     let classes = Dictionary(current.Classes)
-    let customTypes = Dictionary(current.CustomTypes)
 
     let rec withoutMacros info =
         match info with
@@ -275,15 +274,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | ImportedModule v -> TSType.Imported(v, t)
 
     let lookupType (t: TypeDefinition) =
-        match t.Value.FullName with
-        | _ ->
-        let cls =
-            match refMeta.Classes.TryFind t with
-            | Some _ as res -> res
-            | _ -> current.Classes.TryFind t
-        match cls with
-        | Some c -> TypeTranslator.Class c
-        | _ -> 
         let intf = 
             match refMeta.Interfaces.TryFind t with
             | Some _ as res -> res
@@ -291,12 +281,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match intf with
         | Some i -> TypeTranslator.Interface i
         | _ ->
-        let cust = 
-            match refMeta.CustomTypes.TryFind t with
+        let cls =
+            match refMeta.Classes.TryFind t with
             | Some _ as res -> res
-            | _ -> current.CustomTypes.TryFind t
-        match cust with
-        | Some c -> TypeTranslator.CustomType c
+            | _ -> current.Classes.TryFind t
+        match cls with
+        | Some (a, ct, c) -> TypeTranslator.Class (a, ct, c)
         | _ -> TypeTranslator.Unknown
     
     let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
@@ -415,27 +405,24 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let generics = List.init numGenerics TSType.Param
         packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, generics)
 
-    let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
+    let rec packageClass (t: TypeDefinition) (classAddress: Address) (ct: CustomTypeInfo) (c: M.ClassInfo) =
         if Option.isSome c.Type && t.Value.FullName <> "System.Object" then () else
-
-        let classAddress = 
-            if c.HasWSPrototype then c.Address else None
 
         match c.BaseClass with
         | Some { Entity = b } ->
             match classes.TryFind b with
-            | Some bc ->
+            | Some (a, ct, Some bc) ->
                 classes.Remove b |> ignore
-                packageClass b bc
+                packageClass b a ct bc
             | _ -> ()
         | _ -> ()
 
         let members = ResizeArray<Statement>()
         
         let smem (a: Address) inClass inNamespace =
-            match classAddress with
-            | Some ca when a.Address.Value.Tail = ca.Address.Value.Tail ->
-                members.Add (inClass a.Address.Value.Head)     
+            match classAddress.Address.Value, a.Address.Value with
+            | _::catl, ahd::atl when catl = atl ->
+                members.Add (inClass ahd)
             | _ -> addStatic a (inNamespace())
 
         let gsArr = Array.ofList c.Generics
@@ -591,49 +578,41 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     (fun () -> body, signature |> addGenerics cgen)
             | _ -> ()
 
-        match classAddress with 
-        | None -> ()
-        | Some addr ->
-            let baseType = 
-                match c.BaseClass with
-                | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Named [ "WebSharper"; "Obj" ]) 
-                | Some b -> Some (tsTypeOfConcrete gsArr b)
-                | None -> None
-            if indexedCtors.Count > 0 then
-                let index = Id.New("i", mut = false)
-                let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
-                let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
-                let cBody =
-                    Switch(Var index, 
-                        indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
-                            Some (Value (Int i)), 
-                            CombineStatements [
-                                ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
-                                Break None
-                            ]
-                        ) |> List.ofSeq
-                    )
-                let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-                members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
+        let baseType = 
+            match c.BaseClass with
+            | Some b when b.Entity.Value.FullName = "System.Object" -> Some (TSType.Named [ "WebSharper"; "Obj" ]) 
+            | Some b -> Some (tsTypeOfConcrete gsArr b)
+            | None -> None
+        if indexedCtors.Count > 0 then
+            let index = Id.New("i", mut = false)
+            let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
+            let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
+            let cBody =
+                Switch(Var index, 
+                    indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
+                        Some (Value (Int i)), 
+                        CombineStatements [
+                            ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
+                            Break None
+                        ]
+                    ) |> List.ofSeq
+                )
+            let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
+            members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
 
-            let impls = c.Implements |> List.map (tsTypeOfConcrete gsArr)
-            let gen = getGenerics 0 c.Generics
+        let impls = c.Implements |> List.map (tsTypeOfConcrete gsArr)
+        let gen = getGenerics 0 c.Generics
 
-            match current.CustomTypes.TryGetValue t with
-            | true, (_, M.FSharpUnionInfo u) ->
-                packageUnion u addr (Some (baseType, impls, List.ofSeq members, gen)) gsArr
-            | _ ->
-                packageByName addr <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
+        match ct with
+        | M.FSharpUnionInfo u ->
+            packageUnion u classAddress (Some (baseType, impls, List.ofSeq members, gen)) gsArr
+        | _ ->
+            if c.HasWSPrototype then
+                packageByName classAddress <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
             
         if c.IsStub then
             // import addresses for stub classes
-            c.Address |> Option.iter (fun a -> getAddress { a with Module = JavaScriptFile "" } |> ignore)
-    
-    while classes.Count > 0 do
-        let (KeyValue(t, c)) = classes |> Seq.head
-        classes.Remove t |> ignore
-        if c.HasWSPrototype then customTypes.Remove t |> ignore
-        packageClass t c
+            getAddress { classAddress with Module = JavaScriptFile "" } |> ignore
 
     let packageUnannotatedCustomType (t: TypeDefinition) (addr: Address) (c: CustomTypeInfo) =
         match c with
@@ -644,11 +623,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | CustomTypeInfo.EnumInfo _
         | CustomTypeInfo.StructInfo
         | CustomTypeInfo.NotCustomType -> ()
-
-    while customTypes.Count > 0 do
-        let (KeyValue(t, (a, c))) = customTypes |> Seq.head
-        customTypes.Remove t |> ignore
-        packageUnannotatedCustomType t { Module = CurrentModule; Address = a } c
+    
+    while classes.Count > 0 do
+        let (KeyValue(t, (a, ct, c))) = Seq.head classes
+        classes.Remove t |> ignore
+        match c with
+        | Some c -> packageClass t a ct c
+        | None -> packageUnannotatedCustomType t a ct
     
     let rec packageStatics (s: StaticMembers) =
         for a, e, t in s.Members do 

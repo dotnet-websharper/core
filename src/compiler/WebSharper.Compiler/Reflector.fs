@@ -313,26 +313,29 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         
         let address =
              prototypes.TryFind(def.Value.FullName)
-             |> Option.map (fun s -> 
+             |> Option.defaultValue def.Value.FullName
+             |> fun s -> 
                  { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
-             )
 
-        classes.Add(def, 
-            {
-                Address = address
-                BaseClass = baseDef
-                Implements = implements
-                Generics = getConstraints typ.GenericParameters 0 
-                Constructors = constructors
-                Fields = Map.empty 
-                StaticConstructor = None         
-                Methods = methods 
-                Implementations = Map.empty // TODO
-                HasWSPrototype = false // do not overwrite external prototype
-                IsStub = true
-                Macros = []
-                Type = getTSType typ.CustomAttributes
-            }
+        classes.Add(def,
+            (
+                address,
+                NotCustomType,
+                Some {
+                    BaseClass = baseDef
+                    Implements = implements
+                    Generics = getConstraints typ.GenericParameters 0 
+                    Constructors = constructors
+                    Fields = Map.empty 
+                    StaticConstructor = None         
+                    Methods = methods 
+                    Implementations = Map.empty // TODO
+                    HasWSPrototype = false // do not overwrite external prototype
+                    IsStub = true
+                    Macros = []
+                    Type = getTSType typ.CustomAttributes
+                }
+            )
         )
 
     let transformInterface (typ: Mono.Cecil.TypeDefinition) =
@@ -387,7 +390,6 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         Dependencies = graph.GetData()
         Interfaces = interfaces
         Classes = classes
-        CustomTypes = Map.empty
         EntryPoint = None
         MacroEntries = Map.empty
         ResourceHashes = Dictionary()

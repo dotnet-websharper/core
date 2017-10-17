@@ -162,7 +162,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
             | true, value -> value
             | _ -> raise (KeyNotFoundException())
         and set (key: 'TKey) (v: 'TValue): unit = 
-            if orig.ContainsKey key then
+            if orig.ContainsKey key && not (current.ContainsKey key) then
                 invalidArg "key" "Key is found in immutable part of MergedDictionary"
             else current.[key] <- v
  

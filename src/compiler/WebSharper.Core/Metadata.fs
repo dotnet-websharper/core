@@ -157,7 +157,6 @@ type GenericParam =
 
 type ClassInfo =
     {
-        Address : option<Address>
         BaseClass : option<Concrete<TypeDefinition>>
         Implements : list<Concrete<TypeDefinition>>
         Generics : list<GenericParam>
@@ -174,7 +173,6 @@ type ClassInfo =
 
     static member None =
         {
-            Address = None
             BaseClass = None
             Implements = []
             Generics = []
@@ -190,7 +188,7 @@ type ClassInfo =
         }
         
 type IClassInfo =
-    abstract member Address : option<Address>
+    abstract member Address : Address
     abstract member BaseClass : option<Concrete<TypeDefinition>>
     abstract member Implements : list<Concrete<TypeDefinition>>
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
@@ -299,8 +297,7 @@ type Info =
         SiteletDefinition: option<TypeDefinition>
         Dependencies : GraphData
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
-        Classes : IDictionary<TypeDefinition, ClassInfo>
-        CustomTypes : IDictionary<TypeDefinition, PlainAddress * CustomTypeInfo>
+        Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
         ResourceHashes : IDictionary<string, int>
@@ -312,7 +309,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Map.empty
             Classes = Map.empty
-            CustomTypes = Map.empty
             EntryPoint = None
             MacroEntries = Map.empty
             ResourceHashes = Map.empty
@@ -320,8 +316,7 @@ type Info =
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
         let isStaticPart (c: ClassInfo) =
-            Option.isNone c.Address
-            && Option.isNone c.BaseClass
+            Option.isNone c.BaseClass
             && Dict.isEmpty c.Constructors
             && Dict.isEmpty c.Fields
             && not c.HasWSPrototype
@@ -337,7 +332,6 @@ type Info =
                 | None -> right
             if isStaticPart a || isStaticPart b then
                 Some {
-                    Address = combine a.Address b.Address
                     BaseClass = combine a.BaseClass b.BaseClass
                     Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
                     Generics = a.Generics
@@ -354,17 +348,29 @@ type Info =
             else
                 None
 
-        let unionMerge (dicts:seq<IDictionary<TypeDefinition,ClassInfo>>) =
+        let unionMerge (dicts:seq<IDictionary<TypeDefinition,Address*CustomTypeInfo*option<ClassInfo>>>) =
             let result = Dictionary() :> IDictionary<TypeDefinition,_>
             for dict in dicts do
                 for cls in dict do
                     result.TryGetValue cls.Key
                     |> function
                         | false, _ -> result.Add cls
-                        | true, prevPart ->
-                            match tryMergeClassInfo prevPart cls.Value with
-                            | Some mergedInfo -> result.[cls.Key] <- mergedInfo
-                            | None -> failwithf "Error merging class info on key: %A" cls.Key
+                        | true, (rAddr, rCt, rCl) ->
+                            let (addr, ct, cl) = cls.Value
+                            let newAddr = rAddr
+                            let newCt =
+                                match ct, rCt with
+                                | NotCustomType, ct | ct, NotCustomType -> ct
+                                | ct, rCt -> if ct = rCt then ct else failwithf "Different values found for the same key: %A" cls.Key
+                            let newCls =
+                                match cl, rCl with
+                                | Some cl, Some rCl ->
+                                    match tryMergeClassInfo rCl cl with
+                                    | Some mergedInfo -> Some mergedInfo
+                                    | None -> failwithf "Error merging class info on key: %A" cls.Key
+                                | Some cls, None | None, Some cls -> Some cls
+                                | None, None -> None
+                            result.[cls.Key] <- (newAddr, newCt, newCls)
             result
 
         let metas = Array.ofSeq metas
@@ -373,7 +379,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
             Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
-            CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             EntryPoint = 
                 match metas |> Array.choose (fun m -> m.EntryPoint) with
                 | [||] -> None
@@ -383,19 +388,36 @@ type Info =
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
         }
 
-    member this.DiscardExpressions() =
+    member this.ClassInfo(td) =
+        let _, _, c = this.Classes.[td]
+        c.Value
+
+    member this.ClassInfos =
+        this.Classes
+        |> Seq.choose (function
+            | KeyValue(_, (_, _, Some cls)) -> Some cls
+            | _ -> None
+        )
+
+    member this.MapClasses(f, ?fEp) =
         { this with
             Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
-                        StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
-                        Methods = ci.Methods |> Dict.map (fun (a, b, c, _) -> a, b, c, Undefined)
-                        Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
-                    } 
+                this.Classes |> Dict.map (fun (addr, ct, ci as t) ->
+                    match ci with
+                    | None -> t
+                    | Some ci -> addr, ct, Some (f ci)
                 )
-            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
+            EntryPoint = Option.map (defaultArg fEp id) this.EntryPoint
         }
+
+    member this.DiscardExpressions() =
+        this.MapClasses((fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
+                StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
+                Methods = ci.Methods |> Dict.map (fun (a, b, c, _) -> a, b, c, Undefined)
+                Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
+            }), (fun _ -> Empty))
 
     member this.DiscardInlineExpressions() =
         let rec discardInline i e =
@@ -404,16 +426,11 @@ type Info =
             | NotCompiledInline -> Undefined
             | Macro (_, _, Some f) -> discardInline f e
             | _ -> e
-        { this with
-            Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardInline i)
-                    } 
-                )
-            EntryPoint = this.EntryPoint
-        }
+        this.MapClasses(fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
+                Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardInline i)
+            })
 
     member this.DiscardNotInlineExpressions() =
         let rec discardNotInline i e =
@@ -422,20 +439,14 @@ type Info =
             | NotCompiledInline -> e
             | Macro (_, _, Some f) -> discardNotInline f e
             | _ -> Undefined
-        { this with
-            Classes =
-                this.Classes |> Dict.map (fun ci ->
-                    { ci with
-                        Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
-                        Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardNotInline i)
-                    } 
-                )
-            EntryPoint = this.EntryPoint |> Option.map (fun _ -> Empty)
-        }
+        this.MapClasses((fun ci ->
+            { ci with
+                Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
+                Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardNotInline i)
+            }), (fun _ -> Empty))
 
     member this.IsEmpty =
         this.Classes.Count = 0 &&
-        this.CustomTypes.Count = 0 &&
         this.Interfaces.Count = 0 &&
         this.MacroEntries.Count = 0 &&
         this.SiteletDefinition.IsNone &&
@@ -452,12 +463,14 @@ module internal Utilities =
 
     let getRemoteMethods meta =
         let remotes = Dictionary()
-        for KeyValue(cDef, c) in meta.Classes do
+        for KeyValue(cDef, (_, _, c)) in meta.Classes do
+            c |> Option.iter (fun c ->
             for KeyValue(mDef, (m, _, _, _)) in c.Methods do
                 match ignoreMacro m with
                 | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()
+            )
         remotes :> RemoteMethods            
 
 type ICompilation =

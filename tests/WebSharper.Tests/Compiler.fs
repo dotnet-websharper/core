@@ -35,7 +35,7 @@ module Server =
         | P.Call(_, mi, _) ->
             let typ = Reflection.ReadTypeDefinition mi.DeclaringType
             let meth = Reflection.ReadMethod mi
-            let _, _, _, expr = WebSharper.Web.Shared.Metadata.Classes.[typ].Methods.[meth]
+            let _, _, _, expr = WebSharper.Web.Shared.Metadata.ClassInfo(typ).Methods.[meth]
             expr, meth.Value.MethodName
         | _ -> failwith "expected a Call pattern"
 

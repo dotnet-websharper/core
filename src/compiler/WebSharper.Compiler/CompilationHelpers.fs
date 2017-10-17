@@ -786,20 +786,18 @@ module Resolve =
         member this.ExactClassAddress(addr: list<string>, hasPrototype) =
             getExactFullAddress addr (if hasPrototype then Class else Module)
             && if hasPrototype then getExactSubAddress addr "prototype" Member else true 
-        
-        member this.ClassAddress(addr: list<string>, hasPrototype) =
+
+        member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
+            let removeGen (n: string) =
+                match n.LastIndexOf '`' with
+                | -1 -> n
+                | i -> n.[.. i - 1]
+            let addr = typ.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
             let res = getFullAddress addr (if hasPrototype then Class else Module)
             if hasPrototype then
                 getExactSubAddress addr "prototype" Member |> ignore    
             res
 
-        member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
-            let n =
-                match typ.FullName.IndexOf "`" with
-                | -1 -> typ.FullName
-                | i -> typ.FullName.[..i-1]
-            this.ClassAddress(n.Split [| '.'; '+' |] |> Array.rev |> List.ofArray, hasPrototype)
-                    
         member this.ExactStaticAddress addr =
             getExactFullAddress addr Member 
 
@@ -849,22 +847,17 @@ let refreshAllIds (i: Info) =
         | Macro (_, _, Some f) -> refreshNotInlineM (f, p, c, e)
         | _ -> i, p, c, r.TransformExpression e
 
-    { i with
-        Classes =
-            i.Classes |> Dict.map (fun c ->
-                { c with
-                    Constructors = 
-                        c.Constructors |> Dict.map refreshNotInline
-                    StaticConstructor = 
-                        c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
-                    Methods = 
-                        c.Methods |> Dict.map refreshNotInlineM
-                    Implementations = 
-                        c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
-                }
-            )
-        EntryPoint = i.EntryPoint |> Option.map r.TransformStatement 
-    }
+    i.MapClasses((fun c ->
+        { c with
+            Constructors = 
+                c.Constructors |> Dict.map refreshNotInline
+            StaticConstructor = 
+                c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
+            Methods = 
+                c.Methods |> Dict.map refreshNotInlineM
+            Implementations = 
+                c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
+        }), r.TransformStatement)
 
 type MaybeBuilder() =
     member this.Bind(x, f) = 
@@ -881,29 +874,28 @@ let maybe = new MaybeBuilder()
 let trimMetadata (meta: Info) (nodes : seq<Node>) =
     let classes = Dictionary<_,_>() 
     let getOrAddClass td =
-        try
-            match classes.TryGetValue td with
-            | true, cls -> cls
-            | _ ->
-                let cls = 
-                    { meta.Classes.[td] with
-                        Constructors = Dictionary<_,_>()
-                        Methods = Dictionary<_,_>()
-                        Implementations = Dictionary<_,_>()
-                    }
-                classes.Add(td, cls)
-                cls    
-        with _ ->
+        match classes.TryGetValue td with
+        | true, (_, _, Some cls) -> cls
+        | true, (a, ct, None) ->
+            let cls = 
+                { meta.ClassInfo(td) with
+                    Constructors = Dictionary<_,_>()
+                    Methods = Dictionary<_,_>()
+                    Implementations = Dictionary<_,_>()
+                }
+            classes.Add(td, (a, ct, Some cls))
+            cls
+        | false, _ ->
             eprintfn "WebSharper error: Assembly needed for bundling but is not referenced: %s" td.Value.Assembly
             ClassInfo.None
     for n in nodes do
         match n with
         | MethodNode (td, m) -> 
-            (getOrAddClass td).Methods.Add(m, meta.Classes.[td].Methods.[m])
+            (getOrAddClass td).Methods.Add(m, meta.ClassInfo(td).Methods.[m])
         | ConstructorNode (td, c) -> 
-            (getOrAddClass td).Constructors.Add(c, meta.Classes.[td].Constructors.[c])
+            (getOrAddClass td).Constructors.Add(c, meta.ClassInfo(td).Constructors.[c])
         | ImplementationNode (td, i, m) ->
-            (getOrAddClass td).Implementations.Add((i, m), meta.Classes.[td].Implementations.[i, m])
+            (getOrAddClass td).Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m])
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 
@@ -979,15 +971,17 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
             tr :> _, Some tr
     { meta with 
         Classes = 
-            meta.Classes |> Dict.map (fun c ->
-                { c with 
-                    Address = c.Address |> Option.map (exposeAddress asmName)
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
-                    Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> exposeAddress asmName a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> exposeCompiledMember asmName i, p, c, tr.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
-                }
+            meta.Classes |> Dict.map (fun (a, ct, c) ->
+                exposeAddress asmName a, ct,
+                c |> Option.map (fun c ->
+                    { c with 
+                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
+                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
+                        StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> exposeAddress asmName a, tr.TransformExpression e)
+                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> exposeCompiledMember asmName i, p, c, tr.TransformExpression e)
+                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
+                    }
+                )
             )
         EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
     },
@@ -1023,15 +1017,17 @@ let transformToLocalAddressInMetadata (meta: Info) =
     let tr = UpdateModuleToLocal() 
     { meta with 
         Classes = 
-            meta.Classes |> Dict.map (fun c ->
-                { c with 
-                    Address = c.Address |> Option.map localizeAddress
-                    Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
-                    Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
-                    StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> localizeAddress a, tr.TransformExpression e)
-                    Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
-                    Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
-                }
+            meta.Classes |> Dict.map (fun (a, ct, c) ->
+                localizeAddress a, ct,
+                c |> Option.map (fun c ->
+                    { c with 
+                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
+                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
+                        StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> localizeAddress a, tr.TransformExpression e)
+                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
+                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
+                    }
+                )
             )
         EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
     }
