@@ -601,7 +601,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
             // for C# static auto-properties
             selfAddress <- 
-                comp.TryLookupClassInfo(typ) |> Option.bind (fun cls ->
+                comp.TryLookupClassInfo(typ) |> Option.bind (fun (_, cls) ->
                     cls.StaticConstructor |> Option.map (fun (a, _) -> { a with Address = Hashed (List.tail a.Address.Value) })    
                 )
             currentIsInline <- isInline info
@@ -665,7 +665,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
             currentIsInline <- isInline info
             selfAddress <- 
-                comp.TryLookupClassInfo(typ) |> Option.bind (fun cls -> cls.Address)
+                comp.TryLookupClassInfo(typ) |> Option.map fst
             match info with
             | NotCompiled (i, _, opts) -> 
                 currentFuncArgs <- opts.FuncArgs
@@ -697,7 +697,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentNode <- M.TypeNode typ
             cctorCalls <- Set.singleton typ
             selfAddress <- 
-                let cls = comp.TryLookupClassInfo(typ).Value
+                let cls = snd (comp.TryLookupClassInfo(typ).Value)
                 let a = fst cls.StaticConstructor.Value 
                 Some { a with Address = Hashed (List.tail a.Address.Value) }
             let res = this.TransformExpression expr |> breakExpr |> this.CheckResult
@@ -1094,7 +1094,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 GlobalAccess address
             | M.Instance name -> 
                 match comp.TryLookupClassInfo typ.Entity with
-                | Some { Address = Some addr } ->
+                | Some (addr, _) ->
                     let func = GlobalAccess addr |> getItem "prototype" |> getItem name
                     JSRuntime.BindDelegate func (this.TransformExpression thisObj.Value) 
                 | _ -> this.Error ("Cannot look up prototype for delegate creating")
@@ -1120,7 +1120,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> args |> List.map this.TransformExpression
         let typAddress() =
             match comp.TryLookupClassAddressOrCustomType typ.Entity with
-            | Choice1Of2 (Some a) -> a 
+            | Choice1Of2 a -> a 
             | _ -> failwithf "Class address not found for %s" typ.Entity.Value.FullName
         match info with
         | M.New ->
@@ -1185,7 +1185,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Invalid metadata for constructor.")
 
     override this.TransformCopyCtor(typ, objExpr) =
-        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.HasWSPrototype then c.Address else None) with
+        match comp.TryLookupClassInfo typ |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
@@ -1194,7 +1194,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.UnionCtor(typ, i, args) =
         let trArgs = args |> List.map this.TransformExpression
-        match comp.TryLookupClassInfo typ |> Option.bind (fun c -> if c.HasWSPrototype then c.Address else None) with
+        match comp.TryLookupClassInfo typ |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
@@ -1252,7 +1252,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.ConstantFSharpUnionCase v ->
                 Value v
             | M.SingletonFSharpUnionCase -> 
-                match comp.TryLookupClassInfo td |> Option.bind (fun cls -> cls.Address) with
+                match comp.TryLookupClassInfo td |> Option.map fst with
                 | Some a -> 
                     let caseField = Definitions.SingletonUnionCase case
                     if comp.HasGraph then
@@ -1397,13 +1397,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let baseAddr =
                     if isBase then
                         match comp.TryLookupClassInfo(typ.Entity) with
-                        | Some { Address = Some a } -> Some a
+                        | Some (a, _) -> Some a
                         | _ -> None
                     else
                         match comp.TryLookupClassInfo(typ.Entity) with
-                        | Some { BaseClass = Some { Entity = bTyp } } ->
+                        | Some (_, { BaseClass = Some { Entity = bTyp } }) ->
                             match comp.TryLookupClassInfo(bTyp) with
-                            | Some { Address = Some a } -> Some a
+                            | Some (a, _) -> Some a
                             | _ -> None
                         | _ -> None
                 match baseAddr with
@@ -1418,7 +1418,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | None -> 
                     match currentNode with
                     | M.ConstructorNode(typ, ctor) ->
-                        comp.TryLookupClassInfo typ |> Option.exists (fun cls -> Option.isSome cls.BaseClass)
+                        comp.TryLookupClassInfo typ |> Option.exists (fun (_, cls) -> Option.isSome cls.BaseClass)
                     | _ -> false
                 | _ -> false
             let bind key value body = Let (key, value, body)
@@ -1710,10 +1710,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 TypeOf "function"
             | _ ->
                 match comp.TryLookupClassAddressOrCustomType t with
-                | Choice1Of2 (Some a) ->
+                | Choice1Of2 a ->
                     InstanceOf a
-                | Choice1Of2 None ->
-                    PlainObject
                 | Choice2Of2 ct -> 
                     match ct with
                     | M.DelegateInfo _ ->
@@ -1768,11 +1766,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     if not (List.isEmpty gs) then
                         this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
                 match comp.TryLookupClassAddressOrCustomType t with
-                | Choice1Of2 (Some a) ->
+                | Choice1Of2 a ->
                     warnIgnoringGenerics()
                     Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
-                | Choice1Of2 None ->
-                    this.Error("Type test cannot be translated because client-side class does not have a prototype, add the Prototype attribute to it: " + t.Value.FullName)
                 | Choice2Of2 ct -> 
                     match ct with
                     | M.FSharpUnionCaseInfo c ->

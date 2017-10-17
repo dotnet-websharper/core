@@ -26,7 +26,7 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 
 type LookupTypeResult =
-    | Class of ClassInfo
+    | Class of Address * ClassInfo
     | Interface of InterfaceInfo
     | CustomType of PlainAddress * CustomTypeInfo
     | Unknown
@@ -51,13 +51,10 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | _ ->
             let res =
                 match lookupType t with
-                | Class c ->
+                | Class (a, c) ->
                     match c.Type with
                     | Some t -> t
-                    | _ ->
-                        match c.Address with
-                        | Some a -> tsTypeOfAddress a
-                        | _ -> TSType.Any
+                    | _ -> tsTypeOfAddress a
                 | Interface i ->
                     tsTypeOfAddress i.Address
                 | CustomType (_, DelegateInfo i) -> 

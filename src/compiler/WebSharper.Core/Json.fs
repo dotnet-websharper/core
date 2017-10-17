@@ -1488,7 +1488,7 @@ module TypedProviderInternals =
     let addTag (i: M.Info) (t: System.Type) =
         let mt = AST.Reflection.ReadTypeDefinition t
         match i.Classes.TryFind mt with
-        | Some { Address = Some a; HasWSPrototype = true } ->
+        | Some (a, _, Some { HasWSPrototype = true }) ->
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
             | EncodedArray xs -> EncodedArrayInstance (a, xs)
@@ -1539,7 +1539,7 @@ module TypedProviderInternals =
             GetEncodedFieldName = fun t ->
                 let typ = AST.Reflection.ReadTypeDefinition t
                 match info.Classes.TryGetValue typ with
-                | true, cls -> 
+                | true, (_, _, Some cls) -> 
                     let fields = cls.Fields
                     fun f ->
                     match fields.TryGetValue f with
@@ -1552,15 +1552,13 @@ module TypedProviderInternals =
                     | _ ->
                         failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
                             f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
-                | _ ->
-                    match info.CustomTypes.TryGetValue typ with
-                    | true, (_, M.FSharpRecordInfo fs) ->
-                        fun f ->
-                            fs |> List.pick (fun rf -> 
-                                if rf.Name = f then 
-                                    Some rf.JSName
-                                else None)
-                    | _ -> id
+                | true, (_, M.FSharpRecordInfo fs, None) ->
+                    fun f ->
+                        fs |> List.pick (fun rf -> 
+                            if rf.Name = f then 
+                                Some rf.JSName
+                            else None)
+                | _ -> id
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i

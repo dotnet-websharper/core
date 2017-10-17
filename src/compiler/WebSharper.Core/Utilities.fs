@@ -112,7 +112,7 @@ module Dict =
     let filter predicate (d: IDictionary<_,_>) =
         let r = Dictionary() :> IDictionary<_,_>
         for KeyValue(k, v) in d do   
-            if predicate k v then r.Add(k, v)
+            if predicate k v then r.[k] <- v
         r 
     
     /// Map values of an IDictionary
@@ -120,6 +120,15 @@ module Dict =
         let r = Dictionary() :> IDictionary<_,_>
         for KeyValue(k, v) in d do   
             r.Add(k, mapping v)
+        r 
+
+    /// Map and filter values of an IDictionary
+    let choose mapping (d: IDictionary<_,_>) =
+        let r = Dictionary() :> IDictionary<_,_>
+        for KeyValue(k, v) in d do
+            match mapping v with
+            | Some v' -> r.Add(k, v')
+            | None -> ()
         r 
 
     // Union of multiple IDictionary objects
