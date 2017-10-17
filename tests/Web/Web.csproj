@@ -18,6 +18,7 @@
     <IISExpressWindowsAuthentication />
     <IISExpressUseClassicPipelineMode />
     <OutputPath>bin\</OutputPath>
+    <WebSharperProject>Site</WebSharperProject>
     <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
     <WebSharperDownloadResources>True</WebSharperDownloadResources>
     <FSharp40>True</FSharp40>

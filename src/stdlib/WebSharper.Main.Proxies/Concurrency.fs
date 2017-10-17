@@ -23,6 +23,7 @@ module internal WebSharper.Concurrency
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Threading
 
 type private OCE = System.OperationCanceledException
 
@@ -33,6 +34,7 @@ type Result<'T> =
     | Cc of OCE
   
 [<JavaScript; Prototype false>]
+[<Proxy(typeof<CancellationToken>)>]
 type CT =
     { 
         [<Name "c">] mutable IsCancellationRequested : bool 
@@ -60,6 +62,19 @@ let internal Register (ct: CT) (callback: unit -> unit) =
         { new System.IDisposable with
             member this.Dispose() = ct.Registrations.[i] <- ignore
         }
+
+type CT with
+    [<Inline>]
+    member this.Register(callback: System.Action) =
+        As<CancellationTokenRegistration> (Register (As this) (As callback))
+
+    [<Inline>]
+    member this.ThrowIfCancellationRequested() =
+        if this.IsCancellationRequested then
+            raise (OCE(As<CancellationToken> this)) 
+
+    [<Inline>]
+    static member None = As<CT> noneCT
 
 [<JavaScript; Prototype false>]
 type AsyncBody<'T> =

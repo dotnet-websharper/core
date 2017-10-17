@@ -24,7 +24,6 @@ open WebSharper.JavaScript
 
 type private CT  = System.Threading.CancellationToken
 type private CTS  = System.Threading.CancellationTokenSource
-type private CTR  = System.Threading.CancellationTokenRegistration
 type private OCE = System.OperationCanceledException
 module C = WebSharper.Concurrency
 
@@ -112,22 +111,6 @@ type private AsyncProxy =
     [<Inline>]
     static member TryCancelled(p: Async<'T>, f: OCE -> unit) : Async<'T> =
         As (C.TryCancelled(As p, f))
-
-[<Proxy(typeof<CT>)>]
-type private CancellationTokenProxy =
-    [<Inline "$this.c">]
-    member this.IsCancellationRequested = X<bool>
-
-    [<Inline>]
-    member this.Register(callback: System.Action) =
-        As<CTR> (C.Register (As this) (As callback))
-
-    [<Inline>]
-    member this.ThrowIfCancellationRequested() =
-        if this.IsCancellationRequested then raise (OCE(As<CT> this)) 
-
-    [<Inline>]
-    static member None = As<CT> C.noneCT
         
 [<Proxy(typeof<CTS>)>]
 [<Name "CancellationTokenSource">]
