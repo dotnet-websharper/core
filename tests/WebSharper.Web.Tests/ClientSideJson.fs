@@ -407,6 +407,24 @@ module ClientSideJson =
                 equal (Json.Deserialize "[87,9,124]") (Stack [124;9;87])
             }
 
+            Test "serialize LinkedList" {
+                equal (Json.Serialize (LinkedList<int>())) "[]"
+                equal (Json.Serialize (LinkedList [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize LinkedList" {
+                let l = Json.Deserialize<LinkedList<int>> "[]"
+                equal l.First null
+                let l = Json.Deserialize<LinkedList<int>> "[87,9,124]"
+                equal l.First.Value 87
+                l.RemoveFirst()
+                equal l.First.Value 9
+                l.RemoveFirst()
+                equal l.First.Value 124
+                l.RemoveFirst()
+                equal l.First null
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
@@ -576,5 +594,14 @@ module ClientSideJson =
                     echo "Stack" (Json.Serialize r) Json.Decode<Stack<int>>
                 equalAsync (f (Stack())) (Stack())
                 equalAsync (f (Stack [34; 5; 58])) (Stack [34; 5; 58])
+            }
+
+            Test "LinkedList" {
+                let f (r: LinkedList<int>) =
+                    echo "LinkedList" (Json.Serialize r) Json.Decode<LinkedList<int>>
+                let! res = f (LinkedList())
+                equal (List.ofSeq res) []
+                let! res2 = f (LinkedList [34; 5; 58])
+                equal (List.ofSeq res2) [34; 5; 58]
             }
         }

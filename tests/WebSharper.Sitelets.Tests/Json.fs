@@ -144,6 +144,7 @@ module Json =
         | [<Json "x">] ResizeArray of x: ResizeArray<int>
         | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
         | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
+        | [<Json "x">] LinkedList of x: System.Collections.Generic.LinkedList<int>
 
     let Content = function
         | Int x -> Content.Json x
@@ -169,3 +170,4 @@ module Json =
         | ResizeArray x -> Content.Json x
         | Queue x -> Content.Json x
         | Stack x -> Content.Json x
+        | LinkedList x -> Content.Json x

@@ -1362,6 +1362,15 @@ let stackEncoder dE (i: FormatSettings) (ta: TAttrs) =
     if tg.Length <> 1 then raise EncoderException
     callGeneric <@ unmakeStack @> dE ta tg.[0]
 
+let unmakeLinkedList<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<LinkedList<'T>> x -> dV v]
+
+let linkedListEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeLinkedList @> dE ta tg.[0]
+
 let unmakeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: obj -> Encoded) (x: obj) =
     if obj.ReferenceEquals(x, null) then EncodedNull else dV x    
            
@@ -1408,9 +1417,9 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let makeResizeArray<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
-        ResizeArray(vs |> List.map (unbox<'T> << dV))
+        ResizeArray(vs |> Seq.map (unbox<'T> << dV))
         |> box
-    | x -> raise (DecoderException(x, typeof<Set<'T>>))
+    | x -> raise (DecoderException(x, typeof<ResizeArray<'T>>))
 
 let resizeArrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1420,9 +1429,9 @@ let resizeArrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let makeQueue<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
-        Queue(vs |> List.map (unbox<'T> << dV))
+        Queue(vs |> Seq.map (unbox<'T> << dV))
         |> box
-    | x -> raise (DecoderException(x, typeof<Set<'T>>))
+    | x -> raise (DecoderException(x, typeof<Queue<'T>>))
 
 let queueDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1434,13 +1443,25 @@ let makeStack<'T when 'T : comparison> (dV: Value -> obj) = function
     | Array vs ->
         Stack(vs |> List.map (unbox<'T> << dV) |> List.rev)
         |> box
-    | x -> raise (DecoderException(x, typeof<Set<'T>>))
+    | x -> raise (DecoderException(x, typeof<Stack<'T>>))
 
 let stackDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 1 then raise EncoderException
     callGeneric <@ makeStack @> dD ta tg.[0]
+
+let makeLinkedList<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        LinkedList(vs |> Seq.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<LinkedList<'T>>))
+
+let linkedListDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeLinkedList @> dD ta tg.[0]
 
 let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
     function
@@ -1483,6 +1504,7 @@ type Encodings<'a, 'b> =
         ResizeArray: TypeEncoding<'a, 'b>
         Queue: TypeEncoding<'a, 'b>
         Stack: TypeEncoding<'a, 'b>
+        LinkedList: TypeEncoding<'a, 'b>
         Nullable: TypeEncoding<'a, 'b>
         Object: TypeEncoding<'a, 'b>
     }
@@ -1502,6 +1524,7 @@ module Encodings =
             ResizeArray = resizeArrayDecoder
             Queue = queueDecoder
             Stack = stackDecoder
+            LinkedList = linkedListDecoder
             Nullable = nbleDecoder
             Object = objectDecoder
         }
@@ -1519,6 +1542,7 @@ module Encodings =
             ResizeArray = resizeArrayEncoder
             Queue = queueEncoder
             Stack = stackEncoder
+            LinkedList = linkedListEncoder
             Nullable = nbleEncoder
             Object = objectEncoder
         }
@@ -1559,6 +1583,7 @@ module Encodings =
             ResizeArray = fun dD i ta _ -> null
             Queue = fun dD i ta _ -> null
             Stack = fun dD i ta _ -> null
+            LinkedList = fun dD i ta _ -> null
             Nullable = fun dD i ta _ -> null
             Object = fun _ _ _ _ -> null
         }
@@ -1590,6 +1615,7 @@ let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
                     | Some "System.Collections.Generic.List`1" -> e.ResizeArray dD fo ta
                     | Some "System.Collections.Generic.Queue`1" -> e.Queue dD fo ta
                     | Some "System.Collections.Generic.Stack`1" -> e.Stack dD fo ta
+                    | Some "System.Collections.Generic.LinkedList`1" -> e.LinkedList dD fo ta
                     | Some "System.Nullable`1" -> e.Nullable dD fo ta
                     | _ -> 
                         e.Object dD fo ta
