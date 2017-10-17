@@ -27,7 +27,7 @@ module M = WebSharper.Core.Macros
 [<JavaScript>]
 [<Name "Numeric">]
 type internal N =
-    static member Parse<'T>(s: string, min: 'T, max: 'T, overflowMsg) =
+    static member Parse<[<Type "number">] 'T>(s: string, min: 'T, max: 'T, overflowMsg) =
         let x : float = JS.Plus s
         if x !==. (x -. (x %. 1)) then
             raise (System.FormatException "Input string was not in a correct format.")
@@ -35,7 +35,7 @@ type internal N =
             raise (System.OverflowException overflowMsg)
         else As<'T> x
 
-    static member TryParse<'T>(s: string, min: 'T, max: 'T, r: byref<'T>) =
+    static member TryParse<[<Type "number">] 'T>(s: string, min: 'T, max: 'T, r: byref<'T>) =
         let x : float = JS.Plus s
         let ok = x ===. (x -. (x %. 1)) && (x >=. min) && (x <=. max)
         if ok then r <- As<'T> x
