@@ -266,6 +266,11 @@ module Server =
         }
 
     [<Remote>]
+    let f22 (a: ResizeArray<string>) =
+        a.Add("test")
+        async { return a }
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -472,6 +477,11 @@ module Remoting =
                 x.X <- 5;
                 let! y = Server.f20 x
                 equal y.X 6
+            }
+
+            Test "ResizeArray" {
+                let! x = ResizeArray [ "Hello"; "world" ] |> Server.f22
+                equal (x.ToArray()) [| "Hello"; "world"; "test" |]
             }
 
             // currently failing

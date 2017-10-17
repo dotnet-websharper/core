@@ -1334,7 +1334,16 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
             | _ -> raise EncoderException     
         let tr = fst (encNode (treeF.GetValue x))
         EncodedObject [ "tree", tr ] |> i.AddTag t
-        
+
+let unmakeResizeArray<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<ResizeArray<'T>> x -> dV v]
+
+let resizeArrayEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeResizeArray @> dE ta tg.[0]
+
 let unmakeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: obj -> Encoded) (x: obj) =
     if obj.ReferenceEquals(x, null) then EncodedNull else dV x    
            
@@ -1379,6 +1388,18 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | Object [ "tree", Object tr ] -> mk (walk tr)
         | x -> raise (DecoderException(x, ta.Type))
 
+let makeResizeArray<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        ResizeArray(vs |> List.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<Set<'T>>))
+
+let resizeArrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeResizeArray @> dD ta tg.[0]
+
 let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
     function
         | Null -> null
@@ -1405,39 +1426,126 @@ let enumDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let y : obj = uD x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: FormatSettings)
-                (cache: ConcurrentDictionary<_,_>) =
+type TypeEncoding<'a, 'b> = (TAttrs -> 'a -> 'b) -> FormatSettings -> TAttrs -> 'a -> 'b
+
+type Encodings<'a, 'b> =
+    {
+        Scalar: Serializer -> option<'a -> 'b>
+        Array: TypeEncoding<'a, 'b>
+        Tuple: TypeEncoding<'a, 'b>
+        Union: TypeEncoding<'a, 'b>
+        Record: TypeEncoding<'a, 'b>
+        Enum: TypeEncoding<'a, 'b>
+        Map: TypeEncoding<'a, 'b>
+        Set: TypeEncoding<'a, 'b>
+        ResizeArray: TypeEncoding<'a, 'b>
+        Nullable: TypeEncoding<'a, 'b>
+        Object: TypeEncoding<'a, 'b>
+    }
+
+module Encodings =
+
+    let Decode =
+        {
+            Scalar = fun { Decode = x } -> x
+            Array = arrayDecoder
+            Tuple = tupleDecoder
+            Union = unionDecoder
+            Record = recordDecoder
+            Enum = enumDecoder
+            Map = mapDecoder
+            Set = setDecoder
+            ResizeArray = resizeArrayDecoder
+            Nullable = nbleDecoder
+            Object = objectDecoder
+        }
+
+    let Encode =
+        {
+            Scalar = fun { Encode = x } -> x
+            Array = arrayEncoder
+            Tuple = tupleEncoder
+            Union = unionEncoder
+            Record = recordEncoder
+            Enum = enumEncoder
+            Map = mapEncoder
+            Set = setEncoder
+            ResizeArray = resizeArrayEncoder
+            Nullable = nbleEncoder
+            Object = objectEncoder
+        }
+
+    let private defaultof (t: System.Type) =
+        if t.IsValueType then
+            System.Activator.CreateInstance(t)
+        else null
+
+    let Dummy =
+        {
+            Scalar = fun _ -> Some defaultof
+            Array = fun dD i ta ->
+                let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
+                fun _ -> x
+            Tuple = fun dD i ta ->
+                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
+                let x = FSV.MakeTuple(xs, ta.Type)
+                fun _ -> x
+            Union = fun dD i ta ->
+                let uci = FST.GetUnionCases(ta.Type, flags).[0]
+                let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeUnion(uci, xs, flags)
+                fun _ -> x
+            Record = fun dD i ta ->
+                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeRecord(ta.Type, xs, flags)
+                fun _ -> x
+            Enum = fun dD i ta ->
+                let x = defaultof ta.Type
+                fun _ -> x
+            Map = fun dD i ta ->
+                let x = genLetMethod(<@ Map.empty @>, ta.Type.GetGenericArguments()).Invoke0()
+                fun _ -> x
+            Set = fun dD i ta ->
+                let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
+                fun _ -> x
+            ResizeArray = fun dD i ta _ -> null
+            Nullable = fun dD i ta _ -> null
+            Object = fun _ _ _ _ -> null
+        }
+
+let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
     let rec get (ta: TAttrs) =
         let derive dD =
             try
                 if ta.Type.IsArray then
                     if ta.Type.GetArrayRank() = 1 then
-                        array dD fo ta
+                        e.Array dD fo ta
                     else raise (NoEncodingException ta.Type)
                 elif FST.IsTuple ta.Type then
-                    tuple dD fo ta
+                    e.Tuple dD fo ta
                 elif FST.IsUnion (ta.Type, flags) then
-                    union dD fo ta
+                    e.Union dD fo ta
                 elif FST.IsRecord (ta.Type, flags) then
-                    record dD fo ta
+                    e.Record dD fo ta
                 elif ta.Type.IsEnum then
-                    enu dD fo ta
+                    e.Enum dD fo ta
                 else
                     let tn =
                         if ta.Type.IsGenericType 
                         then Some (ta.Type.GetGenericTypeDefinition().FullName)
                         else None
                     match tn with
-                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> map dD fo ta
-                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> set dD fo ta
-                    | Some "System.Nullable`1" -> nble dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> e.Map dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> e.Set dD fo ta
+                    | Some "System.Collections.Generic.List`1" -> e.ResizeArray dD fo ta
+                    | Some "System.Nullable`1" -> e.Nullable dD fo ta
                     | _ -> 
-                        obj dD fo ta
+                        e.Object dD fo ta
             with e -> fun _ -> raise (System.Exception("Error during RPC JSON conversion", e))
         if ta.Type = null then raise (NoEncodingException ta.Type) else
             match serializers.TryGetValue ta.Type with
-            | true, x when Option.isSome (scalar x) ->
-                (scalar x).Value
+            | true, x when Option.isSome (e.Scalar x) ->
+                (e.Scalar x).Value
             | _ ->
                 let newRef = ref Unchecked.defaultof<_>
                 lock newRef <| fun () ->
@@ -1682,77 +1790,18 @@ type Provider(fo: FormatSettings) =
     [<System.NonSerialized>]
     let encoders = ConcurrentDictionary()
 
-    let defaultof (t: System.Type) =
-        if t.IsValueType then
-            System.Activator.CreateInstance(t)
-        else null
-
     [<System.NonSerialized>]
     let getDefaultBuilder =
-        getEncoding
-            (fun _ -> Some defaultof)
-            (fun dD i ta ->
-                let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
-                fun _ -> x)
-            (fun dD i ta ->
-                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
-                let x = FSV.MakeTuple(xs, ta.Type)
-                fun _ -> x)
-            (fun dD i ta ->
-                let uci = FST.GetUnionCases(ta.Type, flags).[0]
-                let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeUnion(uci, xs, flags)
-                fun _ -> x)
-            (fun dD i ta ->
-                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeRecord(ta.Type, xs, flags)
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = defaultof ta.Type
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = genLetMethod(<@ Map.empty @>, ta.Type.GetGenericArguments()).Invoke0()
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
-                fun _ -> x)
-            (fun dD i ta ->
-                fun _ -> null
-            )
-            (fun _ _ _ _ -> null)
-            id
-            fo
-            (ConcurrentDictionary<_,_>())
+        getEncoding Encodings.Dummy id fo (ConcurrentDictionary<_,_>())
 
     [<System.NonSerialized>]
     let getDecoder =
-        getEncoding (fun {Decode=x} -> x)
-            arrayDecoder
-            tupleDecoder
-            unionDecoder
-            recordDecoder
-            enumDecoder
-            mapDecoder
-            setDecoder
-            nbleDecoder
-            objectDecoder
-            id
-            fo
-            decoders
+        getEncoding Encodings.Decode id fo decoders
         >> Decoder
 
     [<System.NonSerialized>]
     let getEncoder =
-        getEncoding (fun {Encode=x} -> x)
-            arrayEncoder
-            tupleEncoder
-            unionEncoder
-            recordEncoder
-            enumEncoder
-            mapEncoder
-            setEncoder
-            nbleEncoder
-            objectEncoder
+        getEncoding Encodings.Encode
             (fun dE ta ->
                 if ta.Type.IsSealed || FST.IsUnion(ta.Type, flags) then dE ta else
                 fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)
