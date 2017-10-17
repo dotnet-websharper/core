@@ -26,9 +26,8 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 
 type LookupTypeResult =
-    | Class of Address * ClassInfo
-    | Interface of InterfaceInfo
-    | CustomType of PlainAddress * CustomTypeInfo
+    | Class of Address * CustomTypeInfo * option<ClassInfo>
+    | Interface of InterfaceInfo                
     | Unknown
 
 type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAddress) =
@@ -51,18 +50,18 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | _ ->
             let res =
                 match lookupType t with
-                | Class (a, c) ->
+                | Class (a, _, Some c) ->
                     match c.Type with
                     | Some t -> t
                     | _ -> tsTypeOfAddress a
+                | Class (_, DelegateInfo i, None) ->
+                    TSType.Lambda(i.DelegateArgs |> List.map (this.TSTypeOf [||]), this.TSTypeOf [||] i.ReturnType)
+                | Class (_, EnumInfo t, None) ->
+                    this.TSTypeOfDef t
+                | Class (a, (FSharpRecordInfo _ | FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
+                    tsTypeOfAddress a
                 | Interface i ->
                     tsTypeOfAddress i.Address
-                | CustomType (_, DelegateInfo i) -> 
-                    TSType.Lambda(i.DelegateArgs |> List.map (this.TSTypeOf [||]), this.TSTypeOf [||] i.ReturnType)
-                | CustomType (_, EnumInfo t) -> 
-                    this.TSTypeOfDef t
-                | CustomType(Hashed (_ :: _) as a, (FSharpRecordInfo _ | FSharpUnionInfo _ | FSharpUnionCaseInfo _)) ->
-                    tsTypeOfAddress { Module = CurrentModule; Address = a }  
                 | _ -> TSType.Any
             mappedTypes.Add(t, res)
             res

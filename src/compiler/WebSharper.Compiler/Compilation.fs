@@ -62,6 +62,7 @@ module private WSDefinitions =
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
+    let notResolvedCustomTypes = Dictionary<TypeDefinition, CustomTypeInfo>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
@@ -106,8 +107,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | Some p -> p 
                 | _ -> t
             match classes.TryFind t with
-            | Some (a, _, Some c) -> TypeTranslator.Class (a, c)
-            | Some (a, c, None) -> TypeTranslator.CustomType (a.Address, c)
+            | Some (a, ct, c) -> TypeTranslator.Class (a, ct, c)
             | _ ->
             match interfaces.TryFind t with
             | Some i -> TypeTranslator.Interface i
@@ -417,46 +417,46 @@ type Compilation(meta: Info, ?hasGraph) =
         with _ ->
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
-    member this.AddCustomType(typ: TypeDefinition, ct, ?notAnnotated) =
-        let annotated = Option.isNone notAnnotated || not notAnnotated.Value
-        let add typ addr ct = classes.Add(typ, (addr, ct, None))
-        let addr = { Module = CurrentModule; Address = resolver.ClassAddress(typ.Value, annotated) }
-        add typ addr ct
+    member this.ProcessCustomType(typ: TypeDefinition, ct) =
+        let getAddr hasWSPrototype = 
+            resolver.ClassAddress(typ.Value, hasWSPrototype)
+            |> this.LocalAddress
+        let addr, cls = 
+            match classes.TryFind typ with
+            | Some ({ Address = Hashed []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
+            | Some (a, _, cls) -> a, cls
+            | _ -> getAddr false, None
+        classes.[typ] <- (addr, ct, cls)
         match ct with
         | FSharpUnionInfo u ->
             for c in u.Cases do
                 match c.Kind with
                 | ConstantFSharpUnionCase Null -> ()
                 | _ ->
+                let cAddr = addr.Sub c.Name 
                 let cTyp =
                     TypeDefinition {
                         Assembly = typ.Value.Assembly
                         FullName = typ.Value.FullName + "+" + c.Name
                     } 
-                add cTyp addr (FSharpUnionCaseInfo c)
-        | _ -> ()
+                classes.Add(cTyp, (cAddr, FSharpUnionCaseInfo c, None))
+        | _ -> ()          
+    
+    member this.AddCustomType(typ: TypeDefinition, ct) =
+        notResolvedCustomTypes.Add(typ, ct)
 
     member this.HasCustomTypeInfo(typ) =
-        classes.ContainsKey typ
+        notResolvedCustomTypes.ContainsKey typ || classes.ContainsKey typ 
 
-    member private this.GetOrAddCustomType(typ, cls) = 
+    member this.GetCustomType(typ) =
         let typ' = this.FindProxied typ
         match classes.TryFind typ' with
         | Some (addr, res, _) ->
-            if Option.isSome cls then
-                classes.Current.[typ'] <- (addr, res, cls)
             res
         | _ ->
-            let addr = { Module = CurrentModule; Address = resolver.ClassAddress(typ.Value, false) }
             let res = this.CustomTypesReflector typ'
-            classes.Add(typ', (addr, res, cls))
+            this.ProcessCustomType(typ, res)
             res
-
-    member this.GetCustomType(typ) =
-        this.GetOrAddCustomType(typ, None)
-
-    member private this.AddCompiledClass(typ, cls) =
-        this.GetOrAddCustomType(typ, Some cls) |> ignore
 
     member private this.GetClassOrCustomType(typ) =
         match classes.TryFind typ with
@@ -873,7 +873,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match classes.TryFind typ with
                 | Some (_, _, Some c) -> MergedDictionary c.Methods :> IDictionary<_,_>
                 | _ -> Dictionary() :> _
-            this.AddCompiledClass(typ,
+            let resCls =
                 {
                     BaseClass = if hasWSPrototype then baseCls else None
                     Implements = implements
@@ -888,7 +888,14 @@ type Compilation(meta: Info, ?hasGraph) =
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                     Type = cls.Type
                 }
-            ) 
+            
+            match notResolvedCustomTypes.TryFind typ with
+            | Some ct ->
+                classes.Add(typ, (Address.Empty(), ct, Some resCls))
+                notResolvedCustomTypes.Remove typ |> ignore
+            | _ ->
+                classes.Add(typ, (Address.Empty(), NotCustomType, Some resCls))
+            
             // set up dependencies
             if hasGraph then
                 let clsNodeIndex = graph.AddOrLookupNode(TypeNode typ)
@@ -1206,6 +1213,12 @@ type Compilation(meta: Info, ?hasGraph) =
                 for i, ctor in Seq.indexed constructors do
                     addConstructor ctor (NewIndexed i)
 
+        let processCustomType typ  =
+            match classes.TryFind typ with
+            | Some (_, ct, _) ->
+                this.ProcessCustomType(typ, ct)
+            | _ -> ()
+
         for typ, sn, isClass in stronglyNamedTypes do
             let addr = 
                 match sn.Split('.') with
@@ -1219,6 +1232,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 if not (resolver.ExactClassAddress(addr, cc.HasWSPrototype)) then
                     this.AddError(None, NameConflict ("Class name conflict", sn))
                 setClassAddress typ (Hashed addr)
+                processCustomType typ
             else
                 setInterfaceAddress typ (Hashed addr)
 
@@ -1305,9 +1319,15 @@ type Compilation(meta: Info, ?hasGraph) =
             let a = resolver.ClassAddress(typ.Value, isClass && (assumeClass typ).HasWSPrototype)
             if isClass then
                 setClassAddress typ a
+                processCustomType typ
             else 
                 setInterfaceAddress typ a
         
+        // initialize remaining non-TS-class custom types
+        for KeyValue(typ, ct) in notResolvedCustomTypes do
+            classes.Add(typ, (Address.Empty(), ct, None))
+            this.ProcessCustomType(typ, ct)
+
         for KeyValue(typ, ms) in remainingNamedStaticMembers do
             let clAddr = getClassAddress typ
             for m, n in ms do

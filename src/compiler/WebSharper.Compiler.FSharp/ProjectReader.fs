@@ -827,7 +827,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HasNull = constants.Contains(Null)
                 }
 
-            comp.AddCustomType(def, i, not annot.IsJavaScript)
+            comp.AddCustomType(def, i)
 
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =
@@ -923,7 +923,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             if comp.HasCustomTypeInfo def then
                 printfn "Already has custom type info: %s" def.Value.FullName
             else
-                comp.AddCustomType(def, i, not annot.IsJavaScript)
+                comp.AddCustomType(def, i)
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
@@ -941,7 +941,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 |> List.ofSeq
             let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
-            comp.AddCustomType(def, StructInfo, not annot.IsJavaScript)
+            comp.AddCustomType(def, StructInfo)
 
     for f in cls.FSharpFields do
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)

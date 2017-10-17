@@ -286,8 +286,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | Some _ as res -> res
             | _ -> current.Classes.TryFind t
         match cls with
-        | Some (a, _, Some c) -> TypeTranslator.Class (a, c)
-        | Some (a, c, None) -> TypeTranslator.CustomType (a.Address, c)
+        | Some (a, ct, c) -> TypeTranslator.Class (a, ct, c)
         | _ -> TypeTranslator.Unknown
     
     let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
@@ -606,9 +605,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match ct with
         | M.FSharpUnionInfo u ->
             packageUnion u classAddress (Some (baseType, impls, List.ofSeq members, gen)) gsArr
-        | _ when Seq.isEmpty members -> ()
         | _ ->
-            packageByName classAddress <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
+            if c.HasWSPrototype then
+                packageByName classAddress <| fun n -> Class(n, baseType, impls, List.ofSeq members, gen)
             
         if c.IsStub then
             // import addresses for stub classes
