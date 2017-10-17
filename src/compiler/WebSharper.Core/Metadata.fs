@@ -224,7 +224,12 @@ type UnionCaseFieldInfo =
 type FSharpUnionCaseKind =
     | NormalFSharpUnionCase of list<UnionCaseFieldInfo> 
     | ConstantFSharpUnionCase of Literal 
-    | SingletonFSharpUnionCase 
+    | SingletonFSharpUnionCase
+    
+    member this.IsConstant =
+        match this with
+        | ConstantFSharpUnionCase _ -> true
+        | _ -> false
 
 type FSharpUnionCaseInfo =
     {

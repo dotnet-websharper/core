@@ -73,6 +73,7 @@ type Kind =
     | [<Constant "string">]    String
     | [<Constant "object">]    Object
     | [<Constant "undefined">] Undefined
+    | [<Constant "symbol">]    Symbol
 
 /// Displays a popup dialog.
 [<Inline "alert($message)">]

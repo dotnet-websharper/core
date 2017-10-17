@@ -334,7 +334,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         (getDict statics (List.rev a.Address.Value)).Members.Add(a, e, s)        
 
     let packageUnion (u: M.FSharpUnionInfo) (addr: Address) proto gsArr =
-        toNamespace addr.Address.Value
+        if Option.isSome proto || u.Cases |> List.exists (fun uc -> not uc.Kind.IsConstant) then
+            toNamespace addr.Address.Value
         proto |> Option.iter (fun (baseType, impls, members, gen) ->
             let mutable numArgs = 0
             let strId x = Id.New(x, str = true)
@@ -388,7 +389,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             )
         match addr.Address.Value with
         | n :: a ->
-            if Option.isSome unionClass then toNamespace a
+            toNamespace a
             addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
         | _ -> failwith "empty address for union type"
 
@@ -403,7 +404,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | -1 -> 0
             | i -> int t.Value.FullName.[i+1..]
         let generics = List.init numGenerics TSType.Param
-        packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, generics)
+        packageByName addr <| fun n -> Interface(n, [], fields, generics)
 
     let rec packageClass (t: TypeDefinition) (classAddress: Address) (ct: CustomTypeInfo) (c: M.ClassInfo) =
         if Option.isSome c.Type && t.Value.FullName <> "System.Object" then () else
