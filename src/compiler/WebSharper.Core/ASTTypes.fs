@@ -633,7 +633,7 @@ and [<RequireQualifiedAccess>] TSType =
     | Generic of TSType * list<TSType>
     | Imported of Id * list<string>
     | Importing of string * list<string>
-    | Lambda of list<TSType> * TSType
+    | Function of option<TSType> * list<TSType> * option<TSType> * TSType
     | New of list<TSType> * TSType
     | Tuple of list<TSType>
     | Union of list<TSType>
@@ -644,6 +644,7 @@ and [<RequireQualifiedAccess>] TSType =
     | ObjectOf of TSType
 
     member this.SubstituteGenerics (gs : TSType[]) =
+        let inline tr (p:TSType) = p.SubstituteGenerics gs
         match this with 
         | Any
         | Named _
@@ -651,17 +652,18 @@ and [<RequireQualifiedAccess>] TSType =
         | Importing _
             -> this
         | Param i -> gs.[i]
-        | Generic (e, g) -> Generic (e.SubstituteGenerics gs, g |> List.map (fun p -> p.SubstituteGenerics gs))
-        | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.SubstituteGenerics gs), r.SubstituteGenerics gs)
-        | New (a, r) -> New (a |> List.map (fun p -> p.SubstituteGenerics gs), r.SubstituteGenerics gs)
-        | Tuple ts -> Tuple (ts |> List.map (fun p -> p.SubstituteGenerics gs))
-        | Union ts -> Union (ts |> List.map (fun p -> p.SubstituteGenerics gs))
-        | Intersection ts -> Intersection (ts |> List.map (fun p -> p.SubstituteGenerics gs))
-        | Constraint (t, c) -> Constraint (t.SubstituteGenerics gs, c |> List.map (fun p -> p.SubstituteGenerics gs))
-        | TypeGuard (a, t) -> TypeGuard(a, t.SubstituteGenerics gs)
-        | ObjectOf a -> ObjectOf(a.SubstituteGenerics gs)
+        | Generic (e, g) -> Generic (tr e, List.map tr g)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map tr a, Option.map tr e, tr r)
+        | New (a, r) -> New (List.map tr a, tr r)
+        | Tuple ts -> Tuple (List.map tr ts)
+        | Union ts -> Union (List.map tr ts)
+        | Intersection ts -> Intersection (List.map tr ts)
+        | Constraint (t, c) -> Constraint (tr t, List.map tr c)
+        | TypeGuard (a, t) -> TypeGuard(a, tr t)
+        | ObjectOf a -> ObjectOf(tr a)
 
     member this.ResolveModule (getModule: string -> Id option) =
+        let inline tr (p:TSType) = p.ResolveModule getModule
         match this with 
         | Any
         | Named _
@@ -672,33 +674,15 @@ and [<RequireQualifiedAccess>] TSType =
             match getModule m with
             | Some v -> Imported(v, a)
             | _ -> Named a
-        | Generic (e, g) -> Generic (e.ResolveModule getModule, g |> List.map (fun p -> p.ResolveModule getModule))
-        | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
-        | New (a, r) -> New (a |> List.map (fun p -> p.ResolveModule getModule), r.ResolveModule getModule)
-        | Tuple ts -> Tuple (ts |> List.map (fun p -> p.ResolveModule getModule))
-        | Union ts -> Union (ts |> List.map (fun p -> p.ResolveModule getModule))
-        | Intersection ts -> Intersection (ts |> List.map (fun p -> p.ResolveModule getModule))
-        | Constraint (t, c) -> Constraint (t.ResolveModule getModule, c |> List.map (fun p -> p.ResolveModule getModule))
-        | TypeGuard (a, t) -> TypeGuard(a, t.ResolveModule getModule)
-        | ObjectOf a -> ObjectOf(a.ResolveModule getModule)
-
-    //member this.TransformNames f =
-    //    match this with 
-    //    | Any
-    //    | Imported _
-    //    | Importing _
-    //    | Param _
-    //        -> this
-    //    | Named n -> Named (f n)
-    //    | Generic (e, g) -> Generic (e.TransformNames f, g |> List.map (fun p -> p.TransformNames f))
-    //    | Lambda (a, r) -> Lambda (a |> List.map (fun p -> p.TransformNames f), r.TransformNames f)
-    //    | New (a, r) -> New (a |> List.map (fun p -> p.TransformNames f), r.TransformNames f)
-    //    | Tuple ts -> Tuple (ts |> List.map (fun p -> p.TransformNames f))
-    //    | Union ts -> Union (ts |> List.map (fun p -> p.TransformNames f))
-    //    | Intersection ts -> Intersection (ts |> List.map (fun p -> p.TransformNames f))
-    //    | Constraint (t, c) -> Constraint (t.TransformNames f, c |> List.map (fun p -> p.TransformNames f))
-    //    | TypeGuard (a, t) -> TypeGuard(a, t.TransformNames f)
-    //    | ObjectOf a -> ObjectOf(a.TransformNames f)
+        | Generic (e, g) -> Generic (tr e, List.map tr g)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map tr a, Option.map tr e, tr r)
+        | New (a, r) -> New (List.map tr a, tr r)
+        | Tuple ts -> Tuple (List.map tr ts)
+        | Union ts -> Union (List.map tr ts)
+        | Intersection ts -> Intersection (List.map tr ts)
+        | Constraint (t, c) -> Constraint (tr t, List.map tr c)
+        | TypeGuard (a, t) -> TypeGuard(a, tr t)
+        | ObjectOf a -> ObjectOf(tr a)
 
 type MethodInfo =
     {

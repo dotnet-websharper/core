@@ -416,6 +416,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         packageByName addr <| fun n -> Interface(n, [TSType.Basic "NOPROTO_Record"], fields, generics)
 
     let rec packageClass (t: TypeDefinition) (c: M.ClassInfo) =
+        if Option.isSome c.Type && t.Value.FullName <> "System.Object" then () else
 
         let classAddress = 
             if c.HasWSPrototype then c.Address else None

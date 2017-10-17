@@ -463,7 +463,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                     { id with Name = id.Name + gen }
             let id, args =
                 match t with
-                | Some (TSType.Lambda (ta, tr)) ->      
+                | Some (TSType.Function (_, ta, _, tr)) ->      
                     // argument ids have to be resolved first because return type can be a TypeGuard
                     let args = (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
                     id |> withType innerEnv tr
@@ -613,9 +613,11 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, n) -> (transformId env i).Name + "." + String.concat "." n 
     | TSType.Importing (m, a) -> failwith "TypeScript type from an unresolved module"
-    | TSType.Lambda (a, r)  -> 
-        "(" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
-        + " => " + trN r
+    | TSType.Function (t, a, e, r)  -> 
+        let this = t |> Option.map (fun t -> "this: " + trN t) 
+        let args = a |> List.mapi (fun i t -> string ('a' + char i) + ":" + trN t)
+        let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
+        "(" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r
     | TSType.New (a, r)  -> 
         "new (" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
         + " => " + trN r
@@ -666,7 +668,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             | _ -> t, ""
         let args, tr =
             match t with 
-            | TSType.Lambda (ta, tr) -> 
+            | TSType.Function (_, ta, trest, tr) -> 
                 (p, ta) ||> List.map2 (fun a t -> defineId innerEnv ArgumentId a |> withType env t) 
                 , tr
             | _ ->

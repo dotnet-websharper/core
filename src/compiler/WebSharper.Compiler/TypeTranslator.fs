@@ -31,6 +31,77 @@ type LookupTypeResult =
     | CustomType of PlainAddress * CustomTypeInfo
     | Unknown
 
+let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
+    let (|Last|_|) l =
+        match List.rev l with
+        | l :: r -> Some (List.rev r, l)
+        | _ -> None
+
+    let jsTyp t =
+        TypeDefinition{
+            Assembly = "WebSharper.JavaScript"
+            FullName = t
+        }
+    let coreTyp t =
+        TypeDefinition{
+            Assembly = "WebSharper.Core"
+            FullName = t
+        }
+    let inv() =
+        invalidOp "unexpected type arguments for JS interop type"
+    dict [
+        yield jsTyp "WebSharper.JavaScript.Object`1", (List.head >> TSType.ObjectOf) 
+        yield coreTyp "WebSharper.JavaScript.Optional`1", List.head
+        for i = 1 to 7 do
+            yield coreTyp ("WebSharper.JavaScript.Union`" + string i), TSType.Union
+        yield coreTyp "WebSharper.JavaScript.FuncWithArgs`2",
+            function 
+            | [ TSType.ArrayOf e; r ] -> TSType.Function(None, [], Some e, r)
+            | [ TSType.Tuple a; r ] -> TSType.Lambda(a, r)
+            | _ -> inv()
+        yield coreTyp "WebSharper.JavaScript.FuncWithThis`2",
+            function
+            | [ t; TSType.Function(_, a, e, r) ] -> TSType.Function(Some t, a, e, r) 
+            | _ -> inv()
+        yield coreTyp "WebSharper.JavaScript.FuncWithOnlyThis`2", 
+            function
+            | [ t; r ] -> TSType.Function(Some t, [], None, r) 
+            | _ -> inv()
+        yield coreTyp "WebSharper.JavaScript.FuncWithArgsRest`2", 
+            function
+            | [ TSType.Tuple a; e; r ] -> TSType.Function(None, a, Some e, r) 
+            | _ -> inv()
+        for i = 0 to 6 do
+            yield coreTyp ("WebSharper.JavaScript.FuncWithRest`" + string (i + 2)), 
+                function
+                | Last (Last (a, e), r) -> TSType.Function(None, a, Some e, r) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ThisAction`" + string (i + 1)), 
+                function
+                | t :: a -> TSType.Function(Some t, a, None, TSType.Void) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ThisFunc`" + string (i + 2)), 
+                function
+                | t :: Last (a, r) -> TSType.Function(Some t, a, None, r) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ParamsAction`" + string (i + 1)), 
+                function
+                | Last (a, e) -> TSType.Function(None, a, Some e, TSType.Void) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ParamsFunc`" + string (i + 2)), 
+                function
+                | Last (Last (a, e), r) -> TSType.Function(None, a, Some e, r) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ThisParamsAction`" + string (i + 2)), 
+                function
+                | t :: Last (a, e) -> TSType.Function(Some t, a, Some e, TSType.Void) 
+                | _ -> inv()
+            yield coreTyp ("WebSharper.JavaScript.ThisParamsFunc`" + string (i + 3)), 
+                function
+                | t :: Last (Last (a, e), r) -> TSType.Function(Some t, a, Some e, r) 
+                | _ -> inv()
+    ]
+
 type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAddress) =
     let defaultTsTypeOfAddress (a: Address) =
         let t = a.Address.Value |> List.rev
@@ -77,27 +148,24 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
 
     member this.TSTypeOfConcrete (gs: GenericParam[]) (t: Concrete<TypeDefinition>) =
         let e = t.Entity
-        let tn = e.Value.FullName
-        if tn = "WebSharper.JavaScript.Optional`1" then
-            match t.Generics with
-            | [] -> TSType.Basic "undefined"
-            | _ -> this.TSTypeOf gs t.Generics.Head
-        elif tn.StartsWith "WebSharper.JavaScript.Union`" then
-            TSType.Union (t.Generics |> List.map (this.TSTypeOf gs))
-        elif tn = "WebSharper.JavaScript.Object`1" then
-            TSType.ObjectOf(this.TSTypeOf gs t.Generics.Head)
-        else
+        let gen = t.Generics |> List.map (this.TSTypeOf gs)
+        match CustomTranslations.TryGetValue e with
+        | true, f -> 
+            try f gen
+            with _ ->
+                failwithf "Error during translating type %O" (ConcreteType t)
+        | _ ->
         let td = this.TSTypeOfDef e
-        match t.Generics with
+        match gen with
         | [] -> td
-        | g -> 
+        | _ -> 
             match td with
             | TSType.Importing _
             | TSType.Imported _
             | TSType.Named _ ->
-                TSType.Generic(td, g |> List.map (this.TSTypeOf gs))
-            | TSType.Lambda _ ->
-                td.SubstituteGenerics (g |> Seq.map (this.TSTypeOf gs) |> Array.ofSeq)
+                TSType.Generic(td, gen)
+            | TSType.Function _ ->
+                td.SubstituteGenerics (Array.ofList gen)
             | _ -> td
 
     member this.TSTypeOf (gs: GenericParam[]) (t: Type) =

@@ -322,6 +322,11 @@ module TSType =
     let Void = Basic "void"
     let private Array = Basic "Array"
     let ArrayOf t = TSType.Generic(Array, [ t ])
+    let (|ArrayOf|_|) t = 
+        match t with
+        | TSType.Generic(TSType.Named [ "Array" ], [ t ]) -> Some t
+        | _ -> None
+    let Lambda (a, r) = TSType.Function(None, a, None, r)
 
     let Parse x =
         match x with
