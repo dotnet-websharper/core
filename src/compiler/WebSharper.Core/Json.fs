@@ -1344,6 +1344,15 @@ let resizeArrayEncoder dE (i: FormatSettings) (ta: TAttrs) =
     if tg.Length <> 1 then raise EncoderException
     callGeneric <@ unmakeResizeArray @> dE ta tg.[0]
 
+let unmakeQueue<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<Queue<'T>> x -> dV v]
+
+let queueEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeQueue @> dE ta tg.[0]
+
 let unmakeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: obj -> Encoded) (x: obj) =
     if obj.ReferenceEquals(x, null) then EncodedNull else dV x    
            
@@ -1400,6 +1409,18 @@ let resizeArrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
     if tg.Length <> 1 then raise EncoderException
     callGeneric <@ makeResizeArray @> dD ta tg.[0]
 
+let makeQueue<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        Queue(vs |> List.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<Set<'T>>))
+
+let queueDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeQueue @> dD ta tg.[0]
+
 let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
     function
         | Null -> null
@@ -1439,6 +1460,7 @@ type Encodings<'a, 'b> =
         Map: TypeEncoding<'a, 'b>
         Set: TypeEncoding<'a, 'b>
         ResizeArray: TypeEncoding<'a, 'b>
+        Queue: TypeEncoding<'a, 'b>
         Nullable: TypeEncoding<'a, 'b>
         Object: TypeEncoding<'a, 'b>
     }
@@ -1456,6 +1478,7 @@ module Encodings =
             Map = mapDecoder
             Set = setDecoder
             ResizeArray = resizeArrayDecoder
+            Queue = queueDecoder
             Nullable = nbleDecoder
             Object = objectDecoder
         }
@@ -1471,6 +1494,7 @@ module Encodings =
             Map = mapEncoder
             Set = setEncoder
             ResizeArray = resizeArrayEncoder
+            Queue = queueEncoder
             Nullable = nbleEncoder
             Object = objectEncoder
         }
@@ -1509,6 +1533,7 @@ module Encodings =
                 let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
                 fun _ -> x
             ResizeArray = fun dD i ta _ -> null
+            Queue = fun dD i ta _ -> null
             Nullable = fun dD i ta _ -> null
             Object = fun _ _ _ _ -> null
         }
@@ -1538,6 +1563,7 @@ let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
                     | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> e.Map dD fo ta
                     | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> e.Set dD fo ta
                     | Some "System.Collections.Generic.List`1" -> e.ResizeArray dD fo ta
+                    | Some "System.Collections.Generic.Queue`1" -> e.Queue dD fo ta
                     | Some "System.Nullable`1" -> e.Nullable dD fo ta
                     | _ -> 
                         e.Object dD fo ta

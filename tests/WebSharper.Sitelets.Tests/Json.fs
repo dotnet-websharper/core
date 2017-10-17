@@ -142,6 +142,7 @@ module Json =
         | [<Json "x">] UnionConstants of x: Types.UnionWithConstants
         | [<Json "x">] DateTime of x: System.DateTime
         | [<Json "x">] ResizeArray of x: ResizeArray<int>
+        | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
 
     let Content = function
         | Int x -> Content.Json x
@@ -165,3 +166,4 @@ module Json =
         | UnionConstants x -> Content.Json x
         | DateTime x -> Content.Json x
         | ResizeArray x -> Content.Json x
+        | Queue x -> Content.Json x

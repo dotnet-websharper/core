@@ -387,6 +387,16 @@ module ClientSideJson =
                 equal (Json.Deserialize "[87,9,124]") (ResizeArray [87;9;124])
             }
 
+            Test "serialize Queue" {
+                equal (Json.Serialize (Queue<int>())) "[]"
+                equal (Json.Serialize (Queue [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize Queue" {
+                equal (Json.Deserialize "[]") (Queue<int>())
+                equal (Json.Deserialize "[87,9,124]") (Queue [87;9;124])
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
@@ -544,10 +554,10 @@ module ClientSideJson =
                 equalAsync (f now) now
             }
 
-            Test "ResizeArray" {
-                let f (r: ResizeArray<int>) =
-                    echo "ResizeArray" (Json.Serialize r) Json.Decode<ResizeArray<int>>
-                equalAsync (f (ResizeArray())) (ResizeArray())
-                equalAsync (f (ResizeArray [34; 5; 58])) (ResizeArray [34; 5; 58])
+            Test "Queue" {
+                let f (r: Queue<int>) =
+                    echo "Queue" (Json.Serialize r) Json.Decode<Queue<int>>
+                equalAsync (f (Queue())) (Queue())
+                equalAsync (f (Queue [34; 5; 58])) (Queue [34; 5; 58])
             }
         }

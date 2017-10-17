@@ -306,7 +306,8 @@ module Macro =
             let rec encode t =
                 match t with
                 | ArrayType (t, 1)
-                | C (T "System.Collections.Generic.List`1", [t]) ->
+                | C (T "System.Collections.Generic.List`1", [t])
+                | C (T "System.Collections.Generic.Queue`1", [t]) ->
                     encode t >>= fun e ->
                     ok (call "Array" [e])
                 | ArrayType _ ->

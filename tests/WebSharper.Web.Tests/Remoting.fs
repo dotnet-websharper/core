@@ -271,6 +271,12 @@ module Server =
         async { return a }
 
     [<Remote>]
+    let f23 (a: System.Collections.Generic.Queue<string>) =
+        a.Enqueue("test")
+        let d = a.Dequeue()
+        async { return (d, a) }
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -350,6 +356,7 @@ module Server =
 module Remoting =
 
     open WebSharper.Testing
+    open System.Collections.Generic
 
     [<JavaScript>]
     let Tests =
@@ -482,6 +489,12 @@ module Remoting =
             Test "ResizeArray" {
                 let! x = ResizeArray [ "Hello"; "world" ] |> Server.f22
                 equal (x.ToArray()) [| "Hello"; "world"; "test" |]
+            }
+
+            Test "Queue" {
+                let! x, q = Queue [ "Hello"; "world" ] |> Server.f23
+                equal x "Hello"
+                equal (q.ToArray()) [| "world"; "test" |]
             }
 
             // currently failing
