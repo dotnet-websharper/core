@@ -604,6 +604,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let gen = getGenerics 0 c.Generics
 
         match ct with
+        | M.FSharpRecordInfo r when not c.HasWSPrototype ->
+            packageRecord r classAddress t
         | M.FSharpUnionInfo u ->
             packageUnion u classAddress (Some (baseType, impls, List.ofSeq members, gen)) gsArr
         | _ ->

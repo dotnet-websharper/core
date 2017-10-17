@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Collections.Generic.KeyValuePair<_,_>>)>]
+[<Name "WebSharper.KeyValuePair">]
 [<Prototype false>]
 type private KeyValuePairProxy<'K,'V> =
     {

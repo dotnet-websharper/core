@@ -449,6 +449,7 @@ type Compilation(meta: Info, ?hasGraph) =
         notResolvedCustomTypes.ContainsKey typ || classes.ContainsKey typ 
 
     member this.GetCustomType(typ) =
+        if interfaces.ContainsKey typ then NotCustomType else
         let typ' = this.FindProxied typ
         match classes.TryFind typ' with
         | Some (addr, res, _) ->
