@@ -28,118 +28,110 @@ open WebSharper.JavaScript
     FSharp.Core, Culture=neutral, \
     PublicKeyToken=b03f5f7f11d50a3a">]
 [<Name "Set">]
-module internal SetModule =
+module private SetModule =
     module T = BalancedTree
 
     [<Inline>]
-    let private ToTree (s: Set<'T>) =
-        (As<FSharpSet<'T>> s).Tree
+    let Add v (s: FSharpSet<_>) = s.Add v
 
     [<Inline>]
-    let private OfTree (t: T.Tree<'T>) =
-        As<Set<'T>> (new FSharpSet<'T>(t))
+    let Contains v (s: FSharpSet<_>) = s.Contains v
 
     [<Inline>]
-    let Add v (s: Set<_>) = s.Add v
+    let Count (s: FSharpSet<_>) = s.Count
+
+    let Filter f (s: FSharpSet<'T>) =
+        FSharpSet(T.OfSorted (Seq.toArray (Seq.filter f s)))
 
     [<Inline>]
-    let Contains v (s: Set<_>) = s.Contains v
+    let Difference (s1: FSharpSet<_>) (s2: FSharpSet<_>) =
+        Filter (fun x -> not (s2.Contains x)) s1
 
     [<Inline>]
-    let Count (s: Set<_>) = s.Count
+    let Empty<'T when 'T : comparison> = FSharpSet<'T>(T.Empty)
 
     [<Inline>]
-    let Difference (s1: Set<_>) (s2: Set<_>) =
-        Set.filter (fun x -> not (s2.Contains x)) s1
-
-    [<Inline>]
-    let Empty<'T when 'T : comparison> : Set<'T> = OfTree T.Empty
-
-    [<Inline>]
-    let Exists f (s: Set<'T>) = Seq.exists f s
-
-    let Filter f (s: Set<'T>) =
-        OfTree (T.OfSorted (Seq.toArray (Seq.filter f s)))
+    let Exists f (s: FSharpSet<'T>) = Seq.exists f s
 
     [<Inline>]
     let Fold<'T,'S when 'T : comparison>
-        (f: 'S -> 'T -> 'S) (x: 'S) (a: Set<'T>) =
+        (f: 'S -> 'T -> 'S) (x: 'S) (a: FSharpSet<'T>) =
             Seq.fold f x a
 
-    let FoldBack (f: 'T -> 'S -> 'S) (a: Set<'T>) (s: 'S) : 'S =
-        Seq.fold (fun s x -> f x s) s (T.Descend (ToTree a))
+    let FoldBack (f: 'T -> 'S -> 'S) (a: FSharpSet<'T>) (s: 'S) : 'S =
+        Seq.fold (fun s x -> f x s) s (T.Descend a.Tree)
 
     [<Inline>]
-    let ForAll f (a: Set<_>) = Seq.forall f a
+    let ForAll f (a: FSharpSet<_>) = Seq.forall f a
 
     [<Inline>]
-    let Intersect (s1: Set<'T>) (s2: Set<'T>) = Set.filter s2.Contains s1
+    let Intersect (s1: FSharpSet<'T>) (s2: FSharpSet<'T>) = Filter s2.Contains s1
 
     [<Inline>]
-    let IntersectMany (s: seq<Set<_>>) = Seq.reduce Set.intersect s
+    let IntersectMany (s: seq<FSharpSet<_>>) = Seq.reduce Intersect s
 
     [<Inline>]
-    let IsEmpty (a: Set<_>) = a.IsEmpty
+    let IsEmpty (a: FSharpSet<_>) = a.IsEmpty
 
     [<Inline>]
-    let IsProperSubset (a: Set<_>) b = a.IsProperSubsetOf b
+    let IsProperSubset (a: FSharpSet<_>) b = a.IsProperSubsetOf b
 
     [<Inline>]
-    let IsProperSuperset (a: Set<_>) b = a.IsProperSupersetOf b
+    let IsProperSuperset (a: FSharpSet<_>) b = a.IsProperSupersetOf b
 
     [<Inline>]
-    let IsSubset (a: Set<_>) b = a.IsSubsetOf b
+    let IsSubset (a: FSharpSet<_>) b = a.IsSubsetOf b
 
     [<Inline>]
-    let IsSuperset (a: Set<_>) b = a.IsSupersetOf b
+    let IsSuperset (a: FSharpSet<_>) b = a.IsSupersetOf b
 
     [<Inline>]
-    let Iterate f (s: Set<_>) = Seq.iter f s
+    let Iterate f (s: FSharpSet<_>) = Seq.iter f s
 
     [<Inline>]
-    let Map f (s: Set<_>) = Set.ofSeq (Seq.map f s)
+    let Map f (s: FSharpSet<_>) = Set.ofSeq (Seq.map f s)
 
     [<Inline>]
-    let MaxElement (s: Set<_>) = s.MaximumElement
+    let MaxElement (s: FSharpSet<_>) = s.MaximumElement
 
     [<Inline>]
-    let MinElement (s: Set<_>) = s.MinimumElement
+    let MinElement (s: FSharpSet<_>) = s.MinimumElement
 
     [<Inline>]
-    let OfArray (a: 'T []) = OfTree (T.OfSeq a)
+    let OfArray (a: 'T []) = FSharpSet(T.OfSeq a)
 
     [<Inline>]
-    let OfList (a: list<'T>) = OfTree (T.OfSeq a)
+    let OfList (a: list<'T>) = FSharpSet(T.OfSeq a)
 
     [<Inline>]
-    let OfSeq (a: seq<'T>) = OfTree (T.OfSeq a)
+    let OfSeq (a: seq<'T>) = FSharpSet(T.OfSeq a)
 
-    let Partition f (a: Set<_>) =
+    let Partition f (a: FSharpSet<_>) =
         let (x, y) = Array.partition f (Seq.toArray a)
-        (Set.ofArray x, Set.ofArray y)
+        (OfArray x, OfArray y)
 
     [<Inline>]
-    let Remove v (a: Set<_>) = a.Remove v
+    let Remove v (a: FSharpSet<_>) = a.Remove v
 
     [<Inline>]
-    let Singleton x = Set.add x Set.empty
+    let Singleton x = Add x Empty
 
     [<Inline>]
-    let ToArray (a: Set<_>) = Seq.toArray a
+    let ToArray (a: FSharpSet<_>) = Seq.toArray a
 
     [<Inline>]
-    let ToList (a: Set<_>) = Seq.toList a
+    let ToList (a: FSharpSet<_>) = Seq.toList a
 
     [<Inline>]
-    let ToSeq (a: Set<_>) : seq<_> = a :> _
+    let ToSeq (a: FSharpSet<_>) : seq<_> = a :> _
 
     [<Inline>]
-    let Union (s1: Set<_>) (s2: Set<_>) =
-        Set.ofSeq (Seq.append s1 s2)
+    let Union (s1: FSharpSet<_>) (s2: Set<_>) =
+        OfSeq (Seq.append s1 s2)
 
     [<Inline>]
-    let UnionMany (sets: seq<Set<_>>) =
-        Set.ofSeq (Seq.concat sets)
+    let UnionMany (sets: seq<FSharpSet<_>>) =
+        OfSeq (Seq.concat sets)
 
 
 
