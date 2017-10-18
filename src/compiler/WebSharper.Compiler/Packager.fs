@@ -341,20 +341,23 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let strId x = Id.New(x, str = true)
             let specCtors =
                 u.Cases |> List.mapi (fun tag uc ->
-                    let fields =
-                        match uc.Kind with
-                        | M.NormalFSharpUnionCase fields -> fields
-                        | M.SingletonFSharpUnionCase | M.ConstantFSharpUnionCase _ -> []
-                    numArgs <- max numArgs (List.length fields)
-                    let args =
-                        (strId "$", Modifiers.None)
-                        :: (fields |> List.mapi (fun i _ -> strId("$" + string i), Modifiers.None))
-                    let argsType =
-                        TSType.Basic (string tag)
-                        :: (fields |> List.map (fun f -> tsTypeOf gsArr f.UnionFieldType))
-                    let signature = TSType.New(argsType, TSType.Any)
-                    ClassConstructor(args, None, signature)
+                    match uc.Kind with
+                    | M.NormalFSharpUnionCase fields -> Some fields
+                    | M.SingletonFSharpUnionCase -> Some []
+                    | M.ConstantFSharpUnionCase _ -> None
+                    |> Option.map (fun fields ->
+                        numArgs <- max numArgs (List.length fields)
+                        let args =
+                            (strId "$", Modifiers.None)
+                            :: (fields |> List.mapi (fun i _ -> strId("$" + string i), Modifiers.None))
+                        let argsType =
+                            TSType.Basic (string tag)
+                            :: (fields |> List.map (fun f -> tsTypeOf gsArr f.UnionFieldType))
+                        let signature = TSType.New(argsType, TSType.Any)
+                        ClassConstructor(args, None, signature)
+                    )
                 )
+                |> List.choose id
             let genCtor =
                 let args =
                     (strId "$", Modifiers.Public)
