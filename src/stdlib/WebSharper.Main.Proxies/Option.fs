@@ -26,6 +26,7 @@ open WebSharper.JavaScript
 [<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
 [<DefaultAugmentation(false)>]
 [<RequireQualifiedAccess>]
+[<Name "Option">]
 type private OptionProxy<'T> =
     | None 
     | Some of Value: 'T
