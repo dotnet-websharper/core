@@ -78,8 +78,10 @@ type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
         As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(As<'T[]> this))
 
     interface 'T seq with
-        member this.GetEnumerator() = (As<System.Collections.IEnumerable> this).GetEnumerator()
-        member this.GetEnumerator() = (As<seq<'T>> this).GetEnumerator()
+        [<Inline>]
+        member this.GetEnumerator() = As<System.Collections.Generic.IEnumerator<'T>>(this.GetEnumerator())
+        [<Inline>]
+        member this.GetEnumerator() = As<System.Collections.IEnumerator>(this.GetEnumerator())
 
     [<Inline>]
     member this.Add(x: 'T) : unit =

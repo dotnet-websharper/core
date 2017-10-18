@@ -29,7 +29,8 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<IGrouping<_, _>>)>]
 type internal IGroupingProxy<'K, 'T> =
-    inherit seq<KeyValuePair<'K, 'T>>
+    inherit seq<'T>
+    [<Name "Key">]
     abstract Key : 'K
 
 [<JavaScript>]
@@ -40,6 +41,7 @@ type internal Grouping<'K, 'T> (k: 'K, v: seq<'T>) =
             v.GetEnumerator()
 
     interface System.Collections.IEnumerable with
+        [<Inline>]
         member this.GetEnumerator() =
             (v :> System.Collections.IEnumerable).GetEnumerator()
 
@@ -98,6 +100,7 @@ type internal OrderedEnumerable<'T>(source: seq<'T>, primary: IComparer<'T>) =
             Array.sortInPlaceWith (fun x y -> primary.Compare(x, y)) a
             (a :> seq<'T>).GetEnumerator()
     interface IEnumerable with
+        [<Inline>]
         member this.GetEnumerator() =
             (this :> IEnumerable<'T>).GetEnumerator() :> _
 
