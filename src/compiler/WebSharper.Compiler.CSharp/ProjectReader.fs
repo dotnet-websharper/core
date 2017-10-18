@@ -208,7 +208,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         for meth in intf.GetMembers().OfType<IMethodSymbol>() do
             let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
             if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
-                Dict.addToMulti implicitImplementations impl intf
+                Dict.addToMulti implicitImplementations impl (intf, meth)
 
     for mem in members do
         match mem with
@@ -324,7 +324,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 err |> Option.iter error
                 addConstructor mAnnot cdef N.Inline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
-            | Member.Override _ -> error "Override method can't have Stub attribute"
+            | Member.Override _ -> error "Virtual or override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
             let memdef = sr.ReadMember meth
@@ -564,7 +564,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Member.Implementation (t, _) -> N.Implementation t
                     | _ -> failwith "impossible"
                 let jsMethod isInline =
-                    addMethod mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                    match memdef with
+                    // virtual methods are split to abstract and override
+                    | Member.Override (td, _) when not isInline && td = def ->
+                        addMethod mAnnot mdef (N.Abstract) true Undefined
+                        addMethod { mAnnot with Name = None } mdef (N.Override def) false (getBody isInline)
+                    | _ ->
+                        addMethod mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -623,12 +629,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     comp.SetEntryPoint(ep)
                 match implicitImplementations.TryFind meth with
                 | Some impls ->
-                    for impl in impls do
-                        let idef = sr.ReadNamedTypeDefinition impl
+                    for intf, imeth in impls do
+                        let idef = sr.ReadNamedTypeDefinition intf
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                        let imdef = sr.ReadMethod imeth 
                         // TODO : correct generics
                         Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
+                        |> addMethod A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   

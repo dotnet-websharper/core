@@ -313,6 +313,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             if x.IsOverride then
                 let o = x.OverriddenMethod.OriginalDefinition
                 Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
+            elif x.IsVirtual then
+                let o = x.OriginalDefinition                                        
+                Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
             elif x.ExplicitInterfaceImplementations.Length > 0 then
                 let o = x.ExplicitInterfaceImplementations.[0].OriginalDefinition
                 Member.Implementation(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
