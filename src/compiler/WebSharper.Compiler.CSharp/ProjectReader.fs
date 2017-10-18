@@ -507,9 +507,23 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             | Some si -> si
                             | _ -> Empty
                         else
-                            if hasInit then 
-                                ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
-                            else Empty
+                            let baseCall =
+                                let bTyp = cls.BaseType
+                                if isNull bTyp then Empty else
+                                match sr.ReadNamedType bTyp with
+                                | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
+                                    Empty
+                                | b ->
+                                    ExprStatement (BaseCtor(This, b, ConstructorInfo.Default(), []))
+                            let init =
+                                if hasInit then 
+                                    ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                else 
+                                    Empty
+                            CombineStatements [
+                                baseCall
+                                init
+                            ]
                     {
                         IsStatic = meth.IsStatic
                         Parameters = []

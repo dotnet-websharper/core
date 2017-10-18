@@ -1326,12 +1326,13 @@ type RoslynTransformer(env: Environment) =
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
         let parameterList = sr.ReadParameters meth
         for p in parameterList do
-            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
+            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
         let body = x.Expression |> this.TransformExpression
+        let rTyp = sr.ReadType meth.ReturnType
         {
             IsStatic = meth.IsStatic
             Parameters = parameterList
-            Body = Return body
+            Body = if rTyp = VoidType then ExprStatement body else Return body
             IsAsync = meth.IsAsync
             ReturnType = sr.ReadType meth.ReturnType
         }
