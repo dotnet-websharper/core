@@ -310,8 +310,8 @@ let OptionOf (generator: Generator<'A>) : Generator<option<'A>> =
     Mix (Const None) (Map Some generator)
 
 /// Boxes the generated data.
-[<Inline "$g">]
-let Box (g: Generator<'A>) = Map box g
+[<Inline>]
+let Box (g: Generator<'A>) = As<Generator<obj>> g
 
 [<JavaScript>]
 let private allTypes =
