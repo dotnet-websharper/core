@@ -270,7 +270,13 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv ArgumentId) 
+        let args = 
+            ids |> List.map (fun a ->
+                let i = defineId innerEnv ArgumentId a 
+                match a.TSType with
+                | None -> i
+                | Some t -> i |> withType env t
+            ) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
         let hasNoThis = HasNoThisVisitor().Check(b)
@@ -615,7 +621,10 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Importing (m, a) -> failwith "TypeScript type from an unresolved module"
     | TSType.Function (t, a, e, r)  -> 
         let this = t |> Option.map (fun t -> "this: " + trN t) 
-        let args = a |> List.mapi (fun i t -> string ('a' + char i) + ":" + trN t)
+        let args = 
+            a |> List.mapi (fun i t -> 
+                string ('a' + char i) + (match t with TSType.Param _ -> "?:" | _ -> ":") + trN t
+            )
         let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
         "(" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r
     | TSType.New (a, r)  -> 

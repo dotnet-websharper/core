@@ -421,6 +421,16 @@ type Id =
         | Some (TSType t) -> Some t
         | _ -> None
 
+    member this.SubstituteGenerics(gs : Type[]) =
+        match this.Type with
+        | Some t -> { this with Type = Some (t.SubstituteGenerics gs) }
+        | _ -> this
+
+    member this.HasUnresolvedGenerics =
+        match this.Type with
+        | Some t -> t.HasUnresolvedGenerics
+        | _ -> false
+
     member this.IsGlobal() = this.Id = -1L
 
     override this.GetHashCode() = int this.Id
@@ -575,6 +585,19 @@ and Type =
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
         | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenericsToSame"
+
+    member this.HasUnresolvedGenerics =
+        match this with 
+        | ConcreteType t -> t.Generics |> List.exists (fun p -> p.HasUnresolvedGenerics)
+        | StaticTypeParameter _ 
+        | TypeParameter _ -> true
+        | VoidType 
+        | LocalTypeParameter -> false
+        | ArrayType (t, _) -> t.HasUnresolvedGenerics
+        | TupleType (ts, v) -> ts |> List.exists (fun p -> p.HasUnresolvedGenerics)
+        | FSharpFuncType (a, r) -> a.HasUnresolvedGenerics || r.HasUnresolvedGenerics
+        | ByRefType t -> t.HasUnresolvedGenerics
+        | TSType _ -> invalidOp "TypeScript type does not support HasUnresolvedGenerics"
 
     member this.GetStableHash()  =
         let inline (++) a b = StableHash.tuple (a, b)

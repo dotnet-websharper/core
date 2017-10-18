@@ -228,6 +228,9 @@ type GenericInlineResolver (generics, tsGenerics) =
 
     let subs (t: Type) = t.SubstituteGenerics(gs)
 
+    override this.TransformId var =
+        var.SubstituteGenerics(gs)
+
     override this.TransformCall (thisObj, typ, meth, args) =
         Call (
             thisObj |> Option.map this.TransformExpression, 
@@ -852,8 +855,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             if List.isEmpty typ.Generics && List.isEmpty meth.Generics then
                 TSType.Any
             else
-                if currentIsInline then
-                    hasDelayedTransform <- true
                 let gcArr = Array.ofList gc
                 let gen =
                     typ.Generics @ meth.Generics 
@@ -882,8 +883,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
             ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcTyp true)
-        | M.Inline ->
-            Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
+        | M.Inline
         | M.NotCompiledInline ->
             let ge =
                 let gen = typ.Generics @ meth.Generics
@@ -894,8 +894,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
                     try GenericInlineResolver(gen, tsGen).TransformExpression expr
                     with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
-            Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
-            |> this.TransformExpression
+            let res = Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
+            if info = M.NotCompiledInline then
+                res |> this.TransformExpression
+            else res
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with
