@@ -54,23 +54,27 @@ open System.Runtime.InteropServices
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<D<_,_>.KeyCollection.Enumerator>)>]
-[<Stub>]
-type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'K> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.KeyCollection.Enumerator">]
+type private KeyCollectionEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'K
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 // not really used, a sequence enumerator is cast to this type instead
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<D<_,_>.ValueCollection.Enumerator>)>]
-[<Stub>]
-type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'V> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.ValueCollection.Enumerator">]
+type private ValueCollectionEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'V
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 [<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
@@ -105,12 +109,14 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
-[<Stub>]
-type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<KVP<'K,'V>> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.Dictionary.Enumerator">]
+type private DictionaryEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> KVP<'K, 'V>
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "WebSharper.Collections.Dictionary">]

@@ -37,12 +37,14 @@ open DictionaryUtil
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<HashSet<_>.Enumerator>)>]
-[<Stub>]
-type private HashSetEnumeratorProxy<'T> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'T> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Stub; Name "WebSharper.Collections.HashSet.Enumerator">]
+type private HashSetEnumeratorProxy<'T> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'T
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 [<Proxy(typeof<HashSet<_>>)>]
 [<Name "HashSet">]

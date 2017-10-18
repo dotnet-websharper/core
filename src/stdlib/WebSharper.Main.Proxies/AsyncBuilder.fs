@@ -29,6 +29,7 @@ module C = WebSharper.Concurrency
 [<Proxy "Microsoft.FSharp.Control.FSharpAsyncBuilder, \
          FSharp.Core, Culture=neutral, \
          PublicKeyToken=b03f5f7f11d50a3a">]
+[<Type "null">]
 type private AsyncBuilderProxy [<Inline "null">]() =
 
     [<Inline>]

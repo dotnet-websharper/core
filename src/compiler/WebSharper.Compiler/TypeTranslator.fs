@@ -51,11 +51,17 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
             Assembly = "FSharp.Core"
             FullName = t
         }
+    let corlibTyp t =
+        TypeDefinition{
+            Assembly = "mscorlib"
+            FullName = t
+        }
     let inv() =
         invalidOp "unexpected type arguments for JS interop type"
     dict [
         yield jsTyp "WebSharper.JavaScript.Object`1", (List.head >> TSType.ObjectOf) 
         yield coreTyp "WebSharper.JavaScript.Optional`1", List.head
+        yield corlibTyp "System.Nullable`1", List.head
         yield fscoreTyp "Microsoft.FSharp.Core.FSharpRef`1", TSType.Tuple  
         for i = 1 to 7 do
             yield coreTyp ("WebSharper.JavaScript.Union`" + string i), TSType.Union
