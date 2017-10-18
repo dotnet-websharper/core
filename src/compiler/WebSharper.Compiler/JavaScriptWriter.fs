@@ -622,9 +622,10 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Function (t, a, e, r)  -> 
         let this = t |> Option.map (fun t -> "this: " + trN t) 
         let args = 
-            a |> List.mapi (fun i t -> 
-                string ('a' + char i) + (match t with TSType.Param _ -> "?:" | _ -> ":") + trN t
-            )
+            match a with
+            | [] -> []
+            | [ t ] -> [ "a" + (match t with TSType.Param _ -> "?:" | _ -> ":") + trN t ]
+            | _ -> a |> List.mapi (fun i t -> string ('a' + char i) + ":" + trN t)
         let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
         "(" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r
     | TSType.New (a, r)  -> 
