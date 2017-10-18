@@ -29,6 +29,7 @@ module internal BalancedTree =
 
     /// Represents a binary balanced search tree, preserving the balance
     /// invariant: the heights of the branches differ by at most 1.
+    [<Name "WebSharper.Collections.BalancedTree">]
     type Tree<'T when 'T : comparison> =
         private {
             Node    : 'T
@@ -123,10 +124,10 @@ module internal BalancedTree =
                 match compare k t.Node with
                 | 0 -> loop <- false
                 | 1 ->
-                    unshift spine (true, t.Node, t.Left)
+                    spine.JS.Unshift((true, t.Node, t.Left)) |> ignore
                     t <- t.Right
                 | _ ->
-                    unshift spine (false, t.Node, t.Right)
+                    spine.JS.Unshift((false, t.Node, t.Right)) |> ignore
                     t <- t.Left
         (t, spine)
 
