@@ -25,6 +25,8 @@ open WebSharper.JavaScript
 
 [<Name "WebSharper.Delegate">]
 [<Proxy(typeof<Delegate>)>]
+[<Type "Function">]
+[<Prototype false>]
 type internal DelegateProxy =
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
@@ -43,10 +45,10 @@ type internal DelegateProxy =
     member this.DynamicInvoke(args: obj[]) = X<obj>
 
     [<Direct "$0.$Invokes || [$0]">]
-    static member InvocationList(del: Delegate) = X<Delegate[]> 
+    static member InvocationList(del: obj) = X<Delegate[]> 
     [<Inline>]
     member this.GetInvocationList() : Delegate[] =
-        DelegateProxy.InvocationList (As this)
+        DelegateProxy.InvocationList this
     
     static member DelegateTarget(del) =
         if (JS.Not del) then null
@@ -93,6 +95,7 @@ type internal DelegateProxy =
         DelegateProxy.JSCreateDelegate(sourceInv |> Array.filter (fun i -> not (i.Equals(value))))         
 
 [<Proxy(typeof<MulticastDelegate>)>]
+[<Type "function">]
 type internal MulticastDelegateProxy =
     
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]

@@ -91,7 +91,6 @@ let interop =
                         let t = (if this then ["'TThis"] else[]) @ tArgs i @ (if pars then ["'TParams"] else []) @ (if ret then ["'TResult"] else [])
                         let toTypArgs ts = if List.isEmpty ts then "" else "<" + String.concat ", " ts + ">"
                         let a = (if this then ["thisArg: 'TThis"] else[]) @ args i @ (if pars then ["[<PA>] rest: 'TParams[]"] else [])
-                        cprintfn "[<Type \"function\">]"
                         cprintfn "[<Proxy (typeof<%s%s>)>]" name (toAnonTypArgs t)
                         cprintfn "type %sProxy%s =" name (toTypArgs t)
                         cprintfn "    [<Inline \"$wsruntime.%s($del)\">]" inTr
@@ -105,6 +104,7 @@ let interop =
     for i = 2 to 7 do
         let t = tArgs i
         cprintfn "[<Type \"union\">]"
+        cprintfn "[<JavaScript false>]"
         cprintfn "[<Proxy (typeof<Union%s>)>]" (toAnonTypArgs t)
         let tname = sprintf "Union<%s>" (tArgs i |> String.concat ", ")
         cprintfn "type UnionProxy<%s> =" (t |> String.concat ", ")

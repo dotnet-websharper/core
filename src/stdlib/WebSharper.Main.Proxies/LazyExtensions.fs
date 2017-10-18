@@ -50,14 +50,14 @@ type LazyProxy<'T> =
         }
 
     static member forceLazy () =
-        let v = (As JS.This<LazyProxy<'T>>.evalOrVal)()
+        let v = (JS.This<LazyProxy<'T>>.evalOrVal :?> unit -> 'T)()
         JS.This<LazyProxy<'T>>.created <- true
         JS.This<LazyProxy<'T>>.evalOrVal <- v
         JS.This<LazyProxy<'T>>.force <- As LazyProxy<'T>.cachedLazy
         v
 
     static member cachedLazy () =
-        As JS.This<LazyProxy<'T>>.evalOrVal
+        JS.This<LazyProxy<'T>>.evalOrVal :?> 'T
 
     member this.IsValueCreated
         with [<Inline>] get () = this.created

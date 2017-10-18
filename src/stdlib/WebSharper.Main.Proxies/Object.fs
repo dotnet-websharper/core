@@ -56,6 +56,7 @@ type private ObjectProxy() =
     override this.ToString() = string this
 
 [<Proxy(typeof<System.ValueType>)>]
+[<Type "any">]
 type private ValueTypeProxy =
 
     [<Inline>]

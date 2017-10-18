@@ -750,8 +750,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
 
-    let notForcedNotJavaScript = not annot.IsForcedNotJavaScript
-
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
             let usesNull =
@@ -785,7 +783,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            if argumentless && notForcedNotJavaScript then
+                            if argumentless && not annot.IsForcedNotJavaScript then
                                 let caseField = Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
@@ -865,11 +863,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            let cAnnot =
-                if notForcedNotJavaScript then 
-                    A.MemberAnnotation.BasicPureJavaScript
-                else A.MemberAnnotation.BasicPureInlineJavaScript
-            addConstructor None cAnnot cdef N.Static false None body
+            let cKind = if annot.IsForcedNotJavaScript then N.Inline else N.Static
+            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
 
             // properties
 

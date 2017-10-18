@@ -407,7 +407,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         packageByName addr <| fun n -> Interface(n, [], fields, generics)
 
     let rec packageClass (t: TypeDefinition) (classAddress: Address) (ct: CustomTypeInfo) (c: M.ClassInfo) =
-        if Option.isSome c.Type && t.Value.FullName <> "System.Object" then () else
 
         match c.BaseClass with
         | Some { Entity = b } ->
@@ -478,7 +477,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 )
 
         let cgenl = List.length c.Generics
-        let thisTSTypeDef = tsTypeOf gsArr (NonGenericType t)
+        let thisTSTypeDef = lazy tsTypeOf gsArr (NonGenericType t)
 
         let mem (m: Method) info gc opts intfGen body =
             let gsArr = Array.append gsArr (Array.ofList gc)
@@ -500,11 +499,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         else typeOfParams opts gsArr p
                     TSType.Lambda(pts, tsTypeOf gsArr r)
                 | _ ->
-                    thisTSTypeDef |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
+                    thisTSTypeDef.Value |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
 
-            let g = getGenerics cgenl gc
             let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             let getMember isStatic n =
+                let g = getGenerics cgenl gc
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
                     ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics g)
@@ -516,9 +515,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.Instance mname ->
                 members.Add (getMember false mname)
             | M.Static maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics g)
+                smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics (getGenerics 0 gc))
             | M.AsStatic maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics g)
+                smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics (getGenerics 0 gc))
             | _ -> ()
                     
         for KeyValue(m, (info, opts, gc, body)) in c.Methods do
@@ -535,10 +534,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let indexedCtors = Dictionary()
         
         let cgen = getGenerics 0 c.Generics
+        let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
-            let thisTSType = thisTSTypeDef |> addGenerics cgen 
             match withoutMacros info with
             | M.New ->
                 if body <> Undefined then
@@ -549,7 +548,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | Function (args, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
                         let signature =
-                            TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
+                            TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType.Value)
                         members.Add (ClassConstructor (args, Some b, signature))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -560,14 +559,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         let index = Id.New("i: " + string i, str = true)
                         let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
                         let signature =
-                            TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters), thisTSType)
+                            TSType.New(TSType.Any :: (typeOfParams opts gsArr ctor.Value.CtorParameters), thisTSType.Value)
                         members.Add (ClassConstructor (allArgs, None, signature))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.Static maddr ->
                 let signature =
-                    TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType)
+                    TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType.Value)
                 
                 smem maddr 
                     (fun n ->
@@ -605,9 +604,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let gen = getGenerics 0 c.Generics
 
         match ct with
-        | M.FSharpRecordInfo r when not c.HasWSPrototype ->
+        | M.FSharpRecordInfo r when not c.HasWSPrototype && Option.isNone c.Type ->
             packageRecord r classAddress t
-        | M.FSharpUnionInfo u ->
+        | M.FSharpUnionInfo u when Option.isNone c.Type ->
             packageUnion u classAddress (Some (baseType, impls, List.ofSeq members, gen)) gsArr
         | _ ->
             if c.HasWSPrototype then
