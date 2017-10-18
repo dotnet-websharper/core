@@ -302,9 +302,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | Some t -> None
             | _ ->
                 let p = TSType.Param (j + i)
-                match c.Constraints with 
+                let cs = c.Constraints |> List.choose (fun t ->
+                    match tsTypeOf gsArr t with
+                    | TSType.Any -> None
+                    | t -> Some t)
+                match cs with 
                 | [] -> p
-                | cs -> TSType.Constraint(p, cs |> List.map (tsTypeOf gsArr))
+                | cs -> TSType.Constraint(p, cs)
                 |> Some
         ) |> List.ofSeq
 
