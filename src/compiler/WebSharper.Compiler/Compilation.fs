@@ -887,7 +887,10 @@ type Compilation(meta: Info, ?hasGraph) =
                     HasWSPrototype = hasWSPrototype
                     IsStub = isStub
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
-                    Type = cls.Type
+                    Type =
+                        match cls.Type with
+                        | Some _ as t -> t
+                        | None -> if isStub then Some TSType.Any else None
                 }
             
             match notResolvedCustomTypes.TryFind typ with
