@@ -407,6 +407,8 @@ type Id =
             }
         else this
 
+    member this.VarType = this.Type
+
     member this.ToTSType(toTSType) =
         match this.Type with
         | None -> this

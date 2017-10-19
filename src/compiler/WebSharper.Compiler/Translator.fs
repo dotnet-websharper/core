@@ -564,7 +564,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
                 | M.SingletonFSharpUnionCase -> 
-                    this.UnionCtor(typ.Entity, i, [])
+                    this.UnionCtor(typ, i, [])
                 | M.NormalFSharpUnionCase _ -> 
                     failwith "A union case with a property getter should not have fields"
             else
@@ -1187,10 +1187,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.UnionCtor(typ, i, args) =
         let trArgs = args |> List.map this.TransformExpression
-        match comp.TryLookupClassInfo typ |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
+        match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
         | Some a ->
             if comp.HasGraph then
-                this.AddTypeDependency typ
+                this.AddTypeDependency typ.Entity
             New (GlobalAccess (a.Sub("$")), Value (Int i) :: trArgs)
         | _ -> 
             let objExpr =
@@ -1198,7 +1198,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ("$", Value (Int i)) ::
                     (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
                 )
-            this.TransformExpression objExpr
+            let typedObjExpr =
+                match comp.TypeTranslator.TSTypeOf [||] (ConcreteType typ) with
+                | TSType.Any -> objExpr
+                | t -> Cast (t, objExpr)
+            this.TransformExpression typedObjExpr
 
     override this.TransformNewRecord(typ, args) =
         match comp.TryGetRecordConstructor typ.Entity with
@@ -1219,11 +1223,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                                 Conditional(Var id, ItemGet(Var id, Value (String "$0"), Pure), Undefined))
                         else this.TransformExpression a)
                 |> List.ofSeq |> Object
+            let typedObj =
+                match comp.TypeTranslator.TSTypeOf [||] (ConcreteType typ) with
+                | TSType.Any -> obj
+                | t -> Cast (t, obj)
             let optFields = 
                 fields |> List.choose (fun f -> 
                     if f.Optional then Some (Value (String f.JSName)) else None)
-            if List.isEmpty optFields then obj
-            else JSRuntime.DeleteEmptyFields obj optFields
+            if List.isEmpty optFields then typedObj
+            else JSRuntime.DeleteEmptyFields typedObj optFields
         | _ -> this.Error("Unhandled F# compiler generated constructor")
 
     override this.TransformNewUnionCase(typ, case, args) = 
@@ -1253,7 +1261,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ItemGet(GlobalAccess a, Value (String case), Pure)
                 | None -> this.Error("Failed to find address for singleton union case.")
             | M.NormalFSharpUnionCase _ ->
-                this.UnionCtor(td, i, args)  
+                this.UnionCtor(typ, i, args)  
         | _ -> this.Error("Failed to translate union case creation.")
 
     override this.TransformUnionCaseTest(expr, typ, case) = 

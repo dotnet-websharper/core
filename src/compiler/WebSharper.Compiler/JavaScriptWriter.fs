@@ -335,13 +335,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
     | Function (ids, b) ->
         let innerEnv = env.NewInner()
-        let args = 
-            ids |> List.map (fun a ->
-                let i = defineId innerEnv ArgumentId a 
-                match a.TSType with
-                | None -> i
-                | Some t -> i |> withType env t
-            ) 
+        let args = ids |> List.map (defineIdTyped innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
         let _, body = b |> transformStatement innerEnv |> flattenFuncBody
         let hasNoThis = HasNoThisVisitor().Check(b)
@@ -534,7 +528,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                     , args
                 | _ ->
                     id
-                    , ids |> List.map (defineId innerEnv ArgumentId) 
+                    , ids |> List.map (defineIdTyped innerEnv ArgumentId) 
             CollectVariables(innerEnv).VisitStatement(b)
             let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
             let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
@@ -697,16 +691,11 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
 and transformType (env: Environment) (typ: TSType) =
     transformTypeName env false typ |> J.Id.New |> J.Var
 
-//and transformIdTyped (env: Environment) (id: Id) =
-//    if id.HasStrongName then J.Id.New id.Name.Value else
-//    try 
-//        match id.TSType with
-//        | None ->
-//            J.Id.New (Map.find id env.ScopeIds) 
-//        | Some t -> 
-//            J.Id.New (Map.find id env.ScopeIds, typ = transformType env t) 
-//    with _ -> 
-//        undefVar id
+and defineIdTyped env kind id =
+    let i = defineId env kind id
+    match id.TSType with
+    | None -> i
+    | Some t -> i |> withType env t
 
 and withType (env: Environment) (typ: TSType) (i: J.Id) =
     match typ with

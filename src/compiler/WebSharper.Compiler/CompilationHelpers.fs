@@ -1373,12 +1373,18 @@ let (|CurriedApplicationSeparate|_|) expr =
             else None
     appl [] expr
 
-type OptimizeLocalTupledFunc(var, tupling) =
+type OptimizeLocalTupledFunc(var: Id , tupling) =
     inherit Transformer()
+
+    let tupleType = 
+        match var.VarType with
+        | Some (FSharpFuncType (ts, _)) ->
+           Some ts   
+        | _ -> None
 
     override this.TransformVar(v) =
         if v = var then
-            let t = Id.New(mut = false)
+            let t = Id.New(mut = false, ?typ = tupleType)
             Lambda([t], Appl(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
         else Var v  
 
@@ -1419,12 +1425,22 @@ let curriedApplication func (args: (bool * Expression) list) =
     | [ a ] -> applyFSharpArg func a
     | _ -> CurriedApplication(func, args)
 
-type OptimizeLocalCurriedFunc(var, currying) =
+type OptimizeLocalCurriedFunc(var: Id, currying) =
     inherit Transformer()
+    
+    let types = 
+        match var.VarType with
+        | Some t ->
+            t |> Array.unfold (
+                function 
+                | FSharpFuncType (a, r) -> Some (a, r)
+                | _ -> None
+            )
+        | _ -> [||]
 
     override this.TransformVar(v) =
         if v = var then
-            let ids = List.init currying (fun _ -> Id.New(mut = false))
+            let ids = List.init currying (fun i -> Id.New(mut = false, ?typ = if i < types.Length then Some types.[i] else None))
             CurriedLambda(ids, Appl(Var v, ids |> List.map Var, NonPure, Some currying))    
         else Var v  
 

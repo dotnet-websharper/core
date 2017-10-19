@@ -374,8 +374,8 @@ and Statement canBeEmpty statement =
         Word "debugger" ++ Token ";"
     | S.Do (s, e) ->
         Word "do"
-        ++ Statement false s
-        ++ Word "while"
+        -- Indent (Statement false s)
+        -- Word "while"
         ++ Parens (Expression e)
         ++ Token ";"
     | S.Empty ->
@@ -493,7 +493,7 @@ and Statement canBeEmpty statement =
         Word keyword ++ Vars vs ++ Token ";"
     | S.While (e, s) ->
         Word "while" ++ Parens (Expression e)
-        ++ (Statement false s)
+        -- Indent (Statement false s)
     | S.With (e, s) ->
         Word "with" ++ Parens (Expression e) ++ Statement false s
     | S.Function (id, formals, body) ->
