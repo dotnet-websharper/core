@@ -82,7 +82,8 @@ type Control() =
     interface IControl with
         [<JavaScript>]
         member this.Body = this.Body
-        member this.Id = this.ID
+        [<JavaScript>]
+        member this.Id = id
 
     member this.GetBodyNode() =
         let t = this.GetType()

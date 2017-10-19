@@ -367,13 +367,15 @@ let translate source =
 
     let currentMeta = comp.ToCurrentMetadata()
     let compiledExpressions = 
-        currentMeta.Classes.Values |> Seq.collect (fun c ->
-            Seq.concat [
-                c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
-                c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Implementations.Values |> Seq.map snd
-                c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
-            ]
+        currentMeta.Classes.Values |> Seq.collect (function
+            | (_, _, Some c) ->
+                Seq.concat [
+                    c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
+                    c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
+                    c.Implementations.Values |> Seq.map snd
+                    c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
+                ]
+            | _ -> Seq.empty
         )
         |> List.ofSeq 
         
@@ -427,7 +429,7 @@ let getBody expr =
         | Patterns.PropertySet(_, p, _, _) -> p.SetMethod
         | _ -> failwithf "not recognized: %A" expr
     let typ = AST.Reflection.ReadTypeDefinition mi.DeclaringType 
-    let cls = metadata.Classes.[typ]
+    let (_, _, Some cls) = metadata.Classes.[typ]
     match AST.Reflection.ReadMember mi |> Option.get with
     | AST.Member.Method (_, meth) 
     | AST.Member.Override (_, meth) ->
