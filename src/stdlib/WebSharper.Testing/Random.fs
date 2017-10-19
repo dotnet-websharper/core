@@ -480,9 +480,9 @@ module internal Internal =
         | _, Choice2Of2 msg -> failwithf "%A: %s" ty msg
 
     let mkSample t g count =
-        let a = TypeParameter 0
+        let a = TypeParameter 1
         let m = meth "Make" [generatorOf a; !@Definitions.Int] (sampleOf a)
-        E.Call(None, staticSampleOf t, m [], [g; count])
+        E.Call(None, staticSampleOf t, m [ t ], [g; count])
 
     type AutoGeneratorMacro() =
         inherit Core.Macro()

@@ -317,7 +317,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | [] -> t
         | _ -> 
             match t with
-            | TSType.Any -> TSType.Any
+            | TSType.Any
+            | TSType.Generic _ -> t
             | _ ->
                 TSType.Generic(t, g)
 
@@ -485,6 +486,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         let cgenl = List.length c.Generics
         let thisTSTypeDef = lazy tsTypeOf gsArr (NonGenericType t)
+        let cgen = getGenerics 0 c.Generics
+        let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
 
         let mem (m: Method) info gc opts intfGen body =
             let gsArr = Array.append gsArr (Array.ofList gc)
@@ -509,22 +512,22 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     thisTSTypeDef.Value |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
 
             let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
+            let mgen = getGenerics cgenl gc
             let getMember isStatic n =
-                let g = getGenerics cgenl gc
                 match IgnoreExprSourcePos body with
                 | Function (args, b) ->
-                    ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics g)
+                    ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics mgen)
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
-                    ClassMethod(isStatic, n, args, None, TSType.Any |> addGenerics g)
+                    ClassMethod(isStatic, n, args, None, TSType.Any |> addGenerics mgen)
                 | _ -> failwith "unexpected form for class member"
             match withoutMacros info with
             | M.Instance mname ->
                 members.Add (getMember false mname)
             | M.Static maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics (getGenerics 0 gc))
+                smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics (cgen @ mgen))
             | M.AsStatic maddr ->
-                smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics (getGenerics 0 gc))
+                smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics (cgen @ mgen))
             | _ -> ()
                     
         for KeyValue(m, (info, opts, gc, body)) in c.Methods do
@@ -547,9 +550,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         let indexedCtors = Dictionary()
         
-        let cgen = getGenerics 0 c.Generics
-        let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
-
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             match withoutMacros info with
