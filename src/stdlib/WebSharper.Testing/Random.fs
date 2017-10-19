@@ -309,9 +309,15 @@ let Const x =
 let OptionOf (generator: Generator<'A>) : Generator<option<'A>> =
     Mix (Const None) (Map Some generator)
 
-/// Boxes the generated data.
+type private Box =
+    static member Box (g: Generator<'A>) = Map box g
+
+[<Proxy(typeof<Box>)>]
+type private BoxProxy =
+    static member Box (g: Generator<'A>) = As<Generator<obj>> g
+
 [<Inline>]
-let Box (g: Generator<'A>) = As<Generator<obj>> g
+let Box g = Box.Box g
 
 [<JavaScript>]
 let private allTypes =
