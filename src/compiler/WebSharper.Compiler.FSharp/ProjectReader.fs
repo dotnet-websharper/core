@@ -205,7 +205,15 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 Generics =
                     match mem with
                     | None -> []
-                    | Some (m, _) -> getConstraints m.GenericParameters sr clsTparams
+                    | Some (m, mem) ->
+                        let skip =
+                                match mem with
+                                | Member.Method (_, meth)
+                                | Member.Override (_, meth)
+                                | Member.Implementation (_, meth) ->
+                                    m.GenericParameters.Count - meth.Value.Generics
+                                | _ -> 0
+                        getConstraints (Seq.skip skip m.GenericParameters) sr clsTparams
                 Macros = mAnnot.Macros
                 Generator = 
                     match mAnnot.Kind with

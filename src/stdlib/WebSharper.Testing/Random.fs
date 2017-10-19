@@ -512,8 +512,8 @@ let Auto<'A>() : Generator<'A> =
 [<Name "WebSharper.Testing.Random.Sample">]
 type Sample<'A> (data: list<'A>) =
 
-    static member Make<'A> generator count =
-        new Sample<'A>(generator, count)
+    static member Make<'T> generator count =
+        new Sample<'T>(generator, count)
 
     member this.Data = data
 
