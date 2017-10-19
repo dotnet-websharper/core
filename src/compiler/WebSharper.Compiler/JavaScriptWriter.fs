@@ -580,24 +580,24 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             )
         let gen = 
             if List.isEmpty g then "" else
-                "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+                "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
         let n = n + gen
         J.Class(J.Id.New n, isAbstract, Option.map trT b, List.map trT i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
         let gen = 
             if List.isEmpty g then "" else
-                "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+                "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
         let n = n + gen
         J.Interface(J.Id.New n, List.map trT e, List.map (transformMember env) m)
     | Alias (a, t) ->
-        J.TypeAlias(J.Id.New (transformTypeName env a), trT t)
+        J.TypeAlias(J.Id.New (transformTypeName env true a), trT t)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 
-and transformTypeName (env: Environment) (typ: TSType) =
-    let inline trN x = transformTypeName env x
+and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSType) =
+    let inline trN x = transformTypeName env false x
     match typ with
     | TSType.Any -> "any"
     | TSType.Named ["Array"] ->
@@ -635,14 +635,17 @@ and transformTypeName (env: Environment) (typ: TSType) =
     | TSType.Union cs -> "(" + (cs |> Seq.map (trN) |> String.concat " | ") + ")"
     | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
     | TSType.Param n -> "T" + string n
-    | TSType.Constraint (t, g) -> trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
+    | TSType.Constraint (t, g) ->
+        if isDeclaringParameter
+        then trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
+        else trN t
     | TSType.TypeGuard (i, t) ->
         (transformId env i).Name + " is " + trN t
     | TSType.ObjectOf t ->
         "{[a:string]:" + trN t + "}"
 
 and transformType (env: Environment) (typ: TSType) =
-    transformTypeName env typ |> J.Id.New |> J.Var
+    transformTypeName env false typ |> J.Id.New |> J.Var
 
 //and transformIdTyped (env: Environment) (id: Id) =
 //    if id.HasStrongName then J.Id.New id.Name.Value else
@@ -663,7 +666,7 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) =
 and getGenericParams (env: Environment) (typ: TSType) =
     match typ with
     | TSType.Generic (t, []) -> t, ""
-    | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+    | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
     | _ -> typ, ""
 
 and transformMember (env: Environment) (mem: Statement) : J.Member =
@@ -674,7 +677,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let innerEnv = env.NewInner()
         let t, gen =
             match t with
-            | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env) |> String.concat ", ") + ">"
+            | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
             | _ -> t, ""
         let args, tr =
             match t with 
