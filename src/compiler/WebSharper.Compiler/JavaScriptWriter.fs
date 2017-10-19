@@ -35,6 +35,7 @@ type Environment =
     {
         Preference : WebSharper.Core.JavaScript.Preferences
         mutable ScopeNames : Set<string>
+        CurrentScopeNames : HashSet<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         ScopeVars : ResizeArray<string>
@@ -42,6 +43,7 @@ type Environment =
         mutable InFuncScope : bool
         OuterScope : bool
         UsedLabels : HashSet<Id>
+        TopNamespace : option<Environment>
         Namespaces : Dictionary<string, Environment> 
         CurrentNamespaceRev : list<string>
         CurrentNamespace : list<string>
@@ -50,6 +52,7 @@ type Environment =
         {
             Preference = pref    
             ScopeNames = Set [ "window" ] 
+            CurrentScopeNames = HashSet()
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "window" ] 
             ScopeVars = ResizeArray()
@@ -57,26 +60,30 @@ type Environment =
             InFuncScope = false
             OuterScope = true
             UsedLabels = HashSet()
+            TopNamespace = None
             Namespaces = Dictionary()
             CurrentNamespaceRev = []
             CurrentNamespace = []
         }
 
     member this.NewInner(?ns, ?cg) =
+        let isNs = Option.isSome ns
         let nsr = match ns with Some n -> n :: this.CurrentNamespaceRev | _ -> this.CurrentNamespaceRev
         {
             Preference = this.Preference    
             ScopeNames = this.ScopeNames
+            CurrentScopeNames = if isNs then HashSet() else this.CurrentScopeNames
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
-            OuterScope = Option.isSome ns
+            OuterScope = isNs
             UsedLabels = HashSet()
+            TopNamespace = if isNs then (match this.TopNamespace with None -> Some this | t -> t) else this.TopNamespace
             Namespaces = Dictionary()
             CurrentNamespaceRev = nsr
-            CurrentNamespace = if Option.isSome ns then List.rev nsr else this.CurrentNamespace
+            CurrentNamespace = if isNs then List.rev nsr else this.CurrentNamespace
         }
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
@@ -168,15 +175,30 @@ type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
     override this.VisitFuncDeclaration(f, _, _) =
-        defineId env ArgumentId f |> ignore    
+        let i = defineId env ArgumentId f
+        env.CurrentScopeNames.Add i.Name |> ignore
 
     override this.VisitVarDeclaration(v, _) =
-        defineId env InnerId v |> ignore
+        let i = defineId env InnerId v
+        env.CurrentScopeNames.Add i.Name |> ignore
 
     override this.VisitImportAll(n, _) =
         n |> Option.iter (defineId env DeclarationId >> ignore)
 
     override this.VisitNamespace(n, s) =
+        env.CurrentScopeNames.Add n |> ignore
+        let innerEnv =
+            match env.Namespaces.TryGetValue n with
+            | true, innerEnv -> innerEnv
+            | _ ->
+                let innerEnv = env.NewInner(n)
+                env.Namespaces.Add(n, innerEnv)
+                innerEnv
+        let collect = CollectVariables(innerEnv)
+        s |> List.iter collect.VisitStatement
+
+    override this.VisitClass(n, _, _, s, _) =
+        env.CurrentScopeNames.Add n |> ignore
         let innerEnv =
             match env.Namespaces.TryGetValue n with
             | true, innerEnv -> innerEnv
@@ -224,6 +246,49 @@ let flattenFuncBody s =
     throws, List.ofSeq res    
 
 let block s = J.Block (flattenJS s)
+
+let resolveName (env: Environment) name =
+    match env.TopNamespace with
+    | Some top ->
+        // skips namespace names until equal with the current namespace path
+        let res, ns, inNS, _ =
+            List.fold (fun (a, ns, i, cont) n -> 
+                match ns with
+                | [ h ] when cont && h = n -> a, [], i, true
+                | h :: r when cont && h = n -> a, r, i.Namespaces.[n], true
+                | _ -> n :: a, ns, i, false
+            ) ([], env.CurrentNamespace, top, true) name
+        let res, ns, inNS = 
+            // if we would end up with an empty result, use last part of full name, no shadowing check needed
+            match res with
+            | [] -> [ List.last name ], [], None
+            | t -> 
+                match ns with
+                | [] -> List.rev t, [], Some inNS
+                | n :: r -> 
+                    // step one namespace inner, so something is not seen as shadowing itself
+                    List.rev t, r, inNS.Namespaces.TryFind(n)
+        // checks if a resolved name would get shadowed in a namespace lower in the chain
+        let rec check (env: Environment) name =
+            match name with
+            | [ n ] -> env.CurrentScopeNames.Contains n
+            | n :: r ->
+                env.CurrentScopeNames.Contains n ||
+                match env.Namespaces.TryGetValue n with
+                | true, innerEnv -> check innerEnv r
+                | _ -> false
+            | [] -> false
+        // we do this check for all namespaces until arriving at current one 
+        let rec isShadowed ns inNS =
+            check inNS res || 
+            match ns with
+            | [] -> false
+            | n :: r -> isShadowed r inNS.Namespaces.[n]
+        if inNS |> Option.exists (isShadowed ns) then  
+            name
+        else        
+            res
+    | None -> name
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
@@ -364,23 +429,16 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 e.[J.Constant (J.String n)]
             ) a.Address.Value (J.Var (trI v))
         | CurrentModule ->
-            let strId name = Id.New(name, mut = false, str = true)
             let a = a.Address.Value
-            let res =
-                List.foldBack (fun n (e: J.Expression option, ns) -> 
-                    match ns with
-                    | h :: r when h = n -> e, r
-                    | _ ->
-                        match e with
-                        | None -> Some (J.Var (J.Id.New n)), []
-                        | Some e -> Some (e.[J.Constant (J.String n)]), []
-                ) a (None, env.CurrentNamespace)
-            match res with
-            | None, _ -> 
+            match resolveName env (List.rev a) with
+            | [] -> 
                 match a with
                 | h :: _ -> J.Var (J.Id.New h)
                 | _ -> J.Var (J.Id.New "window")
-            | Some e, _ -> e    
+            | h :: t -> 
+                List.fold (fun (e: J.Expression) n ->
+                    e.[J.Constant (J.String n)]
+                ) (J.Var (J.Id.New h)) t
         | _ -> 
             failwith "Addresses must be resolved to ImportedModule or CurrentModule before writing JavaScript"
     | _ -> 
@@ -603,15 +661,7 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
     | TSType.Named ["Array"] ->
         "any[]"
     | TSType.Named n -> 
-        let res =
-            List.fold (fun (a, ns) n -> 
-                match ns with
-                | h :: r when h = n -> a, r
-                | _ -> n :: a, []
-            ) ([], env.CurrentNamespace) n
-        match res with
-        | [], _ -> List.last n
-        | t, _ -> String.concat "." (List.rev t)
+        resolveName env n |> String.concat "."
     | TSType.Generic (TSType.Named ["Array"], [ TSType.Named _ as n ]) ->
         trN n + "[]"
     | TSType.Generic (TSType.Named ["Array"], [ t ]) ->
