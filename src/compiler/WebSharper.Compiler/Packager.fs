@@ -529,14 +529,21 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     
         for KeyValue(m, (info, opts, gc, body)) in c.Methods do
             mem m info gc opts None body 
-        let intfGenerics =
-            c.Implements |> Seq.map (fun i -> i.Entity, Array.ofList i.Generics) |> dict
+        let interfaceInfos =
+            c.Implements |> Seq.map (fun i ->
+                let intf =
+                    current.Interfaces.TryFind i.Entity
+                    |> Option.defaultWith (fun () -> refMeta.Interfaces.[i.Entity])
+                i.Entity, (intf, Array.ofList i.Generics)
+            ) |> dict
         for KeyValue((i, m), (info, body)) in c.Implementations do
-            let intfGen = 
+            let intf, intfGen = interfaceInfos.[i]
+            let intfGen =
                 match m.Value.Generics with
-                | 0 -> intfGenerics.[i]
-                | mgen -> Array.append (intfGenerics.[i]) (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
-            mem m info [] M.Optimizations.None (Some intfGen) body
+                | 0 -> intfGen
+                | mgen -> Array.append intfGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+            let mParam = snd intf.Methods.[m]
+            mem m info mParam M.Optimizations.None (Some intfGen) body
 
         let indexedCtors = Dictionary()
         
