@@ -795,7 +795,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ ->
                             if argumentless && not annot.IsForcedNotJavaScript then
                                 let caseField =
-                                    GenericType def (List.init cls.GenericParameters.Count (fun _ -> NonGenericType Definitions.Obj))
+                                    let caseDef = Hashed { def.Value with FullName = def.Value.FullName + "+" + case.CompiledName }
+                                    let gen = List.init cls.GenericParameters.Count (fun _ -> NonGenericType Definitions.Obj)
+                                    GenericType caseDef gen
                                     |> Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
