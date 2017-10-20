@@ -283,7 +283,6 @@ type GenericInlineResolver (generics, tsGenerics) =
             args |> List.map this.TransformExpression,
             { info with
                 Params = info.Params |> List.map subt
-                Type = subt info.Type
             }
         )
 
@@ -372,6 +371,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None
     let mutable cctorCalls = Set.empty
+    let mutable currentGenerics = [||] : M.GenericParam[]
     let labelCctors = Dictionary()
 
     let innerScope f = 
@@ -599,7 +599,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      
-    member this.CompileMethod(info, expr, typ, meth) =
+    member this.CompileMethod(info, gs, expr, typ, meth) =
         try
             currentNode <- M.MethodNode(typ, meth) 
 #if DEBUG
@@ -613,11 +613,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.AddError(None, SourceError msg)
                 comp.FailedCompiledMethod(typ, meth)
             else
+            let addr, cls = comp.TryLookupClassInfo(typ).Value
             // for C# static auto-properties
-            selfAddress <- 
-                comp.TryLookupClassInfo(typ) |> Option.bind (fun (_, cls) ->
-                    cls.StaticConstructor |> Option.map (fun (a, _) -> { a with Address = Hashed (List.tail a.Address.Value) })    
-                )
+            selfAddress <- Some addr   
+            currentGenerics <- Array.ofList (cls.Generics @ gs)
             currentIsInline <- isInline info
             match info with
             | NotCompiled (i, notVirtual, opts) ->
@@ -651,6 +650,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
             currentNode <- M.ImplementationNode(typ, intf, meth)
+            let ii = comp.TryLookupInterfaceInfo(intf).Value
+            currentGenerics <- Array.ofList (ii.Generics @ snd ii.Methods.[meth])
             currentIsInline <- isInline info
             match info with
             | NotCompiled (i, _, _) -> 
@@ -678,8 +679,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.FailedCompiledConstructor(typ, ctor)
             else
             currentIsInline <- isInline info
-            selfAddress <- 
-                comp.TryLookupClassInfo(typ) |> Option.map fst
+            let addr, cls = comp.TryLookupClassInfo(typ).Value
+            selfAddress <- Some addr 
+            currentGenerics <- Array.ofList cls.Generics
             match info with
             | NotCompiled (i, _, opts) -> 
                 currentFuncArgs <- opts.FuncArgs
@@ -745,8 +747,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
-                let (KeyValue((t, m), (i, _, e))) = Seq.head comp.CompilingMethods
-                toJS.CompileMethod(i, e, t, m)
+                let (KeyValue((t, m), (i, g, e))) = Seq.head comp.CompilingMethods
+                toJS.CompileMethod(i, g, e, t, m)
 
         compileMethods()
         comp.CloseMacros()
@@ -838,7 +840,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> 
             this.Error(sprintf "Macro '%s' erroneusly reported MacroNeedsResolvedTypeArg on not a type parameter." macroName)
 
-    member this.CompileCall (info, gc, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
+    member this.CompileCall (info, gc: list<M.GenericParam>, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
         let opts =
             match opts.Warn with
             | Some w -> 
@@ -861,45 +863,38 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 )
                 |> List.ofSeq   
             | _ -> ta |> List.map this.TransformExpression
-        
-        let gcArr = Array.ofList gc
-        let funcTyp(isAsStatic) = 
-            if List.isEmpty typ.Generics && List.isEmpty meth.Generics then
-                TSType.Any
-            else
-                let gen =
-                    typ.Generics @ meth.Generics 
-                    |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr)
-                    |> Array.ofSeq
-                let m = meth.Entity.Value
-                let tsTypeOf t =
-                    (comp.TypeTranslator.TSTypeOf gcArr t).SubstituteGenerics(gen)
-                let thisTyp =
-                    if isAsStatic then
-                        [ tsTypeOf (ConcreteType typ) ]
-                    else []
-                TSType.Lambda(thisTyp @ (m.Parameters |> List.map tsTypeOf), tsTypeOf m.ReturnType)
-        let funcParams() =
-            meth.Generics |> List.indexed |> List.choose (fun (i, c) ->
-                match gcArr.[i].Type with
-                | Some _ -> None
-                | _ -> Some (comp.TypeTranslator.TSTypeOf gcArr c)
-            )
+        let funcParams(includeTypGen) =
+            let gcArr = Array.ofList gc
+            if includeTypGen then
+                typ.Generics @ meth.Generics
+                |> List.indexed |> List.choose (fun (i, c) ->
+                    match gcArr.[i].Type with
+                    | Some _ -> None
+                    | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+                )
+            else 
+                let cg = typ.Generics.Length
+                meth.Generics 
+                |> List.indexed |> List.choose (fun (i, c) ->
+                    match gcArr.[i + cg].Type with
+                    | Some _ -> None
+                    | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+                )
         match info with
         | M.Instance name ->
             match baseCall with
             | Some true ->
-                ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams(), funcTyp false)
+                ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams false)
             | _ ->
                 ApplTyped(
                     trThisObj() |> Option.get |> getItem name,
-                    trArgs(), opts.Purity, None, funcParams(), funcTyp false) 
+                    trArgs(), opts.Purity, None, funcParams false) 
         | M.Static address ->
-            ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams(), funcTyp false)
+            ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
         | M.AsStatic address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
-            ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams(), funcTyp true)
+            ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
         | M.Inline
         | M.NotCompiledInline ->
             let ge =
@@ -1033,7 +1028,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.CompileCall(info, gc, opts, expr, thisObj, typ, meth, args)
         | Compiling (info, gc, expr) ->
             if isInline info then
-                this.AnotherNode().CompileMethod(info, expr, typ.Entity, meth.Entity)
+                this.AnotherNode().CompileMethod(info, gc, expr, typ.Entity, meth.Entity)
                 this.TransformCall (thisObj, typ, meth, args)
             else
                 match info with
@@ -1126,7 +1121,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | CustomTypeMember _ -> inlined()
         | LookupMemberError err -> this.Error err
 
-    member this.CompileCtor(info, gc, opts: M.Optimizations, expr, typ, ctor, args) =
+    member this.CompileCtor(info, gc: list<M.GenericParam>, opts: M.Optimizations, expr, typ, ctor, args) =
         if comp.HasGraph then
             this.AddConstructorDependency(typ.Entity, ctor)
         let trArgs() = 
@@ -1141,13 +1136,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match comp.TryLookupClassAddressOrCustomType typ.Entity with
             | Choice1Of2 a -> a 
             | _ -> failwithf "Class address not found for %s" typ.Entity.Value.FullName
+        let typParams() =
+            let gcArr = Array.ofList gc
+            typ.Generics |> List.indexed |> List.choose (fun (i, c) ->
+                match gcArr.[i].Type with
+                | Some _ -> None
+                | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+            )
         match info with
         | M.New ->
-            let ts = List.map (comp.TypeTranslator.TSTypeOf (Array.ofList gc)) typ.Generics
-            New(GlobalAccess (typAddress()), ts, trArgs())
+            New(GlobalAccess (typAddress()), typParams(), trArgs())
         | M.NewIndexed (i) ->
-            let ts = List.map (comp.TypeTranslator.TSTypeOf (Array.ofList gc)) typ.Generics
-            New(GlobalAccess (typAddress()), ts, Value (Int i) :: trArgs())
+            New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
@@ -1227,7 +1227,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
                 )
             let typedObjExpr =
-                match comp.TypeTranslator.TSTypeOf [||] (ConcreteType typ) with
+                match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
                 | TSType.Any -> objExpr
                 | t -> Cast (t, objExpr)
             this.TransformExpression typedObjExpr
@@ -1252,7 +1252,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         else this.TransformExpression a)
                 |> List.ofSeq |> Object
             let typedObj =
-                match comp.TypeTranslator.TSTypeOf [||] (ConcreteType typ) with
+                match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
                 | TSType.Any -> obj
                 | t -> Cast (t, obj)
             let optFields = 
@@ -1353,7 +1353,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.NormalFSharpUnionCase fields -> 
                 match fields |> List.tryFindIndex (fun f -> f.Name = field) with
                 | Some i ->
-                    this.TransformExpression expr |> getItem ("$" + string i)
+                    let getField = this.TransformExpression expr |> getItem ("$" + string i)
+                    let fieldTyp = fields.[i].UnionFieldType.SubstituteGenerics(Array.ofSeq typ.Generics)
+                    match comp.TypeTranslator.TSTypeOf currentGenerics fieldTyp with
+                    | TSType.Any -> getField
+                    | t -> Cast (t, getField)
                 | _ ->
                     this.Error(sprintf "Could not find field of union case: %s.%s.%s" typ.Entity.Value.FullName case field)        
         
@@ -1770,8 +1774,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformCoerce(expr, fromTyp, toTyp) =
         let trExpr = this.TransformExpression(expr)
-        let f = comp.TypeTranslator.TSTypeOf [||] fromTyp
-        let t = comp.TypeTranslator.TSTypeOf [||] toTyp
+        let f = comp.TypeTranslator.TSTypeOf currentGenerics fromTyp
+        let t = comp.TypeTranslator.TSTypeOf currentGenerics toTyp
         match f, t with
         | _ when f = t -> trExpr
         | TSType.Any, _ -> trExpr

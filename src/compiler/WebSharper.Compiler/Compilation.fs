@@ -536,7 +536,7 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some intf -> 
             match intf.Methods.TryFind meth with
             | Some (m, c) ->
-                Compiled (Instance m, Optimizations.None, c, Undefined)              
+                Compiled (Instance m, Optimizations.None, intf.Generics @ c, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 

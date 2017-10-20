@@ -293,11 +293,9 @@ let rec removeLets expr =
 let optimize expr =
     match expr with
     // eta-reduction
-    | Function (vars, I.Return (I.Application (f, args, { KnownLength = Some i; Type = ts })))
+    | Function (vars, I.Return (I.Application (f, args, { KnownLength = Some i })))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
-        match ts with
-        | TSType.Any -> f
-        | _ -> Cast(ts, f)
+            f
     // remove casts from function values where applied
     | Application(I.Cast(_, f), a, info) ->
         Application(f, a, info)    

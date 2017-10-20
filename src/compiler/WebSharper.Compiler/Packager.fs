@@ -69,7 +69,6 @@ type BodyTransformer(toTSType, getAddress) =
             List.map this.TransformExpression args,
             { i with
                 Params = List.map resWSModule i.Params
-                Type = resWSModule i.Type
             }
         )
 

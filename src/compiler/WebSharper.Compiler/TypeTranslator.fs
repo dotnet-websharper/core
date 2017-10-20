@@ -157,11 +157,6 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
             mappedTypes.Add(t, res)
             res
 
-    member this.TSTypeOfGenParam i (p: GenericParam) =
-        match p.Type with
-        | Some t -> t
-        | _ -> TSType.Param i
-
     member this.TSTypeOfConcrete (gs: GenericParam[]) (t: Concrete<TypeDefinition>) =
         let e = t.Entity
         let gen = t.Generics |> List.map (this.TSTypeOf gs)
@@ -203,5 +198,11 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | VoidType -> TSType.Void
         | TypeParameter i 
         | StaticTypeParameter i -> 
-            if i >= gs.Length then TSType.Param i else this.TSTypeOfGenParam i gs.[i]
+            if i >= gs.Length then 
+                TSType.Param i 
+            else 
+                match gs.[i].Type with
+                | Some t -> t
+                | _ -> TSType.Param i
         | LocalTypeParameter -> TSType.Any
+        | TSType t -> t
