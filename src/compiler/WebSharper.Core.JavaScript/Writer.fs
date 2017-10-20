@@ -239,9 +239,12 @@ and Expression (expression) =
         SourceMapping pos ++ Expression x ++ SourceMappingEnd pos
     | S.ExprComment (x, c) ->
         Expression x ++ Word ("/*" + c +  "*/")
-    | S.Application (f, xs) ->
-        MemberExpression f
-        ++ Parens (CommaSeparated (AssignmentExpression) xs)
+    | S.Application (f, ts, xs) ->
+        let call = MemberExpression f
+        let args = Parens (CommaSeparated AssignmentExpression xs)
+        if List.isEmpty ts
+        then call ++ args
+        else call ++ Token "<" ++ CommaSeparated Id ts ++ Token ">" ++ args
     | S.NewArray xs ->
         let element = function
             | None -> Token ", "
@@ -387,7 +390,7 @@ and Statement canBeEmpty statement =
             match e with
             | S.Lambda _ | S.NewObject _ -> true
             | S.ExprPos (x, _)
-            | S.Application (x, _)
+            | S.Application (x, _, _)
             | S.Binary (x, _, _)
             | S.Conditional (x, _, _)
             | S.Postfix (x, _) -> dangerous x

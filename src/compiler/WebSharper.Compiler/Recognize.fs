@@ -298,7 +298,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
     let mun a op =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
-    | S.Application (a, b) ->
+    | S.Application (a, [], b) ->
         let trA =
             match trE a with
             | ItemGet (a, b, _) -> ItemGet (a, b, Pure)

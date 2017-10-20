@@ -121,7 +121,7 @@ type private DictionaryEnumeratorProxy<'K,'V> =
 /// Implements a proxy for the .NET dictionary.
 [<Name "WebSharper.Collections.Dictionary">]
 [<Proxy(typeof<D<_,_>>)>]
-type internal Dictionary<'K,'V when 'K : equality>
+type private Dictionary<'K,'V when 'K : equality>
 
     private (init   : seq<KVP<'K,'V>>,
              equals : FuncWithArgs<'K * 'K, bool>,
@@ -266,7 +266,7 @@ type internal Dictionary<'K,'V when 'K : equality>
                 false
 
         member this.Values =
-            As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
+            ValueCollectionProxy(As<D<'K,'V>>this)
 
         member this.Keys =
-            As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))
+            KeyCollectionProxy(As<D<'K,'V>>this)

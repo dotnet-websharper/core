@@ -227,7 +227,7 @@ and lhsExprTail news i body =
             skipRx i
             let args = arguments i
             match news with
-            | 0 -> loop news (S.Application (e, args))
+            | 0 -> loop news (S.Application (e, [], args))
             | _ -> loop (news - 1) (S.New (e, [], args))
         | _ ->
             let rec loop news e =

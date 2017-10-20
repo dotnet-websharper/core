@@ -66,6 +66,7 @@ and ApplicationInfo =
     {
         Purity : Purity
         KnownLength : option<int>
+        Params: list<TSType>
         Type : TSType
     }
 
@@ -73,6 +74,7 @@ and ApplicationInfo =
         {
             Purity = NonPure
             KnownLength = None
+            Params = []
             Type = TSType.Any
         }
     
@@ -1321,6 +1323,6 @@ module ExtraForms =
         | I.NewTuple(a, _) -> Some a
         | _ -> None
 
-    let Appl (a, b, c, d) = Application(a, b, { Purity = c; KnownLength = d; Type = TSType.Any })
+    let Appl (a, b, c, d) = Application(a, b, { Purity = c; KnownLength = d; Params = []; Type = TSType.Any })
     let ApplAny (a, b) = Application(a, b, ApplicationInfo.None)
-    let ApplTyped (a, b, c, d, e) = Application(a, b, { Purity = c; KnownLength = d; Type = e })
+    let ApplTyped (a, b, c, d, e, f) = Application(a, b, { Purity = c; KnownLength = d; Params = e; Type = f })

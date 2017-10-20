@@ -223,6 +223,8 @@ type GenericInlineResolver (generics, tsGenerics) =
 
     let subs (t: Type) = t.SubstituteGenerics(gs)
 
+    let subt (t: TSType) = t.SubstituteGenerics(tsGenerics)
+
     override this.TransformId var =
         var.SubstituteGenerics(gs)
 
@@ -244,7 +246,7 @@ type GenericInlineResolver (generics, tsGenerics) =
     override this.TransformNew(e, ts, args) =
         New (
             this.TransformExpression e,
-            ts |> List.map (fun t -> t.SubstituteGenerics(tsGenerics)),
+            ts |> List.map subt,
             args |> List.map this.TransformExpression
         )
 
@@ -279,7 +281,10 @@ type GenericInlineResolver (generics, tsGenerics) =
         Application(
             func |> this.TransformExpression,
             args |> List.map this.TransformExpression,
-            { info with Type = info.Type.SubstituteGenerics(tsGenerics) }
+            { info with
+                Params = info.Params |> List.map subt
+                Type = subt info.Type
+            }
         )
 
     override this.TransformCast(typ, expr) =
@@ -857,11 +862,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 |> List.ofSeq   
             | _ -> ta |> List.map this.TransformExpression
         
+        let gcArr = Array.ofList gc
         let funcTyp(isAsStatic) = 
             if List.isEmpty typ.Generics && List.isEmpty meth.Generics then
                 TSType.Any
             else
-                let gcArr = Array.ofList gc
                 let gen =
                     typ.Generics @ meth.Generics 
                     |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr)
@@ -874,21 +879,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         [ tsTypeOf (ConcreteType typ) ]
                     else []
                 TSType.Lambda(thisTyp @ (m.Parameters |> List.map tsTypeOf), tsTypeOf m.ReturnType)
+        let funcParams() =
+            meth.Generics |> List.indexed |> List.choose (fun (i, c) ->
+                match gcArr.[i].Type with
+                | Some _ -> None
+                | _ -> Some (comp.TypeTranslator.TSTypeOf gcArr c)
+            )
         match info with
         | M.Instance name ->
             match baseCall with
             | Some true ->
-                ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcTyp false)
+                ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams(), funcTyp false)
             | _ ->
                 ApplTyped(
                     trThisObj() |> Option.get |> getItem name,
-                    trArgs(), opts.Purity, None, funcTyp false) 
+                    trArgs(), opts.Purity, None, funcParams(), funcTyp false) 
         | M.Static address ->
-            ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcTyp false)
+            ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams(), funcTyp false)
         | M.AsStatic address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
-            ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcTyp true)
+            ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams(), funcTyp true)
         | M.Inline
         | M.NotCompiledInline ->
             let ge =

@@ -150,7 +150,7 @@ and DeclKind =
 
 /// Represents JavaScript expressions.
 and Expression =
-    | Application of E * list<E>
+    | Application of E * list<Id> * list<E>
     | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
     | Constant    of Literal
@@ -197,7 +197,7 @@ and Expression =
     member this.InstanceOf x = Binary (this, B.``instanceof``, x)
 
     member this.Item with get (x: E) = Binary (this, B.``.``, x)
-    member this.Item with get xs = Application (this, xs)
+    member this.Item with get xs = Application (this, [], xs)
 
     static member ( ? ) (e: E, msg: string) =
         Binary (e, B.``.``, Constant (String msg))

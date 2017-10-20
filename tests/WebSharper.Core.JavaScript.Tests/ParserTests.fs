@@ -107,20 +107,20 @@ let Run () =
         let f = S.Var "f"
         let x = S.Var "x"
         let y = S.Var "y"
-        p "f()" =? S.Application (f, [])
-        p "f(x)" =? S.Application (f, [x])
-        p "f(x,y)" =? S.Application (f, [x; y])
+        p "f()" =? S.Application (f, [], [])
+        p "f(x)" =? S.Application (f, [], [x])
+        p "f(x,y)" =? S.Application (f, [], [x; y])
     }
 
     Test "new" {
         let f = S.Var "f"
         let x = S.Var "x"
         let y = S.Var "y"
-        p "new f" =? S.New (f, [])
-        p "new f()" =? S.New (f, [])
-        p "new new f" =? S.New (S.New (f, []), [])
-        p "new new f(x)" =? S.New (S.New (f, [x]), [])
-        p "new new f(x)(y)" =? S.New (S.New (f, [x]), [y])
+        p "new f" =? S.New (f, [], [])
+        p "new f()" =? S.New (f, [], [])
+        p "new new f" =? S.New (S.New (f, [], []), [], [])
+        p "new new f(x)" =? S.New (S.New (f, [], [x]), [], [])
+        p "new new f(x)(y)" =? S.New (S.New (f, [], [x]), [], [y])
     }
 
     Test "member" {
@@ -138,7 +138,7 @@ let Run () =
 
     Test "lhs" {
         p "new a.b(c)[d](e)" =?
-            (S.New ((S.Var "a")?b, [S.Var "c"])).[S.Var "d"].[[S.Var "e"]]
+            (S.New ((S.Var "a")?b, [], [S.Var "c"])).[S.Var "d"].[[S.Var "e"]]
     }
 
     Test "operators" {
