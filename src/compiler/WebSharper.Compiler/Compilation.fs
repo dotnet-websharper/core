@@ -232,15 +232,15 @@ type Compilation(meta: Info, ?hasGraph) =
             let parsed = Recognize.createInline mutableExternals None vars false (Some "") inl
             Substitution(args).TransformExpression(parsed)
         
-        member this.NewGenerated addr =
+        member this.NewGenerated(addr, ?generics, ?args, ?returns) =
             let resolved = resolver.StaticAddress (List.rev addr)
             let td = this.GetGeneratedClass(resolved)
             let meth = 
                 Method {
                     MethodName = resolved.Value |> List.rev |> String.concat "."
-                    Parameters = []
-                    ReturnType = VoidType
-                    Generics = 0       
+                    Parameters = defaultArg args []
+                    ReturnType = defaultArg returns (TSType TSType.Any)
+                    Generics = defaultArg generics 0
                 }
             generatedMethodAddresses.Add(meth, resolved)
             td, meth, this.LocalAddress resolved
