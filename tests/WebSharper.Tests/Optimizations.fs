@@ -385,7 +385,7 @@ let CurriedArgWithLocal() =
 
 [<JavaScript>]
 let CollectJSObject() =
-    let x = New [ "a" => 1 ]
+    let x : JSObject = New [ "a" => 1 ]
     x?b <- 
         Console.Log(2)
         2
