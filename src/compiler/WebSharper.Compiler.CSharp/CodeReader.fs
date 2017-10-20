@@ -217,6 +217,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Generic td ta
     
     member this.RecognizeNamedType (x: INamedTypeSymbol) =
+        if x.IsTupleType then
+            TupleType (x.TupleElements |> Seq.map (fun f -> this.ReadType f.Type) |> List.ofSeq, true)  
+        else
         let rec getTypeArguments (x: INamedTypeSymbol) =
             match x.ContainingType with
             | null -> x.TypeArguments |> Seq.map this.ReadType
@@ -224,16 +227,12 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let ta = getTypeArguments x |> List.ofSeq
         let td = this.ReadNamedTypeDefinition x
         let tName = td.Value.FullName
-        let getTupleType isValue =
+        if tName.StartsWith "System.Tuple" then
             if tName.EndsWith "8" then
                 match ta.[7] with
-                | TupleType (rest, _) -> TupleType (ta.[.. 6] @ rest, isValue)
+                | TupleType (rest, _) -> TupleType (ta.[.. 6] @ rest, false)
                 | _ -> failwith "invalid big tuple type" 
-            else TupleType (ta, isValue)
-        if tName.StartsWith "System.Tuple" then
-            getTupleType false
-        elif tName.StartsWith "System.ValueTuple" then
-            getTupleType true
+            else TupleType (ta, false)
         elif tName = "Microsoft.FSharp.Core.FSharpFunc`2" then
             match ta with
             | [a; r] -> FSharpFuncType(a, r)

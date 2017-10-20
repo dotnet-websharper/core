@@ -473,9 +473,10 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupClassAddressOrCustomType typ =   
         // unions may have an address for singleton fields but no prototype, treat this case first
         match classes.TryFind(this.FindProxied typ), this.GetCustomType typ with
-        | Some (addr, _, Some c), ((FSharpUnionInfo _ | FSharpUnionCaseInfo _) as ct) -> 
+        | Some (addr, _, Some c), ((FSharpUnionInfo _) as ct) -> 
             if not c.HasWSPrototype then Choice2Of2 ct
             else Choice1Of2 (addr.Sub("$"))
+        | _, ((FSharpUnionCaseInfo _) as ct) ->  Choice2Of2 ct
         | Some (addr, _, _), _ -> Choice1Of2 addr
         | _, ct -> Choice2Of2 ct
     
