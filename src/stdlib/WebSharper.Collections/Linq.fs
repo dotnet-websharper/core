@@ -199,11 +199,11 @@ type private LinqProxy =
 
     [<Inline>]
     static member Average(this: seq<Nullable<int>>) : Nullable<float> =
-        LinqProxy.Average(Seq.cast<Nullable<float>> this)
+        LinqProxy.Average(As<seq<Nullable<float>>> this)
 
     [<Inline>]
     static member Average(this: seq<Nullable<int64>>) : Nullable<float> =
-        LinqProxy.Average(Seq.cast<Nullable<float>> this)
+        LinqProxy.Average(As<seq<Nullable<float>>> this)
 
     static member Average(this: seq<Nullable<float>>) : Nullable<float> =
         let mutable x = [||]
@@ -222,23 +222,23 @@ type private LinqProxy =
 
     [<Inline>]
     static member Average(this: seq<int64>) : float =
-        Seq.average (Seq.cast<float> this)
+        Seq.average (As<seq<float>> this)
 
     [<Inline>]
     static member Average(this: seq<int>) : float =
-        Seq.average (Seq.cast<float> this)
+        Seq.average (As<seq<float>> this)
 
     [<Inline>]
     static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<float> =
-        LinqProxy.Average (Seq.cast<Nullable<float>> (Seq.map selector.Invoke this))
+        LinqProxy.Average (As<seq<Nullable<float>>> (Seq.map selector.Invoke this))
 
     [<Inline>]
     static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int64>) : float =
-        Seq.average (Seq.cast<float> (Seq.map selector.Invoke this))
+        Seq.average (As<seq<float>> (Seq.map selector.Invoke this))
 
     [<Inline>]
     static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int>>) : Nullable<float> =
-        LinqProxy.Average (Seq.cast<Nullable<float>> (Seq.map selector.Invoke this))
+        LinqProxy.Average (As<seq<Nullable<float>>> (Seq.map selector.Invoke this))
 
     [<Inline>]
     static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<float>>) : Nullable<float> =
@@ -250,7 +250,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int>) : float =
-        Seq.average (Seq.cast<float> (Seq.map selector.Invoke this))
+        Seq.average (As<seq<float>> (Seq.map selector.Invoke this))
 
     [<Inline>]
     static member Cast<'T>(this: IEnumerable) : seq<'T> =
@@ -506,7 +506,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Max(this: seq<Nullable<int>>) : Nullable<int> =
-        As(LinqProxy.Max(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Max(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Max(this: seq<float>) : float =
@@ -514,7 +514,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Max(this: seq<Nullable<int64>>) : Nullable<int64> =
-        As(LinqProxy.Max(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Max(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Max(this: seq<int64>) : int64 =
@@ -562,7 +562,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Min(this: seq<Nullable<int>>) : Nullable<int> =
-        As(LinqProxy.Min(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Min(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Min(this: seq<float>) : float =
@@ -570,7 +570,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Min(this: seq<Nullable<int64>>) : Nullable<int64> =
-        As(LinqProxy.Min(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Min(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Min(this: seq<int64>) : int64 =
@@ -618,7 +618,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member OfType<'T>(this: IEnumerable) : seq<'T> =
-        Seq.cast<'T> this
+        As<seq<obj>> this |> Seq.choose (function :? 'T as o -> Some o | _ -> None) 
 
     [<Inline>]
     static member OrderBy<'T, 'K>(this: seq<'T>, keySelector: Func<'T, 'K>) : IOrderedEnumerable<'T> =
@@ -763,7 +763,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Sum(this: seq<Nullable<int64>>) : Nullable<int64> =
-        As(LinqProxy.Sum(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Sum(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Sum(this: seq<float>) : float =
@@ -775,7 +775,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member Sum(this: seq<Nullable<int>>) : Nullable<int> =
-        As(LinqProxy.Sum(Seq.cast<Nullable<float>> this))
+        As(LinqProxy.Sum(As<seq<Nullable<float>>> this))
 
     [<Inline>]
     static member Sum(this: seq<int>) : int =

@@ -113,7 +113,6 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                     false
         Enumerator.New 0 next
 
-/// IEnumerable is not supported.
 [<Inline "$i">]
 let Cast<'T> (i: System.Collections.IEnumerable) = X<seq<'T>>
 
