@@ -497,9 +497,11 @@ module Macro =
                         let discr =
                             match discr with
                             | JI.NoField discrFields ->
-                                discrFields
-                                |> List.map (fun (name, id) -> name, cInt id)
-                                |> Object
+                                Cast(TSType.Any,
+                                    discrFields
+                                    |> List.map (fun (name, id) -> name, cInt id)
+                                    |> Object
+                                )
                             | JI.StandardField -> cString "$"
                             | JI.NamedField n -> cString n
                         let tn =

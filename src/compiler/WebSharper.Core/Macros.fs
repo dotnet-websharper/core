@@ -852,6 +852,9 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
             else t n
         )
 
+    let newGenerated() =
+        comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ], 0, [TSType TSType.Any], TSType TSType.Any)
+
     let prettyPrint (t: Type) o = 
         let rec pp (t: Type) (o: Expression) = 
             match t with
@@ -881,7 +884,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                         | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                             gtd, gm
                         | _ ->
-                            let gtd, gm, _ = comp.NewGenerated([ "GeneratedPrintf"; "p"])
+                            let gtd, gm, _ = newGenerated()
                             comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                             let body = 
                                 let x = Id.New(mut = false)
@@ -918,7 +921,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                             | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                                 gtd, gm
                             | _ ->
-                                let gtd, gm, _ = comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ])
+                                let gtd, gm, _ = newGenerated()
                                 comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                                 let gs = ct.Generics |> Array.ofList
                                 let body =

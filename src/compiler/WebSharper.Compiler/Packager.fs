@@ -527,7 +527,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         else typeOfParams opts gsArr p
                     TSType.Lambda(pts, tsTypeOf gsArr r)
                 | _ ->
-                    thisTSTypeDef.Value |> addGenerics (List.init cgenl (fun _ -> TSType.Any))
+                    tsTypeOf gsArr m.Value.ReturnType
 
             let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
             let mgen = getGenerics cgenl gc

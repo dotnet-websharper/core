@@ -791,7 +791,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             constantCase v
                         | _ ->
                             if argumentless && not annot.IsForcedNotJavaScript then
-                                let caseField = Definitions.SingletonUnionCase case.CompiledName
+                                let caseField =
+                                    GenericType def (List.init cls.GenericParameters.Count (fun _ -> NonGenericType Definitions.Obj))
+                                    |> Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
                                 clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved None a N.Static false None expr)))

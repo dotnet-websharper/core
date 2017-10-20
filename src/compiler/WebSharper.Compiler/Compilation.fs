@@ -161,7 +161,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.Warnings = List.ofSeq warnings
 
-    member this.GetGeneratedClass(addr) =
+    member this.GetGeneratedClass() =
         match generatedClass with
         | Some cls -> cls
         | _ ->
@@ -173,7 +173,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 }
             classes.Add (td,
                 (
-                    { Module = CurrentModule; Address = addr },
+                    { Module = CurrentModule; Address = Hashed [ name ] },
                     CustomTypeInfo.NotCustomType,
                     Some {
                         BaseClass = None
@@ -234,7 +234,7 @@ type Compilation(meta: Info, ?hasGraph) =
         
         member this.NewGenerated(addr, ?generics, ?args, ?returns) =
             let resolved = resolver.StaticAddress (List.rev addr)
-            let td = this.GetGeneratedClass(resolved)
+            let td = this.GetGeneratedClass()
             let meth = 
                 Method {
                     MethodName = resolved.Value |> List.rev |> String.concat "."
@@ -247,11 +247,11 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let addr = this.LocalAddress generatedMethodAddresses.[meth]
-            let td = this.GetGeneratedClass (Hashed addr.Address.Value.Tail)
+            let td = this.GetGeneratedClass()
             compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None), [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
-            let td = this.GetGeneratedClass(Hashed [])
+            let td = this.GetGeneratedClass()
             compilingMethods.Add((td, meth),(NotCompiled (Inline, true, Optimizations.None), [], body))
 
         member this.AssemblyName = this.AssemblyName

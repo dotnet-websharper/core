@@ -695,11 +695,11 @@ module Definitions =
         }
 
     // Private static field for single-case unions.
-    let SingletonUnionCase name =
+    let SingletonUnionCase name typ =
         Method {
             MethodName = "_unique_" + name
             Parameters = []
-            ReturnType = VoidType 
+            ReturnType = typ
             Generics = 0
         }
 

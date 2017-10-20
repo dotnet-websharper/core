@@ -1283,7 +1283,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.SingletonFSharpUnionCase -> 
                 match comp.TryLookupClassInfo td |> Option.map fst with
                 | Some a -> 
-                    let caseField = Definitions.SingletonUnionCase case
+                    let caseField =
+                        ConcreteType { typ with Generics = List.map (fun _ -> NonGenericType Definitions.Obj) typ.Generics }
+                        |> Definitions.SingletonUnionCase case
                     if comp.HasGraph then
                         this.AddMethodDependency(td, caseField)
                     ItemGet(GlobalAccess a, Value (String case), Pure)
