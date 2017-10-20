@@ -185,7 +185,7 @@ and Expression =
     /// A global value by path, list is reversed
     | GlobalAccess of Address:Address
     /// JavaScript 'new' call
-    | New of Func:Expression * Arguments:list<Expression>
+    | New of Func:Expression * Param:list<TSType> * Arguments:list<Expression>
     /// Temporary - A hole in an expression for inlining
     | Hole of Index:int
     /// TypeScript - type cast <...>...
@@ -454,8 +454,8 @@ type Transformer() =
     abstract TransformGlobalAccess : Address:Address -> Expression
     override this.TransformGlobalAccess a = GlobalAccess (a)
     /// JavaScript 'new' call
-    abstract TransformNew : Func:Expression * Arguments:list<Expression> -> Expression
-    override this.TransformNew (a, b) = New (this.TransformExpression a, List.map this.TransformExpression b)
+    abstract TransformNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> Expression
+    override this.TransformNew (a, b, c) = New (this.TransformExpression a, b, List.map this.TransformExpression c)
     /// Temporary - A hole in an expression for inlining
     abstract TransformHole : Index:int -> Expression
     override this.TransformHole a = Hole (a)
@@ -631,7 +631,7 @@ type Transformer() =
         | ComplexElement a -> this.TransformComplexElement a
         | Object a -> this.TransformObject a
         | GlobalAccess a -> this.TransformGlobalAccess a
-        | New (a, b) -> this.TransformNew (a, b)
+        | New (a, b, c) -> this.TransformNew (a, b, c)
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
     abstract TransformStatement : Statement -> Statement
@@ -840,8 +840,8 @@ type Visitor() =
     abstract VisitGlobalAccess : Address:Address -> unit
     override this.VisitGlobalAccess a = (())
     /// JavaScript 'new' call
-    abstract VisitNew : Func:Expression * Arguments:list<Expression> -> unit
-    override this.VisitNew (a, b) = this.VisitExpression a; List.iter this.VisitExpression b
+    abstract VisitNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> unit
+    override this.VisitNew (a, b, c) = this.VisitExpression a; (); List.iter this.VisitExpression c
     /// Temporary - A hole in an expression for inlining
     abstract VisitHole : Index:int -> unit
     override this.VisitHole a = (())
@@ -1015,7 +1015,7 @@ type Visitor() =
         | ComplexElement a -> this.VisitComplexElement a
         | Object a -> this.VisitObject a
         | GlobalAccess a -> this.VisitGlobalAccess a
-        | New (a, b) -> this.VisitNew (a, b)
+        | New (a, b, c) -> this.VisitNew (a, b, c)
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
     abstract VisitStatement : Statement -> unit
@@ -1119,7 +1119,7 @@ module IgnoreSourcePos =
     let (|ComplexElement|_|) x = match ignoreExprSourcePos x with ComplexElement a -> Some a | _ -> None
     let (|Object|_|) x = match ignoreExprSourcePos x with Object a -> Some a | _ -> None
     let (|GlobalAccess|_|) x = match ignoreExprSourcePos x with GlobalAccess a -> Some a | _ -> None
-    let (|New|_|) x = match ignoreExprSourcePos x with New (a, b) -> Some (a, b) | _ -> None
+    let (|New|_|) x = match ignoreExprSourcePos x with New (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
     let ignoreStatementSourcePos expr =
@@ -1222,7 +1222,7 @@ module Debug =
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) a) + "]" + ")"
         | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
-        | New (a, b) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
         | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
     and PrintStatement x =

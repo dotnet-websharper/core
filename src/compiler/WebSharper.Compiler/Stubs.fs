@@ -118,4 +118,4 @@ let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (cd
         let l = cdef.Value.CtorParameters.Length
         let args = List.init l Hole
         let f = if a.IsEmpty then errorPlaceholder else Global a
-        New(f, args), error
+        New(f, [], args), error

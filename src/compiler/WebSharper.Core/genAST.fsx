@@ -198,7 +198,7 @@ let ExprDefs =
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global value by path, list is reversed"
-        "New", [ Expr, "func"; List Expr, "arguments" ]
+        "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
         "Hole", [ Object "int", "index" ]
             , "Temporary - A hole in an expression for inlining"

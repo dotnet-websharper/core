@@ -315,10 +315,12 @@ and Expression (expression) =
             ++ Optional Id name
             ++ args
             ++ BlockLayout (List.map (Statement true) body)
-    | S.New (x, xs) ->
-        Word "new"
-        ++ MemberExpression x
-        ++ Parens (CommaSeparated AssignmentExpression xs)
+    | S.New (x, ts, xs) ->
+        let call = Word "new" ++ MemberExpression x
+        let args = Parens (CommaSeparated AssignmentExpression xs)
+        if List.isEmpty ts
+        then call ++ args
+        else call ++ Token "<" ++ CommaSeparated Id ts ++ Token ">" ++ args
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->

@@ -155,7 +155,7 @@ and Expression =
     | Conditional of E * E * E
     | Constant    of Literal
     | Lambda      of option<Id> * list<Id> * list<S> * bool
-    | New         of E * list<E>
+    | New         of E * list<Id> * list<E>
     | NewArray    of list<option<E>>
     | NewObject   of list<string * E>
     | NewRegex    of Regex

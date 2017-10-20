@@ -832,9 +832,9 @@ let rec breakExpr expr : Broken<BreakResult> =
                 ]
             Variables = (brAs |> List.collect (fun (_, ba) -> ba.Variables)) @ brB.Variables 
         }
-    | New(a, b) -> 
+    | New(a, ts, b) -> 
         brL (a :: b)
-        |> mapBroken2L (fun aE bE -> New (aE, bE))
+        |> mapBroken2L (fun aE bE -> New (aE, ts, bE))
     | e ->
         failwithf "Break expression error, not handled: %s" (Debug.PrintExpression e)
 

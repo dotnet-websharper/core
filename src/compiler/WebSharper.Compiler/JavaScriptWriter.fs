@@ -410,7 +410,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
-    | New (x, y) -> J.New(trE x, y |> List.map trE)
+    | New (x, ts, y) -> J.New(trE x, ts |> List.map (transformTypeName env false >> J.Id.New), y |> List.map trE)
     | Sequential x ->
         let x =
             match List.rev x with 

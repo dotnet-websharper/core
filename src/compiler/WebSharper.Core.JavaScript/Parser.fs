@@ -228,12 +228,12 @@ and lhsExprTail news i body =
             let args = arguments i
             match news with
             | 0 -> loop news (S.Application (e, args))
-            | _ -> loop (news - 1) (S.New (e, args))
+            | _ -> loop (news - 1) (S.New (e, [], args))
         | _ ->
             let rec loop news e =
                 match news with
                 | 0 -> e
-                | _ -> loop (news - 1) (S.New (e, []))
+                | _ -> loop (news - 1) (S.New (e, [], []))
             loop news e
     loop news body
 

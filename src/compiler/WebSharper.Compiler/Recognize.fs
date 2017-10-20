@@ -393,14 +393,14 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
                 StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
-    | S.New (a, b) -> 
-        New(trE a, List.map trE b)
+    | S.New (a, [], b) -> 
+        New(trE a, [], List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
     | S.NewRegex a -> 
         let closingSlash = a.LastIndexOf '/'
         let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq
-        New (Global ["RegExp"], Value (String a.[1 .. closingSlash - 1]) :: flags)
+        New (Global ["RegExp"], [], Value (String a.[1 .. closingSlash - 1]) :: flags)
     | S.Postfix (a, b) ->
         match b with
         | S.PostfixOperator.``++`` -> mun a MutatingUnaryOperator.``()++``

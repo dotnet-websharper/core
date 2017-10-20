@@ -241,6 +241,13 @@ type GenericInlineResolver (generics, tsGenerics) =
             args |> List.map this.TransformExpression
         )
 
+    override this.TransformNew(e, ts, args) =
+        New (
+            this.TransformExpression e,
+            ts |> List.map (fun t -> t.SubstituteGenerics(tsGenerics)),
+            args |> List.map this.TransformExpression
+        )
+
     override this.TransformTraitCall(typs, meth, args) =
         TraitCall (
             typs |> List.map subs,
@@ -1125,9 +1132,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> failwithf "Class address not found for %s" typ.Entity.Value.FullName
         match info with
         | M.New ->
-            New(GlobalAccess (typAddress()), trArgs())
+            let ts = List.map (comp.TypeTranslator.TSTypeOf (Array.ofList gc)) typ.Generics
+            New(GlobalAccess (typAddress()), ts, trArgs())
         | M.NewIndexed (i) ->
-            New(GlobalAccess (typAddress()), Value (Int i) :: trArgs())
+            let ts = List.map (comp.TypeTranslator.TSTypeOf (Array.ofList gc)) typ.Generics
+            New(GlobalAccess (typAddress()), ts, Value (Int i) :: trArgs())
         | M.Static address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline -> 
@@ -1199,7 +1208,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ.Entity
-            New (GlobalAccess (a.Sub("$")), Value (Int i) :: trArgs)
+            New (GlobalAccess (a.Sub("$")), [], Value (Int i) :: trArgs)
         | _ -> 
             let objExpr =
                 Object (
@@ -1465,10 +1474,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | _ -> failwith "should be compiled"
                     | _ -> failwith "should be compiled"
             match norm with
-            | New (func, a) ->
+            | New (func, ts, a) ->
                 bcall func a
             // This is allowing some simple inlines
-            | Let (i1, a1, New(func, Var v1 :: r)) when i1 = v1 ->
+            | Let (i1, a1, New(func, ts, Var v1 :: r)) when i1 = v1 ->
                 bcall func (a1 :: r)
             | _ ->
                 let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)

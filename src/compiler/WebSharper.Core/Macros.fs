@@ -503,7 +503,7 @@ type String() =
                     | "System.Char" ->
                         x
                     | "System.DateTime" ->
-                        Appl(ItemGet(New(Global [ "Date" ], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
+                        Appl(ItemGet(New(Global [ "Date" ], [], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
                     | _ ->
                         Appl(Global ["String"], [x], Pure, Some 1)   
                 | _ -> 

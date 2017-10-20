@@ -341,7 +341,7 @@ let varEvalOrder (vars : Id list) expr =
                 eval a
                 List.iter eval b
                 if c.Purity = NonPure then stop()
-            | New(a, b) ->
+            | New(a, _, b) ->
                 eval a
                 List.iter eval b
             | Call(a, _, _, b) ->

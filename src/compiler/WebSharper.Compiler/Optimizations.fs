@@ -104,13 +104,13 @@ let cleanRuntime force expr =
         
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->
             if m1 = globalArray then NewArray []
-            else New(GlobalAccess m1, [])
+            else New(GlobalAccess m1, [], [])
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2; NewArray arr ] when m1 = m2 ->
             if m1 = globalArray then NewArray arr
-            else New(GlobalAccess m1, arr)
+            else New(GlobalAccess m1, [], arr)
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when m1 = m2 ->
             if m1 = globalArray then NewArray (arr @ rest)
-            else New(GlobalAccess m1, arr @ rest)
+            else New(GlobalAccess m1, [], arr @ rest)
 
         | "Apply", [ Application(Runtime "Curried", [f; Value (Int l)], info); ignoredObj; NewArray args ] 
             when args.Length = l && isPureExpr ignoredObj ->
