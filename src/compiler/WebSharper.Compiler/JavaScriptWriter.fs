@@ -449,12 +449,11 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 e.[J.Constant (J.String n)]
             ) a.Address.Value (J.Var (trI v))
         | CurrentModule ->
-            let a = a.Address.Value
+            match a.Address.Value with
+            | [] -> J.Var (J.Id.New "window")
+            | h :: _ as a ->
             match resolveName env (List.rev a) with
-            | [] -> 
-                match a with
-                | h :: _ -> J.Var (J.Id.New h)
-                | _ -> J.Var (J.Id.New "window")
+            | [] -> J.Var (J.Id.New h)
             | h :: t -> 
                 List.fold (fun (e: J.Expression) n ->
                     e.[J.Constant (J.String n)]
@@ -547,7 +546,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 match t with
                 | Some (TSType.Function (_, ta, _, tr)) ->      
                     // argument ids have to be resolved first because return type can be a TypeGuard
-                    let args = (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
+                    let args =
+                        match ids, ta with
+                        | [_], [] -> [], [] // Function taking unit
+                        | p -> p
+                        ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
                     id |> withType innerEnv tr
                     , args
                     , tr
