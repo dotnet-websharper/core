@@ -520,7 +520,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
                     ClassMethod(isStatic, n, args, None, TSType.Any |> addGenerics mgen)
-                | _ -> failwith "unexpected form for class member"
+                | _ ->
+                    ClassMethod(isStatic, n, [], Some (Return errorPlaceholder), TSType.Any)
             match withoutMacros info with
             | M.Instance mname ->
                 members.Add (getMember false mname)

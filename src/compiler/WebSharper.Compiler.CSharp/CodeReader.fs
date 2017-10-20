@@ -630,9 +630,12 @@ type RoslynTransformer(env: Environment) =
                 let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
                 let fromTyp = typInfo.Type :?> INamedTypeSymbol |> sr.ReadNamedTypeDefinition
                 let toTyp = typInfo.ConvertedType :?> INamedTypeSymbol |>  sr.ReadNamedTypeDefinition
-                //let fromTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.Parameters.[0].Type :?> INamedTypeSymbol)
-                //let toTyp = sr.ReadNamedTypeDefinition (conversion.MethodSymbol.ReturnType :?> INamedTypeSymbol)
                 NumericConversion fromTyp toTyp expr
+            //elif conversion.IsImplicit then
+            //    let typInfo = env.SemanticModel.GetTypeInfo(x.Node)
+            //    let fromTyp = typInfo.Type |> sr.ReadType
+            //    let toTyp = typInfo.ConvertedType |> sr.ReadType
+            //    Coerce(expr, fromTyp, toTyp)
             else expr
         with e ->
             env.Compilation.AddError(Some (getSourcePos x.Node), WebSharper.Compiler.SourceError("Error while reading C# code: " + e.Message + " at " + e.StackTrace))
@@ -1935,7 +1938,7 @@ type RoslynTransformer(env: Environment) =
             | ConcreteType { Generics = []; Entity = ft }, ConcreteType { Generics = []; Entity = tt } ->
                 NumericConversion ft tt expression
             | _ ->
-                expression
+                Coerce(expression, fromTyp, toTyp)
         else
             call symbol None [ expression ]
 

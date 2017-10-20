@@ -229,27 +229,27 @@ type private LinqProxy =
         Seq.average (Seq.cast<float> this)
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<float> =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<float> =
         LinqProxy.Average (Seq.cast<Nullable<float>> (Seq.map selector.Invoke this))
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, int64>) : float =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int64>) : float =
         Seq.average (Seq.cast<float> (Seq.map selector.Invoke this))
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, Nullable<int>>) : Nullable<float> =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int>>) : Nullable<float> =
         LinqProxy.Average (Seq.cast<Nullable<float>> (Seq.map selector.Invoke this))
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, Nullable<float>>) : Nullable<float> =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<float>>) : Nullable<float> =
         LinqProxy.Average (Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, float>) : float =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, float>) : float =
         Seq.average (Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Average<'T>(this: seq<'T>, selector: Func<'T, int>) : float =
+    static member Average<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int>) : float =
         Seq.average (Seq.cast<float> (Seq.map selector.Invoke this))
 
     [<Inline>]
@@ -782,27 +782,27 @@ type private LinqProxy =
         Seq.sum this
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, int64>) : int64 =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int64>) : int64 =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, float>) : float =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, float>) : float =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, Nullable<float>>) : Nullable<float> =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<float>>) : Nullable<float> =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<int64> =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int64>>) : Nullable<int64> =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, Nullable<int>>) : Nullable<int> =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, Nullable<int>>) : Nullable<int> =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     [<Inline>]
-    static member Sum<'T>(this: seq<'T>, selector: Func<'T, int>) : int =
+    static member Sum<[<Type "number">] 'T>(this: seq<'T>, selector: Func<'T, int>) : int =
         LinqProxy.Sum(Seq.map selector.Invoke this)
 
     static member Take<'T>(this: seq<'T>, count: int) =

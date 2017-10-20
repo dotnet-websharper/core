@@ -61,6 +61,8 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
     dict [
         yield jsTyp "WebSharper.JavaScript.Object`1", (List.head >> TSType.ObjectOf) 
         yield coreTyp "WebSharper.JavaScript.Optional`1", List.head
+        yield coreTyp "WebSharper.JavaScript.Optional`1+Undefined", List.head
+        yield coreTyp "WebSharper.JavaScript.Optional`1+Defined", List.head
         yield corlibTyp "System.Nullable`1", List.head
         yield fscoreTyp "Microsoft.FSharp.Core.FSharpRef`1", TSType.Tuple  
         yield fscoreTyp "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1",
@@ -69,6 +71,8 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
             | _ -> inv()
         for i = 1 to 7 do
             yield coreTyp ("WebSharper.JavaScript.Union`" + string i), TSType.Union
+            for j = 1 to i do
+                yield coreTyp (sprintf "WebSharper.JavaScript.Union`%d+Union%dOf%d" i j i), (List.item j)
         yield coreTyp "WebSharper.JavaScript.FuncWithArgs`2",
             function 
             | [ TSType.ArrayOf e; r ] -> TSType.Function(None, [], Some e, r)

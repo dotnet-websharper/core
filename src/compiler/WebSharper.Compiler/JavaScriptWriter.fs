@@ -171,6 +171,15 @@ type CollectStrongNames(env: Environment) =
     override this.VisitClass(n, _, _, _, _) =
         addName n
 
+    override this.VisitClassMethod(_, n, _, _, _) =
+        addName n
+
+    override this.VisitClassProperty(_, n, _) =
+        addName n
+
+    override this.VisitInterface(n, _, _, _) =
+        addName n
+
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
@@ -209,6 +218,15 @@ type CollectVariables(env: Environment) =
         let collect = CollectVariables(innerEnv)
         s |> List.iter collect.VisitStatement
 
+    override this.VisitClassMethod(_, n, _, _, _) =
+        env.CurrentScopeNames.Add n |> ignore
+
+    override this.VisitClassProperty(_, n, _) =
+        env.CurrentScopeNames.Add n |> ignore
+
+    override this.VisitInterface(n, _, _, _) =
+        env.CurrentScopeNames.Add n |> ignore
+
     override this.VisitLabeled(l, s) =
         defineId env DeclarationId l |> ignore
         this.VisitStatement s
@@ -223,7 +241,7 @@ let flattenJS s =
     s |> Seq.iter add
     List.ofSeq res    
 
-let flattenFuncBody s =
+let flattenFuncBody isVoid s =
     let res = ResizeArray()
     let mutable go = true
     let mutable throws = false
@@ -232,7 +250,7 @@ let flattenFuncBody s =
             match J.IgnoreStatementPos a with
             | J.Block b -> b |> List.iter add
             | J.Empty -> ()
-            | J.Return None ->
+            | J.Return None when not isVoid ->
                 go <- false
             | J.Return _ ->
                 go <- false
@@ -337,7 +355,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineIdTyped innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let _, body = b |> transformStatement innerEnv |> flattenFuncBody
+        let _, body = b |> transformStatement innerEnv |> flattenFuncBody false
         let hasNoThis = HasNoThisVisitor().Check(b)
         J.Lambda(None, args, flattenJS body, hasNoThis)
     | ItemGet (x, y, _) 
@@ -491,21 +509,19 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             f()
     let varDeclaration id e t =
         let i = transformId env id
-        let typed() =
+        let typed allowAny =
             match t with 
-            | Some t -> i |> withType env t 
+            | Some t -> i |> withTypeAny env t allowAny
             | _ ->
                 match id.TSType with
-                | Some t -> i |> withType env t
+                | Some t -> i |> withTypeAny env t allowAny
                 | _ -> i
         match e with
         | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
         | IgnoreSourcePos.Undefined -> 
-            //let k = if env.OuterScope then J.VarDecl else J.LetDecl
-            J.Vars ([ (typed()), None ], J.VarDecl)
+            J.Vars ([ typed false, None ], J.VarDecl)
         | _ -> 
-            //let k = if env.OuterScope then J.VarDecl elif id.IsMutable then J.LetDecl else J.ConstDecl
-            J.Vars ([ (typed()), Some (trE e) ], J.VarDecl)
+            J.Vars ([ typed true, Some (trE e) ], J.VarDecl)
     let funcDeclaration x ids b t =
         let innerEnv = env.NewInner()
         try
@@ -519,18 +535,20 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             let id =
                 if gen = "" then id else
                     { id with Name = id.Name + gen }
-            let id, args =
+            let id, args, isVoid =
                 match t with
                 | Some (TSType.Function (_, ta, _, tr)) ->      
                     // argument ids have to be resolved first because return type can be a TypeGuard
                     let args = (ids, ta) ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
                     id |> withType innerEnv tr
                     , args
+                    , tr = TSType.Void
                 | _ ->
                     id
                     , ids |> List.map (defineIdTyped innerEnv ArgumentId) 
+                    , false
             CollectVariables(innerEnv).VisitStatement(b)
-            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody
+            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody isVoid
             let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
             let f = J.Function(id, args, flattenJS body)
             if env.InFuncScope then
@@ -702,6 +720,11 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) =
     | TSType.Any -> i
     | _ -> i.WithType(transformType env typ)
 
+and withTypeAny (env: Environment) (typ: TSType) allowAny (i: J.Id) =
+    match typ with
+    | TSType.Any when allowAny -> i
+    | _ -> i.WithType(transformType env typ)
+
 and getGenericParams (env: Environment) (typ: TSType) =
     match typ with
     | TSType.Generic (t, []) -> t, ""
@@ -718,18 +741,20 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             match t with
             | TSType.Generic (t, g) -> t, "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
             | _ -> t, ""
-        let args, tr =
+        let args, tr, isVoid =
             match t with 
             | TSType.Function (_, ta, trest, tr) -> 
                 (p, ta) ||> List.map2 (fun a t -> defineId innerEnv ArgumentId a |> withType env t) 
                 , tr
+                , tr = TSType.Void
             | _ ->
                 p |> List.map (defineId innerEnv ArgumentId)
                 , t
+                , false
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
-                b |> transformStatement innerEnv |> flattenFuncBody
+                b |> transformStatement innerEnv |> flattenFuncBody isVoid
             )
         let n = n + gen
         let id =
@@ -748,7 +773,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
-                b |> transformStatement innerEnv |> flattenFuncBody |> snd
+                b |> transformStatement innerEnv |> flattenFuncBody false |> snd
             )
         J.Constructor(args, body |> Option.map (fun b -> flattenJS b))   
     | ClassProperty (s, n, t) ->

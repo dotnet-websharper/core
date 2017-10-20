@@ -555,6 +555,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     } : CodeReader.CSharpMethod
                     
             let getBody isInline =
+                if meth.IsAbstract then Undefined else
                 let parsed = getParsed() 
                 let args = parsed.Parameters |> List.map (fun p -> p.ParameterId)
                 if isInline then
