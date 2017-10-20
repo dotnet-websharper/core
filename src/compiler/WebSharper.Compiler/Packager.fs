@@ -48,11 +48,30 @@ type StaticMembers =
 type BodyTransformer(toTSType, getAddress) =
     inherit Transformer()
 
-    let resWSModule m =
-        getAddress { Module = WebSharperModule m; Address = Hashed [] } |> fst 
+    let resWSModule (t: TSType) =
+        t.ResolveModule (fun m ->
+            getAddress { Module = WebSharperModule m; Address = Hashed [] } |> fst 
+        )
 
     override this.TransformId(a) =
         a.ToTSType(toTSType)
+
+    override this.TransformNew(c, ts, args) =
+        Expression.New(
+            this.TransformExpression c,
+            List.map resWSModule ts,
+            List.map this.TransformExpression args
+        )
+
+    override this.TransformApplication(f, args, i) =
+        Application(
+            this.TransformExpression f,
+            List.map this.TransformExpression args,
+            { i with
+                Params = List.map resWSModule i.Params
+                Type = resWSModule i.Type
+            }
+        )
 
     override this.TransformNewTuple(a, t) =
         let res = NewTuple(List.map this.TransformExpression a, [])
@@ -61,7 +80,7 @@ type BodyTransformer(toTSType, getAddress) =
         | _ -> Cast(toTSType(TupleType (t, false)), res) 
 
     override this.TransformCast(t, e) =
-        Cast(t.ResolveModule resWSModule, this.TransformExpression e)
+        Cast(resWSModule t, this.TransformExpression e)
 
     override this.TransformGlobalAccess(a) =
         match getAddress a with
