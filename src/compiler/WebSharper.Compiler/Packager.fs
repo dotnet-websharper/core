@@ -104,9 +104,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let ie t = TSType.Generic(TSType.Named [ "WebSharper"; "IEnumerable" ], [ t ])
         let T = TSType.Basic "T"
         [ 
-            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error")], []) 
-            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any) ], [])  
-            Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any) ], [])  
+            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error", false)], []) 
+            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any, false) ], [])  
+            Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any, false) ], [])  
             Interface ("Array", [ ie T ], [], [ T ])
             Interface ("String", [ ie (TSType.Basic "string") ], [], [])
             //Interface ("Object", [], [ ClassMethod (true, "setPrototypeOf", [strId "obj"; strId "prototype"], None, TSType.Lambda ([TSType.Object; TSType.Union [TSType.Object; TSType.Null]], TSType.Object), 0) ], 0)  
@@ -397,10 +397,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let cases = 
             u.Cases |> List.mapi (fun tag uc ->
                 let case (fields: list<M.UnionCaseFieldInfo>) =
-                    let tag = ClassProperty (false, "$", TSType.Basic (string tag))
+                    let tag = ClassProperty (false, "$", TSType.Basic (string tag), false)
                     let mem =
                         fields |> List.mapi (fun i f ->
-                            ClassProperty (false, "$" + string i, tsTypeOf gsArr f.UnionFieldType)
+                            ClassProperty (false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, false)
                         )
                     addExport <| Interface(uc.Name, Option.toList unionClass, tag :: mem, gen)
                     TSType.Basic (unionNested + uc.Name) |> addGenerics gen
@@ -422,8 +422,15 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let packageRecord fields addr (t: TypeDefinition) =
         let fields =
             fields |> List.map (fun f ->
-                let t = tsTypeOf [||] f.RecordFieldType
-                ClassProperty(false, f.JSName, t)
+                let t =
+                    if f.Optional then
+                        match f.RecordFieldType with
+                        | ConcreteType td -> td.Generics.[0]
+                        | _ -> failwith "OptionalField on a field not of type option<_>"
+                    else
+                        f.RecordFieldType
+                    |> tsTypeOf [||]
+                ClassProperty(false, f.JSName, t, f.Optional)
             )
         let numGenerics =
             match t.Value.FullName.IndexOf '`' with
@@ -456,11 +463,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         for f, _, t in c.Fields.Values do
             let typ = tsTypeOf gsArr t
             match f with
-            | M.InstanceField n
+            | M.InstanceField n ->
+                members.Add (ClassProperty (false, n, typ, false))
             | M.OptionalField n ->
-                members.Add (ClassProperty (false, n, typ)) 
+                members.Add (ClassProperty (false, n, typ, true))
             | M.StaticField a ->
-                smem a (fun n -> ClassProperty (true, n, typ)) (fun () -> Undefined, typ)
+                smem a (fun n -> ClassProperty (true, n, typ, false)) (fun () -> Undefined, typ)
             | _ -> ()
 
         match c.StaticConstructor with

@@ -278,7 +278,7 @@ let StatementDefs =
             , "TypeScript - class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "TypeScript - class method"
-        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType" ]
+        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType"; Bool, "optional" ]
             , "TypeScript - class plain property"
         "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"

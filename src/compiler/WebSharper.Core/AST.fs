@@ -280,7 +280,7 @@ and Statement =
     /// TypeScript - class method
     | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
     /// TypeScript - class plain property
-    | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType
+    | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool
     /// TypeScript - interface { ... }
     | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// TypeScript - function and var declaration with type or signature
@@ -561,8 +561,8 @@ type Transformer() =
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (x, m) -> this.TransformId x, m) a, Option.map this.TransformStatement b, c)
     /// TypeScript - class plain property
-    abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> Statement
-    override this.TransformClassProperty (a, b, c) = ClassProperty (a, b, c)
+    abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> Statement
+    override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, d)
     /// TypeScript - interface { ... }
     abstract TransformInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformInterface (a, b, c, d) = Interface (a, b, List.map this.TransformStatement c, d)
@@ -669,7 +669,7 @@ type Transformer() =
         | Class (a, b, c, d, e) -> this.TransformClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e) -> this.TransformClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.TransformClassConstructor (a, b, c)
-        | ClassProperty (a, b, c) -> this.TransformClassProperty (a, b, c)
+        | ClassProperty (a, b, c, d) -> this.TransformClassProperty (a, b, c, d)
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
         | TypedDeclaration (a, b) -> this.TransformTypedDeclaration (a, b)
         | Alias (a, b) -> this.TransformAlias (a, b)
@@ -945,8 +945,8 @@ type Visitor() =
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
     /// TypeScript - class plain property
-    abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType -> unit
-    override this.VisitClassProperty (a, b, c) = (); (); ()
+    abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> unit
+    override this.VisitClassProperty (a, b, c, d) = (); (); (); ()
     /// TypeScript - interface { ... }
     abstract VisitInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitInterface (a, b, c, d) = (); (); List.iter this.VisitStatement c; ()
@@ -1053,7 +1053,7 @@ type Visitor() =
         | Class (a, b, c, d, e) -> this.VisitClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e) -> this.VisitClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.VisitClassConstructor (a, b, c)
-        | ClassProperty (a, b, c) -> this.VisitClassProperty (a, b, c)
+        | ClassProperty (a, b, c, d) -> this.VisitClassProperty (a, b, c, d)
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
         | TypedDeclaration (a, b) -> this.VisitTypedDeclaration (a, b)
         | Alias (a, b) -> this.VisitAlias (a, b)
@@ -1158,7 +1158,7 @@ module IgnoreSourcePos =
     let (|Class|_|) x = match ignoreStatementSourcePos x with Class (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|TypedDeclaration|_|) x = match ignoreStatementSourcePos x with TypedDeclaration (a, b) -> Some (a, b) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
@@ -1259,7 +1259,7 @@ module Debug =
         | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
-        | ClassProperty (a, b, c) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ")"
+        | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + PrintObject d + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | TypedDeclaration (a, b) -> "TypedDeclaration" + "(" + PrintStatement a + ", " + PrintObject b + ")"
         | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"

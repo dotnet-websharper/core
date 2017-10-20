@@ -175,7 +175,7 @@ type CollectStrongNames(env: Environment) =
     override this.VisitClassMethod(_, n, _, _, _) =
         addName n
 
-    override this.VisitClassProperty(_, n, _) =
+    override this.VisitClassProperty(_, n, _, _) =
         addName n
 
     override this.VisitInterface(n, _, _, _) =
@@ -222,7 +222,7 @@ type CollectVariables(env: Environment) =
     override this.VisitClassMethod(_, n, _, _, _) =
         env.CurrentScopeNames.Add n |> ignore
 
-    override this.VisitClassProperty(_, n, _) =
+    override this.VisitClassProperty(_, n, _, _) =
         env.CurrentScopeNames.Add n |> ignore
 
     override this.VisitInterface(n, _, _, _) =
@@ -789,8 +789,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 b |> transformStatement innerEnv |> flattenFuncBody TSType.Any |> snd
             )
         J.Constructor(args, body |> Option.map (fun b -> flattenJS b))   
-    | ClassProperty (s, n, t) ->
-        J.Property (s, J.Id.New(n) |> withType env t)
+    | ClassProperty (s, n, t, o) ->
+        J.Property (s, J.Id.New(n, opt = o) |> withType env t)
     | _ -> 
         invalidForm (GetUnionCaseName mem)
 
