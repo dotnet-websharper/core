@@ -520,7 +520,7 @@ type TransformBaseCall(f) =
         | _ ->
             base.TransformApplication(a, b, c)
    
-type FixThisScope() =
+type FixThisScope(typ) =
     inherit Transformer()
     let mutable scope = 0
     let mutable thisVar = None
@@ -570,7 +570,7 @@ type FixThisScope() =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New ("$this", mut = false)
+                let t = Id.New ("$this", mut = false, ?typ = typ)
                 thisVar <- Some t
                 Var t
         else This

@@ -61,8 +61,8 @@ let AppItem (obj, item, args) =
 let func vars body isReturn =
     if isReturn then Lambda(vars, body) else Function(vars, ExprStatement body)
 
-let thisFunc this vars body isReturn =
-    func vars (FixThisScope().Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
+let thisFunc (this: Id) vars body isReturn =
+    func vars (FixThisScope(this.VarType).Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
 
 let globalArray = Address.Lib "Array"
 

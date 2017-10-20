@@ -1150,9 +1150,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
-        | M.Inline -> 
-            Substitution(trArgs()).TransformExpression(expr)
-            |> this.TransformExpression
+        | M.Inline
         | M.NotCompiledInline -> 
             let ge =
                 let gen = typ.Generics
@@ -1162,8 +1160,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     try GenericInlineResolver(gen, tsGen).TransformExpression expr
                     with e -> this.Error(sprintf "Failed to resolve generics: %s" e.Message)
                 else expr
-            Substitution(trArgs()).TransformExpression(ge)
-            |> this.TransformExpression
+            let res = Substitution(trArgs()).TransformExpression(ge)
+            if info = M.NotCompiledInline then
+                res |> this.TransformExpression
+            else res
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with

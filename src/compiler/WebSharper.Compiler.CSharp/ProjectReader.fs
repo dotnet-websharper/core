@@ -229,6 +229,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
                 Dict.addToMulti implicitImplementations impl intf
 
+    let thisType = Generic def (List.init cls.TypeParameters.Length TypeParameter)
+    let thisTypeForFixer = Some (ConcreteType thisType)
+
     for mem in members do
         match mem with
         | :? IPropertySymbol as p ->
@@ -243,7 +246,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let data =
                     syntax :?> PropertyDeclarationSyntax
                     |> RoslynHelpers.PropertyDeclarationData.FromNode
-                let cdef = NonGeneric def
                 let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
                     a.Body.IsSome || a.ExpressionBody.IsSome
                 match data.AccessorList with
@@ -265,9 +267,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | setMeth ->
                     let setter = sr.ReadMethod setMeth
                     if p.IsStatic then
-                        staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
+                        staticInits.Add <| Call(None, thisType, NonGeneric setter, [ b ])
                     else
-                        inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
+                        inits.Add <| Call(Some This, thisType, NonGeneric setter, [ b ])
             | _ -> ()
         | :? IFieldSymbol as f -> 
             let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -285,9 +287,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         |> (cs model).TransformVariableDeclarator
                     
                     if f.IsStatic then 
-                        staticInits.Add <| FieldSet(None, NonGeneric def, x.Name.Value, e)
+                        staticInits.Add <| FieldSet(None, thisType, x.Name.Value, e)
                     else
-                        inits.Add <| FieldSet(Some This, NonGeneric def, x.Name.Value, e)
+                        inits.Add <| FieldSet(Some This, thisType, x.Name.Value, e)
                 | _ -> 
 //                    let _ = syntax :?> VariableDeclarationSyntax
                     ()
@@ -417,7 +419,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
                                 else b1 |> Scoping.fix |> Continuation.eliminateGotos
-                            { m with Body = b2 |> FixThisScope().Fix }
+                            { m with Body = b2 |> FixThisScope(thisTypeForFixer).Fix }
                         match syntax with
                         | :? MethodDeclarationSyntax as syntax ->
                             syntax
@@ -447,7 +449,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                        ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
                                     | _ -> Empty
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
-                                    ExprStatement (ChainedCtor(false, None, NonGeneric def, bCtor, args) |> reorder)
+                                    ExprStatement (ChainedCtor(false, None, thisType, bCtor, args) |> reorder)
                                 | None -> Empty
                             let b = 
                                 if meth.IsStatic then
@@ -462,14 +464,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     if hasInit then 
                                         CombineStatements [ 
                                             chained;
-                                            ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                            ExprStatement <| Call(Some This, thisType, NonGeneric initDef, [])
                                             c.Body
                                         ]
                                     else CombineStatements [ chained; c.Body ]
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
-                                Body = b |> FixThisScope().Fix
+                                Body = b |> FixThisScope(thisTypeForFixer).Fix
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
@@ -497,8 +499,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        FieldGet(on, thisType, meth.AssociatedSymbol.Name)
+                        , fun x -> FieldSet(on, thisType, meth.AssociatedSymbol.Name, x)
                     let b =
                         JSRuntime.CombineDelegates (NewArray [ getEv; Var args.[0].ParameterId ]) |> setEv    
                     {
@@ -512,8 +514,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        FieldGet(on, thisType, meth.AssociatedSymbol.Name)
+                        , fun x -> FieldSet(on, thisType, meth.AssociatedSymbol.Name, x)
                     let b =
                         Call (None, NonGeneric delegateTy, NonGeneric delRemove, [getEv; Var args.[0].ParameterId]) |> setEv
                     {
@@ -542,7 +544,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 | _ -> Empty
                             let i =
                                 if hasInit then 
-                                    ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                    ExprStatement <| Call(Some This, thisType, NonGeneric initDef, [])
                                 else Empty
                             CombineStatements [ c; i ]
 
@@ -642,7 +644,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
-                    let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
+                    let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])
                     if comp.HasGraph then
                         comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
                     comp.SetEntryPoint(ep)
@@ -652,7 +654,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         let idef = sr.ReadNamedTypeDefinition impl
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
                         // TODO : correct generics
-                        Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
+                        Lambda(vars, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
                         |> addMethod (Some meth) A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->

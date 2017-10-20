@@ -197,6 +197,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let clsTparams =
         cls.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
+    let thisType = Generic def (List.init cls.GenericParameters.Count TypeParameter)
+    let thisTypeForFixer = Some (ConcreteType thisType)
+
     let getUnresolved (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
         let nr =
             {
@@ -457,7 +460,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         match fromRD with
                         | Some rd ->
                             // TODO: curried argument optimization for ReflectedDefinition
-                            None, FixThisScope().Fix(rd)
+                            None, FixThisScope(thisTypeForFixer).Fix(rd)
                         | _ ->
                         let a, t = getArgsAndThis()
                         let isOpt = getParamIsOpt a
@@ -518,7 +521,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
                                         errorPlaceholder
                                 | _ -> b
-                            let b = FixThisScope().Fix(b)      
+                            let b = FixThisScope(thisTypeForFixer).Fix(b)      
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isInline then
                                     b
@@ -878,7 +881,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             // properties
 
             for f in cls.FSharpFields do
-                let recTyp = Generic def (List.init cls.GenericParameters.Count TypeParameter)
                 let fTyp = sr.ReadType clsTparams f.FieldType
             
                 let getDef =
@@ -889,7 +891,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         Generics = 0
                     }
 
-                let getBody = FieldGet(Some (Hole 0), recTyp, f.Name)
+                let getBody = FieldGet(Some (Hole 0), thisType, f.Name)
                 
                 addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef N.Inline false None getBody
 
@@ -902,7 +904,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             Generics = 0
                         }
 
-                    let setBody = FieldSet(Some (Hole 0), recTyp, f.Name, Hole 1)
+                    let setBody = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
             
                     addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false None setBody
 
