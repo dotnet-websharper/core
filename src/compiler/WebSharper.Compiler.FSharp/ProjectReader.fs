@@ -963,7 +963,19 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddCustomType(def, StructInfo)
 
     for f in cls.FSharpFields do
-        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+        let propertyAttributes =
+            if f.IsCompilerGenerated && f.Name.EndsWith "@" then
+                // `member val` backing field
+                let n = f.Name.TrimEnd('@')
+                match cls.MembersFunctionsAndValues |> Seq.tryFind (fun p -> p.IsProperty && p.LogicalName = n) with
+                | None ->
+                    comp.AddWarning(Some (CodeReader.getRange f.DeclarationLocation),
+                        SourceWarning ("Cannot find original property for compiler-generated field " + f.Name))
+                    f.PropertyAttributes
+                | Some p -> p.Attributes
+            else
+                f.PropertyAttributes
+        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes propertyAttributes)
         let nr =
             {
                 StrongName = fAnnot.Name
