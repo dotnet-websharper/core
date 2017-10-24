@@ -353,6 +353,12 @@ module Definitions =
             FullName = "Microsoft.FSharp.Core.FSharpChoice`" + string arity
         }
 
+    let Exception =
+        TypeDefinition {
+            Assembly = "mscorlib"
+            FullName = "System.Exception"
+        }
+
 type private Ids() =
     static let mutable lastId = -1L
     static member New() =

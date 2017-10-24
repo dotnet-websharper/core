@@ -386,7 +386,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         |> HashSet
 
     let baseCls =
-        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if cls.IsFSharpExceptionDeclaration then
+            Some (NonGeneric Definitions.Exception)
+        elif fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t |> sr.ReadType clsTparams |> getConcreteType |> ignoreSystemObject)
