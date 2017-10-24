@@ -58,7 +58,7 @@ type I =
 type I2 = 
     abstract Get: unit -> int
 
-[<Name "">]
+[<Name "I3">]
 type I3 = 
     abstract Get: unit -> int
 
