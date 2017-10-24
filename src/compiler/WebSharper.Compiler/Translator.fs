@@ -456,8 +456,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match gres with
                 | GeneratedQuotation q -> 
                     QuotationReader.transformExpression (QuotationReader.Environment.New(comp)) q
-                    |> verifyFunction |> this.TransformExpression |> breakExpr
-                | GeneratedAST resExpr -> resExpr |> verifyFunction |> this.TransformExpression |> breakExpr
+                    |> verifyFunction |> this.TransformExpression
+                | GeneratedAST resExpr -> resExpr |> verifyFunction |> this.TransformExpression
                 | GeneratedString s -> Recognize.parseGeneratedString s
                 | GeneratedJavaScript js -> Recognize.parseGeneratedJavaScript js
                 | GeneratorError msg ->
@@ -466,6 +466,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     this.Warning (sprintf "Generator warning in %s: %s" g.Value.FullName msg)
                     getExpr gres
             getExpr genResult
+            |> breakExpr
         | None ->
             if comp.UseLocalMacros then
                 this.Error("Getting generator failed")
@@ -630,7 +631,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
             | NotGenerated (g, p, i, notVirtual, opts) ->
                 let m = GeneratedMethod(typ, meth)
-                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.Generate (g, p, m)
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
@@ -659,7 +660,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
             | NotGenerated (g, p, i, _, _) ->
                 let m = GeneratedImplementation(typ, intf, meth)
-                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.Generate (g, p, m)
                 let res = this.CheckResult(res)
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
         with e ->
@@ -693,7 +694,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
             | NotGenerated (g, p, i, _, opts) ->
                 let m = GeneratedConstructor(typ, ctor)
-                let res = this.Generate (g, p, m) |> breakExpr
+                let res = this.Generate (g, p, m)
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with

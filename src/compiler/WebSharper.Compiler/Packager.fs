@@ -516,7 +516,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let mem (m: Method) info gc opts intfGen body =
             let gsArr = Array.append gsArr (Array.ofList gc)
             let getSignature isInstToStatic =         
-                match body with
+                match IgnoreExprSourcePos body with
                 | Function _ ->
                     let p, r = 
                         match intfGen with 
