@@ -46,10 +46,6 @@ type Elt (name) =
             Array.iter (fun f -> f dom) afterInsert
             afterInsert <- [||]
 
-module Utils =
-    [<Inline "setInterval($x, $n)" >]
-    let SetInterval (x: obj) (n: int) = X
-
 module SamplesInternals =
 
     [<JavaScript>]
@@ -299,7 +295,7 @@ module SamplesInternals =
             ctx.Arc(0., 0., 142., 0., (Math.PI*2.), true)
             ctx.Stroke()
             ctx.Restore()
-        Utils.SetInterval paint 1000
+        JS.SetInterval paint 1000 |> ignore
 
 open WebSharper.Testing
 

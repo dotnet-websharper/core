@@ -89,6 +89,7 @@ let Prompt (message: string) (value: string) = raise ClientSideOnly : string
 
 /// Represents a timer handle.
 [<Sealed>]
+[<Type "number">]
 type Handle = class end
 
 /// Schedules the function for execution in the

@@ -103,14 +103,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let libExtensions =
         let ie t = TSType.Generic(TSType.Named [ "WebSharper"; "IEnumerable" ], [ t ])
         let T = TSType.Basic "T"
+        let ic t = TSType.Generic(TSType.Named [ "WebSharper"; "IComparable" ], [ t ])
         [ 
             Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error", false)], []) 
             Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any, false) ], [])  
             Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any, false) ], [])  
             Interface ("Array", [ ie T ], [], [ T ])
             Interface ("String", [ ie (TSType.Basic "string") ], [], [])
-            //Interface ("Object", [], [ ClassMethod (true, "setPrototypeOf", [strId "obj"; strId "prototype"], None, TSType.Lambda ([TSType.Object; TSType.Union [TSType.Object; TSType.Null]], TSType.Object), 0) ], 0)  
-            //Interface ("Math", [], [ ClassMethod (true, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number), 0)], 0) 
+            Interface ("Number", [ ic (TSType.Basic "number") ], [], [])
         ]
 
     if isModule then
@@ -381,10 +381,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     )
                 )
                 |> List.choose id
+            let minUnionFields = 
+                u.Cases |> Seq.map (fun uc ->
+                    match uc.Kind with
+                    | M.NormalFSharpUnionCase fields -> List.length fields
+                    | M.SingletonFSharpUnionCase
+                    | M.ConstantFSharpUnionCase _ -> 0
+                ) |> Seq.min
             let genCtor =
                 let args =
                     (strId "$", Modifiers.Public)
-                    :: List.init numArgs (fun i -> Id.New("$" + string i, str = true, opt = true), Modifiers.Public)
+                    :: List.init numArgs (fun i -> Id.New("$" + string i, str = true, opt = (i >= minUnionFields)), Modifiers.Public)
                 ClassConstructor(args, Some (Statement.Block []), TSType.Any)
             addExport <| Class("$", baseType, impls, specCtors @ genCtor :: members, gen)
         )
@@ -406,11 +413,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     TSType.Basic (unionNested + uc.Name) |> addGenerics gen
                 match uc.Kind with
                 | M.NormalFSharpUnionCase uci -> case uci
-                | M.ConstantFSharpUnionCase v ->
-                    match v with
-                    | String s -> TSType.Basic ("'" + s + "'")
-                    | Null -> TSType.Basic "null"
-                    | _ -> TSType.Basic (string v.Value)
+                | M.ConstantFSharpUnionCase v -> TSType.Basic v.TSType
                 | M.SingletonFSharpUnionCase -> case []
             )
         match addr.Address.Value with

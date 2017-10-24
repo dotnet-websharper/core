@@ -57,6 +57,24 @@ type Literal =
         | UInt64  v -> box v
         | Decimal v -> box v
 
+    member this.TSType =
+        match this with
+        | Null      -> "null"
+        | Bool    v -> if v then "true" else "false"
+        | Byte    v -> string v
+        | Char    v -> "'" + string v + "'"
+        | Double  v -> string v
+        | Int     v -> string v
+        | Int16   v -> string v
+        | Int64   v -> string v
+        | SByte   v -> string v
+        | Single  v -> string v
+        | String  v -> "'" + string v + "'"
+        | UInt16  v -> string v
+        | UInt32  v -> string v
+        | UInt64  v -> string v
+        | Decimal v -> string v           
+
 and [<RequireQualifiedAccess>] VarKind =
     | Var
     | Const
