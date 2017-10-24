@@ -64,6 +64,7 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
         yield coreTyp "WebSharper.JavaScript.Optional`1+Undefined", List.head
         yield coreTyp "WebSharper.JavaScript.Optional`1+Defined", List.head
         yield corlibTyp "System.Nullable`1", List.head
+        yield Definitions.Dynamic, fun _ -> TSType.Any
         yield fscoreTyp "Microsoft.FSharp.Core.FSharpRef`1", TSType.Tuple  
         yield fscoreTyp "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1",
             function
@@ -199,7 +200,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | TypeParameter i 
         | StaticTypeParameter i -> 
             if i >= gs.Length then 
-                TSType.Param i 
+                TSType.Any 
             else 
                 match gs.[i].Type with
                 | Some t -> t

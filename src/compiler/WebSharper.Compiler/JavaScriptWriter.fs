@@ -520,19 +520,19 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             f()
     let varDeclaration id e t =
         let i = transformId env id
-        let typed allowAny =
+        let typed() =
             match t with 
-            | Some t -> i |> withTypeAny env t allowAny
+            | Some t -> i |> withTypeAny env t
             | _ ->
                 match id.TSType with
-                | Some t -> i |> withTypeAny env t allowAny
+                | Some t -> i |> withTypeAny env t
                 | _ -> i
         match e with
         | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
         | IgnoreSourcePos.Undefined -> 
-            J.Vars ([ typed false, None ], J.VarDecl)
+            J.Vars ([ typed(), None ], J.VarDecl)
         | _ -> 
-            J.Vars ([ typed true, Some (trE e) ], J.VarDecl)
+            J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
     let funcDeclaration x ids b t =
         let innerEnv = env.NewInner()
         try
@@ -735,10 +735,8 @@ and withType (env: Environment) (typ: TSType) (i: J.Id) =
     | TSType.Any -> i
     | _ -> i.WithType(transformType env typ)
 
-and withTypeAny (env: Environment) (typ: TSType) allowAny (i: J.Id) =
-    match typ with
-    | TSType.Any when allowAny -> i
-    | _ -> i.WithType(transformType env typ)
+and withTypeAny (env: Environment) (typ: TSType) (i: J.Id) =
+    i.WithType(transformType env typ)
 
 and getGenericParams (env: Environment) (typ: TSType) =
     match typ with

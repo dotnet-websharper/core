@@ -418,11 +418,7 @@ type Id =
     member this.ToTSType(toTSType) =
         match this.Type with
         | None -> this
-        | Some t ->
-            match toTSType t with
-            | TSType.Any -> this
-            | ts ->
-                { this with Type = Some (TSType ts) }
+        | Some t -> { this with Type = Some (TSType (toTSType t)) }
 
     member this.TSType =
         match this.Type with

@@ -156,6 +156,8 @@ let numericTypes =
         "System.Double" 
     ]
 
+let dynTyp = ConcreteType (NonGeneric Definitions.Dynamic)     
+
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
     let getContainingAssemblyName (t: ITypeSymbol) =
@@ -258,13 +260,16 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let t = x :?> INamedTypeSymbol 
             this.RecognizeNamedType t
         | TypeKind.Dynamic ->
-            ConcreteType (NonGeneric Definitions.Obj)    
+            dynTyp
         | TypeKind.TypeParameter ->
             let t = x :?> ITypeParameterSymbol 
-            if t.TypeParameterKind = TypeParameterKind.Method then
+            let t = match t.ReducedFrom with null -> t | t -> t
+            match t.TypeParameterKind with
+            | TypeParameterKind.Method ->
                 TypeParameter (t.Ordinal + t.DeclaringMethod.ContainingType.TypeParameters.Length)
-            else 
-                TypeParameter t.Ordinal        
+            | TypeParameterKind.Type ->
+                TypeParameter t.Ordinal
+            | _ -> errf x "Unexpected TypeParameterKind"
         | _ ->
             errf x "transformType: typekind %O not suppported" x.TypeKind
 
@@ -527,7 +532,10 @@ type RoslynTransformer(env: Environment) =
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
         let typ = sr.ReadNamedType symbol.ContainingType
-        let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
+        let ma = 
+            (symbol.TypeArguments, symbol.TypeParameters) 
+            ||> Seq.map2 (fun a p -> if a.Equals p then dynTyp else sr.ReadType a) 
+            |> List.ofSeq
         let meth = Generic (sr.ReadMethod symbol) ma
         typ, meth
 
@@ -673,9 +681,7 @@ type RoslynTransformer(env: Environment) =
             match symbol.ReducedFrom with
             | null -> symbol, false
             | symbol -> symbol, true
-        let typ = sr.ReadNamedType eSymbol.ContainingType
-        let ma = symbol.TypeArguments |> Seq.map sr.ReadType |> List.ofSeq
-        let meth = Generic (sr.ReadMethod eSymbol) ma
+        let typ, meth = getTypeAndMethod eSymbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
         let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =
