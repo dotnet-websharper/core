@@ -149,9 +149,16 @@ let isAugmentedFSharpType (e: FSharpEntity) =
         )
     )
 
-let isOptionalParam (v: FSMFV) =
-    v.Attributes |> Seq.exists (fun a ->
+let isOptionalParam (p: FSharpParameter) =
+    p.Attributes |> Seq.exists (fun a ->
         a.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute"
+    )
+
+let defaultValueOfParam (p: FSharpParameter) =
+    p.Attributes |> Seq.tryPick (fun pa -> 
+        if pa.AttributeType.FullName = "System.Runtime.InteropServices.DefaultParameterValueAttribute" then
+            Some (ReadLiteral (snd pa.ConstructorArguments.[0]) |> Value) 
+        else None
     )
 
 let isAbstractClass (e: FSharpEntity) =
@@ -397,29 +404,37 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let mAnnot = getAnnot meth
             
             let getArgsAndThis() =
+                let isExt = meth.IsExtensionMember 
                 let a, t =
                     args |> List.concat
                     |> function
-                    | t :: r when (t.IsMemberThisValue || t.IsConstructorThisValue) && not meth.IsExtensionMember -> r, Some t
+                    | t :: r when (t.IsMemberThisValue || t.IsConstructorThisValue) && not isExt -> r, Some t
                     | a -> a, None
 
-                a
-                |> function 
-                | [ u ] when CodeReader.isUnit u.FullType -> []
-                | a -> a
-                , t
+                try
+                    a
+                    |> function 
+                    | [ u ] when CodeReader.isUnit u.FullType -> []
+                    | a -> 
+                        let ps = Seq.concat meth.CurriedParameterGroups |> Seq.map Some |> List.ofSeq
+                        // extension members have an extra parameter for the this value, not visible in CurriedParameterGroups
+                        let ps = if isExt && meth.IsInstanceMember then None :: ps else ps
+                        List.zip a ps
+                    , t
+                with _ ->
+                    failwithf "different arguments as params: %s.%s" def.Value.FullName meth.FullName
 
-            let getParamIsOpt (a: list<FSMFV>) =
+            let getParamIsOpt (a: list<FSMFV * _>) =
                 // if there is only a single parameter and it's generic, make it optional
                 match a with
-                | [ p ] -> p.FullType.IsGenericParameter
+                | [ p, _ ] -> p.FullType.IsGenericParameter
                 | _ -> false
             
             let getVarsAndThis() =
                 let a, t = getArgsAndThis()
                 let isOpt = getParamIsOpt a
-                a |> List.map (fun p -> 
-                    CodeReader.namedId None (isOpt || isOptionalParam p) p
+                a |> List.map (fun (x, p) -> 
+                    CodeReader.namedId None (isOpt || Option.exists isOptionalParam p) x
                 ),
                 t |> Option.map (fun p -> CodeReader.namedId None false p)
                
@@ -470,15 +485,15 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | Some t ->
                                     yield t, (CodeReader.namedId None false t, CodeReader.ThisArg)
                                 | _ -> ()
-                                for p in a ->   
-                                    p, 
-                                    (CodeReader.namedId None (isOpt || isOptionalParam p) p, 
-                                        if CodeReader.isByRef p.FullType 
+                                for x, p in a ->   
+                                    x, 
+                                    (CodeReader.namedId None (isOpt || Option.exists isOptionalParam p) x, 
+                                        if CodeReader.isByRef x.FullType 
                                         then CodeReader.ByRefArg 
                                         else
                                             if noCurriedOpt then CodeReader.LocalVar
                                             else
-                                                match CodeReader.getFuncArg p.FullType with
+                                                match CodeReader.getFuncArg x.FullType with
                                                 | NotOptimizedFuncArg -> CodeReader.LocalVar
                                                 | _ -> CodeReader.FuncArg
                                     )
@@ -495,8 +510,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | None -> None
                             | Some mem ->
                             let ca = 
-                                a |> List.map (fun p -> 
-                                    CodeReader.getFuncArg p.FullType
+                                a |> List.map (fun (x, p) -> 
+                                    CodeReader.getFuncArg x.FullType
                                 )
                             if ca |> List.forall ((=) NotOptimizedFuncArg) then None 
                             else 
@@ -540,22 +555,18 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     | (_, (t, CodeReader.ThisArg)) :: a -> Some t, a |> List.map (snd >> fst)  
                                     | a -> None, a |> List.map (snd >> fst) 
                                 let defValues = 
-                                    Seq.zip (Seq.concat meth.CurriedParameterGroups) vars |> Seq.choose (fun (p, i) ->
-                                        if p.Attributes |> Seq.exists (fun pa -> pa.AttributeType.FullName = "System.Runtime.InteropServices.OptionalAttribute") then
-                                            let d =
-                                                p.Attributes |> Seq.tryPick (fun pa -> 
-                                                    if pa.AttributeType.FullName = "System.Runtime.InteropServices.DefaultParameterValueAttribute" then
-                                                        Some (ReadLiteral (snd pa.ConstructorArguments.[0]) |> Value) 
-                                                    else None
+                                    List.zip a vars |> List.choose (fun ((_, p), i) ->
+                                        match p with
+                                        | Some p ->
+                                            if isOptionalParam p then
+                                                Some (i,
+                                                    match defaultValueOfParam p with
+                                                    | Some v -> v
+                                                    | _ -> DefaultValueOf (sr.ReadType env.TParams p.Type)
                                                 )
-                                            Some (i,
-                                                match d with
-                                                | Some v -> v
-                                                | _ -> DefaultValueOf (sr.ReadType env.TParams p.Type)
-                                            )
-                                        else None
+                                            else None
+                                        | None -> None
                                     )
-                                    |> List.ofSeq
                                 let b =
                                     if List.isEmpty defValues then b else
                                         Sequential [
