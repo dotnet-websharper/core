@@ -483,6 +483,19 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.TryLookupInterfaceInfo typ =   
         interfaces.TryFind(this.FindProxied typ)
     
+    member this.GetAbtractMethodGenerics typ meth =
+        let typ = this.FindProxied typ
+        match classes.TryFind typ with
+        | Some (_, _, Some ci) ->
+            let _, _, mg, _ = ci.Methods.[meth]
+            Array.ofList (ci.Generics @ mg)
+        | _ ->
+            match interfaces.TryFind typ with
+            | Some ii ->
+                Array.ofList (ii.Generics @ snd ii.Methods.[meth])
+            | _ ->
+                failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
+
     member this.GetMethods typ =
         compilingMethods |> Seq.choose (fun (KeyValue ((td, m), _)) ->
             if td = typ then Some m else None
@@ -1290,11 +1303,12 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
-                | N.Implementation intf ->
+                | N.Implementation dtyp 
+                | N.Override dtyp when dtyp <> typ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
-                        res.Implementations |> add (intf, mDef) (comp, nr.Body)
+                        res.Implementations |> add (dtyp, mDef) (comp, nr.Body)
                     else
-                        compilingImplementations |> add (typ, intf, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
+                        compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body

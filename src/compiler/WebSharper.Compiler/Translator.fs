@@ -650,8 +650,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
             currentNode <- M.ImplementationNode(typ, intf, meth)
-            let ii = comp.TryLookupInterfaceInfo(intf).Value
-            currentGenerics <- Array.ofList (ii.Generics @ snd ii.Methods.[meth])
+            currentGenerics <- comp.GetAbtractMethodGenerics intf meth
             currentIsInline <- isInline info
             match info with
             | NotCompiled (i, _, _) -> 

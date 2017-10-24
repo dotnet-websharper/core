@@ -211,7 +211,8 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         if isNull x then
             // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling sr.ReadNamedType
             NonGeneric Definitions.Dynamic     
-        else
+        else          
+            let x = if x.IsTupleType then x.TupleUnderlyingType else x
             let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
             let td = this.ReadNamedTypeDefinition x
             Generic td ta

@@ -272,6 +272,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             
     let classes = Dictionary(current.Classes)
 
+    let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
+    let allInterfaces =  MergedDictionary(refMeta.Interfaces, current.Interfaces)
+
     let rec withoutMacros info =
         match info with
         | M.Macro (_, _, Some fb) -> withoutMacros fb
@@ -292,18 +295,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | ImportedModule v -> TSType.Imported(v, t)
 
     let lookupType (t: TypeDefinition) =
-        let intf = 
-            match refMeta.Interfaces.TryFind t with
-            | Some _ as res -> res
-            | _ -> current.Interfaces.TryFind t
-        match intf with
+        match allInterfaces.TryFind t with
         | Some i -> TypeTranslator.Interface i
         | _ ->
-        let cls =
-            match refMeta.Classes.TryFind t with
-            | Some _ as res -> res
-            | _ -> current.Classes.TryFind t
-        match cls with
+        match allClasses.TryFind t with
         | Some (a, ct, c) -> TypeTranslator.Class (a, ct, c)
         | _ -> TypeTranslator.Unknown
     
@@ -563,19 +558,40 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         for KeyValue(m, (info, opts, gc, body)) in c.Methods do
             mem m info gc opts None body 
         let interfaceInfos =
+            lazy
             c.Implements |> Seq.map (fun i ->
-                let intf =
-                    current.Interfaces.TryFind i.Entity
-                    |> Option.defaultWith (fun () -> refMeta.Interfaces.[i.Entity])
-                i.Entity, (intf, Array.ofList i.Generics)
+                i.Entity, (allInterfaces.[i.Entity], Array.ofList i.Generics)
             ) |> dict
+        let baseClassInfos =
+            lazy
+            let rec getBaseClassInfo (c: Concrete<TypeDefinition> option, gen: Type[]) =
+                match c with
+                | Some bc ->
+                    match allClasses.[bc.Entity] with
+                    | _, _, Some cls ->
+                        let gen = bc.Generics |> List.map (fun t -> t.SubstituteGenerics gen) |> Array.ofList
+                        Some ((bc.Entity, (cls, gen)), (cls.BaseClass, gen))
+                    | _ -> None
+                | _ -> None
+            (c.BaseClass, Array.init c.Generics.Length TypeParameter) |> List.unfold getBaseClassInfo |> dict
         for KeyValue((i, m), (info, body)) in c.Implementations do
-            let intf, intfGen = interfaceInfos.[i]
-            let intfGen =
-                match m.Value.Generics with
-                | 0 -> intfGen
-                | mgen -> Array.append intfGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
-            let mParam = snd intf.Methods.[m]
+            let intfGen, mParam = 
+                match interfaceInfos.Value.TryGetValue i with
+                | true, (intf, intfGen) ->
+                    match m.Value.Generics with
+                    | 0 -> intfGen
+                    | mgen -> Array.append intfGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+                    , snd intf.Methods.[m]
+                | _ ->
+                    match baseClassInfos.Value.TryGetValue i with
+                    | true, (cls, clsGen) ->
+                        match m.Value.Generics with
+                        | 0 -> clsGen
+                        | mgen -> Array.append clsGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+                        , 
+                        let _, _, mg, _ = cls.Methods.[m]
+                        mg
+                    | _ -> [||], []
             mem m info mParam M.Optimizations.None (Some intfGen) body
 
         let indexedCtors = Dictionary()
