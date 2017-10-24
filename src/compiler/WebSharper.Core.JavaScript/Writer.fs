@@ -217,6 +217,11 @@ let BlockLayout items =
 let inline Label (l: S.Label) =
     Word l
 
+let rec startsWithObjectExpression = function
+    | S.IgnoreEPos (S.NewObject _) -> true
+    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _)) -> startsWithObjectExpression e
+    | _ -> false
+
 let rec Id (id: S.Id) =
     Word id.Name
     ++ Conditional (Token "?") id.Optional
@@ -306,12 +311,7 @@ and Expression (expression) =
             | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word "=>" ++ Word "{ }"
             | [ S.IgnoreSPos (S.Return (Some e)) ] -> 
                 args ++ Word "=>" 
-                ++ (
-                    match e with 
-                    | S.IgnoreEPos (S.NewObject _) ->
-                        Parens (Expression e)
-                    | _ -> Expression e
-                )
+                ++ (if startsWithObjectExpression e then Parens (Expression e) else Expression e)
             | _ -> args ++ Word "=>" ++ BlockLayout (List.map (Statement true) body)
         else
             Word "function"
