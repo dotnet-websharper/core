@@ -26,6 +26,7 @@ type PA = System.ParamArrayAttribute
 module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<Function>)>]
+[<Type "Function">]
 type FunctionProxy =
     [<Inline "Function.constructor.apply(null, $paramsAndBody)">]
     new ([<System.ParamArray>] paramsAndBody: string[]) = {}
