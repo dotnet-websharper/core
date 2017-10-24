@@ -259,17 +259,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let n = toNamespaceWithName a
         addExport <| f n
 
-    let packageCctor a expr =
-        let n = toNamespaceWithName a
-        match expr with
-        | Function ([], body) ->
-            let c = Id.New(n, str = true)
-            let removeSelf = ExprStatement (VarSet (c, ItemGet(glob, Value (String "ignore"), Pure)))    
-            let expr = Function([], Block [removeSelf; body])
-            addExport <| VarDeclaration(c, expr)  
-        | _ ->
-            failwithf "Static constructor must be a function"
-            
     let classes = Dictionary(current.Classes)
 
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
@@ -472,15 +461,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         match c.StaticConstructor with
         | Some(_, GlobalAccess { Module = JavaScriptFile "Runtime"; Address = a }) when a.Value = [ "ignore" ] -> ()
         | Some(ccaddr, body) ->
-            //smem ccaddr 
-            //    (fun n -> 
-            //        match IgnoreExprSourcePos body with
-            //        | Function([], b) ->
-            //            ClassMethod(true, n, [], Some b, TSType.Any, 0)
-            //        | _ -> failwith "static constuctor translated form must be a function"
-            //    ) 
-            //    (fun () -> body, TSType.Any)
-            let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(body)
+            let body = BodyTransformer(tsTypeOf gsArr, getAddress).TransformExpression(JSRuntime.Cctor(body))
             addStatic ccaddr (body, TSType.Any)
         | _ -> ()
 
