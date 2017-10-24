@@ -418,7 +418,7 @@ module internal Internal =
                 fail "Random generators for multidimensional arrays are not supported."
             | T.VoidType ->
                 let m = meth "Const" [TypeParameter 0] (generatorOf (TypeParameter 0))
-                wrap, Choice1Of2 (callR (m [ty]) [Value Null])
+                wrap, Choice1Of2 (callR (m [T.VoidType]) [Value Null])
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Boolean" ->
                 wrap, Choice1Of2 (nonGenericGen "Boolean" e)
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Double" ->
