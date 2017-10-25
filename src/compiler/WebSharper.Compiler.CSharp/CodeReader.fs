@@ -180,7 +180,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 let info =
                     M.DelegateInfo {
                         DelegateArgs =                                
-                            inv.Parameters |> Seq.map (fun p -> this.ReadType p.Type) |> List.ofSeq
+                            inv.Parameters |> Seq.map (fun p -> 
+                                this.ReadType p.Type, 
+                                if p.IsOptional then Some (ReadLiteral p.ExplicitDefaultValue) else None
+                            ) |> List.ofSeq
                         ReturnType = this.ReadType inv.ReturnType
                     }
                 comp.AddCustomType(def, info)

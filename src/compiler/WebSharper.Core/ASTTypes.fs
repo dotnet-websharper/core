@@ -660,7 +660,7 @@ and [<RequireQualifiedAccess>] TSType =
     | Generic of TSType * list<TSType>
     | Imported of Id * list<string>
     | Importing of string * list<string>
-    | Function of option<TSType> * list<TSType> * option<TSType> * TSType
+    | Function of option<TSType> * list<TSType * bool> * option<TSType> * TSType
     | New of list<TSType> * TSType
     | Tuple of list<TSType>
     | Union of list<TSType>
@@ -680,7 +680,7 @@ and [<RequireQualifiedAccess>] TSType =
             -> this
         | Param i -> gs.[i]
         | Generic (e, g) -> Generic (tr e, List.map tr g)
-        | Function (t, a, e, r) -> Function (Option.map tr t, List.map tr a, Option.map tr e, tr r)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
         | New (a, r) -> New (List.map tr a, tr r)
         | Tuple ts -> Tuple (List.map tr ts)
         | Union ts -> Union (List.map tr ts)
@@ -702,7 +702,7 @@ and [<RequireQualifiedAccess>] TSType =
             | Some v -> Imported(v, a)
             | _ -> Named a
         | Generic (e, g) -> Generic (tr e, List.map tr g)
-        | Function (t, a, e, r) -> Function (Option.map tr t, List.map tr a, Option.map tr e, tr r)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
         | New (a, r) -> New (List.map tr a, tr r)
         | Tuple ts -> Tuple (List.map tr ts)
         | Union ts -> Union (List.map tr ts)
@@ -817,145 +817,3 @@ type Address with
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress
     static member Empty() = Instances.EmptyAddress
-
-module Reflection = 
-    type private FST = Microsoft.FSharp.Reflection.FSharpType
-
-    let private getTypeDefinitionUnchecked fullAsmName (t: System.Type) =
-        let rec getName (t: System.Type) =
-            if t.IsNested then
-                getName t.DeclaringType + "+" + t.Name 
-            else t.Namespace + "." + t.Name         
-        Hashed {
-            Assembly = if fullAsmName then t.Assembly.FullName else t.Assembly.FullName.Split(',').[0]
-            FullName = getName t
-        } 
-
-    let ReadTypeDefinition (t: System.Type) =
-        if t.IsArray then
-            if t.GetArrayRank() = 1 then
-                Definitions.Array
-            else 
-                Definitions.Array2
-        elif FST.IsFunction t then 
-            Definitions.FSharpFunc
-        elif FST.IsTuple t then 
-            Definitions.Tuple t.IsValueType (t.GetGenericArguments().Length)
-        else
-            getTypeDefinitionUnchecked false t
-
-    let private unitTy = typeof<unit>
-    let private voidTy = typeof<System.Void>
-
-    let rec ReadType (t: System.Type) =        
-        let gen () =
-            ConcreteType {
-                Generics = 
-                    if t.IsGenericType then 
-                        t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
-                    else [] 
-                Entity = getTypeDefinitionUnchecked false t
-            }
-        if t.IsArray then
-            ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
-        elif t.IsByRef then
-            ByRefType (ReadType(t.GetElementType()))
-        elif FST.IsFunction t then
-            let a, r = FST.GetFunctionElements t
-            FSharpFuncType(ReadType a, ReadType r)        
-        elif FST.IsTuple t then
-            // if a tuple type is generic on the rest parameter, we don't have a definite length tuple and GetTupleElements fails
-            try TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
-            with _ -> gen()
-        elif t.IsGenericParameter then  
-            match t.DeclaringMethod with
-            | null ->
-                TypeParameter t.GenericParameterPosition
-            | _ ->
-                let dT = t.DeclaringType
-                let k =
-                    if not dT.IsGenericType then 0 else
-                        dT.GetGenericArguments().Length
-                TypeParameter (k + t.GenericParameterPosition)
-        elif t = voidTy || t = unitTy then
-            VoidType
-        else
-            gen()
-
-    let private readMethodInfo (m : System.Reflection.MethodInfo) =
-        let i = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.MethodInfo
-        {
-            MethodName = i.Name
-            Parameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
-            ReturnType = ReadType i.ReturnType 
-            Generics   = if i.IsGenericMethod then i.GetGenericArguments().Length else 0
-        }
-
-    let ReadMethod m =
-        Method (readMethodInfo m)
-
-    let private readConstructorInfo (i : System.Reflection.ConstructorInfo) =
-        {
-            CtorParameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
-        }
-
-    let ReadConstructor c =
-        Constructor (readConstructorInfo c)    
-
-    let ReadMember (m: System.Reflection.MemberInfo) =
-        match m with
-        | :? System.Reflection.ConstructorInfo as c ->
-            if c.IsStatic then Member.StaticConstructor
-            else Member.Constructor (ReadConstructor c)    
-            |> Some
-        | :? System.Reflection.MethodInfo as m ->
-            if m.IsVirtual then
-                let b = m.GetBaseDefinition()
-                let typ = b.DeclaringType 
-                let info = ReadTypeDefinition typ, ReadMethod b 
-                if typ.IsInterface then Member.Implementation info
-                else Member.Override info
-            else Member.Method (not m.IsStatic, ReadMethod m)    
-            |> Some
-        | _ -> None
-
-    let LoadType (t: Type) =
-        try System.Type.GetType(t.AssemblyQualifiedName, true)  
-        with _ -> failwithf "Failed to load type %s" t.AssemblyQualifiedName
-
-    let LoadTypeDefinition (td: TypeDefinition) =
-        try System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
-        with _ -> failwithf "Failed to load type %s from assembly %s" td.Value.FullName td.Value.Assembly
-
-    let [<Literal>] AllMethodsFlags = 
-        System.Reflection.BindingFlags.Instance
-        ||| System.Reflection.BindingFlags.Static
-        ||| System.Reflection.BindingFlags.Public
-        ||| System.Reflection.BindingFlags.NonPublic
-
-    let [<Literal>] AllPublicMethodsFlags = 
-        System.Reflection.BindingFlags.Instance
-        ||| System.Reflection.BindingFlags.Static
-        ||| System.Reflection.BindingFlags.Public
-
-    let LoadMethod td (m: Method) =
-        let m = m.Value
-        let methodInfos = (LoadTypeDefinition td).GetMethods(AllMethodsFlags)
-        try
-            methodInfos
-            |> Seq.find (fun i -> i.Name = m.MethodName && readMethodInfo i = m)
-        with _ ->
-            failwithf "Could not load method %O candidates: %A" m (methodInfos |> Seq.choose (fun c -> 
-                let mc = readMethodInfo c
-                if mc.MethodName = m.MethodName then Some (string mc) else None
-            ) |> Array.ofSeq)
-
-    let LoadConstructor td (c: Constructor) =
-        let c = c.Value
-        let ctorInfos = (LoadTypeDefinition td).GetConstructors(AllMethodsFlags)
-        try
-            ctorInfos
-            |> Seq.find (fun i -> readConstructorInfo i = c)
-        with _ ->
-            failwithf "Could not load constructor for type %s" td.Value.AssemblyQualifiedName
-

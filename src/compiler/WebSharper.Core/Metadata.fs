@@ -209,7 +209,7 @@ type InterfaceInfo =
 
 type DelegateInfo =
     {
-        DelegateArgs : list<Type>
+        DelegateArgs : list<Type * option<Literal>>
         ReturnType : Type
     }
 

@@ -58,6 +58,7 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
         }
     let inv() =
         invalidOp "unexpected type arguments for JS interop type"
+    let nonOptional a = a |> List.map (fun a -> a, false)
     dict [
         yield jsTyp "WebSharper.JavaScript.Object`1", (List.head >> TSType.ObjectOf) 
         yield coreTyp "WebSharper.JavaScript.Optional`1", List.head
@@ -68,7 +69,7 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
         yield fscoreTyp "Microsoft.FSharp.Core.FSharpRef`1", TSType.Tuple  
         yield fscoreTyp "Microsoft.FSharp.Control.FSharpAsyncReplyChannel`1",
             function
-            | [t] -> TSType.Function(None, [t], None, TSType.Void)
+            | [t] -> TSType.Function(None, [t, false], None, TSType.Void)
             | _ -> inv()
         for i = 1 to 7 do
             yield coreTyp ("WebSharper.JavaScript.Union`" + string i), TSType.Union
@@ -89,36 +90,36 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
             | _ -> inv()
         yield coreTyp "WebSharper.JavaScript.FuncWithArgsRest`2", 
             function
-            | [ TSType.Tuple a; e; r ] -> TSType.Function(None, a, Some e, r) 
+            | [ TSType.Tuple a; e; r ] -> TSType.Function(None, nonOptional a, Some e, r) 
             | _ -> inv()
         for i = 0 to 6 do
             yield coreTyp ("WebSharper.JavaScript.FuncWithRest`" + string (i + 2)), 
                 function
-                | Last (Last (a, e), r) -> TSType.Function(None, a, Some e, r) 
+                | Last (Last (a, e), r) -> TSType.Function(None, nonOptional a, Some e, r) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ThisAction`" + string (i + 1)), 
                 function
-                | t :: a -> TSType.Function(Some t, a, None, TSType.Void) 
+                | t :: a -> TSType.Function(Some t, nonOptional a, None, TSType.Void) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ThisFunc`" + string (i + 2)), 
                 function
-                | t :: Last (a, r) -> TSType.Function(Some t, a, None, r) 
+                | t :: Last (a, r) -> TSType.Function(Some t, nonOptional a, None, r) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ParamsAction`" + string (i + 1)), 
                 function
-                | Last (a, e) -> TSType.Function(None, a, Some e, TSType.Void) 
+                | Last (a, e) -> TSType.Function(None, nonOptional a, Some e, TSType.Void) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ParamsFunc`" + string (i + 2)), 
                 function
-                | Last (Last (a, e), r) -> TSType.Function(None, a, Some e, r) 
+                | Last (Last (a, e), r) -> TSType.Function(None, nonOptional a, Some e, r) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ThisParamsAction`" + string (i + 2)), 
                 function
-                | t :: Last (a, e) -> TSType.Function(Some t, a, Some e, TSType.Void) 
+                | t :: Last (a, e) -> TSType.Function(Some t, nonOptional a, Some e, TSType.Void) 
                 | _ -> inv()
             yield coreTyp ("WebSharper.JavaScript.ThisParamsFunc`" + string (i + 3)), 
                 function
-                | t :: Last (Last (a, e), r) -> TSType.Function(Some t, a, Some e, r) 
+                | t :: Last (Last (a, e), r) -> TSType.Function(Some t, nonOptional a, Some e, r) 
                 | _ -> inv()
     ]
 
@@ -147,7 +148,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                     | Some t -> t
                     | _ -> tsTypeOfAddress a
                 | Class (_, DelegateInfo i, None) ->
-                    TSType.Lambda(i.DelegateArgs |> List.map (this.TSTypeOf [||]), this.TSTypeOf [||] i.ReturnType)
+                    TSType.LambdaWithOpt(i.DelegateArgs |> List.map (fun (t, d) -> this.TSTypeOf [||] t, Option.isSome d), this.TSTypeOf [||] i.ReturnType)
                 | Class (_, EnumInfo t, None) ->
                     this.TSTypeOfDef t
                 | Class (a, (FSharpRecordInfo _ | FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
@@ -195,7 +196,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                 | VoidType -> []
                 | _ -> [this.TSTypeOf gs a]
             TSType.Lambda(ta, this.TSTypeOf gs r)
-        | ByRefType t -> TSType.Any // TODO byrefs
+        | ByRefType t -> TSType.ByRefOf (this.TSTypeOf gs t)
         | VoidType -> TSType.Void
         | TypeParameter i 
         | StaticTypeParameter i -> 

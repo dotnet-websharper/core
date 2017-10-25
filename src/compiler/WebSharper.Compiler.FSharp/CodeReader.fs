@@ -500,18 +500,19 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                     td.GenericParameters
                     |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
                 let info =
+                    // todo: Optional and DefaultValue attributes on F# delegate arguments
                     try 
                         let sign = td.FSharpDelegateSignature
                         M.DelegateInfo {
                             DelegateArgs =
-                                sign.DelegateArguments |> Seq.map (snd >> this.ReadType tparams) |> List.ofSeq
+                                sign.DelegateArguments |> Seq.map (fun (_, a) -> this.ReadType tparams a, None) |> List.ofSeq
                             ReturnType = this.ReadType tparams sign.DelegateReturnType
                         }
                     with _ ->
                         let inv = td.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
                         M.DelegateInfo {
                             DelegateArgs =
-                                inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq
+                                inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type, None) |> List.ofSeq
                             ReturnType = this.ReadType tparams inv.ReturnParameter.Type
                         }
                 comp.AddCustomType(res, info)

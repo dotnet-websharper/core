@@ -426,10 +426,10 @@ let reflectCustomType (typ : TypeDefinition) =
     try
         let t = Reflection.LoadTypeDefinition typ
         if t.BaseType = mdelTy then
-            let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
+            let args, ret = t.GetMethod("Invoke") |> Reflection.ReadSignature
             M.DelegateInfo {
-                DelegateArgs = inv.Parameters 
-                ReturnType = inv.ReturnType
+                DelegateArgs = args
+                ReturnType = ret
             } 
         elif t.IsEnum then
             M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))

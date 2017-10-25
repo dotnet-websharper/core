@@ -554,7 +554,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                         match ids, ta with
                         | [_], [] -> [], [] // Function taking unit
                         | p -> p
-                        ||> List.map2 (fun i t -> defineId innerEnv ArgumentId i |> withType env t)  
+                        ||> List.map2 (fun i (t, _) -> defineId innerEnv ArgumentId i |> withType env t)  
                     id |> withType innerEnv tr
                     , args
                     , tr
@@ -698,11 +698,7 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
     | TSType.Importing (m, a) -> failwith "TypeScript type from an unresolved module"
     | TSType.Function (t, a, e, r)  -> 
         let this = t |> Option.map (fun t -> "this: " + trN t) 
-        let args = 
-            match a with
-            | [] -> []
-            | [ t ] -> [ "a" + (match t with TSType.Param _ -> "?:" | _ -> ":") + trN t ]
-            | _ -> a |> List.mapi (fun i t -> string ('a' + char i) + ":" + trN t)
+        let args = a |> List.mapi (fun i (t, o) -> string ('a' + char i) + (if o then "?:" else ":") + trN t)
         let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
         "(" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r
     | TSType.New (a, r)  -> 
@@ -757,7 +753,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let args, tr =
             match t with 
             | TSType.Function (_, ta, trest, tr) -> 
-                (p, ta) ||> List.map2 (fun a t -> defineId innerEnv ArgumentId a |> withType env t) 
+                (p, ta) ||> List.map2 (fun a (t, _) -> defineId innerEnv ArgumentId a |> withType env t) 
                 , tr
             | _ ->
                 p |> List.map (defineId innerEnv ArgumentId)

@@ -176,6 +176,13 @@ let MakeRef getVal setVal =
         "set", (Function ([value], ExprStatement (setVal (Var value))))
     ]
 
+/// Make a proxy for a out argument, having a setter function.
+let MakeOutRef setVal =
+    let value = Id.New("v", false)
+    Object [
+        "set", (Function ([value], ExprStatement (setVal (Var value))))
+    ]
+
 /// Gets the value from a by-address value proxy
 let GetRef r =
     Appl(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
@@ -331,10 +338,19 @@ module TSType =
         match t with
         | TSType.Generic(TSType.Named [ "Array" ], [ t ]) -> Some t
         | _ -> None
-    let Lambda (a, r) = TSType.Function(None, a, None, r)
+    let LambdaWithOpt (a, r) = TSType.Function(None, a, None, r)
+    let Lambda (a, r) = 
+        let a =
+            match a with
+            | [ TSType.Param _ as p ] -> [ p, true ]
+            | _ -> a |> List.map (fun a -> a, false) 
+        TSType.Function(None, a, None, r)
 
     let Parse x =
         match x with
         | "any" -> TSType.Any
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))
+
+    let private ByRef = TSType.Named [ "WebSharper"; "ByRef" ]
+    let ByRefOf x = TSType.Generic(ByRef, [ x ])
