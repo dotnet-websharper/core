@@ -147,6 +147,8 @@ type private IEnumeratorProxy =
     abstract member Current  : obj
     [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
+    [<Name "Dispose">]
+    abstract member Dispose : unit -> unit // fake member so that TS IEnumerator<T> casts to IEnumeratorAny
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
 [<Name "WebSharper.IEnumerator">]
