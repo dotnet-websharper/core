@@ -141,8 +141,5 @@ let GetLength<'T> (arr: System.Array) =
     | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength1 (As arr)
     | _ -> Array.length (As arr)
 
-[<Name "WebSharper.checkThis">]
-let CheckThis (this: 'T) =
-    if this = null then
-        invalidOp "The initialization of an object or value resulted in an object or value being accessed recursively before it was fully initialized."
-    else this
+[<Inline "this">]
+let CheckThis (this: 'T) = X<'T>

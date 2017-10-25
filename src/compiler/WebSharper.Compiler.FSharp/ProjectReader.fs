@@ -398,6 +398,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let implements =
         cls.AllInterfaces |> Seq.map (fun t -> t |> sr.ReadType clsTparams |> getConcreteType) |> List.ofSeq
 
+    let mutable selfCtorFields = []
+
     for m in members do
         match m with
         | SourceMember (meth, args, expr) ->        
@@ -529,7 +531,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = 
                                 match memdef with
                                 | Member.Constructor _ -> 
-                                    try CodeReader.fixCtor def baseCls b
+                                    try 
+                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls b
+                                        selfCtorFields <- cgenFieldNames
+                                        b
                                     with e ->
                                         let tryGetExprSourcePos expr =
                                             match expr with
@@ -965,6 +970,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddCustomType(def, StructInfo)
 
     for f in cls.FSharpFields do
+        if selfCtorFields |> List.contains f.Name then () else
         let propertyAttributes =
             if f.IsCompilerGenerated && f.Name.EndsWith "@" then
                 // `member val` backing field

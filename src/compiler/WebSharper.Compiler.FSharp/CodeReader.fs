@@ -133,9 +133,19 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
     inherit Transformer()
 
     let mutable addedChainedCtor = false
+    let mutable cgenFieldNames = []
 
     override this.TransformSequential (es) =
         match es with
+        // handle class self alias, simplify to call to this.
+        | I.FieldSet(Some I.This, _, f, I.NewRecord(_, [DefaultValueOf _])) 
+            :: I.Let (self, I.FieldGet _, o)
+            :: I.FieldSet(Some (I.FieldGet(Some I.This, _, _)), _, _, I.This)
+            :: I.FieldSet(Some I.This, _, i, I.Value (Int 1))
+            :: t ->
+                cgenFieldNames <- [ f; i ]
+                printfn "self identifier found"
+                Sequential (SubstituteVar(self, This).TransformExpression(this.TransformExpression(o)) :: t)  
         | h :: t -> Sequential (this.TransformExpression h :: t)
         | _ -> Undefined
 
@@ -188,8 +198,10 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
         | Some b when not addedChainedCtor -> 
             Sequential [ ChainedCtor(true, thisVar, b, ConstructorInfo.Default(), []); res ]
         | _ -> res
+        , cgenFieldNames
 
 let fixCtor thisTyp baseTyp expr =
+    printfn "Called fixCtor with %A %A %s" thisTyp baseTyp (Debug.PrintExpression expr)
     FixCtorTransformer(thisTyp, baseTyp).Fix(expr)
 
 module Definitions =
@@ -231,6 +243,20 @@ module Definitions =
         TypeDefinition {
             Assembly = "FSharp.Core"
             FullName = "Microsoft.FSharp.Core.Operators"
+        }
+
+    let IntrinsicFunctions =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.LanguagePrimitives+IntrinsicFunctions"
+        }
+
+    let CheckThis =
+        Method {
+            MethodName = "CheckThis"
+            Parameters = [ TypeParameter 0 ]
+            ReturnType = TypeParameter 0
+            Generics = 1      
         }
     
 type MatchValueVisitor(okToInline: int[]) =
@@ -682,14 +708,17 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 let call =
                     match sr.ReadMember meth with
                     | Member.Method (isInstance, m) -> 
-                        let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
-                        if isInstance then
-                            Call (Option.map tr this, t, mt, args)
-                        else 
-                            if meth.IsInstanceMember && not meth.IsExtensionMember then
-                                CallNeedingMoreArgs (None, t, mt, Option.toList (Option.map tr this) @ args)
+                        if td = Definitions.IntrinsicFunctions && m = Definitions.CheckThis then
+                            This
+                        else
+                            let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
+                            if isInstance then
+                                Call (Option.map tr this, t, mt, args)
                             else 
-                                Call (None, t, mt, Option.toList (Option.map tr this) @ args)
+                                if meth.IsInstanceMember && not meth.IsExtensionMember then
+                                    CallNeedingMoreArgs (None, t, mt, Option.toList (Option.map tr this) @ args)
+                                else 
+                                    Call (None, t, mt, Option.toList (Option.map tr this) @ args)
                     | Member.Implementation (i, m) ->
                         let t = Generic i (typeGenerics |> List.map (sr.ReadType env.TParams))
                         let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))

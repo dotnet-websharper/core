@@ -113,6 +113,11 @@ let DefaultValueOf (typ : Type) =
 let IsDefaultValue td meth =
     td = uncheckedOps && meth = defaultOf
 
+let (|DefaultValueOf|_|) expr =
+    match IgnoreExprSourcePos expr with
+    | Call(None, { Entity = td; Generics = [] }, { Entity = meth; Generics = [ typ ] }, []) when IsDefaultValue td meth -> Some typ
+    | _ -> None
+
 /// Combines a list of AST.Statements into a single AST.Statement
 let CombineStatements statements =
     let mutable go = true
