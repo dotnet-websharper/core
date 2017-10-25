@@ -154,6 +154,8 @@ let delegateTy, delRemove =
 let TextSpans = R.textSpans
 let SaveTextSpans() = R.saveTextSpans <- true
 
+let private nrInline = N.Inline false
+
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     if cls.TypeKind <> TypeKind.Class && not isStruct then None else
@@ -350,11 +352,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
                 err |> Option.iter error
-                addMethod (Some meth) mAnnot mdef N.Inline true expr
+                addMethod (Some meth) mAnnot mdef nrInline true expr
             | Member.Constructor cdef ->
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
-                addConstructor (Some meth) mAnnot cdef N.Inline true expr
+                addConstructor (Some meth) mAnnot cdef nrInline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
@@ -591,7 +593,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let getInlineKind() =
                     match memdef with
                     | Member.Implementation (t, _) -> N.InlineImplementation t
-                    | _ -> N.Inline
+                    | _ -> nrInline
                 let jsMethod isInline =
                     addMethod (Some meth) mAnnot mdef (if isInline then getInlineKind() else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
@@ -607,16 +609,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.NoFallback ->
                     checkNotAbstract()
                     addMethod (Some meth) mAnnot mdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                | A.MemberKind.Inline (js, ta) ->
                     checkNotAbstract() 
                     try 
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addMethod (Some meth) mAnnot mdef N.Inline true parsed
+                        addMethod (Some meth) mAnnot mdef (N.Inline ta) true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Constant c ->
                     checkNotAbstract() 
-                    addMethod (Some meth) mAnnot mdef N.Inline true (Value c)                        
+                    addMethod (Some meth) mAnnot mdef nrInline true (Value c)                        
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
@@ -633,10 +635,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
                         let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..]), Pure))
-                        addMethod (Some meth) mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef nrInline true i
                     elif mN.StartsWith "set_" then  
                         let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
-                        addMethod (Some meth) mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef nrInline true i
                     else error "OptionalField attribute not on property"
                 | A.MemberKind.Generated _ ->
                     addMethod (Some meth) mAnnot mdef (getKind()) false Undefined
@@ -659,17 +661,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
-                        if isInline then 
-                            addConstructor (Some meth) mAnnot cdef N.Inline false (getBody true)
-                        else
-                            addConstructor (Some meth) mAnnot cdef N.Constructor false (getBody false)
+                    if isInline then 
+                        addConstructor (Some meth) mAnnot cdef nrInline false (getBody true)
+                    else
+                        addConstructor (Some meth) mAnnot cdef N.Constructor false (getBody false)
                 match kind with
                 | A.MemberKind.NoFallback ->
                     addConstructor (Some meth) mAnnot cdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                | A.MemberKind.Inline (js, ta) ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addConstructor (Some meth) mAnnot cdef N.Inline true parsed 
+                        addConstructor (Some meth) mAnnot cdef (N.Inline ta) true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->

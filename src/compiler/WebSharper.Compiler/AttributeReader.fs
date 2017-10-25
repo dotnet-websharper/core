@@ -32,7 +32,7 @@ module M = WebSharper.Core.Metadata
 type private Attribute =
     | Macro of TypeDefinition * option<obj>
     | Proxy of TypeDefinition
-    | Inline of option<string>
+    | Inline of option<string * bool>
     | Direct of string
     | Pure
     | Warn of string
@@ -91,7 +91,7 @@ type TypeAnnotation =
         }
 
 type MemberKind = 
-    | Inline of string
+    | Inline of string * bool
     | Direct of string
     | InlineJavaScript
     | JavaScript
@@ -204,7 +204,10 @@ type AttributeReader<'A>() =
         | "ProxyAttribute" ->
             A.Proxy (this.ReadTypeArg attr |> fst)
         | "InlineAttribute" ->
-            A.Inline (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
+            match this.GetCtorArgs(attr) |> List.ofSeq with
+            | t :: a :: _ -> A.Inline (Some (unbox t, unbox a))
+            | t :: _ -> A.Inline (Some (unbox t, false))
+            | [] -> A.Inline None
         | "DirectAttribute" ->
             A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox)
         | "PureAttribute" ->

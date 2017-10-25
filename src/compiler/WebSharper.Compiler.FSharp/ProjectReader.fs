@@ -172,6 +172,8 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
+let private nrInline = N.Inline false
+
 let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) members =
     let thisDef, annot = classAnnots.[cls]
 
@@ -330,11 +332,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
-                addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true None expr
+                addMethod (Some (meth, memdef)) mAnnot mdef nrInline true None expr
             | Member.Constructor cdef ->
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
-                addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
+                addConstructor (Some (meth, memdef)) mAnnot cdef nrInline true None expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
@@ -624,13 +626,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         match memdef with
                         | Member.Implementation (t, _) -> 
                             N.InlineImplementation t
-                        | _ -> N.Inline
+                        | _ -> nrInline
 
                     let addModuleValueProp kind body =
                         if List.isEmpty args && (CodeReader.getEnclosingEntity meth).IsFSharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
                             // TODO : check proxy targets for module values
-                            addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false None iBody    
+                            addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) nrInline false None iBody    
                             if meth.IsMutable then 
                                 let setm = 
                                     let me = mdef.Value
@@ -675,19 +677,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.NoFallback ->
                         checkNotAbstract()
                         addM N.NoFallback true None Undefined
-                    | A.MemberKind.Inline js ->
+                    | A.MemberKind.Inline (js, ta) ->
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
+                            let nr = N.Inline ta
                             let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (Some "") js
-                            if addModuleValueProp N.Inline parsed then
-                                addMethod None mAnnot mdef N.Inline true None parsed   
-                            else addM N.Inline true None parsed
+                            if addModuleValueProp nr parsed then
+                                addMethod None mAnnot mdef nr true None parsed   
+                            else addM nr true None parsed
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
-                        addM N.Inline true None (Value c)                        
+                        addM nrInline true None (Value c)                        
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
@@ -703,10 +706,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.OptionalField ->
                         if meth.IsPropertyGetterMethod then
                             let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String meth.CompiledName.[4..]), Pure))
-                            addM N.Inline true None i
+                            addM nrInline true None i
                         elif meth.IsPropertySetterMethod then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String meth.CompiledName.[4..])) (Hole 1)
-                            addM N.Inline true None i
+                            addM nrInline true None i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
                         addM (getKind()) false None Undefined
@@ -722,17 +725,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addC = addConstructor (Some (meth, memdef)) mAnnot cdef
                     let jsCtor isInline =   
                         if isInline then 
-                            addC N.Inline false <|| getBody true
+                            addC nrInline false <|| getBody true
                         else
                             addC N.Constructor false <|| getBody false
                     match kind with
                     | A.MemberKind.NoFallback ->
                         addC N.NoFallback true None Undefined
-                    | A.MemberKind.Inline js ->
+                    | A.MemberKind.Inline (js, ta) ->
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (Some "") js
-                            addC N.Inline true None parsed 
+                            addC (N.Inline ta) true None parsed 
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Direct js ->
@@ -895,7 +898,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         normalFields
                 Lambda (vars, CopyCtor(def, obj))
 
-            let cKind = if annot.IsForcedNotJavaScript then N.Inline else N.Static
+            let cKind = if annot.IsForcedNotJavaScript then nrInline else N.Static
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
 
             // properties
@@ -913,7 +916,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                 let getBody = FieldGet(Some (Hole 0), thisType, f.Name)
                 
-                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef N.Inline false None getBody
+                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef nrInline false None getBody
 
                 if f.IsMutable then
                     let setDef =
@@ -926,7 +929,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
                     let setBody = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
             
-                    addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef N.Inline false None setBody
+                    addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef nrInline false None setBody
 
         if cls.IsFSharpRecord then
             let i = 

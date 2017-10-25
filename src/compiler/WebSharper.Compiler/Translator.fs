@@ -397,14 +397,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let rec m info =
                 match info with 
                 | M.Macro (t, p, fb) -> M.Macro(t, p, fb |> Option.map m)
-                | _ -> M.NotCompiledInline 
+                | M.Inline (_, ta) -> M.Inline (false, ta)
+                | _ -> info
             m info
         else info
 
     let isInline info =
         let rec ii m =
             match m with 
-            | M.Inline -> true
+            | M.Inline _ -> true
             | M.Macro(_, _, Some f) -> ii f
             | _ -> false
         match info with        
@@ -840,6 +841,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> 
             this.Error(sprintf "Macro '%s' erroneusly reported MacroNeedsResolvedTypeArg on not a type parameter." macroName)
 
+    member this.ApplyInline (expr, gen, gc: list<M.GenericParam>, args, thisObj, isCompiled, assertReturnType, retTyp) =
+        let ge =
+            if List.isEmpty gen then                    
+                expr
+            else
+                let gcArr = Array.ofList gc
+                let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
+                try GenericInlineResolver(gen, tsGen).TransformExpression expr
+                with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
+        let res = Substitution(args, ?thisObj = thisObj).TransformExpression(ge)
+        let trRes = if isCompiled then res else this.TransformExpression res
+        if assertReturnType then
+            let t = comp.TypeTranslator.TSTypeOf currentGenerics retTyp
+            Cast(t, trRes)
+        else trRes
+
     member this.CompileCall (info, gc: list<M.GenericParam>, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
         let opts =
             match opts.Warn with
@@ -895,21 +912,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
             ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
-        | M.Inline
-        | M.NotCompiledInline ->
-            let ge =
-                let gen = typ.Generics @ meth.Generics
-                if List.isEmpty gen then                    
-                    expr
+        | M.Inline (isCompiled, assertReturnType) ->
+            let retTyp = 
+                if assertReturnType then
+                    meth.Entity.Value.ReturnType.SubstituteGenerics(Array.ofList (typ.Generics @ meth.Generics))
                 else
-                    let gcArr = Array.ofList gc
-                    let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
-                    try GenericInlineResolver(gen, tsGen).TransformExpression expr
-                    with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
-            let res = Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
-            if info = M.NotCompiledInline then
-                res |> this.TransformExpression
-            else res
+                    // optimization, return type is only used by ApplyInline if we have assertReturnType = true
+                    VoidType
+            this.ApplyInline(expr, typ.Generics @ meth.Generics, gc, trArgs(), trThisObj(), isCompiled, assertReturnType, retTyp) 
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with
@@ -1112,7 +1122,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     let func = GlobalAccess addr |> getItem "prototype" |> getItem name
                     JSRuntime.BindDelegate func (this.TransformExpression thisObj.Value) 
                 | _ -> this.Error ("Cannot look up prototype for delegate creating")
-            | M.NotCompiledInline
             | M.Inline _ 
             | M.Macro _ 
             | M.Remote _ -> inlined()
@@ -1150,20 +1159,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
-        | M.Inline
-        | M.NotCompiledInline -> 
-            let ge =
-                let gen = typ.Generics
-                let gcArr = Array.ofList gc
-                let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
-                if not (List.isEmpty typ.Generics) then
-                    try GenericInlineResolver(gen, tsGen).TransformExpression expr
-                    with e -> this.Error(sprintf "Failed to resolve generics: %s" e.Message)
-                else expr
-            let res = Substitution(trArgs()).TransformExpression(ge)
-            if info = M.NotCompiledInline then
-                res |> this.TransformExpression
-            else res
+        | M.Inline (isCompiled, assertReturnType) ->
+            this.ApplyInline(expr, typ.Generics, gc, trArgs(), None, isCompiled, assertReturnType, ConcreteType typ) 
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with
@@ -1466,7 +1463,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 else
                     let subs info expr =
                         match info with
-                        | M.Inline ->
+                        | M.Inline _ ->
                             norm
                         | _ ->
                         match expr with

@@ -260,7 +260,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure fromLibrary) 
 
                 let kindWithoutMacros =
-                    if inlAttr.IsSome then Some Inline else 
+                    if inlAttr.IsSome then Some (Inline (true, false)) else 
                         match name with
                         | Some n -> Some (Instance n) // named instance members only for mixin interfaces
                         | _ -> None

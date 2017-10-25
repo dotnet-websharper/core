@@ -836,15 +836,13 @@ let refreshAllIds (i: Info) =
 
     let rec refreshNotInline (i, p, e) =
         match i with
-        | Inline
-        | NotCompiledInline -> i, p, e
+        | Inline _ -> i, p, e
         | Macro (_, _, Some f) -> refreshNotInline (f, p, e)
         | _ -> i, p, r.TransformExpression e
 
     let rec refreshNotInlineM (i, p, c, e) =
         match i with
-        | Inline
-        | NotCompiledInline -> i, p, c, e
+        | Inline _ -> i, p, c, e
         | Macro (_, _, Some f) -> refreshNotInlineM (f, p, c, e)
         | _ -> i, p, c, r.TransformExpression e
 

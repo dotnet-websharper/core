@@ -43,7 +43,7 @@ module NotResolved =
         | Override of TypeDefinition
         | Implementation of TypeDefinition
         | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
-        | Inline
+        | Inline of bool
         | InlineImplementation of TypeDefinition
         | NoFallback
 

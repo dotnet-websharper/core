@@ -136,7 +136,7 @@ type internal TupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7, 'TRest>
     [<Inline "$0[4]" >] member this.Item5 = X<'T5>
     [<Inline "$0[5]" >] member this.Item6 = X<'T6>
     [<Inline "$0[6]" >] member this.Item7 = X<'T7>
-    [<Inline "$0.slice(7)" >] member this.Rest = X<'TRest>
+    [<Inline("$0.slice(7)", true)>] member this.Rest = X<'TRest>
 
 // mutability is not supported until mutable struct copying for client is implemented
 
@@ -285,7 +285,7 @@ type internal ValueTupleProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7, 'TRest>
         with [<Inline "$0[6]" >] get () = X<'T7>
         //and  [<Inline "$0[6] = $v" >] set (v: 'T7) = ()
     member this.Rest 
-        with [<Inline "$0.slice(7)" >] get() = X<'TRest>
+        with [<Inline("$0.slice(7)", true)>] get() = X<'TRest>
         //and  [<Inline "Array.prototype.splice.apply($0, [7, $0.length - 7].concat($v))" >] set (v: 'TRest) = ()
 
 [<Proxy("System.TupleExtensions, System.ValueTuple")>]

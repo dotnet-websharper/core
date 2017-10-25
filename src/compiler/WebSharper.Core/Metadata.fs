@@ -108,21 +108,20 @@ type ParameterObject =
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
 type CompiledMember =
-    | Instance of string
-    | Static of Address
-    | AsStatic of Address
+    | Instance of name:string
+    | Static of address:Address
+    | AsStatic of address:Address
     | New
-    | NewIndexed of int
-    | Inline
-    | NotCompiledInline
-    | Macro of TypeDefinition * option<ParameterObject> * option<CompiledMember> 
-    | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<ParameterObject>>
+    | NewIndexed of index:int
+    | Inline of isCompiled:bool * assertReturnType:bool
+    | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
+    | Remote of kind:RemotingKind * handle:MethodHandle * remotingProvider:option<TypeDefinition * option<ParameterObject>>
 
 type CompiledField =
-    | InstanceField of string
-    | OptionalField of string
-    | StaticField of Address
-    | IndexedField of int
+    | InstanceField of name:string
+    | OptionalField of name:string
+    | StaticField of address:Address
+    | IndexedField of index:int
 
 type Optimizations =
     {
@@ -427,8 +426,7 @@ type Info =
     member this.DiscardInlineExpressions() =
         let rec discardInline i e =
             match i with
-            | Inline
-            | NotCompiledInline -> Undefined
+            | Inline _ -> Undefined
             | Macro (_, _, Some f) -> discardInline f e
             | _ -> e
         this.MapClasses(fun ci ->
@@ -440,8 +438,7 @@ type Info =
     member this.DiscardNotInlineExpressions() =
         let rec discardNotInline i e =
             match i with
-            | Inline
-            | NotCompiledInline -> e
+            | Inline _ -> e
             | Macro (_, _, Some f) -> discardNotInline f e
             | _ -> Undefined
         this.MapClasses((fun ci ->

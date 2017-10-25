@@ -252,7 +252,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, Optimizations.None), [], body))
+            compilingMethods.Add((td, meth),(NotCompiled (Inline (true, false), true, Optimizations.None), [], body))
 
         member this.AssemblyName = this.AssemblyName
 
@@ -1012,10 +1012,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledNoAddressMember (nr : NotResolvedMethod) =
             match nr.Kind with
-            | N.Inline 
-            | N.InlineImplementation _ -> Inline
+            | N.Inline ta -> Inline (true, ta)
             | N.Remote (k, h, r) -> Remote (k, h, r |> Option.map (fun (t, p) -> t, p |> Option.map ParameterObject.OfObj))
-            | N.NoFallback -> Inline // will be erased
+            | N.NoFallback -> Inline (true, false) // will be erased
             | _ -> failwith "Invalid not compiled member kind"
             |> withMacros nr
 
@@ -1111,7 +1110,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.AsStatic
                         | N.Constructor -> sn, Some true, false
                         | N.Remote _
-                        | N.Inline
+                        | N.Inline _
                         | N.NoFallback -> None, None, false
                     | M.Field (_, { StrongName = sn; IsStatic = s }) -> 
                         sn, Some s, false 
