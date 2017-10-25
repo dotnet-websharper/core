@@ -45,14 +45,14 @@ module internal Internal =
             meth "PropertyWithSample" [runnerOf a; a ^-> sampleOf t; a ^-> t ^-> runnerOf b] (runnerOf a)
 
         override this.TranslateCall(c) =
-            let t = List.head c.Method.Generics
+            let [t; a; b] = c.Method.Generics
             match c.Arguments with  
             | [runner; gen; attempt] ->
                 let id = Id.New(mut = false)
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([id],
+                        Function([id], Some (runnerOf a),
                             // cast to "any" is needed because sometimes we are calling a generator function that does
                             // not take any arguments
                             Return (mkSample t (Appl(Cast(TSType.Any, gen), [Var id], Pure, Some 1)) (cInt 100)))
@@ -64,7 +64,7 @@ module internal Internal =
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([], Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
+                        Function([], Some (runnerOf a), Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
                         attempt
                     ]
                 )

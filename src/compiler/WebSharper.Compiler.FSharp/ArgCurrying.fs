@@ -93,7 +93,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
     override this.VisitHole i =
         this.VisitId(margs.[i])
 
-    override this.VisitFunction(args, body) =
+    override this.VisitFunction(args, ret, body) =
         this.VisitStatement body
 
     override this.VisitLet(var, value, body) =

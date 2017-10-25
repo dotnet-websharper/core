@@ -96,6 +96,6 @@ let readReflected (comp: Compilation) (m: MethodBase) =
             | _ ->
                 failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A" expr
         | _ ->
-            Lambda(args, QR.transformExpression env expr)
+            Lambda(args, None, QR.transformExpression env expr)
 
     Some (decurry [] currying q)

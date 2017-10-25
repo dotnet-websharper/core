@@ -158,7 +158,7 @@ type CollectStrongNames(env: Environment) =
     let addId (i: Id) =
         if i.HasStrongName then addName i.Name.Value
         
-    override this.VisitFuncDeclaration(f, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _) =
         addId f
 
     override this.VisitVarDeclaration(v, _) =
@@ -184,7 +184,7 @@ type CollectStrongNames(env: Environment) =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _) =
         let i = defineId env ArgumentId f
         env.CurrentScopeNames.Add i.Name |> ignore
 
@@ -359,7 +359,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (J.IgnoreExprPos(trE e), jpos)
-    | Function (ids, b) ->
+    | Function (ids, _, b) ->
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineIdTyped innerEnv ArgumentId) 
         CollectVariables(innerEnv).VisitStatement(b)
@@ -518,62 +518,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             else woFuncDecls
         else 
             f()
-    let varDeclaration id e t =
-        let i = transformId env id
-        let typed() =
-            match t with 
-            | Some t -> i |> withTypeAny env t
-            | _ ->
-                match id.TSType with
-                | Some t -> i |> withTypeAny env t
-                | _ -> i
-        match e with
-        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
-        | IgnoreSourcePos.Undefined -> 
-            J.Vars ([ typed(), None ], J.VarDecl)
-        | _ -> 
-            J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
-    let funcDeclaration x ids b t =
-        let innerEnv = env.NewInner()
-        try
-            let id = transformId env x
-            let t, gen = 
-                match t with
-                | Some t -> 
-                    let t, gen = getGenericParams env t
-                    Some t, gen
-                | _ -> None, ""
-            let id =
-                if gen = "" then id else
-                    { id with Name = id.Name + gen }
-            let id, args, tr =
-                match t with
-                | Some (TSType.Function (_, ta, _, tr)) ->      
-                    // argument ids have to be resolved first because return type can be a TypeGuard
-                    let args =
-                        match ids, ta with
-                        | [_], [] -> [], [] // Function taking unit
-                        | p -> p
-                        ||> List.map2 (fun i (t, _) -> defineId innerEnv ArgumentId i |> withType env t)  
-                    id |> withType innerEnv tr
-                    , args
-                    , tr
-                | _ ->
-                    id
-                    , ids |> List.map (defineIdTyped innerEnv ArgumentId) 
-                    , TSType.Any
-            CollectVariables(innerEnv).VisitStatement(b)
-            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody tr
-            let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
-            let f = J.Function(id, args, flattenJS body)
-            if env.InFuncScope then
-                f
-            else
-                env.FuncDecls.Add f 
-                J.Empty
-        with e ->
-            J.Ignore (J.Var (J.Id.New ("WRONGSIGNATURE")))
-            //failwithf "incompatible signature %O(%s): %A. Error: %s" x (ids |> Seq.map string |> String.concat ", ") t e.Message
 
     match statement with
     | Empty
@@ -603,13 +547,49 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
-        varDeclaration id e None
-    | FuncDeclaration (x, ids, b) ->
-        funcDeclaration x ids b None
-    | TypedDeclaration(VarDeclaration (id, e), s) ->
-        varDeclaration id e (Some s)
-    | TypedDeclaration(FuncDeclaration (x, ids, b), s) ->
-        funcDeclaration x ids b (Some s) 
+        let i = transformId env id
+        let typed() =
+            match id.TSType with 
+            | Some t -> i |> withTypeAny env t
+            | _ ->
+                match id.TSType with
+                | Some t -> i |> withTypeAny env t
+                | _ -> i
+        match e with
+        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
+        | IgnoreSourcePos.Undefined -> 
+            J.Vars ([ typed(), None ], J.VarDecl)
+        | _ -> 
+            J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
+    | FuncDeclaration (x, ids, b, gen) ->
+        let innerEnv = env.NewInner()
+        try
+            let id = transformId env x
+            let gen =
+                match gen with
+                | [] -> ""
+                | g -> "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
+            let id =
+                if gen = "" then id else
+                    { id with Name = id.Name + gen }
+            let args = ids |> List.map (fun id ->
+                defineIdTyped innerEnv ArgumentId id
+                |> Option.foldBack (withType innerEnv) id.TSType
+            )
+            let tr = defaultArg x.TSType TSType.Any
+            let id = id |> withType innerEnv tr
+            CollectVariables(innerEnv).VisitStatement(b)
+            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody tr
+            let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
+            let f = J.Function(id, args, flattenJS body)
+            if env.InFuncScope then
+                f
+            else
+                env.FuncDecls.Add f 
+                J.Empty
+        with e ->
+            //eprintf "WebSharper warning: incompatible signature %O(%s): %A. Error: %s" x (ids |> Seq.map string |> String.concat ", ") t e.Message
+            J.Ignore (J.Var (J.Id.New ("WRONGSIGNATURE")))
     | While(a, b) -> 
         withFuncDecls <| fun () -> 
             J.While (trE a, trS b)
@@ -726,7 +706,7 @@ and defineIdTyped env kind id =
     | None -> i
     | Some t -> i |> withType env t
 
-and withType (env: Environment) (typ: TSType) (i: J.Id) =
+and withType (env: Environment) (typ: TSType) (i: J.Id) : J.Id =
     match typ with
     | TSType.Any -> i
     | _ -> i.WithType(transformType env typ)

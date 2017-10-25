@@ -109,7 +109,7 @@ and Expression =
     /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     | Application of Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo
     /// Function declaration
-    | Function of Parameters:list<Id> * Body:Statement
+    | Function of Parameters:list<Id> * Return:option<Type> * Body:Statement
     /// Variable set
     | VarSet of Variable:Id * Value:Expression
     /// Sequential evaluation of expressions, value is taken from the last
@@ -133,7 +133,7 @@ and Expression =
     /// Original source location for an expression
     | ExprSourcePos of Range:SourcePos * Expression:Expression
     /// Temporary - Method of F# object expressions
-    | FuncWithThis of ThisParam:Id * Parameters:list<Id> * Body:Statement
+    | FuncWithThis of ThisParam:Id * Parameters:list<Id> * Return:option<Type> * Body:Statement
     /// Temporary - Refers to the class from a static method
     | Self
     /// Temporary - Refers to the base class from an instance method
@@ -248,7 +248,7 @@ and Statement =
     /// Variable declaration
     | VarDeclaration of Variable:Id * Value:Expression
     /// Function declaration
-    | FuncDeclaration of FuncId:Id * Parameters:list<Id> * Body:Statement
+    | FuncDeclaration of FuncId:Id * Parameters:list<Id> * Body:Statement * Generics:list<TSType>
     /// 'while' loop
     | While of Condition:Expression * Body:Statement
     /// 'do..while' loop
@@ -301,8 +301,6 @@ and Statement =
     | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool
     /// TypeScript - interface { ... }
     | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
-    /// TypeScript - function and var declaration with type or signature
-    | TypedDeclaration of Statement:Statement * TypeOrSignature:TSType
     /// TypeScript - type or import alias
     | Alias of Alias:TSType * OrigType:TSType
     /// TypeScript - triple-slash directive
@@ -329,8 +327,8 @@ type Transformer() =
     abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> Expression
     override this.TransformApplication (a, b, c) = Application (this.TransformExpression a, List.map this.TransformExpression b, c)
     /// Function declaration
-    abstract TransformFunction : Parameters:list<Id> * Body:Statement -> Expression
-    override this.TransformFunction (a, b) = Function (List.map this.TransformId a, this.TransformStatement b)
+    abstract TransformFunction : Parameters:list<Id> * Return:option<Type> * Body:Statement -> Expression
+    override this.TransformFunction (a, b, c) = Function (List.map this.TransformId a, b, this.TransformStatement c)
     /// Variable set
     abstract TransformVarSet : Variable:Id * Value:Expression -> Expression
     override this.TransformVarSet (a, b) = VarSet (this.TransformId a, this.TransformExpression b)
@@ -367,8 +365,8 @@ type Transformer() =
         match this.TransformExpression b with
         | ExprSourcePos (_, bt) | bt -> ExprSourcePos (a, bt)
     /// Temporary - Method of F# object expressions
-    abstract TransformFuncWithThis : ThisParam:Id * Parameters:list<Id> * Body:Statement -> Expression
-    override this.TransformFuncWithThis (a, b, c) = FuncWithThis (this.TransformId a, List.map this.TransformId b, this.TransformStatement c)
+    abstract TransformFuncWithThis : ThisParam:Id * Parameters:list<Id> * Return:option<Type> * Body:Statement -> Expression
+    override this.TransformFuncWithThis (a, b, c, d) = FuncWithThis (this.TransformId a, List.map this.TransformId b, c, this.TransformStatement d)
     /// Temporary - Refers to the class from a static method
     abstract TransformSelf : unit -> Expression
     override this.TransformSelf () = Self 
@@ -502,8 +500,8 @@ type Transformer() =
     abstract TransformVarDeclaration : Variable:Id * Value:Expression -> Statement
     override this.TransformVarDeclaration (a, b) = VarDeclaration (this.TransformId a, this.TransformExpression b)
     /// Function declaration
-    abstract TransformFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> Statement
-    override this.TransformFuncDeclaration (a, b, c) = FuncDeclaration (this.TransformId a, List.map this.TransformId b, this.TransformStatement c)
+    abstract TransformFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement * Generics:list<TSType> -> Statement
+    override this.TransformFuncDeclaration (a, b, c, d) = FuncDeclaration (this.TransformId a, List.map this.TransformId b, this.TransformStatement c, d)
     /// 'while' loop
     abstract TransformWhile : Condition:Expression * Body:Statement -> Statement
     override this.TransformWhile (a, b) = While (this.TransformExpression a, this.TransformStatement b)
@@ -584,9 +582,6 @@ type Transformer() =
     /// TypeScript - interface { ... }
     abstract TransformInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformInterface (a, b, c, d) = Interface (a, b, List.map this.TransformStatement c, d)
-    /// TypeScript - function and var declaration with type or signature
-    abstract TransformTypedDeclaration : Statement:Statement * TypeOrSignature:TSType -> Statement
-    override this.TransformTypedDeclaration (a, b) = TypedDeclaration (this.TransformStatement a, b)
     /// TypeScript - type or import alias
     abstract TransformAlias : Alias:TSType * OrigType:TSType -> Statement
     override this.TransformAlias (a, b) = Alias (a, b)
@@ -602,7 +597,7 @@ type Transformer() =
         | Var a -> this.TransformVar a
         | Value a -> this.TransformValue a
         | Application (a, b, c) -> this.TransformApplication (a, b, c)
-        | Function (a, b) -> this.TransformFunction (a, b)
+        | Function (a, b, c) -> this.TransformFunction (a, b, c)
         | VarSet (a, b) -> this.TransformVarSet (a, b)
         | Sequential a -> this.TransformSequential a
         | NewTuple (a, b) -> this.TransformNewTuple (a, b)
@@ -614,7 +609,7 @@ type Transformer() =
         | Unary (a, b) -> this.TransformUnary (a, b)
         | MutatingUnary (a, b) -> this.TransformMutatingUnary (a, b)
         | ExprSourcePos (a, b) -> this.TransformExprSourcePos (a, b)
-        | FuncWithThis (a, b, c) -> this.TransformFuncWithThis (a, b, c)
+        | FuncWithThis (a, b, c, d) -> this.TransformFuncWithThis (a, b, c, d)
         | Self  -> this.TransformSelf ()
         | Base  -> this.TransformBase ()
         | Call (a, b, c, d) -> this.TransformCall (a, b, c, d)
@@ -662,7 +657,7 @@ type Transformer() =
         | Return a -> this.TransformReturn a
         | Block a -> this.TransformBlock a
         | VarDeclaration (a, b) -> this.TransformVarDeclaration (a, b)
-        | FuncDeclaration (a, b, c) -> this.TransformFuncDeclaration (a, b, c)
+        | FuncDeclaration (a, b, c, d) -> this.TransformFuncDeclaration (a, b, c, d)
         | While (a, b) -> this.TransformWhile (a, b)
         | DoWhile (a, b) -> this.TransformDoWhile (a, b)
         | For (a, b, c, d) -> this.TransformFor (a, b, c, d)
@@ -689,7 +684,6 @@ type Transformer() =
         | ClassConstructor (a, b, c) -> this.TransformClassConstructor (a, b, c)
         | ClassProperty (a, b, c, d) -> this.TransformClassProperty (a, b, c, d)
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
-        | TypedDeclaration (a, b) -> this.TransformTypedDeclaration (a, b)
         | Alias (a, b) -> this.TransformAlias (a, b)
         | XmlComment a -> this.TransformXmlComment a
     /// Identifier for variable or label
@@ -717,8 +711,8 @@ type Visitor() =
     abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> unit
     override this.VisitApplication (a, b, c) = this.VisitExpression a; List.iter this.VisitExpression b; ()
     /// Function declaration
-    abstract VisitFunction : Parameters:list<Id> * Body:Statement -> unit
-    override this.VisitFunction (a, b) = List.iter this.VisitId a; this.VisitStatement b
+    abstract VisitFunction : Parameters:list<Id> * Return:option<Type> * Body:Statement -> unit
+    override this.VisitFunction (a, b, c) = List.iter this.VisitId a; (); this.VisitStatement c
     /// Variable set
     abstract VisitVarSet : Variable:Id * Value:Expression -> unit
     override this.VisitVarSet (a, b) = this.VisitId a; this.VisitExpression b
@@ -753,8 +747,8 @@ type Visitor() =
     abstract VisitExprSourcePos : Range:SourcePos * Expression:Expression -> unit
     override this.VisitExprSourcePos (a, b) = (); this.VisitExpression b
     /// Temporary - Method of F# object expressions
-    abstract VisitFuncWithThis : ThisParam:Id * Parameters:list<Id> * Body:Statement -> unit
-    override this.VisitFuncWithThis (a, b, c) = this.VisitId a; List.iter this.VisitId b; this.VisitStatement c
+    abstract VisitFuncWithThis : ThisParam:Id * Parameters:list<Id> * Return:option<Type> * Body:Statement -> unit
+    override this.VisitFuncWithThis (a, b, c, d) = this.VisitId a; List.iter this.VisitId b; (); this.VisitStatement d
     /// Temporary - Refers to the class from a static method
     abstract VisitSelf : unit -> unit
     override this.VisitSelf () = ()
@@ -888,8 +882,8 @@ type Visitor() =
     abstract VisitVarDeclaration : Variable:Id * Value:Expression -> unit
     override this.VisitVarDeclaration (a, b) = this.VisitId a; this.VisitExpression b
     /// Function declaration
-    abstract VisitFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement -> unit
-    override this.VisitFuncDeclaration (a, b, c) = this.VisitId a; List.iter this.VisitId b; this.VisitStatement c
+    abstract VisitFuncDeclaration : FuncId:Id * Parameters:list<Id> * Body:Statement * Generics:list<TSType> -> unit
+    override this.VisitFuncDeclaration (a, b, c, d) = this.VisitId a; List.iter this.VisitId b; this.VisitStatement c; ()
     /// 'while' loop
     abstract VisitWhile : Condition:Expression * Body:Statement -> unit
     override this.VisitWhile (a, b) = this.VisitExpression a; this.VisitStatement b
@@ -968,9 +962,6 @@ type Visitor() =
     /// TypeScript - interface { ... }
     abstract VisitInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitInterface (a, b, c, d) = (); (); List.iter this.VisitStatement c; ()
-    /// TypeScript - function and var declaration with type or signature
-    abstract VisitTypedDeclaration : Statement:Statement * TypeOrSignature:TSType -> unit
-    override this.VisitTypedDeclaration (a, b) = this.VisitStatement a; ()
     /// TypeScript - type or import alias
     abstract VisitAlias : Alias:TSType * OrigType:TSType -> unit
     override this.VisitAlias (a, b) = (); ()
@@ -986,7 +977,7 @@ type Visitor() =
         | Var a -> this.VisitVar a
         | Value a -> this.VisitValue a
         | Application (a, b, c) -> this.VisitApplication (a, b, c)
-        | Function (a, b) -> this.VisitFunction (a, b)
+        | Function (a, b, c) -> this.VisitFunction (a, b, c)
         | VarSet (a, b) -> this.VisitVarSet (a, b)
         | Sequential a -> this.VisitSequential a
         | NewTuple (a, b) -> this.VisitNewTuple (a, b)
@@ -998,7 +989,7 @@ type Visitor() =
         | Unary (a, b) -> this.VisitUnary (a, b)
         | MutatingUnary (a, b) -> this.VisitMutatingUnary (a, b)
         | ExprSourcePos (a, b) -> this.VisitExprSourcePos (a, b)
-        | FuncWithThis (a, b, c) -> this.VisitFuncWithThis (a, b, c)
+        | FuncWithThis (a, b, c, d) -> this.VisitFuncWithThis (a, b, c, d)
         | Self  -> this.VisitSelf ()
         | Base  -> this.VisitBase ()
         | Call (a, b, c, d) -> this.VisitCall (a, b, c, d)
@@ -1046,7 +1037,7 @@ type Visitor() =
         | Return a -> this.VisitReturn a
         | Block a -> this.VisitBlock a
         | VarDeclaration (a, b) -> this.VisitVarDeclaration (a, b)
-        | FuncDeclaration (a, b, c) -> this.VisitFuncDeclaration (a, b, c)
+        | FuncDeclaration (a, b, c, d) -> this.VisitFuncDeclaration (a, b, c, d)
         | While (a, b) -> this.VisitWhile (a, b)
         | DoWhile (a, b) -> this.VisitDoWhile (a, b)
         | For (a, b, c, d) -> this.VisitFor (a, b, c, d)
@@ -1073,7 +1064,6 @@ type Visitor() =
         | ClassConstructor (a, b, c) -> this.VisitClassConstructor (a, b, c)
         | ClassProperty (a, b, c, d) -> this.VisitClassProperty (a, b, c, d)
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
-        | TypedDeclaration (a, b) -> this.VisitTypedDeclaration (a, b)
         | Alias (a, b) -> this.VisitAlias (a, b)
         | XmlComment a -> this.VisitXmlComment a
     /// Identifier for variable or label
@@ -1090,7 +1080,7 @@ module IgnoreSourcePos =
     let (|Var|_|) x = match ignoreExprSourcePos x with Var a -> Some a | _ -> None
     let (|Value|_|) x = match ignoreExprSourcePos x with Value a -> Some a | _ -> None
     let (|Application|_|) x = match ignoreExprSourcePos x with Application (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b) -> Some (a, b) | _ -> None
+    let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b, c) -> Some (a, b, c) | _ -> None
     let (|VarSet|_|) x = match ignoreExprSourcePos x with VarSet (a, b) -> Some (a, b) | _ -> None
     let (|Sequential|_|) x = match ignoreExprSourcePos x with Sequential a -> Some a | _ -> None
     let (|NewTuple|_|) x = match ignoreExprSourcePos x with NewTuple (a, b) -> Some (a, b) | _ -> None
@@ -1102,7 +1092,7 @@ module IgnoreSourcePos =
     let (|Unary|_|) x = match ignoreExprSourcePos x with Unary (a, b) -> Some (a, b) | _ -> None
     let (|MutatingUnary|_|) x = match ignoreExprSourcePos x with MutatingUnary (a, b) -> Some (a, b) | _ -> None
     let (|ExprSourcePos|_|) x = match ignoreExprSourcePos x with ExprSourcePos (a, b) -> Some (a, b) | _ -> None
-    let (|FuncWithThis|_|) x = match ignoreExprSourcePos x with FuncWithThis (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|FuncWithThis|_|) x = match ignoreExprSourcePos x with FuncWithThis (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Self|_|) x = match ignoreExprSourcePos x with Self  -> Some () | _ -> None
     let (|Base|_|) x = match ignoreExprSourcePos x with Base  -> Some () | _ -> None
     let (|Call|_|) x = match ignoreExprSourcePos x with Call (a, b, c, d) -> Some (a, b, c, d) | _ -> None
@@ -1151,7 +1141,7 @@ module IgnoreSourcePos =
     let (|Return|_|) x = match ignoreStatementSourcePos x with Return a -> Some a | _ -> None
     let (|Block|_|) x = match ignoreStatementSourcePos x with Block a -> Some a | _ -> None
     let (|VarDeclaration|_|) x = match ignoreStatementSourcePos x with VarDeclaration (a, b) -> Some (a, b) | _ -> None
-    let (|FuncDeclaration|_|) x = match ignoreStatementSourcePos x with FuncDeclaration (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|FuncDeclaration|_|) x = match ignoreStatementSourcePos x with FuncDeclaration (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|While|_|) x = match ignoreStatementSourcePos x with While (a, b) -> Some (a, b) | _ -> None
     let (|DoWhile|_|) x = match ignoreStatementSourcePos x with DoWhile (a, b) -> Some (a, b) | _ -> None
     let (|For|_|) x = match ignoreStatementSourcePos x with For (a, b, c, d) -> Some (a, b, c, d) | _ -> None
@@ -1178,7 +1168,6 @@ module IgnoreSourcePos =
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
-    let (|TypedDeclaration|_|) x = match ignoreStatementSourcePos x with TypedDeclaration (a, b) -> Some (a, b) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
 module Debug =
@@ -1193,7 +1182,7 @@ module Debug =
         | Var a -> "Var" + "(" + string a + ")"
         | Value a -> "Value" + "(" + PrintObject a.Value + ")"
         | Application (a, b, c) -> "Application" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + PrintObject c + ")"
-        | Function (a, b) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + PrintStatement b + ")"
+        | Function (a, b, c) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + PrintStatement c + ")"
         | VarSet (a, b) -> "VarSet" + "(" + string a + ", " + PrintExpression b + ")"
         | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | NewTuple (a, b) -> "NewTuple" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ")"
@@ -1205,7 +1194,7 @@ module Debug =
         | Unary (a, b) -> "Unary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | MutatingUnary (a, b) -> "MutatingUnary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | ExprSourcePos (_, b) -> PrintExpression b
-        | FuncWithThis (a, b, c) -> "FuncWithThis" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ")"
+        | FuncWithThis (a, b, c, d) -> "FuncWithThis" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + defaultArg (Option.map PrintObject c) "_" + ", " + PrintStatement d + ")"
         | Self  -> "Self" + ""
         | Base  -> "Base" + ""
         | Call (a, b, c, d) -> "Call" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
@@ -1252,7 +1241,7 @@ module Debug =
         | Return a -> "Return" + "(" + PrintExpression a + ")"
         | Block a -> "Block" + "(" + "[" + String.concat "; " (List.map PrintStatement a) + "]" + ")"
         | VarDeclaration (a, b) -> "VarDeclaration" + "(" + string a + ", " + PrintExpression b + ")"
-        | FuncDeclaration (a, b, c) -> "FuncDeclaration" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ")"
+        | FuncDeclaration (a, b, c, d) -> "FuncDeclaration" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | While (a, b) -> "While" + "(" + PrintExpression a + ", " + PrintStatement b + ")"
         | DoWhile (a, b) -> "DoWhile" + "(" + PrintStatement a + ", " + PrintExpression b + ")"
         | For (a, b, c, d) -> "For" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + defaultArg (Option.map PrintExpression c) "_" + ", " + PrintStatement d + ")"
@@ -1279,7 +1268,6 @@ module Debug =
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + PrintObject d + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
-        | TypedDeclaration (a, b) -> "TypedDeclaration" + "(" + PrintStatement a + ", " + PrintObject b + ")"
         | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"
         | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"
 // }}
@@ -1306,14 +1294,14 @@ type StatementVisitor() =
 module ExtraForms =
     module I = IgnoreSourcePos
 
-    let Lambda (a, b) = Function (a, Return b)
+    let Lambda (a, ret, b) = Function (a, ret, Return b)
     let (|Lambda|_|) expr =
         match expr with
-        | Function (a, I.Return b) -> Some (a, b)
-        | Function (a, I.ExprStatement b) -> Some (a, Sequential [ b; Value Null ])
+        | Function (a, ret, I.Return b) -> Some (a, ret, b)
+        | Function (a, ret, I.ExprStatement b) -> Some (a, ret, Sequential [ b; Value Null ])
         | _ -> None
 
-    let CurriedLambda (a, b) = List.foldBack (fun a b -> Function ([a], Return b)) a b
+    let CurriedLambda (a, ret, b) = List.foldBack (fun a b -> Function ([a], ret, Return b)) a b
     
     let IgnoredStatementExpr(a) = StatementExpr(a, None)
     

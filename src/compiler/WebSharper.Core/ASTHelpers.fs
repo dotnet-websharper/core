@@ -169,18 +169,18 @@ let (|RuntimeAddress|_|) a =
     | _ -> None
 
 /// Make a proxy for a by-address value, having two functions for get/set.
-let MakeRef getVal setVal =
-    let value = Id.New("v", false)
+let MakeRef getVal setVal typ =
+    let value = Id.New("v", false, ?typ = typ)
     Object [
-        "get", (Function ([], Return getVal))
-        "set", (Function ([value], ExprStatement (setVal (Var value))))
+        "get", (Function ([], typ, Return getVal))
+        "set", (Function ([value], None, ExprStatement (setVal (Var value))))
     ]
 
 /// Make a proxy for a out argument, having a setter function.
-let MakeOutRef setVal =
+let MakeOutRef setVal typ =
     let value = Id.New("v", false)
     Object [
-        "set", (Function ([value], ExprStatement (setVal (Var value))))
+        "set", (Function ([value], typ, ExprStatement (setVal (Var value))))
     ]
 
 /// Gets the value from a by-address value proxy

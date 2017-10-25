@@ -300,7 +300,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let hasInit =
         if inits.Count = 0 then false else 
-        Function([], ExprStatement (Sequential (inits |> List.ofSeq)))
+        Function([], None, ExprStatement (Sequential (inits |> List.ofSeq)))
         |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
@@ -562,8 +562,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 if meth.IsAbstract then Undefined else
                 let parsed = getParsed() 
                 let args = parsed.Parameters |> List.map (fun p -> p.ParameterId)
+                let returnType =
+                    if obj.ReferenceEquals(parsed.ReturnType, Unchecked.defaultof<_>) then None
+                    else Some parsed.ReturnType
                 if isInline then
-                    let b = Function(args, parsed.Body)
+                    let b = Function(args, returnType, parsed.Body)
                     let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
                     let b = 
                         match thisVar with
@@ -572,7 +575,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let allVars = Option.toList thisVar @ args
                     makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
                 else
-                    Function(args, parsed.Body)
+                    Function(args, returnType, parsed.Body)
 
             let getVars() =
                 // TODO: do not parse method body
@@ -656,7 +659,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         let idef = sr.ReadNamedTypeDefinition impl
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
                         // TODO : correct generics
-                        Lambda(vars, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
+                        Lambda(vars, None, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
                         |> addMethod (Some meth) A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->
@@ -696,7 +699,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     
     match staticInit with
     | Some si when not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) ->
-        let b = Function ([], si)
+        let b = Function ([], None, si)
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
     | _ -> ()
     

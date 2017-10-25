@@ -37,7 +37,7 @@ type HelloASTGenerator() =
     override this.Generate _ =
         let w = Id.New "w"
         let (+) a b = Binary(a, BinaryOperator.``+``, b)
-        Lambda ([w], !~(String "Hello ") + Var w + !~(String "!"))
+        Lambda ([w], Some (NonGenericType Definitions.String), !~(String "Hello ") + Var w + !~(String "!"))
         |> GeneratedAST
 
 [<Sealed>]

@@ -608,20 +608,20 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | P.Lambda (var, body) -> loop (var :: acc) body
                 | body -> (List.rev acc, body)
             
-            let lam vars body isUnitReturn =
+            let lam vars typ body isUnitReturn =
                 if isUnitReturn then
-                    Function(vars, ExprStatement body)
+                    Function(vars, None, ExprStatement body)
                 else
-                    Lambda(vars, body)   
+                    Lambda(vars, typ, body)   
             match loop [] expr with
             | [arg], body ->
                 if isUnit arg.FullType then 
-                    lam [] (tr body) (isUnit body.Type)
+                    lam [] (Some (sr.ReadType env.TParams body.Type)) (tr body) (isUnit body.Type)
                 else 
                     let t = arg.FullType
                     let v = namedId (Some env) (isUnit t || t.IsGenericParameter) arg
                     let env = env.WithVar(v, arg)
-                    lam [v] (body |> transformExpression env) (isUnit body.Type)
+                    lam [v] (Some (sr.ReadType env.TParams body.Type)) (body |> transformExpression env) (isUnit body.Type)
             | args, body ->
                 let vars, env =
                     (env, args) ||> List.mapFold (fun env arg ->
@@ -630,7 +630,13 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         v, env.WithVar(v, arg)
                     ) 
                 let trBody = body |> transformExpression env
-                trBody |> List.foldBack (fun v e -> lam [v] e (obj.ReferenceEquals(trBody, isUnit) && isUnit body.Type)) vars
+                trBody |> List.foldBack (fun v e ->
+                    let typ =
+                        if obj.ReferenceEquals(trBody, e)
+                        then Some (sr.ReadType env.TParams body.Type)
+                        else None
+                    lam [v] typ e false
+                ) vars
         | P.Application(func, types, args) ->
             let compGenCurriedAppl (env: Environment) ids body =
                 let vars, env =
@@ -809,7 +815,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let j = newId()
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
-                | Function ([i], ExprStatement b) -> i, b
+                | Function ([i], _, ExprStatement b) -> i, b
                 | _ -> parsefailf "Unexpected form of consumeExpr in FastIntegerForLoop pattern"     
             For (
                 Some (Sequential [NewVar(i, tr start); NewVar (j, tr end_)]), 
@@ -1012,18 +1018,18 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let e = IgnoreExprSourcePos (tr expr)
             match e with
             | Var v ->
-                MakeRef e (fun value -> VarSet(v, value))
+                MakeRef e (fun value -> VarSet(v, value)) v.VarType
             | ItemGet(o, i, p) ->
                 let ov = newId()
                 let iv = newId()
-                Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, p)) (fun value -> ItemSet(Var ov, Var iv, value))))
+                Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, p)) (fun value -> ItemSet(Var ov, Var iv, value)) None))
             | FieldGet(o, t, f) ->
                 match o with
                 | Some o ->
                     let ov = newId()
-                    Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
+                    Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)) None)     
                 | _ ->
-                    MakeRef e (fun value -> FieldSet(None, t, f, value))  
+                    MakeRef e (fun value -> FieldSet(None, t, f, value)) None
             | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 r   
             | Call(None, td, m, []) ->
@@ -1035,7 +1041,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         ReturnType = VoidType
                         Generics = 0
                     }
-                MakeRef e (fun value -> Call(None, td, setm, [value]))    
+                MakeRef e (fun value -> Call(None, td, setm, [value])) None  
             | _ -> failwithf "AddressOf error, unexpected form: %+A" e 
         | P.AddressSet (addr, value) ->
             match addr with
@@ -1070,7 +1076,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                                     ) |> List.ofSeq 
                                 | _ ->
                                     failwith "Wrong `this` argument in object expression override"
-                            let b = FuncWithThis (thisVar, vars, Return (transformExpression env ovr.Body)) 
+                            let b = FuncWithThis (thisVar, vars, Some (sr.ReadType env.TParams typ), Return (transformExpression env ovr.Body)) 
                             yield ItemSet(Var o, OverrideName(i, s), b)
                         yield Var o
                     ]
@@ -1099,7 +1105,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | ([], P.Application (f, _, [P.Const (null, _)])) ->
                 tr f
             | [ v ], body when isUnit v.FullType  ->
-                Lambda ([], transformExpression env body)
+                Lambda ([], None, transformExpression env body)
             | vars, body ->
                 let mutable env = env
                 let args = 
@@ -1108,7 +1114,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         env <- env.WithVar(vv, v)
                         vv
                     )
-                Lambda (args, transformExpression env body)
+                Lambda (args, Some (sr.ReadType env.TParams body.Type), transformExpression env body)
             | _ -> failwith "Failed to translate delegate creation"
         | P.TypeLambda (gen, expr) ->
             tr expr
@@ -1117,7 +1123,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]", _, [ arr; i ]) ->
             let arrId = newId()
             let iId = newId()
-            Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value))))
+            Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value)) None))
         | P.ILAsm ("[I_ldarg 0us]", [], []) ->
             This
         | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->

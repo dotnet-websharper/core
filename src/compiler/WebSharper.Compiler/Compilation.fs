@@ -854,9 +854,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         mi.Kind <- NotResolvedMemberKind.AsStatic         
                         mi.Body <- 
                             match mi.Body with
-                            | Function(args, b) ->
+                            | Function(args, typ, b) ->
                                 let thisVar = Id.New("$this", mut = false)
-                                Function (thisVar :: args,
+                                Function (thisVar :: args, typ,
                                     ReplaceThisWithVar(thisVar).TransformStatement(b) 
                                 )
                             | _ ->
@@ -1066,8 +1066,8 @@ type Compilation(meta: Info, ?hasGraph) =
         let addCctorCall typ (ci: ClassInfo) expr =
             if Option.isSome ci.StaticConstructor then
                 match expr with
-                | Function (args, body) ->
-                    Function(args, CombineStatements [ ExprStatement (Cctor typ); body ])
+                | Function (args, ret, body) ->
+                    Function(args, ret, CombineStatements [ ExprStatement (Cctor typ); body ])
                 // inlines
                 | _ -> Sequential [ Cctor typ; expr ]
             else expr
@@ -1261,11 +1261,11 @@ type Compilation(meta: Info, ?hasGraph) =
                 let comp = compiledStaticMember la nr
                 let body =
                     match nr.Body with
-                    | Function(cargs, cbody) ->
+                    | Function(cargs, typ, cbody) ->
                         let o = Id.New "o"
                         let b = 
                             Let(o, Object[], Sequential [ StatementExpr (ReplaceThisWithVar(o).TransformStatement(cbody), None); Var o ])
-                        Function(cargs, Return b)
+                        Function(cargs, typ, Return b)
                     | _ -> 
                         failwith "Expecting a function as compiled form of constructor"
                 compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res body))

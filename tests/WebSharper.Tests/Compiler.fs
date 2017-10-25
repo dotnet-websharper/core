@@ -64,35 +64,35 @@ module Server =
         async.Return [|
             
             testWithMatch <@ Optimizations.TupledArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.TupledArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CurriedArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
-            | Function (_, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
+            | Function (_, _, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues() @> <| function
-            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], { Purity = NonPure; KnownLength = None }) )) -> true
+            | Function (_, _, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues2() @> <| function
-            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], { Purity = NonPure; KnownLength = None }) )) -> true
+            | Function (_, _, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues3() @> <| function
-            | Function (_, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
+            | Function (_, _, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
             | _ -> false
         
         |]

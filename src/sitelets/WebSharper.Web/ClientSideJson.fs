@@ -350,7 +350,7 @@ module Macro =
                     | M.StringEntry "id" :: _ ->
                         ok ident
                     | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                        Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
                         let gtd, gm, _ = comp.NewGenerated([top; "j"])
                         let _, gv, va = comp.NewGenerated([top; "_" + "v"])
@@ -364,12 +364,12 @@ module Macro =
                                 enc
                             else
                                 enc >>= fun e ->
-                                let v = Lambda([], Call (None, NonGeneric gtd, NonGeneric gv, []))
+                                let v = Lambda([], None, Call (None, NonGeneric gtd, NonGeneric gv, []))
                                 let vn = Value (String va.Address.Value.Head)
                                 let a = { Module = CurrentModule; Address = Hashed [ top ] }
-                                let b = Lambda ([], Conditional(v, v, ItemSet(GlobalAccess a, vn, Appl(e, [], NonPure, Some 0))))
+                                let b = Lambda ([], None, Conditional(v, v, ItemSet(GlobalAccess a, vn, Appl(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
-                                Lambda([], Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                                Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)
                         ||> List.fold (fun k t es ->
                             encode t >>= fun e -> k ((t, e) :: es))
@@ -651,7 +651,7 @@ module Macro =
             let arg = Id.New(mut = false)
             // let enc = ENCODE() in fun arg -> JSON.stringify(enc(arg))
             Let(enc, x,
-                Lambda([arg],
+                Lambda([arg], Some (NonGenericType Definitions.String),
                     mJson param.Compilation "Stringify" [Appl(Var enc, [Var arg], Pure, Some 1)])))
 
     let Decode param t arg =
@@ -673,7 +673,7 @@ module Macro =
             let arg = Id.New(mut = false)
             // let dec = DECODE() in fun arg -> dec(JSON.parse(arg))
             Let(dec, x,
-                Lambda([arg],
+                Lambda([arg], Some t,
                     Appl(Var dec, [mJson param.Compilation "Parse" [Var arg]], Pure, Some 1))))
 
     type SerializeMacro() =

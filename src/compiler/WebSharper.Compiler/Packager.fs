@@ -244,16 +244,23 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
     let package (a: Address) expr (t: TSType) =
         let n = toNamespaceWithName a
-        let i = Id.New (n, str = true)
+        let i = Id.New (n, str = true, typ = TSType t)
+        let (|MaybeGeneric|) = function
+            | TSType.Generic(t, gen) -> t, gen
+            | x -> x, []
         let exp =
-            match expr with
-            | Function(args, body) -> FuncDeclaration(i, args, body)
+            match expr, t with
+            | Function(args, _, body), MaybeGeneric(TSType.Function(_, targs, _, tr), gs) ->
+                let args =
+                    match args, targs with
+                    | [_], [] -> []
+                    | p -> p ||> List.map2 (fun a (t, _) -> a.WithType(Some(TSType t)))
+                let i = i.WithType(Some (TSType tr))
+                FuncDeclaration(i, args, body, gs)
+            | Function(args, ret, body), _ ->
+                FuncDeclaration(i.WithType(ret), args, body, [])
             | _ -> VarDeclaration (i, expr)
-        let texp =
-            match t with
-            | TSType.Any -> exp
-            | _ -> TypedDeclaration (exp, t)
-        addExport texp
+        addExport exp
 
     let packageByName (a: Address) f =
         let n = toNamespaceWithName a
@@ -515,7 +522,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let mgen = getGenerics cgenl gc
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
-                | Function (args, b) ->
+                | Function (args, _, b) ->
                     ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics mgen)
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
@@ -578,10 +585,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.New ->
                 if body <> Undefined then
                     match body with
-                    | Function ([], I.Empty) 
-                    | Function ([], I.ExprStatement(I.Application(I.Base, [], _))) -> 
+                    | Function ([], _, I.Empty) 
+                    | Function ([], _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
                         ()
-                    | Function (args, b) ->                  
+                    | Function (args, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
                         let signature =
                             TSType.New(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType.Value)
@@ -591,7 +598,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             | M.NewIndexed i ->
                 if body <> Undefined then
                     match body with
-                    | Function (args, b) ->  
+                    | Function (args, _, b) ->  
                         let index = Id.New("i: " + string i, str = true)
                         let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
                         let signature =
@@ -607,7 +614,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 smem maddr 
                     (fun n ->
                         match IgnoreExprSourcePos body with
-                        | Function (args, b) ->
+                        | Function (args, _, b) ->
                             ClassMethod(true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
@@ -714,16 +721,15 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let x = Id.New "x"
             let shortestName, _ = i.Methods.Values |> Seq.minBy (fst >> String.length)
             let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-            let signature = 
-                TSType.Lambda([TSType.Any], TSType.TypeGuard(x, tsTypeOfDef td |> addGenerics gen))
-                |> addGenerics gen
-            TypedDeclaration(FuncDeclaration(strId ("is" + n), [x], Return check), signature) 
+            let returnType = TSType.TypeGuard(x, tsTypeOfDef td |> addGenerics gen)
+            let id = Id.New("is" + n, mut = false, str = true, typ = TSType returnType)
+            FuncDeclaration(id, [x], Return check, gen)
 
     toNamespace []
 
     if isBundle then
         match current.EntryPoint with
-        | Some ep -> addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
+        | Some ep -> addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], None, ep)))
         | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
     
     if statements.Count = 0 then 

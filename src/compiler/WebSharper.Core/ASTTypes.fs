@@ -437,6 +437,8 @@ type Id =
 
     member this.IsGlobal() = this.Id = -1L
 
+    member this.WithType(t) = { this with Type = t }
+
     override this.GetHashCode() = int this.Id
     
     override this.Equals other =

@@ -747,24 +747,24 @@ type RoslynTransformer(env: Environment) =
                 let e = IgnoreExprSourcePos expression
                 match e with
                 | Var v ->
-                    MakeRef e (fun value -> VarSet(v, value))
+                    MakeRef e (fun value -> VarSet(v, value)) v.VarType
                 | NewVar (v, Undefined) -> // out var
-                    Sequential [ e; MakeOutRef (fun value -> VarSet(v, value)) ]
+                    Sequential [ e; MakeOutRef (fun value -> VarSet(v, value)) v.VarType ]
                 | ItemGet(o, i, _) ->
                     let ov = Id.New ()
                     let iv = Id.New ()
-                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value))))
+                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value)) None))
                 | FieldGet(o, t, f) ->
                     match o with
                     | Some o ->
                         let ov = Id.New ()
-                        Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
+                        Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)) None)
                     | _ ->
-                        MakeRef e (fun value -> FieldSet(None, t, f, value))  
+                        MakeRef e (fun value -> FieldSet(None, t, f, value)) None
                 | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                     r
                 | Call (thisOpt, typ, getter, args) ->
-                    MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
+                    MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value]))) None
                 | _ -> failwithf "ref argument has unexpected form: %+A" e     
             | None ->
                 // TODO: struct value passing
@@ -864,10 +864,12 @@ type RoslynTransformer(env: Environment) =
                 b
  
         // TODO : optional?
+        // TODO : generics?
         FuncDeclaration(
             id, 
             parameterList |> List.map (fun p -> p.ParameterId), 
-            b
+            b,
+            []
         )
         |> withStatementSourcePos x.Node
 
@@ -932,7 +934,7 @@ type RoslynTransformer(env: Environment) =
                             let vars = List.init len (fun _ -> Id.New(mut = false))
                             Sequential [
                                 for v in vars do yield NewVar(v, Undefined)
-                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
+                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e)) i.VarType))
                                 yield NewArray (vars |> List.map Var)
                             ]
                         | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
@@ -1770,6 +1772,7 @@ type RoslynTransformer(env: Environment) =
         env.Parameters.Add(parameter.Symbol, (id, false))
         let body = x.Body |> this.TransformCSharpNode
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        let ret = Some (sr.ReadType symbol.ReturnType)
         if symbol.IsAsync then
             let b = 
                 body |> Continuation.addLastReturnIfNeeded Undefined
@@ -1777,9 +1780,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function([id], Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function([id], ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function([id], body)
+            Function([id], ret, body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -1792,6 +1795,7 @@ type RoslynTransformer(env: Environment) =
                 id
             )    
         let body = x.Body |> this.TransformCSharpNode
+        let ret = Some (sr.ReadType symbol.ReturnType)
         if symbol.IsAsync then
             let b = 
                 body |> Continuation.addLastReturnIfNeeded Undefined
@@ -1799,9 +1803,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function(ids, body)
+            Function(ids, ret, body)
 
     member this.TransformCSharpNode (x: CSharpNodeData) : _ =
         match x with
@@ -2006,18 +2010,18 @@ type RoslynTransformer(env: Environment) =
                 match ri with
                 | Choice1Of2 ri ->                                        
                     env.RangeVars.[ri] <- (a, Some 0) 
-                    Lambda([a; b], NewArray [Var a; Var b])
+                    Lambda([a; b], None, NewArray [Var a; Var b])
                 | _ ->
-                    Lambda([a; b], jsConcat (Var a) [NewArray [Var b]])
+                    Lambda([a; b], None, jsConcat (Var a) [NewArray [Var b]])
             let inclSelect expr =
                 match ri with
                 | Choice1Of2 ri ->
                     env.RangeVars.[ri] <- (a, None)
                 | _ -> ()
                 env.RangeVars.[symbol] <- (b, None)
-                let newResSelect = Lambda([a; b], this.TransformExpression expr)     
-                queryCall querySymbol [on; Lambda([a], expression); newResSelect]      
-            queryCall querySymbol [on; Lambda([a], expression); resSelect], Choice2Of2 (a, num, Some inclSelect)    
+                let newResSelect = Lambda([a; b], None, this.TransformExpression expr)     
+                queryCall querySymbol [on; Lambda([a], None, expression); newResSelect]      
+            queryCall querySymbol [on; Lambda([a], None, expression); resSelect], Choice2Of2 (a, num, Some inclSelect)    
 
     member this.TransformLetClause (x: LetClauseData) : _ =
         let querySymbol = (env.SemanticModel.GetQueryClauseInfo(x.Node).OperationInfo.Symbol :?> IMethodSymbol)
@@ -2039,7 +2043,7 @@ type RoslynTransformer(env: Environment) =
                     NewArray [Var a; expression]               
                 | _ ->
                     jsConcat (Var a) [NewArray [expression]]  
-            queryCall querySymbol [on; Lambda([a], res)], Choice2Of2 (a, num, None)    
+            queryCall querySymbol [on; Lambda([a], None, res)], Choice2Of2 (a, num, None)    
 
     member this.TransformJoinClause (x: JoinClauseData) : _ =
         let querySymbol = (env.SemanticModel.GetQueryClauseInfo(x.Node).OperationInfo.Symbol :?> IMethodSymbol)
@@ -2066,18 +2070,18 @@ type RoslynTransformer(env: Environment) =
                 match ri with
                 | Choice1Of2 ri ->                                        
                     env.RangeVars.[ri] <- (a, Some 0) 
-                    Lambda([a; b], NewArray [Var a; Var b])
+                    Lambda([a; b], None, NewArray [Var a; Var b])
                 | _ ->
-                    Lambda([a; b], jsConcat (Var a) [NewArray [Var b]])
+                    Lambda([a; b], None, jsConcat (Var a) [NewArray [Var b]])
             let inclSelect expr =
                 match ri with
                 | Choice1Of2 ri ->
                     env.RangeVars.[ri] <- (a, None)
                 | _ -> ()
                 env.RangeVars.[symbol] <- (b, None)
-                let newResSelect = Lambda([a; b], this.TransformExpression expr)     
-                queryCall querySymbol [on; inExpression; Lambda([a], leftExpression); Lambda([b], rightExpression); newResSelect]      
-            queryCall querySymbol [on; inExpression; Lambda([a], leftExpression); Lambda([b], rightExpression); resSelect], Choice2Of2 (a, num, Some inclSelect)
+                let newResSelect = Lambda([a; b], None, this.TransformExpression expr)     
+                queryCall querySymbol [on; inExpression; Lambda([a], None, leftExpression); Lambda([b], None, rightExpression); newResSelect]
+            queryCall querySymbol [on; inExpression; Lambda([a], None, leftExpression); Lambda([b], None, rightExpression); resSelect], Choice2Of2 (a, num, Some inclSelect)
     
     member this.TransformWhereClause (x: WhereClauseData) : _ =
         let querySymbol = (env.SemanticModel.GetQueryClauseInfo(x.Node).OperationInfo.Symbol :?> IMethodSymbol)
@@ -2087,7 +2091,7 @@ type RoslynTransformer(env: Environment) =
                 match ri with
                 | Choice1Of2 ri -> fst env.RangeVars.[ri], Choice1Of2 ri
                 | Choice2Of2 (a, n, _) -> a, Choice2Of2 (a, n, None)
-            queryCall querySymbol [on; Lambda([a], expression)], ri
+            queryCall querySymbol [on; Lambda([a], None, expression)], ri
 
     member this.TransformOrderByClause (x: OrderByClauseData) : _ =
         let orderings = x.Orderings |> Seq.map this.TransformOrdering |> List.ofSeq
@@ -2101,7 +2105,7 @@ type RoslynTransformer(env: Environment) =
                 match ri with
                 | Choice1Of2 ri -> fst env.RangeVars.[ri], Choice1Of2 ri
                 | Choice2Of2 (a, n, _) -> a, Choice2Of2 (a, n, None)
-            queryCall querySymbol [on; Lambda([a], expression)], ri
+            queryCall querySymbol [on; Lambda([a], None, expression)], ri
 
     member this.TransformSelectClause (x: SelectClauseData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2120,7 +2124,7 @@ type RoslynTransformer(env: Environment) =
                 | Var v when v = a -> on
                 | _ -> failwith "invalid query form at select clause"
             else
-                queryCall symbol [on; Lambda([a], expression)]
+                queryCall symbol [on; Lambda([a], None, expression)]
 
     member this.TransformGroupClause (x: GroupClauseData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2131,7 +2135,7 @@ type RoslynTransformer(env: Environment) =
                 match ri with
                 | Choice1Of2 ri -> fst env.RangeVars.[ri]
                 | Choice2Of2 (a, _, _) -> a
-            queryCall symbol [on; Lambda([a], byExpression); Lambda([a], groupExpression)]
+            queryCall symbol [on; Lambda([a], None, byExpression); Lambda([a], None, groupExpression)]
 
     member this.TransformQueryContinuation (x: QueryContinuationData) : _ =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)

@@ -118,7 +118,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                     let i = Id.New(arg.Name, false)  
                     env.AddVar(i, arg)
                     [i]
-            Lambda(lArg, (tr body))
+            Lambda(lArg, Some (Reflection.ReadType body.Type), (tr body))
         | Patterns.Application(func, arg) ->
             Appl(tr func, [tr arg], NonPure, Some 1) // TODO: pure functions
         | Patterns.Let(id, value, body) ->
@@ -243,13 +243,14 @@ let rec transformExpression (env: Environment) (expr: Expr) =
                 | _ -> parsefailf "Expected a record type"
             FieldSet(thisOpt |> Option.map tr, t, field.Name, tr value)
         | Patterns.AddressOf expr ->
+            let typ = Reflection.ReadType expr.Type
             match IgnoreExprSourcePos (tr expr) with
             | Var v as e ->
-                MakeRef e (fun value -> VarSet(v, value))
+                MakeRef e (fun value -> VarSet(v, value)) (Some typ)
             | ItemGet(o, i, _) as e ->
-                MakeRef e (fun value -> ItemSet(o, i, value))
+                MakeRef e (fun value -> ItemSet(o, i, value)) (Some typ)
             | FieldGet(o, t, f) as e ->
-                MakeRef e (fun value -> FieldSet(o, t, f, value))                
+                MakeRef e (fun value -> FieldSet(o, t, f, value)) (Some typ)
             | e -> parsefailf "AddressOf error" // not on a Var or ItemGet: %+A" e 
         | Patterns.AddressSet (addr, value) ->
             match addr with

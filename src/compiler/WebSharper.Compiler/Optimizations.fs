@@ -58,11 +58,11 @@ let (|GetPrototypeConstuctor|_|) e =
 let AppItem (obj, item, args) =
     ApplAny(ItemGet(obj, Value (String item), Pure), args)
 
-let func vars body isReturn =
-    if isReturn then Lambda(vars, body) else Function(vars, ExprStatement body)
+let func vars ret body isReturn =
+    if isReturn then Lambda(vars, ret, body) else Function(vars, ret, ExprStatement body)
 
-let thisFunc (this: Id) vars body isReturn =
-    func vars (FixThisScope(this.VarType).Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
+let thisFunc (this: Id) vars ret body isReturn =
+    func vars ret (FixThisScope(this.VarType).Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
 
 let globalArray = Address.Lib "Array"
 
@@ -119,35 +119,35 @@ let cleanRuntime force expr =
             AppItem(f, "apply", [ obj; args ])
         | "Apply", [f; obj] when force ->
             AppItem(f, "apply", [ obj ])
-        | "CreateFuncWithArgs", [ TupledLambda (vars, body, isReturn) as f ] ->
-            func vars body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithArgs", [ TupledLambda (vars, ret, body, isReturn) as f ] ->
+            func vars ret body isReturn |> WithSourcePosOfExpr f
         | "CreateFuncWithArgs", _ ->
 #if DEBUG
             printfn "non-optimized CreateFuncWithArgs: %A" (Debug.PrintExpression expr)
 #endif
             expr
-        | "CreateFuncWithOnlyThis", [ Lambda ([obj], body, isReturn) as f ] ->
-            thisFunc obj [] body isReturn |> WithSourcePosOfExpr f
-        | "CreateFuncWithThis", [ Lambda ([obj], Lambda (args, body, isReturn), true) as f ] ->
-            thisFunc obj args body isReturn |> WithSourcePosOfExpr f   
-        | "CreateFuncWithThis", [ AppRuntime ("Curried", [Lambda([obj; arg], body, isReturn) as f]) ] ->
-            thisFunc obj [arg] body isReturn |> WithSourcePosOfExpr f   
-        | "CreateFuncWithThisArgs", [ Lambda ([obj], TupledLambda (vars, body, isReturn), true) as f ] ->
-            thisFunc obj vars body isReturn |> WithSourcePosOfExpr f
-        | "CreateFuncWithThisArgs", [ AppRuntime ("Curried", [Lambda([obj; arg], body, isReturn) as f]) ] ->
-            match func [arg] body isReturn with
-            | TupledLambda(vars, body, _) ->
-                thisFunc obj vars body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithOnlyThis", [ Lambda ([obj], ret, body, isReturn) as f ] ->
+            thisFunc obj [] ret body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithThis", [ Lambda ([obj], _, Lambda (args, ret, body, isReturn), true) as f ] ->
+            thisFunc obj args ret body isReturn |> WithSourcePosOfExpr f   
+        | "CreateFuncWithThis", [ AppRuntime ("Curried", [Lambda([obj; arg], ret, body, isReturn) as f]) ] ->
+            thisFunc obj [arg] ret body isReturn |> WithSourcePosOfExpr f   
+        | "CreateFuncWithThisArgs", [ Lambda ([obj], _, TupledLambda (vars, ret, body, isReturn), true) as f ] ->
+            thisFunc obj vars ret body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithThisArgs", [ AppRuntime ("Curried", [Lambda([obj; arg], ret, body, isReturn) as f]) ] ->
+            match func [arg] ret body isReturn with
+            | TupledLambda(vars, ret, body, _) ->
+                thisFunc obj vars ret body isReturn |> WithSourcePosOfExpr f
             | _ ->
-                thisFunc obj [arg] body isReturn |> WithSourcePosOfExpr f
-        | "CreateFuncWithRest", [ Value (Int length); TupledLambda (vars, body, isReturn) as f ] ->
+                thisFunc obj [arg] ret body isReturn |> WithSourcePosOfExpr f
+        | "CreateFuncWithRest", [ Value (Int length); TupledLambda (vars, ret, body, isReturn) as f ] ->
             match List.rev vars with
             | rest :: fixRev ->
                 let fix = List.rev fixRev
                 if containsVar rest body then
-                    func fix (Let (rest, sliceFromArguments [ length ], body)) isReturn |> WithSourcePosOfExpr f
+                    func fix ret (Let (rest, sliceFromArguments [ length ], body)) isReturn |> WithSourcePosOfExpr f
                 else
-                    func fix body isReturn |> WithSourcePosOfExpr f
+                    func fix ret body isReturn |> WithSourcePosOfExpr f
             | _ -> expr
         | "SetOptional", [obj; field; optValue] ->
             match optValue with
@@ -221,14 +221,14 @@ let cleanRuntime force expr =
                     body |> BottomUp (function WithInterop -> Var var | e -> e))
             else expr
         match value with
-        | TupledLambda (vars, lBody, isReturn) ->
-            transformIfAlwaysInterop "CreateFuncWithArgs" (fun () -> func vars lBody isReturn)
-        | Lambda ([obj], Lambda (args, lBody, isReturn), true) ->
-            transformIfAlwaysInterop "CreateFuncWithThis" (fun () -> thisFunc obj args lBody isReturn)
-        | Lambda ([obj], lBody, isReturn) ->
-            transformIfAlwaysInterop "CreateFuncWithOnlyThis" (fun () -> thisFunc obj [] lBody isReturn)
-        | Lambda ([obj], TupledLambda (vars, lBody, isReturn), true) ->
-            transformIfAlwaysInterop "CreateFuncWithThisArgs" (fun () -> thisFunc obj vars lBody isReturn)
+        | TupledLambda (vars, ret, lBody, isReturn) ->
+            transformIfAlwaysInterop "CreateFuncWithArgs" (fun () -> func vars ret lBody isReturn)
+        | Lambda ([obj], _, Lambda (args, ret, lBody, isReturn), true) ->
+            transformIfAlwaysInterop "CreateFuncWithThis" (fun () -> thisFunc obj args ret lBody isReturn)
+        | Lambda ([obj], ret, lBody, isReturn) ->
+            transformIfAlwaysInterop "CreateFuncWithOnlyThis" (fun () -> thisFunc obj [] ret lBody isReturn)
+        | Lambda ([obj], _, TupledLambda (vars, ret, lBody, isReturn), true) ->
+            transformIfAlwaysInterop "CreateFuncWithThisArgs" (fun () -> thisFunc obj vars ret lBody isReturn)
         | _ ->
             expr
     | ItemGet (Object fs, Value (String fieldName), _) when not (I.IsObjectMember fieldName) ->

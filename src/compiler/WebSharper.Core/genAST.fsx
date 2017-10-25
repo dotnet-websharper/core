@@ -104,7 +104,7 @@ let ExprDefs =
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
                The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
                and does not use the `this` value."
-        "Function", [ List Id, "parameters"; Statement, "body" ]
+        "Function", [ List Id, "parameters"; Option Type, "return"; Statement, "body" ]
             , "Function declaration"
         "VarSet", [ Id, "variable"; Expr, "value" ]
             , "Variable set"
@@ -128,7 +128,7 @@ let ExprDefs =
             , "Unary operation mutating value"
         "ExprSourcePos", [ Object "SourcePos", "range"; Expr, "expression" ]
             , "Original source location for an expression"
-        "FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Statement, "body" ]
+        "FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
             , "Temporary - Method of F# object expressions"
         "Self", []
             , "Temporary - Refers to the class from a static method"
@@ -222,7 +222,7 @@ let StatementDefs =
             , "Block of statements"
         "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
-        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body" ]
+        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body"; List TSType, "generics" ]
             , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
             , "'while' loop"
@@ -282,8 +282,6 @@ let StatementDefs =
             , "TypeScript - class plain property"
         "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
-        "TypedDeclaration", [ Statement, "statement"; TSType, "typeOrSignature" ]
-            , "TypeScript - function and var declaration with type or signature"
         "Alias", [ TSType, "alias"; TSType, "origType" ]
             , "TypeScript - type or import alias"
         "XmlComment", [ Str, "xml"]

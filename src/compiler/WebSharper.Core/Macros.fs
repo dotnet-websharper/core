@@ -88,7 +88,7 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
             if leftNble || rightNble then
                 let a = Id.New "a"
                 let b = Id.New "b"
-                Var a, Var b, fun res -> CurriedLambda([a; b], res)
+                Var a, Var b, fun res -> CurriedLambda([a; b], None, res)
             else
                 x, y, id
         let res =
@@ -204,7 +204,7 @@ let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
             if leftNble || rightNble then
                 let a = Id.New "a"
                 let b = Id.New "b"
-                Var a, Var b, fun res -> CurriedLambda([a; b], res)
+                Var a, Var b, fun res -> CurriedLambda([a; b], None, res)
             else
                 x, y, id
         let comp x y =
@@ -459,7 +459,7 @@ type Conversion() =
         let a, withNbleSupport = 
             if isNble then
                 let a = Id.New "a"
-                Var a, fun res -> utils c.Compilation "nullableConv" [ x; Lambda([a], res) ] 
+                Var a, fun res -> utils c.Compilation "nullableConv" [ x; Lambda([a], None, res) ] 
             else 
                 x, id
         let (|OptNbleTypeDef|_|) t =
@@ -870,8 +870,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
             | ArrayType (a, r) ->
                 let x = Id.New(mut = false)
                 match r with 
-                | 1 -> utils comp "printArray" [ Lambda([x], pp a (Var x)) ; o ]
-                | 2 -> utils comp "printArray2D" [ Lambda([x], pp a (Var x)) ; o ]
+                | 1 -> utils comp "printArray" [ Lambda([x], None, pp a (Var x)) ; o ]
+                | 2 -> utils comp "printArray2D" [ Lambda([x], None, pp a (Var x)) ; o ]
                 | _ -> utils comp "prettyPrint" [o]
             | VoidType -> cString "null" 
             | FSharpFuncType _ -> cString "<fun>"
@@ -888,7 +888,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                             comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                             let body = 
                                 let x = Id.New(mut = false)
-                                Lambda([x], 
+                                Lambda([x], None,
                                     seq {
                                         yield cString "{"
                                         let fields = Array.ofList fields
@@ -913,7 +913,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 | M.FSharpUnionInfo u ->
                     if ct.Entity.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" then
                         let x = Id.New(mut = false)
-                        utils comp "printList" [ Lambda([x], pp ct.Generics.[0] (Var x)) ; o ]    
+                        utils comp "printList" [ Lambda([x], None, pp ct.Generics.[0] (Var x)) ; o ]    
                     else
                         let td, m =
                             let key = M.CompositeEntry [ M.StringEntry "Printf"; M.TypeEntry t ]
@@ -926,7 +926,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                                 let gs = ct.Generics |> Array.ofList
                                 let body =
                                     let x = Id.New(mut = false)
-                                    Lambda([x],                                         
+                                    Lambda([x], None,
                                         let caseInfo =
                                             u.Cases |> Seq.mapi (fun tag c ->
                                                 match c.Kind with
@@ -1027,8 +1027,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
         |> Seq.reduce (^+)
     
     let k = Id.New(mut = false) 
-    Lambda([k],
-        args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
+    Lambda([k], None,
+        args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], None, c)) (Var k).[[inner]]
     )
   
 let objty, objArrTy =

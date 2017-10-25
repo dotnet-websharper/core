@@ -59,17 +59,17 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
     override this.TransformCoerce (a, b, c) = if isInline then base.TransformCoerce(a, b, c) else invalidForm "Coerce"
 
-    override this.TransformFunction(a, b) =
+    override this.TransformFunction(a, ret, b) =
         let l = insideLoop
         insideLoop <- false
-        let res = base.TransformFunction(a, b)
+        let res = base.TransformFunction(a, ret, b)
         insideLoop <- l
         res
 
-    override this.TransformFuncDeclaration(a, b, c) =
+    override this.TransformFuncDeclaration(a, b, c, d) =
         let l = insideLoop
         insideLoop <- false
-        let res = base.TransformFuncDeclaration(a, b, c)
+        let res = base.TransformFuncDeclaration(a, b, c, d)
         insideLoop <- l
         res
 
@@ -156,9 +156,9 @@ let private inlineOptimizer = Breaker(true)
 type CollectCurried() =
     inherit Transformer()
 
-    override this.TransformFunction(args, body) =
-        match Function(args, body) with
-        | CurriedFunction(a, b) ->
+    override this.TransformFunction(args, ret, body) =
+        match Function(args, ret, body) with
+        | CurriedFunction(a, ret, b) ->
             let trFunc, moreArgs, n =
                 match b with
                 | I.Return (I.Application (f, ar, { KnownLength = Some _ })) ->
@@ -167,11 +167,11 @@ type CollectCurried() =
                         let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
                         if sameVars a lastArgs && VarsNotUsed(args).Get(Sequential moreArgs) then
                             this.TransformExpression f, moreArgs, ar.Length
-                        else base.TransformFunction(a, b), [], a.Length
-                    else base.TransformFunction(a, b), [], a.Length
-                | _ -> base.TransformFunction(a, b), [], a.Length
+                        else base.TransformFunction(a, ret, b), [], a.Length
+                    else base.TransformFunction(a, ret, b), [], a.Length
+                | _ -> base.TransformFunction(a, ret, b), [], a.Length
             if n = 2 then
-                base.TransformFunction(args, body)    
+                base.TransformFunction(args, ret, body)    
             elif n < 4 || moreArgs.Length = 0 then
                 let curr =
                     match n with
@@ -184,14 +184,14 @@ type CollectCurried() =
                 
         | SimpleFunction f ->
             f
-        | _ -> base.TransformFunction(args, body)   
+        | _ -> base.TransformFunction(args, ret, body)   
    
 let collectCurriedTr = CollectCurried() 
 
 let collectCurried body =
     match body with
-    | Function(args, cbody) ->
-        Function (args, collectCurriedTr.TransformStatement cbody)
+    | Function(args, ret, cbody) ->
+        Function (args, ret, collectCurriedTr.TransformStatement cbody)
     | _ ->
         collectCurriedTr.TransformExpression body
 
@@ -800,18 +800,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 let cargs = List.init currying (fun _ -> Id.New(mut = false))
                 // todo get types of arguments to know about units
-                Lambda(cargs, CurriedApplication(expr, cargs |> List.map (fun e -> false, Var e)))  
+                Lambda(cargs, None, CurriedApplication(expr, cargs |> List.map (fun e -> false, Var e)))  
         | TupledFuncArg tupling -> 
             match expr with
-            | TupledLambda (args, body, _) ->
-                Lambda(List.ofSeq args, body)
+            | TupledLambda (args, ret, body, _) ->
+                Lambda(args, ret, body)
             | _ ->
                 match IgnoreExprSourcePos expr with
                 | OptimizedFSharpArg(f, TupledFuncArg arity) when arity = tupling -> 
                     f
                 | _ ->
                     let args = List.init tupling (fun _ -> Id.New(mut = false))
-                    Lambda(args, Appl(expr, [NewArray(args |> List.map Var)], NonPure, Some 1))
+                    Lambda(args, None, Appl(expr, [NewArray(args |> List.map Var)], NonPure, Some 1))
 
     override this.TransformOptimizedFSharpArg(f, opt) =
         match opt with
@@ -821,13 +821,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Appl (f, List.rev args, NonPure, Some arity)
                 else
                     let x = Id.New(mut = false)
-                    Lambda ([x], c (Var x :: args) (a - 1))
+                    Lambda ([x], None, c (Var x :: args) (a - 1))
             c [] arity
         | TupledFuncArg arity ->
             let x = Id.New(mut = false)
             let args =
                 List.init arity (fun i -> (Var x).[Value (Int i)])
-            Lambda ([x], Appl (f, args, NonPure, Some arity))
+            Lambda ([x], None, Appl (f, args, NonPure, Some arity))
         | _ ->
             this.TransformExpression(f)
 
@@ -1105,7 +1105,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let inlined() =
             let args = meth.Entity.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
             let call = 
-                Lambda(args, Call(thisObj, typ, meth, args |> List.map Var))
+                Lambda(args, None, Call(thisObj, typ, meth, args |> List.map Var))
                 |> this.TransformExpression
             this.Warning("Creating delegate from inlined call, equality may not work.")
             call        
@@ -1467,7 +1467,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             norm
                         | _ ->
                         match expr with
-                        | I.Function (cargs, cbody) ->
+                        | I.Function (cargs, _, cbody) ->
                             let args =
                                 match info with
                                 | M.NewIndexed _ ->
@@ -1523,16 +1523,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 Appl(GlobalAccess cctor, [], NonPure, Some 0)
         | None -> Undefined
 
-    override this.TransformFunction(a, b) =
-        innerScope <| fun () -> Function(a, this.TransformStatement b)
+    override this.TransformFunction(a, ret, b) =
+        innerScope <| fun () -> Function(a, ret, this.TransformStatement b)
 
-    override this.TransformFuncWithThis(a, b, c) =
-        innerScope <| fun () -> FuncWithThis(a, b,  this.TransformStatement c)
+    override this.TransformFuncWithThis(a, ret, b, c) =
+        innerScope <| fun () -> FuncWithThis(a, ret, b, this.TransformStatement c)
 
-    override this.TransformFuncDeclaration(a, b, c) =
+    override this.TransformFuncDeclaration(a, b, c, d) =
         let cc = cctorCalls
         cctorCalls <- Set.empty
-        let res = FuncDeclaration(a, b, this.TransformStatement c)
+        let res = FuncDeclaration(a, b, this.TransformStatement c, d)
         cctorCalls <- cc
         res
 

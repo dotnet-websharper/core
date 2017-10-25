@@ -98,8 +98,8 @@ let rec isPureExpr expr =
 
 let isPureFunction expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, (I.Return body | I.ExprStatement body)) -> isPureExpr body
-    | Function (_, (I.Empty | I.Block [])) -> true
+    | Function (_, _, (I.Return body | I.ExprStatement body)) -> isPureExpr body
+    | Function (_, _, (I.Empty | I.Block [])) -> true
     | _ -> false
 
 let rec isTrivialValue expr =
@@ -159,14 +159,14 @@ let rec isStronglyPureExpr expr =
 
 let getFunctionPurity expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, (I.Return body | I.ExprStatement body)) -> 
+    | Function (_, _, (I.Return body | I.ExprStatement body)) -> 
         if isStronglyPureExpr body then
             Pure
         elif isPureExpr body then
             NoSideEffect
         else 
             NonPure
-    | Function (_, (I.Empty | I.Block [])) -> Pure
+    | Function (_, _, (I.Empty | I.Block [])) -> Pure
     | _ -> NonPure
 
 /// Checks if a specific Id is mutated or accessed within a function body
@@ -196,9 +196,9 @@ type private NotMutatedOrCaptured(v) =
             this.VisitExpression a
             this.VisitExpression b
 
-    override this.VisitFunction(a, b) =
+    override this.VisitFunction(a, t, b) =
         scope <- scope + 1
-        base.VisitFunction(a, b)
+        base.VisitFunction(a, t, b)
         scope <- scope - 1
 
     override this.VisitExpression(a) =
@@ -357,8 +357,8 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            | Function(_, a)
-            | FuncWithThis(_, _, a) ->
+            | Function(_, _, a)
+            | FuncWithThis(_, _, _, a) ->
                 if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
                 evalSt a
@@ -400,7 +400,7 @@ let varEvalOrder (vars : Id list) expr =
             | Return (a) ->
                 eval a
                 stop()
-            | FuncDeclaration(_, _, a) -> 
+            | FuncDeclaration(_, _, a, _) -> 
                 if not <| varsNotUsed.GetSt(a) then fail()
             | TryFinally (a, b) ->
                 evalSt a
@@ -498,8 +498,8 @@ type Substitution(args, ?thisObj) =
     override this.TransformHole i = 
         if i <= args.Length - 1 then args.[i] else Undefined
 
-    override this.TransformFunction(args, body) =
-        let res = base.TransformFunction(args, body)
+    override this.TransformFunction(args, typ, body) =
+        let res = base.TransformFunction(args, typ, body)
         res
 
     override this.TransformId i =
@@ -527,22 +527,22 @@ type FixThisScope(typ) =
     let mutable chainedCtor = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
-    override this.TransformFunction(args, body) =
+    override this.TransformFunction(args, typ, body) =
         scope <- scope + 1
-        let res = base.TransformFunction(args, body)
+        let res = base.TransformFunction(args, typ, body)
         scope <- scope - 1
         res
      
-    override this.TransformFuncWithThis (thisArg, args, body) =
+    override this.TransformFuncWithThis (thisArg, args, typ, body) =
         scope <- scope + 1
         let used = ref false
         thisArgs.Add(thisArg, (scope, used))
         let trBody = this.TransformStatement body
         scope <- scope - 1
         if !used then
-            Function(args, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
+            Function(args, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
         else
-            Function(args, trBody)
+            Function(args, typ, trBody)
     
     override this.TransformChainedCtor(a, b, c, d, e) =
         let cc = Id.New()
@@ -1077,9 +1077,9 @@ type Capturing(?var) =
                 i
         else i
 
-    override this.TransformFunction (args, body) =
+    override this.TransformFunction (args, typ, body) =
         scope <- scope + 1
-        let res = Function (args, this.TransformStatement body)
+        let res = Function (args, typ, this.TransformStatement body)
         scope <- scope - 1
         res
 
@@ -1087,8 +1087,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Appl (Function ([], Return res), [], NonPure, None)
-            | Some c -> Appl (Function ([c], Return res), [Var var.Value], NonPure, None)        
+            | None -> Appl (Function ([], None, Return res), [], NonPure, None)
+            | Some c -> Appl (Function ([c], None, Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -1112,7 +1112,7 @@ type NeedsScoping() =
         if scope > 0 && defined.Contains i then 
             needed <- true
 
-    override this.VisitFunction (args, body) =
+    override this.VisitFunction (args, typ, body) =
         scope <- scope + 1
         this.VisitStatement body
         scope <- scope - 1
@@ -1139,10 +1139,10 @@ type HasNoThisVisitor() =
     override this.VisitThis() = 
         ok <- false
 
-    override this.VisitFunction (_, _) = ()
+    override this.VisitFunction (_, _, _) = ()
         
 
-    override this.VisitFuncDeclaration (_, _, _) = ()
+    override this.VisitFuncDeclaration (_, _, _, _) = ()
     
     member this.Check(e) =
         this.VisitStatement e
@@ -1224,8 +1224,8 @@ let sliceFromArguments slice =
 
 let (|Lambda|_|) e = 
     match e with
-    | Function(args, Return body) -> Some (args, body, true)
-    | Function(args, ExprStatement body) -> Some (args, body, false)
+    | Function(args, typ, Return body) -> Some (args, typ, body, true)
+    | Function(args, typ, ExprStatement body) -> Some (args, typ, body, false)
     | _ -> None
 
 let (|SimpleFunction|_|) expr =
@@ -1265,7 +1265,7 @@ let (|AlwaysTupleGet|_|) tupledArg length expr =
 
 let (|TupledLambda|_|) expr =
     match expr with
-    | Lambda ([tupledArg], b, isReturn) ->
+    | Lambda ([tupledArg], ret, b, isReturn) ->
         // when the tuple itself is bound to a name, there will be an extra let expression
         let tupledArg, b =
             match b with
@@ -1274,7 +1274,7 @@ let (|TupledLambda|_|) expr =
             | _ -> tupledArg, b
         let rec loop acc = function
             | Let (v, ItemGet(Var t, Value (Int i), _), body) when t = tupledArg ->
-                loop ((int i, v) :: acc) body
+                loop ((i, v) :: acc) body
             | body -> 
                 if List.isEmpty acc then [], body else
                 let m = Map.ofList acc
@@ -1290,71 +1290,71 @@ let (|TupledLambda|_|) expr =
                 let vars = 
                     if List.length vars > maxTupleGet then vars
                     else vars @ [ for k in List.length vars .. maxTupleGet -> Id.New(mut = false) ]
-                Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
+                Some (vars, ret, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
             | _ ->                                                        
                 // if we would use the arguments object for anything else than getting
                 // a tuple item, convert it to an array
                 if List.isEmpty vars then None else
-                Some (vars, Let (tupledArg, sliceFromArguments [], body), isReturn)
+                Some (vars, ret, Let (tupledArg, sliceFromArguments [], body), isReturn)
         else
             if List.isEmpty vars then None else
-            Some (vars, body, isReturn)
+            Some (vars, ret, body, isReturn)
     | _ -> None
 
 let (|CurriedLambda|_|) expr =
-    let rec curr args expr =
+    let rec curr args ret expr =
         match expr with
-        | Lambda ([], b, true) ->
+        | Lambda ([], ret, b, true) ->
             let a = Id.New(mut = false)
-            curr (a :: args) b
-        | Lambda ([a], b, true) ->
-            curr (a.ToNonOptional() :: args) b
-        | Lambda ([], b, false) ->
+            curr (a :: args) ret b
+        | Lambda ([a], ret, b, true) ->
+            curr (a.ToNonOptional() :: args) ret b
+        | Lambda ([], ret, b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), b, false) 
+                Some (List.rev (a :: args), ret, b, false) 
             else None
-        | Lambda ([a], b, false) ->
+        | Lambda ([a], ret, b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a.ToNonOptional() :: args), b, false) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, b, false) 
             else None
         | _ -> 
             if List.length args > 1 then
-                Some (List.rev args, expr, true)
+                Some (List.rev args, ret, expr, true)
             else None
-    curr [] expr
+    curr [] None expr
 
 let (|CurriedFunction|_|) expr =
-    let rec curr args expr =
+    let rec curr args ret expr =
         match expr with
-        | Lambda ([], b, true) ->
+        | Lambda ([], ret, b, true) ->
             let a = Id.New(mut = false)
-            curr (a :: args) b
-        | Lambda ([a], b, true) ->
-            curr (a.ToNonOptional() :: args) b
-        | Lambda ([], b, false) ->
+            curr (a :: args) ret b
+        | Lambda ([a], ret, b, true) ->
+            curr (a.ToNonOptional() :: args) ret b
+        | Lambda ([], ret, b, false) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), ExprStatement b) 
+                Some (List.rev (a :: args), ret, ExprStatement b) 
             else None
-        | Lambda ([a], b, false) ->
+        | Lambda ([a], ret, b, false) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a.ToNonOptional() :: args), ExprStatement b) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, ExprStatement b) 
             else None
-        | Function ([], b) ->
+        | Function ([], ret, b) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
-                Some (List.rev (a :: args), b) 
+                Some (List.rev (a :: args), ret, b) 
             else None
-        | Function ([a], b) ->
+        | Function ([a], ret, b) ->
             if not (List.isEmpty args) then
-                Some (List.rev (a.ToNonOptional() :: args), b) 
+                Some (List.rev (a.ToNonOptional() :: args), ret, b) 
             else None
         | _ -> 
             if List.length args > 1 then
-                Some (List.rev args, Return expr)
+                Some (List.rev args, ret, Return expr)
             else None
-    curr [] expr
+    curr [] None expr
 
 let (|CurriedApplicationSeparate|_|) expr =
     let rec appl args expr =
@@ -1375,16 +1375,16 @@ let (|CurriedApplicationSeparate|_|) expr =
 type OptimizeLocalTupledFunc(var: Id , tupling) =
     inherit Transformer()
 
-    let tupleType = 
+    let tupleAndRetType = 
         match var.VarType with
-        | Some (FSharpFuncType (ts, _)) ->
-           Some ts   
+        | Some (FSharpFuncType (ts, ret)) ->
+           Some (ts, ret)
         | _ -> None
 
     override this.TransformVar(v) =
         if v = var then
-            let t = Id.New(mut = false, ?typ = tupleType)
-            Lambda([t], Appl(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
+            let t = Id.New(mut = false, ?typ = Option.map fst tupleAndRetType)
+            Lambda([t], Option.map snd tupleAndRetType, Appl(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
         else Var v  
 
     override this.TransformApplication(func, args, info) =
@@ -1426,21 +1426,22 @@ let curriedApplication func (args: (bool * Expression) list) =
 
 type OptimizeLocalCurriedFunc(var: Id, currying) =
     inherit Transformer()
-    
-    let types = 
-        match var.VarType with
-        | Some t ->
-            t |> Array.unfold (
-                function 
-                | FSharpFuncType (a, r) -> Some (a, r)
-                | _ -> None
-            )
-        | _ -> [||]
+
+    let types =
+        let rec getTypes acc i t =
+            if i = 0 then List.rev acc, t else
+            match t with
+            | FSharpFuncType (a, r) -> getTypes (a :: acc) (i - 1) r
+            | _ -> failwith "Trying to optimize currification of a non-function value"
+        var.VarType |> Option.map (getTypes [] currying)
 
     override this.TransformVar(v) =
         if v = var then
-            let ids = List.init currying (fun i -> Id.New(mut = false, ?typ = if i < types.Length then Some types.[i] else None))
-            CurriedLambda(ids, Appl(Var v, ids |> List.map Var, NonPure, Some currying))    
+            let ids, retType =
+                match types with
+                | Some (argTypes, retType) -> argTypes |> List.map (fun t -> Id.New(mut = false, typ = t)), Some retType
+                | None -> List.init currying (fun i -> Id.New(mut = false)), None
+            CurriedLambda(ids, retType, Appl(Var v, ids |> List.map Var, NonPure, Some currying))
         else Var v  
 
     override this.TransformCurriedApplication(func, args) =

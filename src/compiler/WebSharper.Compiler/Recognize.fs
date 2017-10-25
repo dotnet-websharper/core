@@ -48,7 +48,7 @@ let GetMutableExternals (meta: M.Info) =
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
                     res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
@@ -80,13 +80,13 @@ let GetMutableExternals (meta: M.Info) =
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
                     a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
                 | _ -> ()
             elif m.Value.MethodName.StartsWith "get_" then
                 match e with
-                | IS.Function(_, IS.Return(IS.GlobalAccess a))
+                | IS.Function(_, _, IS.Return(IS.GlobalAccess a))
                 | IS.GlobalAccess a ->
                     tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
@@ -387,10 +387,10 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         let body = S.Block c
         let fres =
             match a with
-            | None -> Function (vars, transformStatement innerEnv body)
+            | None -> Function (vars, None, transformStatement innerEnv body)
             | Some a -> 
                 let f = env.NewVar a
-                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
+                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body, []), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
     | S.New (a, [], b) -> 
@@ -513,7 +513,7 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
-        FuncDeclaration(f, vars, transformStatement innerEnv body)
+        FuncDeclaration(f, vars, transformStatement innerEnv body, [])
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 type InlinedStatementsTransformer() =
@@ -532,7 +532,7 @@ type InlinedStatementsTransformer() =
         
         VarSetStatement(rv, expr)
 
-    override this.TransformFuncDeclaration(a, b, c) = FuncDeclaration(a, b, c) 
+    override this.TransformFuncDeclaration(a, b, c, d) = FuncDeclaration(a, b, c, d)
     
     member this.Run(st) =
         let res = this.TransformStatement(st)
@@ -565,7 +565,7 @@ let parseDirect ext thisArg args jsString =
             p
             |> S.Block
             |> transformStatement (Environment.New(thisArg, true, false, args, ext, None))
-    Function(args, body)
+    Function(args, None, body)
 
 let parseGeneratedJavaScript e =
     e |> transformExpression Environment.Empty

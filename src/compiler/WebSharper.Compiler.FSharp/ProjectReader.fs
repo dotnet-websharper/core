@@ -557,7 +557,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         | _ -> failwith "F# Module value or member should be represented as a static method"
                                     let name = Resolve.getRenamedInDict meth.CompiledName mtyp scFields
                                     scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
-                                    Lambda([], FieldGet(None, NonGeneric scDef, name))
+                                    Lambda([], Some mtyp, FieldGet(None, NonGeneric scDef, name))
                             else
                                 let thisVar, vars =
                                     match argsAndVars with 
@@ -589,17 +589,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         | _ -> b
                                     makeExprInline (Option.toList thisVar @ vars) b
                                 else 
-                                    let returnsUnit =
+                                    let returnType =
                                         match memdef with
                                         | Member.Method (_, mdef)  
                                         | Member.Override (_, mdef) 
                                         | Member.Implementation (_, mdef) ->
-                                            mdef.Value.ReturnType = VoidType
-                                        | _ -> true
-                                    if returnsUnit then
-                                        Function(vars, ExprStatement b)
+                                            mdef.Value.ReturnType
+                                        | _ -> VoidType
+                                    if returnType = VoidType then
+                                        Function(vars, None, ExprStatement b)
                                     else
-                                        Lambda(vars, b)
+                                        Lambda(vars, Some returnType, b)
                         let currentMethod =
                             match memdef with
                             | Member.Method (_, m) -> 
@@ -644,9 +644,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     }
                                 let setb =
                                     match body with
-                                    | Function([], Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
+                                    | Function([], ret, Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
                                         let value = CodeReader.newId()                          
-                                        Function ([value], (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
+                                        Function ([value], ret, (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
                                     | _ -> 
                                         error "unexpected form in module let body"
                                         Undefined
@@ -896,7 +896,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         )
                     else 
                         normalFields
-                Lambda (vars, CopyCtor(def, obj))
+                Lambda (vars, None, CopyCtor(def, obj))
 
             let cKind = if annot.IsForcedNotJavaScript then nrInline else N.Static
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
@@ -968,7 +968,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     DefaultValueOf (sr.ReadType clsTparams f.FieldType)
                 )
                 |> List.ofSeq
-            let body = Lambda([], Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
+            let body = Lambda([], None, Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 
@@ -1182,7 +1182,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
             let statements, fields = sc            
-            let cctor = Function ([], Block (List.ofSeq statements))
+            let cctor = Function ([], None, Block (List.ofSeq statements))
             let members =
                 [
                     for KeyValue(f, t) in fields -> 
