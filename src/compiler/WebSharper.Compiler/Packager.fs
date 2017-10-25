@@ -406,7 +406,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             addExport <| Alias ((TSType.Basic n |> addGenerics gen), TSType.Union cases)
         | _ -> failwith "empty address for union type"
 
-    let packageRecord fields addr (t: TypeDefinition) =
+    let packageRecord fields addr (t: TypeDefinition) gsArr =
         let fields =
             fields |> List.map (fun f ->
                 let t =
@@ -416,15 +416,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         | _ -> failwith "OptionalField on a field not of type option<_>"
                     else
                         f.RecordFieldType
-                    |> tsTypeOf [||]
+                    |> tsTypeOf gsArr
                 ClassProperty(false, f.JSName, t, f.Optional)
             )
-        let numGenerics =
-            match t.Value.FullName.IndexOf '`' with
-            | -1 -> 0
-            | i -> int t.Value.FullName.[i+1..]
-        let generics = List.init numGenerics TSType.Param
-        packageByName addr <| fun n -> Interface(n, [], fields, generics)
+        packageByName addr <| fun n -> Interface(n, [], fields, getGenerics 0 (List.ofArray gsArr))
 
     let rec packageClass (t: TypeDefinition) (classAddress: Address) (ct: CustomTypeInfo) (c: M.ClassInfo) =
 
@@ -646,7 +641,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
         match ct with
         | M.FSharpRecordInfo r when not c.HasWSPrototype && Option.isNone c.Type ->
-            packageRecord r classAddress t
+            packageRecord r classAddress t gsArr
         | M.FSharpUnionInfo u when Option.isNone c.Type ->
             packageUnion u classAddress (Some (baseType, impls, List.ofSeq members, gen)) gsArr
         | _ ->
@@ -658,9 +653,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             getAddress { classAddress with Module = JavaScriptFile "" } |> ignore
 
     let packageUnannotatedCustomType (t: TypeDefinition) (addr: Address) (c: CustomTypeInfo) =
+        let numGenerics =
+            try
+                t.Value.FullName.Split('.', '+') |> Array.sumBy (fun n ->
+                    match n.IndexOf '`' with
+                    | -1 -> 0
+                    | i -> int (n.Substring(i + 1))
+                )
+            with _ ->
+                failwithf "failed to get generics count of %s" t.Value.FullName
+        let gsArr = Array.init numGenerics (fun _ -> GenericParam.None)
         match c with
-        | CustomTypeInfo.FSharpRecordInfo r -> packageRecord r addr t
-        | CustomTypeInfo.FSharpUnionInfo u -> packageUnion u addr None [||]
+        | CustomTypeInfo.FSharpRecordInfo r -> packageRecord r addr t gsArr
+        | CustomTypeInfo.FSharpUnionInfo u -> packageUnion u addr None gsArr
         | CustomTypeInfo.FSharpUnionCaseInfo _
         | CustomTypeInfo.DelegateInfo _
         | CustomTypeInfo.EnumInfo _
