@@ -25,7 +25,7 @@ open WebSharper.JavaScript
 
 [<Name "WebSharper.Delegate">]
 [<Proxy(typeof<Delegate>)>]
-[<Type "Function">]
+[<Type "any">]
 [<Prototype false>]
 type internal DelegateProxy =
 
@@ -95,7 +95,7 @@ type internal DelegateProxy =
         DelegateProxy.JSCreateDelegate(sourceInv |> Array.filter (fun i -> not (i.Equals(value))))         
 
 [<Proxy(typeof<MulticastDelegate>)>]
-[<Type "function">]
+[<Type "any">]
 type internal MulticastDelegateProxy =
     
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]

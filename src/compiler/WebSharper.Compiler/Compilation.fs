@@ -1234,7 +1234,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match constructors.Count with
             | 0 ->
                 if hasInlinedCtor && Option.isNone cls.Type && cls.Kind <> NotResolvedClassKind.Stub && not (TypeTranslator.CustomTranslations.ContainsKey typ) then
-                    this.AddWarning(Some cls.SourcePos, SourceWarning ("Class " + typ.Value.FullName + "only has inlined constructors, consider adding a Type attribute" ))
+                    this.AddWarning(Some cls.SourcePos, SourceWarning ("Class " + typ.Value.FullName + " only has inlined constructors, consider adding a Type attribute" ))
             | 1 -> addConstructor constructors.[0] New
             | _ -> 
                 for i, ctor in Seq.indexed constructors do

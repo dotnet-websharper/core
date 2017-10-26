@@ -1203,8 +1203,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> this.Error("Invalid metadata for constructor.")
 
     override this.TransformCopyCtor(typ, objExpr) =
-        match comp.TryLookupClassInfo typ |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
-        | Some a ->
+        match comp.TryLookupClassAddressOrCustomType typ with
+        | Choice1Of2 a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
             JSRuntime.Create (GlobalAccess a) (this.TransformExpression objExpr)
@@ -1212,22 +1212,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.UnionCtor(typ, i, args) =
         let trArgs = args |> List.map this.TransformExpression
-        match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
-        | Some a ->
-            if comp.HasGraph then
-                this.AddTypeDependency typ.Entity
-            New (GlobalAccess (a.Sub("$")), [], Value (Int i) :: trArgs)
-        | _ -> 
-            let objExpr =
+        let objExpr =
+            match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
+            | Some a ->
+                if comp.HasGraph then
+                    this.AddTypeDependency typ.Entity
+                New (GlobalAccess (a.Sub("$")), [], Value (Int i) :: trArgs)
+            | _ -> 
                 Object (
                     ("$", Value (Int i)) ::
                     (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
                 )
-            let typedObjExpr =
-                match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
-                | TSType.Any -> objExpr
-                | t -> Cast (t, objExpr)
-            this.TransformExpression typedObjExpr
+        match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
+        | TSType.Any -> objExpr
+        | t -> Cast (t, objExpr)
 
     override this.TransformNewRecord(typ, args) =
         match comp.TryGetRecordConstructor typ.Entity with
