@@ -77,14 +77,14 @@ module Provider =
                 | _ -> failwith "Invalid field option kind")
             o
 
-    let EncodeUnion (_: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
+    let EncodeUnion (_: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> 'T -> obj) =
         ()
         fun () x ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
                 let o = New []
                 let tag = x?("$")
                 let tagName, fields = cases.[tag]
-                if JS.TypeOf discr = JS.Kind.String then o?(discr) <- tagName
+                if JS.TypeOf discr = JS.Kind.String then o?(As<string> discr) <- tagName
                 fields |> Array.iter (fun (from, ``to``, enc, kind) ->
                     match from with
                     | null -> // inline record
@@ -173,7 +173,7 @@ module Provider =
                 | _ -> failwith "Invalid field option kind")
             o
 
-    let DecodeUnion (t: obj) (discr: string) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
+    let DecodeUnion (t: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
@@ -181,7 +181,7 @@ module Provider =
                 let tag =
                     // [<NamedUnionCases(discr)>]
                     if JS.TypeOf discr = JS.Kind.String then
-                        let tagName = x?(discr)
+                        let tagName = x?(As<string> discr)
                         cases |> Array.findIndex (fun (name, _) -> name = tagName)
                     else // [<NamedUnionCases>]
                         let r = ref JS.Undefined
@@ -195,7 +195,7 @@ module Provider =
                         let r = dec () x
                         // eliminate tag field if record deserializer is identity
                         if As<bool> ``to`` then 
-                            JS.Delete r discr
+                            JS.Delete r (As<string> discr)
                         o?("$0") <- r
                     | from -> // normal args
                         match kind with
@@ -244,6 +244,11 @@ module Macro =
             Compilation : M.ICompilation
         }
 
+    type EncodeResult =
+        | Ok of Expression
+        | Fail of string
+        | Generic of Type
+
     [<AutoOpen>]
     module private Internals =
 
@@ -278,19 +283,14 @@ module Macro =
             let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
             Call(None, NonGeneric providerType, NonGeneric m, [])
 
-        type EncodeResult = Choice<Expression, string, Type>
-
         let (>>=) (x: EncodeResult) (f: Expression -> EncodeResult) =
             match x with
-            | Choice1Of3 e -> f e
+            | Ok e -> f e
             | _ -> x
-        let ok x = Choice1Of3 x : EncodeResult
-        let fail x = Choice2Of3 x : EncodeResult
-        let generic t = Choice3Of3 t : EncodeResult
 
         let mapOk f x =
             match x with
-            | Choice1Of3 x -> Choice1Of3 (f x) 
+            | Ok x -> Ok (f x)
             | _ -> x
 
         /// Returns None if MacroNeedsResolvedTypeArg.
@@ -302,55 +302,58 @@ module Macro =
             let ident = invokeId comp 
             let isIdent r =
                 match r with 
-                | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
+                | Ok e when obj.ReferenceEquals(e, ident) -> true
                 | _ -> false
             let rec encode t =
                 match t with
                 | ArrayType (t, 1) ->
                     encode t >>= fun e ->
-                    ok (call "Array" [e])
+                    Ok (call "Array" [e])
                 | ArrayType _ ->
-                    fail "JSON serialization for multidimensional arrays is not supported."
+                    Fail "JSON serialization for multidimensional arrays is not supported."
+                | TSType (TSType.ArrayOf t) ->
+                    encode (TSType t) >>= fun e ->
+                    Ok (call "Array" [e])
                 | VoidType
+                | TSType (TSType.Number | TSType.String | TSType.Null | TSType.Void)
                 | C (T ("Microsoft.FSharp.Core.Unit"
-                                |"System.Boolean"
-                                |"System.SByte" | "System.Byte"
-                                |"System.Int16" | "System.UInt16"
-                                |"System.Int32" | "System.UInt32"
-                                |"System.Int64" | "System.UInt64"
-                                |"System.Single"| "System.Double"
-                                |"System.String"| "System.Guid"
-                                |"WebSharper.Core.Json+Encoded"), []) ->
-                    ok ident
+                            | "System.Boolean"
+                            | "System.SByte" | "System.Byte"
+                            | "System.Int16" | "System.UInt16"
+                            | "System.Int32" | "System.UInt32"
+                            | "System.Int64" | "System.UInt64"
+                            | "System.Single"| "System.Double"
+                            | "System.String"| "System.Guid"
+                            | "WebSharper.Core.Json+Encoded"), []) ->
+                    Ok ident
                 | C (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
                     encode t >>= fun e ->
-                    ok (call "List" [e])
+                    Ok (call "List" [e])
                 | C (T "Microsoft.FSharp.Collections.FSharpSet`1", [t]) ->
                     encode t >>= fun e ->
-                    ok (call "Set" [e])
+                    Ok (call "Set" [e])
                 | C (T "Microsoft.FSharp.Collections.FSharpMap`2",
                                 [C (T "System.String", []); t]) ->
                     encode t >>= fun e -> 
-                    ok (call "StringMap" [e])
+                    Ok (call "StringMap" [e])
                 | C (T "System.Collections.Generic.Dictionary`2",
                                 [C (T "System.String", []); t]) ->
                     encode t >>= fun e ->
-                    ok (call "StringDictionary" [e])
+                    Ok (call "StringDictionary" [e])
                 | TupleType (ts, _) ->
-                    ((fun es -> ok (call "Tuple" [NewArray es])), ts)
-                    ||> List.fold (fun k t ->
-                        fun es -> encode t >>= fun e -> k (e :: es))
-                    <| []
+                    encodeTuple ts
+                | TSType (TSType.Tuple ts) ->
+                    encodeTuple (List.map TSType ts)
                 | C (T "System.DateTime", []) ->
-                    ok (call "DateTime" [])
+                    Ok (call "DateTime" [])
                 | C (td, args) ->                    
                     let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
                     match comp.GetMetadataEntries key with                    
                     | M.StringEntry "id" :: _ ->
-                        ok ident
+                        Ok ident
                     | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                        Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> Ok
                     | _ ->
                         let gtd, gm, _ = comp.NewGenerated([top; "j"])
                         let _, gv, va = comp.NewGenerated([top; "_" + "v"])
@@ -369,25 +372,32 @@ module Macro =
                                 let a = { Module = CurrentModule; Address = Hashed [ top ] }
                                 let b = Lambda ([], None, Conditional(v, v, ItemSet(GlobalAccess a, vn, Appl(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
-                                Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                                Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> Ok
                          ), args)
                         ||> List.fold (fun k t es ->
                             encode t >>= fun e -> k ((t, e) :: es))
                         <| []
                 | ConcreteType _ -> failwith "impossible"
                 | FSharpFuncType _ -> 
-                    fail (name + ": Cannot de/serialize a function value.")
+                    Fail (name + ": Cannot de/serialize a function value.")
                 | ByRefType _ ->
-                    fail (name + ": Cannot de/serialize a byref value.")
+                    Fail (name + ": Cannot de/serialize a byref value.")
+                | TSType _ ->
+                    Fail (name + ": Cannot de/serialize this type: unknown [<Type>].")
                 | LocalTypeParameter
                 | StaticTypeParameter _ 
                 | TypeParameter _ ->
-                    generic t
+                    Generic t
+            and encodeTuple ts =
+                ((fun es -> Ok (call "Tuple" [NewArray es])), ts)
+                ||> List.fold (fun k t ->
+                    fun es -> encode t >>= fun e -> k (e :: es))
+                <| []
             // Encode a type that might be recursively defined
             and encRecType t targs args =
                 let td = t.TypeDefinition
                 match comp.GetCustomTypeInfo td with
-                | M.EnumInfo _ -> ok ident
+                | M.EnumInfo _ -> Ok ident
                 | M.FSharpRecordInfo fields ->
                     let fieldEncoders =
                         fields
@@ -417,11 +427,11 @@ module Macro =
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                         fo <> OptionalFieldKind.NormalOption && isIdent fe
                     )
-                    then ok ident
+                    then Ok ident
                     else
                         ((fun es ->
                             let es, tts = List.unzip es
-                            ok (call "Record" [pr; NewArray es])
+                            Ok (call "Record" [pr; NewArray es])
                             ), fieldEncoders)
                         ||> List.fold (fun k (fn, fo, fe) es ->                     
                                 fe >>= fun e ->
@@ -493,7 +503,7 @@ module Macro =
                         | Some (Some n) -> JI.NamedField n
                     let cases = u.Cases
                     ((0, fun cases ->
-                        let cases = NewArray cases
+                        let cases = Cast(TSType.Any, NewArray cases)
                         let discr =
                             match discr with
                             | JI.NoField discrFields ->
@@ -513,7 +523,7 @@ module Macro =
                                 else
                                     Undefined
                             | _ -> Undefined
-                        ok (call "Union" [tn; discr; cases])
+                        Ok (call "Union" [tn; discr; cases])
                         ), cases)
                     ||> List.fold (fun (i, k) case ->
                         i + 1, fun es ->
@@ -601,18 +611,18 @@ module Macro =
                         if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                             fo <> OptionalFieldKind.NormalOption && isIdent fe
                         )
-                        then ok ident
+                        then Ok ident
                         else
                             ((fun es ->
                                 let es, tts = List.unzip es
-                                ok (call "Record" [pr; NewArray es])
+                                Ok (call "Record" [pr; NewArray es])
                                 ), fieldEncoders)
                             ||> List.fold (fun k (fn, fo, fe) es ->                     
                                     fe >>= fun e ->
                                     k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
                             <| []
                     | _ ->
-                        fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
+                        Fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             encode t
 
         let encodeLambda name param t =
@@ -625,7 +635,12 @@ module Macro =
 
         let decodeLambda name param t =
             getEncoding name false param t
-            |> mapOk (fun x -> Appl(x, [], Pure, Some 0))
+            |> mapOk (fun x ->
+                Cast(
+                    TSType.Lambda([TSType.Any], param.Compilation.GetTSTypeOf(t)),
+                    Appl(x, [], Pure, Some 0)
+                )
+            )
 
         let decode name param t arg =
             decodeLambda name param t
@@ -679,11 +694,6 @@ module Macro =
     type SerializeMacro() =
         inherit WebSharper.Core.Macro()
 
-        static let rec last = function
-            | [x] -> x
-            | x :: l -> last l
-            | _ -> failwith ""
-
         override this.TranslateCall(c) =
             let f =
                 match c.Method.Entity.Value.MethodName with
@@ -699,10 +709,10 @@ module Macro =
                     Dependencies = ResizeArray()
                 }
             let res =
-                match f param c.Method.Generics.Head (last c.Arguments) with
-                | Choice1Of3 x -> WebSharper.Core.MacroOk x
-                | Choice2Of3 e -> WebSharper.Core.MacroError e
-                | Choice3Of3 t -> WebSharper.Core.MacroNeedsResolvedTypeArg t
+                match f param c.Method.Generics.Head (Seq.last c.Arguments) with
+                | Ok x -> WebSharper.Core.MacroOk x
+                | Fail e -> WebSharper.Core.MacroError e
+                | Generic t -> WebSharper.Core.MacroNeedsResolvedTypeArg t
             let resWithWarnings =
                 if param.Warnings.Count > 0 then
                     param.Warnings |> Seq.fold (fun res msg -> 
@@ -720,7 +730,7 @@ open Macro
 let Encode<'T> (x: 'T) = X<obj>
 
 /// Serializes an object to JSON using the same readable format as Sitelets.
-/// For plain JSON stringification, see Json.Stringify.
+/// For plain JSON stringification on the client, see Json.Stringify.
 [<Macro(typeof<SerializeMacro>)>]
 let Serialize<'T> (x: 'T) =
     ServerSideProvider.GetEncoder<'T>().Encode x
@@ -733,7 +743,7 @@ let Serialize<'T> (x: 'T) =
 let Decode<'T> (x: obj) = X<'T>
 
 /// Deserializes a JSON string using the same readable format as Sitelets.
-/// For plain JSON parsing, see Json.Parse.
+/// For plain JSON parsing on the client, see Json.Parse.
 [<Macro(typeof<SerializeMacro>)>]
 let Deserialize<'T> (x: string) =
     Core.Json.Parse x
@@ -747,7 +757,7 @@ let (|Object|Array|Number|String|Boolean|Undefined|) (o: WebSharper.Core.Json.En
     | JS.Kind.Number -> Number (As<float> o)
     | JS.Kind.String -> String (As<string> o)
     | JS.Kind.Undefined -> Undefined o
-    | JS.Kind.Function -> failwith ""
+    | JS.Kind.Function | JS.Kind.Symbol -> failwith ""
     | JS.Kind.Object ->
         if JS.InstanceOf o JS.Window?Array then
             Array (As<WebSharper.JavaScript.Array<WebSharper.Core.Json.Encoded>> o)

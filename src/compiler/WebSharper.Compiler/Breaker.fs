@@ -296,9 +296,6 @@ let optimize expr =
     | Function (vars, _, I.Return (I.Application (f, args, { KnownLength = Some i })))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
             f
-    // remove casts from function values where applied
-    | Application(I.Cast(_, f), a, info) ->
-        Application(f, a, info)    
     | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
         let moreArgsCount = args.Length - vars.Length
         let bind key (isUnit, value) body = 

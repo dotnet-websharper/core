@@ -226,6 +226,7 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.GetFieldAttributes(typ, field) = this.LookupFieldAttributes typ field
         member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
         member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
+        member this.GetTSTypeOf(t, ?gs) = typeTranslator.TSTypeOf (Array.ofList (defaultArg gs [])) t
 
         member this.ParseJSInline(inl: string, args: Expression list): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))

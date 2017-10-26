@@ -484,6 +484,7 @@ type ICompilation =
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetConstructorAttributes : TypeDefinition * Constructor -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
+    abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
     abstract ParseJSInline : string * list<Expression> -> Expression
     abstract NewGenerated : string list * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit

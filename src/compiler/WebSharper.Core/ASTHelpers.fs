@@ -324,14 +324,41 @@ let EmbedAST<'T> (v: Expression) : FSharp.Quotations.Expr<'T> =
     |> FSharp.Quotations.Expr.Cast
 
 module TSType =
+    open System
+
     let Basic x = TSType.Named [ x ]
+    let (|Basic|_|) = function
+        | TSType.Named [ x ] -> Some x
+        | _ -> None
     
     let Object = Basic "object"
+    let (|Object|_|) = function
+        | Basic "object" -> Some ()
+        | _ -> None
     let Null = Basic "null"
+    let (|Null|_|) = function
+        | Basic "null" -> Some ()
+        | _ -> None
     let String = Basic "string"
+    let (|String|_|) = function
+        | Basic "string" -> Some ()
+        | _ -> None
     let Number = Basic "number"
+    let (|Number|_|) = function
+        | Basic "number" -> Some ()
+        | _ -> None
+    let Boolean = Basic "boolean"
+    let (|Boolean|_|) = function
+        | Basic "boolean" -> Some ()
+        | _ -> None
     let Never = Basic "never"
+    let (|Never|_|) = function
+        | Basic "never" -> Some ()
+        | _ -> None
     let Void = Basic "void"
+    let (|Void|_|) = function
+        | Basic "void" -> Some ()
+        | _ -> None
     let private Array = Basic "Array"
     let ArrayOf t = TSType.Generic(Array, [ t ])
     let (|ArrayOf|_|) t = 
