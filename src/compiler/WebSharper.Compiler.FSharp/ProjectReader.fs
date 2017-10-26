@@ -1020,6 +1020,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
             ForceAddress = hasSingletonCase
             Type = annot.Type
+            SourcePos = CodeReader.getRange cls.DeclarationLocation
         }
     )
 
@@ -1115,11 +1116,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
 
     for file in checkResults.AssemblyContents.ImplementationFiles do
         if List.isEmpty file.Declarations then () else
-        let filePath =
-            match file.Declarations.Head with
-            | FSIFD.Entity (a, _) -> a.DeclarationLocation.FileName
-            | FSIFD.MemberOrFunctionOrValue (_, _, c) -> c.Range.FileName
-            | FSIFD.InitAction a -> a.Range.FileName
+        let filePath = file.FileName
         let sc =
             lazy
             let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
@@ -1212,6 +1209,12 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 ForceNoPrototype = false
                 ForceAddress = false
                 Type = None
+                SourcePos =
+                    {
+                        FileName = filePath
+                        Start = 0, 0
+                        End = 0, 0
+                    }
             }
             
         if sc.IsValueCreated then

@@ -1752,7 +1752,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Union (gs |> List.map this.GetTypeCheckKind) 
                     else 
                         let j = int (tN.Substring(35, 1))
-                        this.GetTypeCheckKind gs.[j]
+                        this.GetTypeCheckKind gs.[j - 1]
                 else
                 match comp.TryLookupClassAddressOrCustomType t with
                 | Choice1Of2 a ->

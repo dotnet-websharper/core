@@ -715,19 +715,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Some p -> p.GetAttributes() 
             | _ -> f.GetAttributes() 
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
-        let jsName =
-            match backingForProp with
-            | Some p -> Some ("$" + p.Name)
-            | None -> mAnnot.Name                       
-        let nr =
-            {
-                StrongName = jsName
-                IsStatic = f.IsStatic
-                IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
-                IsReadonly = f.IsReadOnly
-                FieldType = sr.ReadType f.Type 
-            }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        match mAnnot.Kind with
+        | Some k ->
+            let jsName =
+                match backingForProp with
+                | Some p -> Some ("$" + p.Name)
+                | None -> mAnnot.Name                       
+            let nr =
+                {
+                    StrongName = jsName
+                    IsStatic = f.IsStatic
+                    IsOptional = k = A.MemberKind.OptionalField 
+                    IsReadonly = f.IsReadOnly
+                    FieldType = sr.ReadType f.Type 
+                }
+            clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        | _ -> ()
     
     for f in members.OfType<IEventSymbol>() do
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -777,6 +780,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             ForceNoPrototype = (annot.Prototype = Some false)
             ForceAddress = false
             Type = annot.Type
+            SourcePos = CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences.[0]
         }
     )
 

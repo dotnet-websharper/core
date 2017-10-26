@@ -100,6 +100,7 @@ module NotResolved =
             ForceNoPrototype : bool
             ForceAddress : bool
             Type : option<TSType>
+            SourcePos : SourcePos
         }
 
     type NotResolvedInterface =

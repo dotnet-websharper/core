@@ -32,8 +32,8 @@ type CustomNumber(x: int) =
     static member op_Multiply(CN1: CustomNumber, CN2: CustomNumber) =
         CN1.Inner * CN2.Inner
 
-
 [<Proxy(typeof<CustomNumber>)>]
+[<Type "number">]
 type CN =
     
     [<Inline "$x">]

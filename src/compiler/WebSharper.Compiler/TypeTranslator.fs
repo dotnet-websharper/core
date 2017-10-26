@@ -74,7 +74,7 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
         for i = 1 to 7 do
             yield coreTyp ("WebSharper.JavaScript.Union`" + string i), TSType.Union
             for j = 1 to i do
-                yield coreTyp (sprintf "WebSharper.JavaScript.Union`%d+Union%dOf%d" i j i), (List.item j)
+                yield coreTyp (sprintf "WebSharper.JavaScript.Union`%d+Union%dOf%d" i j i), (List.item (j - 1))
         yield coreTyp "WebSharper.JavaScript.FuncWithArgs`2",
             function 
             | [ TSType.ArrayOf e; r ] -> TSType.Function(None, [], Some e, r)

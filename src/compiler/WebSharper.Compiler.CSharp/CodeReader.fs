@@ -534,12 +534,16 @@ type RoslynTransformer(env: Environment) =
         Call (None, qtyp, meth, args)
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
-        let typ = sr.ReadNamedType symbol.ContainingType
+        let eSymbol =
+            match symbol.ReducedFrom with
+            | null -> symbol
+            | symbol -> symbol
+        let typ = sr.ReadNamedType eSymbol.ContainingType
         let ma = 
-            (symbol.TypeArguments, symbol.TypeParameters) 
+            (symbol.TypeArguments, eSymbol.TypeParameters) 
             ||> Seq.map2 (fun a p -> if a.Equals p then dynTyp else sr.ReadType a) 
             |> List.ofSeq
-        let meth = Generic (sr.ReadMethod symbol) ma
+        let meth = Generic (sr.ReadMethod eSymbol) ma
         typ, meth
 
     let call (symbol: IMethodSymbol) thisOpt args =
@@ -684,7 +688,7 @@ type RoslynTransformer(env: Environment) =
             match symbol.ReducedFrom with
             | null -> symbol, false
             | symbol -> symbol, true
-        let typ, meth = getTypeAndMethod eSymbol
+        let typ, meth = getTypeAndMethod symbol
         let argumentList = x.ArgumentList |> this.TransformArgumentList
         let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =

@@ -1088,7 +1088,7 @@ type EqualityComparer() =
                     ConstructorInfo.Default(),
                     []
                 ) |> MacroOk
-            | _ -> MacroError ""
+            | _ -> MacroError ("Class info not found for " + ct.Entity.Value.FullName)
         | _ -> MacroError "Type form not recognized"
 
     override this.TranslateCall(c) =
@@ -1124,7 +1124,7 @@ type Comparer() =
                     ConstructorInfo.Default(),
                     [])
                 |> MacroOk
-            | _ -> MacroError ""
+            | _ -> MacroError ("Class info not found for " + ct.Entity.Value.FullName)
         | _ -> MacroError "Type form not recognized"
 
     override this.TranslateCall(c) =

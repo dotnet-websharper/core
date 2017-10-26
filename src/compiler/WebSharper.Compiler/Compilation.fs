@@ -472,13 +472,13 @@ type Compilation(meta: Info, ?hasGraph) =
         | _ -> None
 
     member this.TryLookupClassAddressOrCustomType typ =   
-        // unions may have an address for singleton fields but no prototype, treat this case first
         match classes.TryFind(this.FindProxied typ), this.GetCustomType typ with
-        | Some (addr, _, Some c), ((FSharpUnionInfo _) as ct) -> 
-            if not c.HasWSPrototype then Choice2Of2 ct
-            else Choice1Of2 (addr.Sub("$"))
-        | _, ((FSharpUnionCaseInfo _) as ct) ->  Choice2Of2 ct
-        | Some (addr, _, _), _ -> Choice1Of2 addr
+        | Some (addr, _, Some c), (FSharpUnionInfo _) when c.HasWSPrototype -> 
+            Choice1Of2 (addr.Sub("$"))
+        | Some (addr, _, Some c), _ when c.HasWSPrototype -> 
+            Choice1Of2 addr
+        | Some (addr, _, _), NotCustomType -> 
+            Choice1Of2 addr
         | _, ct -> Choice2Of2 ct
     
     member this.TryLookupInterfaceInfo typ =   
@@ -486,16 +486,21 @@ type Compilation(meta: Info, ?hasGraph) =
     
     member this.GetAbtractMethodGenerics typ meth =
         let typ = this.FindProxied typ
-        match classes.TryFind typ with
-        | Some (_, _, Some ci) ->
-            let _, _, mg, _ = ci.Methods.[meth]
-            Array.ofList (ci.Generics @ mg)
-        | _ ->
-            match interfaces.TryFind typ with
-            | Some ii ->
-                Array.ofList (ii.Generics @ snd ii.Methods.[meth])
+        try
+            match classes.TryFind typ with
+            | Some (_, _, Some ci) ->
+                let mg =
+                    match ci.Methods.TryFind meth with
+                    | Some (_, _, mg, _) -> mg
+                    | _ ->
+                        let (_, mg, _) =  compilingMethods.[typ, meth]
+                        mg
+                Array.ofList (ci.Generics @ mg)
             | _ ->
-                failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
+                let ii = interfaces.[typ]
+                Array.ofList (ii.Generics @ snd ii.Methods.[meth])
+        with _ ->
+            failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
 
     member this.GetMethods typ =
         compilingMethods |> Seq.choose (fun (KeyValue ((td, m), _)) ->
@@ -1086,6 +1091,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let cc = assumeClass typ
 
             let constructors = ResizeArray()
+            let mutable hasInlinedCtor = false
 
             for m in cls.Members do
                 
@@ -1147,6 +1153,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _, None ->
                     match m with 
                     | M.Constructor (cDef, nr) ->
+                        hasInlinedCtor <- true
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled && Option.isNone cc.StaticConstructor then
                             try
@@ -1215,7 +1222,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         () // TODO check redirection
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m    
-                        
+            
             let addConstructor (cDef, nr) comp =
                 if nr.Compiled && Option.isNone cc.StaticConstructor then
                     let isPure =
@@ -1225,7 +1232,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))
             
             match constructors.Count with
-            | 0 -> ()
+            | 0 ->
+                if hasInlinedCtor && Option.isNone cls.Type && cls.Kind <> NotResolvedClassKind.Stub && not (TypeTranslator.CustomTranslations.ContainsKey typ) then
+                    this.AddWarning(Some cls.SourcePos, SourceWarning ("Class " + typ.Value.FullName + "only has inlined constructors, consider adding a Type attribute" ))
             | 1 -> addConstructor constructors.[0] New
             | _ -> 
                 for i, ctor in Seq.indexed constructors do
