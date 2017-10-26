@@ -98,25 +98,39 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
 
     let isModule = Option.isSome moduleName
 
-    // TODO: only add what is necessary
-    // TODO: set Array.prototype.GetEnumerator and String.prototype.GetEnumerator 
-    let libExtensions =
-        let ie t = TSType.Generic(TSType.Named [ "WebSharper"; "IEnumerable" ], [ t ])
-        let T = TSType.Basic "T"
-        let ic t = TSType.Generic(TSType.Named [ "WebSharper"; "IComparable" ], [ t ])
-        [ 
-            Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error", false)], []) 
-            Interface ("Object", [], [ ClassProperty (false, "setPrototypeOf", TSType.Any, false) ], [])  
-            Interface ("Math", [], [ ClassProperty (false, "trunc", TSType.Any, false) ], [])  
-            Interface ("Array", [ ie T ], [], [ T ])
-            Interface ("String", [ ie (TSType.Basic "string") ], [], [])
-            Interface ("Number", [ ic (TSType.Basic "number") ], [], [])
-        ]
+    // TODO: only add what is necessary for bundles
+    if isBundle || current.Classes.ContainsKey Definitions.Obj then
 
-    if isModule then
-        declarations.Add <| Declare (Namespace ("global", libExtensions))
-    else
-        libExtensions |> List.iter declarations.Add 
+        let libExtensions =
+            let ie t = TSType.Generic(TSType.Named [ "WebSharper"; "IEnumerable" ], [ t ])
+            let T = TSType.Basic "T"
+            let ic t = TSType.Generic(TSType.Named [ "WebSharper"; "IComparable" ], [ t ])
+            [ 
+                Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error", false)], []) 
+                Interface ("Object", [], [ ClassMethod (false, "setPrototypeOf", [strId "o"; strId "proto" ], None, TSType.Lambda ([TSType.Any; TSType.Object], TSType.Any)) ], [])  
+                Interface ("Math", [], [ ClassMethod (false, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number))], []) 
+                Interface ("Array", [ ie T ], [], [ T ])
+                Interface ("String", [ ie (TSType.Basic "string") ], [], [])
+                Interface ("Number", [ ic (TSType.Basic "number") ], [], [])
+            ]
+
+        if isModule then
+            declarations.Add <| Declare (Namespace ("global", libExtensions))
+        else
+            libExtensions |> List.iter declarations.Add 
+
+        let rec local a =
+            match a with 
+            | [] -> glob
+            | [ a ] -> Var (strId a)
+            | h :: r -> (local r).[Value (String h)]
+        let expandBuiltinType typ mem body =
+            declarations.Add <| ExprStatement (ItemSet(local [ "prototype"; typ ], Value (String mem), body))
+        
+        expandBuiltinType "Array" "GetEnumerator" (Lambda([], None, AST.New(local [ "ItemEnumerator"; "WebSharper" ], [], [ This ])))
+        expandBuiltinType "String" "GetEnumerator" (Lambda([], None, AST.New(local [ "ItemEnumerator"; "WebSharper" ], [], [ This ])))
+        let x = Id.New("x", mut = false, typ = TSType (TSType.Number))
+        expandBuiltinType "Number" "CompareTo" (Lambda([x], None, This ^- Var x))
 
     let importJS js =
         if isModule then

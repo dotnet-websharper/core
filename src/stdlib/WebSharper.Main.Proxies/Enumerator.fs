@@ -26,6 +26,7 @@ type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
 [<Sealed; JavaScript>]
+[<Name "WebSharper.Enumerator">]
 type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
     [<Name "MoveNext">] 
     member this.MoveNext() = n this
@@ -58,43 +59,23 @@ let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
 
 [<JavaScript>]
-type internal EnumerableArray<'T> (s: 'T[]) =
-    [<Name "GetEnumerator">]
-    member this.GetEnumerator() : IE<'T> = 
-        New 0 (fun e ->
-            let i = e.State
-            if i < s.Length then
-                e.Current <- As s.[i]
-                e.State <- i + 1
-                true
-            else
-                false)
+[<Name "WebSharper.ItemEnumerator">]
+// Enumerates on JavaScript objects with a length property and indexed items.
+// Works on both JS Array and String.
+type internal ItemEnumerator(x: obj) =
+    let mutable i = 0
     
-    interface System.Collections.Generic.IEnumerable<'T> with
-        [<Inline>]
-        member this.GetEnumerator() = this.GetEnumerator()
-        
-        [<Inline>]
-        member this.GetEnumerator() = this.GetEnumerator() :> System.Collections.IEnumerator
+    interface System.Collections.IEnumerator with
+        member this.MoveNext() =
+            i <- i + 1
+            i >= x?length
+        [<Direct "this.x[this.i]" >]
+        member this.Current with get() = X<obj>
+        [<JavaScript false>]
+        member this.Reset() = X<unit>
 
-[<JavaScript>]
-type internal EnumerableString (s: string) =
-    [<Name "GetEnumerator">]
-    member this.GetEnumerator() : IE<char> = 
-        New 0 (fun e ->
-            let i = e.State
-            if i < s.Length then
-                e.Current <- As s.[i]
-                e.State <- i + 1
-                true
-            else
-                false)
-    interface System.Collections.Generic.IEnumerable<char> with
-        [<Inline>]
-        member this.GetEnumerator() = this.GetEnumerator()
-        
-        [<Inline>]
-        member this.GetEnumerator() = this.GetEnumerator() :> System.Collections.IEnumerator
+    interface System.IDisposable with
+        member this.Dispose() = ()
 
 [<Inline>]
 let Get (x: seq<'T>) : IE<'T> =
