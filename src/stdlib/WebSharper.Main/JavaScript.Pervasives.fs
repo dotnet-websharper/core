@@ -93,7 +93,7 @@ let ( ? ) (obj: obj) (field: string) = X<'T>
 [<Inline "void ($obj[$key] = $value)">]
 let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 
-[<Inline "[$x,$y]">]
+[<Inline>]
 let ( => ) (x: string) (y: obj) = (x, y)
 
 [<JavaScript>]
