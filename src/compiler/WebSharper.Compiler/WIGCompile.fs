@@ -1431,12 +1431,16 @@ type Compiler() =
         
         let assemblyPrototypes = Dictionary()
         for ns in assembly.Namespaces do
-            let rec addClass parentFullName (c: CodeModel.Class) =
+            let rec addClass parentFullName (c: CodeModel.TypeDeclaration) =
                 let generics = match c.Generics with [] -> "" | g -> "`" + string (List.length g)
                 let sn = parentFullName + iG.GetSourceName c + generics
                 assemblyPrototypes.Add(sn, c.Name)
-                for nc in c.NestedClasses do addClass (sn + "+") nc
+                match c with
+                | :? CodeModel.Class as c ->
+                    for nc in c.NestedClasses do addClass (sn + "+") nc
+                | _ -> ()
             for c in ns.Classes do addClass (ns.Name + ".") c
+            for c in ns.Interfaces do addClass (ns.Name + ".") c
 
         let isWsJs = options.AssemblyName.StartsWith "WebSharper.JavaScript"
         let fromLibrary = if isWsJs then None else Some (AST.WebSharperModule (options.AssemblyName + ".d"))

@@ -101,7 +101,7 @@
         jsStringOrNum: 0,
         callMixin:
             function (a) {
-                if (a = 'called through mixin')
+                if (a == 'called through mixin')
                     return 'ok';
             }
     }

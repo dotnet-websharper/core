@@ -356,9 +356,15 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             for r in reqs do
                 graph.AddEdge(i, ResourceNode r) 
 
+        let address =
+            prototypes.TryFind(def.Value.FullName)
+            |> Option.defaultValue def.Value.FullName
+            |> fun s -> 
+                { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+
         interfaces.Add(def,
             {
-                Address = Address.Lib "TODO_WIG_Interfaces"
+                Address = address
                 Extends = typ.Interfaces |> Seq.map (fun ii -> getType 0 ii.InterfaceType |> getConcreteType) |> List.ofSeq
                 Methods = 
                     dict [

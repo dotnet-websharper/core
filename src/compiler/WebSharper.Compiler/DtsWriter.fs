@@ -38,7 +38,10 @@ let private getNamespaceAndName (td: AST.TypeDefinition) (addr: AST.Address) (c:
             | i ->
                 t + "<" + String.concat "," [for j in 0 .. int n.[i+1..] - 1 -> "T" + string j] + ">"
             |> S.Id.New
-        List.rev ns, [S.TypeAlias(tid, any); S.Vars([varid, None], S.VarDecl)]
+        List.rev ns, [
+            yield S.TypeAlias(tid, any)
+            if c.IsSome then yield S.Vars([varid, None], S.VarDecl)
+        ]
     | [] -> failwithf "Class with empty address: %s" td.Value.FullName
 
 let rec private groupNamespaces s =
