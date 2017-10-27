@@ -29,8 +29,16 @@ let private any = S.Var(S.Id.New("any"))
 let private getNamespaceAndName (td: AST.TypeDefinition) (addr: AST.Address) (c: option<M.ClassInfo>) =
     match addr.Address.Value with
     | t :: ns -> 
-        let id = S.Id.New(t)
-        List.rev ns, [S.TypeAlias(id, any); S.Vars([id, None], S.VarDecl)]
+        let varid = S.Id.New(t)
+        let tid =
+            let n = td.Value.FullName
+            let last = n.Length - 1
+            match n.LastIndexOf('`', last, last - n.LastIndexOf '+') with
+            | -1 -> t
+            | i ->
+                t + "<" + String.concat "," [for j in 0 .. int n.[i+1..] - 1 -> "T" + string j] + ">"
+            |> S.Id.New
+        List.rev ns, [S.TypeAlias(tid, any); S.Vars([varid, None], S.VarDecl)]
     | [] -> failwithf "Class with empty address: %s" td.Value.FullName
 
 let rec private groupNamespaces s =
