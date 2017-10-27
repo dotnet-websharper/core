@@ -1,4 +1,4 @@
-﻿// $begin{copyright}
+// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -26,19 +26,22 @@ module S = WebSharper.Core.JavaScript.Syntax
 
 let private any = S.Var(S.Id.New("any"))
 
-let private getNamespaceAndName (td: AST.TypeDefinition) (addr: AST.Address) =
+let private getNamespaceAndName (td: AST.TypeDefinition) (addr: AST.Address) (c: option<M.ClassInfo>) =
     match addr.Address.Value with
     | t :: ns -> 
         let id = S.Id.New(t)
-        List.rev ns, S.TypeAlias(id, any)
+        List.rev ns, [S.TypeAlias(id, any); S.Vars([id, None], S.VarDecl)]
     | [] -> failwithf "Class with empty address: %s" td.Value.FullName
 
-let rec private groupNamespaces (s: seq<list<string> * S.Statement>) =
+let rec private groupNamespaces s =
     s
     |> Seq.groupBy (fst >> List.tryHead)
     |> Seq.collect (function
-        | None, xs -> Seq.map snd xs    // declarations
-        | Some ns, xs ->                // nested namespaces
+        | None, xs ->
+            // declarations
+            Seq.collect snd xs
+        | Some ns, xs ->
+            // nested namespaces
             S.Namespace(S.Id.New(ns),
                 xs
                 |> Seq.map (fun (ns, s) -> ns.Tail, s)
@@ -51,10 +54,9 @@ let rec private groupNamespaces (s: seq<list<string> * S.Statement>) =
 let WriteDts (meta: M.Info) : S.Program =
     seq {
         for KeyValue (td, (addr, _, c)) in meta.Classes do
-            if c.IsSome then
-                yield getNamespaceAndName td addr
+            yield getNamespaceAndName td addr c
         for KeyValue (td, i) in meta.Interfaces do
-            yield getNamespaceAndName td i.Address
+            yield getNamespaceAndName td i.Address None
     }
     |> groupNamespaces
     |> List.map S.Declare

@@ -182,7 +182,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
     let thisModule = 
         match fromLibrary with
-        | Some js -> JavaScriptFile js
+        | Some js -> js
         | None -> StandardLibrary
 
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
@@ -206,7 +206,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         // there are some non-standard definitions in WS.JavaScript (Cookies)
         let fromLibrary = 
             match fromLibrary with
-            | None when not (List.isEmpty reqs) -> Some ""
+            | None when not (List.isEmpty reqs) -> Some (JavaScriptFile "")
             | _ -> fromLibrary
                 
         let baseDef =

@@ -88,7 +88,7 @@ let GetJSLookup (r: Assembly list, readable) =
     )
     |> dict
 
-let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
+let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) addDts =
     let assemblyName = a.Name.Name
     for r in Assembly.GetAllResources a do
         let p = assemblyName + "/" + r.FileName
@@ -105,8 +105,9 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
-    Mono.Cecil.EmbeddedResource(EMBEDDED_DTS, pub, dts)
-    |> a.MainModule.Resources.Add
+    if addDts then
+        Mono.Cecil.EmbeddedResource(EMBEDDED_DTS, pub, dts)
+        |> a.MainModule.Resources.Add
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw

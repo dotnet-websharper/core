@@ -107,7 +107,7 @@ type private Environment =
         This : option<Id>
         Purity : Purity
         MutableExternals : HashSet<Hashed<list<string>>>
-        FromLibrary : option<string>
+        FromModule : option<Module>
     }
 
     static member New(thisArg, isDirect, isPure, args, ext, lib) =
@@ -135,7 +135,7 @@ type private Environment =
             This = None
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
-            FromLibrary = lib 
+            FromModule = lib
         }
 
     static member Empty =
@@ -146,7 +146,7 @@ type private Environment =
             This = None
             Purity = NonPure
             MutableExternals = HashSet()
-            FromLibrary = None
+            FromModule = None
         }
 
     member this.WithNewScope (vars) =
@@ -433,9 +433,9 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
             if StandardLibNames.Set.Contains n then
                 Global [ n ]
             else
-                match env.FromLibrary with
+                match env.FromModule with
                 | Some l ->
-                    GlobalAccess { Module = JavaScriptFile l; Address = Hashed [ n ] }
+                    GlobalAccess { Module = l; Address = Hashed [ n ] }
                 | _ ->
                     Global [ n ]
     | e ->     

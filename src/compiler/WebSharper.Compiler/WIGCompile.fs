@@ -1438,21 +1438,12 @@ type Compiler() =
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
 
-        let assemblyWideResources =
-            assembly.Namespaces |> Seq.collect (fun ns ->
-                ns.Resources |> Seq.filter (fun r -> r.IsAssemblyWide)
-            )
-            |> List.ofSeq
-
-        let fromLibrary =
-            match assemblyWideResources with
-            | [ { Paths = [ p ] } ] -> Some p
-            | _ -> 
-                if options.AssemblyName.StartsWith "WebSharper.JavaScript" then None else Some ""
+        let isWsJs = options.AssemblyName.StartsWith "WebSharper.JavaScript"
+        let fromLibrary = if isWsJs then None else Some (AST.WebSharperModule (options.AssemblyName + ".d"))
         
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes fromLibrary def
-        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
+        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def (not isWsJs)
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)

@@ -28,7 +28,8 @@ module Definition =
     let JQ = Class "jQuery"
 
     let Event =
-        Class "jQuery.Event"
+        Class "jQueryEvent"
+        |> WithSourceName "Event"
         |+> Instance [
             "AsDomEvent" =? T<Dom.Event>
             |> WithGetterInline "$0"
@@ -88,12 +89,14 @@ module Definition =
 
     let DeferredState = 
         "pending resolved rejected".Split(' ')
-        |> Pattern.EnumStrings "jQuery.DeferredState"
+        |> Pattern.EnumStrings "jQueryDeferredState"
+        |> WithSourceName "DeferredState"
 
     let Deferred =
         let func = T<unit> ^-> T<unit>
         let funcorfuncs = func + Type.ArrayOf func
-        Class "jQuery.Deferred"
+        Class "jQueryDeferred"
+        |> WithSourceName "Deferred"
         |+> Instance [
             "always" => func ^-> TSelf
             "always" => func *+ func ^-> TSelf
@@ -116,7 +119,8 @@ module Definition =
         ]
 
     let JqXHR =
-        Class "jQuery.jqXHR"
+        Class "jQueryXHR"
+        |> WithSourceName "XHR"
         |=> Inherits Deferred
         |+> Instance [
             "readyState" =? T<int>
@@ -132,14 +136,16 @@ module Definition =
 
     let DataType =
         "xml html script json jsonp text".Split(' ')
-        |> Pattern.EnumStrings "jQuery.DataType"
+        |> Pattern.EnumStrings "jQueryDataType"
+        |> WithSourceName "DataType"
 
     let RequestType =
         "GET POST PUT DELETE".Split(' ')
-        |> Pattern.EnumStrings "jQuery.RequestType"
+        |> Pattern.EnumStrings "jQueryRequestType"
+        |> WithSourceName "RequestType"
 
     let AjaxSettings =
-        Pattern.Config "jQuery.AjaxSettings" {
+        Pattern.Config "jQueryAjaxSettings" {
             Required = []
             Optional =
                 [
@@ -178,7 +184,7 @@ module Definition =
                     "xhrFields", T<obj>
                 ]
         }
-
+        |> WithSourceName "AjaxSettings"
 
     let AjaxHandler =
         T<Dom.Element> -* Event * JqXHR * AjaxSettings ^-> T<unit>
@@ -193,7 +199,8 @@ module Definition =
 
     let Callbacks =
         let cbf = T<unit> ^-> T<unit>
-        Class "jQuery.Callbacks"
+        Class "jQueryCallbacks"
+        |> WithSourceName "Callbacks"
         |+> Instance [
             "add" => (cbf + Type.ArrayOf cbf) ^-> TSelf
             "disable" => T<unit> ^-> T<unit>
@@ -209,7 +216,7 @@ module Definition =
         ]
 
     let Position =
-        Pattern.Config "jQuery.Position" {
+        Pattern.Config "jQueryPosition" {
             Required = []
             Optional = 
                 [
@@ -217,9 +224,10 @@ module Definition =
                     "left", T<float>
                 ]
         }
+        |> WithSourceName "Position"
 
     let AnimateSettings =
-        Pattern.Config "jQuery.AnimateSettings" {
+        Pattern.Config "jQueryAnimateSettings" {
             Required = []
             Optional =
                 [
@@ -236,9 +244,10 @@ module Definition =
                     "always" , Promise * T<bool> ^-> T<unit>
                 ]
         }
+        |> WithSourceName "AnimateSettings"
 
     let Speed =
-        Pattern.Config "jQuery.Speed" {
+        Pattern.Config "jQuerySpeed" {
             Required = []
             Optional = 
                 [
@@ -247,9 +256,10 @@ module Definition =
                     "complete", T<unit> ^-> T<unit>
                 ]
         }
+        |> WithSourceName "Speed"
 
     let FX =
-        Class "jQuery.fx"
+        Class "jQueryFx"
         |+> Static [
             "off" =@ T<bool>
             |> WithComment "Globally disable all animations"
@@ -257,6 +267,7 @@ module Definition =
             "extend" => T<obj> ^-> T<obj>
             |> WithComment "Merge the contents of an object onto the jQuery prototype to provide new jQuery instance methods."
         ]
+        |> WithSourceName "Fx"
 
     let JQueryClass =
         let EH = T<Dom.Element> -* Event ^-> T<unit>
