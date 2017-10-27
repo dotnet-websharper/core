@@ -31,20 +31,20 @@ module private Util =
 [<AutoOpen>]
 module private Types =
     let DOMTimeStamp = T<System.DateTime>
-    let DocumentType = Class "DocumentType"
-    let Document = Class "Document"
-    let NodeList = Class "NodeList"
-    let NamedNodeMap = Class "NamedNodeMap"
-    let Element = Class "Element"
-    let TypeInfo = Class "TypeInfo"
-    let DOMLocator = Class "DOMLocator"
-    let Event = Class "Event"
-    let AbstractView = Class "AbstractView"
-    let NodeFilter = Class "NodeFilter"
-    let NodeIterator = Class "NodeIterator"
-    let ShadowRoot = Class "ShadowRoot"
-    let TreeWalker = Class "TreeWalker"
-    let DocumentFragment = Class "DocumentFragment"
+    let DocumentType = Class "DocumentType" |> WithTSType "DocumentType"
+    let Document = Class "Document" |> WithTSType "Document"
+    let NodeList = Class "NodeList" |> WithTSType "NodeList"
+    let NamedNodeMap = Class "NamedNodeMap" |> WithTSType "NamedNodeMap"
+    let Element = Class "Element" |> WithTSType "Element"
+    let TypeInfo = Class "TypeInfo" |> WithTSType "TypeInfo"
+    let DOMLocator = Class "DOMLocator" |> WithTSType "DOMLocator"
+    let Event = Class "Event" |> WithTSType "Event"
+    let AbstractView = Class "AbstractView" |> WithTSType "AbstractView"
+    let NodeFilter = Class "NodeFilter" |> WithTSType "NodeFilter"
+    let NodeIterator = Class "NodeIterator" |> WithTSType "NodeIterator"
+    let ShadowRoot = Class "ShadowRoot" |> WithTSType "ShadowRoot"
+    let TreeWalker = Class "TreeWalker" |> WithTSType "TreeWalker"
+    let DocumentFragment = Class "DocumentFragment" |> WithTSType "DocumentFragment"
 
 [<AutoOpen>]
 module private Enumerations =
@@ -71,6 +71,7 @@ module private Enumerations =
             INUSE_ATTRIBUTE_ERR INVALID_STATE_ERR SYNTAX_ERR \
             INVALID_MODIFICATION_ERR NAMESPACE_ERR INVALID_ACCESS_ERR \
             VALIDATION_ERR TYPE_MISMATCH_ERR"
+        |> WithTSType "number"
 
     let NodeType =
         Enum "NodeType" "Node." "_NODE" "\
@@ -78,49 +79,60 @@ module private Enumerations =
             ENTITY_REFERENCE_NODE ENTITY_NODE PROCESSING_INSTRUCTION_NODE \
             COMMENT_NODE DOCUMENT_NODE DOCUMENT_TYPE_NODE \
             DOCUMENT_FRAGMENT_NODE NOTATION_NODE"
+        |> WithTSType "number"
 
     let DocumentPosition =
         Enum "DocumentPosition" "Node.DOCUMENT_POSITION_" "" "\
             DISCONNECTED PRECEDING FOLLOWING CONTAINS \
             CONTAINED_BY IMPLEMENTATION_SPECIFIC"
+        |> WithTSType "number"
 
     let DerivationMethod =
         Enum "DerivationMethod" "TypeInfo.DERIVATION_" "" "\
             RESTRICTION EXTENSION UNION LIST"
+        |> WithTSType "number"
 
     let NodeOperation =
         Enum "NodeOperation" "UserDataHandler.NODE_" "" "\
             IMPORTED DELETED RENAMED ADOPTED"
+        |> WithTSType "number"
 
     let ErrorSeverity =
         Enum "ErrorSeverity" "DOMError.SEVERITY_" "" "\
             WARNING ERROR FATAL_ERROR"
+        |> WithTSType "number"
 
     let PhaseType =
         Enum "PhaseType" "Event." "" "\
             AT_TARGET BUBBLING_PHASE CAPTURING_PHASE"
+        |> WithTSType "number"
 
     let DeltaModeCode =
         Enum "DeltaModeCode" "WheelEvent." "" "\
             DOM_DELTA_PIXEL DOM_DELTA_LINE DOM_DELTA_PAGE"
+        |> WithTSType "number"
 
     let InputModeCode =
         Enum "InputModeCode" "TextEvent.DOM_INPUT_METHOD_" "" "\
             UNKNOWN KEYBOARD PASTE DROP IME OPTION \
             HANDWRITING VOICE MULTIMODAL SCRIPT"
+        |> WithTSType "number"
 
     let KeyLocationCode =
         Enum "KeyLocationCode" "KeyboardEvent.DOM_KEY_LOCATION_" "" "\
             LEFT NUMPAD RIGHT STANDARD MOBILE JOYSTICK"
+        |> WithTSType "number"
 
     let attrChangeType =
         Enum "attrChangeType" "MutationEvent." "" "\
             ADDITION MODIFICATION REMOVAL"
+        |> WithTSType "number"
 
 module Interfaces =
 
     let DOMException =
         Class "DomException"
+        |> WithTSType "DOMException"
         |+> Static [
                 "code" =? DOMExceptionType
                 "name" =? T<string>
@@ -128,6 +140,7 @@ module Interfaces =
 
     let DOMStringList =
         Class "DomStringList"
+        |> WithTSType "DOMStringList"
         |+> Instance [
                 "length" =? T<int>
                 "contains" => T<string->bool>
@@ -136,6 +149,7 @@ module Interfaces =
 
     let NameList =
         Class "NameList"
+        |> WithTSType "NameList"
         |+> Instance [
                 "length" =? T<int>
                 "getName" => T<int->string>
@@ -146,6 +160,7 @@ module Interfaces =
 
     let DOMImplementation =
         Class "DOMImplementation"
+        |> WithTSType "DOMImplementation"
         |+> Instance [
                 "hasFeature" =>
                     T<string>?feature * T<string>?version ^-> T<bool>
@@ -163,6 +178,7 @@ module Interfaces =
 
     let DOMImplementationList =
         Class "DomImplementationList"
+        |> WithTSType "DOMImplementationList"
         |+> Instance [
                 "item" => T<int> ^-> DOMImplementation
                 "length" =? T<int>
@@ -170,6 +186,7 @@ module Interfaces =
 
     let DOMImpementationSource =
         Class "DomImplementationSource"
+        |> WithTSType "DOMImplementationSource"
         |+> Instance [
                 "getDOMImplementation" =>
                     T<string> ^-> DOMImplementation
@@ -179,6 +196,7 @@ module Interfaces =
 
     let DOMRect =
         Class "DomRect"
+        |> WithTSType "DOMRect"
         |+> Instance [
                 "x" =? T<double>
                 "y" =? T<double>
@@ -193,6 +211,7 @@ module Interfaces =
     let EventTarget =
         let EventListener = (T<unit> + Event) ^-> T<unit>
         Class "EventTarget"
+        |> WithTSType "EventTarget"
         |+> Static [
                 Constructor T<unit>
             ]
@@ -226,6 +245,7 @@ module Interfaces =
 
     let Node =
         Class "Node"
+        |> WithTSType "Node"
         |=> Inherits EventTarget
         |+> Static [
                 "ELEMENT_NODE" =? T<int>
@@ -308,6 +328,7 @@ module Interfaces =
 
     let DOMTokenList =
         Class "DOMTokenList"
+        |> WithTSType "DOMTokenList"
         |+> Instance [
             "length" =? T<int>
             "item" => T<int> ^-> T<string>
@@ -322,6 +343,7 @@ module Interfaces =
 
     let Range =
         Class "Range"
+        |> WithTSType "Range"
         |+> Static [
             Constructor T<unit>
             "START_TO_START" =? T<int>
@@ -369,6 +391,7 @@ module Interfaces =
 
     let CharacterData =
         Class "CharacterData"
+        |> WithTSType "CharacterData"
         |=> Inherits Node
         |+> Instance [
                 "data" =@ T<string>
@@ -384,6 +407,7 @@ module Interfaces =
 
     let Attr =
         Class "Attr"
+        |> WithTSType "Attr"
         |=> Inherits Node
         |+> Instance [
                 "name" =? T<string>
@@ -413,12 +437,14 @@ module Interfaces =
             "open"
             "closed"
         ]
+        |> WithTSType "'open' | 'closed'"
 
     let ShadowRootInit =
         Pattern.Config "ShadowRootInit" {
             Required = [ "mode", ShadowRootMode.Type ]
             Optional = []
         }
+        |> WithTSType "ShadowRootInit"
 
     let Element =
         Element
@@ -485,6 +511,7 @@ module Interfaces =
 
     let HTMLCollection =
         Class "HTMLCollection"
+        |> WithTSType "HTMLCollection"
         |+> Instance [
             "length" =? T<int>
             "item" => T<int> ^-> Element
@@ -493,6 +520,7 @@ module Interfaces =
 
     let Text =
         Class "Text"
+        |> WithTSType "Text"
         |=> Inherits CharacterData
         |+> Static [
                 Constructor T<unit>
@@ -508,6 +536,7 @@ module Interfaces =
 
     let Comment =
         Class "Comment"
+        |> WithTSType "Comment"
         |=> Inherits CharacterData
 
     let TypeInfo =
@@ -524,6 +553,7 @@ module Interfaces =
 
     let UserDataHandler =
         Class "UserDataHandler"
+        |> WithTSType "UserDataHandler"
         |+> Instance [
                 "handle" =>
                     NodeOperation * T<string>?key * T<obj>?data *
@@ -533,6 +563,7 @@ module Interfaces =
 
     let DOMError =
         Class "DOMError"
+        |> WithTSType "DOMError"
         |+> Instance [
                 "name" =? T<string>
                 "message" =? T<string>
@@ -540,6 +571,7 @@ module Interfaces =
 
     let DOMErrorHandler =
         Class "DOMErrorHandler"
+        |> WithTSType "DOMErrorHandler"
         |+> Instance [
                 "handleError" => DOMError ^-> T<bool>
             ]
@@ -559,6 +591,7 @@ module Interfaces =
 
     let DOMConfiguration =
         Class "DOMConfiguration"
+        |> WithTSType "DOMConfiguration"
         |+> Instance [
                 "setParameter" => T<string*obj->unit>
                 "getParameter" => T<string->obj>
@@ -568,6 +601,7 @@ module Interfaces =
 
     let CDATASection =
         Class "CDATASection"
+        |> WithTSType "CDATASection"
         |=> Inherits Text
 
     let DocumentType =
@@ -584,6 +618,7 @@ module Interfaces =
 
     let Notation =
         Class "Notation"
+        |> WithTSType "Notation"
         |=> Inherits Node
         |+> Instance [
                 "publicId" =? T<string>
@@ -593,6 +628,7 @@ module Interfaces =
 
     let Entity =
         Class "Entity"
+        |> WithTSType "Entity"
         |=> Inherits Node
         |+> Instance [
                 "publicId" =? T<string>
@@ -606,12 +642,14 @@ module Interfaces =
 
     let EntityReference =
         Class "EntityReference"
+        |> WithTSType "EntityReference"
         |=> Inherits Node
         |> Obsolete
 
     let ProcessingInstruction =
         Class "ProcessingInstruction"
-        |=> Inherits Node
+        |> WithTSType "ProcessingInstruction"
+        |=> Inherits CharacterData
         |+> Instance [
                 "target" =? T<string>
                 "data" =@ T<string>
@@ -699,6 +737,7 @@ module Interfaces =
                     "composed", T<bool>
                 ]
         }
+        |> WithTSType "EventInit"
 
     let Event =
         Event
@@ -735,6 +774,7 @@ module Interfaces =
 
     let CustomEvent  =
         Class "CustomEvent"
+        |> WithTSType "CustomEvent"
         |+> Instance [
                 "detail" =? T<obj>
                 "initCustomEvent" =>
@@ -754,6 +794,7 @@ module Interfaces =
 
     let DocumentView =
         Class "DocumentView"
+        |> WithTSType "DocumentView"
         |+> Instance [
                 "defaultView" => AbstractView
             ]
@@ -766,6 +807,7 @@ module Interfaces =
 
     let UIEvent =
         Class "UIEvent"
+        |> WithTSType "UIEvent"
         |=> Inherits Event
         |+> Instance [
                 "detail" =? T<int>
@@ -789,6 +831,7 @@ module Interfaces =
 
     let FocusEvent =
         Class "FocusEvent"
+        |> WithTSType "FocusEvent"
         |=> Inherits UIEvent
         |+> Instance [
             "relatedTarget" =? EventTarget
@@ -796,6 +839,7 @@ module Interfaces =
 
     let MouseEvent =
         Class "MouseEvent"
+        |> WithTSType "MouseEvent"
         |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =? T<bool>
@@ -845,6 +889,7 @@ module Interfaces =
 
     let MouseWheelEvent =
         Class "MouseWheelEvent"
+        |> WithTSType "MouseWheelEvent"
         |=> Inherits MouseEvent
         |+> Instance [
                 "wheelDelta" =@ T<int>
@@ -882,6 +927,7 @@ module Interfaces =
 
     let WheelEvent =
         Class "WheelEvent"
+        |> WithTSType "WheelEvent"
         |=> Inherits MouseEvent
         |+> Instance [
                 "deltaX" =? T<int>
@@ -931,6 +977,7 @@ module Interfaces =
 
     let KeyboardEvent =
         Class "KeyboardEvent"
+        |> WithTSType "KeyboardEvent"
         |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =? T<bool>
@@ -967,6 +1014,7 @@ module Interfaces =
             ]
     let CompositionEvent =
         Class "CompositionEvent"
+        |> WithTSType "CompositionEvent"
         |=> Inherits UIEvent
         |+> Instance [
                 "data" =? T<string>
@@ -990,6 +1038,7 @@ module Interfaces =
 
     let MutationRecord =
         Class "MutationRecord"
+        |> WithTSType "MutationRecord"
         |+> Instance [
             "tpye" =? T<string>
             "target" =? Node
@@ -1016,9 +1065,11 @@ module Interfaces =
                     "childList", T<bool>
                 ]
         }
+        |> WithTSType "MutationObserverInit"
 
     let MutationObserver =
         Class "MutationObserver"
+        |> WithTSType "MutationObserver"
         |+> Instance [
             "disconnect" => T<unit> ^-> T<unit>
             "observe" => (Node * !?MutationObserverInit) ^-> T<unit>
@@ -1027,6 +1078,7 @@ module Interfaces =
 
     let MutationEvent =
         Class "MutationEvent"
+        |> WithTSType "MutationEvent"
         |=> Inherits Event
         |+> Instance [
                 "attrChange" =@ attrChangeType
@@ -1058,6 +1110,7 @@ module Interfaces =
 
     let MutationNameEvent =
         Class "MutationNameEvent"
+        |> WithTSType "MutationNameEvent"
         |=> Inherits Event
         |+> Instance [
                 "prevNamespaceURI" =@ T<string>
@@ -1081,6 +1134,7 @@ module Interfaces =
 
     let DocumentEvent =
         Class "DocumentEvent"
+        |> WithTSType "DocumentEvent"
         |+> Instance [
                 "canDispatch" => T<string>?namespaceURI * T<string>?eventtype ^-> T<bool>
                 "createEvent" => T<string>?eventType ^-> Event // user needs to downcast to the right event
@@ -1106,6 +1160,7 @@ module Interfaces =
             Required = []
             Optional = [ "is", T<string> ]
         }
+        |> WithTSType "ElementCreateOptions"
 
     let Document =
         Document

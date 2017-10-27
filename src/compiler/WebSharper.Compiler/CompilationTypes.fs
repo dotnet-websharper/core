@@ -109,6 +109,7 @@ module NotResolved =
             Extends : list<Concrete<TypeDefinition>>
             NotResolvedMethods : list<Method * option<string> * list<GenericParam>>
             Generics : list<GenericParam>
+            Type : option<TSType>
         }
 
     type N = NotResolvedMemberKind

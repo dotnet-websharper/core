@@ -826,6 +826,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Extends = nr.Extends |> List.filter (fun i -> interfaces.ContainsKey i.Entity)
                     Methods = resMethods
                     Generics = nr.Generics
+                    Type = nr.Type
                 }
             interfaces.Add(typ, resNode)
             notResolvedInterfaces.Remove typ |> ignore

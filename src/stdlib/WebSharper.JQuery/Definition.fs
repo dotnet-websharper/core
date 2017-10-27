@@ -78,6 +78,7 @@ module Definition =
     
     let Promise =
         Class "Promise"
+        |> WithTSType "Promise"
         |+> Instance [
             "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
             "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf

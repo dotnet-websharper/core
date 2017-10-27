@@ -205,6 +205,7 @@ type InterfaceInfo =
         Extends : list<Concrete<TypeDefinition>>
         Methods : IDictionary<Method, string * list<GenericParam>>
         Generics : list<GenericParam>
+        Type : option<TSType>
     }
 
 type DelegateInfo =

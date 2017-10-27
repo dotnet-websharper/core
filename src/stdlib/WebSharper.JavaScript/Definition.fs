@@ -27,6 +27,7 @@ open WebSharper.JavaScript
 let Global =
     Namespace "WebSharper.JavaScript" [
         Class "console"
+        |> WithTSType "console"
         |+> Static [
             "count" => !? T<string> ^-> T<unit>
             "dir" => T<obj> ^-> T<unit>
@@ -48,6 +49,7 @@ let Global =
         ]
 
         Class "JS"
+        |> WithTSType "any"
         |+> Static [
                 "window" =? Html5.General.Window |> WithGetterInline "window"
                 "document" =? Dom.Interfaces.Document |> WithGetterInline "document"

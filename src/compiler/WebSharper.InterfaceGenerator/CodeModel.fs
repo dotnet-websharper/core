@@ -114,6 +114,7 @@ module CodeModel =
         val mutable Generics : list<TypeParameter>
         val mutable Methods : list<Method>
         val mutable Properties : list<Property>
+        val mutable TSType : option<string>
 
         internal new (name) =
             {
@@ -121,6 +122,7 @@ module CodeModel =
                 Generics = []
                 Methods = []
                 Properties = []
+                TSType = None
             }
 
         /// Assigns the associated type.

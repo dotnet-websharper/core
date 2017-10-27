@@ -202,12 +202,6 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         let reqs = getRequires typ.CustomAttributes
         for req in reqs do
             graph.AddEdge(clsNodeIndex, ResourceNode req)
-
-        // there are some non-standard definitions in WS.JavaScript (Cookies)
-        let fromLibrary = 
-            match fromLibrary with
-            | None when not (List.isEmpty reqs) -> Some (JavaScriptFile "")
-            | _ -> fromLibrary
                 
         let baseDef =
             let b = typ.BaseType
@@ -384,7 +378,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                             let gc = getConstraints meth.GenericParameters tgen
                             yield mdef, (name, gc)
                     ]
-                Generics = getConstraints typ.GenericParameters 0  
+                Generics = getConstraints typ.GenericParameters 0
+                Type = getTSType typ.CustomAttributes
             }
         )    
     

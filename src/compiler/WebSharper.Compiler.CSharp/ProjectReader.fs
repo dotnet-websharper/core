@@ -115,6 +115,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             Extends = intf.Interfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
             NotResolvedMethods = List.ofSeq methods 
             Generics = getConstraints intf.TypeParameters sr
+            Type = annot.Type
         }
     )
 

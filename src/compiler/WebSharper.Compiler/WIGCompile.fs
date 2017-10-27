@@ -321,6 +321,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     let requireAttr = findWsAttr "RequireAttribute"
     let pureAttr = findWsAttr "PureAttribute"
     let warnAttr = findWsAttr "WarnAttribute"
+    let typeAttr = findWsAttr "TypeAttribute"
 
     let fromInterop (name: string) =
         wsCore.MainModule.GetType("WebSharper.JavaScript", name)
@@ -417,6 +418,7 @@ type TypeBuilder(aR: IAssemblyResolver, out: AssemblyDefinition, fsCoreFullName:
     member b.Obsolete = obsolete
     member b.Pure = pureAttr
     member b.Warn = warnAttr
+    member b.TypeAttr = typeAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -600,6 +602,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
     let pureAttributeConstructor = findDefaultConstructor tB.Pure 
     let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
+    let typeAttributeConstructor = findTypedConstructor tB.TypeAttr [tB.String.Name]
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -640,6 +643,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
     member c.PureAttributeConstructor = pureAttributeConstructor
     member c.WarnAttributeConstructor = warnAttributeConstructor
+    member c.TypeAttributeConstructor = typeAttributeConstructor
 
 type CompilationKind =
     | LibraryKind
@@ -753,6 +757,15 @@ type MemberConverter
         | CodeModel.NotObsolete -> ()
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
+
+    let typeAttribute (t: string) =
+        let ca = CustomAttribute(mB.TypeAttributeConstructor)
+        ca.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box t))
+        ca
+    let setTSAttribute (x: CodeModel.TypeDeclaration) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.TSType with
+        | None -> ()
+        | Some t -> attrs.Add (typeAttribute t)
 
     let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
 
@@ -1009,6 +1022,7 @@ type MemberConverter
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
 
     member c.Interface(x: Code.Interface) =
@@ -1018,6 +1032,7 @@ type MemberConverter
         for i in x.BaseInterfaces do
             tD.Interfaces.Add(InterfaceImplementation(tC.TypeReference (i, x)))
         setObsoleteAttribute x tD.CustomAttributes
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
             match x.Comment with
@@ -1442,12 +1457,11 @@ type Compiler() =
             for c in ns.Classes do addClass (ns.Name + ".") c
             for c in ns.Interfaces do addClass (ns.Name + ".") c
 
-        let isWsJs = options.AssemblyName.StartsWith "WebSharper.JavaScript"
-        let fromLibrary = if isWsJs then None else Some (AST.WebSharperModule (options.AssemblyName + ".d"))
+        let fromLibrary = Some (AST.WebSharperModule (options.AssemblyName + ".d"))
         
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes fromLibrary def
-        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def (not isWsJs)
+        WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options)

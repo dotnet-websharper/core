@@ -127,6 +127,7 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
             Extends = intf.DeclaredInterfaces |> Seq.map (fun i -> sr.ReadType tparams i |> getConcreteType) |> List.ofSeq
             NotResolvedMethods = List.ofSeq methods
             Generics = getConstraints intf.GenericParameters sr tparams
+            Type = annot.Type
         }
     )
 
