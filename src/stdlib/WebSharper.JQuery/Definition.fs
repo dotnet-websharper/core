@@ -88,7 +88,7 @@ module Definition =
 
     let DeferredState = 
         "pending resolved rejected".Split(' ')
-        |> Pattern.EnumStrings "DeferredState"
+        |> Pattern.EnumStrings "jQuery.DeferredState"
 
     let Deferred =
         let func = T<unit> ^-> T<unit>
@@ -132,14 +132,14 @@ module Definition =
 
     let DataType =
         "xml html script json jsonp text".Split(' ')
-        |> Pattern.EnumStrings "DataType"
+        |> Pattern.EnumStrings "jQuery.DataType"
 
     let RequestType =
         "GET POST PUT DELETE".Split(' ')
-        |> Pattern.EnumStrings "RequestType"
+        |> Pattern.EnumStrings "jQuery.RequestType"
 
     let AjaxSettings =
-        Pattern.Config "AjaxSettings" {
+        Pattern.Config "jQuery.AjaxSettings" {
             Required = []
             Optional =
                 [
@@ -193,7 +193,7 @@ module Definition =
 
     let Callbacks =
         let cbf = T<unit> ^-> T<unit>
-        Class "Callbacks"
+        Class "jQuery.Callbacks"
         |+> Instance [
             "add" => (cbf + Type.ArrayOf cbf) ^-> TSelf
             "disable" => T<unit> ^-> T<unit>
@@ -209,7 +209,7 @@ module Definition =
         ]
 
     let Position =
-        Pattern.Config "Position" {
+        Pattern.Config "jQuery.Position" {
             Required = []
             Optional = 
                 [
@@ -219,7 +219,7 @@ module Definition =
         }
 
     let AnimateSettings =
-        Pattern.Config "AnimateSettings" {
+        Pattern.Config "jQuery.AnimateSettings" {
             Required = []
             Optional =
                 [
@@ -238,7 +238,7 @@ module Definition =
         }
 
     let Speed =
-        Pattern.Config "Speed" {
+        Pattern.Config "jQuery.Speed" {
             Required = []
             Optional = 
                 [

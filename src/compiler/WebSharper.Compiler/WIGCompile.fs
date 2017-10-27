@@ -1432,10 +1432,8 @@ type Compiler() =
         let assemblyPrototypes = Dictionary()
         for ns in assembly.Namespaces do
             let rec addClass parentFullName (c: CodeModel.Class) =
-                let sn = 
-                    parentFullName + 
-                    (match c.SourceName with Some n -> n | _ -> c.Name.[c.Name.LastIndexOf('.') + 1 ..]) +
-                    (match c.Generics with [] -> "" | g -> "`" + string (List.length g))
+                let generics = match c.Generics with [] -> "" | g -> "`" + string (List.length g)
+                let sn = parentFullName + iG.GetSourceName c + generics
                 assemblyPrototypes.Add(sn, c.Name)
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
