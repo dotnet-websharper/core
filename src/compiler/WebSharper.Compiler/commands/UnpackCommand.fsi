@@ -28,7 +28,6 @@ module UnpackCommand =
             Assemblies : list<string>
             RootDirectory : string
             UnpackSourceMap : bool
-            UnpackTypeScript : bool
             DownloadResources : bool
         }
 

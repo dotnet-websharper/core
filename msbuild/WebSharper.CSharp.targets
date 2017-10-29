@@ -43,7 +43,6 @@
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
-      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"

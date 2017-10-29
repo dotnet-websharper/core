@@ -94,9 +94,6 @@ type WebSharperTask =
     /// in the assembly as resources.
     member WebSharperSourceMap : string with get, set
 
-    /// Specifies if .d.ts files are unpacked along with the .js output.
-    member WebSharperTypeScriptDeclaration : string with get, set
-
     /// Specifies if online resource links are downloaded for local use.
     member WebSharperDownloadResources : string with get, set
 

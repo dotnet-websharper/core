@@ -192,7 +192,6 @@ let compileMain argv =
             | _ -> argError "Conflicting WebSharper project types set."
         match a with
         | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
-        | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
         | "--wig" -> setProjectType WIG
         | "--bundle" -> setProjectType Bundle
         | "--html" -> setProjectType Html
