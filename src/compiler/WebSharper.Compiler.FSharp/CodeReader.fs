@@ -1049,8 +1049,9 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 SetRef (Var v) (tr value)
             | _ -> failwith "AddressSet not on a Value"
         | P.ObjectExpr (typ, expr, overrides, interfaces) ->
+            let typ' = sr.ReadType env.TParams typ
             let o = newId()
-            let r = newId()
+            let r = Id.New(mut = false, typ = typ')
             let plainObj =
                 Let (o, Object [],
                     Sequential [
@@ -1075,7 +1076,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                                     ) |> List.ofSeq 
                                 | _ ->
                                     failwith "Wrong `this` argument in object expression override"
-                            let b = FuncWithThis (thisVar, vars, Some (sr.ReadType env.TParams typ), Return (transformExpression env ovr.Body)) 
+                            let b = FuncWithThis (thisVar, vars, Some typ', Return (transformExpression env ovr.Body)) 
                             yield ItemSet(Var o, OverrideName(i, s), b)
                         yield Var o
                     ]
