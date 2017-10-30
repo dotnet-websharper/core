@@ -44,6 +44,7 @@ type IIsClient =
     abstract member IsClient: unit -> bool
 
 [<Proxy(typeof<IIsClient>)>]
+[<Type "any">]
 type internal IIsClientProxy =
     [<Inline>]
     member this.IsClient() = true

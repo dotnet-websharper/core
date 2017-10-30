@@ -731,9 +731,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         packageByName i.Address <| fun n ->
             Interface(n, i.Extends |> List.map (tsTypeOfConcrete gsArr), mem, gen)
 
+        let rec methodNames (i:InterfaceInfo) =
+            Seq.append (i.Methods.Values |> Seq.map fst) (i.Extends |> Seq.collect (fun ie -> 
+                match allInterfaces.TryFind ie.Entity with
+                | Some i -> methodNames i
+                | _ -> Seq.empty
+            ))
+
         packageByName i.Address <| fun n ->
             let x = Id.New "x"
-            let shortestName, _ = i.Methods.Values |> Seq.minBy (fst >> String.length)
+            let shortestName = methodNames i |> Seq.minBy String.length
             let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
             let returnType = TSType.TypeGuard(x, tsTypeOfDef td |> addGenerics gen)
             let id = Id.New("is" + n, mut = false, str = true, typ = TSType returnType)

@@ -781,20 +781,32 @@ type Compilation(meta: Info, ?hasGraph) =
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             let allMembers = HashSet()
             let allNames = HashSet()
-            
+            let extended = Dictionary() // has Some value if directly extended and JavaScript annotated
+
             let rec addInherited (i: TypeDefinition) (n: InterfaceInfo) =
                 for i in n.Extends do
                     let i = i.Entity
-                    interfaces.TryFind i |> Option.iter (addInherited i)
+                    let alreadyExtended = extended.ContainsKey i
+                    extended.[i] <- None
+                    if not alreadyExtended then 
+                        interfaces.TryFind i |> Option.iter (addInherited i)
                 for KeyValue(m, (n, c)) in n.Methods do
                     if not (allMembers.Add (i, m)) then
                         if not (allNames.Add n) then
                             printerrf "Interface method name collision: %s on %s" n typ.Value.FullName
             
-            for i in nr.Extends do
-                let i = i.Entity
-                notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
-                interfaces.TryFind i |> Option.iter (addInherited i)
+            for ei in nr.Extends do
+                let i = ei.Entity
+                if not (extended.ContainsKey i) then
+                    notResolvedInterfaces.TryFind i |> Option.iter (resolveInterface i)       
+                    match interfaces.TryFind i with
+                    | Some ii ->
+                        extended.Add(i, Some ei) |> ignore
+                        addInherited i ii
+                    | _ ->
+                        extended.Add(i, None) |> ignore
+            
+            if allMembers.Count = 0 && List.isEmpty nr.NotResolvedMethods then () else
             
             let resMethods = Dictionary()
                             
@@ -823,7 +835,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let resNode =
                 {
                     Address = Address.Empty()
-                    Extends = nr.Extends |> List.filter (fun i -> interfaces.ContainsKey i.Entity)
+                    Extends = extended.Values |> Seq.choose id |> List.ofSeq
                     Methods = resMethods
                     Generics = nr.Generics
                     Type = nr.Type

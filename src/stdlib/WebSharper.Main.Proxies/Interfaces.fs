@@ -32,6 +32,7 @@ type private IComparableProxy =
 [<Proxy(typeof<System.IComparable<_>>)>]
 [<Name "WebSharper.IComparable">]
 type private IComparableProxy<'T> =
+    inherit System.IComparable // merged generic and non-generic interface
     [<Name "CompareTo">]
     abstract CompareTo : 'T -> int
 
@@ -46,6 +47,7 @@ type private IEqualityComparerProxy =
 [<Proxy(typeof<System.Collections.Generic.IEqualityComparer<_>>)>]
 [<Name "WebSharper.IEqualityComparer">]
 type private IEqualityComparerProxy<'T> =
+    inherit System.Collections.IEqualityComparer // merged generic and non-generic interface
     [<Name "CEquals">]
     abstract Equals : 'T * 'T -> bool 
     [<Name "CGetHashCode">]
@@ -81,6 +83,7 @@ type private IComparerProxy =
 [<Proxy(typeof<System.Collections.Generic.IComparer<_>>)>]
 [<Name "WebSharper.IComparer">]
 type private IComparerProxy<'T> =
+    inherit System.Collections.IComparer // merged generic and non-generic interface
     [<Name "Compare">]
     abstract Compare : 'T * 'T -> int
 
@@ -143,12 +146,11 @@ type private IEnumerableProxy<'T> =
 [<Proxy(typeof<System.Collections.IEnumerator>)>]
 [<Name "WebSharper.IEnumeratorAny">]
 type private IEnumeratorProxy =
+    inherit System.IDisposable // fake inherit so that TS IEnumerator<T> casts to IEnumeratorAny
     [<Name "Current">]
     abstract member Current  : obj
     [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
-    [<Name "Dispose">]
-    abstract member Dispose : unit -> unit // fake member so that TS IEnumerator<T> casts to IEnumeratorAny
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
 [<Name "WebSharper.IEnumerator">]
