@@ -96,10 +96,10 @@ let private isNaN (x: double) = System.Double.IsNaN x
 [<Inline "var a = 21; a = 2*a; return a">]
 let inlineReturn () = X<int>
 
-[<Inline "r[0] = 3;">]
+[<Inline "$r[0] = 3;">]
 let inlineStatement (r: ref<int>) = X<unit>
 
-[<Inline "r[0] = 5; ++r[0];">]
+[<Inline "$r[0] = 5; ++$r[0];">]
 let inlineStatements (r: ref<int>) = X<unit>
 
 [<JavaScript>]
