@@ -1488,7 +1488,11 @@ module TypedProviderInternals =
     let addTag (i: M.Info) (t: System.Type) =
         let mt = AST.Reflection.ReadTypeDefinition t
         match i.Classes.TryFind mt with
-        | Some (a, _, Some { HasWSPrototype = true }) ->
+        | Some (a, ct, Some { HasWSPrototype = true }) ->
+            let a =
+                match ct with
+                | M.FSharpUnionInfo _ -> { a with Address = Hashed ("$" :: a.Address.Value) }
+                | _ -> a
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
             | EncodedArray xs -> EncodedArrayInstance (a, xs)
