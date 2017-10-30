@@ -230,7 +230,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         for meth in intf.GetMembers().OfType<IMethodSymbol>() do
             let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
             if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
-                Dict.addToMulti implicitImplementations meth (intf, impl)
+                Dict.addToMulti implicitImplementations impl (intf, meth)
 
     let thisType = Generic def (List.init cls.TypeParameters.Length TypeParameter)
     let thisTypeForFixer = Some (ConcreteType thisType)
@@ -658,10 +658,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | Some impls ->
                     for intf, impl in impls do
                         let idef = sr.ReadNamedTypeDefinition intf
-                        let mdef = sr.ReadMethod impl 
+                        let imdef = sr.ReadMethod impl 
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
                         Lambda(vars, None, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod (Some impl) A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
+                        |> addMethod (Some impl) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
