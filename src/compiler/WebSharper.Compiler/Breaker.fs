@@ -646,10 +646,12 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Call (Some l.Head, b, c, l.Tail)
             else Call (None, b, c, l)
         )
-    | TraitCall(a, b, c) ->
-        brL c
+    | TraitCall(a, b, c, d) ->
+        brL (Option.toList a @ d)
         |> mapBroken (fun l ->
-            TraitCall (a, b, l)
+            if Option.isSome a then
+                TraitCall (Some l.Head, b, c, l.Tail)
+            else TraitCall (None, b, c, l)
         )
     | Ctor(a, b, c) ->
         brL c

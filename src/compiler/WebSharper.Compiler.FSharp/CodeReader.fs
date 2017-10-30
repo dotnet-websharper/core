@@ -201,7 +201,6 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
         , cgenFieldNames
 
 let fixCtor thisTyp baseTyp expr =
-    printfn "Called fixCtor with %A %A %s" thisTyp baseTyp (Debug.PrintExpression expr)
     FixCtorTransformer(thisTyp, baseTyp).Fix(expr)
 
 module Definitions =
@@ -1141,7 +1140,14 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            TraitCall(s, NonGeneric meth, argExprs |> List.map tr)  
+            if memberFlags.IsInstance then 
+                match argExprs |> List.map tr with
+                | t :: a ->
+                    TraitCall(Some t, s, NonGeneric meth, a)
+                | _ ->
+                    failwith "No this value found for instance trait call"
+            else
+                TraitCall(None, s, NonGeneric meth, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"

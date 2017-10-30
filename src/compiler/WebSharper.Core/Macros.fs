@@ -58,6 +58,7 @@ let traitCallOp (c: MacroCall) args =
     match c.Method.Generics with
     | [t; u; v] ->
         TraitCall(
+            None,
             [ t; u ], 
             NonGeneric (
                 Method {

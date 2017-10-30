@@ -250,8 +250,9 @@ type GenericInlineResolver (generics, tsGenerics) =
             args |> List.map this.TransformExpression
         )
 
-    override this.TransformTraitCall(typs, meth, args) =
+    override this.TransformTraitCall(thisObj, typs, meth, args) =
         TraitCall (
+            thisObj |> Option.map this.TransformExpression, 
             typs |> List.map subs,
             Generic meth.Entity (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
@@ -1066,7 +1067,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
 
-    override this.TransformTraitCall(typs, meth, args) =
+    override this.TransformTraitCall(thisObj, typs, meth, args) =
         let mutable err = None
         let hasErr e =
             err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
@@ -1084,17 +1085,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         |> List.ofSeq
                     match ms with
                     | [ m ] ->
-                        match args with
-                        | t :: h ->
-                            this.TransformCall(Some t, ct, Generic m meth.Generics, h) |> Some
-                        | _ ->
-                            failwith "Impossible: trait call without arguments"
+                        this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
+                        //match args with
+                        //| t :: h ->
+                        //    this.TransformCall(Some t, ct, Generic m meth.Generics, h) |> Some
+                        //| _ ->
+                        //    failwith "Impossible: trait call without arguments"
                     | [] -> hasErr (sprintf "Could not find method for trait call: %s" mName) // (methods |> Seq.map (fun m -> m.Value.MethodName) |> String.concat ", "))
                     | _ -> hasErr (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
                     if currentIsInline then
                         hasDelayedTransform <- true
-                        TraitCall(typs, meth, args |> List.map this.TransformExpression) |> Some
+                        TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
                     else 
                         hasErr("Using a trait call requires the Inline attribute")
             )
