@@ -60,6 +60,7 @@ type I2 =
 
 [<Name "I3">]
 type I3 = 
+    [<Name "Get">]
     abstract Get: unit -> int
 
 type I4 = 
