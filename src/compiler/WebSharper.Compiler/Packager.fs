@@ -112,6 +112,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                 Interface ("Array", [ ie T ], [], [ T ])
                 Interface ("String", [ ie (TSType.Basic "string") ], [], [])
                 Interface ("Number", [ ic (TSType.Basic "number") ], [], [])
+                Interface ("RegExp", [], 
+                    [ 
+                        ClassProperty (false, "flags", TSType.String, false)
+                        ClassProperty (false, "sticky", TSType.Boolean, false)
+                        ClassProperty (false, "unicode", TSType.Boolean, false)
+                    ], []) 
             ]
 
         if isModule then

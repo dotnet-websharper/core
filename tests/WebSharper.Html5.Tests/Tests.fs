@@ -192,9 +192,10 @@ module SamplesInternals =
 
     [<JavaScript>]
     let Example7 (ctx: CanvasRenderingContext2D) =
+        Console.Log "Example7"
         let img = Elt("img")
         img.Dom.AddEventListener("load", (fun () ->
-            ctx.DrawImage(img.Dom, 0., 0.)
+            ctx.DrawImage(img.Dom :?> HTMLImageElement, 0., 0.)
             ctx.BeginPath()
             ctx.MoveTo(30.,  96.)
             ctx.LineTo(70.,  66.)

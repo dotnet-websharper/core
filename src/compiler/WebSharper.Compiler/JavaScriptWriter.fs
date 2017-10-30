@@ -680,7 +680,7 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
         let this = t |> Option.map (fun t -> "this: " + trN t) 
         let args = a |> List.mapi (fun i (t, o) -> string ('a' + char i) + (if o then "?:" else ":") + trN t)
         let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
-        "(" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r
+        "((" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r + ")"
     | TSType.New (a, r)  -> 
         "new (" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
         + " => " + trN r

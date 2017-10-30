@@ -34,6 +34,10 @@ module Utils =
         |> List.toSeq
         |> Pattern.EnumInlines n
 
+    let HTMLImageElement = Class "HTMLImageElement"
+    let CanvasElement = Class "CanvasElement" 
+    let HTMLVideoElement = Class "HTMLVideoElement"
+
 module Canvas =
     open Utils
 
@@ -172,6 +176,8 @@ module Canvas =
             "data" =? CanvasPixelArray
         ]
     
+    let private imageElement = HTMLImageElement + CanvasElement + HTMLVideoElement
+
     let CanvasRenderingContext2D = 
         Class "CanvasRenderingContext2D"
         |> WithTSType "CanvasRenderingContext2D"
@@ -257,9 +263,9 @@ module Canvas =
             "measureText" => T<string> ^-> TextMetrics
 
             // drawing images
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
 
             // pixel manipulation
             "createImageData" => (T<float> * T<float>) ^-> ImageData
@@ -856,6 +862,35 @@ module Elements =
             "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
         ]
 
+    let HTMLImageElement =
+        Utils.HTMLImageElement
+        |> WithTSType "HTMLImageElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "align" =@ T<string>
+            "alt" =@ T<string>
+            "border" =@ T<string>
+            "complete" =? T<bool>
+            "crossOrigin" =@ T<string>
+            "currentSrc" =@ T<string>
+            "height" =@ T<int>
+            "hspace" =@ T<int>
+            "isMap" =@ T<bool>
+            "longDesc" =@ T<string>
+            "lowsrc" =@ T<string>
+            "name" =@ T<string>
+            "naturalHeight" =@ T<int>
+            "naturalWidth" =@ T<int>
+            "sizes" =@ T<string>
+            "src" =@ T<string>
+            "srcset" =@ T<string>
+            "useMap" =@ T<string>
+            "vspace" =@ T<int>
+            "width" =@ T<int>
+            "x" =? T<int>
+            "y" =? T<int>
+        ]
+
     let HTMLButtonElement =
         Class "HTMLButtonElement"
         |> WithTSType "HTMLButtonElement"
@@ -1108,8 +1143,8 @@ module Elements =
         ]
 
     let CanvasElement =
-        Class "CanvasElement"
-        |> WithTSType "CanvasElement"
+        Utils.CanvasElement
+        |> WithTSType "HTMLCanvasElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "width" =@ T<int>
@@ -1187,7 +1222,7 @@ module Elements =
         ]
 
     let HTMLVideoElement = 
-        Class "HTMLVideoElement"
+        Utils.HTMLVideoElement
         |> WithTSType "HTMLVideoElement"
         |=> Inherits HTMLMediaElement
         |+> Instance [
@@ -2338,6 +2373,7 @@ module Definition =
                 Elements.HTMLFormControlsCollection
                 Elements.HTMLFormElement
                 Elements.HTMLInputElement
+                Elements.HTMLImageElement
                 Elements.HTMLLabelElement
                 Elements.HTMLLegendElement
                 Elements.HTMLMenuElement

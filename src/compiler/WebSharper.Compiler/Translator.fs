@@ -1318,8 +1318,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             | TypeOf _ | InstanceOf _ | IsNull -> true 
                             | _ -> false
                         )
+                    let x = Id.New (mut = false)
                     if prevCasesTranslating then 
-                        (this.TransformExpression expr |> getItem "constructor") ^=== (Global ["Object"])
+                        Let (x, this.TransformExpression expr,
+                            Binary (
+                                Unary(UnaryOperator.typeof, Var x),
+                                BinaryOperator.``==``,
+                                Value (String "object")
+                            ) ^&& (Var x |> getItem "constructor") ^=== (Global ["Object"])
+                        )
                     else
                         this.Error (sprintf "Translating erased union test failed, case: %s, more than one plain object type found" case)
                 | _ -> 
