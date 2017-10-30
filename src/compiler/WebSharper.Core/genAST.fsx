@@ -194,7 +194,7 @@ let ExprDefs =
             , ".NET - F# union case tag getter"
         "MatchSuccess", [ Int, "index"; List Expr, "captures" ]
             , ".NET - F# successful match" 
-        "TraitCall", [ List Type, "objectType"; Method, "method"; List Expr, "arguments" ]
+        "TraitCall", [ Option Expr, "thisObject"; List Type, "objectType"; Method, "method"; List Expr, "arguments" ]
             , ".NET - Method call"
         "Await", [ Expr, "expression" ]
             , "Temporary - C# await expression"
