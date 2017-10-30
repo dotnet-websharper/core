@@ -534,6 +534,10 @@ type RoslynTransformer(env: Environment) =
         Call (None, qtyp, meth, args)
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
+        let symbol =
+            match symbol.OverriddenMethod with
+            | null -> symbol
+            | symbol -> symbol
         let eSymbol =
             match symbol.ReducedFrom with
             | null -> symbol

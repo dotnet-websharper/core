@@ -889,6 +889,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 |> List.ofSeq   
             | _ -> ta |> List.map this.TransformExpression
         let funcParams(includeTypGen) =
+            if List.isEmpty gc then [] else
             let gcArr = Array.ofList gc
             if includeTypGen then
                 typ.Generics @ meth.Generics
@@ -1155,6 +1156,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | Choice1Of2 a -> a 
             | _ -> failwithf "Class address not found for %s" typ.Entity.Value.FullName
         let typParams() =
+            if List.isEmpty gc then [] else
             let gcArr = Array.ofList gc
             typ.Generics |> List.indexed |> List.choose (fun (i, c) ->
                 match gcArr.[i].Type with
