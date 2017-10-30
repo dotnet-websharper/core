@@ -131,6 +131,11 @@ type TypeTest =
     inherit Macro
 
 [<Sealed>]
+type Unbox =
+    new : unit -> Unbox
+    inherit Macro
+
+[<Sealed>]
 type InlineJS =
     new : unit -> InlineJS
     inherit Macro

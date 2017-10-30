@@ -28,10 +28,10 @@ open System
 open WebSharper.JavaScript
 module M = WebSharper.Core.Macros
 
-[<Inline "$value">]
+[<Macro(typeof<M.Unbox>)>]
 let UnboxGeneric<'T> (value: obj) = X<'T>
 
-[<Inline "$value">]
+[<Macro(typeof<M.Unbox>)>]
 let UnboxFast<'T> (value: obj) = X<'T>
 
 [<Macro(typeof<M.TypeTest>)>]

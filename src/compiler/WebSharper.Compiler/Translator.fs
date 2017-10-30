@@ -1793,7 +1793,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let t = comp.TypeTranslator.TSTypeOf currentGenerics toTyp
         match f, t with
         | _ when f = t -> trExpr
-        | TSType.Any, _ -> trExpr
         | _ ->
         if currentIsInline then
             hasDelayedTransform <- true

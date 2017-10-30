@@ -87,6 +87,7 @@ let rec isPureExpr expr =
     | Unary (_, a) 
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
+    | Coerce (a, _, _)
         -> isPureExpr a     
     | Object a 
         -> List.forall (snd >> isPureExpr) a 
@@ -148,6 +149,7 @@ let rec isStronglyPureExpr expr =
         | _ -> isStronglyPureExpr a 
     | ExprSourcePos (_, a)
     | TypeCheck(a, _)
+    | Coerce (a, _, _)
         -> isStronglyPureExpr a     
     | Object a 
         -> List.forall (snd >> isStronglyPureExpr) a 

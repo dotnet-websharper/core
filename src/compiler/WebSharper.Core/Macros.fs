@@ -1195,6 +1195,14 @@ type TypeTest() =
         TypeCheck(c.Arguments.Head, c.Method.Generics.Head) |> MacroOk
 
 [<Sealed>]
+type Unbox() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        Coerce(c.Arguments.Head, NonGenericType Definitions.Object, c.Method.Generics.Head)
+        |> MacroOk
+
+[<Sealed>]
 type InlineJS() =
     inherit Macro()
 
