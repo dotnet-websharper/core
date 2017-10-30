@@ -180,7 +180,7 @@ module Provider =
                 let o = if t ===. JS.Undefined then New [] else JS.New t
                 let tag =
                     // [<NamedUnionCases(discr)>]
-                    if JS.TypeOf discr = JS.Kind.String then
+                    if JS.TypeOf discr ===. JS.Kind.String then
                         let tagName = x?(As<string> discr)
                         cases |> Array.findIndex (fun (name, _) -> name = tagName)
                     else // [<NamedUnionCases>]
@@ -519,7 +519,7 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td
                                 if cls.HasWSPrototype then
-                                    GlobalAccess cls.Address
+                                    GlobalAccess { cls.Address with Address = Hashed ("$" :: cls.Address.Address.Value) }
                                 else
                                     Undefined
                             | _ -> Undefined
