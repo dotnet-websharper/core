@@ -132,9 +132,10 @@ let SeqTryItem i (s: seq<'T>) =
 [<Name "WebSharper.Seq.tryLast">]
 let SeqTryLast (s: seq<'T>) =
     use e = Enumerator.Get s
-    if e.MoveNext() then 
-        while e.MoveNext() do ()
-        Some e.Current 
+    if e.MoveNext() then
+        let mutable r = e.Current
+        while e.MoveNext() do r <- e.Current
+        Some r
     else None
 
 [<Name "WebSharper.Seq.chunkBySize">]
@@ -220,8 +221,9 @@ let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
     if not <| e.MoveNext() then InsufficientElements()
     else 
-        while e.MoveNext() do ()
-        e.Current
+        let mutable r = e.Current
+        while e.MoveNext() do r <- e.Current
+        r
 
 [<Name "WebSharper.Seq.contains">]
 let SeqContains (el: 'T) (s: seq<'T>) =
