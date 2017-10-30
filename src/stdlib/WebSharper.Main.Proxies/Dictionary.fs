@@ -234,7 +234,11 @@ type private Dictionary<'K,'V when 'K : equality>
 
         [<Name "GetEnumerator">]
         member this.GetEnumerator() =
-            let s = JS.GetFieldValues data
+            let s = [||]
+            JS.ForEach data (fun k ->
+                if JS.HasOwnProperty data k then
+                    s.JS.Push(data?(k):KeyValuePair<'K,'V>) |> ignore
+                false)
             (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
             |> As<D<'K,'V>.Enumerator>
 
