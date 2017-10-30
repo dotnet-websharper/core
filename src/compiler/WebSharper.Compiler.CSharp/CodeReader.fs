@@ -218,19 +218,22 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             NonGeneric Definitions.Dynamic     
         else          
             let x = if x.IsTupleType then x.TupleUnderlyingType else x
-            let ta = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
+            let ta = this.GetTypeArguments x
             let td = this.ReadNamedTypeDefinition x
             Generic td ta
     
+    member this.GetTypeArguments (x: INamedTypeSymbol) =
+        let rec get (x: INamedTypeSymbol) =
+            match x.ContainingType with
+            | null -> x.TypeArguments |> Seq.map this.ReadType
+            | ct -> Seq.append (get ct) (x.TypeArguments |> Seq.map this.ReadType)
+        get x |> List.ofSeq
+
     member this.RecognizeNamedType (x: INamedTypeSymbol) =
         if x.IsTupleType then
             TupleType (x.TupleElements |> Seq.map (fun f -> this.ReadType f.Type) |> List.ofSeq, true)  
         else
-        let rec getTypeArguments (x: INamedTypeSymbol) =
-            match x.ContainingType with
-            | null -> x.TypeArguments |> Seq.map this.ReadType
-            | ct -> Seq.append (getTypeArguments ct) (x.TypeArguments |> Seq.map this.ReadType) 
-        let ta = getTypeArguments x |> List.ofSeq
+        let ta = this.GetTypeArguments x
         let td = this.ReadNamedTypeDefinition x
         let tName = td.Value.FullName
         if tName.StartsWith "System.Tuple" then

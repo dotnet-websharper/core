@@ -1823,6 +1823,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
             | Choice2Of2 ct -> 
                 match ct with
+                | M.FSharpUnionInfo _ ->
+                    Value (Bool true)    
                 | M.FSharpUnionCaseInfo c ->
                     let lastPlus = tN.LastIndexOf '+'
                     let nestedIn = tN.[.. lastPlus - 1]
@@ -1848,8 +1850,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Appl(GlobalAccess (ii.Address.MapName(fun n -> "is" + n)), [ trExpr ], Pure, Some 1)
                     | _ ->
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
-                | _ ->
-                    this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true
