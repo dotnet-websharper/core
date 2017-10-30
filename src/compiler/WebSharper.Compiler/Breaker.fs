@@ -257,7 +257,7 @@ let rec removeLets expr =
     | Let(a, b, c) ->
         let optimizeTupled  =
             match b with
-            | INewArray items ->
+            | I.NewArray items ->
                 match c with
                 | AlwaysTupleGet a items.Length (_, (|TupleGet|_|)) ->
                     let vars = List.init items.Length (fun _ -> Id.New(mut = false))
@@ -319,7 +319,7 @@ let optimize expr =
         else 
             let vars, moreVars = vars |> List.splitAt args.Length
             List.foldBack2 bind vars args (CurriedLambda(moreVars, ret, body)) 
-    | Application(TupledLambda(vars, _, body, isReturn), [ INewArray args ], { KnownLength = Some _ })
+    | Application(TupledLambda(vars, _, body, isReturn), [ I.NewArray args ], { KnownLength = Some _ })
         when vars.Length = args.Length && not (needsScoping vars args body) ->
         if isReturn then
             List.foldBack2 bind vars args body

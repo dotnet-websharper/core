@@ -549,13 +549,13 @@ let getFieldsList q =
                 when ``is (=>)`` td.Entity m.Entity -> n, v
             | _ -> failwith "Wrong type of array passed to New"
         match IgnoreExprSourcePos q with
-        | NewUnionCase (_, _, [INewArray [I.Value (String n); v]; t]) ->
+        | NewUnionCase (_, _, [I.NewArray [I.Value (String n); v]; t]) ->
             getFieldsListTC ((n, v) :: l) t         
         | NewUnionCase (_, _, [I.Call (_, td, m, [I.Value (String n); v]); t])
             when ``is (=>)`` td.Entity m.Entity ->
             getFieldsListTC ((n, v) :: l) t         
         | NewUnionCase (_, _, []) -> Some (l |> List.rev) 
-        | Call(None, td, m, [ INewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
+        | Call(None, td, m, [ I.NewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
             items |> List.map trItem |> Some
         | NewArray (items) ->
             items |> List.map trItem |> Some
@@ -676,7 +676,7 @@ type GetJS() =
     override __.TranslateCall(c) =
         match c.Arguments with
         | [ obj ] -> MacroOk obj
-        | [ obj; INewArray items ] ->
+        | [ obj; I.NewArray items ] ->
             if items |> List.forall (function I.Value _ -> true | _ -> false) then
                 items |> List.fold (fun x i -> ItemGet(x, i, NonPure)) obj |> MacroOk
             else MacroFallback
@@ -1203,7 +1203,7 @@ type InlineJS() =
             let args =
                 match c.Arguments with
                 | [_] -> [] 
-                | [_; INewArray args] -> args
+                | [_; I.NewArray args] -> args
                 | _ -> failwith "InlineJS error: arguments cannot be passed as an array"
             c.Compilation.ParseJSInline(inl, args) |> MacroOk
         | _ -> failwith "InlineJS error: first argument must be a constant string"

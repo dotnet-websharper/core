@@ -292,6 +292,13 @@ type GenericInlineResolver (generics, tsGenerics) =
             expr |> this.TransformExpression
         )
 
+    override this.TransformFunction(args, ret, body) =
+        Function(
+            args |> List.map this.TransformId, 
+            ret |> Option.map subs, 
+            body |> this.TransformStatement
+        )
+
 let private objTy = NonGenericType Definitions.Obj
 
 let rpcMethodNode name ret =

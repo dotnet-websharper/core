@@ -1322,10 +1322,12 @@ module ExtraForms =
         | NewTuple(a, _) -> Some a
         | _ -> None
 
-    let (|INewArray|_|) expr = 
-        match expr with 
-        | I.NewTuple(a, _) -> Some a
-        | _ -> None
+    module IgnoreSourcePos =
+
+        let (|NewArray|_|) expr = 
+            match expr with 
+            | I.NewTuple(a, _) -> Some a
+            | _ -> None
 
     let Appl (a, b, c, d) = Application(a, b, { Purity = c; KnownLength = d; Params = [] })
     let ApplAny (a, b) = Application(a, b, ApplicationInfo.None)

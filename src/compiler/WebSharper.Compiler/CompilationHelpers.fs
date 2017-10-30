@@ -1391,7 +1391,7 @@ type OptimizeLocalTupledFunc(var: Id , tupling) =
         match func with
         | I.Var v when v = var ->                    
             match args with
-            | [ INewArray ts ] when ts.Length = tupling ->
+            | [ I.NewArray ts ] when ts.Length = tupling ->
                 Application (func, ts |> List.map this.TransformExpression, { info with KnownLength = Some tupling })
             | [ t ] ->
                 Application ((Var v).[Value (String "apply")], [ Value Null; this.TransformExpression t ], { info with KnownLength = None })               
