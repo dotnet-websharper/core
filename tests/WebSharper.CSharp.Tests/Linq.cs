@@ -79,10 +79,10 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void DefaultIfEmpty()
         {
-            Equal(arr.DefaultIfEmpty(), arr, "No default value, not empty");
-            Equal(empty.DefaultIfEmpty(), new int[] { 0 }, "No default value, empty");
-            Equal(arr.DefaultIfEmpty(1), arr, "With default value, not empty");
-            Equal(empty.DefaultIfEmpty(1), new int[] { 1 }, "With default value, empty");
+            Equal(arr.DefaultIfEmpty().ToArray(), arr, "No default value, not empty");
+            Equal(empty.DefaultIfEmpty().ToArray(), new int[] { 0 }, "No default value, empty");
+            Equal(arr.DefaultIfEmpty(1).ToArray(), arr, "With default value, not empty");
+            Equal(empty.DefaultIfEmpty(1).ToArray(), new int[] { 1 }, "With default value, empty");
         }
 
         [Test]
