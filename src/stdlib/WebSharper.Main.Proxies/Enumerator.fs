@@ -63,12 +63,12 @@ let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
 // Enumerates on JavaScript objects with a length property and indexed items.
 // Works on both JS Array and String.
 type internal ItemEnumerator(x: obj) =
-    let mutable i = 0
+    let mutable i = -1
     
     interface System.Collections.IEnumerator with
         member this.MoveNext() =
             i <- i + 1
-            i >= x?length
+            i < x?length
         [<Direct "this.x[this.i]" >]
         member this.Current with get() = X<obj>
         [<JavaScript false>]
