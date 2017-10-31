@@ -881,11 +881,16 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
             match meta.Classes.TryGetValue td with
             | true, (a, ct, Some cls) ->
                 cls.BaseClass |> Option.iter (fun c -> getOrAddClass c.Entity |> ignore)
+                let methods = cls.Methods |> Dict.filter (fun m (cm, o, gs, b) ->
+                    // keep abstract members
+                    match cm, b with
+                    | CompiledMember.Instance _, IgnoreExprSourcePos Undefined -> true
+                    | _ -> false
+                )
                 let cls = 
                     { cls with
                         Constructors = Dictionary<_,_>()
-                        Methods = Dictionary<_,_>()
-                        Implementations = Dictionary<_,_>()
+                        Methods = methods
                     }
                 classes.Add(td, (a, ct, Some cls))
                 Some cls
@@ -898,13 +903,12 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 None
     for n in nodes do
         match n with
+        | AbstractMethodNode (td, m)
         | MethodNode (td, m) -> 
-            getOrAddClass td |> Option.iter (fun cls -> cls.Methods.Add(m, meta.ClassInfo(td).Methods.[m]))
+            getOrAddClass td |> Option.iter (fun cls -> cls.Methods.[m] <- meta.ClassInfo(td).Methods.[m])
         | ConstructorNode (td, c) -> 
-            getOrAddClass td |> Option.iter (fun cls -> cls.Constructors.Add(c, meta.ClassInfo(td).Constructors.[c]))
-        | ImplementationNode (td, i, m) ->
-            if td = Definitions.Obj then () else
-            getOrAddClass td |> Option.iter (fun cls -> cls.Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m]))
+            getOrAddClass td |> Option.iter (fun cls -> cls.Constructors.[c] <- meta.ClassInfo(td).Constructors.[c])
+        | ImplementationNode (td, _, _)
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 

@@ -268,7 +268,7 @@ type CustomTypeInfo =
 type Node =
     | MethodNode of TypeDefinition * Method
     | ConstructorNode of TypeDefinition * Constructor
-    | ImplementationNode of TypeDefinition * TypeDefinition * Method
+    | ImplementationNode of typ: TypeDefinition * baseTyp: TypeDefinition * Method
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition * option<ParameterObject>
