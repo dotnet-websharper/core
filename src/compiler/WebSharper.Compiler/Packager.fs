@@ -172,7 +172,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     | JavaScriptFile js ->
                         importJS (js + ".js")
                     | WebSharperModule ts ->
-                        importTS ts
+                        if isBundle then None else importTS ts
                     | CurrentModule -> failwith "empty local address"
                     | ImportedModule v -> Some v
                     , []
@@ -195,7 +195,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             Some var, []
                     | WebSharperModule _ ->
                         let m, a = getAddress { address with Address = Hashed [] }
-                        if isModule then
+                        if isModule && not isBundle then
                             m, name :: a
                         else
                             getAddress { address with Module = CurrentModule }
@@ -303,6 +303,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         | JavaScriptFile _
         | CurrentModule -> TSType.Named t
         | WebSharperModule _ ->
+            if isBundle then TSType.Named t else
             match getModule a.Module with
             | Some v ->
                 TSType.Imported(v, t)

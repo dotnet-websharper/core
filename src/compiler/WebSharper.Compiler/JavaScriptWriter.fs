@@ -452,7 +452,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             List.foldBack (fun n e -> 
                 e.[J.Constant (J.String n)]
             ) a.Address.Value (J.Var (trI v))
-        | CurrentModule ->
+        | CurrentModule | JavaScriptFile _ ->
             match a.Address.Value with
             | [] -> J.Var (J.Id.New "window")
             | h :: _ as a ->
