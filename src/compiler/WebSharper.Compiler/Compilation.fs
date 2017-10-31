@@ -954,7 +954,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match k with
                         | N.Override btyp ->
                             let btyp = this.FindProxied btyp  
-                            let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
+                            let mNode = graph.AddOrLookupNode(ImplementationNode(typ, btyp, meth))
                             graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
                             graph.AddOverride(typ, btyp, meth)
                             graph.AddEdge(mNode, clsNodeIndex)
@@ -1326,7 +1326,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
                 | N.Implementation dtyp 
-                | N.Override dtyp when dtyp <> typ ->
+                | N.Override dtyp ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         res.Implementations |> add (dtyp, mDef) (comp, nr.Body)
                     else

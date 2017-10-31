@@ -874,29 +874,37 @@ let maybe = new MaybeBuilder()
 
 let trimMetadata (meta: Info) (nodes : seq<Node>) =
     let classes = Dictionary<_,_>() 
-    let getOrAddClass td =
+    let rec getOrAddClass td =
         match classes.TryGetValue td with
-        | true, (_, _, Some cls) -> cls
-        | true, (a, ct, None) ->
-            let cls = 
-                { meta.ClassInfo(td) with
-                    Constructors = Dictionary<_,_>()
-                    Methods = Dictionary<_,_>()
-                    Implementations = Dictionary<_,_>()
-                }
-            classes.Add(td, (a, ct, Some cls))
-            cls
+        | true, (_, _, x) -> x
         | false, _ ->
-            eprintfn "WebSharper error: Assembly needed for bundling but is not referenced: %s" td.Value.Assembly
-            ClassInfo.None
+            match meta.Classes.TryGetValue td with
+            | true, (a, ct, Some cls) ->
+                cls.BaseClass |> Option.iter (fun c -> getOrAddClass c.Entity |> ignore)
+                let cls = 
+                    { cls with
+                        Constructors = Dictionary<_,_>()
+                        Methods = Dictionary<_,_>()
+                        Implementations = Dictionary<_,_>()
+                    }
+                classes.Add(td, (a, ct, Some cls))
+                Some cls
+            | true, (_, _, None as actNone) ->
+                classes.Add(td, actNone)
+                None
+            | _ ->
+                eprintfn "WebSharper warning: Assembly needed for bundling but is not referenced: %s (missing type: %s)"
+                    td.Value.Assembly td.Value.FullName
+                None
     for n in nodes do
         match n with
         | MethodNode (td, m) -> 
-            (getOrAddClass td).Methods.Add(m, meta.ClassInfo(td).Methods.[m])
+            getOrAddClass td |> Option.iter (fun cls -> cls.Methods.Add(m, meta.ClassInfo(td).Methods.[m]))
         | ConstructorNode (td, c) -> 
-            (getOrAddClass td).Constructors.Add(c, meta.ClassInfo(td).Constructors.[c])
+            getOrAddClass td |> Option.iter (fun cls -> cls.Constructors.Add(c, meta.ClassInfo(td).Constructors.[c]))
         | ImplementationNode (td, i, m) ->
-            (getOrAddClass td).Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m])
+            if td = Definitions.Obj then () else
+            getOrAddClass td |> Option.iter (fun cls -> cls.Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m]))
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 

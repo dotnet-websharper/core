@@ -356,28 +356,28 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             |> fun s -> 
                 { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
 
+        let methods = Dictionary()
+        for meth in typ.Methods do
+            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
+            let mdef =
+                Hashed {
+                    MethodName = meth.Name
+                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
+                    ReturnType = getType tgen meth.ReturnType
+                    Generics   = meth.GenericParameters |> Seq.length
+                }
+            let name =
+                match getName meth.CustomAttributes with
+                | Some n -> n
+                | _ -> meth.Name
+            let gc = getConstraints meth.GenericParameters tgen
+            methods.Add(mdef, (name, gc))
+
         interfaces.Add(def,
             {
                 Address = address
                 Extends = typ.Interfaces |> Seq.map (fun ii -> getType 0 ii.InterfaceType |> getConcreteType) |> List.ofSeq
-                Methods = 
-                    dict [
-                        for meth in typ.Methods do
-                            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
-                            let mdef =
-                                Hashed {
-                                    MethodName = meth.Name
-                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
-                                    ReturnType = getType tgen meth.ReturnType
-                                    Generics   = meth.GenericParameters |> Seq.length
-                                }
-                            let name =
-                                match getName meth.CustomAttributes with
-                                | Some n -> n
-                                | _ -> meth.Name
-                            let gc = getConstraints meth.GenericParameters tgen
-                            yield mdef, (name, gc)
-                    ]
+                Methods = methods
                 Generics = getConstraints typ.GenericParameters 0
                 Type = getTSType typ.CustomAttributes
             }

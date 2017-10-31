@@ -594,7 +594,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         , 
                         let _, _, mg, _ = cls.Methods.[m]
                         mg
-                    | _ -> [||], []
+                    | _ ->
+                        if i = t then
+                            Array.init (cgenl + m.Value.Generics) (fun i -> TypeParameter i), []
+                        else
+                            [||], [] // TODO: should this be an error? I don't think it should ever happen
             mem m info mParam M.Optimizations.None (Some intfGen) body
 
         let indexedCtors = Dictionary()

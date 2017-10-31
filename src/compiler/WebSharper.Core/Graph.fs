@@ -379,7 +379,7 @@ type Graph =
     member this.AddOverride (typ, btyp, meth) =
         let typeNode = this.AddOrLookupNode (TypeNode typ)
         let abstractMethodNode = this.AddOrLookupNode (AbstractMethodNode (btyp, meth))
-        let methodNode = this.AddOrLookupNode (MethodNode (typ, meth))
+        let methodNode = this.AddOrLookupNode (ImplementationNode (typ, btyp, meth))
         let ovr =
             match this.Overrides.TryFind typeNode with
             | None ->
