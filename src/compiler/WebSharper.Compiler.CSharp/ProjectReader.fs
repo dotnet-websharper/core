@@ -359,7 +359,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 err |> Option.iter error
                 addConstructor (Some meth) mAnnot cdef nrInline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
-            | Member.Override _ -> error "Override method can't have Stub attribute"
+            | Member.Override _ -> error "Virtual or override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
             let memdef = sr.ReadMember meth

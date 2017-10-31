@@ -132,6 +132,14 @@ module Provider =
             for KeyValue(k, v) in d :> seq<_> do o?(k) <- e v
             o
 
+    let EncodeLinkedList (encEl:(unit -> 'T -> obj)) : (unit -> LinkedList<'T> -> obj) =
+        ()
+        fun () (d: LinkedList<'T>) ->
+            let o = Array<'T>()
+            let e = encEl()
+            for x in d :> seq<'T> do o.Push(e x) |> ignore
+            box o
+
     let DecodeTuple (decs: (unit -> obj -> obj)[]) : (unit -> obj -> obj[]) =
         As (EncodeTuple decs)
 
@@ -229,6 +237,14 @@ module Provider =
             JS.ForEach o (fun k -> d.Add(k, decEl o?(k)); false)
             d
 
+    let DecodeLinkedList (decEl: unit -> obj -> 'T) : (unit -> obj -> LinkedList<'T>) =
+        ()
+        fun () (o: obj) ->
+            let l = LinkedList<'T>()
+            let decEl = decEl()
+            for x in o :?> obj[] do l.AddLast(decEl x) |> ignore
+            l
+
 module Macro =
 
     open WebSharper.Core
@@ -306,7 +322,10 @@ module Macro =
                 | _ -> false
             let rec encode t =
                 match t with
-                | ArrayType (t, 1) ->
+                | ArrayType (t, 1)
+                | C (T "System.Collections.Generic.List`1", [t])
+                | C (T "System.Collections.Generic.Queue`1", [t])
+                | C (T "System.Collections.Generic.Stack`1", [t]) ->
                     encode t >>= fun e ->
                     Ok (call "Array" [e])
                 | ArrayType _ ->
@@ -340,6 +359,9 @@ module Macro =
                                 [C (T "System.String", []); t]) ->
                     encode t >>= fun e ->
                     Ok (call "StringDictionary" [e])
+                | C (T "System.Collections.Generic.LinkedList`1", [t]) ->
+                    encode t >>= fun e ->
+                    Ok (call "LinkedList" [e])
                 | TupleType (ts, _) ->
                     encodeTuple ts
                 | TSType (TSType.Tuple ts) ->

@@ -372,8 +372,11 @@ let Tests =
         Test "Record with interface" {
             let r = { R3A = 4 }
             equal ((r :> I).Get()) 4
+            equal ((r :> I2).Get()) 4
             equal ((r :> I2)?``I2$Get``()) 4
+            equal ((r :> I3).Get()) 4
             equal ((r :> I3)?Get()) 4
+            equal ((r :> I4).Value) 4
             equal ((r :> I4)?I4Value()) 4
             (r :> I4).Value <- 5
             equal ((r :> I4)?I4Value()) 5

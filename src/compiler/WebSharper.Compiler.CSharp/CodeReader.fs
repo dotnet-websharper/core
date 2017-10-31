@@ -1689,9 +1689,9 @@ type RoslynTransformer(env: Environment) =
     member this.TransformCatchClause (x: CatchClauseData) : _ =
         let declaration = x.Declaration |> Option.map (this.TransformCatchDeclaration)
         match declaration with
-        | Some (symbol, typ) ->
+        | Some (symbolOpt, typ) ->
             let err = env.Caught.Value    
-            env.Vars.Add(symbol, err)
+            symbolOpt |> Option.iter (fun symbol -> env.Vars.Add(symbol, err))
             let filter = x.Filter |> Option.map (this.TransformCatchFilterClause)
             let typeCheck = TypeCheck(Var err, typ) 
             let cond = 
@@ -1701,13 +1701,14 @@ type RoslynTransformer(env: Environment) =
             let block = x.Block |> this.TransformBlock
             Some cond, block
         | None ->
+            let filter = x.Filter |> Option.map (this.TransformCatchFilterClause)
             let block = x.Block |> this.TransformBlock
-            None, block        
+            filter, block        
 
     member this.TransformCatchDeclaration (x: CatchDeclarationData) : _ =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = sr.ReadType symbol.Type
-        symbol, typ
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type
+        Option.ofObj symbol, sr.ReadType typ
 
     member this.TransformCatchFilterClause (x: CatchFilterClauseData) : _ =
         x.FilterExpression |> this.TransformExpression

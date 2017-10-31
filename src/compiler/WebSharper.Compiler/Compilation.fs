@@ -1483,6 +1483,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = 0
                 }
 
+            let equalsImpl =
+                Method { equals.Value with MethodName = "EqualsImpl" }
+
             let getHashCode =
                 Method {
                     MethodName = "GetHashCode"
@@ -1490,6 +1493,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     ReturnType = NonGenericType Definitions.Int
                     Generics = 0
                 } 
+
+            let getHashCodeImpl =
+                Method { getHashCode.Value with MethodName = "GetHashCodeImpl" } 
 
             let toString =
                 Method {
@@ -1539,17 +1545,21 @@ type Compilation(meta: Info, ?hasGraph) =
             graph.AddOverride(Definitions.Obj, Definitions.Obj, getHashCode)
             graph.AddOverride(Definitions.Obj, Definitions.Obj, toString)
 
-            let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]
+            let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]            
             let uchEqIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
+            let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 
             graph.AddEdge(objEqIndex, uchEqIndex)
-            graph.AddEdge(uchEqIndex, objEqIndex)
+            graph.AddEdge(uchEqIndex, implEqIndex)
+            graph.AddEdge(implEqIndex, objEqIndex)
 
             let objHashIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, getHashCode)]
             let uchHashIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedHash)]
+            let implHashIndex = graph.Lookup.[MethodNode (Definitions.Obj, getHashCodeImpl)]
 
             graph.AddEdge(objHashIndex, uchHashIndex)
-            graph.AddEdge(uchHashIndex, objHashIndex)
+            graph.AddEdge(uchHashIndex, implHashIndex)
+            graph.AddEdge(implHashIndex, objHashIndex)
 
             let objToStringIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, toString)]
             let oprToString = MethodNode (operatorsMdl, operatorsToString)

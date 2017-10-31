@@ -377,6 +377,54 @@ module ClientSideJson =
                 equal (InlineDeserialize "x42") 42
             }
 
+            Test "serialize ResizeArray" {
+                equal (Json.Serialize (ResizeArray<int>())) "[]"
+                equal (Json.Serialize (ResizeArray [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize ResizeArray" {
+                equal (Json.Deserialize "[]") (ResizeArray<int>())
+                equal (Json.Deserialize "[87,9,124]") (ResizeArray [87;9;124])
+            }
+
+            Test "serialize Queue" {
+                equal (Json.Serialize (Queue<int>())) "[]"
+                equal (Json.Serialize (Queue [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize Queue" {
+                equal (Json.Deserialize "[]") (Queue<int>())
+                equal (Json.Deserialize "[87,9,124]") (Queue [87;9;124])
+            }
+
+            Test "serialize Stack" {
+                equal (Json.Serialize (Stack<int>())) "[]"
+                equal (Json.Serialize (Stack [3; 0; 423])) "[423,0,3]"
+            }
+
+            Test "deserialize Stack" {
+                equal (Json.Deserialize "[]") (Stack<int>())
+                equal (Json.Deserialize "[87,9,124]") (Stack [124;9;87])
+            }
+
+            Test "serialize LinkedList" {
+                equal (Json.Serialize (LinkedList<int>())) "[]"
+                equal (Json.Serialize (LinkedList [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize LinkedList" {
+                let l = Json.Deserialize<LinkedList<int>> "[]"
+                equal l.First null
+                let l = Json.Deserialize<LinkedList<int>> "[87,9,124]"
+                equal l.First.Value 87
+                l.RemoveFirst()
+                equal l.First.Value 9
+                l.RemoveFirst()
+                equal l.First.Value 124
+                l.RemoveFirst()
+                equal l.First null
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
@@ -532,5 +580,28 @@ module ClientSideJson =
                     echo "DateTime" (Json.Serialize r) Json.Decode<System.DateTime>
                 equalAsync (f d.Self) d.Self
                 equalAsync (f now) now
+            }
+
+            Test "Queue" {
+                let f (r: Queue<int>) =
+                    echo "Queue" (Json.Serialize r) Json.Decode<Queue<int>>
+                equalAsync (f (Queue())) (Queue())
+                equalAsync (f (Queue [34; 5; 58])) (Queue [34; 5; 58])
+            }
+
+            Test "Stack" {
+                let f (r: Stack<int>) =
+                    echo "Stack" (Json.Serialize r) Json.Decode<Stack<int>>
+                equalAsync (f (Stack())) (Stack())
+                equalAsync (f (Stack [34; 5; 58])) (Stack [34; 5; 58])
+            }
+
+            Test "LinkedList" {
+                let f (r: LinkedList<int>) =
+                    echo "LinkedList" (Json.Serialize r) Json.Decode<LinkedList<int>>
+                let! res = f (LinkedList())
+                equal (List.ofSeq res) []
+                let! res2 = f (LinkedList [34; 5; 58])
+                equal (List.ofSeq res2) [34; 5; 58]
             }
         }
