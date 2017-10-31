@@ -54,6 +54,7 @@ WSRuntime = {
 
     Create: function (ctor, copyFrom) {
       var obj = new ctor();
+      Object.setPrototypeOf(obj, ctor.prototype);
       for (var f in copyFrom) { obj[f] = copyFrom[f] }
       return obj;
     },

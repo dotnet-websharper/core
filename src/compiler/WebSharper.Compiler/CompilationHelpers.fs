@@ -1457,6 +1457,12 @@ type OptimizeLocalCurriedFunc(var: Id, currying) =
                 base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
 
+//Object.setPrototypeOf(this, ThisClass.prototype);
+let restorePrototype =
+    Appl(
+        ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
+        , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
+
 #if DEBUG
 let mutable logTransformations = false
 #endif

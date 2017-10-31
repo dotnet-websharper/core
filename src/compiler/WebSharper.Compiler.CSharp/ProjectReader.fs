@@ -448,6 +448,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
                                     match baseCls with
+                                    | Some t when t.Entity.Value.FullName = "System.Exception" ->
+                                       ExprStatement (Sequential [ ChainedCtor(true, None, bTyp, bCtor, args) |> reorder; restorePrototype ])
                                     | Some _ ->
                                        ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
                                     | _ -> Empty
@@ -542,6 +544,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         else
                             let c =
                                 match baseCls with
+                                | Some bTyp when bTyp.Entity.Value.FullName = "System.Exception" ->
+                                    ExprStatement (Sequential [ ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), []); restorePrototype ])
                                 | Some bTyp ->
                                     ExprStatement <| ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), [])
                                 | _ -> Empty

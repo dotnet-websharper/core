@@ -128,7 +128,7 @@ let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
     match x.EnclosingEntity with
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
-                                
+       
 type FixCtorTransformer(typ, btyp, ?thisVar) =
     inherit Transformer()
 
@@ -183,10 +183,7 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
                     | Some i ->
                         yield ItemSet(thisExpr, Value (String "inner"), i)
                     | None -> ()
-                    yield Appl(
-                        ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
-                        , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
-                    //Object.setPrototypeOf(this, FooError.prototype);
+                    yield restorePrototype
                 ]
             else
                 ChainedCtor(isBase, thisVar, t, c, a) 
