@@ -21,3 +21,6 @@ IntelliFactory.WebSharper.JQuery/*.js
 /.fake
 /.paket/paket.exe
 /.vscode/
+/src/compiler/WebSharper.TypeScriptParser/node_modules
+/src/compiler/WebSharper.TypeScriptParser/app.js.map
+/src/compiler/WebSharper.TypeScriptParser/app.js
