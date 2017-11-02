@@ -304,6 +304,8 @@ let compileMain argv =
                     wsArgs := { !wsArgs with AnalyzeClosures = Some true }
                 | _ ->
                     printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
+            | StartsWith "--preferreduilang:" _ ->
+                () // not handled by FSC 16.0.2
             | _ -> 
                 fscArgs.Add a  
         with e ->
