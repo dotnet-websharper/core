@@ -14,6 +14,7 @@
     <Compile Include="CodeModel.fs" />
     <Compile Include="Pervasives.fs" />
     <Compile Include="Pattern.fs" />
+    <Compile Include="TypeScriptImport.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

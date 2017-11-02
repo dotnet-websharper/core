@@ -25,6 +25,10 @@ interface OutputParameter {
   name: string
   type: OutputType
 }
+interface OutputSimpleType {
+  kind: 'simple'
+  type: string
+}
 interface OutputArrayType {
   kind: 'array'
   elementType: OutputType
@@ -66,7 +70,7 @@ interface OutputKeyOfOrMappedType {
   type: OutputType
 }
 type OutputType =
-  | string
+  | OutputSimpleType
   | OutputArrayType
   | OutputTupleType
   | OutputFunctionOrNewType
@@ -103,7 +107,7 @@ interface OutputTypeDeclaration {
   typeParameters?: OutputTypeParameter[]
   members: OutputTypeElement[]
   extends?: OutputType | OutputType[]
-  implements?: OutputType | OutputType[]
+  implements?: OutputType[]
 }
 interface OutputModuleDeclaration {
   kind: 'module'
@@ -126,8 +130,15 @@ function transformParameter(p: ts.ParameterDeclaration): OutputParameter {
   }
 }
 
+function simpleType(x: string): OutputSimpleType {
+  return {
+    kind: 'simple',
+    type: x
+  }
+}
+
 function transformType(x: ts.TypeNode): OutputType {
-  if (!x) return 'any';
+  if (!x) return simpleType('any');
   if (ts.isParenthesizedTypeNode(x))
     return transformType(x.type)
   if (ts.isArrayTypeNode(x))
@@ -188,7 +199,7 @@ function transformType(x: ts.TypeNode): OutputType {
           type: x.typeName.getText(),
         }
       else
-        return x.typeName.getText()
+        return simpleType(x.typeName.getText())
     }
   if (ts.isTypePredicateNode(x))
     return {
@@ -208,7 +219,7 @@ function transformType(x: ts.TypeNode): OutputType {
     }
   let res = x.getText()
   if (res.indexOf('<') > 0) throw Error("needsBetterTypeParsing:" + x.kind)
-  return x.getText()
+  return simpleType(x.getText())
 }
 
 function transformTypeElement(x: ts.TypeElement): OutputTypeElement {
@@ -285,7 +296,7 @@ function transformExpessionWithTypeArguments(x: ts.ExpressionWithTypeArguments):
       arguments: x.typeArguments.map(transformType)
     }
   else
-    return x.expression.getText();
+    return simpleType(x.expression.getText())
 }
 
 function transformStatement(x: ts.Statement): OutputStatement {
