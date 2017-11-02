@@ -17,9 +17,9 @@
 #r "../../build/Release/WebSharper.JavaScript.dll"
 #r "../../build/Release/WebSharper.JQuery.dll"
 #r "../../build/Release/WebSharper.Main.dll"
-#r "../../build/Release/WebSharper.Collections.dll"
-#r "../../build/Release/WebSharper.Control.dll"
-#r "../../build/Release/WebSharper.Web.dll"
+//#r "../../build/Release/WebSharper.Collections.dll"
+//#r "../../build/Release/WebSharper.Control.dll"
+//#r "../../build/Release/WebSharper.Web.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/WebSharper.Compiler.FSharp.dll"
 
@@ -292,7 +292,7 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
             yield x
         let references =
             [ 
-                sysLib "mscorlib"
+                sysLib "netstandard"
                 sysLib "System"
                 sysLib "System.Core"
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
@@ -335,6 +335,8 @@ let translate source =
     let fsDeclarations = 
          file1.Declarations |> Utils.printDeclarations None |> List.ofSeq
 
+    fsDeclarations |> List.iter (printfn "%s") 
+
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
@@ -350,12 +352,14 @@ let translate source =
 
     let expressions =
         Seq.concat [
-            comp.CompilingMethods.Values |> Seq.map snd
+            comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
         ]
         |> List.ofSeq
+
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
 
     WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
 
@@ -363,43 +367,46 @@ let translate source =
 
     let currentMeta = comp.ToCurrentMetadata()
     let compiledExpressions = 
-        currentMeta.Classes.Values |> Seq.collect (fun c ->
-            Seq.concat [
-                c.Methods.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Implementations.Values |> Seq.map snd
-                c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
-            ]
+        currentMeta.Classes.Values |> Seq.collect (function
+            | (_, _, Some c) ->
+                Seq.concat [
+                    c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
+                    c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
+                    c.Implementations.Values |> Seq.map snd
+                    c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
+                ]
+            | _ -> Seq.empty
         )
         |> List.ofSeq 
         
+    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
+
     printErrors()
 
-    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta [] false
+    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta [] (Some "") false
     
     let js, map = pkg |> WebSharper.Compiler.Packager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-    fsDeclarations |> List.iter (printfn "%s") 
-    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
 translate """
+module GenericTest
+
 open WebSharper
+open WebSharper.JavaScript
 
 [<JavaScript>]
-module M =
-    let b() =
-        let rec f x y z =
-            if x = 0 then 
-                if y = 0 then g z else y + z
-            else f (x - 1) y z
-        and g x = 
-            f 0 1 x
-        f 5 0 5
+type Foo<'T> =
+    [<Name "Foo">]
+    abstract Foo: unit -> 'T
+
+[<JavaScript>]
+type Bar<'T, 'U> (u: 'U) =
+    interface Foo<'U> with
+        member this.Foo() = u
 
     """
-
 let translateQ q =
     let comp = 
         WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false)
@@ -422,11 +429,11 @@ let getBody expr =
         | Patterns.PropertySet(_, p, _, _) -> p.SetMethod
         | _ -> failwithf "not recognized: %A" expr
     let typ = AST.Reflection.ReadTypeDefinition mi.DeclaringType 
-    let cls = metadata.Classes.[typ]
+    let (_, _, Some cls) = metadata.Classes.[typ]
     match AST.Reflection.ReadMember mi |> Option.get with
     | AST.Member.Method (_, meth) 
     | AST.Member.Override (_, meth) ->
-        let _, _, expr = cls.Methods.[meth]
+        let _, _, _, expr = cls.Methods.[meth]
         expr
     | AST.Member.Implementation (intf, meth) ->
         let _, expr = cls.Implementations.[intf, meth]

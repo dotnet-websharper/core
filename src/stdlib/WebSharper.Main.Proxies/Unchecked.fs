@@ -83,10 +83,11 @@ let Compare<'T> (a: 'T) (b: 'T) : int =
             if a <. b then -1 else 1
         | JS.Object ->
             if a ===. null then -1
-            elif b ===. null then 1
-            elif JS.In "CompareTo" a then (As<System.IComparable<_>> a).CompareTo(b)
-            elif JS.In "CompareTo0" a then (As<System.IComparable> a).CompareTo(b)
-            elif isArray a && isArray b then compareArrays (As a) (As b)
+            elif b ===. null then 1 else 
+            match box a with
+            | :? System.IComparable<'T> as a -> a.CompareTo(b)
+            | _ ->
+            if isArray a && isArray b then compareArrays (As a) (As b)
             elif isDate a && isDate b then compareDates a b
             else objCompare (As a) (As b)
 

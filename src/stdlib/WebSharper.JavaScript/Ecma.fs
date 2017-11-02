@@ -32,6 +32,7 @@ module Definition =
 
     let EcmaObject =
         Class "Object"
+        |> WithTSType "any"
         |+> Instance [
                 "constructor" =? T<Function>
                 "toLocaleString" => T<unit->string>
@@ -65,18 +66,22 @@ module Definition =
     let EcmaObjectG =
         Generic - fun (a: CodeModel.TypeParameter) ->
         Class "Object"
+        |> WithTSType "object"
         |=> Inherits EcmaObject
         |+> Instance
             [
                 "" =@ a |> Indexed T<string>            
             ]
         |+> Static [
-                Constructor (!|(T<string> * a))?nameValuePairs |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+                Constructor (!|(T<string> * a))?nameValuePairs
+                |> WithInline "$wsruntime.NewObject($nameValuePairs)"
+                |> WithMacro typeof<WebSharper.Core.Macros.New>
             ]
 
     /// A resgular expression is an object that describes a pattern of characters.
     let EcmaRegExp =
         Class "RegExp"
+        |> WithTSType "RegExp"
         |=> Inherits EcmaObject
         |+> Instance
             [
@@ -109,6 +114,7 @@ module Definition =
     /// The String object is used to manipulate a stored piece of text.
     let EcmaString =
         Class "String"
+        |> WithTSType "string"
         |=> Inherits EcmaObject
         |+> Instance 
             [
@@ -150,6 +156,7 @@ module Definition =
     /// The Boolean object is used to convert a non-Boolean value to a Boolean value (true or false).
     let EcmaBoolean =
         Class "Boolean"
+        |> WithTSType "boolean"
         |=> Inherits EcmaObject
         |+> Instance [
                 "self" =? T<bool> |> WithGetterInline "$this"      
@@ -162,6 +169,7 @@ module Definition =
     /// The Number object is an object wrapper for primitive numeric values.
     let EcmaNumber =
         Class "Number"
+        |> WithTSType "number"
         |=> Inherits EcmaObject
         |+> Instance
             [
@@ -192,6 +200,7 @@ module Definition =
 
     let EcmaArray =
         Class "Array"
+        |> WithTSType "Array"
         |+> Static [
                 "isArray" => T<obj->bool>
                 "prototype" =? TSelf
@@ -210,6 +219,7 @@ module Definition =
                 Generic - fun t -> name => (t -* a * T<int> * !|a ^-> cRes)?callback * t?thisArg ^-> mRes
             ]     
         Class "Array"
+        |> WithTSType "Array"
         |=> Inherits EcmaObject
         |+> Instance [
                 "concat" => !+ a ^-> !|a
@@ -245,6 +255,7 @@ module Definition =
         let D = T<double>
         let F = D ^-> D
         Class "Math"
+        |> WithTSType "Math"
         |+> Static [
                 "E" =? D
                 "LN10" =? D
@@ -308,6 +319,7 @@ module Definition =
         
         let DateType = Class "Date" 
         DateType
+        |> WithTSType "Date"
         |+> Instance [
                 "toDateString" => T<unit->string>
                 "toTimeString" => T<unit->string>
@@ -375,6 +387,7 @@ module Definition =
 
     let EcmaError =
         Class "Error"
+        |> WithTSType "Error"
         |=> Inherits EcmaObject
         |+> Instance
             [
@@ -389,6 +402,7 @@ module Definition =
 
     let EcmaJSON =
         Class "JSON"
+        |> WithTSType "JSON"
         |+> Static
             [
                 "parse" => T<string> * !?T<obj->obj->bool>?reviver ^-> T<obj>

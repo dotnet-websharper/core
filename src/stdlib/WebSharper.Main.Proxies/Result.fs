@@ -27,6 +27,7 @@ open WebSharper
 [<Struct>]
 [<Proxy(typeof<Result<_,_>>)>]
 [<RequireQualifiedAccess>]
+[<Name "Result">]
 type private ResultProxy<'T,'TError> =
     | Ok of ResultValue:'T 
     | Error of ErrorValue:'TError

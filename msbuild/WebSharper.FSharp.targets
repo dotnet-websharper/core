@@ -36,7 +36,6 @@
     <OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath)"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperOutputDir.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>

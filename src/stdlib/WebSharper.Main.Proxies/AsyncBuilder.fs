@@ -29,6 +29,7 @@ module C = WebSharper.Concurrency
 [<Proxy "Microsoft.FSharp.Control.FSharpAsyncBuilder, \
          FSharp.Core, Culture=neutral, \
          PublicKeyToken=b03f5f7f11d50a3a">]
+[<Type "null">]
 type private AsyncBuilderProxy [<Inline "null">]() =
 
     [<Inline>]
@@ -63,7 +64,7 @@ type private AsyncBuilderProxy [<Inline "null">]() =
         As (C.Using (x, As f))
 
     [<Inline>]
-    member this.Zero() : Async<unit> = C.Zero
+    member this.Zero() : Async<unit> = As C.Zero
 
     [<Inline>]
     member this.While(g: unit -> bool, b:Async<unit>) : Async<unit> = 

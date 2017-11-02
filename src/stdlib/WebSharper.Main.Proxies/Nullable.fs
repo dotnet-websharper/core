@@ -34,6 +34,7 @@ module Nullable =
         if x ==. null then v else x     
 
 [<Proxy(typeof<System.Nullable<_>>)>]
+[<Type "$0">]
 type private NullableProxy<'T> =
     
     [<Inline "null">]

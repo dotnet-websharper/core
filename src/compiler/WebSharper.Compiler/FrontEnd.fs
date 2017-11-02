@@ -98,9 +98,16 @@ let ModifyWIGAssembly (current: M.Info) (a: Mono.Cecil.AssemblyDefinition) =
         use s = new MemoryStream(8 * 1024)
         M.IO.Encode s current
         s.ToArray()
+    let dts =
+        DtsWriter.WriteDts current
+        |> JavaScript.Writer.ProgramToString JavaScript.Readable
+        |> System.Text.Encoding.UTF8.GetBytes
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     Mono.Cecil.EmbeddedResource(EMBEDDED_METADATA, pub, meta)
     |> a.MainModule.Resources.Add
+    if not (Array.isEmpty dts) then
+        Mono.Cecil.EmbeddedResource(EMBEDDED_DTS, pub, dts)
+        |> a.MainModule.Resources.Add
 
 let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     ModifyWIGAssembly current a.Raw

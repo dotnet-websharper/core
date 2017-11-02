@@ -25,6 +25,7 @@ open WebSharper.JavaScript
 module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<PrintfFormat<_,_,_,_,_>>)>]
+[<Type "any">]
 type internal PrintfFormat = 
     [<Macro(typeof<M.PrintF>)>]
     new (value: string) = {}

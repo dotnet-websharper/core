@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Enum>)>]
+[<Type "any">]
 type internal EnumProxy =
 
     [<Inline>]

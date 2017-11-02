@@ -25,82 +25,58 @@ open WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
-[<Sealed>]
-type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
-    [<Inline; JavaScript>] 
+[<Sealed; JavaScript>]
+[<Name "WebSharper.Enumerator">]
+type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
+    [<Name "MoveNext">] 
     member this.MoveNext() = n this
-    member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
-    member this.Current with [<Inline; JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
+    member this.State with [<Inline>] get() = s and [<Inline>] set (v: 'S) = this?s <- v
+    [<Name "Current">] 
+    member this.Current with get() = c and [<Inline>] set (v: 'T) = this?c <- v
 
     interface System.Collections.IEnumerator with
-        [<JavaScript>] 
-        member this.MoveNext() = n this
-        [<JavaScript>]
+        [<Inline>]
+        member this.MoveNext() = this.MoveNext() 
+        [<Inline>]
         member this.Current with get() = box c
-        member this.Reset() = failwith "IEnumerator.Reset not supported"
+        [<JavaScript false>]
+        member this.Reset() = X<unit>
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        [<JavaScript>]
+        [<Inline>]
         member this.Current with get() = c
 
     interface System.IDisposable with
-        [<JavaScript>] 
         member this.Dispose() = if As d then d this
 
 /// Constructs a new `IEnumerator` by unfolding a function.
 [<Inline>]
-[<JavaScript>]
 let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, As JS.Undefined)) 
 
 [<Inline>]
-[<JavaScript>]
 let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
 
-[<Inline "$x.GetEnumerator()">]
-let getEnumerator (x: obj) : IE<'T> = X
-
 [<JavaScript>]
-let ArrayEnumerator (s: obj[]) =
-    New 0 (fun e ->
-        let i = e.State
-        if i < s.Length then
-            e.Current <- As s.[i]
-            e.State <- i + 1
-            true
-        else
-            false)
+[<Name "WebSharper.ItemEnumerator">]
+// Enumerates on JavaScript objects with a length property and indexed items.
+// Works on both JS Array and String.
+type internal ItemEnumerator(x: obj) =
+    let mutable i = -1
+    
+    interface System.Collections.IEnumerator with
+        member this.MoveNext() =
+            i <- i + 1
+            i < x?length
+        [<Direct "this.x[this.i]" >]
+        member this.Current with get() = X<obj>
+        [<JavaScript false>]
+        member this.Reset() = X<unit>
 
-[<JavaScript>]
-let StringEnumerator (s: string) =
-    New 0 (fun e ->
-        let i = e.State
-        if i < s.Length then
-            e.Current <- As s.[i]
-            e.State <- i + 1
-            true
-        else
-            false)
+    interface System.IDisposable with
+        member this.Dispose() = ()
 
-[<JavaScript>]
+[<Inline>]
 let Get (x: seq<'T>) : IE<'T> =
-    if x :? System.Array then
-        ArrayEnumerator (As x)
-    elif JS.TypeOf x = JS.String then
-        StringEnumerator (As x)
-    else
-        getEnumerator x
-
-[<Inline "'GetEnumerator0' in $x ? $x.GetEnumerator0() : $x.GetEnumerator()">]
-let getEnumerator0 (x: obj) : System.Collections.IEnumerator = X
-
-[<JavaScript>]
-let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
-    if x :? System.Array then
-        As (ArrayEnumerator (As x))
-    elif JS.TypeOf x = JS.String then
-        As (StringEnumerator (As x))
-    else
-        getEnumerator0 x
-
+    x.GetEnumerator()

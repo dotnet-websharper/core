@@ -28,6 +28,7 @@ module J = WebSharper.Core.Json
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.
+[<JavaScript false>]
 type IRequiresResources =
     abstract member Requires : seq<M.Node>
     abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
@@ -44,10 +45,12 @@ type IControlBody =
 /// An interface that has to be implemented by controls that
 /// are subject to activation, ie. server-side controls that
 /// contain client-side elements.
+[<JavaScript>]
 type IControl =
     inherit IRequiresResources
-    [<JavaScript; Name "Body">]
+    [<Name "Body">]
     abstract member Body : IControlBody
+    [<Name "Id">]
     abstract member Id : string
 
 [<AutoOpen>]

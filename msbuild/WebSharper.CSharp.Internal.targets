@@ -39,6 +39,7 @@
     <ZafirCsFullPath>$(Root)build\$(Configuration)\CSharp\net461\ZafirCs.exe</ZafirCsFullPath>
   </PropertyGroup>
   <PropertyGroup>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">15.0</VisualStudioVersion>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
   </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">

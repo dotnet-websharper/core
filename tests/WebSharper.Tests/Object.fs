@@ -26,6 +26,7 @@ open WebSharper.Testing
 
 [<JavaScript>] type T = { K : int }
 
+[<Type "{ p1?: number, p2?: number, P3?: number }">]
 type O [<Inline "{}">] () = 
     member this.P1 
         with [<Inline "$this.p1">] get() = X<int>
@@ -57,8 +58,9 @@ type I =
 type I2 = 
     abstract Get: unit -> int
 
-[<Name "">]
+[<Name "I3">]
 type I3 = 
+    [<Name "Get">]
     abstract Get: unit -> int
 
 type I4 = 
@@ -370,8 +372,11 @@ let Tests =
         Test "Record with interface" {
             let r = { R3A = 4 }
             equal ((r :> I).Get()) 4
+            equal ((r :> I2).Get()) 4
             equal ((r :> I2)?``I2$Get``()) 4
+            equal ((r :> I3).Get()) 4
             equal ((r :> I3)?Get()) 4
+            equal ((r :> I4).Value) 4
             equal ((r :> I4)?I4Value()) 4
             (r :> I4).Value <- 5
             equal ((r :> I4)?I4Value()) 5

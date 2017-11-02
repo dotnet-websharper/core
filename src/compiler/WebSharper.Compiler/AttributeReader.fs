@@ -32,7 +32,7 @@ module M = WebSharper.Core.Metadata
 type private Attribute =
     | Macro of TypeDefinition * option<obj>
     | Proxy of TypeDefinition
-    | Inline of option<string>
+    | Inline of option<string * bool>
     | Direct of string
     | Pure
     | Warn of string
@@ -51,6 +51,7 @@ type private Attribute =
     | Website of TypeDefinition
     | SPAEntryPoint
     | Prototype of bool
+    | Type of string
     
 type private A = Attribute
 
@@ -69,6 +70,7 @@ type TypeAnnotation =
         Macros : list<TypeDefinition * option<obj>>
         RemotingProvider : option<TypeDefinition * option<obj>>
         JavaScriptTypesAndFiles : list<string>
+        Type : option<TSType>
     }
 
     static member Empty =
@@ -85,10 +87,11 @@ type TypeAnnotation =
             Macros = []
             RemotingProvider = None
             JavaScriptTypesAndFiles = []
+            Type = None
         }
 
 type MemberKind = 
-    | Inline of string
+    | Inline of string * bool
     | Direct of string
     | InlineJavaScript
     | JavaScript
@@ -159,6 +162,12 @@ type AssemblyAnnotation =
             JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
         }
 
+/// Contains information from all WebSharper-specific attributes for a type parameter
+type TypeParamAnnotation =
+    {
+        Type : option<TSType>
+    }
+
 /// Base class for reading WebSharper-specific attributes.
 [<AbstractClass>]
 type AttributeReader<'A>() =
@@ -200,7 +209,10 @@ type AttributeReader<'A>() =
         | "ProxyAttribute" ->
             A.Proxy (this.ReadTypeArg attr |> fst)
         | "InlineAttribute" ->
-            A.Inline (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
+            match this.GetCtorArgs(attr) |> List.ofSeq with
+            | t :: a :: _ -> A.Inline (Some (unbox t, unbox a))
+            | t :: _ -> A.Inline (Some (unbox t, false))
+            | [] -> A.Inline None
         | "DirectAttribute" ->
             A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox)
         | "PureAttribute" ->
@@ -248,6 +260,8 @@ type AttributeReader<'A>() =
             A.SPAEntryPoint
         | "PrototypeAttribute" ->
             A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
+        | "TypeAttribute" ->
+            A.Type (Seq.head (this.GetCtorArgs(attr)) |> unbox)
         | n -> 
             failwithf "Unknown attribute type: %s" n
 
@@ -260,6 +274,7 @@ type AttributeReader<'A>() =
         let mutable stub = false
         let mutable proxy = None
         let mutable prot = None
+        let mutable tstyp = None
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -271,6 +286,7 @@ type AttributeReader<'A>() =
                 | A.Stub -> stub <- true
                 | A.Proxy t -> proxy <- Some t
                 | A.Prototype p -> prot <- Some p
+                | A.Type n -> tstyp <- Some (TSType.Parse n)
                 | ar -> attrArr.Add ar
             | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
@@ -295,10 +311,10 @@ type AttributeReader<'A>() =
 
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, js = Some false, prot, isStub, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, js = Some false, prot, isStub, List.ofSeq reqs, tstyp
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, isJavaScript, isForcedNotJavaScript, prot, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, isJavaScript, isForcedNotJavaScript, prot, isStub, reqs, tstyp = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             IsJavaScript = isJavaScript
@@ -316,10 +332,11 @@ type AttributeReader<'A>() =
             JavaScriptTypesAndFiles =
                 (attrArr |> Seq.choose (function A.JavaScriptTypeOrFile s -> Some s | _ -> None) |> List.ofSeq) 
                 @ parent.JavaScriptTypesAndFiles
+            Type = tstyp
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, isJavaScript, _, _, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, isJavaScript, _, _, isStub, reqs, _ = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -384,6 +401,19 @@ type AttributeReader<'A>() =
             IsJavaScript = isJavaScript
             JavaScriptTypesAndFiles = jsTypesAndFiles |> List.ofSeq
         }        
+
+    member this.GetTypeParamAnnot (attrs: seq<'A>) =
+        let mutable tsType = None
+        for a in attrs do
+            match this.GetAssemblyName a with
+            | "WebSharper.Core" ->
+                match this.Read a with
+                | A.Type t -> tsType <- Some (TSType.Parse t) 
+                | _ -> ()
+            | _ -> ()
+        {
+            Type = tsType
+        }
            
 type ReflectionAttributeReader() =
     inherit AttributeReader<System.Reflection.CustomAttributeData>()
@@ -400,12 +430,11 @@ let private mdelTy = typeof<System.MulticastDelegate>
 let reflectCustomType (typ : TypeDefinition) =
     try
         let t = Reflection.LoadTypeDefinition typ
-        let typName() = typ.Value.FullName.Split(',').[0]
         if t.BaseType = mdelTy then
-            let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
+            let args, ret = t.GetMethod("Invoke") |> Reflection.ReadSignature
             M.DelegateInfo {
-                DelegateArgs = inv.Parameters 
-                ReturnType = inv.ReturnType
+                DelegateArgs = args
+                ReturnType = ret
             } 
         elif t.IsEnum then
             M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))

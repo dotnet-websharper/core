@@ -27,6 +27,7 @@ open System.Collections.Generic
 
 [<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
 [<Name "WebSharper.Collections.ReadOnlyCollection">]
+[<Type "Array">]
 type ReadOnlyCollectionProxy<'T> =
     [<Inline>] 
     static member CtorProxy (arr: IList<'T>) = Array.ofSeq(arr)

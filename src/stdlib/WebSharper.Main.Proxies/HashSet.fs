@@ -29,7 +29,7 @@ open WebSharper.JavaScript
 [<AutoOpen>]
 module private HashSetUtil =
     [<Direct "var r=[]; for(var k in $o) { r.push.apply(r, $o[k]) }; return r">]
-    let concat (o: Array<Array<'T>>) = X<Array<'T>>
+    let concat (o: Array<Array<'T>>) = X<'T[]>
     
 open DictionaryUtil
 
@@ -37,12 +37,14 @@ open DictionaryUtil
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<HashSet<_>.Enumerator>)>]
-[<Stub>]
-type private HashSetEnumeratorProxy<'T> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'T> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Stub; Name "WebSharper.Collections.HashSet.Enumerator">]
+type private HashSetEnumeratorProxy<'T> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'T
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 [<Proxy(typeof<HashSet<_>>)>]
 [<Name "HashSet">]
@@ -129,14 +131,16 @@ type internal HashSetProxy<'T when 'T : equality>
             for item in xs do
                 x.Remove(item) |> ignore
 
-        [<Inline>]
+        [<Name "GetEnumerator">]
         member this.GetEnumerator() =
-           As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
+           As<HashSet<'T>.Enumerator>((concat data).GetEnumerator())
 
         interface IEnumerable with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator() :> _
         
         interface IEnumerable<'T> with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator() :> _
 
         // TODO: optimize methods by checking if other collection
@@ -160,7 +164,7 @@ type internal HashSetProxy<'T when 'T : equality>
 
         member x.IsSubsetOf(xs: seq<'T>) =
             let other = HashSetProxy(xs, equals, hash)
-            As<_[]>(concat data) |> Array.forall other.Contains
+            concat data |> Array.forall other.Contains
 
         member x.IsSupersetOf(xs: seq<'T>) =
             xs |> Seq.forall x.Contains

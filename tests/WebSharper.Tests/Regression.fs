@@ -209,6 +209,11 @@ type IFoo<'T> =
     abstract member DoBar: unit -> unit
 
 [<JavaScript>]
+type IFoo2<'T> =
+    inherit System.IComparable<'T>
+    inherit System.IComparable
+
+[<JavaScript>]
 [<Inline>]
 let inlinedIf a b c = if a() then b() else c()
 

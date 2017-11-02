@@ -30,7 +30,7 @@
     <DisableImplicitSystemValueTupleReference>true</DisableImplicitSystemValueTupleReference>
   </PropertyGroup>
 
-  <Target Name="PaketRestore" BeforeTargets="_GenerateDotnetCliToolReferenceSpecs;_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
+  <Target Name="PaketRestore" Condition="'$(PaketRestoreDisabled)' != 'True'" BeforeTargets="_GenerateDotnetCliToolReferenceSpecs;_GenerateProjectRestoreGraphPerFramework;_GenerateRestoreGraphWalkPerFramework;CollectPackageReferences" >
 
     <!-- Step 1 Check if lockfile is properly restored -->
     <PropertyGroup>
@@ -88,7 +88,7 @@
     <Exec Command='$(PaketCommand) restore --project "$(MSBuildProjectFullPath)"' Condition=" '$(PaketRestoreRequired)' == 'true' " ContinueOnError="false" />
 
     <!-- This shouldn't actually happen, but just to be sure. -->
-    <Error Condition=" !Exists('$(PaketResolvedFilePath)') AND '$(TargetFramework)' != '' " Text="A paket file for the framework '$(TargetFramework)' is missing. Please delete 'paket-files/paket.restore.cached' and call 'paket restore'." />
+    <Error Condition=" !Exists('$(PaketResolvedFilePath)') AND '$(TargetFramework)' != '' AND '$(ResolveNuGetPackages)' != 'False' " Text="Paket file '$(PaketResolvedFilePath)' is missing while restoring $(MSBuildProjectFile). Please delete 'paket-files/paket.restore.cached' and call 'paket restore'." />
 
     <!-- Step 4 forward all msbuild properties (PackageReference, DotNetCliToolReference) to msbuild -->
     <ReadLinesFromFile Condition="Exists('$(PaketResolvedFilePath)')" File="$(PaketResolvedFilePath)" >
@@ -136,15 +136,21 @@
   </Target>
 
   <Target Name="PaketOverrideNuspec" AfterTargets="GenerateNuspec" Condition="('$(IsPackable)' == '' Or '$(IsPackable)' == 'true') And Exists('$(MSBuildProjectDirectory)/obj/$(MSBuildProjectFile).references')" >
+    <ItemGroup>
+      <_NuspecFilesNewLocation Include="$(BaseIntermediateOutputPath)$(Configuration)/*.nuspec"/>
+    </ItemGroup>
+
     <PropertyGroup>
       <PaketProjectFile>$(MSBuildProjectDirectory)/$(MSBuildProjectFile)</PaketProjectFile>
       <ContinuePackingAfterGeneratingNuspec>true</ContinuePackingAfterGeneratingNuspec>
       <UseNewPack>false</UseNewPack>
       <UseNewPack Condition=" '$(NuGetToolVersion)' != '4.0.0' ">true</UseNewPack>
+      <AdjustedNuspecOutputPath>$(BaseIntermediateOutputPath)$(Configuration)/</AdjustedNuspecOutputPath>
+      <AdjustedNuspecOutputPath Condition="@(_NuspecFilesNewLocation) == ''">$(BaseIntermediateOutputPath)</AdjustedNuspecOutputPath>
     </PropertyGroup>
 
     <ItemGroup>
-      <_NuspecFiles Include="$(BaseIntermediateOutputPath)*.nuspec"/>
+      <_NuspecFiles Include="$(AdjustedNuspecOutputPath)*.nuspec"/>
     </ItemGroup>
 
     <Exec Command='$(PaketCommand) fix-nuspecs files "@(_NuspecFiles)" project-file "$(PaketProjectFile)" ' Condition="@(_NuspecFiles) != ''" />
@@ -188,7 +194,7 @@
               Serviceable="$(Serviceable)"
               FrameworkAssemblyReferences="@(_FrameworkAssemblyReferences)"
               ContinuePackingAfterGeneratingNuspec="$(ContinuePackingAfterGeneratingNuspec)"
-              NuspecOutputPath="$(BaseIntermediateOutputPath)"
+              NuspecOutputPath="$(AdjustedNuspecOutputPath)"
               IncludeBuildOutput="$(IncludeBuildOutput)"
               BuildOutputFolder="$(BuildOutputTargetFolder)"
               ContentTargetFolders="$(ContentTargetFolders)"
@@ -230,7 +236,7 @@
               Serviceable="$(Serviceable)"
               AssemblyReferences="@(_References)"
               ContinuePackingAfterGeneratingNuspec="$(ContinuePackingAfterGeneratingNuspec)"
-              NuspecOutputPath="$(BaseIntermediateOutputPath)"
+              NuspecOutputPath="$(AdjustedNuspecOutputPath)"
               IncludeBuildOutput="$(IncludeBuildOutput)"
               BuildOutputFolder="$(BuildOutputTargetFolder)"
               ContentTargetFolders="$(ContentTargetFolders)"

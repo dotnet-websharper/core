@@ -73,7 +73,7 @@ let jsPervasives =
     
     code.ToArray()
 
-replaceGenerated (__SOURCE_DIRECTORY__ + @"\JavaScript.Pervasives.fs") jsPervasives
+replaceGenerated (__SOURCE_DIRECTORY__ + @"\..\WebSharper.Main\JavaScript.Pervasives.fs") jsPervasives
 
 let interop = 
     let code = ResizeArray()
@@ -103,6 +103,8 @@ let interop =
 
     for i = 2 to 7 do
         let t = tArgs i
+        cprintfn "[<Type \"union\">]"
+        cprintfn "[<JavaScript false>]"
         cprintfn "[<Proxy (typeof<Union%s>)>]" (toAnonTypArgs t)
         let tname = sprintf "Union<%s>" (tArgs i |> String.concat ", ")
         cprintfn "type UnionProxy<%s> =" (t |> String.concat ", ")

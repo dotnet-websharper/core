@@ -37,7 +37,7 @@ module Server =
         | P.Call(_, mi, _) ->
             let typ = Reflection.ReadTypeDefinition mi.DeclaringType
             let meth = Reflection.ReadMethod mi
-            let _, _, expr = WebSharper.Web.Shared.Metadata.Classes.[typ].Methods.[meth]
+            let _, _, _, expr = WebSharper.Web.Shared.Metadata.ClassInfo(typ).Methods.[meth]
             expr, meth.Value.MethodName
         | _ -> failwith "expected a Call pattern"
 
@@ -63,38 +63,46 @@ module Server =
 
     [<Remote>]
     let OptimizationTests() =
+        let (|MayCastAny|) = function Cast(TSType.Any, x) | x -> x
         async.Return [|
             
             testWithMatch <@ Optimizations.TupledArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.TupledArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CurriedArgWithLocal() @> <| function
-            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
-            | Function (_, Return (Object [ "a", Value (Int 1); "b", Sequential [_; Value (Int 2)]; "c", Sequential [_; Value (Int 3)]])) -> true
+            | Function (_, _, Return (Object ["a", MayCastAny (Value (Int 1));
+                                              "b", MayCastAny (Sequential [_; Value (Int 2)]);
+                                              "c", MayCastAny (Sequential [_; Value (Int 3)]);
+                                             ])) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues() @> <| function
-            | Function (_, ExprStatement (Application(_, [Value (String "a"); Value (String "b")], NonPure, None) )) -> true
+            | Function (_, _, ExprStatement (Application(_, [MayCastAny(Value (String "a"));
+                                                             MayCastAny(Value (String "b"));
+                                                            ], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues2() @> <| function
-            | Function (_, ExprStatement (Application(_, [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]], NonPure, None) )) -> true
+            | Function (_, _, ExprStatement (Application(_, [MayCastAny(Sequential [_; Value (String "a")]);
+                                                             MayCastAny(Sequential [_; Value (String "b")]);
+                                                            ], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues3() @> <| function
-            | Function (_, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
+            | Function (_, _, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
             | _ -> false
         
         |]

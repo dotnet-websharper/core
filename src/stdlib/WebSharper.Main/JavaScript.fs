@@ -73,6 +73,7 @@ type Kind =
     | [<Constant "string">]    String
     | [<Constant "object">]    Object
     | [<Constant "undefined">] Undefined
+    | [<Constant "symbol">]    Symbol
 
 /// Displays a popup dialog.
 [<Inline "alert($message)">]
@@ -88,6 +89,7 @@ let Prompt (message: string) (value: string) = raise ClientSideOnly : string
 
 /// Represents a timer handle.
 [<Sealed>]
+[<Type "number">]
 type Handle = class end
 
 /// Schedules the function for execution in the

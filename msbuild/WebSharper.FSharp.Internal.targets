@@ -29,6 +29,6 @@
   <Import Project="FSharp.targets" />
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup>
-    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
+    <FscToolPath>$(Root)/build/$(Configuration)/FSharp/net461/</FscToolPath>
   </PropertyGroup>
 </Project>

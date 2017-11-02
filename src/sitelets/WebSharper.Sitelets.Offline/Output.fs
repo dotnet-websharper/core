@@ -64,7 +64,6 @@ type Config =
         Options : H.Config
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
-        UnpackTypeScript : bool
     }
 
     member this.OutputDirectory =
@@ -213,7 +212,7 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
             streamCopy s s2
 
 /// Outputs all required resources. This is the last step of processing.
-let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScript: bool) =
+let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) =
     for aN in st.Assemblies do
         let assemblyPath = aR.ResolvePath(AssemblyName aN)
         match assemblyPath with
@@ -235,9 +234,9 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
                     File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory sp,
                         "\n//# sourceMappingURL=" + mapFileName)       
                 with _ -> ()
-            if typeScript then
-                let tp = getAssemblyTypeScriptPath st.Config aN
-                writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
+            let tp = getAssemblyTypeScriptPath st.Config aN
+            try writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
+            with _ -> ()
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
@@ -433,5 +432,5 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
             use stream = createFile conf rC.Path
             return response.WriteBody(stream)
         // Write resources determined to be necessary.
-        return writeResources aR st conf.UnpackSourceMap conf.UnpackTypeScript
+        return writeResources aR st conf.UnpackSourceMap
     }

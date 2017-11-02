@@ -23,6 +23,7 @@ module private WebSharper.Ref
 open WebSharper.JavaScript
 
 [<Proxy(typeof<ref<_>>)>]
+[<JavaScript false>]
 [<Name "WebSharper.Ref">]
 type private RefProxy<'T> =
     {
@@ -34,3 +35,13 @@ type private RefProxy<'T> =
                 get () = X<'T>
         and     [<Inline "void ($this[0] = $x)">]
                 set (x: 'T) = X<unit>
+            
+[<Name "WebSharper.ByRef">]
+[<JavaScript>]
+type private WSByref<'T> =
+    {
+        [<OptionalField>] 
+        get : option<unit -> 'T>    
+        set : 'T -> unit    
+    } 
+

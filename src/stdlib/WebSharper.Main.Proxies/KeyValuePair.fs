@@ -23,8 +23,14 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Collections.Generic.KeyValuePair<_,_>>)>]
+[<Name "WebSharper.KeyValuePair">]
+[<Prototype false>]
 type private KeyValuePairProxy<'K,'V> =
-    [<Inline "{K: $key, V: $value}">]
-    new (key: 'K, value: 'V) = {}
-    member this.Key     with [<Inline "$this.K">] get () = X<'K>
-    member this.Value   with [<Inline "$this.V">] get () = X<'V>
+    {
+        K: 'K
+        V: 'V
+    }
+    [<Inline>]
+    member this.Key = this.K
+    [<Inline>]
+    member this.Value = this.V

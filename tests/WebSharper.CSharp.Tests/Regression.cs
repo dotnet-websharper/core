@@ -42,10 +42,17 @@ namespace WebSharper.CSharp.Tests
             public SubClass() { }
         }
 
+        public class SubClass2 : BaseClass
+        {
+            protected override void InitMessage() =>
+                this.Message = "Hi from subclass!";
+        }
+
         [Test]
         public void ImplicitBaseCall()
         {
             Equal(new SubClass().Message, "Hi from subclass!");
+            Equal(new SubClass2().Message, "Hi from subclass!");
         }
 
         // look in compiled code that `f` is on top level

@@ -22,6 +22,7 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
+[<Type "any">]
 type JSObject [<Inline "{}">]() =
 
     [<Inline "void($this[$key] = $value)">]

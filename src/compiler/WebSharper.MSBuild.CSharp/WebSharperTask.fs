@@ -45,7 +45,6 @@ type WebSharperTask() =
     member val WebSharperHtmlDirectory : string = null with get, set
     member val WebSharperProject : string = null with get, set
     member val WebSharperSourceMap = "" with get, set
-    member val WebSharperTypeScriptDeclaration = "" with get, set
     member val WebSharperErrorsAsWarnings = "" with get, set
     member val WebSharperDeadCodeElimination = "" with get, set
     member val WebSharperDownloadResources = "" with get, set

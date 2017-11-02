@@ -66,7 +66,7 @@ let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
                     false)) 
 
 [<Name "average">]
-let Average<'T> (s: seq<'T>) : 'T =
+let Average<[<Type "number">] 'T> (s: seq<'T>) : 'T =
     let (count, sum) =
         Seq.fold
             (fun (n, s) x -> (n + 1, s + As<float> x))
@@ -78,7 +78,7 @@ let Average<'T> (s: seq<'T>) : 'T =
         As<'T> (sum / As<float> count)
 
 [<Name "averageBy">]
-let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
+let AverageBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
     let (count, sum) =
         Seq.fold
             (fun (n, s) x -> (n + 1, s + As<float> (f x)))
@@ -113,7 +113,6 @@ let Cache<'T> (s: seq<'T>) : seq<'T> =
                     false
         Enumerator.New 0 next
 
-/// IEnumerable is not supported.
 [<Inline "$i">]
 let Cast<'T> (i: System.Collections.IEnumerable) = X<seq<'T>>
 
@@ -126,8 +125,8 @@ let Choose (f: 'T -> option<'U>) (s: seq<'T>) : seq<'U> =
     s
     |> Seq.collect (fun x ->
         match f x with
-        | Some v -> [v]
-        | None   -> [])
+        | Some v -> [|v|]
+        | None   -> [||])
 
 [<Inline>]
 let ChunkBySize (size: int) (s: seq<'T>) = SeqChunkBySize size s
@@ -456,13 +455,11 @@ let Get index (s: seq<'T>) =
 [<Inline>]
 let Item index (s: seq<'T>) = Get index s
 
-[<Inline "$a">]
-[<Name "ofArray">]
-let OfArray (a: 'T[]) = X<seq<'T>>
+[<Inline>]
+let OfArray (a: 'T[]) = a :> _ seq
 
-[<Inline "$l">]
-[<Name "ofList">]
-let OfList (l: list<'T>) = X<seq<'T>>
+[<Inline>]
+let OfList (l: list<'T>) = l :> _ seq
 
 [<Name "pairwise">]
 let Pairwise (s: seq<'T>) : seq<'T * 'T> =
@@ -505,9 +502,8 @@ let Scan<'T,'S> (f: 'S -> 'T -> 'S) (x: 'S) (s: seq<'T>) : seq<'S> =
                 e.State <- true
                 true
 
-[<Inline "[$x]">]
 [<Name "singleton">]
-let Singleton<'T> (x: 'T) = X<seq<'T>>
+let Singleton<'T> (x: 'T) = [ x ] :> _ seq
 
 [<Name "skip">]
 let Skip (n: int) (s: seq<'T>) : seq<'T> =
@@ -577,11 +573,11 @@ let SortDescending<'T when 'T : comparison> (s: seq<'T>) =
     SortByDescending id s
 
 [<Name "sum">]
-let Sum<'T> (s: seq<'T>) : 'T =
+let Sum<[<Type "number">] 'T> (s: seq<'T>) : 'T =
     box (Seq.fold (fun s x -> s + (box x :?> _)) 0. s) :?> _
 
 [<Name "sumBy">]
-let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
+let SumBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
     box (Seq.fold (fun s x -> s + (box (f x) :?> _)) 0. s) :?> _
 
 [<Name "take">]

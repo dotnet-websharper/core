@@ -28,7 +28,7 @@ module internal Observer =
 
     type Message<'T> =
         | Message of 'T
-        | Error of exn
+        | Failed of exn
         | Completed
 
     let Of f : IObserver<_> =

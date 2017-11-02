@@ -35,7 +35,6 @@ type ProjectType =
 type WsConfig =
     {
         SourceMap   : bool
-        TypeScript  : bool
         IsDebug : bool
         ProjectType : ProjectType option
         OutputDir  : string option
@@ -62,7 +61,6 @@ type WsConfig =
     static member Empty =
         {                 
              SourceMap   = false
-             TypeScript  = false
              IsDebug = false
              ProjectType = None
              OutputDir  = None
@@ -163,7 +161,6 @@ module ExecuteCommands =
                     Assemblies = assemblies
                     RootDirectory = webRoot
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
                     DownloadResources = settings.DownloadResources
             }
         let env = Compiler.Commands.Environment.Create()
@@ -186,7 +183,6 @@ module ExecuteCommands =
                     ProjectDirectory = settings.ProjectDir
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)

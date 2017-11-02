@@ -137,14 +137,25 @@ and Id =
             Type = typ
         }
 
+and Modifiers =
+    | None = 0
+    | Private = 1
+    | Public = 2
+    | ReadOnly = 4
+
+and DeclKind =
+    | VarDecl
+    | ConstDecl
+    | LetDecl
+
 /// Represents JavaScript expressions.
 and Expression =
-    | Application of E * list<E>
+    | Application of E * list<Id> * list<E>
     | Binary      of E * BinaryOperator * E
     | Conditional of E * E * E
     | Constant    of Literal
-    | Lambda      of option<Id> * list<Id> * list<S>
-    | New         of E * list<E>
+    | Lambda      of option<Id> * list<Id> * list<S> * bool
+    | New         of E * list<Id> * list<E>
     | NewArray    of list<option<E>>
     | NewObject   of list<string * E>
     | NewRegex    of Regex
@@ -186,7 +197,7 @@ and Expression =
     member this.InstanceOf x = Binary (this, B.``instanceof``, x)
 
     member this.Item with get (x: E) = Binary (this, B.``.``, x)
-    member this.Item with get xs = Application (this, xs)
+    member this.Item with get xs = Application (this, [], xs)
 
     static member ( ? ) (e: E, msg: string) =
         Binary (e, B.``.``, Constant (String msg))
@@ -211,7 +222,7 @@ and Statement =
     | Throw        of E
     | TryFinally   of S * S
     | TryWith      of S * Id * S * option<S>
-    | Vars         of list<Id * option<E>>
+    | Vars         of list<Id * option<E>> * DeclKind
     | While        of E * S
     | With         of E * S
     | Function     of Id * list<Id> * list<S>
@@ -230,7 +241,7 @@ and Statement =
 
 and Member =
     | Method      of bool * Id * list<Id> * option<list<S>>
-    | Constructor of list<Id> * option<list<S>>
+    | Constructor of list<Id * Modifiers> * option<list<S>>
     | Property    of bool * Id 
 
 /// Represents switch elements.

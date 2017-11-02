@@ -23,6 +23,7 @@ module internal WebSharper.Concurrency
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Threading
 
 type private OCE = System.OperationCanceledException
 
@@ -33,6 +34,8 @@ type Result<'T> =
     | Cc of OCE
   
 [<JavaScript; Prototype false>]
+[<Proxy(typeof<CancellationToken>)>]
+[<Name "WebSharper.Concurrency.CancellationToken">]
 type CT =
     { 
         [<Name "c">] mutable IsCancellationRequested : bool 
@@ -60,6 +63,19 @@ let internal Register (ct: CT) (callback: unit -> unit) =
         { new System.IDisposable with
             member this.Dispose() = ct.Registrations.[i] <- ignore
         }
+
+type CT with
+    [<Inline>]
+    member this.Register(callback: System.Action) =
+        As<CancellationTokenRegistration> (Register this callback.Invoke)
+
+    [<Inline>]
+    member this.ThrowIfCancellationRequested() =
+        if this.IsCancellationRequested then
+            raise (OCE(As<CancellationToken> this)) 
+
+    [<Inline>]
+    static member None = noneCT
 
 [<JavaScript; Prototype false>]
 type AsyncBody<'T> =
@@ -168,8 +184,8 @@ let TryWith (r: C<'T>, f: exn -> C<'T>) : C<'T> =
         r {
             k = function
                 | Ok x -> c.k (Ok x)
-                | No e as res -> try f e c with e -> c.k (As res)
-                | res -> c.k (As res)
+                | No e as res -> try f e c with e -> c.k res
+                | res -> c.k res
             ct = c.ct
         }
 
@@ -330,7 +346,7 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
     fun c ->
         let n = Array.length cs
         let o = ref n
-        let a = As<'T[]>(JavaScript.Array(n))
+        let a = JavaScript.Array<'T>(n).Self
         let accept i x =
             match !o, x with
             | 0, _     -> ()

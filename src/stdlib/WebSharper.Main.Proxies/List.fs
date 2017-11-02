@@ -23,7 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<list<_>>)>]
-[<Name "WebSharper.List.T">]
+[<Name "WebSharper.List">]
 [<DefaultAugmentation(false)>]
 type private ListProxy<'T> =
     | Empty
@@ -44,6 +44,7 @@ type private ListProxy<'T> =
     member this.Item with get (x: int) : 'T = List.nth (As this) x
 
     interface System.Collections.IEnumerable with
+        [<Inline>]
         member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _
 
     interface seq<'T> with

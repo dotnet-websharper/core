@@ -26,6 +26,8 @@ open System.Runtime.InteropServices
 
 [<Proxy(typeof<System.Guid>)>]
 [<Prototype(false)>]
+[<Type "string">]
+[<Name "Guid">]
 type internal GuidProxy =
     
     [<Inline "$g">]

@@ -47,20 +47,29 @@ type ConstantAttribute private () =
 /// with placeholders of the form such as $0, $x, $this or $value
 /// directly at the place of invocation. See also DirectAttribute.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
-type InlineAttribute(template: string) =
-    inherit A()
+type InlineAttribute =
+    inherit A
 
-    member this.Template = template
+    /// Marks this function to be inlined at the call points.
+    new () = { inherit A() }
 
-    new () = InlineAttribute(null)
+    /// Adds JavaScript code to inline at the call points. Currently only EcmaScript 5 syntax is recognized.
+    new (template: string) = { inherit A() }
+
+    /// Adds JavaScript code to inline at the call points. Currently only EcmaScript 5 syntax is recognized.
+    /// If `assertReturnType = true` then creates a type assertion for the result type. 
+    new (template: string, assertReturnType: bool) = { inherit A() }
 
 /// Marks methods and constructors for direct compilation to a JavaScript function.
 /// Direct members work by expanding JavaScript code templates
 /// with placeholders of the form such as $0, $x, $this or $value
 /// into the body of a JavaScript function. See also InlineAttribute.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
-type DirectAttribute(template: string) =
-    inherit A()
+type DirectAttribute =
+    inherit A
+
+    /// Adds JavaScript code to include as a function. Currently only EcmaScript 5 syntax is recognized.
+    new (template: string) = { inherit A() }
 
 /// Marks methods and constructors as pure, so the call may be erased by optimizer
 /// or applied in different execution order. 
@@ -216,6 +225,15 @@ type PrototypeAttribute() =
     inherit A()
     
     /// Prototype(true) is equivalent to Prototype().
-    /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
+    /// Prototype(false) forces to have no prototype, translating instance methods to static,
     /// usable only for sealed classes and F# unions and records.
     new (force: bool) = PrototypeAttribute()
+
+/// Specifies TypeScript type annotation for a Proxy or Stub type declaration.
+[<Sealed; U(T.Class|||T.Struct|||T.Interface|||T.Enum|||T.GenericParameter)>]
+type TypeAttribute =
+    inherit A
+    
+    /// Occurrecnes of this or the proxied .NET type will be annotated with this TypeScript type.
+    /// Supports generics, generic parameter name must match the .NET generic parameter name.
+    new (tsType: string) = { inherit A() }

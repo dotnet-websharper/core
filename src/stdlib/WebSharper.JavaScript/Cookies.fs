@@ -16,6 +16,7 @@ let Options =
                 "secure", T<bool>
             ]
     }
+    |> WithTSType "any"
 
 let Cookies =
     Class "Cookies"

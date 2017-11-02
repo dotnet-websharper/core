@@ -37,14 +37,14 @@ type HelloASTGenerator() =
     override this.Generate _ =
         let w = Id.New "w"
         let (+) a b = Binary(a, BinaryOperator.``+``, b)
-        Lambda ([w], !~(String "Hello ") + Var w + !~(String "!"))
+        Lambda ([w], Some (NonGenericType Definitions.String), !~(String "Hello ") + Var w + !~(String "!"))
         |> GeneratedAST
 
 [<Sealed>]
 type HelloJSGenerator() =
     inherit Generator()
     override this.Generate _ =
-        S.Lambda (None, [S.Id.New "w"], [ S.Return (Some (!~(S.String "Hello ") + S.Var (S.Id.New "w") + !~(S.String "!"))) ])
+        S.Lambda (None, [S.Id.New "w"], [ S.Return (Some (!~(S.String "Hello ") + S.Var (S.Id.New "w") + !~(S.String "!"))) ], true)
         |> GeneratedJavaScript
 
 [<Sealed>]

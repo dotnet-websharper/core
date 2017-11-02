@@ -24,6 +24,16 @@ WSRuntime = {
         return ctor;
     },
 
+    Cctor: function (cctor) {
+        var init = true;
+        return function () {
+            if (init) {
+                init = false;
+                cctor();
+            }
+        };
+    },
+
     Class: function (members, base, statics) {
         var proto = members;
         if (base) {
@@ -44,6 +54,7 @@ WSRuntime = {
 
     Create: function (ctor, copyFrom) {
       var obj = new ctor();
+      Object.setPrototypeOf(obj, ctor.prototype);
       for (var f in copyFrom) { obj[f] = copyFrom[f] }
       return obj;
     },

@@ -41,7 +41,7 @@ let UseHttps() =
         false
 
 type Data = string
-type Headers = obj
+type Headers = Object<string>
 type Url = string
 
 [<JavaScript>]
@@ -114,11 +114,11 @@ type XhrProvider [<JavaScript>] () =
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<JavaScript>]
-let private makeHeaders (m: string) =
-    New [
-        "content-type" => "application/json"   
-        "x-websharper-rpc" => m
-    ]
+let private makeHeaders (m: string) : Headers =
+    Headers [|
+        "content-type", "application/json"   
+        "x-websharper-rpc", m
+    |]
 
 [<JavaScript>]
 let private makePayload (data: obj []) =

@@ -249,6 +249,10 @@ module Pervasives =
     let WithSourceName (name: string) (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.SourceName <- Some name)
 
+    /// Define the TypeScript type corresponding to this declaration.
+    let WithTSType (name: string) (x: #Code.TypeDeclaration) =
+        x |> Code.Entity.Update (fun x -> x.TSType <- Some name)
+
     /// Marks an method as a pure function call.
     let Pure (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.IsPure <- true)

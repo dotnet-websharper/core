@@ -27,7 +27,7 @@ module M = WebSharper.Core.Macros
 [<JavaScript>]
 [<Name "Numeric">]
 type internal N =
-    static member Parse<'T>(s: string, min: 'T, max: 'T, overflowMsg) =
+    static member Parse<[<Type "number">] 'T>(s: string, min: 'T, max: 'T, overflowMsg) =
         let x : float = JS.Plus s
         if x !==. (x -. (x %. 1)) then
             raise (System.FormatException "Input string was not in a correct format.")
@@ -35,7 +35,7 @@ type internal N =
             raise (System.OverflowException overflowMsg)
         else As<'T> x
 
-    static member TryParse<'T>(s: string, min: 'T, max: 'T, r: byref<'T>) =
+    static member TryParse<[<Type "number">] 'T>(s: string, min: 'T, max: 'T, r: byref<'T>) =
         let x : float = JS.Plus s
         let ok = x ===. (x -. (x %. 1)) && (x >=. min) && (x <=. max)
         if ok then r <- As<'T> x
@@ -55,6 +55,7 @@ type internal N =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]
+[<Type "number">]
 type internal NB =
 
     [<Name "WebSharper.Numeric.ParseByte">]
@@ -67,6 +68,7 @@ type internal NB =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.SByte>)>]
+[<Type "number">]
 type internal NSB =
 
     [<Name "WebSharper.Numeric.ParseSByte">]
@@ -80,6 +82,7 @@ type internal NSB =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int16>)>]
 [<Name "Int16">]
+[<Type "number">]
 type internal NI16 =
 
     [<Name "WebSharper.Numeric.ParseInt16">]
@@ -93,6 +96,7 @@ type internal NI16 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int32>)>]
 [<Name "Int32">]
+[<Type "number">]
 type internal NI32 =
 
     [<Name "WebSharper.Numeric.ParseInt32">]
@@ -106,6 +110,7 @@ type internal NI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt16>)>]
 [<Name "UInt16">]
+[<Type "number">]
 type internal NUI16 =
 
     [<Name "WebSharper.Numeric.ParseUInt16">]
@@ -119,6 +124,7 @@ type internal NUI16 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt32>)>]
 [<Name "UInt32">]
+[<Type "number">]
 type internal NUI32 =
 
     [<Name "WebSharper.Numeric.ParseUInt32">]
@@ -132,6 +138,7 @@ type internal NUI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
 [<Name "Int64">]
+[<Type "number">]
 type internal NI64 =
 
     [<Name "WebSharper.Numeric.ParseInt64">]
@@ -145,6 +152,7 @@ type internal NI64 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
+[<Type "number">]
 type internal NUI64 =
 
     [<Name "WebSharper.Numeric.ParseUInt64">]
@@ -157,6 +165,7 @@ type internal NUI64 =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]
+[<Type "number">]
 type internal NS =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -173,6 +182,7 @@ type internal NS =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
+[<Type "number">]
 type internal ND =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -188,6 +198,7 @@ type internal ND =
     static member IsPositiveInfinity (f: double) = X<bool>
 
 [<Proxy(typeof<System.Boolean>)>]
+[<Type "boolean">]
 type internal B = 
     [<Inline>]
     static member op_LogicalNot(a: bool) = not a

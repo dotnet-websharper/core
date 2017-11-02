@@ -260,6 +260,37 @@ namespace WebSharper.CSharp.Tests
             IsTrue(s1.GetHashCode() != -1);
             Equal(s1.Sum, 3);
         }
+
+        public class MyException : Exception
+        {
+            public bool IsThisMyException => true;
+        }
+
+        [Test]
+        public void Exception()
+        {
+            var res = "";
+            try
+            {
+                throw new MyException();
+            }
+            catch (MyException e)
+            {
+                if (e.IsThisMyException)
+                    res = "ok";
+                else
+                    res = "wrong method value on exception";
+            }
+            catch (ArgumentException)
+            {
+                res = "wrong type of exception";
+            }
+            catch
+            {
+                res = "wrong type of exception";
+            }
+            Equal(res, "ok");
+        }
     }
 
     [JavaScript]

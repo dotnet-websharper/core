@@ -29,24 +29,27 @@ type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
     let mutable i = -1
 
-    [<JavaScript>] 
+    [<Name "MoveNext">]
     member this.MoveNext() =
         i <- i + 1
         i < arr.Length
 
-    [<JavaScript>] 
+    [<Name "Current">]
     member this.Current with get() = arr.[i]
 
     interface System.Collections.IEnumerator with
-        [<JavaScript>] 
+        [<Inline>]
         member this.MoveNext() = this.MoveNext()
-        [<JavaScript>]
-        member this.Current with get() = box (arr.[i])
-        member this.Reset() = failwith "IEnumerator.Reset not supported"
+        
+        [<Inline>]
+        member this.Current with get() = box this.Current
+        
+        [<JavaScript false>]
+        member this.Reset() = ()
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        [<JavaScript>]
-        member this.Current with get() = arr.[i]
+        [<Inline>]
+        member this.Current with get() = this.Current
 
     interface System.IDisposable with
         [<JavaScript>] 
@@ -55,6 +58,7 @@ type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]
 [<Prototype false>]
+[<Type "Array">]
 type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
 
     [<Inline "[]">]
@@ -74,8 +78,10 @@ type ResizeArrayProxy<'T> [<Inline "$_arr">] (_arr: 'T []) =
         As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(As<'T[]> this))
 
     interface 'T seq with
-        member this.GetEnumerator() = (As<System.Collections.IEnumerable> this).GetEnumerator()
-        member this.GetEnumerator() = (As<seq<'T>> this).GetEnumerator()
+        [<Inline>]
+        member this.GetEnumerator() = As<System.Collections.Generic.IEnumerator<'T>>(this.GetEnumerator())
+        [<Inline>]
+        member this.GetEnumerator() = As<System.Collections.IEnumerator>(this.GetEnumerator())
 
     [<Inline>]
     member this.Add(x: 'T) : unit =

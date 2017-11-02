@@ -38,10 +38,12 @@ module Definition =
             |> WithInline ""
             |> WithComment "The default value is text"
         ]
+        |> WithTSType "string"
 
     let XMLHttpRequestEventTarget =
         let EH = Dom.Interfaces.Event ^-> T<unit>
         Class "XMLHttpRequestEventTarget"
+        |> WithTSType "XMLHttpRequestEventTarget"
         |=> Inherits Dom.Interfaces.EventTarget
         |+> Instance [
             "onloadstart" =@ EH
@@ -55,11 +57,13 @@ module Definition =
        
     let XMLHttpRequestUpload =
         Class "XMLHttpRequestUpload"
+        |> WithTSType "XMLHttpRequestUpload"
         |=> Inherits XMLHttpRequestEventTarget
 
     let XMLHttpRequest =
         let EH = Dom.Interfaces.Event ^-> T<unit>
         Class "XMLHttpRequest"
+        |> WithTSType "XMLHttpRequest"
         |=> Inherits XMLHttpRequestEventTarget
         |+> Static [
             "UNSENT" =? T<int>

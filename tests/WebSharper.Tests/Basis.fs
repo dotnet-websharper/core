@@ -96,11 +96,11 @@ let private isNaN (x: double) = System.Double.IsNaN x
 [<Inline "var a = 21; a = 2*a; return a">]
 let inlineReturn () = X<int>
 
-[<Inline "inlineStatementTest = true;">]
-let inlineStatement () = X<unit>
+[<Inline "$r[0] = 3;">]
+let inlineStatement (r: ref<int>) = X<unit>
 
-[<Inline "inlineStatementTest1 = true; inlineStatementTest2 = true;">]
-let inlineStatements () = X<unit>
+[<Inline "$r[0] = 5; ++$r[0];">]
+let inlineStatements (r: ref<int>) = X<unit>
 
 [<JavaScript>]
 let InnerGenerics pred l =
@@ -461,11 +461,11 @@ let Tests =
         }
 
         Test "Inlined statement" {
-            inlineStatement()
-            isTrue JS.Window?inlineStatementTest
-            inlineStatements()
-            isTrue JS.Window?inlineStatementTest1
-            isTrue JS.Window?inlineStatementTest2
+            let r = ref 0
+            inlineStatement(r)
+            equal !r 3
+            inlineStatements(r)
+            equal !r 6
         }
 
         Test "Inlined local function" {

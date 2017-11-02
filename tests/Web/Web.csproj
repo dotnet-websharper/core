@@ -24,7 +24,9 @@
     <FSharp40>True</FSharp40>
     <UseGlobalApplicationHostFile />
     <Use64BitIISExpress />
-    <TypeScriptToolsVersion>2.5</TypeScriptToolsVersion>
+    <TypeScriptToolsVersion>Latest</TypeScriptToolsVersion>
+    <TypeScriptTarget>ES5</TypeScriptTarget>
+    <TypeScriptJSXEmit>None</TypeScriptJSXEmit>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
     <TargetFrameworkProfile />
   </PropertyGroup>

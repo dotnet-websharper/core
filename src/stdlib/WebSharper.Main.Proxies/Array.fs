@@ -54,14 +54,13 @@ module ArrayProxy =
 
     [<Name "WebSharper.Arrays.binarySearchComparer">]
     let objBinarySearchComparer (needle: obj) =
-       // Check for an implementation of IComparable
-       if needle?CompareTo0 then
-           As<IComparable>(needle).CompareTo
-       else
-           fun x ->
-               if x?CompareTo0 then
-                   -As<IComparable>(x).CompareTo(needle)
-               else
+        match needle with
+        | :? IComparable as c -> c.CompareTo
+        | _ ->
+            fun x ->
+               match box x with
+               | :? IComparable as c -> -(c.CompareTo needle)
+               | _ ->
                    InvalidOperationException(
                        "Failed to compare two elements in the array.",
                        ArgumentException("At least one object must implement IComparable."))
@@ -106,6 +105,7 @@ module ArrayProxy =
         sortInternal keys index length comp swap
 
 [<Proxy(typeof<System.Array>)>]
+[<Type "Array">]
 type private ArrayProxy =
 
     [<Inline>]
@@ -144,7 +144,7 @@ type private ArrayProxy =
 
     [<Name "WebSharper.Arrays.clear">]
     static member Clear(array: System.Array, index: int, length: int) : unit =
-        if isNull array then raise (ArgumentNullException(array))
+        if isNull array then raise (ArgumentNullException("array"))
         if index < 0 || length < 0 || index + length > array.Length then raise (IndexOutOfRangeException())
         for i = index to index + length - 1 do
             (As<JSArray[]> array).[i] <-
@@ -410,4 +410,4 @@ type private ArrayProxy =
         with [<Inline>] get() = F.GetLength (As this)   
 
     [<Inline>]
-    member this.GetEnumerator() = Enumerator.Get0 (As this)         
+    member this.GetEnumerator() = As<System.Collections.IEnumerator> (Enumerator.Get (As this))         

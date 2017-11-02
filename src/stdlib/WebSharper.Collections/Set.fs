@@ -35,9 +35,11 @@ type private FSharpSet<'T when 'T : comparison>
 
         new (s: seq<'T>) = new FSharpSet<'T>(T.OfSeq s)
 
+        [<Inline>]
         member this.add(x: Set<'T>) =
             Set.union (As this) x
 
+        [<Inline>]
         member this.sub(x: Set<'T>) =
             Set.difference (As this) x
 
@@ -50,6 +52,7 @@ type private FSharpSet<'T when 'T : comparison>
 
         member this.IsEmpty = T.IsEmpty tree
 
+        [<Inline>]
         member internal this.Tree = tree
 
         member this.IsProperSubsetOf(s: Set<'T>) =
@@ -71,12 +74,15 @@ type private FSharpSet<'T when 'T : comparison>
         member this.Remove v : Set<'T> =
             As (FSharpSet<'T>(T.Remove v tree))
 
+        [<Name "GetEnumerator">]
         member this.GetEnumerator() =
             (T.Ascend tree).GetEnumerator()
 
+        [<Inline>]
         static member (+) (x, y) : Set<'T> =
             Set.union x y        
 
+        [<Inline>]
         static member (-) (x, y) : Set<'T> =
             Set.difference x y        
 
@@ -88,9 +94,11 @@ type private FSharpSet<'T when 'T : comparison>
             && Seq.forall2 ( = ) this (As<FSharpSet<'T>> other)
 
         interface IEnumerable with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator() :> _
 
         interface IEnumerable<'T> with
+            [<Inline>]
             member this.GetEnumerator() = this.GetEnumerator()
 
         interface System.IComparable with

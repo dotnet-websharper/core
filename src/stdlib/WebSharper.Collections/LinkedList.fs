@@ -30,12 +30,17 @@ type LL<'T> = LinkedList<'T>
 type LLN<'T> = LinkedListNode<'T>
 type LLE<'T> = LinkedList<'T>.Enumerator
 
+[<JavaScript; Prototype false>]
 [<Proxy(typeof<LLN<_>>)>]
 [<Name "WebSharper.Collections.LinkedListNode">]
 type NodeProxy<'T> =
-    member this.Previous with [<Inline "$this.p">] get () = X<LLN<'T>>
-    member this.Next     with [<Inline "$this.n">] get () = X<LLN<'T>>
-    member this.Value    with [<Inline "$this.v">] get () = X<'T>
+    [<Name "p">] val mutable previous: LLN<'T>
+    [<Name "n">] val mutable next: LLN<'T>
+    [<Name "v">] val mutable value: 'T
+    new (v: 'T) = { previous = null; next = null; value = v }
+    [<Inline>] member this.Previous = this.previous
+    [<Inline>] member this.Next = this.next
+    [<Inline>] member this.Value = this.value
 
 [<Inline "{p: $p, n: $n, v: $v}">]
 let newNode<'T> (p: LLN<'T>) (n: LLN<'T>) (v: 'T) = X<LLN<'T>>
@@ -54,6 +59,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     interface IEnumerator<'T> with
         member this.Current = c.Value
         
+        [<Inline>]
         member this.Current = c.Value |> box
 
         member this.MoveNext() =
@@ -62,6 +68,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
 
         member this.Dispose() = ()
 
+        [<JavaScript false>]
         member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]
@@ -166,9 +173,11 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
         As (new EnumeratorProxy<_>(As this))
 
     interface IEnumerable with
+        [<Inline>]
         member this.GetEnumerator() = this.GetEnumerator() :> _
 
     interface IEnumerable<'T> with
+        [<Inline>]
         member this.GetEnumerator() = this.GetEnumerator() :> _
 
     member this.Remove(node: LLN<'T>) =

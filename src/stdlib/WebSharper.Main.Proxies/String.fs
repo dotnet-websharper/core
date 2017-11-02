@@ -68,7 +68,7 @@ let PadRight (s: string) (n: int) =
 let Remove (x: string) (ix: int) (ct: int) = X<string>
 
 [<Direct "$string.replace($search,$replace)">]
-let ReplaceOnce string search replace = X<string>
+let ReplaceOnce (string: string) (search: string) (replace: string) = X<string>
 
 let Replace (subject: string) (search: string) (replace: string) =
     let rec replaceLoop (subj: string) =
@@ -181,6 +181,7 @@ let SFormat (format: string) (args: obj[]) =
     ))
 
 [<Proxy(typeof<string>)>]
+[<Type "string">]
 type private StringProxy =
 
     [<Inline "''">]
@@ -284,7 +285,7 @@ type private StringProxy =
     member this.GetHashCode() = hash this
 
     [<Inline>]
-    member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
+    member this.GetEnumerator() = Enumerator.Get (As<string>this :> seq<char>) |> As<System.CharEnumerator>
 
     [<Inline "$this.indexOf($s)">]
     member this.IndexOf(s: string) = X<int>

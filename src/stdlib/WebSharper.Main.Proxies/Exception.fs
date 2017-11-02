@@ -31,6 +31,7 @@ module Exception =
 
 [<Name [| "Error" |]>]
 [<Proxy(typeof<System.Exception>)>]
+[<Type "Error">]
 type private ExceptionProxy =
     [<Inline "new Error()">]
     new () = { }

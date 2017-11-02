@@ -17,6 +17,7 @@
     <Compile Include="AST.fs" />
     <None Include="genAST.fsx" />
     <Compile Include="ASTHelpers.fs" />
+    <Compile Include="ASTReflection.fs" />
     <Compile Include="Attributes.fs" />
     <Compile Include="Metadata.fs" />
     <Compile Include="Resources.fsi" />

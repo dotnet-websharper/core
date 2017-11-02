@@ -26,6 +26,7 @@ type PA = System.ParamArrayAttribute
 module M = WebSharper.Core.Macros
 
 [<Proxy(typeof<Function>)>]
+[<Type "Function">]
 type FunctionProxy =
     [<Inline "Function.constructor.apply(null, $paramsAndBody)">]
     new ([<System.ParamArray>] paramsAndBody: string[]) = {}
@@ -144,6 +145,8 @@ type FuncWithArgsRestProxy<'TArgs, 'TRest, 'TResult> =
     member this.Call (args: 'TArgs, [<PA>] rest: 'TRest[]) = Unchecked.defaultof<'TResult>
 
 [<Proxy(typeof<Optional<_>>)>]
+[<Type "$0">]
+[<JavaScript false>]
 type OptionalProxy<'T> =
     | Undefined
     | Defined of 'T
@@ -465,6 +468,8 @@ type ThisParamsFuncProxy<'TThis, 'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResul
     member this.Bind(thisArg: 'TThis) = X<ParamsFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'TParams, 'TResult>>
     [<Macro(typeof<M.JSThisParamsCall>)>]
     member this.Call(thisArg: 'TThis, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5, arg6: 'T6, [<PA>] rest: 'TParams[]) = X<'TResult>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_>>)>]
 type UnionProxy<'T1, 'T2> =
     | Union1Of2 of 'T1
@@ -481,6 +486,8 @@ type UnionProxy<'T1, 'T2> =
     static member op_Implicit(x: 'T2) = X<Union<'T1, 'T2>>
     [<Inline "$x">]
     static member op_Implicit(x: Union<'T1, 'T2>) = X<'T2>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3> =
     | Union1Of3 of 'T1
@@ -504,6 +511,8 @@ type UnionProxy<'T1, 'T2, 'T3> =
     static member op_Implicit(x: 'T3) = X<Union<'T1, 'T2, 'T3>>
     [<Inline "$x">]
     static member op_Implicit(x: Union<'T1, 'T2, 'T3>) = X<'T3>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     | Union1Of4 of 'T1
@@ -534,6 +543,8 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4> =
     static member op_Implicit(x: 'T4) = X<Union<'T1, 'T2, 'T3, 'T4>>
     [<Inline "$x">]
     static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4>) = X<'T4>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     | Union1Of5 of 'T1
@@ -571,6 +582,8 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5> =
     static member op_Implicit(x: 'T5) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5>>
     [<Inline "$x">]
     static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5>) = X<'T5>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     | Union1Of6 of 'T1
@@ -615,6 +628,8 @@ type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6> =
     static member op_Implicit(x: 'T6) = X<Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>>
     [<Inline "$x">]
     static member op_Implicit(x: Union<'T1, 'T2, 'T3, 'T4, 'T5, 'T6>) = X<'T6>
+[<Type "union">]
+[<JavaScript false>]
 [<Proxy (typeof<Union<_,_,_,_,_,_,_>>)>]
 type UnionProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'T6, 'T7> =
     | Union1Of7 of 'T1

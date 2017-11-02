@@ -54,35 +54,42 @@ open System.Runtime.InteropServices
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<D<_,_>.KeyCollection.Enumerator>)>]
-[<Stub>]
-type private KeyCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'K> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.KeyCollection.Enumerator">]
+type private KeyCollectionEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'K
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 // not really used, a sequence enumerator is cast to this type instead
 // proxy is needed so calls against it compile
 // TODO: lazy iterating
 [<Proxy(typeof<D<_,_>.ValueCollection.Enumerator>)>]
-[<Stub>]
-type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'V> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.ValueCollection.Enumerator">]
+type private ValueCollectionEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> 'V
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 [<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.KeyCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
             
     interface IEnumerable<'K> with
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 [<Name "WebSharper.Collections.ValueCollection">]
@@ -90,26 +97,31 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.ValueCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
             
     interface IEnumerable<'V> with
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
+        [<Inline>]
         member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
-[<Stub>]
-type private DictionaryEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<KVP<'K,'V>> 0        
-    member this.MoveNext() = false
-    member this.Dispose() = ()
+[<Name "WebSharper.Collections.Dictionary.Enumerator">]
+type private DictionaryEnumeratorProxy<'K,'V> =
+    [<Name "Current">]
+    abstract get_Current: unit -> KVP<'K, 'V>
+    [<Name "MoveNext">]
+    abstract MoveNext: unit -> bool
+    [<Name "Dispose">]
+    abstract Dispose: unit -> unit
 
 /// Implements a proxy for the .NET dictionary.
 [<Name "WebSharper.Collections.Dictionary">]
 [<Proxy(typeof<D<_,_>>)>]
-type internal Dictionary<'K,'V when 'K : equality>
+type private Dictionary<'K,'V when 'K : equality>
 
     private (init   : seq<KVP<'K,'V>>,
              equals : FuncWithArgs<'K * 'K, bool>,
@@ -220,15 +232,23 @@ type internal Dictionary<'K,'V when 'K : equality>
             with get (k: 'K) : 'V = get k
             and set (k: 'K) (v: 'V) = set k v
 
-        member this.GetEnumerator() = As<D<'K,'V>.Enumerator> ((this :> System.Collections.IEnumerable).GetEnumerator())
+        [<Name "GetEnumerator">]
+        member this.GetEnumerator() =
+            let s = [||]
+            JS.ForEach data (fun k ->
+                if JS.HasOwnProperty data k then
+                    s.JS.Push(data?(k):KeyValuePair<'K,'V>) |> ignore
+                false)
+            (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+            |> As<D<'K,'V>.Enumerator>
 
         interface System.Collections.IEnumerable with
-            member this.GetEnumerator() = 
-                let s = JS.GetFieldValues data
-                (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+            [<Inline>]
+            member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
             
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> ((this :> System.Collections.IEnumerable).GetEnumerator())
+            [<Inline>]
+            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> (this.GetEnumerator())
 
         member this.Remove(k: 'K) =
             remove k
@@ -250,7 +270,7 @@ type internal Dictionary<'K,'V when 'K : equality>
                 false
 
         member this.Values =
-            As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
+            ValueCollectionProxy(As<D<'K,'V>>this)
 
         member this.Keys =
-            As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))
+            KeyCollectionProxy(As<D<'K,'V>>this)

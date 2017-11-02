@@ -103,7 +103,7 @@ let Activate<'T> (json: obj) : 'T =
                         if t ===. listConstructor then
                             box (List.ofArray (As<obj[]> o))
                         else
-                            let r = JS.New types.[ti]
+                            let r = JS.New t
                             JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
                             r
             | _ ->

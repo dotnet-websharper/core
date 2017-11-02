@@ -34,6 +34,10 @@ module Utils =
         |> List.toSeq
         |> Pattern.EnumInlines n
 
+    let HTMLImageElement = Class "HTMLImageElement"
+    let CanvasElement = Class "CanvasElement" 
+    let HTMLVideoElement = Class "HTMLVideoElement"
+
 module Canvas =
     open Utils
 
@@ -74,9 +78,11 @@ module Canvas =
             // A xor B. Exclusive OR of the source image and destination image.
             "xor"
         ]
+        |> WithTSType "string"
 
     let CanvasGradient =
         Class "CanvasGradient"
+        |> WithTSType "CanvasGradient"
         |+> Instance [
             "addColorStop" => (T<float> * T<string>) ^-> T<unit>
         ]
@@ -94,9 +100,11 @@ module Canvas =
             "repeat-y"
             "no-repeat"
         ]
+        |> WithTSType "string"
 
     let CanvasPattern =
         Class "CanvasPattern"
+        |> WithTSType "CanvasPattern"
     
     let LineCap = 
         Pattern.EnumStrings "LineCap" [
@@ -104,6 +112,7 @@ module Canvas =
             "round"
             "square"
         ]
+        |> WithTSType "string"
 
     let TextDirection =
         Pattern.EnumStrings "TextDirection" [
@@ -111,6 +120,7 @@ module Canvas =
             "rtl"
             "inherit"
         ]
+        |> WithTSType "string"
     
     let LineJoin = 
         Pattern.EnumStrings "LineJoin" [
@@ -118,6 +128,7 @@ module Canvas =
             "bevel"
             "miter"
         ]
+        |> WithTSType "string"
 
     let TextAlign = 
         Pattern.EnumStrings "TextAlign" [
@@ -127,6 +138,7 @@ module Canvas =
             "right"
             "center"
         ]
+        |> WithTSType "string"
     
     let TextBaseline = 
         Pattern.EnumStrings "TextBaseLine" [
@@ -137,13 +149,16 @@ module Canvas =
             "ideographic"
             "bottom"
         ]
+        |> WithTSType "string"
     
     let TextMetrics = 
         Class "TextMetrics"
+        |> WithTSType "TextMetrics"
         |+> Instance ["width" =@ T<float> ]
     
     let CanvasPixelArray = 
         Class "CanvasPixelArray"
+        |> WithTSType "CanvasPixelArray"
         |+> Instance [
             "length" =? T<int>
             "Get" => T<int> ^-> T<int>
@@ -154,14 +169,18 @@ module Canvas =
 
     let ImageData =
         Class "ImageData"
+        |> WithTSType "ImageData"
         |+> Instance [
             "height" =? T<int> 
             "width" =? T<int> 
             "data" =? CanvasPixelArray
         ]
     
+    let private imageElement = HTMLImageElement + CanvasElement + HTMLVideoElement
+
     let CanvasRenderingContext2D = 
         Class "CanvasRenderingContext2D"
+        |> WithTSType "CanvasRenderingContext2D"
         |+> Instance [
             "canvas" =? Dom.Interfaces.Element // FIXME
             // push state on state stack
@@ -244,9 +263,9 @@ module Canvas =
             "measureText" => T<string> ^-> TextMetrics
 
             // drawing images
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "drawImage" => (imageElement * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
 
             // pixel manipulation
             "createImageData" => (T<float> * T<float>) ^-> ImageData
@@ -261,6 +280,7 @@ module AudioVideoCommon =
     
     let TimeRanges = 
         Class "TimeRanges"
+        |> WithTSType "TimeRanges"
         |+> Instance [
             "length" =? T<int>
             "start" => (T<int>) ^-> T<int>
@@ -274,6 +294,7 @@ module AudioVideoCommon =
             "MEDIA_ERR_DECODE", 3
             "MEDIA_ERR_SRC_NOT_SUPPORTED", 4
         ]
+        |> WithTSType "number"
     
     let TrackType =
         Pattern.EnumStrings "TrackType" [
@@ -283,11 +304,13 @@ module AudioVideoCommon =
             "chapters"
             "metadata"
         ]
+        |> WithTSType "string"
     
-    let TimedTrack = Class "TimedTrack"
+    let TimedTrack = Class "TimedTrack" |> WithTSType "TimedTrack"
 
     let TimedTrackCue =
         Class "TimedTrackCue"
+        |> WithTSType "TimedTrackCue"
         |+> Instance [
             "track" =? TimedTrack
             "id" => T<string>
@@ -314,6 +337,7 @@ module AudioVideoCommon =
 
     let TimedTrackCueList = 
         Class "TimedTrackCueList"
+        |> WithTSType "TimedTrackCueList"
         |+> Instance [
             "length" =? T<int>
             "getter" => (T<int>) ^-> TimedTrackCue
@@ -350,6 +374,7 @@ module AudioVideoCommon =
 
     let MutableTimedTrack = 
         Class "MutableTimedTrack"
+        |> WithTSType "MutableTimedTrack"
         |=> Inherits TimedTrack
         |+> Instance [
             "addCue" => TimedTrackCue ^-> T<unit>
@@ -362,6 +387,7 @@ module AudioVideoCommon =
             "metadata"
             "auto"
         ]
+        |> WithTSType "string"
 
 module EventHandlers =
     
@@ -451,6 +477,7 @@ module TypedArrays =
 
     let ArrayBuffer =
         Class "ArrayBuffer"
+        |> WithTSType "ArrayBuffer"
         |+> Instance [
                 "byteLength" =? T<int>
                 /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
@@ -468,6 +495,7 @@ module TypedArrays =
 
         let Class =
             Class "DataView"
+            |> WithTSType "DataView"
             |+> Static [
                     Constructor ArrayBuffer
                     Constructor (ArrayBuffer * T<int>?byteOffset)
@@ -494,6 +522,7 @@ module TypedArrays =
 
     let ArrayBufferView =
         Class "ArrayBufferView"
+        |> WithTSType "ArrayBufferView"
         |+> Instance
             [
                 "buffer" =? ArrayBuffer
@@ -503,6 +532,7 @@ module TypedArrays =
 
     let private MakeTypedArray typedArray (elementType: Type.Type) =
         Class typedArray
+        |> WithTSType typedArray
         |=> Inherits ArrayBufferView
         |+> Static [
                 Constructor T<unit>
@@ -545,9 +575,11 @@ module File =
                     "type", T<string>
                 ]
         }
+        |> WithTSType "BlobPropertyBag"
 
     let Blob =
         Class "Blob"
+        |> WithTSType "Blob"
         |+> Static [
                 Constructor T<unit>
                 Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + TSelf + T<string>) * !?BlobPropertyBag)
@@ -561,6 +593,7 @@ module File =
 
     let File =
         Class "File"
+        |> WithTSType "File"
         |=> Inherits Blob
         |+> Instance [
                 "name" =? T<string>
@@ -571,6 +604,7 @@ module File =
 
     let ProgressEvent =
         Class "ProgressEvent"
+        |> WithTSType "ProgressEvent"
         |=> Inherits Dom.Interfaces.Event
         |+> Instance [
                 "lengthComputable" =? T<bool>
@@ -580,6 +614,7 @@ module File =
 
     let FileList =
         Class "FileList"
+        |> WithTSType "FileList"
         |+> Instance [
                 "item" => T<int> ^-> File
                 "length" =? T<int>
@@ -597,11 +632,13 @@ module File =
             "Loading", "1"
             "Done", "2"
         ]
+        |> WithTSType "number"
 
     let FileReader =
         let EventListener = (ProgressEvent + T<unit>) ^-> T<unit>
         Generic - fun t ->
         Class "FileReader"
+        |> WithTSType "FileReader"
         |=> Inherits Dom.Interfaces.EventTarget
         |+> Instance [
                 "abort" => T<unit> ^-> T<unit>
@@ -621,6 +658,7 @@ module File =
 
     let TextFileReader =
         Class "TextFileReader"
+        |> WithTSType "TextFileReader"
         |=> Inherits (FileReader.[T<string>])
         |+> Static [
                 Constructor T<unit>
@@ -633,6 +671,7 @@ module File =
 
     let BinaryFileReader =
         Class "BinaryFileReader"
+        |> WithTSType "BinaryFileReader"
         |=> Inherits (FileReader.[TypedArrays.ArrayBuffer])
         |+> Static [
                 Constructor T<unit>
@@ -649,6 +688,7 @@ module Elements =
 
     let HTMLElement =
         Class "HTMLElement"
+        |> WithTSType "HTMLElement"
         |=> Inherits Dom.Interfaces.Element
         |+> Instance [
             "title" =@ T<string>
@@ -677,6 +717,7 @@ module Elements =
 
     let HTMLMenuElement =
         Class "HTMLMenuElement"
+        |> WithTSType "HTMLMenuElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "type" =@ T<string>
@@ -685,6 +726,7 @@ module Elements =
 
     let HTMLMenuItemElement =
         Class "HTMLMenuItemElement"
+        |> WithTSType "HTMLMenuItemElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "type" =@ T<string>
@@ -699,6 +741,7 @@ module Elements =
 
     let RadioNodeList =
         Class "RadioNodeList"
+        |> WithTSType "RadioNodeList"
         |=> Inherits Dom.Interfaces.NodeList
         |+> Instance [
             "value" =@ T<string>
@@ -706,6 +749,7 @@ module Elements =
 
     let HTMLFormControlsCollection =
         Class "HTMLFormControlsCollection"
+        |> WithTSType "HTMLFormControlsCollection"
         |=> Inherits Dom.Interfaces.HTMLCollection
         |+> Instance [
             "namedItem" => T<string> ^-> T<obj> //?? it returns either a RadioNodeList or an Element
@@ -713,6 +757,7 @@ module Elements =
 
     let HTMLFormElement =
         Class "HTMLFormElement"
+        |> WithTSType "HTMLFormElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "acceptCharset" =@ T<string>
@@ -736,6 +781,7 @@ module Elements =
 
     let HTMLLabelElement =
         Class "HTMLLabelElement"
+        |> WithTSType "HTMLLabelElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "form" =? HTMLFormElement
@@ -750,9 +796,11 @@ module Elements =
             "end"
             "preserve"
         ]
+        |> WithTSType "string"
 
     let HTMLInputElement =
         Class "HTMLInputElement"
+        |> WithTSType "HTMLInputElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "accept" =@ T<string>
@@ -814,8 +862,38 @@ module Elements =
             "setSelectionRange" => (T<int> * T<int> * T<string>) ^-> T<unit>
         ]
 
+    let HTMLImageElement =
+        Utils.HTMLImageElement
+        |> WithTSType "HTMLImageElement"
+        |=> Inherits HTMLElement
+        |+> Instance [
+            "align" =@ T<string>
+            "alt" =@ T<string>
+            "border" =@ T<string>
+            "complete" =? T<bool>
+            "crossOrigin" =@ T<string>
+            "currentSrc" =@ T<string>
+            "height" =@ T<int>
+            "hspace" =@ T<int>
+            "isMap" =@ T<bool>
+            "longDesc" =@ T<string>
+            "lowsrc" =@ T<string>
+            "name" =@ T<string>
+            "naturalHeight" =@ T<int>
+            "naturalWidth" =@ T<int>
+            "sizes" =@ T<string>
+            "src" =@ T<string>
+            "srcset" =@ T<string>
+            "useMap" =@ T<string>
+            "vspace" =@ T<int>
+            "width" =@ T<int>
+            "x" =? T<int>
+            "y" =? T<int>
+        ]
+
     let HTMLButtonElement =
         Class "HTMLButtonElement"
+        |> WithTSType "HTMLButtonElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "autofocus" =@ T<bool>
@@ -843,6 +921,7 @@ module Elements =
 
     let HTMLOptGroupElement =
         Class "HTMLOptGroupElement"
+        |> WithTSType "HTMLOptGroupElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "disabled" =@ T<bool>
@@ -851,6 +930,7 @@ module Elements =
 
     let HTMLOptionElement =
         Class "HTMLOptionElement"
+        |> WithTSType "HTMLOptionElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "disabled" =@ T<bool>
@@ -865,6 +945,7 @@ module Elements =
 
     let HTMLOptionsCollection =
         Class "HTMLOptionsCollection"
+        |> WithTSType "HTMLOptionsCollection"
         |=> Inherits Dom.Interfaces.HTMLCollection
         |+> Instance [
             "length" =@ T<int>
@@ -875,6 +956,7 @@ module Elements =
 
     let HTMLSelectElement = 
         Class "HTMLSelectElement"
+        |> WithTSType "HTMLSelectElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "autocomplete" =@ T<string>
@@ -913,6 +995,7 @@ module Elements =
 
     let HTMLDataListElement =
         Class "HTMLDataListElement"
+        |> WithTSType "HTMLDataListElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "options" =? Dom.Interfaces.HTMLCollection
@@ -920,6 +1003,7 @@ module Elements =
 
     let HTMLTextAreaElement =
         Class "HTMLTextAreaElement"
+        |> WithTSType "HTMLTextAreaElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "autocomplete" =@ T<string>
@@ -964,6 +1048,7 @@ module Elements =
 
     let HTMLOutputElement =
         Class "HTMLOutputElement"
+        |> WithTSType "HTMLOutputElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "htmlFor" =? Dom.Interfaces.DOMTokenList
@@ -985,6 +1070,7 @@ module Elements =
 
     let HTMLProgressElement =
         Class "HTMLProgressElement"
+        |> WithTSType "HTMLProgressElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "value" =@ T<double>
@@ -996,6 +1082,7 @@ module Elements =
 
     let HTMLMeterElement =
         Class "HTMLMeterElement"
+        |> WithTSType "HTMLMeterElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "value" =@ T<double>
@@ -1010,6 +1097,7 @@ module Elements =
 
     let HTMLDetailsElement =
         Class "HTMLDetailsElement"
+        |> WithTSType "HTMLDetailsElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "open" =@ T<bool>
@@ -1017,6 +1105,7 @@ module Elements =
 
     let HTMLLegendElement =
         Class "HTMLLegendElement"
+        |> WithTSType "HTMLLegendElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "form" =? HTMLFormElement
@@ -1024,6 +1113,7 @@ module Elements =
 
     let HTMLFieldSetElement =
         Class "HTMLFieldSetElement"
+        |> WithTSType "HTMLFieldSetElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "disabled" =@ T<bool>
@@ -1042,6 +1132,7 @@ module Elements =
 
     let HTMLDialogElement =
         Class "HTMLDialogElement"
+        |> WithTSType "HTMLDialogElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "open" =@ T<bool>
@@ -1052,7 +1143,8 @@ module Elements =
         ]
 
     let CanvasElement =
-        Class "CanvasElement"
+        Utils.CanvasElement
+        |> WithTSType "HTMLCanvasElement"
         |=> Inherits HTMLElement
         |+> Instance [
             "width" =@ T<int>
@@ -1063,6 +1155,7 @@ module Elements =
 
     let HTMLMediaElement =
         Class "HTMLMediaElement"
+        |> WithTSType "HTMLMediaElement"
         |=> Inherits HTMLElement
         |+> Instance [
             // error state
@@ -1129,7 +1222,8 @@ module Elements =
         ]
 
     let HTMLVideoElement = 
-        Class "HTMLVideoElement"
+        Utils.HTMLVideoElement
+        |> WithTSType "HTMLVideoElement"
         |=> Inherits HTMLMediaElement
         |+> Instance [
             "width" =@ T<string>
@@ -1141,6 +1235,7 @@ module Elements =
 
     let HTMLAudioElement =
         Class "HTMLAudioElement"
+        |> WithTSType "HTMLAudioElement"
         |=> Inherits HTMLMediaElement
         |+> Instance [
             Constructor T<unit> |> WithInline "new Audio()"
@@ -1149,6 +1244,7 @@ module Elements =
 
     let HTMLSlotElement =
         Class "HTMLSlotElement"
+        |> WithTSType "HTMLSlotElement"
         |=> Inherits HTMLElement
 
 module Geolocation =
@@ -1162,9 +1258,11 @@ module Geolocation =
                  "maximumAge", T<int>
                 ]
         }
+        |> WithTSType "PositionOptions"
 
     let Coordinates =
         Class "Coordinates"
+        |> WithTSType "Coordinates"
         |+> Instance [
             "latitude" =? T<float>
             "longitude" =? T<float>
@@ -1177,6 +1275,7 @@ module Geolocation =
 
     let Position = 
         Class "Position"
+        |> WithTSType "Position"
         |+> Instance [
             "coords" =? Coordinates
             "timestamp" =? Ecma.Definition.EcmaDate
@@ -1184,6 +1283,7 @@ module Geolocation =
 
     let PositionError = 
         Class "PositionError"
+        |> WithTSType "PositionError"
         |+> Instance [
             "UNKNOWN_ERROR" =? T<int>
             "PERMISSION_DENIED" =? T<int>
@@ -1198,6 +1298,7 @@ module Geolocation =
         let errorCallback = PositionError ^-> T<unit>
         
         Class "Geolocation"
+        |> WithTSType "Geolocation"
         |+> Instance [
             "getCurrentPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<unit>
             "watchPosition" => (positionCallback?p * !? errorCallback?e * !? PositionOptions?o) ^-> T<int>
@@ -1208,6 +1309,7 @@ module WebStorage =
 
     let Storage =
         Class "Storage"
+        |> WithTSType "Storage"
         |+> Instance [
                 "length" =? T<int>
                 "key" => T<int> ^-> T<string>
@@ -1219,6 +1321,7 @@ module WebStorage =
 
     let StorageEvent =
         Class "StorageEvent"
+        |> WithTSType "StorageEvent"
         |+> Instance [
                 "key" =? T<string>
                 "newValue" =? T<string>
@@ -1230,6 +1333,7 @@ module WebStorage =
 module AppCache =
     let ApplicationCache =
         Class "ApplicationCache"
+        |> WithTSType "ApplicationCache"
         // |=> Implements [T<EventTarget>]
         |+> Instance [
             // update status
@@ -1259,11 +1363,12 @@ module AppCache =
 
 module WebWorkers =
 
-    let WorkerNavigator = Class "WorkerNavigator"
-    let MessagePortArray = Class "MessagePortArray"
+    let WorkerNavigator = Class "WorkerNavigator" |> WithTSType "WorkerNavigator"
+    let MessagePortArray = Class "MessagePortArray" |> WithTSType "MessagePortArray"
 
     let WorkerUtils =
         Class "WorkerUtils"
+        |> WithTSType "WorkerUtils"
         |+> Static [
             "importScripts" => (!+ T<string>) ^-> T<unit>
             "navigator" =? WorkerNavigator
@@ -1271,6 +1376,7 @@ module WebWorkers =
 
     let WorkerLocation =
         Class "WorkerLocation"
+        |> WithTSType "WorkerLocation"
 
     let WorkerGlobalScope = 
         let WorkerGlobalScope = Class "WorkerGlobalScope"
@@ -1285,6 +1391,7 @@ module WebWorkers =
     
     let SharedWorkerScope =   
         Class "SharedWorkerGlobalScope"
+        |> WithTSType "SharedWorkerGlobalScope"
             |=> Inherits WorkerGlobalScope
             |+> Instance [
                 "name" =? T<string>
@@ -1294,6 +1401,7 @@ module WebWorkers =
 
     let DedicatedWorkerGlobalScope =
         Class "DedicatedWorkerGlobalScope"
+        |> WithTSType "DedicatedWorkerGlobalScope"
         |=> Inherits WorkerGlobalScope
         |+> Instance [
             "postMessage" => (T<obj> * !? MessagePortArray) ^-> T<unit>
@@ -1303,6 +1411,7 @@ module WebWorkers =
         
     let AbstractWorker =
         Class "AbstractWorker"
+        |> WithTSType "AbstractWorker"
         // |=> Implements [T<EventTarget>]
         |+> Instance [
             // attribute Function onerror;
@@ -1310,6 +1419,7 @@ module WebWorkers =
 
     let Worker =           
         Class "Worker"
+        |> WithTSType "Worker"
         |=> Inherits AbstractWorker
         |+> Instance [
             "terminate" => T<unit> ^-> T<unit>
@@ -1319,8 +1429,8 @@ module WebWorkers =
 
 module General = 
     let BarProp =
-        let BarProp = Class "BarProp"
-        BarProp
+        Class "BarProp"
+        |> WithTSType "BarProp"
         |+> Instance [
             "visible" =@ T<bool>
         ]
@@ -1330,10 +1440,11 @@ module General =
             "auto"
             "manual"
         ]
+        |> WithTSType "string"
     
     let History =
-        let History = Class "History"
-        History
+        Class "History"
+        |> WithTSType "History"
         |+> Instance [
             "length" =? T<int>
             "state" =? T<obj>
@@ -1349,7 +1460,8 @@ module General =
         ]
 
     let Location =
-        Class "Location" 
+        Class "Location"
+        |> WithTSType "Location" 
         |+> Instance [
             "href" =@ T<string>
             "assign" => T<string> ^-> T<unit> 
@@ -1373,6 +1485,7 @@ module General =
 
     let UndoManager =
         Class "UndoManager"
+        |> WithTSType "UndoManager"
         |+> Instance [
             "length" =? T<int>
             "position" =? T<int>
@@ -1383,13 +1496,14 @@ module General =
             "clearRedo" => T<unit> ^-> T<unit> 
         ]
 
-    let WindowProxyType = Class "Window"
-    let MessagePortType = Class "MessagePort"
+    let WindowProxyType = Class "Window" |> WithTSType "Window"
+    let MessagePortType = Class "MessagePort" |> WithTSType "MessagePort"
 
 
 
     let MessageEvent =
         Class "MessageEvent"
+        |> WithTSType "MessageEvent"
         // |=> Implements [T<Event>]
         |+> Static [
             Constructor (T<string> * !?T<obj>)
@@ -1414,11 +1528,13 @@ module General =
         ]
 
     let Navigator =
-        Class "Navigator" 
+        Class "Navigator"
+        |> WithTSType "Navigator" 
         |+> Instance ["geolocation" =? Geolocation.Geolocation]
 
     let MQL =
         Class "MediaQueryList"
+        |> WithTSType "MediaQueryList"
         |=> Inherits Dom.Interfaces.EventTarget
         |+> Instance [
             "matches" =? T<bool>
@@ -1428,6 +1544,7 @@ module General =
 
     let CSSSD =
         Class "CSSStyleDeclaration"
+        |> WithTSType "CSSStyleDeclaration"
         |+> Instance [
             "cssText" =@ T<string>
             "length" =? T<int>
@@ -1609,19 +1726,19 @@ module General =
 
 module WebGL =
 
-    let RenderingContext = Class "RenderingContext"
-    let ContextAttributes = Class "ContextAttributes"
-    let Object = Interface "Object"
-    let Buffer = Interface "Buffer"
-    let Framebuffer = Interface "Framebuffer"
-    let Program = Interface "Program"
-    let Renderbuffer = Interface "Renderbuffer"
-    let Shader = Interface "Shader"
-    let Texture = Interface "Texture"
-    let UniformLocation = Interface "UniformLocation"
-    let ActiveInfo = Class "ActiveInfo"
-    let Enum = Class "Enum"
-    let DataView = Class "DataView"
+    let RenderingContext = Class "RenderingContext" |> WithTSType "WebGLRenderingContext"
+    let ContextAttributes = Class "ContextAttributes" |> WithTSType "WebGLContextAttributes"
+    let Object = Class "Object" |> WithTSType "WebGLObject"
+    let Buffer = Class "Buffer" |> WithTSType "WebGLBuffer"
+    let Framebuffer = Class "Framebuffer" |> WithTSType "WebGLFramebuffer"
+    let Program = Class "Program" |> WithTSType "WebGLProgram"
+    let Renderbuffer = Class "Renderbuffer" |> WithTSType "WebGLRenderbuffer"
+    let Shader = Class "Shader" |> WithTSType "WebGLShader"
+    let Texture = Class "Texture" |> WithTSType "WebGLTexture"
+    let UniformLocation = Class "UniformLocation" |> WithTSType "WebGLUniformLocation"
+    let ActiveInfo = Class "ActiveInfo" |> WithTSType "WebGLActiveInfo"
+    let Enum = Class "Enum" |> WithTSType "number"
+    let DataView = Class "DataView" |>  WithTSType "DataView"
 
     let EnumClass =
         Enum
@@ -2188,9 +2305,11 @@ module WebSockets =
             "Closing", "2"
             "Closed", "3"
         ]
+        |> WithTSType "number"
 
     let WebSocket =
         Class "WebSocket"
+        |> WithTSType "WebSocket"
         |+> Instance
             [
                 "readyState" =? ReadyState
@@ -2254,6 +2373,7 @@ module Definition =
                 Elements.HTMLFormControlsCollection
                 Elements.HTMLFormElement
                 Elements.HTMLInputElement
+                Elements.HTMLImageElement
                 Elements.HTMLLabelElement
                 Elements.HTMLLegendElement
                 Elements.HTMLMenuElement

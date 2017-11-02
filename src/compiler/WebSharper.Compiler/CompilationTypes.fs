@@ -38,17 +38,20 @@ module NotResolved =
         | Instance
         | Abstract
         | Static
+        | AsStatic
         | Constructor
         | Override of TypeDefinition
         | Implementation of TypeDefinition
         | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
-        | Inline
+        | Inline of bool
+        | InlineImplementation of TypeDefinition
         | NoFallback
 
     type NotResolvedMethod =
         {
             mutable Kind : NotResolvedMemberKind
             StrongName : option<string>
+            Generics : list<GenericParam>
             Macros: list<TypeDefinition * option<obj>>
             Generator : option<TypeDefinition * option<obj>>
             Compiled : bool
@@ -86,7 +89,9 @@ module NotResolved =
     type NotResolvedClass =
         {
             StrongName : option<string>
-            BaseClass : option<TypeDefinition>
+            BaseClass : option<Concrete<TypeDefinition>>
+            Implements : list<Concrete<TypeDefinition>>
+            Generics : list<GenericParam>
             Requires : list<TypeDefinition * option<obj>> 
             Members : list<NotResolvedMember>
             Kind : NotResolvedClassKind
@@ -94,23 +99,27 @@ module NotResolved =
             Macros : list<TypeDefinition * option<obj>> 
             ForceNoPrototype : bool
             ForceAddress : bool
+            Type : option<TSType>
+            SourcePos : SourcePos
         }
 
     type NotResolvedInterface =
         {
             StrongName : option<string>
-            Extends : list<TypeDefinition>
-            NotResolvedMethods : list<Method * option<string>>
+            Extends : list<Concrete<TypeDefinition>>
+            NotResolvedMethods : list<Method * option<string> * list<GenericParam>>
+            Generics : list<GenericParam>
+            Type : option<TSType>
         }
 
     type N = NotResolvedMemberKind
     type M = NotResolvedMember
 
-    let hasWSPrototype ckind (baseCls: TypeDefinition option) cmembers =
+    let hasWSPrototype ckind (baseCls: Concrete<TypeDefinition> option) cmembers =
         let nonObjBaseClass() = 
             match baseCls with
             | None -> false
-            | Some td when td = Definitions.Obj -> false
+            | Some td when td.Entity = Definitions.Obj -> false
             | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false
@@ -155,7 +164,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
             | true, value -> value
             | _ -> raise (KeyNotFoundException())
         and set (key: 'TKey) (v: 'TValue): unit = 
-            if orig.ContainsKey key then
+            if orig.ContainsKey key && not (current.ContainsKey key) then
                 invalidArg "key" "Key is found in immutable part of MergedDictionary"
             else current.[key] <- v
  
@@ -442,8 +451,8 @@ type CompilationError =
         | FieldNotFound (typ, field) -> sprintf "Field not found in JavaScript compilation: %s.%s" typ.Value.FullName field
 
 type LookupMemberResult =
-    | Compiled of CompiledMember * Optimizations * Expression
-    | Compiling of CompilingMember * Expression
+    | Compiled of CompiledMember * Optimizations * list<GenericParam> * Expression
+    | Compiling of CompilingMember * list<GenericParam> * Expression
     | CustomTypeMember of CustomTypeInfo
     | LookupMemberError of CompilationError 
 

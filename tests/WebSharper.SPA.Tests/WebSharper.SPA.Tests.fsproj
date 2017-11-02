@@ -4,6 +4,7 @@
     <TargetFrameworks>netcoreapp2.0</TargetFrameworks>
     <WebSharperProject>Bundle</WebSharperProject>
     <WebSharperBundleOutputDir>Content</WebSharperBundleOutputDir>
+    <WebSharperDeadCodeElimination>False</WebSharperDeadCodeElimination>
     <TypeScriptToolsVersion>2.5</TypeScriptToolsVersion>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
   </PropertyGroup>

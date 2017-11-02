@@ -309,9 +309,15 @@ let Const x =
 let OptionOf (generator: Generator<'A>) : Generator<option<'A>> =
     Mix (Const None) (Map Some generator)
 
-/// Boxes the generated data.
-[<Inline "$g">]
-let Box (g: Generator<'A>) = Map box g
+type private Box =
+    static member Box (g: Generator<'A>) = Map box g
+
+[<Proxy(typeof<Box>)>]
+type private BoxProxy =
+    static member Box (g: Generator<'A>) = As<Generator<obj>> g
+
+[<Inline>]
+let Box g = Box.Box g
 
 [<JavaScript>]
 let private allTypes =
@@ -412,7 +418,7 @@ module internal Internal =
                 fail "Random generators for multidimensional arrays are not supported."
             | T.VoidType ->
                 let m = meth "Const" [TypeParameter 0] (generatorOf (TypeParameter 0))
-                wrap, Choice1Of2 (callR (m [ty]) [Value Null])
+                wrap, Choice1Of2 (callR (m [T.VoidType]) [Value Null])
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Boolean" ->
                 wrap, Choice1Of2 (nonGenericGen "Boolean" e)
             | T.ConcreteType { Entity = e } when e.Value.FullName = "System.Double" ->
@@ -458,7 +464,7 @@ module internal Internal =
                         ] (generatorOf b)
                     callR (mChoose [!@Definitions.Object; !@Definitions.Object]) [
                         callR (mAllTypes []) []
-                        Function([id], Return e)
+                        Function([id], None, Return e)
                     ]
                 wrap' >> wrap, Choice1Of2 (Var id)
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.IEquatable`1" ||  e.Value.FullName = "System.IComparable`1" ->
@@ -474,9 +480,9 @@ module internal Internal =
         | _, Choice2Of2 msg -> failwithf "%A: %s" ty msg
 
     let mkSample t g count =
-        let a = TypeParameter 0
+        let a = TypeParameter 1
         let m = meth "Make" [generatorOf a; !@Definitions.Int] (sampleOf a)
-        E.Call(None, staticSampleOf t, m [], [g; count])
+        E.Call(None, staticSampleOf t, m [ t ], [g; count])
 
     type AutoGeneratorMacro() =
         inherit Core.Macro()
@@ -506,8 +512,8 @@ let Auto<'A>() : Generator<'A> =
 [<Name "WebSharper.Testing.Random.Sample">]
 type Sample<'A> (data: list<'A>) =
 
-    static member Make<'A> generator count =
-        new Sample<'A>(generator, count)
+    static member Make<'T> generator count =
+        new Sample<'T>(generator, count)
 
     member this.Data = data
 

@@ -93,15 +93,15 @@ let ( ? ) (obj: obj) (field: string) = X<'T>
 [<Inline "void ($obj[$key] = $value)">]
 let ( ?<- ) (obj: obj) (key: string) (value: obj) = X<unit>
 
-[<Inline "[$x,$y]">]
+[<Inline>]
 let ( => ) (x: string) (y: obj) = (x, y)
 
 [<JavaScript>]
 let private NewFromSeq<'T> (fields: seq<string * obj>) : 'T =
-    let r = JS.Inline "{}"
+    let r = As<'T> (JS.Inline<string> "{}") // hack to force cast
     for (k, v) in fields do
         (?<-) r k v
-    As r
+    r
 
 /// Constructs a new object as if an object literal was used.
 [<Macro(typeof<M.New>); Inline>]

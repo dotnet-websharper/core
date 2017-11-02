@@ -227,13 +227,13 @@ and lhsExprTail news i body =
             skipRx i
             let args = arguments i
             match news with
-            | 0 -> loop news (S.Application (e, args))
-            | _ -> loop (news - 1) (S.New (e, args))
+            | 0 -> loop news (S.Application (e, [], args))
+            | _ -> loop (news - 1) (S.New (e, [], args))
         | _ ->
             let rec loop news e =
                 match news with
                 | 0 -> e
-                | _ -> loop (news - 1) (S.New (e, []))
+                | _ -> loop (news - 1) (S.New (e, [], []))
             loop news e
     loop news body
 
@@ -452,7 +452,7 @@ and block i =
 and varStmt i =
     let vs = vars true i
     ``;`` i
-    S.Vars vs
+    S.Vars (vs, S.VarDecl)
 
 and vars allowIn i =
     varsTail allowIn [varDecl allowIn i] i
@@ -667,10 +667,10 @@ and funExpr i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Lambda (Some (S.Id.New id), f, funBody i)
+        S.Lambda (Some (S.Id.New id), f, funBody i, false)
     | L.Punctuator Sy.``(`` ->
         let f = formals i
-        S.Lambda (None, f, funBody i)
+        S.Lambda (None, f, funBody i, false)
     | _ ->
         error t "Expecting '(' or an identifier."
 

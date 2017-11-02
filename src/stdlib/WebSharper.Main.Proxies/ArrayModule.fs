@@ -51,10 +51,10 @@ let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
     res |> As<('T1 * 'T2) []>
 
 [<Name "average">]
-let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
+let Average<[<Type "number">] 'T> (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
 
 [<Name "averageBy">]
-let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float (Array.length arr))
+let AverageBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float (Array.length arr))
 
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
@@ -468,16 +468,16 @@ let GetSubArray (arr: 'T []) (start: int) (length: int) : 'T []=
 
 [<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $arr[i]; return sum">]
 [<Name "sum">]
-let Sum (arr: 'T []) : 'T = X<'T>
+let Sum<[<Type "number">] 'T> (arr: 'T []) : 'T = X<'T>
 
 [<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $f($arr[i]); return sum">]
 [<Name "sumBy">]
-let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
+let SumBy<'T, [<Type "number">] 'U> (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 
 [<Inline>]
 let ToList arr = List.ofArray arr
 
-[<Inline "$arr">]
+[<Inline>]
 let ToSeq (arr: _ []) = arr :> seq<_>
 
 [<Name "tryFind">]

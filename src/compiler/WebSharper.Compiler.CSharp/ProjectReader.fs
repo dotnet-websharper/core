@@ -79,9 +79,21 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
         | _ -> mAnnot
     | _ -> mAnnot
 
+let private getConstraints (genParams: seq<ITypeParameterSymbol>) (sr: CodeReader.SymbolReader) =
+    genParams |> Seq.map (fun p ->
+        let annot = sr.AttributeReader.GetTypeParamAnnot(p.GetAttributes())
+        {
+            Type = annot.Type
+            Constraints =
+                p.ConstraintTypes |> Seq.map (fun c ->
+                    sr.ReadType c
+                ) |> List.ofSeq
+        }
+    ) |> List.ofSeq
+
 let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (intf: INamedTypeSymbol) =
     if intf.TypeKind <> TypeKind.Interface || annot.IsForcedNotJavaScript then None else
-    let methodNames = ResizeArray()
+    let methods = ResizeArray()
     let def =
         match annot.ProxyOf with
         | Some d -> d 
@@ -94,12 +106,16 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             match sr.ReadMember m with
             | Member.Method (_, md) -> md
             | _ -> failwith "invalid interface member"
-        methodNames.Add(md, mAnnot.Name)
+        let gc = getConstraints m.TypeParameters sr
+        methods.Add(md, mAnnot.Name, gc)
+    
     Some (def, 
         {
             StrongName = annot.Name
-            Extends = intf.Interfaces |> Seq.map (fun i -> sr.ReadNamedTypeDefinition i) |> List.ofSeq
-            NotResolvedMethods = List.ofSeq methodNames 
+            Extends = intf.Interfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
+            NotResolvedMethods = List.ofSeq methods 
+            Generics = getConstraints intf.TypeParameters sr
+            Type = annot.Type
         }
     )
 
@@ -139,6 +155,8 @@ let delegateTy, delRemove =
 let TextSpans = R.textSpans
 let SaveTextSpans() = R.saveTextSpans <- true
 
+let private nrInline = N.Inline false
+
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     if cls.TypeKind <> TypeKind.Class && not isStruct then None else
@@ -176,10 +194,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let members = cls.GetMembers()
 
-    let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
+    let getUnresolved (mem: option<IMethodSymbol>) (mAnnot: A.MemberAnnotation) kind compiled expr = 
         {
             Kind = kind
             StrongName = mAnnot.Name
+            Generics =
+                match mem with
+                | None -> []
+                | Some m -> getConstraints m.TypeParameters sr
             Macros = mAnnot.Macros
             Generator = 
                 match mAnnot.Kind with
@@ -194,11 +216,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Warn = mAnnot.Warn
         }
 
-    let addMethod mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
+    let addMethod mem mAnnot def kind compiled expr =
+        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mem mAnnot kind compiled expr)))
         
-    let addConstructor mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
+    let addConstructor mem mAnnot def kind compiled expr =
+        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mem mAnnot kind compiled expr)))
 
     let inits = ResizeArray()                                               
     let staticInits = ResizeArray()                                               
@@ -208,7 +230,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         for meth in intf.GetMembers().OfType<IMethodSymbol>() do
             let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
             if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
-                Dict.addToMulti implicitImplementations impl intf
+                Dict.addToMulti implicitImplementations impl (intf, meth)
+
+    let thisType = Generic def (List.init cls.TypeParameters.Length TypeParameter)
+    let thisTypeForFixer = Some (ConcreteType thisType)
 
     for mem in members do
         match mem with
@@ -224,7 +249,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let data =
                     syntax :?> PropertyDeclarationSyntax
                     |> RoslynHelpers.PropertyDeclarationData.FromNode
-                let cdef = NonGeneric def
                 let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
                     a.Body.IsSome || a.ExpressionBody.IsSome
                 match data.AccessorList with
@@ -246,9 +270,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | setMeth ->
                     let setter = sr.ReadMethod setMeth
                     if p.IsStatic then
-                        staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
+                        staticInits.Add <| Call(None, thisType, NonGeneric setter, [ b ])
                     else
-                        inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
+                        inits.Add <| Call(Some This, thisType, NonGeneric setter, [ b ])
             | _ -> ()
         | :? IFieldSymbol as f -> 
             let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -266,9 +290,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         |> (cs model).TransformVariableDeclarator
                     
                     if f.IsStatic then 
-                        staticInits.Add <| FieldSet(None, NonGeneric def, x.Name.Value, e)
+                        staticInits.Add <| FieldSet(None, thisType, x.Name.Value, e)
                     else
-                        inits.Add <| FieldSet(Some This, NonGeneric def, x.Name.Value, e)
+                        inits.Add <| FieldSet(Some This, thisType, x.Name.Value, e)
                 | _ -> 
 //                    let _ = syntax :?> VariableDeclarationSyntax
                     ()
@@ -277,8 +301,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let hasInit =
         if inits.Count = 0 then false else 
-        Function([], ExprStatement (Sequential (inits |> List.ofSeq)))
-        |> addMethod A.MemberAnnotation.BasicJavaScript initDef N.Instance false
+        Function([], None, ExprStatement (Sequential (inits |> List.ofSeq)))
+        |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
     let staticInit =
@@ -291,9 +315,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         if cls.IsValueType || cls.IsStatic then
             None
         elif annot.Prototype = Some false then
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+            cls.BaseType |> sr.ReadNamedType |> ignoreSystemObject
         else
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
+            cls.BaseType |> sr.ReadNamedType |> Some
+
+    let implements =
+        cls.AllInterfaces |> Seq.map sr.ReadNamedType |> List.ofSeq
 
     for meth in members.OfType<IMethodSymbol>() do
         let meth = 
@@ -326,13 +353,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
                 err |> Option.iter error
-                addMethod mAnnot mdef N.Inline true expr
+                addMethod (Some meth) mAnnot mdef nrInline true expr
             | Member.Constructor cdef ->
                 let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
                 err |> Option.iter error
-                addConstructor mAnnot cdef N.Inline true expr
+                addConstructor (Some meth) mAnnot cdef nrInline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
-            | Member.Override _ -> error "Override method can't have Stub attribute"
+            | Member.Override _ -> error "Virtual or override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
         | Some (A.MemberKind.Remote rp) -> 
             let memdef = sr.ReadMember meth
@@ -350,7 +377,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         mdef.Value.Parameters,
                         mdef.Value.ReturnType
                     )
-                addMethod mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
+                addMethod (Some meth) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
             let memdef = sr.ReadMember meth
@@ -395,7 +422,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     let labels = Continuation.CollectLabels.Collect b
                                     Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind meth).TransformMethodBody(b)
                                 else b1 |> Scoping.fix |> Continuation.eliminateGotos
-                            { m with Body = b2 |> FixThisScope().Fix }
+                            { m with Body = b2 |> FixThisScope(thisTypeForFixer).Fix }
                         match syntax with
                         | :? MethodDeclarationSyntax as syntax ->
                             syntax
@@ -421,11 +448,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
                                     match baseCls with
+                                    | Some t when t.Entity.Value.FullName = "System.Exception" ->
+                                       ExprStatement (Sequential [ ChainedCtor(true, None, bTyp, bCtor, args) |> reorder; restorePrototype ])
                                     | Some _ ->
                                        ExprStatement (ChainedCtor(true, None, bTyp, bCtor, args) |> reorder)
                                     | _ -> Empty
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
-                                    ExprStatement (ChainedCtor(false, None, NonGeneric def, bCtor, args) |> reorder)
+                                    ExprStatement (ChainedCtor(false, None, thisType, bCtor, args) |> reorder)
                                 | None -> Empty
                             let b = 
                                 if meth.IsStatic then
@@ -440,14 +469,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     if hasInit then 
                                         CombineStatements [ 
                                             chained;
-                                            ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                            ExprStatement <| Call(Some This, thisType, NonGeneric initDef, [])
                                             c.Body
                                         ]
                                     else CombineStatements [ chained; c.Body ]
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
-                                Body = b |> FixThisScope().Fix
+                                Body = b |> FixThisScope(thisTypeForFixer).Fix
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
@@ -475,8 +504,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        FieldGet(on, thisType, meth.AssociatedSymbol.Name)
+                        , fun x -> FieldSet(on, thisType, meth.AssociatedSymbol.Name, x)
                     let b =
                         JSRuntime.CombineDelegates (NewArray [ getEv; Var args.[0].ParameterId ]) |> setEv    
                     {
@@ -490,8 +519,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
                     let getEv, setEv =
                         let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        FieldGet(on, thisType, meth.AssociatedSymbol.Name)
+                        , fun x -> FieldSet(on, thisType, meth.AssociatedSymbol.Name, x)
                     let b =
                         Call (None, NonGeneric delegateTy, NonGeneric delRemove, [getEv; Var args.[0].ParameterId]) |> setEv
                     {
@@ -515,12 +544,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         else
                             let c =
                                 match baseCls with
+                                | Some bTyp when bTyp.Entity.Value.FullName = "System.Exception" ->
+                                    ExprStatement (Sequential [ ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), []); restorePrototype ])
                                 | Some bTyp ->
-                                    ExprStatement <| ChainedCtor(true, None, NonGeneric bTyp, ConstructorInfo.Default(), [])
+                                    ExprStatement <| ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), [])
                                 | _ -> Empty
                             let i =
                                 if hasInit then 
-                                    ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                    ExprStatement <| Call(Some This, thisType, NonGeneric initDef, [])
                                 else Empty
                             CombineStatements [ c; i ]
 
@@ -533,19 +564,23 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     } : CodeReader.CSharpMethod
                     
             let getBody isInline =
+                if meth.IsAbstract then Undefined else
                 let parsed = getParsed() 
                 let args = parsed.Parameters |> List.map (fun p -> p.ParameterId)
+                let returnType =
+                    if obj.ReferenceEquals(parsed.ReturnType, Unchecked.defaultof<_>) then None
+                    else Some parsed.ReturnType
                 if isInline then
-                    let b = Function(args, parsed.Body)
+                    let b = Function(args, returnType, parsed.Body)
                     let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
                     let b = 
                         match thisVar with
                         | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
                         | _ -> b
                     let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Application (b, allVars |> List.map Var, NonPure, None))
+                    makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
                 else
-                    Function(args, parsed.Body)
+                    Function(args, returnType, parsed.Body)
 
             let getVars() =
                 // TODO: do not parse method body
@@ -563,8 +598,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Member.Override (t, _) -> N.Override t 
                     | Member.Implementation (t, _) -> N.Implementation t
                     | _ -> failwith "impossible"
+                let getInlineKind() =
+                    match memdef with
+                    | Member.Implementation (t, _) -> N.InlineImplementation t
+                    | _ -> nrInline
                 let jsMethod isInline =
-                    addMethod mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                    addMethod (Some meth) mAnnot mdef (if isInline then getInlineKind() else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -573,27 +612,25 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Member.Override (bTyp, _) -> 
                             if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
                                 error "Override methods cannot be marked with Inline, Macro or Constant attributes."
-                        | Member.Implementation _ ->
-                            error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
                         | _ -> ()
                 match kind with
                 | A.MemberKind.NoFallback ->
                     checkNotAbstract()
-                    addMethod mAnnot mdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                    addMethod (Some meth) mAnnot mdef N.NoFallback true Undefined
+                | A.MemberKind.Inline (js, ta) ->
                     checkNotAbstract() 
                     try 
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addMethod mAnnot mdef N.Inline true parsed
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some (JavaScriptFile "")) js
+                        addMethod (Some meth) mAnnot mdef (N.Inline ta) true parsed
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Constant c ->
                     checkNotAbstract() 
-                    addMethod mAnnot mdef N.Inline true (Value c)                        
+                    addMethod (Some meth) mAnnot mdef nrInline true (Value c)                        
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addMethod mAnnot mdef (getKind()) true parsed
+                        addMethod (Some meth) mAnnot mdef (getKind()) true parsed
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript ->
@@ -606,55 +643,55 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let mN = mdef.Value.MethodName
                     if mN.StartsWith "get_" then
                         let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String mN.[4..]), Pure))
-                        addMethod mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef nrInline true i
                     elif mN.StartsWith "set_" then  
                         let i = JSRuntime.SetOptional (Hole 0) (Value (String mN.[4..])) (Hole 1)
-                        addMethod mAnnot mdef N.Inline true i
+                        addMethod (Some meth) mAnnot mdef nrInline true i
                     else error "OptionalField attribute not on property"
                 | A.MemberKind.Generated _ ->
-                    addMethod mAnnot mdef (getKind()) false Undefined
+                    addMethod (Some meth) mAnnot mdef (getKind()) false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
-                    let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
+                    let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])
                     if comp.HasGraph then
                         comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
                     comp.SetEntryPoint(ep)
                 match implicitImplementations.TryFind meth with
                 | Some impls ->
-                    for impl in impls do
-                        let idef = sr.ReadNamedTypeDefinition impl
+                    for intf, impl in impls do
+                        let idef = sr.ReadNamedTypeDefinition intf
+                        let imdef = sr.ReadMethod impl 
                         let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                        // TODO : correct generics
-                        Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod A.MemberAnnotation.BasicJavaScript mdef (N.Implementation idef) false
+                        Lambda(vars, None, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
+                        |> addMethod (Some impl) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
                 | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
-                        if isInline then 
-                            addConstructor mAnnot cdef N.Inline false (getBody true)
-                        else
-                            addConstructor mAnnot cdef N.Constructor false (getBody false)
+                    if isInline then 
+                        addConstructor (Some meth) mAnnot cdef nrInline false (getBody true)
+                    else
+                        addConstructor (Some meth) mAnnot cdef N.Constructor false (getBody false)
                 match kind with
                 | A.MemberKind.NoFallback ->
-                    addConstructor mAnnot cdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                    addConstructor (Some meth) mAnnot cdef N.NoFallback true Undefined
+                | A.MemberKind.Inline (js, ta) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some "") js
-                        addConstructor mAnnot cdef N.Inline true parsed 
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some (JavaScriptFile "")) js
+                        addConstructor (Some meth) mAnnot cdef (N.Inline ta) true parsed 
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addConstructor mAnnot cdef N.Static true parsed 
+                        addConstructor (Some meth) mAnnot cdef N.Static true parsed 
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript -> jsCtor false
                 | A.MemberKind.InlineJavaScript -> jsCtor true
                 | A.MemberKind.Generated _ ->
-                    addConstructor mAnnot cdef N.Static false Undefined
+                    addConstructor (Some meth) mAnnot cdef N.Static false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -667,7 +704,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     
     match staticInit with
     | Some si when not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) ->
-        let b = Function ([], si)
+        let b = Function ([], None, si)
         clsMembers.Add (NotResolvedMember.StaticConstructor b)  
     | _ -> ()
     
@@ -683,19 +720,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Some p -> p.GetAttributes() 
             | _ -> f.GetAttributes() 
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
-        let jsName =
-            match backingForProp with
-            | Some p -> Some ("$" + p.Name)
-            | None -> mAnnot.Name                       
-        let nr =
-            {
-                StrongName = jsName
-                IsStatic = f.IsStatic
-                IsOptional = mAnnot.Kind = Some A.MemberKind.OptionalField 
-                IsReadonly = f.IsReadOnly
-                FieldType = sr.ReadType f.Type 
-            }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        match mAnnot.Kind with
+        | Some k ->
+            let jsName =
+                match backingForProp with
+                | Some p -> Some ("$" + p.Name)
+                | None -> mAnnot.Name                       
+            let nr =
+                {
+                    StrongName = jsName
+                    IsStatic = f.IsStatic
+                    IsOptional = k = A.MemberKind.OptionalField 
+                    IsReadonly = f.IsReadOnly
+                    FieldType = sr.ReadType f.Type 
+                }
+            clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+        | _ -> ()
     
     for f in members.OfType<IEventSymbol>() do
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -735,6 +775,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         {
             StrongName = strongName
             BaseClass = baseCls
+            Implements = implements
+            Generics = getConstraints cls.TypeParameters sr
             Requires = annot.Requires
             Members = List.ofSeq clsMembers
             Kind = ckind
@@ -742,6 +784,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false)
             ForceAddress = false
+            Type = annot.Type
+            SourcePos = CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences.[0]
         }
     )
 

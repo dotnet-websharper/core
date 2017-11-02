@@ -24,6 +24,7 @@ open WebSharper.Core.Resources
 open WebSharper
 module M = WebSharper.Core.Metadata
 
+[<JavaScript false>]
 type INode =
     inherit IRequiresResources
 

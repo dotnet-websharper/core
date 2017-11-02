@@ -27,7 +27,7 @@ type HashSet<'T> = System.Collections.Generic.HashSet<'T>
 type KeyValuePair<'T1,'T2> = System.Collections.Generic.KeyValuePair<'T1,'T2>
 
 exception NoEncodingException of System.Type with
-    override this.ToString() =
+    override this.Message =
         System.String.Format("Failed to encode {0} to binary.",
             this.Data0)
 
@@ -660,7 +660,7 @@ type Encoding(enc: Encoder) =
             enc.Encode(w, value)
             w.WriteTo stream writer
         with e ->
-            let msg = "Failed to encode: " + string value
+            let msg = "Failed to encode: " + string value + " with " + e.Message
             raise (EncodingException(msg, e))
 
     member this.Type = enc.Type
