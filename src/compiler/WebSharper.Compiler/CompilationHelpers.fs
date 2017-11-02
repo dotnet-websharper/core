@@ -891,6 +891,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                     { cls with
                         Constructors = Dictionary<_,_>()
                         Methods = methods
+                        Implementations = Dictionary<_,_>()
                     }
                 classes.Add(td, (a, ct, Some cls))
                 Some cls
@@ -908,7 +909,12 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
             getOrAddClass td |> Option.iter (fun cls -> cls.Methods.[m] <- meta.ClassInfo(td).Methods.[m])
         | ConstructorNode (td, c) -> 
             getOrAddClass td |> Option.iter (fun cls -> cls.Constructors.[c] <- meta.ClassInfo(td).Constructors.[c])
-        | ImplementationNode (td, _, _)
+        | ImplementationNode (td, i, m) ->
+            try
+                //if td = Definitions.Obj then () else
+                getOrAddClass td |> Option.iter (fun cls -> cls.Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m]))
+            with _ ->
+                failwithf "implementation node not found %A" n
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 
