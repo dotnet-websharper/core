@@ -3,12 +3,6 @@ if test "$OS" = "Windows_NT"
 then
   # use .Net
 
-  .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
   .paket/paket.exe restore --touch-affected-refs
   exit_code=$?
   if [ $exit_code -ne 0 ]; then
