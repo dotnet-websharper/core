@@ -38,7 +38,7 @@ type AssemblyResource(name) =
     interface R.IResource with
         member this.Render ctx =
             let r =
-                let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
+                let filename = name + ".js" // if ctx.DebuggingEnabled then ".js" else ".min.js"
                 match R.Rendering.TryGetCdn(ctx, name, filename) with
                 | Some r -> r
                 | None -> ctx.GetAssemblyRendering name

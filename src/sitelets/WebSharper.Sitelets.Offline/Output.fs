@@ -45,13 +45,7 @@ module R = WebSharper.Core.Resources
 let EMBEDDED_TS = "WebSharper.ts"
 
 [<Literal>]
-let EMBEDDED_MINJS = "WebSharper.min.js"
-
-[<Literal>]
 let EMBEDDED_MAP = "WebSharper.map"
-
-[<Literal>]
-let EMBEDDED_MINMAP = "WebSharper.min.map"
 
 [<Literal>]
 let EMBEDDED_DTS = "WebSharper.d.ts"
@@ -190,12 +184,13 @@ let createFile (cfg: Config) (targetPath: P.Path) =
 /// Writes an embedded resource to the target path.
 let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targetPath: P.Path) =
     let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let fn = aD.Name.Name + "." + n
     let stream =
         aD.MainModule.Resources
         |> Seq.tryPick (fun r ->
             match r with
             | :? Mono.Cecil.EmbeddedResource as r ->
-                if r.Name = n then Some (r.GetResourceStream()) else None
+                if r.Name = n || r.Name = fn then Some (r.GetResourceStream()) else None
             | _ -> None)
     match stream with
     | None -> failwithf "No resource %s in %s at %s" n aD.FullName assemblyPath
@@ -217,17 +212,11 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) =
         let assemblyPath = aR.ResolvePath(AssemblyName aN)
         match assemblyPath with
         | Some aP ->
-            let embeddedResourceName =
-                match st.Config.Options.Mode with
-                | H.Debug -> EMBEDDED_TS
-                | H.Release -> EMBEDDED_MINJS
+            let embeddedResourceName = EMBEDDED_TS
             let p = getAssemblyJavaScriptPath st.Config aN
             writeEmbeddedResource st.Config aP embeddedResourceName p
             if sourceMap then
-                let sourceMapResourceName =
-                    match st.Config.Options.Mode with
-                    | H.Debug -> EMBEDDED_MAP
-                    | H.Release -> EMBEDDED_MINMAP
+                let sourceMapResourceName = EMBEDDED_MAP
                 let sp = getAssemblyMapPath st.Config aN
                 try writeEmbeddedResource st.Config aP sourceMapResourceName sp
                     let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN

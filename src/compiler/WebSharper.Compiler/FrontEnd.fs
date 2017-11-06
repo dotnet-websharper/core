@@ -83,7 +83,7 @@ let ReadFromFile options (path: string) =
 
 let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->
-        if readable then a.ReadableJavaScript else a.CompressedJavaScript
+        a.ReadableJavaScript
         |> Option.map (fun js -> a.FullName, js)
     )
     |> dict
@@ -198,12 +198,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         addRes EMBEDDED_TS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
             addRes EMBEDDED_MAP None (Some (getBytes m)))
-        TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
-        //let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        //addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
-        //minMap |> Option.iter (fun m ->
-        //    addRes EMBEDDED_MINMAP None (Some (getBytes m)))
-        //TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        TimedStage "Writing .ts"
 
         addMeta()
         Some js, res.ToArray()

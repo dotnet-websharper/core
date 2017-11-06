@@ -37,12 +37,6 @@ type Assembly =
     member Write : option<StrongNameKeyPair> -> path: string -> unit
 
     /// Reads the embedded JavaScript.
-    member CompressedJavaScript : option<string>
-
-    /// Reads the embedded map file.
-    member MapFileForCompressed : option<string>
-
-    /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
 
     /// Reads the embedded map file.

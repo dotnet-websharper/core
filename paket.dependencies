@@ -11,6 +11,7 @@ nuget FSharp.Compiler.Tools
 
 nuget Mono.Cecil ~> 0.10-beta
 nuget System.ValueTuple 4.3.0
+nuget Microsoft.TypeScript.MSBuild ~> 2.6.1
 
 nuget AjaxMin
 
