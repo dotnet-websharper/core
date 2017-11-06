@@ -9,7 +9,6 @@ tags
     Web JavaScript F#
 dependencies
     WebSharper == CURRENTVERSION
-    Microsoft.TypeScript.MSBuild ~> 2.5.3
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
     ../build/Release/FSharp/net461/wsfsc.exe ==> tools
