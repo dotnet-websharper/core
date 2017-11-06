@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.props" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.props')" Label="Paket" />
+  <Import Project="..\..\packages\build\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.props" Condition="Exists('..\..\packages\build\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.props')" Label="Paket" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Platform>AnyCPU</Platform>
@@ -170,26 +170,6 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
-  <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
-      <ItemGroup>
-        <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\FSharp.Core\lib\netstandard1.6\FSharp.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets')" Label="Paket" />
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
+  <Import Project="..\..\packages\build\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets" Condition="Exists('..\..\packages\build\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets')" Label="Paket" />
 </Project>

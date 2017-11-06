@@ -1,2 +1,4 @@
-FSharp.Core
-Microsoft.TypeScript.MSBuild
+FSharp.Core framework: net461
+
+group build
+    Microsoft.TypeScript.MSBuild

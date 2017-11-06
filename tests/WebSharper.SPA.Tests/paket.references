@@ -1,2 +1,4 @@
-FSharp.Core
-Microsoft.TypeScript.MSBuild
+FSharp.Core framework: netcoreapp2.0
+
+group build
+    Microsoft.TypeScript.MSBuild

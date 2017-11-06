@@ -1,2 +1,4 @@
 FSharp.Core
-Microsoft.TypeScript.MSBuild
+
+group build
+    Microsoft.TypeScript.MSBuild

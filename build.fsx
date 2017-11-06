@@ -1,12 +1,12 @@
 #load "tools/WebSharper.Fake.fsx"
-#r "packages/AjaxMin/lib/net40/AjaxMin.dll"
+#r "packages/build/AjaxMin/lib/net40/AjaxMin.dll"
 
 open System.IO
 open Fake
 open WebSharper.Fake
 
-let version = "4.1"
-let pre = Some "alpha"
+let version = "4.0"
+let pre = None
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
