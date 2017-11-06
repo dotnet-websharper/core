@@ -277,7 +277,10 @@ let compileMain argv =
                 wsArgs := { !wsArgs with IsDebug = true }
                 fscArgs.Add a
             | StartsWith "--resource:" r ->
-                resources.Add r
+                match r.Split(',') with 
+                | [| res |] -> resources.Add (res, None)
+                | [| res; fullName |] -> resources.Add (res, Some fullName)
+                | _ -> failwithf "Unexpected value --resource:%s" r
                 fscArgs.Add a
             | StartsWith "--keyfile:" k ->
                 wsArgs := { !wsArgs with KeyFile = Some k }

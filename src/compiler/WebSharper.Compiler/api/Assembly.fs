@@ -39,9 +39,10 @@ module AssemblyUtility =
             | _ -> None)
 
     let ReadResourceBytes name (def: Mono.Cecil.AssemblyDefinition) =
+        let longName = def.Name.Name + "." + name
         def.MainModule.Resources
         |> Seq.tryPick (function
-            | :? Mono.Cecil.EmbeddedResource as r when r.Name = name ->
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name = name || r.Name = longName ->
                 use r = r.GetResourceStream()
                 Some (ReadStream r)
             | _ -> None)
@@ -141,12 +142,6 @@ type Assembly =
 
     member this.MapFileForReadable =
         ReadResource EMBEDDED_MAP this.Definition
-
-    member this.CompressedJavaScript =
-        ReadResource EMBEDDED_MINJS this.Definition
-
-    member this.MapFileForCompressed =
-        ReadResource EMBEDDED_MINMAP this.Definition
 
     member this.TypeScriptDeclarations =
         ReadResource EMBEDDED_DTS this.Definition
