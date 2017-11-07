@@ -38,6 +38,7 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
+    <ZafirCsFullPath>$(Root)\build\$(Configuration)\CSharp\ZafirCs.exe</ZafirCsFullPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>

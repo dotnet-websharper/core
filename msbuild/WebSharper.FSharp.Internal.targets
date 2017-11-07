@@ -51,7 +51,7 @@
   </PropertyGroup>
   <Import Project="FSharp.targets" />
   <Import Project="WebSharper.FSharp.targets" />
-  <PropertyGroup>
-    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
+  <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">
+    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\</FscToolPath>
   </PropertyGroup>
 </Project>
