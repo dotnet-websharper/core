@@ -160,6 +160,7 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
+  <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
       <ItemGroup>
@@ -183,5 +184,4 @@
     </When>
   </Choose>
   <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets')" Label="Paket" />
-  <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
 </Project>

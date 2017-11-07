@@ -1,4 +1,5 @@
 System.ValueTuple
+Microsoft.TypeScript.MSBuild
+
 group fsharp4
     FSharp.Core
-Microsoft.TypeScript.MSBuild

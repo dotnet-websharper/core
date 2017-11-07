@@ -1,4 +1,4 @@
-version 5.92.3
+version 5.108.0
 
 references: strict
 redirects: on
@@ -12,8 +12,6 @@ nuget FSharp.Compiler.Tools
 nuget Mono.Cecil ~> 0.10-beta
 nuget System.ValueTuple 4.3.0
 nuget Microsoft.TypeScript.MSBuild ~> 2.6.1
-
-nuget AjaxMin
 
 group fsharp4
     framework: net45, net46
@@ -43,3 +41,10 @@ group fcs
 
     nuget System.ValueTuple 4.3.0
     nuget FSharp.Compiler.Service ~16.0.2
+
+group build
+    framework: net45
+    source https://api.nuget.org/v3/index.json
+    nuget Paket.Core 5.108.0
+    nuget FAKE
+	nuget AjaxMin

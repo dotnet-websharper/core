@@ -1,5 +1,5 @@
 #load "tools/WebSharper.Fake.fsx"
-#r "packages/AjaxMin/lib/net40/AjaxMin.dll"
+#r "packages/build/AjaxMin/lib/net40/AjaxMin.dll"
 
 open System.IO
 open Fake
@@ -14,7 +14,7 @@ let baseVersion =
 
 let targets = MakeTargets {
     WSTargets.Default (ComputeVersion (Some baseVersion)) with
-        SolutionFile = "WebSharper.sln"
+        BuildAction = BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
 }
 
 let NeedsBuilding input output =
@@ -53,7 +53,7 @@ Target "Build" DoNothing
 targets.BuildDebug ==> "Build"
 
 Target "CI-Release" DoNothing
-targets.Publish ==> "CI-Release"
+targets.CommitPublish ==> "CI-Release"
 
 Target "Run" <| fun () ->
     shellExec {
