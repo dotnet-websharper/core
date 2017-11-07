@@ -177,9 +177,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
             | TSType.Imported _
             | TSType.Named _ ->
                 TSType.Generic(td, gen)
-            | TSType.Function _ ->
+            | _ ->
                 td.SubstituteGenerics (Array.ofList gen)
-            | _ -> td
 
     member this.TSTypeOf (gs: GenericParam[]) (t: Type) =
         match t with 

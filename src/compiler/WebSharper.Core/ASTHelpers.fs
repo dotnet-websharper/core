@@ -374,8 +374,12 @@ module TSType =
         TSType.Function(None, a, None, r)
 
     let Parse x =
+        // todo expand parser
         match x with
         | "any" -> TSType.Any
+        | "$0" -> TSType.Param 0
+        | "()=>$0" -> Lambda ([], TSType.Param 0)
+        | "$0[]" -> ArrayOf (TSType.Param 0) 
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))
 

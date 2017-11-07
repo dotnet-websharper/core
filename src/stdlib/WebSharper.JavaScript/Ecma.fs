@@ -99,7 +99,7 @@ module Definition =
                     |> WithInline "$str.match($this)"
                 "replace" => T<string>?str * T<string>?newSubStr ^-> T<string>
                     |> WithInline "$str.replace($this, $newSubStr)"
-                "replace" => T<string>?str * T<Function>?replaceFn ^-> T<string>
+                "replace" => T<string>?str * (T<string> *+ T<string> ^-> T<string>)?replaceFn ^-> T<string>
                     |> WithInline "$str.replace($this, $replaceFn)"
                 "search" => T<string>?str ^-> T<int>
                     |> WithInline "$str.search($this)"

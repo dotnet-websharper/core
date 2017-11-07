@@ -556,40 +556,37 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | Some t -> i |> withTypeAny env t
                 | _ -> i
         match e with
-        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> J.Empty
+        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> 
+            J.Empty
         | IgnoreSourcePos.Undefined -> 
             J.Vars ([ typed(), None ], J.VarDecl)
         | _ -> 
             J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
     | FuncDeclaration (x, ids, b, gen) ->
         let innerEnv = env.NewInner()
-        try
-            let id = transformId env x
-            let gen =
-                match gen with
-                | [] -> ""
-                | g -> "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
-            let id =
-                if gen = "" then id else
-                    { id with Name = id.Name + gen }
-            let args = ids |> List.map (fun id ->
-                defineIdTyped innerEnv ArgumentId id
-                |> Option.foldBack (withType innerEnv) id.TSType
-            )
-            let tr = defaultArg x.TSType TSType.Any
-            let id = id |> withType innerEnv tr
-            CollectVariables(innerEnv).VisitStatement(b)
-            let throws, body = b |> transformStatement innerEnv |> flattenFuncBody tr
-            let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
-            let f = J.Function(id, args, flattenJS body)
-            if env.InFuncScope then
-                f
-            else
-                env.FuncDecls.Add f 
-                J.Empty
-        with e ->
-            //eprintf "WebSharper warning: incompatible signature %O(%s): %A. Error: %s" x (ids |> Seq.map string |> String.concat ", ") t e.Message
-            J.Ignore (J.Var (J.Id.New ("WRONGSIGNATURE")))
+        let id = transformId env x
+        let gen =
+            match gen with
+            | [] -> ""
+            | g -> "<" + (g |> Seq.map (transformTypeName env true) |> String.concat ", ") + ">"
+        let id =
+            if gen = "" then id else
+                { id with Name = id.Name + gen }
+        let args = ids |> List.map (fun id ->
+            defineIdTyped innerEnv ArgumentId id
+            |> Option.foldBack (withType innerEnv) id.TSType
+        )
+        let tr = defaultArg x.TSType TSType.Any
+        let id = id |> withType innerEnv tr
+        CollectVariables(innerEnv).VisitStatement(b)
+        let throws, body = b |> transformStatement innerEnv |> flattenFuncBody tr
+        let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
+        let f = J.Function(id, args, flattenJS body)
+        if env.InFuncScope then
+            f
+        else
+            env.FuncDecls.Add f 
+            J.Empty
     | While(a, b) -> 
         withFuncDecls <| fun () -> 
             J.While (trE a, trS b)

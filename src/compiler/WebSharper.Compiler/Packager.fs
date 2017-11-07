@@ -192,6 +192,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                             let var = strId name
                             if not <| StandardLibNames.Set.Contains name then
                                 declarations.Add <| Declare (VarDeclaration(var, Undefined)) 
+                                if isModule then
+                                    declarations.Add <| Declare (Alias(TSType.Basic name, TSType.Any)) 
                             Some var, []
                     | WebSharperModule _ ->
                         let m, a = getAddress { address with Address = Hashed [] }
