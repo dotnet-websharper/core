@@ -1440,11 +1440,8 @@ type Compiler() =
     member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
         let (def, comments, mB) = buildAssembly resolver options assembly
         for f in options.EmbeddedResources do
-            try
-                EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
-                |> def.MainModule.Resources.Add
-            with _ ->
-                failwithf "Failed to add resource file: %s" f
+            EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
+            |> def.MainModule.Resources.Add
         addResourceExports mB def
         
         let assemblyPrototypes = Dictionary()

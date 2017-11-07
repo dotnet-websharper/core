@@ -21,4 +21,4 @@ IntelliFactory.WebSharper.JQuery/*.js
 /.fake
 /.vscode/
 /tests/WebSharper.SPA.Tests/Content/*
-/tests/WebSharper.SPA.Tests/dummy.ts
+/tests/WebSharper.SPA.Tests/dummy.js
