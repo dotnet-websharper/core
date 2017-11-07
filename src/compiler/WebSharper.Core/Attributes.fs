@@ -74,7 +74,7 @@ type WarnAttribute(warning: string) =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter)>]
 type JavaScriptAttribute() =
     inherit A()
 

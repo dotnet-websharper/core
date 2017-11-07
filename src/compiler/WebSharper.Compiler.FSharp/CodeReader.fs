@@ -1080,3 +1080,49 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         env.Compilation.AddError(Some (getSourcePos expr), WebSharper.Compiler.SourceError msg)
         errorPlaceholder        
     |> withSourcePos expr
+
+type Microsoft.FSharp.Compiler.Range.range with
+    member this.AsSourcePos =
+        {
+            FileName = System.IO.Path.GetFileName(this.FileName)
+            Start = this.StartLine, this.StartColumn
+            End = this.EndLine, this.EndColumn
+        }
+
+let rec scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue) (expr: FSharpExpr) =
+    let default'() =
+        List.iter (scanExpression env containing) expr.ImmediateSubExpressions
+    match expr with
+    | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+        let x =
+            meth.CurriedParameterGroups
+            |> Seq.concat
+            |> Seq.mapi (fun i p ->
+                i, env.SymbolReader.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess
+            )
+            |> Seq.choose (fun (i, x) -> if x then Some i else None)
+            |> Array.ofSeq
+        if Array.isEmpty x then default'() else
+        x |> Array.iter (fun i ->
+            let e =
+                match arguments.[i] with
+                | P.Quote e -> e
+                | _ -> failwith "JavaScript attribute can only be used on a quotation argument."
+            let pos = e.Range.AsSourcePos
+            let e = transformExpression env e
+            let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
+            let typ =
+                Hashed {
+                    TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
+                    TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
+                }
+            let m =
+                Hashed {
+                    MethodInfo.Generics = 0
+                    MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
+                    MethodInfo.Parameters = []
+                    MethodInfo.ReturnType = retTy
+                }
+            env.Compilation.AddQuotation(pos, typ, m, e)
+        )
+    | _ -> default'()

@@ -278,6 +278,7 @@ type Info =
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
+        Quotations : IDictionary<SourcePos, TypeDefinition * Method>
         ResourceHashes : IDictionary<string, int>
     }
 
@@ -290,6 +291,7 @@ type Info =
             CustomTypes = Map.empty
             EntryPoint = None
             MacroEntries = Map.empty
+            Quotations = Map.empty
             ResourceHashes = Map.empty
         }
 
@@ -351,6 +353,7 @@ type Info =
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
+            Quotations = Dict.union (metas |> Seq.map (fun m -> m.Quotations))
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
         }
 
@@ -435,6 +438,7 @@ type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
+    abstract GetQuotation : SourcePos -> option<TypeDefinition * Method>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>

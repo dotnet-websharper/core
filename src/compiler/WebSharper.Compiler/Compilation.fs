@@ -37,6 +37,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notAnnotatedCustomTypes = Dictionary()
     let customTypes = MergedDictionary meta.CustomTypes
     let macroEntries = MergedDictionary meta.MacroEntries
+    let quotations = MergedDictionary meta.Quotations
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -59,6 +60,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
+
+    let defaultAddressOf (typ: TypeDefinition) =
+        let removeGen (n: string) =
+            match n.LastIndexOf '`' with
+            | -1 -> n
+            | i -> n.[.. i - 1]
+        typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
 
     member val UseLocalMacros = true with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
@@ -154,6 +162,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.HasWSPrototype = cls.HasWSPrototype
                     member this.Macros = cls.Macros
                 }
+
+        member this.GetQuotation(pos) = quotations.TryFind pos
 
         member this.GetJavaScriptClasses() = classes.Keys |> List.ofSeq
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
@@ -319,11 +329,27 @@ type Compilation(meta: Info, ?hasGraph) =
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
+            Quotations = quotations.Current
             ResourceHashes = Dictionary()
         }    
 
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
+
+    member this.AddQuotation(pos, typ, m, e) =
+        quotations.Add(pos, (typ, m))
+        let cAddr = defaultAddressOf typ
+        match this.TryLookupClassInfo typ with
+        | Some _ -> ()
+        | None ->
+            classes.Add(typ,
+                { ClassInfo.None with
+                    Address = Some (Hashed cAddr)
+                    Methods = Dictionary()
+                })
+        let mAddr = Hashed (m.Value.MethodName :: cAddr)
+        let mem = CompilingMember.NotCompiled(CompiledMember.Static mAddr, true, Optimizations.None)
+        compilingMethods.Add((typ, m), (mem, Lambda([], e)))
 
     member this.AddClass(typ, cls) =
         try
@@ -1159,11 +1185,7 @@ type Compilation(meta: Info, ?hasGraph) =
             nameStaticMember typ (Address addr) m
               
         for typ in remainingClasses do
-            let removeGen (n: string) =
-                match n.LastIndexOf '`' with
-                | -1 -> n
-                | i -> n.[.. i - 1]
-            let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
+            let addr = defaultAddressOf typ
             r.ClassAddress(addr, classes.[typ].HasWSPrototype)
             |> setClassAddress typ
         
@@ -1483,6 +1505,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
                 EntryPoint = None
                 MacroEntries = macroEntries
+                Quotations = quotations
                 ResourceHashes = Dictionary()
             }    
         let jP = Json.Provider.CreateTyped(info)

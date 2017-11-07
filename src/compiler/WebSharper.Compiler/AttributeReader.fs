@@ -113,6 +113,11 @@ type MemberAnnotation =
         Warn : option<string>
     }
 
+type ParameterAnnotation =
+    {
+        ClientAccess: bool
+    }
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module MemberAnnotation = 
     let BasicJavaScript =
@@ -351,6 +356,20 @@ type AttributeReader<'A>() =
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
             Pure = isPure
             Warn = warning
+        }
+
+    member this.GetParamAnnot (attrs: seq<'A>) =
+        let clientAccess =
+            attrs |> Seq.exists (fun a ->
+                match this.GetAssemblyName a with
+                | "WebSharper.Core" ->
+                    match this.Read a with
+                    | A.JavaScript true -> true
+                    | _ -> false
+                | _ -> false
+            )
+        {
+            ClientAccess = clientAccess
         }
    
     member this.GetAssemblyAnnot (attrs: seq<'A>) =

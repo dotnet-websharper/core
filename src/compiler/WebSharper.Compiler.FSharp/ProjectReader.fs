@@ -668,8 +668,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
                     clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
-            | None 
-            | _ -> ()
+            | None ->
+                let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+                let env = CodeReader.Environment.New ([], tparams, comp, sr)
+                CodeReader.scanExpression env meth expr
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
