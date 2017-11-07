@@ -114,76 +114,81 @@ open Microsoft.FSharp.Quotations.Patterns
 type private FSV = Reflection.FSharpValue
 
 [<CompiledName "FSharpInlineControl">]
-type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
+type InlineControl<'T when 'T :> IControlBody>(getLocation: unit -> string, bodyAndReqs) =
     inherit Control()
 
     [<System.NonSerialized>]
-    let elt = elt
+    let getLocation = getLocation
 
-    let getLocation() =
-        let (|Val|_|) e : 't option =
-            match e with
-            | Quotations.Patterns.Value(:? 't as v,_) -> Some v
-            | _ -> None
-        let l =
-            elt.CustomAttributes |> Seq.tryPick (function
-                | NewTuple [ Val "DebugRange";
-                             NewTuple [ Val (file: string)
-                                        Val (startLine: int)
-                                        Val (startCol: int)
-                                        Val (endLine: int)
-                                        Val (endCol: int) ] ] ->
-                    Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
-                | _ -> None)
-        defaultArg l "(no location)"
+    [<System.NonSerialized>]
+    let bodyAndReqs = bodyAndReqs
 
     static let ctrlReq = M.TypeNode (R.ReadTypeDefinition typeof<InlineControl<IControlBody>>)
 
-    [<System.NonSerialized>]
-    let bodyAndReqs =
-        let declType, meth, args, fReqs, subs =
-            let elt =
-                match elt :> Expr with
-                | Coerce (e, _) -> e
-                | e -> e
-            let rec get subs expr =
-                match expr with
-                | PropertyGet(None, p, args) ->
-                    let m = p.GetGetMethod(true)
-                    let dt = R.ReadTypeDefinition p.DeclaringType
-                    let meth = R.ReadMethod m
-                    dt, meth, args, [M.MethodNode (dt, meth)], subs
-                | Call(None, m, args) ->
-                    let dt = R.ReadTypeDefinition m.DeclaringType
-                    let meth = R.ReadMethod m
-                    dt, meth, args, [M.MethodNode (dt, meth)], subs
-                | Let(var, value, body) ->
-                    get (subs |> Map.add var value) body
-                | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
-            get Map.empty elt
-        let args, argReqs =
-            args
-            |> List.mapi (fun i value ->
-                let rec get expr =
-                    match expr with
-                    | Value (v, t) ->
-                        let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
-                        v, M.TypeNode (R.ReadTypeDefinition t)
-                    | TupleGet(v, i) ->
-                        let v, n = get v
-                        FSV.GetTupleField(v, i), n
-                    | Var v when subs.ContainsKey v ->
-                        get subs.[v]   
-                    | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
-                get value
-            )
-            |> List.unzip
-        let args = Array.ofList args
-        let reqs = ctrlReq :: fReqs @ argReqs
-        args, (declType, meth, reqs)
-
     let args = fst bodyAndReqs
     let mutable funcName = [||]
+
+    new (elt: Expr<'T>) =
+
+        let getLocation() =
+            let (|Val|_|) e : 't option =
+                match e with
+                | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+                | _ -> None
+            let l =
+                elt.CustomAttributes |> Seq.tryPick (function
+                    | NewTuple [ Val "DebugRange";
+                                 NewTuple [ Val (file: string)
+                                            Val (startLine: int)
+                                            Val (startCol: int)
+                                            Val (endLine: int)
+                                            Val (endCol: int) ] ] ->
+                        Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
+                    | _ -> None)
+            defaultArg l "(no location)"
+
+        let bodyAndReqs =
+            let declType, meth, args, fReqs, subs =
+                let elt =
+                    match elt :> Expr with
+                    | Coerce (e, _) -> e
+                    | e -> e
+                let rec get subs expr =
+                    match expr with
+                    | PropertyGet(None, p, args) ->
+                        let m = p.GetGetMethod(true)
+                        let dt = R.ReadTypeDefinition p.DeclaringType
+                        let meth = R.ReadMethod m
+                        dt, meth, args, [M.MethodNode (dt, meth)], subs
+                    | Call(None, m, args) ->
+                        let dt = R.ReadTypeDefinition m.DeclaringType
+                        let meth = R.ReadMethod m
+                        dt, meth, args, [M.MethodNode (dt, meth)], subs
+                    | Let(var, value, body) ->
+                        get (subs |> Map.add var value) body
+                    | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation()) e
+                get Map.empty elt
+            let args, argReqs =
+                args
+                |> List.mapi (fun i value ->
+                    let rec get expr =
+                        match expr with
+                        | Value (v, t) ->
+                            let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
+                            v, M.TypeNode (R.ReadTypeDefinition t)
+                        | TupleGet(v, i) ->
+                            let v, n = get v
+                            FSV.GetTupleField(v, i), n
+                        | Var v when subs.ContainsKey v ->
+                            get subs.[v]   
+                        | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation()) (i+1)
+                    get value
+                )
+                |> List.unzip
+            let args = Array.ofList args
+            let reqs = ctrlReq :: fReqs @ argReqs
+            args, (declType, meth, reqs)
+        new InlineControl<'T> (getLocation, bodyAndReqs)
 
     [<JavaScript>]
     override this.Body =
@@ -315,10 +320,87 @@ namespace WebSharper
 module WebExtensions =
 
     open Microsoft.FSharp.Quotations
+    open Microsoft.FSharp.Quotations.Patterns
+    open WebSharper.Core
+    open WebSharper.Web
 
     /// Embed the given client-side control body in a server-side control.
     /// The client-side control body must be either a module-bound or static value,
     /// or a call to a module-bound function or static method, and all arguments
     /// must be either literals or references to local variables.
     let ClientSide (e: Expr<#IControlBody>) =
-        new WebSharper.Web.InlineControl<_>(e)
+        new InlineControl<_>(e)
+
+    /// Embed the given client-side control body in a server-side control.
+    /// The client-side control body must be either a module-bound or static value,
+    /// or a call to a module-bound function or static method, and all arguments
+    /// must be either literals or references to local variables.
+    let ClientSide2 ([<JavaScript>] e: Expr<#IControlBody>) =
+        let (|Val|_|) e : 't option =
+            match e with
+            | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+            | _ -> None
+        let pos =
+            e.CustomAttributes |> Seq.tryPick (function
+                | NewTuple [ Val "DebugRange";
+                             NewTuple [ Val (file: string)
+                                        Val (startLine: int)
+                                        Val (startCol: int)
+                                        Val (endLine: int)
+                                        Val (endCol: int) ] ] ->
+                    ({
+                        FileName = System.IO.Path.GetFileName(file)
+                        Start = (startLine, startCol)
+                        End = (endLine, endCol)
+                    } : WebSharper.Core.AST.SourcePos)
+                    |> Some
+                | _ -> None)
+        match pos with
+        | None -> failwith "Failed to find location of quotation"
+        | Some p ->
+            match Shared.Metadata.Quotations.TryGetValue p with
+            | true, (ty, m) ->
+                let deps = Shared.Dependencies.GetDependencies [Metadata.MethodNode(ty, m)]
+                new InlineControl<_>((fun () -> ""), ([||], (ty, m, deps)))
+            | false, _ ->
+                let all =
+                    Shared.Metadata.Quotations.Keys
+                    |> Seq.map (sprintf "    %O")
+                    |> String.concat "\n"
+                failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%O" p all
+
+    type WebSharper.Web.Context with
+        member this.ClientSide([<WebSharper.JavaScript>] elt: Expr<#IControlBody>) =
+            let (|Val|_|) e : 't option =
+                match e with
+                | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+                | _ -> None
+            let pos =
+                elt.CustomAttributes |> Seq.tryPick (function
+                    | NewTuple [ Val "DebugRange";
+                                 NewTuple [ Val (file: string)
+                                            Val (startLine: int)
+                                            Val (startCol: int)
+                                            Val (endLine: int)
+                                            Val (endCol: int) ] ] ->
+                        ({
+                            FileName = System.IO.Path.GetFileName(file)
+                            Start = (startLine, startCol)
+                            End = (endLine, endCol)
+                        } : WebSharper.Core.AST.SourcePos)
+                        |> Some
+                    | _ -> None)
+            match pos with
+            | None -> failwith "Failed to find location of quotation"
+            | Some p ->
+                match this.Metadata.Quotations.TryGetValue p with
+                | true, (ty, m) ->
+                    let deps = this.Dependencies.GetDependencies [WebSharper.Core.Metadata.MethodNode(ty, m)]
+                    new InlineControl<_>((fun () -> ""), ([||], (ty, m, deps)))
+                | false, _ ->
+                    let all =
+                        this.Metadata.Quotations.Keys
+                        |> Seq.map (sprintf "    %O")
+                        |> String.concat "\n"
+                    failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%O" p all
+            :> WebSharper.Web.Control
