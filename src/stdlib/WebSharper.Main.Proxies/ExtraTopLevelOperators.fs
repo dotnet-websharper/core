@@ -51,3 +51,11 @@ let PrintFormatLine f = Printf.printfn f
 
 [<Inline; JavaScript>]
 let PrintFormatToStringThenFail f = Printf.failwithf f 
+
+[<Inline; JavaScript>]
+let SpliceExpression (e: Microsoft.FSharp.Quotations.Expr<'T>) =
+    As<'T> e
+
+[<Inline; JavaScript>]
+let SpliceUntypedExpression<'T> (e: Microsoft.FSharp.Quotations.Expr) =
+    As<'T> e
