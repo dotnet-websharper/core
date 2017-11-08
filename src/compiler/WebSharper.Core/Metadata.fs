@@ -149,6 +149,7 @@ type ClassInfo =
         Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
+        QuotedArgMethods : IDictionary<Method, int[]>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         Macros : list<TypeDefinition * option<ParameterObject>>
@@ -162,6 +163,7 @@ type ClassInfo =
             Fields = dict []
             StaticConstructor = None
             Methods = dict []
+            QuotedArgMethods = dict []
             Implementations = dict []
             HasWSPrototype = false
             Macros = []
@@ -278,7 +280,7 @@ type Info =
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
-        Quotations : IDictionary<SourcePos, TypeDefinition * Method>
+        Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<SourcePos>>
         ResourceHashes : IDictionary<string, int>
     }
 
@@ -322,6 +324,7 @@ type Info =
                     Implementations = Dict.union [a.Implementations; b.Implementations]
                     Macros = List.concat [a.Macros; b.Macros]
                     Methods = Dict.union [a.Methods; b.Methods]
+                    QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
                     StaticConstructor = combine a.StaticConstructor b.StaticConstructor
                 }
             else
@@ -438,7 +441,7 @@ type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
-    abstract GetQuotation : SourcePos -> option<TypeDefinition * Method>
+    abstract GetQuotation : SourcePos -> option<TypeDefinition * Method * list<SourcePos>>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>

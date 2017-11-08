@@ -25,6 +25,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
+open System.Collections.Generic
 
 type VarKind =
     | LocalVar 
@@ -487,6 +488,7 @@ type Environment =
     {
         ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
         TParams : Map<string, int>
+        FreeVars : ResizeArray<FSharpMemberOrFunctionOrValue * Id * VarKind>
         Exception : option<Id>
         Compilation : Compilation
         SymbolReader : SymbolReader
@@ -498,6 +500,7 @@ type Environment =
         { 
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+            FreeVars = ResizeArray()
             Exception = None
             Compilation = comp
             SymbolReader = sr 
@@ -512,9 +515,17 @@ type Environment =
             Exception = Some i }
 
     member this.LookupVar (v: FSharpMemberOrFunctionOrValue) =
-        match this.ScopeIds |> List.tryPick (fun (sv, i, k) -> if sv = v then Some (i, k) else None) with
+        let isMatch (sv, i, k) = if sv = v then Some (i, k) else None
+        match this.ScopeIds |> List.tryPick isMatch with
         | Some var -> var
-        | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
+        | None ->
+            match this.FreeVars |> Seq.tryPick isMatch with
+            | Some var -> var
+            | None ->
+            let id = namedId v
+            let kind = VarKind.FuncArg
+            this.FreeVars.Add((v, id, kind))
+            id, kind
     
 let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
     match expr with 
@@ -1089,40 +1100,53 @@ type Microsoft.FSharp.Compiler.Range.range with
             End = this.EndLine, this.EndColumn
         }
 
-let rec scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue) (expr: FSharpExpr) =
-    let default'() =
-        List.iter (scanExpression env containing) expr.ImmediateSubExpressions
-    match expr with
-    | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-        let x =
-            meth.CurriedParameterGroups
-            |> Seq.concat
-            |> Seq.mapi (fun i p ->
-                i, env.SymbolReader.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess
-            )
-            |> Seq.choose (fun (i, x) -> if x then Some i else None)
-            |> Array.ofSeq
-        if Array.isEmpty x then default'() else
-        x |> Array.iter (fun i ->
-            let e =
-                match arguments.[i] with
-                | P.Quote e -> e
-                | _ -> failwith "JavaScript attribute can only be used on a quotation argument."
-            let pos = e.Range.AsSourcePos
-            let e = transformExpression env e
-            let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
-            let typ =
-                Hashed {
-                    TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
-                    TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
-                }
-            let m =
-                Hashed {
-                    MethodInfo.Generics = 0
-                    MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
-                    MethodInfo.Parameters = []
-                    MethodInfo.ReturnType = retTy
-                }
-            env.Compilation.AddQuotation(pos, typ, m, e)
-        )
-    | _ -> default'()
+let scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue) (expr: FSharpExpr) =
+    let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
+    let rec scan (expr: FSharpExpr) =
+        let default'() =
+            List.iter scan expr.ImmediateSubExpressions
+        match expr with
+        | P.Let ((id, (P.Quote value)), body) ->
+            // I'd rather pass around a Map than do this dictionary mutation,
+            // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
+            vars.[id] <- value
+            scan body
+            vars.Remove(id) |> ignore
+        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+            let typ = env.SymbolReader.ReadTypeDefinition(meth.EnclosingEntity.Value)
+            match env.SymbolReader.ReadMember(meth) with
+            | Member.Method(_, m) ->
+                match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
+                | Some x ->
+                    x |> Array.iter (fun i ->
+                        let e =
+                            match arguments.[i] with
+                            | P.Quote e -> e
+                            | P.Value v ->
+                                match vars.TryGetValue v with
+                                | true, e -> e
+                                | false, _ -> failwith "JavaScript attribute can only be used on a quotation argument."
+                            | _ -> failwith "JavaScript attribute can only be used on a quotation argument."
+                        let pos = e.Range.AsSourcePos
+                        let e = transformExpression env e
+                        let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                        let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
+                        let typ =
+                            Hashed {
+                                TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
+                                TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
+                            }
+                        let m =
+                            Hashed {
+                                MethodInfo.Generics = 0
+                                MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
+                                MethodInfo.Parameters = argTypes
+                                MethodInfo.ReturnType = retTy
+                            }
+                        let argIds = [ for (v, id, _) in env.FreeVars -> id, v.DeclarationLocation.AsSourcePos ]
+                        env.Compilation.AddQuotation(pos, typ, m, argIds, e)
+                    )
+                | _ -> default'()
+            | _ -> default'()
+        | _ -> default'()
+    scan expr

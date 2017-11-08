@@ -48,6 +48,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
+    let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -131,6 +132,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Fields = Dictionary() 
                     StaticConstructor = None 
                     Methods = Dictionary()
+                    QuotedArgMethods = Dictionary()
                     Implementations = Dictionary()
                     HasWSPrototype = false
                     Macros = []
@@ -336,8 +338,9 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
 
-    member this.AddQuotation(pos, typ, m, e) =
-        quotations.Add(pos, (typ, m))
+    member this.AddQuotation(pos, typ, m, args, e) =
+        let argIds, argPos = List.unzip args
+        quotations.Add(pos, (typ, m, argPos))
         let cAddr = defaultAddressOf typ
         match this.TryLookupClassInfo typ with
         | Some _ -> ()
@@ -349,7 +352,22 @@ type Compilation(meta: Info, ?hasGraph) =
                 })
         let mAddr = Hashed (m.Value.MethodName :: cAddr)
         let mem = CompilingMember.NotCompiled(CompiledMember.Static mAddr, true, Optimizations.None)
-        compilingMethods.Add((typ, m), (mem, Lambda([], e)))
+        let e = Lambda(argIds, e)
+        compilingMethods.Add((typ, m), (mem, e))
+
+    member this.AddQuotedArgMethod(typ, m, a) =
+        compilingQuotedArgMethods.Add((typ, m), a)
+
+    member this.TryLookupQuotedArgMethod(typ, m) =
+        match compilingQuotedArgMethods.TryFind(typ, m) with
+        | Some x -> Some x
+        | None ->
+            match meta.Classes.TryFind(typ) with
+            | Some c ->
+                match c.QuotedArgMethods.TryFind(m) with
+                | Some x -> Some x
+                | None -> None
+            | None -> None
 
     member this.AddClass(typ, cls) =
         try
@@ -818,6 +836,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
                     Methods = methods
                     Implementations = Dictionary()
+                    QuotedArgMethods = Dictionary()
                     HasWSPrototype = hasWSPrototype
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                 }
@@ -1183,6 +1202,28 @@ type Compilation(meta: Info, ?hasGraph) =
             if not (r.ExactStaticAddress addr) then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
             nameStaticMember typ (Address addr) m
+
+        for KeyValue((td, m), args) in compilingQuotedArgMethods do
+            let cls =
+                match classes.TryFind td with
+                | Some cls -> cls
+                | None ->
+                    let cls =
+                        {
+                            Address = Some (r.ClassAddress(defaultAddressOf td, false))
+                            BaseClass = None
+                            Constructors = Dictionary()
+                            Fields = Dictionary()
+                            StaticConstructor = None
+                            Methods = Dictionary()
+                            QuotedArgMethods = Dictionary()
+                            Implementations = Dictionary()
+                            HasWSPrototype = false
+                            Macros = []
+                        }
+                    classes.Add(td, cls)
+                    cls
+            cls.QuotedArgMethods.Add(m, args)
               
         for typ in remainingClasses do
             let addr = defaultAddressOf typ
