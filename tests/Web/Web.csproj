@@ -160,6 +160,8 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
+  <!-- Add the TypeScript targets before WebSharper so that CompileDependsOn can be fixed up so that WebSharper compiler runs before TypeScript compilation -->
+  <Import Project="..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets" Condition="Exists('..\..\packages\Microsoft.TypeScript.MSBuild\build\Microsoft.TypeScript.MSBuild.targets')" />
   <Import Project="../../msbuild/WebSharper.CSharp.Internal.targets" />
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.6')">
