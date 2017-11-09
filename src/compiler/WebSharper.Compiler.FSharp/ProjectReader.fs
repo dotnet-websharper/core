@@ -1009,7 +1009,22 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             |> Option.map (fun m ->
                 m.Attributes |> Seq.map readAttribute |> List.ofSeq
             ) 
-        )
+            |> Option.orElseWith (fun () ->
+                if e.IsFSharpUnion then 
+                    let mn = meth.Value.MethodName
+                    let caseName =
+                        if mn.StartsWith "New" then Some (mn.Substring(3))
+                        elif mn.StartsWith "get_" then Some (mn.Substring(4))
+                        else None
+                    caseName |> Option.bind (fun cn ->
+                        let case = e.UnionCases |> Seq.tryFind (fun c -> c.CompiledName = cn)
+                        case |> Option.map (fun c ->
+                            c.Attributes |> Seq.map readAttribute |> List.ofSeq
+                        )
+                    )
+                else None
+            )
+        ) 
 
     let lookupConstructorAttributes (typ: TypeDefinition) (ctor: Constructor) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 

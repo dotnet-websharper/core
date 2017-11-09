@@ -258,7 +258,17 @@ type TypeDefinitionInfo =
     member this.AssemblyQualifiedName =
         this.FullName + ", " + this.Assembly
         
-    override this.ToString() = this.FullName            
+    override this.ToString() = this.FullName    
+    
+    member this.GenericLength =
+        try
+            this.FullName.Split('.', '+') |> Array.sumBy (fun n ->
+                match n.IndexOf '`' with
+                | -1 -> 0
+                | i -> int (n.Substring(i + 1))
+            )
+        with _ ->
+            failwithf "failed to get generics count of type %s" this.FullName
 
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 

@@ -41,6 +41,9 @@ let GenericType td g = ConcreteType (Generic td g)
 /// Constructs a ConcreteType case with empty type argument list
 let NonGenericType td = ConcreteType (NonGeneric td)
 
+/// Constructs a ConcreteType with fully unresolved generics for the type.
+let DefaultGenericType td = GenericType td (List.init td.Value.GenericLength TypeParameter)
+
 /// Removes wrapping ExprSourcePos case if present from an AST.Expression
 let IgnoreExprSourcePos expr =
     match expr with

@@ -437,6 +437,20 @@ module internal Utilities =
                 | _ -> ()
         remotes :> RemoteMethods            
 
+let UnionCaseConstructMethod (td: TypeDefinition) (uc: FSharpUnionCaseInfo) =
+    Method {
+        MethodName = 
+            match uc.Kind with 
+            | NormalFSharpUnionCase (_ :: _) -> "New" + uc.Name
+            | _ -> "get_" + uc.Name
+        Parameters =
+            match uc.Kind with 
+            | NormalFSharpUnionCase cs -> cs |> List.map (fun c -> c.UnionFieldType)
+            | _ -> []
+        ReturnType = DefaultGenericType td
+        Generics = 0       
+    }
+
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
