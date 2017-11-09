@@ -1074,7 +1074,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let meth =
                 Method {
                     MethodName = traitName
-                    Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
+                    Parameters = argExprs |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
                     ReturnType = sr.ReadTypeSt true env.TParams expr.Type
                     Generics   = 0
                 } 

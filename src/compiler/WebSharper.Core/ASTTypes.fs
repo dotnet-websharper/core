@@ -580,6 +580,19 @@ and Type =
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
 
+    static member IsGenericCompatible(t1, t2) =
+        match t1, t2 with
+        | (StaticTypeParameter _ | LocalTypeParameter | TypeParameter _), _
+        | _, (StaticTypeParameter _ | LocalTypeParameter | TypeParameter _) ->
+            true
+        | ConcreteType t1, ConcreteType t2 -> t1.Entity = t2.Entity && t1.Generics.Length = t2.Generics.Length && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) t1.Generics t2.Generics
+        | ArrayType (t1, r1), ArrayType (t2, r2) -> r1 = r2 && Type.IsGenericCompatible(t1, t2)
+        | TupleType (t1, s1), TupleType (t2, s2) -> s1 = s2 && t1.Length = t2.Length && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) t1 t2 
+        | FSharpFuncType (a1, r1), FSharpFuncType (a2, r2) -> Type.IsGenericCompatible(a1, a2) && Type.IsGenericCompatible(r1, r2)
+        | ByRefType t1, ByRefType t2 -> Type.IsGenericCompatible(t1, t2)
+        | VoidType, VoidType -> true
+        | _ -> false
+
 type MethodInfo =
     {
         MethodName : string

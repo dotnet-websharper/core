@@ -967,15 +967,25 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let hasErr e =
             err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
             None
-        let mName = meth.Entity.Value.MethodName
+        let trmv = meth.Entity.Value
+        let mName = trmv.MethodName
+        let pars = trmv.Parameters
+        let pLength = pars.Length
+        let ret = trmv.ReturnType
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
+                    let methods = comp.GetMethods ct.Entity
                     let ms =                    
-                        comp.GetMethods ct.Entity |> Seq.choose (fun m ->
-                            // TODO: check compatility with signature better
-                            if m.Value.MethodName = mName then Some m else None
+                        methods |> Seq.choose (fun m ->
+                            let mv = m.Value
+                            if mv.MethodName = mName 
+                                && mv.Parameters.Length = pLength 
+                                && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) mv.Parameters pars 
+                                && Type.IsGenericCompatible(mv.ReturnType, ret) then 
+                                    Some m 
+                            else None
                         ) 
                         |> List.ofSeq
                     match ms with
@@ -985,7 +995,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             this.TransformCall(Some t, ct, Generic m meth.Generics, h) |> Some
                         | _ ->
                             failwith "Impossible: trait call without arguments"
-                    | [] -> hasErr (sprintf "Could not find method for trait call: %s" mName) // (methods |> Seq.map (fun m -> m.Value.MethodName) |> String.concat ", "))
+                    | [] -> hasErr (sprintf "Could not find method for trait call: %A, options: %A" trmv (methods |> Seq.filter (fun m -> m.Value.MethodName = mName)))
                     | _ -> hasErr (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
                     if currentIsInline then
