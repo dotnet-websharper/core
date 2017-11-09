@@ -66,7 +66,7 @@ module Content =
         let resources =
             let nodeSet =
                 controls
-                |> Seq.collect (fun c -> c.Requires)
+                |> Seq.collect (fun c -> c.Requires ctx.Metadata)
                 |> Set
             ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
                 ctx.Dependencies.GetResources nodes

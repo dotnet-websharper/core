@@ -42,10 +42,12 @@ type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
 
     interface IRequiresResources with
         member this.Encode(_, _) = []
-        member this.Requires = req :> _
+        member this.Requires(_) = req :> _
 
     override this.OnLoad _ =
-        this.ID <- ScriptManager.Find(base.Page).Register None this
+        this.ID <-
+            ScriptManager.Find(base.Page)
+                .Register(None, this, Shared.Metadata, Shared.Json)
 
     override this.Render _ = ()
 
@@ -69,7 +71,9 @@ type Control() =
         and set x = id <- x
 
     override this.OnLoad _ =
-        this.ID <- ScriptManager.Find(base.Page).Register (Some id) this
+        this.ID <-
+            ScriptManager.Find(base.Page)
+                .Register(Some id, this, Shared.Metadata, Shared.Json)
 
     interface INode with
         member this.IsAttribute = false
@@ -91,7 +95,7 @@ type Control() =
         M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)
 
     interface IRequiresResources with
-        member this.Requires =
+        member this.Requires(_) =
             this.GetBodyNode() |> Seq.singleton
 
         member this.Encode(meta, json) =
@@ -205,7 +209,7 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                     | None -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
-        member this.Requires =
+        member this.Requires(_) =
             let _, _, reqs = snd bodyAndReqs 
             this.GetBodyNode() :: reqs |> Seq.ofList
 
@@ -301,7 +305,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     | None -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
-        member this.Requires =
+        member this.Requires(_) =
             let _, _, reqs = snd bodyAndReqs 
             this.GetBodyNode() :: reqs |> Seq.ofList
 

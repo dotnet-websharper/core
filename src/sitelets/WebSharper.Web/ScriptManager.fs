@@ -53,10 +53,10 @@ type ScriptManager() =
         ResourceContext.ResourceContext "/"
 
     /// Registers a pagelet with the manager.
-    member this.Register (id: option<string>) (c: WebSharper.IRequiresResources) =
-        Seq.iter nodes.Enqueue c.Requires
+    member this.Register (id: option<string>, c: WebSharper.IRequiresResources, meta: M.Info, json: J.Provider) =
+        Seq.iter nodes.Enqueue (c.Requires meta)
         let id  = getId id
-        c.Encode(Shared.Metadata, Shared.Json)
+        c.Encode(meta, json)
         |> List.iter (fun (k, v) -> registry.[k] <- v)
         id
 
