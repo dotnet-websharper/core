@@ -965,22 +965,28 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformTraitCall(thisObj, typs, meth, args) =
         let mutable err = None
-        let hasErr e =
-            err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
-            None
-        let trmv = meth.Entity.Value
-        let mName = trmv.MethodName
-        let gen = Array.ofSeq meth.Generics
-        let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
-        let pLength = pars.Length
-        let ret = trmv.ReturnType.SubstituteGenerics gen
-        let delay err =
+        let delay e =
             if currentIsInline then
                 hasDelayedTransform <- true
                 TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
             else 
-                hasErr err
+                err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
+                None
+        let trmv = meth.Entity.Value
+        let mName = trmv.MethodName
+        let gen = Array.ofSeq meth.Generics
+        let pLength = trmv.Parameters.Length
+        let parsAndRet =
+            try
+                Some (
+                    trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen),
+                    trmv.ReturnType.SubstituteGenerics gen
+                )
+            with _ -> None
         let res =
+            match parsAndRet with
+            | None -> delay "Failed to resolve generics for a trait call, make this member an Inline"
+            | Some (pars, ret) ->
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->

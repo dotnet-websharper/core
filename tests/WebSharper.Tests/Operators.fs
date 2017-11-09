@@ -63,6 +63,18 @@ type IntWithAdd(x) =
 [<JavaScript; Inline>]
 let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^y -> ^a) (a, b))
 
+[<JavaScript>] 
+type OpOverload<'T>(x: int) =
+    member this.Value = x
+    
+    static member (+) (x: OpOverload<'T>, y: OpOverload<'T>) = x.Value + y.Value
+    
+    [<Inline>]
+    static member (+) (x: OpOverload<'T>, y: int) = x + OpOverload y
+
+    [<Inline>]
+    static member (+) (x: int, y: OpOverload<'T>) = OpOverload x + y
+
 [<JavaScript>]
 type Singletons =
     | Case0
