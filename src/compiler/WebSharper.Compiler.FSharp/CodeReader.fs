@@ -1071,22 +1071,24 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
+            let isInstance = memberFlags.IsInstance
             let meth =
                 Method {
                     MethodName = traitName
-                    Parameters = argExprs |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
+                    Parameters = argExprs |> List.skip (if isInstance then 1 else 0) |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
                     ReturnType = sr.ReadTypeSt true env.TParams expr.Type
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            if memberFlags.IsInstance then 
+            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
+            if isInstance then 
                 match argExprs |> List.map tr with
                 | t :: a ->
-                    TraitCall(Some t, s, NonGeneric meth, a)
+                    TraitCall(Some t, s, m, a)
                 | _ ->
                     failwith "No this value found for instance trait call"
             else
-                TraitCall(None, s, NonGeneric meth, argExprs |> List.map tr)  
+                TraitCall(None, s, m, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"

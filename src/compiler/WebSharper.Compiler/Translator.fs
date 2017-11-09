@@ -970,9 +970,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             None
         let trmv = meth.Entity.Value
         let mName = trmv.MethodName
-        let pars = trmv.Parameters
+        let gen = Array.ofSeq meth.Generics
+        let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
         let pLength = pars.Length
-        let ret = trmv.ReturnType
+        let ret = trmv.ReturnType.SubstituteGenerics gen
+        let delay err =
+            if currentIsInline then
+                hasDelayedTransform <- true
+                TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
+            else 
+                hasErr err
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with
@@ -992,14 +999,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match ms with
                     | [ m ] ->
                         this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
-                    | [] -> hasErr (sprintf "Could not find method for trait call: %A, options: %A" trmv (methods |> Seq.filter (fun m -> m.Value.MethodName = mName)))
-                    | _ -> hasErr (sprintf "Ambiguity at translating trait call: %s" mName)
+                    | [] -> 
+                        let trmv = { trmv with Parameters = pars; ReturnType = ret }
+                        delay (sprintf "Could not find method for trait call: %A, options: %A" trmv (methods |> Seq.filter (fun m -> m.Value.MethodName = mName)))
+                    | _ -> delay (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
-                    if currentIsInline then
-                        hasDelayedTransform <- true
-                        TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
-                    else 
-                        hasErr("Using a trait call requires the Inline attribute")
+                    delay "Using a trait call requires the Inline attribute"
             )
         match res with
         | Some ok -> ok

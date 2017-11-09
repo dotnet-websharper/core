@@ -515,9 +515,9 @@ and Type =
         | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
-        | VoidType 
-        | StaticTypeParameter _ 
-        | LocalTypeParameter -> this
+        | VoidType -> this
+        | StaticTypeParameter i -> if gs.Length > i then gs.[i] else this
+        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 

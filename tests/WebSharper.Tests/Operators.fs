@@ -58,13 +58,10 @@ type IntWithAdd(x) =
     member this.Value = x
 
     static member Add (x: IntWithAdd, y) = x.Value + y
-    static member AddB (x, y: IntWithAdd) = x + y.Value
+    static member Add (x, y: IntWithAdd) = x + y.Value
 
 [<JavaScript; Inline>]
 let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^y -> ^a) (a, b))
-
-[<JavaScript; Inline>]
-let inline ( ++! ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member AddB: ^x * ^y -> ^a) (a, b))
 
 [<JavaScript>]
 type Singletons =
@@ -184,7 +181,7 @@ let Tests =
             let a = IntWithAdd 40
             equal (IntWithAdd.Add (a, 2)) 42
             equal (a ++ 2) 42
-            equal (2 ++! a) 42
+            equal (2 ++ a) 42
         }
 
         Test "taking unit" {
