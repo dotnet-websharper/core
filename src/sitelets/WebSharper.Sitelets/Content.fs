@@ -330,6 +330,9 @@ module Content =
     let MethodNotAllowed<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.MethodNotAllowed
 
+    let Ok<'T> : Async<Content<'T>> =
+        httpStatusContent Http.Status.Ok
+
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
 
