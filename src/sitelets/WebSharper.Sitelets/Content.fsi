@@ -148,6 +148,9 @@ module Content =
     /// Constructs a 405 Method Not Allowed response.
     val MethodNotAllowed<'T> : Async<Content<'T>>
 
+    /// Constructs a 200 Ok response with empty body.
+    val Ok<'T> : Async<Content<'T>>
+
     type RenderedResources =
         {
             Scripts : string

@@ -74,7 +74,13 @@ let TestsPage (ctx: Context<FullAction>) =
         |> SampleSite.Json
         |> SiteletsTests
         |> ctx.Link
+    let apiBaseUri =
+        Tests.Api.Action.GetPerson 1
+        |> SampleSite.Api
+        |> SiteletsTests
+        |> ctx.Link
     let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
+    let apiBaseUri = apiBaseUri.[..apiBaseUri.LastIndexOf '/']
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = (
@@ -84,6 +90,7 @@ let TestsPage (ctx: Context<FullAction>) =
                 WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl
                 ClientSide <@ Client.ClientSideTupleTest t12 @>
                 ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
+                ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
                 ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri true @>
             ] : list<Web.Control>
         )

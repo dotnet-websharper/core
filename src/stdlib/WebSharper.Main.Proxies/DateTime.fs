@@ -225,6 +225,33 @@ type private DateTimeProxy =
     static member MinValue
         with [<Inline "-8640000000000000">] get () = X<int>
 
+    [<Inline "$a + $b">]
+    static member (+) (a: D, b: TS) = X<D>
+
+    [<Inline "$a - $b">]
+    static member (-) (a: D, b: TS) = X<D>
+
+    [<Inline "$a - $b">]
+    static member (-) (a: D, b: D) = X<TS>
+
+    [<Inline "$a == $b">]
+    static member op_Equality (a: D, b: D) = X<bool>
+
+    [<Inline "$a != $b">]
+    static member op_Inequality (a: D, b: D) = X<bool>
+
+    [<Inline "$a > $b">]
+    static member op_GreaterThan (a: D, b: D) = X<bool>
+
+    [<Inline "$a < $b">]
+    static member op_LessThan (a: D, b: D) = X<bool>
+
+    [<Inline "$a >= $b">]
+    static member op_GreaterThanOrEqual (a: D, b: D) = X<bool>
+
+    [<Inline "$a <= $b">]
+    static member op_LessThanOrEqual (a: D, b: D) = X<bool>
+
 [<Proxy(typeof<System.DateTimeOffset>)>]
 [<Name "DateTimeOffset">]
 type private DateTimeOffsetProxy(d: int, o: int) =
