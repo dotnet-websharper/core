@@ -22,7 +22,9 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-[<Proxy(typeof<System.TimeSpan>)>]
+type private TS = System.TimeSpan
+
+[<Proxy(typeof<TS>)>]
 type private TimeSpanProxy =
 
     [<Inline "0">]
@@ -41,13 +43,13 @@ type private TimeSpanProxy =
     new (d: int, h: int, m: int, s: int, ms: int) = {}
 
     [<Inline "$this + $t">]
-    member this.Add(t: System.TimeSpan) = X<System.TimeSpan>
+    member this.Add(t: TS) = X<TS>
 
     [<Inline "$this - $t">]
-    member this.Subtract(t: System.TimeSpan) = X<System.TimeSpan>
+    member this.Subtract(t: TS) = X<TS>
 
     [<Inline>]
-    member this.CompareTo(t: System.TimeSpan) =
+    member this.CompareTo(t: TS) =
         Unchecked.compare (this :> obj) (t :> obj)
 
     member this.Days
@@ -84,42 +86,71 @@ type private TimeSpanProxy =
         with [<Inline "$this * 1E4">] get() = X<int64>
 
     [<Inline "-$this">]
-    member this.Negate() = X<System.TimeSpan>
+    member this.Negate() = X<TS>
 
     [<Inline "Math.abs($this)">]
-    member this.Duration() = X<System.TimeSpan>
+    member this.Duration() = X<TS>
 
     [<Inline>]
-    static member Compare(t1: System.TimeSpan, t2: System.TimeSpan) =
+    static member Compare(t1: TS, t2: TS) =
         Unchecked.compare t1 t2
 
     [<Inline "$t1 == $t2">]
-    static member Equals(t1: System.TimeSpan, t2: System.TimeSpan) = X<bool>
+    static member Equals(t1: TS, t2: TS) = X<bool>
 
     [<Inline "$days * 864E5">]
-    static member FromDays(days: float) = X<System.TimeSpan>
+    static member FromDays(days: float) = X<TS>
 
     [<Inline "$hours * 36E5">]
-    static member FromHours(hours: float) = X<System.TimeSpan>
+    static member FromHours(hours: float) = X<TS>
 
     [<Inline "$min * 6E4">]
-    static member FromMinutes(min: float) = X<System.TimeSpan>
+    static member FromMinutes(min: float) = X<TS>
 
     [<Inline "$sec * 1E3">]
-    static member FromSeconds(sec: float) = X<System.TimeSpan>
+    static member FromSeconds(sec: float) = X<TS>
 
     [<Inline "$msec">]
-    static member FromMilliseconds(msec: float) = X<System.TimeSpan>
+    static member FromMilliseconds(msec: float) = X<TS>
 
     [<Inline "$ticks / 1E4">]
-    static member FromTicks(ticks: int64) = X<System.TimeSpan>
+    static member FromTicks(ticks: int64) = X<TS>
 
     static member Zero
-        with [<Inline "0">] get () = X<System.TimeSpan>
+        with [<Inline "0">] get () = X<TS>
 
     static member MaxValue
-        with [<Inline "Number.MAX_VALUE">] get () = X<System.TimeSpan>
+        with [<Inline "Number.MAX_VALUE">] get () = X<TS>
 
     static member MinValue
-        with [<Inline "Number.MIN_VALUE">] get () = X<System.TimeSpan>
+        with [<Inline "Number.MIN_VALUE">] get () = X<TS>
 
+    [<Inline "$a">]
+    static member (~+) (a: TS) = X<TS>
+
+    [<Inline "-$a">]
+    static member (~-) (a: TS) = X<TS>
+
+    [<Inline "$a + $b">]
+    static member (+) (a: TS, b: TS) = X<TS>
+
+    [<Inline "$a - $b">]
+    static member (-) (a: TS, b: TS) = X<TS>
+
+    [<Inline "$a == $b">]
+    static member op_Equality (a: TS, b: TS) = X<bool>
+
+    [<Inline "$a != $b">]
+    static member op_Inequality (a: TS, b: TS) = X<bool>
+
+    [<Inline "$a > $b">]
+    static member op_GreaterThan (a: TS, b: TS) = X<bool>
+
+    [<Inline "$a < $b">]
+    static member op_LessThan (a: TS, b: TS) = X<bool>
+
+    [<Inline "$a >= $b">]
+    static member op_GreaterThanOrEqual (a: TS, b: TS) = X<bool>
+
+    [<Inline "$a <= $b">]
+    static member op_LessThanOrEqual (a: TS, b: TS) = X<bool>
