@@ -451,6 +451,14 @@ let UnionCaseConstructMethod (td: TypeDefinition) (uc: FSharpUnionCaseInfo) =
         Generics = 0       
     }
 
+let RecordFieldGetter (f: FSharpRecordFieldInfo) =
+    Method {
+        MethodName = "get_" + f.Name
+        Parameters = []
+        ReturnType = f.RecordFieldType
+        Generics = 0       
+    }
+
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>

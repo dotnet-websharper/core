@@ -1022,6 +1022,16 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                             c.Attributes |> Seq.map readAttribute |> List.ofSeq
                         )
                     )
+                elif e.IsFSharpRecord then
+                    let mn = meth.Value.MethodName
+                    let fieldName = 
+                        if mn.StartsWith "get_" then Some (mn.Substring(4)) else None
+                    fieldName |> Option.bind (fun fn ->
+                        let field = e.FSharpFields |> Seq.tryFind (fun f -> f.Name = fn)
+                        field |> Option.map (fun f ->
+                            f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+                        )
+                    )
                 else None
             )
         ) 
