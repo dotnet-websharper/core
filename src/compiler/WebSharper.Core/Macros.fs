@@ -130,8 +130,11 @@ type Arith() =
             | "op_Percent" -> BinaryOperator.``%``
             | n -> failwithf "unrecognized operator for Arith macro: %s" n
         match c.Method.Generics with
-        | t :: _ ->
-            translateOperation c t c.Arguments leftNble rightNble op
+        | t1 :: t2 :: _ ->
+            if t1 = t2 then
+                translateOperation c t1 c.Arguments leftNble rightNble op
+            else
+                traitCallOp c c.Arguments |> MacroOk 
         | _ -> MacroError "arithmetic macro error"
 
 type Comparison =
