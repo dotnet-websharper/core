@@ -23,8 +23,7 @@ namespace WebSharper.Sitelets
 #nowarn "44" // Obsolete CustomContent, CustomContentAsync, PageContent, PageContentAsync
 
 open System
-open System.Collections.Generic
-open System.Web.UI
+open Routing
 
 type Sitelet<'T when 'T : equality> =
     {

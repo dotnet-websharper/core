@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Sitelets
+module WebSharper.Sitelets.Routing
 
 open System
 open System.Collections.Generic

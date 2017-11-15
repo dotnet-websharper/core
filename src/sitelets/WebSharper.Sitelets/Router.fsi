@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Sitelets
+module WebSharper.Sitelets.Routing
 
 /// Represents addressable locations.
 type Location = System.Uri

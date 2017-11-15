@@ -51,6 +51,7 @@ type private Attribute =
     | Website of TypeDefinition
     | SPAEntryPoint
     | Prototype of bool
+    | OtherAttribute
     
 type private A = Attribute
 
@@ -249,7 +250,7 @@ type AttributeReader<'A>() =
         | "PrototypeAttribute" ->
             A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
         | n -> 
-            failwithf "Unknown attribute type: %s" n
+            A.OtherAttribute
 
     member private this.GetAttrs (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr = ResizeArray()
@@ -380,8 +381,7 @@ type AttributeReader<'A>() =
         let jsTypesAndFiles = ResizeArray()
         for a in attrs do
             match this.GetAssemblyName a with
-            | "WebSharper.Core"
-            | "WebSharper.Sitelets" ->
+            | "WebSharper.Core" ->
                 match this.Read a with
                 | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Website t -> sitelet <- Some t

@@ -22,6 +22,7 @@ module WebSharper.Sitelets.ActionEncoding
 
 open System
 open System.Collections.Generic
+open WebSharper
 open WebSharper.Core
 type BF = System.Reflection.BindingFlags
 

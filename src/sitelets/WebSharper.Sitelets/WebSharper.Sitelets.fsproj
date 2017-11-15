@@ -8,7 +8,6 @@
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
-    <Compile Include="Attributes.fs" />
     <Compile Include="Http.fs" />
     <Compile Include="ActionEncoding.fsi" />
     <Compile Include="ActionEncoding.fs" />

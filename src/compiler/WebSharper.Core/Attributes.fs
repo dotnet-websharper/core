@@ -21,9 +21,10 @@
 /// Defines custom attributes used by WebSharper projects.
 namespace WebSharper
 
-type private A = System.Attribute
-type private T = System.AttributeTargets
-type private U = System.AttributeUsageAttribute
+open System
+type private A = Attribute
+type private T = AttributeTargets
+type private U = AttributeUsageAttribute
 
 /// Marks union cases or properties that should be compiled to constants.
 [<Sealed; U(T.Property)>]
@@ -90,8 +91,8 @@ type JavaScriptAttribute() =
 type MacroAttribute private () =
     inherit A()
 
-    new (macroType: System.Type) = MacroAttribute()
-    new (macroType: System.Type, parameter: obj) = MacroAttribute()
+    new (macroType: Type) = MacroAttribute()
+    new (macroType: Type, parameter: obj) = MacroAttribute()
     new (assemblyQualifiedName: string) = MacroAttribute() 
     new (assemblyQualifiedName: string, parameter: obj) = MacroAttribute() 
 
@@ -101,8 +102,8 @@ type MacroAttribute private () =
 type GeneratedAttribute private () =
     inherit A()
 
-    new (generatorType: System.Type) = GeneratedAttribute()
-    new (generatorType: System.Type, parameter: obj) = GeneratedAttribute()
+    new (generatorType: Type) = GeneratedAttribute()
+    new (generatorType: Type, parameter: obj) = GeneratedAttribute()
     new (assemblyQualifiedName: string) = GeneratedAttribute() 
     new (assemblyQualifiedName: string, parameter: obj) = GeneratedAttribute() 
 
@@ -120,7 +121,7 @@ type NameAttribute private () =
     new (index: int) = NameAttribute()
 
     /// Constructs a qualified name from an explicit array of parts.
-    new ([<System.ParamArray>] names: string []) = NameAttribute()
+    new ([<ParamArray>] names: string []) = NameAttribute()
 
 /// Declares a type to be a proxy for another type, identified directly or
 /// by using an assembly-qualified name.
@@ -129,7 +130,7 @@ type ProxyAttribute private () =
     inherit A()
 
     /// Constructs a new proxy link using a type directly.
-    new (proxiedType: System.Type) = ProxyAttribute()
+    new (proxiedType: Type) = ProxyAttribute()
 
     /// Constructs a new proxy link using an assembly-qualified name.
     new (assemblyQualifiedName: string) = ProxyAttribute()
@@ -146,10 +147,10 @@ type RemoteAttribute() =
 type RequireAttribute private () =
     inherit A()
 
-    new (resourceType: System.Type) = RequireAttribute()
-    new (resourceType: System.Type, [<System.ParamArray>] parameters: obj[]) = RequireAttribute()
+    new (resourceType: Type) = RequireAttribute()
+    new (resourceType: Type, [<ParamArray>] parameters: obj[]) = RequireAttribute()
     new (assemblyQualifiedName: string) = RequireAttribute()
-    new (assemblyQualifiedName: string, [<System.ParamArray>] parameters: obj[]) = RequireAttribute()
+    new (assemblyQualifiedName: string, [<ParamArray>] parameters: obj[]) = RequireAttribute()
 
 /// Marks members that should be compiled by-name.
 [<Sealed; U(T.Class|||T.Constructor|||T.Method|||T.Property|||T.Struct)>]
@@ -164,10 +165,10 @@ type StubAttribute() =
 type RemotingProviderAttribute private () =
     inherit A()
 
-    new (remotingProviderType: System.Type) = RemotingProviderAttribute()
-    new (remotingProviderType: System.Type, [<System.ParamArray>] parameters: obj) = RemotingProviderAttribute()
+    new (remotingProviderType: Type) = RemotingProviderAttribute()
+    new (remotingProviderType: Type, [<ParamArray>] parameters: obj) = RemotingProviderAttribute()
     new (assemblyQualifiedName: string) = RemotingProviderAttribute()
-    new (assemblyQualifiedName: string, [<System.ParamArray>] parameters: obj) = RemotingProviderAttribute()
+    new (assemblyQualifiedName: string, [<ParamArray>] parameters: obj) = RemotingProviderAttribute()
 
 /// Adds automatic inlines to a property so that a missing JavaScript field
 /// is converted to None, otherwise Some fieldValue.
@@ -219,3 +220,73 @@ type PrototypeAttribute() =
     /// Prototype(false) forces to have no prototype, tranlating instance methods to static,
     /// usable only for sealed classes and F# unions and records.
     new (force: bool) = PrototypeAttribute()
+
+/// Indicates the URL fragment parsed by this union case.
+/// Example: type Action = | [<EndPoint "/article">] GetArticle
+[<Sealed; U(T.Class ||| T.Property)>]
+type EndPointAttribute(endpoint: string) =
+    inherit A()
+
+    member this.EndPoint = endpoint
+
+/// Indicates that a union case in an action type must only be mapped
+/// for requests that use the given HTTP method(s).
+/// Example: type Action = | [<Method "POST">] MyPostAction
+[<Sealed; U(T.Property, AllowMultiple = true)>]
+type MethodAttribute([<ParamArray>] methodName: string[]) =
+    inherit A()
+
+/// Indicates that a field or a union case argument must be parsed
+/// from the request body as JSON, rather than from the URL path.
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = false)>]
+type JsonAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's body as JSON.
+    /// Example: type Action = { [<Json>] data : MyData }
+    new() = { inherit A() }
+
+    /// Indicates that the union case argument with the given name must be parsed
+    /// from the request's body as JSON.
+    /// Example: type Action = | [<Json "data">] MyAction of data: MyData
+    new(argumentName: string) = { inherit A() }
+
+/// Indicates that a field or union case argument must be parsed
+/// from the request's query parameters, rather than from the URL path.
+/// The value must be a primitive value, a DateTime, or an option thereof.
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = true)>]
+type QueryAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's query parameters.
+    /// Example: type Action = { [<Query>] someField : string }
+    new() = { inherit A() }
+
+    /// Indicates that the union case arguments with the given names must be parsed
+    /// from the request's query parameters.
+    /// Example: type Action = | [<Query "someField">] MyAction of someField: string
+    new([<ParamArray>] argumentName: string[]) = { inherit A() }
+
+/// Indicates that a field or union case argument must be parsed
+/// from the request's body in form post syntax, ie. with the Content-Type
+/// being either application/x-www-form-urlencoded or multipart/form-data.
+/// The value must be a primitive value, a DateTime, or an option thereof.
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = true)>]
+type FormDataAttribute =
+    inherit A
+
+    /// Indicates that a field must be parsed from the request's query parameters.
+    /// Example: type Action = { [<FormData>] someField: string }
+    new() = { inherit A() }
+
+    /// Indicates that the union case arguments with the given names must be parsed
+    /// from the request's query parameters.
+    /// Example: type Action = | [<FormData "someField">] MyAction of someField: string
+    new([<ParamArray>] argumentName: string[]) = { inherit A() }
+
+/// Indicates that the last field or union case argument parses all the remaining
+/// path segments into a list or an array.
+/// Example: type Action = | [<Wildcard>] MyAction of string * list<string>
+[<Sealed; U(T.Property ||| T.Class ||| T.Field)>]
+type WildcardAttribute() =
+    inherit A()

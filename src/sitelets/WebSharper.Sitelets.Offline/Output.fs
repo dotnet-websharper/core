@@ -302,7 +302,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Routing.Location) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then

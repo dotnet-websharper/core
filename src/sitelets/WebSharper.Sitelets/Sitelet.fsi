@@ -21,6 +21,7 @@
 namespace WebSharper.Sitelets
 
 open System
+open Routing
 
 /// Represents a self-contained website parameterized by the type of actions.
 /// A sitelet combines a router, which is used to match incoming requests to
