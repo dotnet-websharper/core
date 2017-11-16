@@ -67,7 +67,7 @@ let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^
 type OpOverload<'T>(x: int) =
     member this.Value = x
     
-    static member (+) (x: OpOverload<'T>, y: OpOverload<'T>) = x.Value + y.Value
+    static member (+) (x: OpOverload<'T>, y: OpOverload<'T>) = x.Value + y.Value + 1
     
     [<Inline>]
     static member (+) (x: OpOverload<'T>, y: int) = x + OpOverload y
@@ -194,6 +194,13 @@ let Tests =
             equal (IntWithAdd.Add (a, 2)) 42
             equal (a ++ 2) 42
             equal (2 ++ a) 42
+        }
+
+        Test "overloaded operators" {
+            let a = OpOverload<string> 1
+            equal (a + a) 3
+            equal (a + 1) 3
+            equal (1 + a) 3
         }
 
         Test "taking unit" {

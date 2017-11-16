@@ -974,22 +974,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 None
         let trmv = meth.Entity.Value
         let mName = trmv.MethodName
-        let gen = Array.ofSeq meth.Generics
         let pLength = trmv.Parameters.Length
-        let parsAndRet =
-            try
-                Some (
-                    trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen),
-                    trmv.ReturnType.SubstituteGenerics gen
-                )
-            with _ -> None
         let res =
-            match parsAndRet with
-            | None -> delay "Failed to resolve generics for a trait call, make this member an Inline"
-            | Some (pars, ret) ->
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
+                    let gen = ct.Generics @ meth.Generics |> Array.ofList
+                    let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
+                    let ret = trmv.ReturnType.SubstituteGenerics gen
                     let methods = comp.GetMethods ct.Entity
                     let ms =                    
                         methods |> Seq.choose (fun m ->
