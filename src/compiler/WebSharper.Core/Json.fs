@@ -1708,12 +1708,15 @@ module TypedProviderInternals =
             | [] -> failwith "types array must not be empty"
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
-        let types =
-            Array (List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA [])))
-        Object [
-            TYPES, types
-            DATA, data
-        ]
+        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA []))
+        match types, data with
+        | _::_, _
+        | _, Object (((TYPES | VALUE), _) :: _) ->
+            Object [
+                TYPES, Array types
+                DATA, data
+            ]
+        | [], data -> data
 
     let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 

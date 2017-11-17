@@ -57,6 +57,13 @@ module Server =
         | [<Constant true>] UBool
         | UNotConst
 
+    [<Prototype false>]
+    type NoProtoTypes =
+        {
+            [<CompiledName "$TYPES">]
+            Types: string[][]
+        }
+
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -281,6 +288,10 @@ module Server =
         let d = a.Pop()
         a.Push("test")
         async { return (d, a) }
+
+    [<Remote>]
+    let f25 () =
+        async { return { Types = [| [| "Serializing record with field $TYPES" |] |] } }
 
     [<Remote>]
     let OptionToNullable (x: int option) =
@@ -511,6 +522,11 @@ module Remoting =
                 equal x "world"
                 equal (s2.Pop()) "test"
                 equal (s2.Pop()) "Hello"
+            }
+
+            Test "Record with field named $TYPES" {
+                let! x = Server.f25 ()
+                equal x.Types [| [| "Serializing record with field $TYPES" |] |]
             }
 
             // currently failing

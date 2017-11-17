@@ -85,9 +85,14 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
 let Activate<'T> (json: obj) : 'T =
-    let types = As<obj[]> ((?) json "$TYPES")
-    for i = 0 to types.Length - 1 do
-        types.[i] <- lookup (As types.[i])
+    let types = if As json then json?("$TYPES") : obj[] else JS.Undefined
+    let data =
+        if types ===. JS.Undefined then
+            json
+        else
+            for i = 0 to types.Length - 1 do
+                types.[i] <- lookup (As types.[i])
+            json?("$DATA")
     let rec decode (x: obj) : obj =
         if x = null then x else
             match JS.TypeOf x with
@@ -95,9 +100,9 @@ let Activate<'T> (json: obj) : 'T =
                 if x :? System.Array then
                     shallowMap decode x
                 else
-                    let o  = shallowMap decode ((?) x "$V")
-                    let ti = (?) x "$T"
-                    if JS.TypeOf ti = JS.Kind.Undefined then o else
+                    let o  = shallowMap decode (x?("$V"))
+                    let ti = x?("$T")
+                    if ti ===. JS.Undefined then o else
                         let t = types.[ti]
                         if t ===. JS.Global?WebSharper?List?T then
                             box (List.ofArray (As<obj[]> o))
@@ -107,5 +112,5 @@ let Activate<'T> (json: obj) : 'T =
                             r
             | _ ->
                 x
-    As (decode ((?) json "$DATA"))
+    As (decode data)
 
