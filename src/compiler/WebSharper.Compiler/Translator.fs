@@ -820,8 +820,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.NotCompiledInline ->
             let ge =
                 if not (List.isEmpty typ.Generics && List.isEmpty meth.Generics) then
-                    try GenericInlineResolver(typ.Generics @ meth.Generics).TransformExpression expr
-                    with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
+                    GenericInlineResolver(typ.Generics @ meth.Generics).TransformExpression expr
                 else expr
             Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
             |> this.TransformExpression
@@ -1064,8 +1063,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.NotCompiledInline -> 
             let ge =
                 if not (List.isEmpty typ.Generics) then
-                    try GenericInlineResolver(typ.Generics).TransformExpression expr
-                    with e -> this.Error(sprintf "Failed to resolve generics: %s" e.Message)
+                    GenericInlineResolver(typ.Generics).TransformExpression expr
                 else expr
             Substitution(trArgs()).TransformExpression(ge)
             |> this.TransformExpression

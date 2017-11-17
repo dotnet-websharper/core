@@ -520,13 +520,13 @@ and Type =
     member this.SubstituteGenerics (gs : Type[]) =
         match this with 
         | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
-        | TypeParameter i -> gs.[i]
+        | TypeParameter i
+        | StaticTypeParameter i -> if gs.Length > i then gs.[i] else this
         | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics gs, i)
         | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
         | VoidType -> this
-        | StaticTypeParameter i -> if gs.Length > i then gs.[i] else this
         | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
 
     member this.SubstituteGenericsToSame(o : Type) =

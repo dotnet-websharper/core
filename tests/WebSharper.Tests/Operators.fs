@@ -64,16 +64,36 @@ type IntWithAdd(x) =
 let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^y -> ^a) (a, b))
 
 [<JavaScript>] 
+type OpOverload(x: int) =
+    member this.Value = x
+    
+    static member (+) (x: OpOverload, y: OpOverload) = x.Value + y.Value + 1
+    
+    [<Inline>]
+    static member (+) (x: OpOverload, y: int) = x + OpOverload y + 2
+
+    [<Inline>]
+    static member (+) (x: int, y: OpOverload) = OpOverload x + y + 3
+
+[<JavaScript>] 
 type OpOverload<'T>(x: int) =
     member this.Value = x
     
-    static member (+) (x: OpOverload<'T>, y: OpOverload<'T>) = x.Value + y.Value + 1
+    static member FromNonGeneric<'T>(x: OpOverload) = OpOverload<'T> (x.Value)
+
+    static member (+) (x: OpOverload<'T>, y: OpOverload<'U>) = x.Value + y.Value + 5
     
     [<Inline>]
-    static member (+) (x: OpOverload<'T>, y: int) = x + OpOverload y
+    static member (+) (x: OpOverload<'T>, y: int) = x + OpOverload<'T> y + 5
 
     [<Inline>]
-    static member (+) (x: int, y: OpOverload<'T>) = OpOverload x + y
+    static member (+) (x: int, y: OpOverload<'T>) = OpOverload<'T> x + y + 6
+
+    [<Inline>]
+    static member (+) (x: OpOverload<'T>, y: OpOverload) = x + OpOverload.FromNonGeneric y + 7
+
+    [<Inline>]
+    static member (+) (x: OpOverload, y: OpOverload<'T>) = OpOverload.FromNonGeneric x + y + 8
 
 [<JavaScript>]
 type Singletons =
@@ -197,10 +217,18 @@ let Tests =
         }
 
         Test "overloaded operators" {
-            let a = OpOverload<string> 1
+            let a = OpOverload 1
+            let b = OpOverload<string> 1
+            let c = OpOverload<bool> 1
             equal (a + a) 3
-            equal (a + 1) 3
-            equal (1 + a) 3
+            equal (a + 1) 5
+            equal (1 + a) 6
+            equal (b + b) 7
+            equal (b + c) 7
+            equal (b + 1) 12
+            equal (1 + b) 13
+            equal (a + b) 15
+            equal (b + a) 14
         }
 
         Test "taking unit" {
