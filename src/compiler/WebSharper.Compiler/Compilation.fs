@@ -339,8 +339,8 @@ type Compilation(meta: Info, ?hasGraph) =
         proxies.Add(tProxy, tTarget)  
 
     member this.AddQuotation(pos, typ, m, args, e) =
-        let argIds, argPos = List.unzip args
-        quotations.Add(pos, (typ, m, argPos))
+        let argIds, argNames = List.unzip args
+        quotations.Add(pos, (typ, m, argNames))
         let cAddr = defaultAddressOf typ
         match this.TryLookupClassInfo typ with
         | Some _ -> ()

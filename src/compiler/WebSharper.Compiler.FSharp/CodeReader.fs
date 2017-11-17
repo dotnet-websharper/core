@@ -1152,7 +1152,7 @@ let scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue
                                 MethodInfo.Parameters = argTypes
                                 MethodInfo.ReturnType = retTy
                             }
-                        let argIds = [ for (v, id, _) in env.FreeVars -> id, v.DeclarationLocation.AsSourcePos ]
+                        let argIds = [ for (v, id, _) in env.FreeVars -> id, v.LogicalName ]
                         env.Compilation.AddQuotation(pos, typ, m, argIds, e)
                     )
                 | _ -> default'()
