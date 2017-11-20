@@ -316,6 +316,7 @@ let MakeTargets (args: Args) =
                 else hg "branch %s" branch
                 if args.MergeMaster && not (Hg.isAncestorOfCurrent args.BaseRef) then
                     hg "merge --tool internal:other %s" args.BaseRef
+            File.WriteAllText(".fake/buildFromRef", args.BaseRef)
 
     Target "WS-Commit" <| fun () ->
         let tag = "v" + args.Version.AsString
@@ -366,11 +367,6 @@ let MakeTargets (args: Args) =
 
     "WS-Clean"
         ==> "WS-Checkout"
-        ?=> "WS-Update"
-
-    "WS-Checkout"
-        ==> "WS-Commit"
-        ==> "WS-CommitPublish"
 
     {
         BuildDebug = "WS-BuildDebug"
@@ -383,6 +379,10 @@ type WSTargets with
 
     static member Default (version: Paket.SemVerInfo) =
         let buildBranch = environVarOrNone "BuildBranch"
+        let baseRef =
+            match environVarOrNone "BuildFromRef" with
+            | Some r -> r
+            | None -> VC.getCurrentCommitId()
         let version =
             match buildBranch, version.PreRelease with
             | None, _ -> version
@@ -393,7 +393,7 @@ type WSTargets with
             BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
-            BaseRef = VC.getCurrentCommitId()
+            BaseRef = baseRef
             WorkBranch = buildBranch
             MergeMaster = buildBranch = Some "staging"
             PushRemote =
