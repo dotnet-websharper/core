@@ -43,18 +43,16 @@ open Fake
 open Fake.AssemblyInfoFile
 
 let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies"
-
+let private lockFile = Paket.LockFile.LoadFrom "./paket.lock"
 let private mainGroupName = Paket.Domain.GroupName "Main"
 let private mainGroup = depsFile.GetGroup mainGroupName
 
 let GetSemVerOf pkgName =
-    match Paket.PackageResolver.GetPackageVersionsParameters.ofParams
-            mainGroup.Sources mainGroupName (Paket.Domain.PackageName pkgName)
-        |> Paket.NuGet.GetVersions true None "."
-        |> Async.RunSynchronously
-        |> List.map fst with
-    | [] -> None
-    | l -> Some (List.max l)
+    lockFile
+        .GetGroup(mainGroupName)
+        .GetPackage(Paket.Domain.PackageName pkgName)
+        .Version
+    |> Some
 
 let shell program cmd =
     Printf.kprintf (fun cmd ->
