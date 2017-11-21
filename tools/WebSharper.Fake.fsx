@@ -238,7 +238,7 @@ type WSTargets =
         "WS-Update" ?=> s ==> "WS-BuildRelease"
         ()
 
-let verbose = EnvironmentHelper.getEnvironmentVarAsBoolOrDefault "verbose" false
+let verbose = getEnvironmentVarAsBoolOrDefault "verbose" false
 let msbuildVerbosity = if verbose then MSBuildVerbosity.Normal else MSBuildVerbosity.Minimal
 let dotnetArgs = if verbose then [ "-v"; "n" ] else []
 MSBuildDefaults <- { MSBuildDefaults with Verbosity = Some msbuildVerbosity }
@@ -384,7 +384,9 @@ type WSTargets with
             match environVarOrNone "BuildFromRef" with
             | Some r -> r
             | None -> VC.getCurrentCommitId()
+        let addVersionSuffix = getEnvironmentVarAsBoolOrDefault "AddVersionSuffix" false
         let version =
+            if not addVersionSuffix then version else
             match buildBranch, version.PreRelease with
             | None, _ -> version
             | Some b, Some p when b = p.Origin -> version
