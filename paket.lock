@@ -3,11 +3,28 @@ REDIRECTS: ON
 RESTRICTION: || (== net45) (== net46)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    AjaxMin (5.14.5506.26202)
-    FAKE (4.63.2)
     FSharp.Compiler.Tools (4.1.29)
     Mono.Cecil (0.10.0-beta7)
     System.ValueTuple (4.3)
+
+GROUP build
+RESTRICTION: == net40
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    AjaxMin (5.14.5506.26202)
+    Chessie (0.6)
+      FSharp.Core
+    FAKE (4.63.2)
+    FSharp.Compiler.Tools (4.1.29)
+    FSharp.Core (4.2.3)
+    Mono.Cecil (0.10.0-beta7)
+    Newtonsoft.Json (10.0.3)
+    Paket.Core (5.92.3)
+      Chessie (>= 0.6)
+      FSharp.Compiler.Tools
+      FSharp.Core
+      Mono.Cecil (>= 0.10.0-beta6)
+      Newtonsoft.Json
 
 GROUP fcs
 STRATEGY: MIN
