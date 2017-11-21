@@ -305,6 +305,7 @@ let MakeTargets (args: Args) =
         | Some branch ->
             if VC.isGit then
                 try git "checkout -f %s" branch
+                    git "pull -ff"
                 with e ->
                     try git "checkout -f -b %s" branch
                     with _ -> raise e
@@ -316,7 +317,8 @@ let MakeTargets (args: Args) =
                 else hg "branch %s" branch
                 if args.MergeMaster && not (Hg.isAncestorOfCurrent args.BaseRef) then
                     hg "merge --tool internal:other %s" args.BaseRef
-            File.WriteAllText(".fake/buildFromRef", args.BaseRef)
+            Directory.CreateDirectory("build")
+            File.WriteAllText("build/buildFromRef", args.BaseRef)
 
     Target "WS-Commit" <| fun () ->
         let tag = "v" + args.Version.AsString

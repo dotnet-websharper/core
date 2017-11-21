@@ -10,7 +10,7 @@ if not "%BuildBranch%"=="" (
     exit /b %errorlevel%
   )
 
-  set /p BuildFromRef=<.fake\buildFromRef
+  set /p BuildFromRef=<build\buildFromRef
 )
 
 .paket\paket.exe restore --touch-affected-refs

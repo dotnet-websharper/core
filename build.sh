@@ -1,15 +1,20 @@
 #!/bin/bash
 
-dotnet restore WebSharper.sln
-exit_code=$?
-if [ $exit_code -ne 0 ]; then
-    exit $exit_code
+set -e
+
+if [ "$OS" = "Windows_NT" ]; then
+    fake() { packages/build/FAKE/tools/FAKE.exe "$@" --fsiargs build.fsx; }
+    paket() { .paket/paket.exe "$@"; }
+else
+    fake() { mono packages/build/FAKE/tools/FAKE.exe "$@" --fsiargs -d:MONO build.fsx; }
+    paket() { mono .paket/paket.exe "$@"; }
 fi
 
-if test "$OS" = "Windows_NT"; then
-  # use .Net
-  packages/build/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
-else
-  # use mono
-  mono packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx
+paket restore -g build
+
+if [ "$BuildBranch" != "" ]; then
+    fake ws-checkout
+    export BuildFromRef=$(<.fake/buildFromRef)
 fi
+
+exec tools/build.sh "$@"

@@ -1,5 +1,5 @@
 #load "tools/WebSharper.Fake.fsx"
-#r "packages/AjaxMin/lib/net40/AjaxMin.dll"
+#r "packages/build/AjaxMin/lib/net40/AjaxMin.dll"
 
 open System.IO
 open Fake

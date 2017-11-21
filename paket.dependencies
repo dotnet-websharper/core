@@ -14,7 +14,6 @@ nuget Microsoft.NETCore.Targets ~> 2.0.0
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.10-beta6
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
-nuget AjaxMin
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 2.3.2
 nuget System.CodeDom ~> 4.4.0
@@ -31,3 +30,4 @@ group build
     source https://api.nuget.org/v3/index.json
     nuget Paket.Core 5.108.0
     nuget FAKE
+    nuget AjaxMin
