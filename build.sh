@@ -1,33 +1,13 @@
 #!/bin/bash
-if test "$OS" = "Windows_NT"
-then
-  # use .Net
 
-  .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
+set -e
 
-  .paket/paket.exe restore --touch-affected-refs
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  packages/FAKE/tools/FAKE.exe $@ --fsiargs build.fsx
+if [ "$OS" = "Windows_NT" ]; then
+    .paket/paket.bootstrapper.exe
+    .paket/paket.exe restore -g build
 else
-  # use mono
-  mono .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  mono .paket/paket.exe restore --touch-affected-refs
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-  mono packages/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx
+    mono .paket/paket.bootstrapper.exe
+    mono .paket/paket.exe restore -g build
 fi
+
+exec tools/WebSharper.Fake.sh "$@"

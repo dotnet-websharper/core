@@ -6,13 +6,10 @@ redirects: on
 framework: net45, net46
 source https://api.nuget.org/v3/index.json
 
-nuget FAKE
 nuget FSharp.Compiler.Tools
 
 nuget Mono.Cecil ~> 0.10-beta
 nuget System.ValueTuple 4.3.0
-
-nuget AjaxMin
 
 group fsharp4
     framework: net45, net46
@@ -42,3 +39,11 @@ group fcs
 
     nuget System.ValueTuple 4.3.0
     nuget FSharp.Compiler.Service ~16.0.2
+
+group build
+    framework: net40
+    source https://api.nuget.org/v3/index.json
+
+    nuget FAKE
+    nuget Paket.Core 5.92.3
+    nuget AjaxMin
