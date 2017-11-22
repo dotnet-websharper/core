@@ -318,6 +318,7 @@ let varEvalOrder (vars : Id list) expr =
                     fail()
                 else 
                     eval b
+                    stop()
             | ItemSet(a, b, c) ->
                 eval a
                 eval b
@@ -342,6 +343,7 @@ let varEvalOrder (vars : Id list) expr =
             | New(a, b) ->
                 eval a
                 List.iter eval b
+                stop()
             | Call(a, _, _, b) ->
                 Option.iter eval a
                 List.iter eval b
