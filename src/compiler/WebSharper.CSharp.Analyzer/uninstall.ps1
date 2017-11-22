@@ -1,13 +1,65 @@
 ﻿param($installPath, $toolsPath, $package, $project)
 
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "FSharp.Core.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "System.ValueTuple.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.Mdb.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "Mono.Cecil.Pdb.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.Core.JavaScript.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.Core.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.InterfaceGenerator.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.Compiler.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.Compiler.CSharp.dll")) } catch { }
-try { $project.Object.AnalyzerReferences.Remove((Join-Path $toolsPath "WebSharper.CSharp.Analyzer.dll")) } catch { }
+if($project.Object.SupportsPackageDependencyResolution)
+{
+    if($project.Object.SupportsPackageDependencyResolution())
+    {
+        # Do not uninstall analyzers via uninstall.ps1, instead let the project system handle it.
+        return
+    }
+}
+
+$analyzersPaths = Join-Path (Join-Path (Split-Path -Path $toolsPath -Parent) "analyzers") * -Resolve
+
+foreach($analyzersPath in $analyzersPaths)
+{
+    # Uninstall the language agnostic analyzers.
+    if (Test-Path $analyzersPath)
+    {
+        foreach ($analyzerFilePath in Get-ChildItem -Path "$analyzersPath\*.dll" -Exclude *.resources.dll)
+        {
+            if($project.Object.AnalyzerReferences)
+            {
+                $project.Object.AnalyzerReferences.Remove($analyzerFilePath.FullName)
+            }
+        }
+    }
+}
+
+# $project.Type gives the language name like (C# or VB.NET)
+$languageFolder = ""
+if($project.Type -eq "C#")
+{
+    $languageFolder = "cs"
+}
+if($project.Type -eq "VB.NET")
+{
+    $languageFolder = "vb"
+}
+if($languageFolder -eq "")
+{
+    return
+}
+
+foreach($analyzersPath in $analyzersPaths)
+{
+    # Uninstall language specific analyzers.
+    $languageAnalyzersPath = join-path $analyzersPath $languageFolder
+    if (Test-Path $languageAnalyzersPath)
+    {
+        foreach ($analyzerFilePath in Get-ChildItem -Path "$languageAnalyzersPath\*.dll" -Exclude *.resources.dll)
+        {
+            if($project.Object.AnalyzerReferences)
+            {
+                try
+                {
+                    $project.Object.AnalyzerReferences.Remove($analyzerFilePath.FullName)
+                }
+                catch
+                {
+
+                }
+            }
+        }
+    }
+}
