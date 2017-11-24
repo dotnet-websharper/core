@@ -1,4 +1,4 @@
-version 5.92.3
+version 5.122.3
 
 references: strict
 redirects: on
@@ -45,5 +45,5 @@ group build
     source https://api.nuget.org/v3/index.json
 
     nuget FAKE
-    nuget Paket.Core 5.92.3
+    nuget Paket.Core 5.122.3
     nuget AjaxMin
