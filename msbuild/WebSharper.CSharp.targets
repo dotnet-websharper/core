@@ -58,9 +58,4 @@
 	  LangVersion="$(LangVersion)"
   />
   </Target>
-  <ItemGroup>
-    <T4ParameterValues Include="WebSharperCSharpToolsFolder">
-      <Value>$(MSBuildThisFileDirectory)/../tools</Value>
-    </T4ParameterValues>
-  </ItemGroup>
 </Project>
