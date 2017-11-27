@@ -811,6 +811,16 @@ let Tests =
             equal (MultipleStaticLetTest().SayWhat()) "mooomooohmeh"       
         }
 
+        Test "#859 Optimizer incorrectly inlining through variable set" {
+            let test =
+                let arr = [| "correct"; "wrong" |]
+                let mutable index = 0
+                let res = arr.[index]
+                index <- index + 1
+                res
+            equal test "correct"
+        }
+
         //Test "Recursive module value" {
         //    equal (moduleFuncValue 0) 5
         //}

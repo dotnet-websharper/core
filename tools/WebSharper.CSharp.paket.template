@@ -16,7 +16,6 @@ files
     ../build/Release/CSharp/WebSharper.Compiler.dll ==> tools
     ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> tools
     ../build/Release/CSharp/WebSharper.MSBuild.CSharp.dll ==> tools
-    ../build/Release/CSharp/WebSharper.CSharp.Analyzer.dll ==> tools
     ../build/Release/WebSharper.Sitelets.Offline.dll ==> tools
     ../build/Release/CSharp/WebSharper.Core.dll ==> tools
     ../build/Release/CSharp/WebSharper.Core.JavaScript.dll ==> tools
@@ -35,3 +34,14 @@ files
     ../build/Release/CSharp/System.Security.Cryptography.Primitives.dll ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools
+    ../build/Release/CSharp/FSharp.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/System.ValueTuple.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs

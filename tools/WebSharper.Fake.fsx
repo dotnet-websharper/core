@@ -257,8 +257,8 @@ let MakeTargets (args: Args) =
     Target "WS-Update" <| fun () ->
         let needsUpdate =
             mainGroup.Packages
-            |> Seq.exists (fun { Name = Paket.Domain.PackageName(pkg, _) } ->
-                pkg.Contains "WebSharper" || pkg.Contains "Zafir")
+            |> Seq.exists (fun { Name = pkg } ->
+                pkg.Name.Contains "WebSharper" || pkg.Name.Contains "Zafir")
         if needsUpdate then shell ".paket/paket.exe" "update"
 
     Target "WS-GenAssemblyInfo" <| fun () ->

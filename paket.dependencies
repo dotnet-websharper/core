@@ -1,4 +1,4 @@
-version 5.92.3
+version 5.122.3
 
 references: strict
 redirects: on
@@ -30,7 +30,7 @@ group roslyn
     strategy: min
 
     nuget System.ValueTuple 4.3.0
-    nuget Microsoft.CodeAnalysis.CSharp ~2.4
+    nuget Microsoft.CodeAnalysis.CSharp ~2.4.0
 
 group fcs
     framework: net45
@@ -45,5 +45,5 @@ group build
     source https://api.nuget.org/v3/index.json
 
     nuget FAKE
-    nuget Paket.Core 5.92.3
+    nuget Paket.Core 5.122.3
     nuget AjaxMin
