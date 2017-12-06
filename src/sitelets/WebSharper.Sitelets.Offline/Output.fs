@@ -274,6 +274,8 @@ let resourceContext (st: State) (level: int) : R.Context =
             st.UseResource(EmbeddedResource.Create(name, ty))
             scriptsFile (ty.Assembly.GetName().Name) name
 
+        WebRoot = relPath
+
         RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
         ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
     }

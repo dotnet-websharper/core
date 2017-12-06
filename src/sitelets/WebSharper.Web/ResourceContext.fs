@@ -50,6 +50,7 @@ module ResourceContext =
                         | true, h -> "?h=" + string h
                         | _ -> ""
                     Re.RenderLink (url + version)
+                WebRoot = VirtualPathUtility.AppendTrailingSlash(appPath)
                 RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
                 ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
             } : Re.Context

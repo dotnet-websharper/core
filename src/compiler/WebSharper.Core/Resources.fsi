@@ -71,6 +71,9 @@ and Context =
         /// Constructs URLs to point to embedded resources.
         GetWebResourceRendering : Type -> string -> Rendering
 
+        /// Gets the web application root URL. 
+        WebRoot : string  
+        
         /// Cache for resolved rendering of resources.
         RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
 

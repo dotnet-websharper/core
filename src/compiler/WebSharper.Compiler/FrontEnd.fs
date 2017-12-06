@@ -280,6 +280,7 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
                     ContentType = cT
                     Name = name
                 }
+            WebRoot = "/" 
             RenderingCache = null
             ResourceDependencyCache = null
         }

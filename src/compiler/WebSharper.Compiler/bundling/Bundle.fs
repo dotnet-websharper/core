@@ -72,6 +72,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
             GetSetting = getSetting
             GetAssemblyRendering = fun _ -> Res.Skip
             GetWebResourceRendering = fun _ _-> Res.Skip
+            WebRoot = "/"
             RenderingCache = null
             ResourceDependencyCache = null
         }
@@ -120,6 +121,7 @@ type Bundle(set: list<Assembly>, aR: AssemblyResolver, sourceMap, dce, ?appConfi
                     let (c, cT) = Utility.ReadWebResource ty name
                     renderWebResource cT c
                     Res.Skip
+                WebRoot = "/"
                 RenderingCache = null
                 ResourceDependencyCache = null
             }
