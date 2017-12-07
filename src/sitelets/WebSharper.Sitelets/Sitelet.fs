@@ -23,7 +23,7 @@ namespace WebSharper.Sitelets
 #nowarn "44" // Obsolete CustomContent, CustomContentAsync, PageContent, PageContentAsync
 
 open System
-open Routing
+open System.Threading.Tasks
 
 type Sitelet<'T when 'T : equality> =
     {
@@ -33,27 +33,30 @@ type Sitelet<'T when 'T : equality> =
 
     static member ( <|> ) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) =
         {
-            Router = s1.Router <|> s2.Router
+            Router = s1.Router + s2.Router
             Controller =
                 {
                     Handle = fun action ->
-                        match s1.Router.Link action with
+                        match s1.Router.Write action with
                         | Some _ -> s1.Controller.Handle action
                         | None -> s2.Controller.Handle action
                 }
         }
 
+    static member (+) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) = s1 <|> s2
+
 /// Provides combinators over sitelets.
 module Sitelet =
     open Microsoft.FSharp.Quotations
     open Microsoft.FSharp.Reflection
+
     module C = Content
     type C<'T> = Content<'T>
 
     /// Creates an empty sitelet.
     let Empty<'Action when 'Action : equality> : Sitelet<'Action> =
         {
-            Router = Router.New (fun _ -> None) (fun _ -> None)
+            Router = Router.Empty<'Action>
             Controller =
                 {
                     Handle = fun action ->
@@ -64,6 +67,21 @@ module Sitelet =
                                 WriteBody = ignore
                             }
                 }
+        }
+
+    /// Creates a WebSharper.Sitelet using the given router and handler function.
+    let New (router: Router<'Action>) (handle: Context<'Action> -> 'Action -> Async<Content<'Action>>) =
+        {
+            Router = router
+            Controller =
+            {
+                Handle = fun act ->
+                    Content.CustomContentAsync <| fun ctx -> async {
+                        let! content = handle ctx act
+                        return! WebSharper.Sitelets.Content.ToResponse content ctx
+                    }
+            }
+
         }
 
     /// Represents filters for protecting sitelets.
@@ -120,6 +138,9 @@ module Sitelet =
             }
         }
 
+    let ContentCSharp (location: string) (action: 'Action) (cnt: Context<'Action> -> Task<Content<'Action>>) =
+        Content location action (fun ctx -> cnt ctx |> Async.AwaitTask)
+
     /// Maps over the sitelet action type. Requires a bijection.
     let Map (f: 'T1 -> 'T2) (g: 'T2 -> 'T1) (s: Sitelet<'T1>) : Sitelet<'T2> =
         {
@@ -138,7 +159,7 @@ module Sitelet =
     /// Maps over the sitelet action type with only an injection.
     let Embed embed unembed sitelet =
         {
-            Router = Router.TryMap (Some << embed) unembed sitelet.Router
+            Router = Router.Embed embed unembed sitelet.Router
             Controller =
                 { Handle = fun a ->
                     match unembed a with
@@ -186,18 +207,18 @@ module Sitelet =
         Shift prefix (Sum sitelets)
 
     /// Boxes the sitelet action type to Object type.
-    let Upcast (sitelet: Sitelet<'T>) : Sitelet<obj> =
-        Map box unbox sitelet
+    let Box (sitelet: Sitelet<'T>) : Sitelet<obj> =
+        Embed box (fun a -> try Some (unbox a) with _ -> None) sitelet
 
-    /// Reverses the Upcast operation on the sitelet.
-    let UnsafeDowncast<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
+    /// Reverses the Box operation on the sitelet.
+    let UnboxUnsafe<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
         Map unbox box sitelet
 
     /// Constructs a sitelet with an inferred router and a given controller
     /// function.
     let Infer<'T when 'T : equality> (handle : Context<'T> -> 'T -> Async<Content<'T>>) =
         {
-            Router = Router.Infer()
+            Router = Router.Infer<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let! content = handle ctx x
@@ -206,9 +227,10 @@ module Sitelet =
             }
         }
 
+    [<Obsolete>]
     let InferWithCustomErrors<'T when 'T : equality> (handle : Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>) =
         {
-            Router = Router.InferWithErrors<'T>()
+            Router = Router.Infer<'T>() |> Router.Embed ActionEncoding.Success (function ActionEncoding.Success x -> Some x | _ -> None) 
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let ctx = (Context.Map ActionEncoding.Success ctx)
@@ -220,7 +242,7 @@ module Sitelet =
 
     let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: Context<'T2> -> 'T1 -> Async<Content<'T2>>) : Sitelet<'T2> =
         {
-            Router = Router.Infer() |> Router.TryMap (Some << embed) unembed
+            Router = Router.Infer<'T1>() |> Router.Embed embed unembed
             Controller = { Handle = fun p ->
                 C.CustomContentAsync <| fun ctx -> async {
                     match unembed p with
@@ -239,7 +261,10 @@ module Sitelet =
 
 type Sitelet<'T> with
     member internal this.Upcast =
-        Sitelet.Upcast this
+        Sitelet.Box this
+
+    member this.Map (embed: Func<'T, 'U>, unembed: Func<'U, 'T>) =
+        Sitelet.Map embed.Invoke unembed.Invoke this
 
 open System.Threading.Tasks
 

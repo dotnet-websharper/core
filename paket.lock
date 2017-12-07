@@ -43,7 +43,7 @@ GROUP fsharp3
 RESTRICTION: == net40
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (3.0.2)
+    FSharp.Core (4.0.0.1)
 
 GROUP fsharp4
 RESTRICTION: || (== net45) (== net46)

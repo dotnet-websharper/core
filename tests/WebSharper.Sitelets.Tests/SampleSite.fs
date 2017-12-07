@@ -112,7 +112,7 @@ module SampleSite =
         | Echo of string
         | Api of Api.Action
         | [<EndPoint "GET /test.png">] TestImage
-        | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
+        | [<Method "POST">] Json of Json.Action
         | [<EndPoint "/"; Wildcard>] AnythingElse of string
 
     /// A helper function to create a hyperlink
@@ -268,11 +268,8 @@ module SampleSite =
                     Content.ServerError
                 | Action.Api _ ->
                     Content.ServerError
-                | Action.Json (ActionEncoding.Success a) ->
+                | Action.Json a ->
                     WebSharper.Sitelets.Tests.Json.Content a
-                | Action.Json err ->
-                    Content.Json err
-                    |> Content.SetStatus Http.Status.NotFound
                 | Action.TestImage ->
                     Content.File "~/image.png"
                     |> Content.WithContentType "image/png"
@@ -302,3 +299,7 @@ module SampleSite =
             basic
         ]
         |> Sitelet.Sum
+
+    //[<Website>]
+    //let EntireSiteShifted =
+    //    EntireSite |> Sitelet.Shift "shifted"

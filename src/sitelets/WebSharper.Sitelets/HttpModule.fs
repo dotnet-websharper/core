@@ -156,12 +156,7 @@ module private WebUtils =
         new Context<obj>(
             ApplicationPath = appPath,
             Json = Shared.Json,
-            Link = (fun action ->
-                match site.Router.Link action with
-                | Some loc ->
-                    if loc.IsAbsoluteUri then string loc else
-                        joinWithSlash appPath (string loc)
-                | None -> failwith "Failed to link to action"),
+            Link = (fun action -> joinWithSlash appPath (site.Router.Link action)),
             Metadata = Shared.Metadata,
             Dependencies = Shared.Dependencies,
             ResourceContext = resCtx,
@@ -216,7 +211,7 @@ type HttpModule() =
         runtime
         |> Option.bind (fun (site, resCtx, appPath, rootFolder) ->
             let request = WebUtils.convertRequest ctx
-            site.Router.Route(request)
+            site.Router |> Router.Parse (Path.FromRequest ctx.Request)
             |> Option.map (fun action ->
                 HttpHandler(request, action, site, resCtx, appPath, rootFolder)))
 

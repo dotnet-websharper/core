@@ -42,7 +42,7 @@ type HtmlCommand() =
                 options.ProjectDirectory
                 options.OutputDirectory
             let scriptDir =
-                Path.Combine(options.OutputDirectory, "Scripts")
+                System.IO.Path.Combine(options.OutputDirectory, "Scripts")
                 |> Directory.CreateDirectory
             let aR =
                 let aR = aR.SearchPaths(options.ReferenceAssemblyPaths)

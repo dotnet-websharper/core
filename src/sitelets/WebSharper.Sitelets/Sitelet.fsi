@@ -21,7 +21,6 @@
 namespace WebSharper.Sitelets
 
 open System
-open Routing
 
 /// Represents a self-contained website parameterized by the type of actions.
 /// A sitelet combines a router, which is used to match incoming requests to
@@ -96,20 +95,20 @@ module Sitelet =
         prefix: string -> sitelets: seq<Sitelet<'T>> -> Sitelet<'T>
 
     /// Boxes the sitelet action type to Object type.
-    val Upcast<'T when 'T : equality> :
+    val Box<'T when 'T : equality> :
         sitelet: Sitelet<'T> -> Sitelet<obj>
 
-    /// Reverses the Upcast operation on the sitelet.
-    val UnsafeDowncast<'T when 'T : equality> :
+    /// Reverses the Box operation on the sitelet.
+    val UnboxUnsafe<'T when 'T : equality> :
         sitelet: Sitelet<obj> -> Sitelet<'T>
 
     /// Constructs a sitelet with an inferred router and a given controller function.
     val Infer<'T when 'T : equality> : (Context<'T> -> 'T -> Async<Content<'T>>) -> Sitelet<'T>
 
-    /// Constructs a sitelet with an inferred router and a given controller function.
-    val InferWithCustomErrors<'T when 'T : equality>
-        : (Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>)
-        -> Sitelet<ActionEncoding.DecodeResult<'T>>
+    ///// Constructs a sitelet with an inferred router and a given controller function.
+    //val InferWithCustomErrors<'T when 'T : equality>
+    //    : (Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>)
+    //    -> Sitelet<ActionEncoding.DecodeResult<'T>>
 
     /// Constructs a partial sitelet with an inferred router and a given controller function.
     val InferPartial<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
