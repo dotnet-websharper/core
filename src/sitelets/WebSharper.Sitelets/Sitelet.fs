@@ -81,7 +81,6 @@ module Sitelet =
                         return! WebSharper.Sitelets.Content.ToResponse content ctx
                     }
             }
-
         }
 
     /// Represents filters for protecting sitelets.
@@ -197,8 +196,21 @@ module Sitelet =
     /// Combines several sitelets, leftmost taking precedence.
     /// Is equivalent to folding with the choice operator.
     let Sum (sitelets: seq<Sitelet<'T>>) : Sitelet<'T> =
+        let sitelets = Array.ofSeq sitelets 
         if Seq.isEmpty sitelets then Empty else
-            Seq.reduce (<|>) sitelets
+            {
+                Router = Router.Sum (sitelets |> Seq.map (fun s -> s.Router))
+                Controller =
+                    {
+                        Handle = fun action ->
+                            sitelets 
+                            |> Array.pick (fun s -> 
+                                match s.Router.Write action with
+                                | Some _ -> Some (s.Controller.Handle action)
+                                | None -> None
+                            )
+                    }
+            }
 
     /// Serves the sum of the given sitelets under a given prefix.
     /// This function is convenient for folder-like structures.
@@ -208,11 +220,25 @@ module Sitelet =
 
     /// Boxes the sitelet action type to Object type.
     let Box (sitelet: Sitelet<'T>) : Sitelet<obj> =
-        Embed box (fun a -> try Some (unbox a) with _ -> None) sitelet
+        {
+            Router = Router.Box sitelet.Router
+            Controller =
+                { Handle = fun a ->
+                    C.CustomContentAsync <| fun ctx ->
+                        C.ToResponse (sitelet.Controller.Handle (unbox a)) (Context.Map box ctx)
+                }
+        }
 
     /// Reverses the Box operation on the sitelet.
-    let UnboxUnsafe<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
-        Map unbox box sitelet
+    let Unbox<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
+        {
+            Router = Router.Unbox sitelet.Router
+            Controller =
+                { Handle = fun a ->
+                    C.CustomContentAsync <| fun ctx ->
+                        C.ToResponse (sitelet.Controller.Handle (box a)) (Context.Map unbox ctx)
+                }
+        }
 
     /// Constructs a sitelet with an inferred router and a given controller
     /// function.

@@ -99,7 +99,7 @@ module Sitelet =
         sitelet: Sitelet<'T> -> Sitelet<obj>
 
     /// Reverses the Box operation on the sitelet.
-    val UnboxUnsafe<'T when 'T : equality> :
+    val Unbox<'T when 'T : equality> :
         sitelet: Sitelet<obj> -> Sitelet<'T>
 
     /// Constructs a sitelet with an inferred router and a given controller function.
