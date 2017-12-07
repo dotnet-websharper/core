@@ -13,6 +13,7 @@
     <Compile Include="ApiTests.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="SampleSite.fs" />
+    <Compile Include="PerformanceTests.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
