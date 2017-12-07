@@ -24,6 +24,7 @@ module WebSharper.Tests.Website.Content
 open WebSharper
 open WebSharper.Sitelets
 open WebSharper.Sitelets.Tests.Server
+module PerformanceTests = WebSharper.Sitelets.Tests.PerformanceTests
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
 [<NoComparison>]
@@ -31,6 +32,7 @@ type FullAction =
     | Site of Actions.Action
     | SiteletsTests of SampleSite.Action
     | CSharpSiteletsTests of obj
+    | PerformanceTests of PerformanceTests.Action
 
 let HomePage (ctx: Context<_>) =
     Content.Page(
@@ -107,4 +109,6 @@ let Main =
         Sitelet.Shift "csharp-tests" <|
             Sitelet.EmbedInUnion <@ FullAction.CSharpSiteletsTests @>
                 WebSharper.CSharp.Sitelets.Tests.SiteletTest.Main
+        Sitelet.Shift "perf-tests" <|
+            Sitelet.EmbedInUnion <@ FullAction.PerformanceTests @> PerformanceTests.Site
     ]
