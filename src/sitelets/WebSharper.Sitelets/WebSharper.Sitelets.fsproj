@@ -14,8 +14,9 @@
     <Compile Include="UserSession.fs" />
     <Compile Include="Page.fsi" />
     <Compile Include="Page.fs" />
-    <Compile Include="Routing.fs" />
-    <Compile Include="RouterInfer.fs" />
+    <Compile Include="Router.fs" />
+    <Compile Include="InferredRouter.fs" />
+    <Compile Include="RouterAttributeReader.fs" />
     <Compile Include="RouterInfer.Server.fs" />
     <Compile Include="RouterInfer.Client.fs" />
     <Compile Include="Context.fsi" />

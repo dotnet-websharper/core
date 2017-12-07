@@ -20,17 +20,18 @@
 
 namespace WebSharper.Sitelets
 
-open WebSharper
+open System
+open System.Collections.Generic
+open System.Reflection
+
 open WebSharper.Core
 open WebSharper.Sitelets.RouterInferCommon
+open WebSharper.Sitelets.ServerInferredOperators
 
 module M = WebSharper.Core.Metadata
 module P = FSharp.Quotations.Patterns
 
 module internal ServerRouting =
-    open System
-    open System.Collections.Generic
-    open System.Reflection
 
     type ReflectionAttributeReader() =
         inherit AttributeReader<System.Reflection.CustomAttributeData>()
@@ -90,9 +91,7 @@ module internal ServerRouting =
             eprintfn "Reflection error in Warp.Internals, not a Call: %A" expr
             Unchecked.defaultof<_>
 
-    let jsonRouterGet = getMethod <@ Router.JsonDyn<int> @>
-
-    open ServerInferredOperators
+    let jsonRouterGet = getMethod <@ IJson<int> @>
 
     let recurringOn = HashSet()
     
@@ -102,7 +101,7 @@ module internal ServerRouting =
             recurringOn.Remove t |> ignore
             res
         else
-            Router.IDelayed (fun () -> routerCache.[t])
+            IDelayed (fun () -> routerCache.[t])
 
     and wildCardRouter (t: Type) : InferredRouter =
         if t = typeof<string> then 
@@ -121,17 +120,17 @@ module internal ServerRouting =
             let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
             if gd = typedefof<option<_>> then 
                 let item = t.GetGenericArguments().[0]
-                getRouter item |> Router.IQueryOption t name
+                getRouter item |> IQueryOption t name
             elif gd = typedefof<Nullable<_>> then 
                 let item = t.GetGenericArguments().[0]
-                getRouter item |> Router.IQueryNullable name
+                getRouter item |> IQueryNullable name
             else
-                r() |> Router.IQuery name
+                r() |> IQuery name
         match annot.Query with
         | Some _ -> q()
         | _ -> 
         match annot.FormData with
-        | Some _ -> q() |> Router.IFormData
+        | Some _ -> q() |> IFormData
         | _ -> 
         match annot.Json with
         | Some _ ->
@@ -144,7 +143,7 @@ module internal ServerRouting =
             getRouter (System.Enum.GetUnderlyingType(t))
         elif t.IsArray then
             let item = t.GetElementType()
-            Router.ArrayDyn item (getRouter item)
+            IArray item (getRouter item)
         elif Reflection.FSharpType.IsTuple t then
             let items = Reflection.FSharpType.GetTupleElements t
             let itemReader = Reflection.FSharpValue.PreComputeTupleReader t
@@ -163,7 +162,7 @@ module internal ServerRouting =
         elif Reflection.FSharpType.IsUnion t then
             if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<list<_>> then
                 let item = t.GetGenericArguments().[0]
-                Router.ListDyn item (getRouter item)
+                IList item (getRouter item)
             else
                 let cases = Reflection.FSharpType.GetUnionCases(t, flags)
                 let tagReader = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
@@ -178,8 +177,8 @@ module internal ServerRouting =
                     (cases |> Array.map (fun c ->
                         let cAnnot = getUnionCaseAnnot c
                         let mutable queryFields = defaultArg cAnnot.Query Set.empty
-                        let jsonField = cAnnot.Json |> Option.bind id
-                        let formDataFields = defaultArg cAnnot.FormData Set.empty
+                        let mutable jsonField = cAnnot.Json |> Option.bind id
+                        let mutable formDataFields = defaultArg cAnnot.FormData Set.empty
                         let m, e = 
                             match cAnnot.EndPoint with
                             | Some (m, e) -> m, ReadEndPointString e
@@ -188,26 +187,35 @@ module internal ServerRouting =
                             let fields = c.GetFields()
                             fields |> Array.mapi (fun i f -> 
                                 let fTyp = f.PropertyType
+                                let fName = f.Name
                                 let r() = getRouter fTyp
                                 let q() =
                                     if fTyp.IsGenericType && fTyp.GetGenericTypeDefinition() = typedefof<option<_>> then 
                                         let item = fTyp.GetGenericArguments().[0]
-                                        getRouter item |> Router.IQueryOption fTyp f.Name
+                                        getRouter item |> IQueryOption fTyp fName
                                     else
-                                        r() |> Router.IQuery f.Name
-                                if queryFields.Contains f.Name then 
-                                    queryFields <- queryFields |> Set.remove f.Name
+                                        r() |> IQuery fName
+                                if queryFields.Contains fName then 
+                                    queryFields <- queryFields |> Set.remove fName
                                     q()
-                                elif formDataFields.Contains f.Name then 
-                                    q() |> Router.IFormData
-                                elif jsonField = Some f.Name then
+                                elif formDataFields.Contains fName then 
+                                    formDataFields <- formDataFields |> Set.remove fName
+                                    q() |> IFormData
+                                elif Option.isSome jsonField && jsonField.Value = fName then
+                                    jsonField <- None
                                     jsonRouterGet.MakeGenericMethod(fTyp).Invoke(null, [||]) :?> InferredRouter
                                 elif cAnnot.IsWildcard && i = fields.Length - 1 then
                                     wildCardRouter fTyp
                                 else r()
                             )    
-                        //if queryFields.Count > 0 then 
-                        //    failwithf "Query field not found: %s" (Seq.head queryFields)
+                        if queryFields.Count > 0 then 
+                            failwithf "Query field not found: %s" (Seq.head queryFields)
+                        match jsonField with
+                        | Some j ->
+                            failwithf "Json field not found: %s" j
+                        | _ -> ()
+                        if formDataFields.Count > 0 then 
+                            failwithf "FormData field not found: %s" (Seq.head formDataFields)
                         // todo: more error reports
                         m, e, f
                     ))
@@ -215,7 +223,7 @@ module internal ServerRouting =
         else
             match t.FullName with
             | "System.Object" ->
-                Router.IEmpty
+                IEmpty
             | "System.String" ->
                 iString 
             | "System.Char" ->
@@ -232,7 +240,7 @@ module internal ServerRouting =
                 iDateTime None // todo: pass along DateTimeFormat 
             | "System.Nullable`1" ->
                 let item = t.GetGenericArguments().[0]
-                Router.NullableDyn (getRouter item)
+                INullable (getRouter item)
             | _ ->
                 let rec getClassAnnotation td : Annotation =
                     match parsedClassEndpoints.TryFind(td) with

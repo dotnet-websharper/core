@@ -358,4 +358,4 @@ module InferRouter =
     [<Macro(typeof<RoutingMacro>)>]
     module Router =
         /// Creates a router based on type shape and WebSharper attributes.
-        let Infer<'T when 'T: equality>() = S.getRouter typeof<'T> |> Router.UnboxUnsafe<'T>
+        let Infer<'T when 'T: equality>() = S.getRouter typeof<'T> |> ServerInferredOperators.IUnbox<'T>
