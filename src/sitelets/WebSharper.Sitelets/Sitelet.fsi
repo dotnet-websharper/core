@@ -33,6 +33,9 @@ type Sitelet<'T when 'T : equality> =
     }
 
     /// Combines two sitelets, with the leftmost taking precedence.
+    static member ( + ) : Sitelet<'Action> * Sitelet<'Action> -> Sitelet<'Action>
+
+    /// Equivalent to `+`, combines two sitelets, with the leftmost taking precedence.
     static member ( <|> ) : Sitelet<'Action> * Sitelet<'Action> -> Sitelet<'Action>
 
     /// Called through reflection by SiteLoading.TryLoadSite.

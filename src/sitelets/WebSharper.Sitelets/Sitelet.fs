@@ -31,7 +31,7 @@ type Sitelet<'T when 'T : equality> =
         Controller : Controller<'T>
     }
 
-    static member ( <|> ) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) =
+    static member (+) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) =
         {
             Router = s1.Router + s2.Router
             Controller =
@@ -43,7 +43,7 @@ type Sitelet<'T when 'T : equality> =
                 }
         }
 
-    static member (+) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) = s1 <|> s2
+    static member ( <|> ) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) = s1 + s2
 
 /// Provides combinators over sitelets.
 module Sitelet =
