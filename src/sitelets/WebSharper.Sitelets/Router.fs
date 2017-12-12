@@ -251,6 +251,7 @@ and [<JavaScript>] Router<'T when 'T: equality> =
     {
         Parse : Path -> (Path * 'T) seq
         Write : 'T -> option<seq<Path>> 
+        //CanWrite : 'T -> bool 
     }
     
     static member (/) (before: Router<'T>, after: Router<'U>) =
@@ -261,6 +262,7 @@ and [<JavaScript>] Router<'T when 'T: equality> =
                 match before.Write v1, after.Write v2 with
                 | Some p1, Some p2 -> Some (Seq.append p1 p2)
                 | _ -> None
+            //CanWrite = fun (v1, v2) -> before.CanWrite v1 && after.CanWrite v2
         }
 
     static member (/) (before: Router, after: Router<'T>) =
@@ -269,6 +271,7 @@ and [<JavaScript>] Router<'T when 'T: equality> =
                 before.Parse path |> Seq.collect (fun p -> after.Parse p |> Seq.map (fun (p, y) -> (p, y)))
             Write = fun v ->
                 after.Write v |> Option.map (Seq.append before.Segment)
+            //CanWrite = fun (v1, v2) -> before.CanWrite v1 && after.CanWrite v2
         }
 
     static member (/) (before: Router<'T>, after: Router) =
@@ -395,24 +398,21 @@ module Router =
         | Some p -> p.ToLink()
         | None -> ""
 
-    let Ajax path =
-        let settings = AjaxSettings(DataType = DataType.Text)
-        match path.Method with
-        | Some m -> settings.Method <- As m
-        | _ -> ()
-        Async.FromContinuations (fun (ok, err, cc) ->
-            settings.Success <- fun res _ _ -> ok (As<string> res) 
-            settings.Error <- fun _ _ msg -> err (exn msg)
-            // todo: cancellation
-            JQuery.Ajax(path.ToLink(), settings) |> ignore
-        )
-
-    [<Inline>]
-    let AjaxJson<'T> path =
-        async {
-            let! res = Ajax path
-            return Json.Deserialize<'T> res
-        }
+    let Ajax action (router: Router<'A>) =
+        match Write action router with
+        | Some path ->
+            let settings = AjaxSettings(DataType = DataType.Text)
+            match path.Method with
+            | Some m -> settings.Method <- As m
+            | _ -> ()
+            Async.FromContinuations (fun (ok, err, cc) ->
+                settings.Success <- fun res _ _ -> ok (As<string> res) 
+                settings.Error <- fun _ _ msg -> err (exn msg)
+                // todo: cancellation
+                JQuery.Ajax(path.ToLink(), settings) |> ignore
+            )
+        | _ -> 
+            failwith "Failed to map action to request" 
 
     let HashLink action (router: Router<'A>) =
         let h = (Link action router).Substring(1)
@@ -532,10 +532,11 @@ module Router =
             }
         createRouter r
 
-    let Delayed<'T when 'T: equality> (getRouter: unit -> Router<'T>) : Router<'T> =
+    let Delay<'T when 'T: equality> (getRouter: unit -> Router<'T>) : Router<'T> =
+        let r = lazy getRouter()
         {
-            Parse = fun path -> getRouter().Parse path
-            Write = fun value -> getRouter().Write value
+            Parse = fun path -> r.Value.Parse path
+            Write = fun value -> r.Value.Write value
         }
 
     /// Creates a router for parsing/writing an Array of values.
@@ -712,6 +713,15 @@ module RouterOperators =
     ///// Parse/write a double.
     //let rDouble = rTryParse<double>()
 
+    //let rSByte = rTryParse<sbyte>() 
+    //let rByte = rTryParse<byte>() 
+    //let rInt16 = rTryParse<int16>() 
+    //let rUInt16 = rTryParse<uint16>() 
+    //let rUInt = rTryParse<uint32>() 
+    //let rInt64 = rTryParse<int64>() 
+    //let rUInt64 = rTryParse<uint64>() 
+    //let rSingle = rTryParse<single>() 
+
     /// Parse/write a Guid.
     let rGuid : Router<System.Guid> =
         {
@@ -869,7 +879,7 @@ module RouterOperators =
     let internal JSBox item = Router.Box item
 
     [<Inline>]
-    let internal JSDelayed getRouter = Router.Delayed getRouter
+    let internal JSDelayed getRouter = Router.Delay getRouter
 
     let internal Record (readFields: obj -> obj[]) (createRecord: obj[] -> obj) (fields: Router<obj>[]) =
         let fieldsList =  List.ofArray fields        

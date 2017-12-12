@@ -194,7 +194,7 @@ module Content =
 
     let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
         match c with
-        | CustomContent x -> async { return x ctx }
+        | CustomContent x -> async.Return (x ctx)
         | CustomContentAsync x -> x ctx
 
     let FromContext f =

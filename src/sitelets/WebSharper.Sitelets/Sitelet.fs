@@ -256,7 +256,7 @@ module Sitelet =
     [<Obsolete>]
     let InferWithCustomErrors<'T when 'T : equality> (handle : Context<'T> -> ActionEncoding.DecodeResult<'T> -> Async<Content<'T>>) =
         {
-            Router = Router.Infer<'T>() |> Router.Embed ActionEncoding.Success (function ActionEncoding.Success x -> Some x | _ -> None) 
+            Router = Router.InferWithCustomErrors<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let ctx = (Context.Map ActionEncoding.Success ctx)

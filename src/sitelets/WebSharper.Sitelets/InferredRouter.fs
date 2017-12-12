@@ -274,13 +274,50 @@ module internal ServerInferredOperators =
                     item.IWrite(w, value)
         }
 
+    let error<'T> err path =
+        match path.Result with
+        | StrictMode -> None
+        | _ ->
+            path.Result <- err
+            Some (Unchecked.defaultof<'T>)
+        
+    type BF = System.Reflection.BindingFlags
+    let flags = BF.Public ||| BF.NonPublic ||| BF.Static ||| BF.Instance
+    
+    let IWithCustomErrors (typ: System.Type) (item: InferredRouter) =
+        let cases = Reflection.FSharpType.GetUnionCases(typ, flags)
+        let caseCtors = 
+            cases |> Array.map (fun c -> Reflection.FSharpValue.PreComputeUnionConstructor(c, flags))
+        let decodeResultAction =
+            typ.GetProperty("Action", flags).GetGetMethod(true)
+        {
+            IParse = fun path ->
+                let currentResult = path.Result
+                path.Result <- NoErrors 
+                match item.IParse path with
+                | None ->
+                    path.Result <- currentResult
+                    None
+                | Some v ->
+                    let innerResult = path.Result
+                    path.Result <- currentResult 
+                    match innerResult with
+                    | InvalidMethod m -> Some (caseCtors.[1] [| v; box m |])    
+                    | InvalidJson -> Some (caseCtors.[2] [| v |])    
+                    | MissingQueryParameter k -> Some (caseCtors.[3] [| v; k |])    
+                    | MissingFormData k -> Some (caseCtors.[4] [| v; k |])    
+                    | _ -> Some (caseCtors.[0] [| v |])    
+            IWrite = fun (w, value) ->
+                item.IWrite (w, decodeResultAction.Invoke(value, [||]))
+        }
+
     let IQuery key (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
-                path.QueryArgs.TryFind key
-                |> Option.bind (fun q ->
+                match path.QueryArgs.TryFind key with
+                | None -> error (MissingQueryParameter key) path 
+                | Some q ->
                     item.IParse { MPath.Empty with Segments = [ q ] }
-                )
             IWrite = fun (w, value) ->
                 let q = 
                     match w.QueryWriter with
@@ -359,23 +396,27 @@ module internal ServerInferredOperators =
                 w.ToPath() |> Seq.singleton |> Some
         }
 
-    let IBody (deserialize: string -> option<obj>) : InferredRouter =
+    let IJson<'T when 'T: equality> : InferredRouter =
         {
-            IParse = fun path ->
-                path.Body |> Option.bind deserialize
+            IParse = fun path ->                
+                match path.Body |> Option.bind (fun s -> try Some (Json.Deserialize<'T> s |> box) with _ -> None) with
+                | None -> error InvalidJson path
+                | Some v -> Some v
             IWrite = ignore
         }
-
-    let IJson<'T when 'T: equality> : InferredRouter =
-        IBody (fun s -> try Some (Json.Deserialize<'T> s |> box) with _ -> None)
 
     let IFormData (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
-                match path.Body with
-                | None -> item.IParse path
-                | Some b ->
-                    item.IParse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Path.ParseQuery b); Body = None }
+                let res =
+                    match path.Body with
+                    | None -> item.IParse path
+                    | Some b ->
+                        item.IParse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Path.ParseQuery b); Body = None }
+                match path.Result with
+                | MissingQueryParameter k -> path.Result <- MissingFormData k
+                | _ -> ()
+                res
             IWrite = ignore
         }
 
@@ -577,7 +618,23 @@ module internal ServerInferredOperators =
                         match lookupCases.TryGetValue(None) with
                         | true, lookup -> lookup
                         | _ -> dict []
+                    let wrongMethodLookup = 
+                        lookupCases |> Seq.collect (fun (KeyValue(m, l)) ->
+                            if Option.isSome m then 
+                                l |> Seq.map (fun (KeyValue(h, p)) -> h, p)
+                            else Seq.empty
+                        ) |> Seq.groupBy fst |> Seq.map (fun (m, ps) ->
+                            match ps |> Seq.map snd |> Array.ofSeq with
+                            | [| p |] -> p
+                            | parsers -> 
+                                fun p path ->
+                                    parsers |> Array.tryPick (fun parse -> parse p path)                        
+                        )
                     fun path ->
+                        let notFound() =
+                            match path.Result with
+                            | StrictMode -> None
+                            | _ -> error (InvalidMethod path.Method.Value) path
                         let explicit =
                             match lookupCases.TryGetValue(path.Method) with
                             | true, lookup -> 
@@ -585,23 +642,23 @@ module internal ServerInferredOperators =
                                 | [] -> 
                                     match lookup.TryGetValue("") with
                                     | true, parse -> parse [] path
-                                    | _ -> None
+                                    | _ -> notFound()
                                 | h :: t ->
                                     match lookup.TryGetValue(h) with
                                     | true, parse -> parse t path
-                                    | _ -> None
-                            | _ -> None
+                                    | _ -> notFound()
+                            | _ -> notFound()
                         if Option.isSome explicit then explicit else
                         // not found with explicit method, fall back to cases ignoring method
                         match path.Segments with
                         | [] -> 
                             match ignoreMethodLookup.TryGetValue("") with
                             | true, parse -> parse [] path
-                            | _ -> None
+                            | _ -> notFound()
                         | h :: t ->
                             match ignoreMethodLookup.TryGetValue(h) with
                             | true, parse -> parse t path
-                            | _ -> None
+                            | _ -> notFound()
             IWrite = fun (w, value) ->
                 let tag = getTag value
                 let path, fields = writeCases.[tag]

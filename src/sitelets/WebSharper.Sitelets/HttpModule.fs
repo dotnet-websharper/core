@@ -171,17 +171,20 @@ module private WebUtils =
         // Create a context
         let context = getContext site ctx resCtx appPath rootFolder req
         // Handle action
-        async {
-            let! response = Content.ToResponse (site.Controller.Handle action) context
-            let resp = ctx.Response
-            resp.Status <- response.Status.ToString()
-            for header in response.Headers do
-                resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
-                RpcHandler.SetCsrfCookie resp
-            response.WriteBody resp.OutputStream
-            resp.End()
-        }
+        // we use AsyncBuilder directly so there is no .Delay, .For, .Combine calls for minimal overhead
+        async.Bind(
+            Content.ToResponse (site.Controller.Handle action) context,
+            fun response ->
+                let resp = ctx.Response
+                resp.Status <- response.Status.ToString()
+                for header in response.Headers do
+                    resp.AddHeader(header.Name, header.Value)
+                if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+                    RpcHandler.SetCsrfCookie resp
+                response.WriteBody resp.OutputStream
+                resp.End()
+                async.Zero()
+        )
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]

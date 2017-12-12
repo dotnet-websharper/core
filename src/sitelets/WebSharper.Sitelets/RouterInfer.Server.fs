@@ -160,9 +160,13 @@ module internal ServerRouting =
             let ctor = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
             IRecord fieldReader ctor fields
         elif Reflection.FSharpType.IsUnion t then
-            if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<list<_>> then
+            let isGen = t.IsGenericType
+            if isGen && t.GetGenericTypeDefinition() = typedefof<list<_>> then
                 let item = t.GetGenericArguments().[0]
                 IList item (getRouter item)
+            elif isGen && t.GetGenericTypeDefinition() = typedefof<ActionEncoding.DecodeResult<_>> then
+                let item = t.GetGenericArguments().[0]
+                IWithCustomErrors t (getRouter item)
             else
                 let cases = Reflection.FSharpType.GetUnionCases(t, flags)
                 let tagReader = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)

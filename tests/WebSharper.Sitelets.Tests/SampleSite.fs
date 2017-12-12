@@ -299,7 +299,3 @@ module SampleSite =
             basic
         ]
         |> Sitelet.Sum
-
-    //[<Website>]
-    //let EntireSiteShifted =
-    //    EntireSite |> Sitelet.Shift "shifted"

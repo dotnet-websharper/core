@@ -89,6 +89,7 @@ module private ClientRoutingInternals =
     let NullableOp = getMethod <@ RouterOperators.JSNullable RouterOperators.rInt @>
     let ClassOp = getMethod <@ RouterOperators.JSClass (fun () -> null) [||] [||] @>
     let BoxOp = getMethod <@ RouterOperators.JSBox Unchecked.defaultof<_> @>
+    let DelayOp = getMethod <@ RouterOperators.JSDelayed Unchecked.defaultof<_> @>
     
     let (|T|) (t: TypeDefinition) = t.Value.FullName
     let (|C|_|) (t: Type) =
@@ -118,20 +119,31 @@ type RoutingMacro() =
             let top = comp.AssemblyName.Replace(".","$") + "_Router"
             let deps = HashSet()
 
-            let recurringOn = HashSet()
+            let recurringOn = Dictionary()
 
             let rec getRouter t =
-                let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                match comp.GetMetadataEntries key with 
-                | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                    Call(None, NonGeneric gtd, NonGeneric gm, [])
-                | _ ->
-                    let isTrivial, res = createRouter t
-                    if isTrivial then res else
-                    let gtd, gm, _ = comp.NewGenerated([top; "r"])
-                    comp.AddGeneratedCode(gm, Lambda([], res))
-                    comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
-                    Call(None, NonGeneric gtd, NonGeneric gm, [])
+                match recurringOn.TryGetValue t with
+                | false, _ ->
+                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
+                    match comp.GetMetadataEntries key with 
+                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                        Call(None, NonGeneric gtd, NonGeneric gm, [])
+                    | _ ->
+                        let genCall =
+                            lazy 
+                            let gtd, gm, _ = comp.NewGenerated([top; "r"])
+                            gtd, gm, Call(None, NonGeneric gtd, NonGeneric gm, [])
+                        recurringOn.Add(t, genCall)
+                        let isTrivial, res = createRouter t
+                        recurringOn.Remove(t) |> ignore
+                        if isTrivial then res else
+                        let gtd, gm, call = genCall.Value
+                        comp.AddGeneratedCode(gm, Lambda([], res))
+                        comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
+                        call
+                | true, genCall -> 
+                    let _, _, call = genCall.Value
+                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])    
             
             and createRouter t =
                 match t with
@@ -161,8 +173,6 @@ type RoutingMacro() =
                 | C (T "System.Nullable`1", [ t ]) ->
                     true, Call(None, NonGeneric routerOpsModule, Generic NullableOp [ t ], [ getRouter t ])    
                 | C (e, g) ->
-                    if not (recurringOn.Add t) then
-                        failwithf "Recursive types for Endpoint are currently not supported: %O" t
                     let getProto() =
                         match comp.GetClassInfo e with
                         | Some cls -> 
@@ -355,7 +365,13 @@ type RoutingMacro() =
 [<AutoOpen>]
 module InferRouter =
 
-    [<Macro(typeof<RoutingMacro>)>]
     module Router =
         /// Creates a router based on type shape and WebSharper attributes.
+        [<Macro(typeof<RoutingMacro>)>]
         let Infer<'T when 'T: equality>() = S.getRouter typeof<'T> |> ServerInferredOperators.IUnbox<'T>
+
+        let InferWithCustomErrors<'T when 'T: equality>() =
+            let t = typeof<'T>
+            S.getRouter t 
+            |> ServerInferredOperators.IWithCustomErrors t 
+            |> ServerInferredOperators.IUnbox<ActionEncoding.DecodeResult<'T>>

@@ -73,6 +73,17 @@ let Tests =
             equal arr2 [| 'a'; 'b'|]
         }
 
+        Test "One is one" {
+            equal 1 1 
+            forEach { 1 .. 3 } (fun x -> 
+                Do {
+                    equal x x
+                }
+            )
+            let! one = async { return 1 }
+            equal one 1
+        }
+
         Test "Array.append" {
             let (arr1, arr2) = ([| 1; 2; 3 |], [| 4; 5 |])
             equal (Array.append arr1 arr2) [| 1; 2; 3; 4; 5 |]

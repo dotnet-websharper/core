@@ -28,6 +28,9 @@ do()
 
 [<JavaScript>]
 let RunTests() =
+    Test "non-categorized test" {
+        equal 1 1
+    }
     Runner.RunTests [|
         AddressOf.Tests
         Array.Tests
