@@ -24,6 +24,7 @@ namespace WebSharper.Sitelets
 
 open System
 open System.Threading.Tasks
+open System.Runtime.CompilerServices
 
 type Sitelet<'T when 'T : equality> =
     {
@@ -46,6 +47,7 @@ type Sitelet<'T when 'T : equality> =
     static member ( <|> ) (s1: Sitelet<'Action>, s2: Sitelet<'Action>) = s1 + s2
 
 /// Provides combinators over sitelets.
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Sitelet =
     open Microsoft.FSharp.Quotations
     open Microsoft.FSharp.Reflection
@@ -128,7 +130,7 @@ module Sitelet =
     /// and serves a single content value at a given location.
     let Content (location: string) (action: 'Action) (cnt: Context<'Action> -> Async<Content<'Action>>) =
         {
-            Router = Router.Table [action, location]
+            Router = Router.Single action location
             Controller = { Handle = fun _ ->
                 Content.CustomContentAsync <| fun ctx -> async {
                     let! cnt = cnt ctx
@@ -136,9 +138,6 @@ module Sitelet =
                 }
             }
         }
-
-    let ContentCSharp (location: string) (action: 'Action) (cnt: Context<'Action> -> Task<Content<'Action>>) =
-        Content location action (fun ctx -> cnt ctx |> Async.AwaitTask)
 
     /// Maps over the sitelet action type. Requires a bijection.
     let Map (f: 'T1 -> 'T2) (g: 'T2 -> 'T1) (s: Sitelet<'T1>) : Sitelet<'T2> =
@@ -285,14 +284,53 @@ module Sitelet =
         | Some (embed, unembed) -> InferPartial embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
 
+type RouteHandler<'T> = delegate of Context<obj> * 'T -> Task<CSharpContent> 
+
+[<CompiledName "Sitelet"; Sealed>]
+type CSharpSitelet =
+        
+    static member Empty = Sitelet.Empty<obj>   
+
+    static member New(router: Router<'T>, handle: RouteHandler<'T>) =
+        Sitelet.New (Router.Box router) (fun ctx act -> 
+            async {
+                let! c = handle.Invoke(ctx, unbox<'T> act) |> Async.AwaitTask
+                return c.AsContent
+            }
+        )
+
+    static member Content (location: string, action: 'Action, cnt: Func<Context<'Action>, Task<Content<'Action>>>) =
+        Sitelet.Content location action (cnt.Invoke >> Async.AwaitTask) 
+        
+    static member Sum ([<ParamArray>] sitelets: Sitelet<'T>[]) =
+        Sitelet.Sum sitelets
+
+    static member Folder (prefix, [<ParamArray>] sitelets: Sitelet<'T>[]) =
+        Sitelet.Folder prefix sitelets
+
 type Sitelet<'T> with
-    member internal this.Upcast =
+    member this.Box() =
         Sitelet.Box this
+
+    member this.Protect (verifyUser: Func<string, bool>, loginRedirect: Func<'T, 'T>) =
+        this |> Sitelet.Protect {
+            VerifyUser = verifyUser.Invoke 
+            LoginRedirect = loginRedirect.Invoke
+        }
 
     member this.Map (embed: Func<'T, 'U>, unembed: Func<'U, 'T>) =
         Sitelet.Map embed.Invoke unembed.Invoke this
 
-open System.Threading.Tasks
+    member this.Embed (embed: Func<'T, 'U>, unembed: Func<'U, option<'T>>) =
+        Sitelet.Embed embed.Invoke unembed.Invoke this
+        
+    member this.Shift (prefix: string) =
+        Sitelet.Shift prefix this
+
+[<Extension>]
+type SiteletExtensions =
+    static member Unbox<'T when 'T: equality>(sitelet: Sitelet<obj>) =
+        Sitelet.Unbox<'T> sitelet
 
 type SiteletBuilder() =
 

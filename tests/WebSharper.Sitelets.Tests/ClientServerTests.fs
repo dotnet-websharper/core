@@ -49,16 +49,16 @@ module ClientServerTests =
                         async {
                             try
                                 let! res = ShiftedRouter |> Router.Ajax testValue
-                                return Choice1Of2 res
+                                return box res
                             with e ->
-                                return Choice2Of2 e
+                                return box e.StackTrace
                         }
                     ) |> Async.Parallel
                 let expectedResults =
                     testValuesAndServerLinks |> Array.map (fun (_, serverLink) ->
-                        Choice1Of2 serverLink
+                        box serverLink
                     )
-                equal ajaxResults expectedResults
+                deepEqual ajaxResults expectedResults
             }
         }
 

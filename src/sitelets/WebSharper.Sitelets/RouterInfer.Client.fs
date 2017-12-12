@@ -102,12 +102,24 @@ module private ClientRoutingInternals =
         | Some attrs -> attrReader.GetAnnotation attrs
         | _ -> Annotation.Empty
 
+    let getAnnotNamed name attrsOpt =
+        match attrsOpt with
+        | Some attrs -> attrReader.GetAnnotation(attrs, name)
+        | _ -> Annotation.Empty
+
 type RoutingMacro() =
     inherit Macro()
     
     let mutable allJSClassesInitialized = false
     let allJSClasses = Dictionary()
     let parsedClassEndpoints = Dictionary()
+
+    let someOf x = Object [ "$", cInt 1; "$0", x ]
+    let none = Value Null
+    let optOf x =
+        match x with
+        | None -> none
+        | Some v -> someOf (cString v)
 
     override this.TranslateCall(c) =
         match c.Method.Generics with
@@ -214,25 +226,24 @@ type RoutingMacro() =
                                     )
                                 )
                             Call(None, NonGeneric routerOpsModule, NonGeneric RecordOp, [ getProto(); fields ])    
-                        | M.FSharpUnionInfo u ->
-                            let someOf x = Object [ "$", cInt 1; "$0", x ]
-                            let none = Value Null
+                        | M.FSharpUnionInfo u ->                        
                             let cases =
                                 NewArray (
                                     u.Cases |> List.map (fun c ->
-                                        let annot = comp.GetMethodAttributes(e, M.UnionCaseConstructMethod e c) |> getAnnot
-                                        let path, isEmpty = 
+                                        let annot = comp.GetMethodAttributes(e, M.UnionCaseConstructMethod e c) |> getAnnotNamed c.Name
+                                        let method, path, isEmpty = 
                                             match annot.EndPoint with 
                                             | Some (m, e) -> 
                                                 match S.ReadEndPointString e with
-                                                | [||] -> NewArray [], true
-                                                | s -> s |> Seq.map cString |> List.ofSeq |> NewArray, false
-                                            | _ -> NewArray [ cString c.Name ], false 
+                                                | [||] -> m, NewArray [], true
+                                                | s -> m, s |> Seq.map cString |> List.ofSeq |> NewArray, false
+                                            | _ -> None, NewArray [ cString c.Name ], false 
+                                        let m = optOf method
                                         match c.Kind with
                                         | M.ConstantFSharpUnionCase v ->
-                                            NewArray [ someOf (Value v); path; NewArray [] ]
+                                            NewArray [ m; someOf (Value v); path; NewArray [] ]
                                         | M.SingletonFSharpUnionCase ->
-                                            NewArray [ none; path; NewArray [] ]
+                                            NewArray [ m; none; path; NewArray [] ]
                                         | M.NormalFSharpUnionCase fields ->
                                             if isEmpty && not (List.isEmpty fields) then
                                                 failwithf "Union case %s.%s with root EndPoint cannot have any fields" e.Value.FullName c.Name
@@ -246,7 +257,7 @@ type RoutingMacro() =
                                                 )
                                             if queryFields |> Option.exists (fun q -> q.Count > 0) then
                                                 failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
-                                            NewArray [ none; path; NewArray fRouters ]
+                                            NewArray [ m; none; path; NewArray fRouters ]
                                     )
                                 )
 

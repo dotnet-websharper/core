@@ -73,7 +73,7 @@ module internal ServerRouting =
         attrReader.GetAnnotation(t.GetCustomAttributesData())
 
     let getUnionCaseAnnot (uc: Reflection.UnionCaseInfo) =
-        attrReader.GetAnnotation(uc.GetCustomAttributesData())
+        attrReader.GetAnnotation(uc.GetCustomAttributesData(), uc.Name)
 
     let getPropertyAnnot (p: Reflection.PropertyInfo) =
         attrReader.GetAnnotation(p.GetCustomAttributesData())
@@ -91,7 +91,9 @@ module internal ServerRouting =
             eprintfn "Reflection error in Warp.Internals, not a Call: %A" expr
             Unchecked.defaultof<_>
 
-    let jsonRouterGet = getMethod <@ IJson<int> @>
+    let jsonRouterM = getMethod <@ IJson<int> @>
+    let getJsonRouter (t: Type) = 
+        jsonRouterM.MakeGenericMethod(t).Invoke(null, [||]) :?> InferredRouter
 
     let recurringOn = HashSet()
     
@@ -120,7 +122,7 @@ module internal ServerRouting =
             let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
             if gd = typedefof<option<_>> then 
                 let item = t.GetGenericArguments().[0]
-                getRouter item |> IQueryOption t name
+                getRouter item |> IQueryOption item name
             elif gd = typedefof<Nullable<_>> then 
                 let item = t.GetGenericArguments().[0]
                 getRouter item |> IQueryNullable name
@@ -133,8 +135,7 @@ module internal ServerRouting =
         | Some _ -> q() |> IFormData
         | _ -> 
         match annot.Json with
-        | Some _ ->
-            jsonRouterGet.MakeGenericMethod(t).Invoke(null, [||]) :?> InferredRouter
+        | Some _ -> getJsonRouter t
         | _ when annot.IsWildcard -> wildCardRouter t
         | _ -> r() 
 
@@ -196,7 +197,7 @@ module internal ServerRouting =
                                 let q() =
                                     if fTyp.IsGenericType && fTyp.GetGenericTypeDefinition() = typedefof<option<_>> then 
                                         let item = fTyp.GetGenericArguments().[0]
-                                        getRouter item |> IQueryOption fTyp fName
+                                        getRouter item |> IQueryOption item fName
                                     else
                                         r() |> IQuery fName
                                 if queryFields.Contains fName then 
@@ -207,7 +208,7 @@ module internal ServerRouting =
                                     q() |> IFormData
                                 elif Option.isSome jsonField && jsonField.Value = fName then
                                     jsonField <- None
-                                    jsonRouterGet.MakeGenericMethod(fTyp).Invoke(null, [||]) :?> InferredRouter
+                                    getJsonRouter fTyp
                                 elif cAnnot.IsWildcard && i = fields.Length - 1 then
                                     wildCardRouter fTyp
                                 else r()

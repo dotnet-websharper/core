@@ -82,7 +82,7 @@ type AttributeReader<'A>() =
     abstract GetCtorArgOpt : 'A -> string option
     abstract GetCtorParamArgs : 'A -> string[]
 
-    member this.GetAnnotation(attrs: seq<'A>) =
+    member this.GetAnnotation(attrs: seq<'A>, ?name: string) =
         let ep = ResizeArray()
         let ms = ResizeArray()
         let cn = ref None 
@@ -133,18 +133,21 @@ type AttributeReader<'A>() =
                     cn := this.GetCtorArgOpt(attr)
                 | _ -> ()
             | _ -> ()
-        if ep.Count = 0 then !cn |> Option.iter ep.Add
+        if ep.Count = 0 then
+            match name with
+            | Some n ->
+                match !cn with 
+                | Some cn -> ep.Add cn 
+                | _ -> ep.Add n
+            | _ -> ()
         let endpoints =
-            match ep.Count, ms.Count with
-            | 0, 0 -> []
-            | 0, _ -> ms |> Seq.map (fun m -> Some m, "") |> List.ofSeq
-            | _, 0 -> 
+            if ms.Count = 0 then
                 ep |> Seq.map (fun e -> 
                     match e.IndexOf(" ") with
                     | -1 -> None, e
                     | i -> Some (e.Substring(0, i)), e.Substring(i + 1)
                 ) |> List.ofSeq
-            | _ ->
+            else
                 [
                     for e in ep do
                         for m in ms ->

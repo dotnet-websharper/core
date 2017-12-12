@@ -302,7 +302,7 @@ module internal ServerInferredOperators =
                     let innerResult = path.Result
                     path.Result <- currentResult 
                     match innerResult with
-                    | InvalidMethod m -> Some (caseCtors.[1] [| v; box m |])    
+                    | InvalidMethod m -> Some (caseCtors.[1] [| v; m |])    
                     | InvalidJson -> Some (caseCtors.[2] [| v |])    
                     | MissingQueryParameter k -> Some (caseCtors.[3] [| v; k |])    
                     | MissingFormData k -> Some (caseCtors.[4] [| v; k |])    
@@ -597,68 +597,82 @@ module internal ServerInferredOperators =
             cases |> Array.map (fun (_, s, fields) -> 
                 String.concat "/" s, fields
             )
-        {
-            IParse = 
-                match lookupCases.TryGetValue(None) with
-                | true, lookup when lookupCases.Count = 1 -> 
-                    // no union case specifies a method
-                    fun path ->
-                        match path.Segments with
-                        | [] -> 
-                            match lookup.TryGetValue("") with
-                            | true, parse -> parse [] path
-                            | _ -> None
-                        | h :: t ->
-                            match lookup.TryGetValue(h) with
-                            | true, parse -> parse t path
-                            | _ -> None
-                | _ ->
-                    // some union case specifies a method
-                    let ignoreMethodLookup =
-                        match lookupCases.TryGetValue(None) with
-                        | true, lookup -> lookup
-                        | _ -> dict []
-                    let wrongMethodLookup = 
-                        lookupCases |> Seq.collect (fun (KeyValue(m, l)) ->
-                            if Option.isSome m then 
-                                l |> Seq.map (fun (KeyValue(h, p)) -> h, p)
-                            else Seq.empty
-                        ) |> Seq.groupBy fst |> Seq.map (fun (m, ps) ->
-                            match ps |> Seq.map snd |> Array.ofSeq with
-                            | [| p |] -> p
-                            | parsers -> 
-                                fun p path ->
-                                    parsers |> Array.tryPick (fun parse -> parse p path)                        
-                        )
-                    fun path ->
-                        let notFound() =
-                            match path.Result with
-                            | StrictMode -> None
-                            | _ -> error (InvalidMethod path.Method.Value) path
-                        let explicit =
-                            match lookupCases.TryGetValue(path.Method) with
-                            | true, lookup -> 
+        let parse =
+            match lookupCases.TryGetValue(None) with
+            | true, lookup when lookupCases.Count = 1 -> 
+                // no union case specifies a method
+                fun path ->
+                    match path.Segments with
+                    | [] -> 
+                        match lookup.TryGetValue("") with
+                        | true, parse -> parse [] path
+                        | _ -> None
+                    | h :: t ->
+                        match lookup.TryGetValue(h) with
+                        | true, parse -> parse t path
+                        | _ -> None
+            | _ ->
+                // some union case specifies a method
+                let ignoreMethodLookup =
+                    match lookupCases.TryGetValue(None) with
+                    | true, lookup -> lookup
+                    | _ -> dict []
+                let wrongMethodLookup = 
+                    lookupCases |> Seq.collect (fun (KeyValue(m, l)) ->
+                        if Option.isSome m then 
+                            l |> Seq.map (fun (KeyValue(h, p)) -> h, p)
+                        else Seq.empty
+                    ) |> Seq.groupBy fst |> Seq.map (fun (h, ps) ->
+                        match ps |> Seq.map snd |> Array.ofSeq with
+                        | [| p |] -> h, p
+                        | parsers -> 
+                            h,
+                            fun p path ->
+                                parsers |> Array.tryPick (fun parse -> parse p path)                        
+                    ) |> dict
+                fun path ->
+                    let notFound() =
+                        match path.Result with
+                        | StrictMode -> None
+                        | _ -> 
+                            let res =
                                 match path.Segments with
                                 | [] -> 
-                                    match lookup.TryGetValue("") with
+                                    match wrongMethodLookup.TryGetValue("") with
                                     | true, parse -> parse [] path
-                                    | _ -> notFound()
+                                    | _ -> None
                                 | h :: t ->
-                                    match lookup.TryGetValue(h) with
+                                    match wrongMethodLookup.TryGetValue(h) with
                                     | true, parse -> parse t path
-                                    | _ -> notFound()
-                            | _ -> notFound()
-                        if Option.isSome explicit then explicit else
-                        // not found with explicit method, fall back to cases ignoring method
-                        match path.Segments with
-                        | [] -> 
-                            match ignoreMethodLookup.TryGetValue("") with
-                            | true, parse -> parse [] path
-                            | _ -> notFound()
-                        | h :: t ->
-                            match ignoreMethodLookup.TryGetValue(h) with
-                            | true, parse -> parse t path
-                            | _ -> notFound()
+                                    | _ -> None
+                            if Option.isSome res then path.Result <- InvalidMethod path.Method.Value 
+                            res
+                    let explicit =
+                        match lookupCases.TryGetValue(path.Method) with
+                        | true, lookup -> 
+                            match path.Segments with
+                            | [] -> 
+                                match lookup.TryGetValue("") with
+                                | true, parse -> parse [] path
+                                | _ -> notFound()
+                            | h :: t ->
+                                match lookup.TryGetValue(h) with
+                                | true, parse -> parse t path
+                                | _ -> notFound()
+                        | _ -> notFound()
+                    if Option.isSome explicit then explicit else
+                    // not found with explicit method, fall back to cases ignoring method
+                    match path.Segments with
+                    | [] -> 
+                        match ignoreMethodLookup.TryGetValue("") with
+                        | true, parse -> parse [] path
+                        | _ -> notFound()
+                    | h :: t ->
+                        match ignoreMethodLookup.TryGetValue(h) with
+                        | true, parse -> parse t path
+                        | _ -> notFound()
+        {
+            IParse = parse
             IWrite = fun (w, value) ->
                 let tag = getTag value
                 let path, fields = writeCases.[tag]

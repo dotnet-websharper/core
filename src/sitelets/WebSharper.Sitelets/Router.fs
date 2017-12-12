@@ -109,6 +109,12 @@ type Path =
             Segments = s
         }
 
+    static member Segment (s, m) =
+        { Path.Empty with
+            Segments = s
+            Method = m
+        }
+
     static member Combine (paths: seq<Path>) =
         let paths = Seq.toArray paths
         match paths.Length with
@@ -172,8 +178,19 @@ type Path =
         { Path.FromUrl(p) with
             Method = Some r.HttpMethod
             Body =
-                if not (isNull r.InputStream) then 
-                    use reader = new System.IO.StreamReader(r.InputStream)
+                let i = r.InputStream 
+                if not (isNull i) then 
+                    // We need to copy the stream because else StreamReader would close it.
+                    use m =
+                        if i.CanSeek then
+                            new System.IO.MemoryStream(int i.Length)
+                        else
+                            new System.IO.MemoryStream()
+                    i.CopyTo m
+                    if i.CanSeek then
+                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    use reader = new System.IO.StreamReader(m)
                     Some (reader.ReadToEnd())
                 else None
         }
@@ -192,6 +209,11 @@ module internal List =
         | [], _ -> Some l
         | sh :: sr, lh :: lr when sh = lh -> startsWith sr lr
         | _ -> None
+
+type IRouter<'Action> =
+    abstract Route : Http.Request -> option<'Action>
+    abstract Link : 'Action -> option<Location>
+    abstract Handles : 'Action -> bool
 
 [<JavaScript>]
 type Router =
@@ -268,7 +290,7 @@ and [<JavaScript>] Router<'T when 'T: equality> =
     static member (/) (before: Router, after: Router<'T>) =
         {
             Parse = fun path ->
-                before.Parse path |> Seq.collect (fun p -> after.Parse p |> Seq.map (fun (p, y) -> (p, y)))
+                before.Parse path |> Seq.collect after.Parse
             Write = fun v ->
                 after.Write v |> Option.map (Seq.append before.Segment)
             //CanWrite = fun (v1, v2) -> before.CanWrite v1 && after.CanWrite v2
@@ -520,8 +542,13 @@ module Router =
                 routers |> Seq.tryPick (fun r -> r.Write value)
         }
     
+    // todo: optimize
     let Table<'T when 'T : equality> (mapping: seq<'T * string>) : Router<'T> =
         mapping |> Seq.map (fun (v, s) -> Router.FromString s |> MapTo v) |> Sum 
+
+    // todo: optimize
+    let Single<'T when 'T : equality> (action: 'T) (route: string) : Router<'T> =
+        Router.FromString route |> MapTo action
 
     let Recursive<'T when 'T: equality> (createRouter: Router<'T> -> Router<'T>) : Router<'T> =
         let res = ref Unchecked.defaultof<Router<'T>>
@@ -749,7 +776,7 @@ module RouterOperators =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (string value)))
+                Some (Seq.singleton (Path.Segment (if value then "True" else "False")))
         }
 
     /// Parse/write an int.
@@ -914,63 +941,70 @@ module RouterOperators =
         let fields = fields |> Array.map snd
         Record readFields createRecord fields
     
-    let internal Union getTag readFields createCase (cases: (string[] * Router<obj>[])[]) : Router<obj> =
+    let internal Union getTag readFields createCase (cases: (option<string> * string[] * Router<obj>[])[]) : Router<obj> =
         {
             Parse = fun path ->
-                cases |> Seq.indexed |> Seq.collect (fun (i, (s, fields)) ->
-                    match path.Segments |> List.startsWith (List.ofArray s) with
-                    | Some p -> 
-                        match List.ofArray fields with
-                        | [] -> Seq.singleton ({ path with Segments = p }, createCase i [||])
-                        | fields -> 
-                            let rec collect fields path acc =
-                                match fields with 
-                                | [] -> Seq.singleton (path, createCase i (Array.ofList (List.rev acc)))
-                                | h :: t -> h.Parse path |> Seq.collect(fun (p, a) -> collect t p (a :: acc))
-                            collect fields { path with Segments = p } []
-                    | None -> Seq.empty
+                cases |> Seq.indexed |> Seq.collect (fun (i, (m, s, fields)) ->
+                    let correctMethod =
+                        match path.Method, m with
+                        | Some pm, Some m -> pm = m
+                        | _, Some _ -> false
+                        | _ -> true
+                    if correctMethod then
+                        match path.Segments |> List.startsWith (List.ofArray s) with
+                        | Some p -> 
+                            match List.ofArray fields with
+                            | [] -> Seq.singleton ({ path with Segments = p }, createCase i [||])
+                            | fields -> 
+                                let rec collect fields path acc =
+                                    match fields with 
+                                    | [] -> Seq.singleton (path, createCase i (Array.ofList (List.rev acc)))
+                                    | h :: t -> h.Parse path |> Seq.collect(fun (p, a) -> collect t p (a :: acc))
+                                collect fields { path with Segments = p } []
+                        | None -> Seq.empty
+                    else
+                        Seq.empty
                 )
             Write = fun value ->
                 let tag = getTag value
-                let path, fields = cases.[tag]
+                let method, path, fields = cases.[tag]
                 match fields with
-                | [||] -> Some (Seq.singleton (Path.Segment (List.ofArray path))) 
+                | [||] -> Some (Seq.singleton (Path.Segment (List.ofArray path, method))) 
                 | _ ->
-                    let path, fields = cases.[tag]
                     let fieldParts =
                         (readFields tag value, fields) ||> Array.map2 (fun v f -> f.Write v)
                     if Array.forall Option.isSome fieldParts then
-                        Some (Seq.append (Seq.singleton (Path.Segment (List.ofArray path))) (fieldParts |> Seq.collect Option.get))
+                        Some (Seq.append (Seq.singleton (Path.Segment (List.ofArray path, method))) (fieldParts |> Seq.collect Option.get))
                     else None                      
         }
 
-    let internal JSUnion (t: obj) (cases: (option<obj> * string[] * Router<obj>[])[]) : Router<obj> = 
+    let internal JSUnion (t: obj) (cases: (option<obj> * option<string> * string[] * Router<obj>[])[]) : Router<obj> = 
         let getTag value = 
             let constIndex =
                 cases |> Seq.tryFindIndex (
                     function
-                    | Some c, _, _ -> value = c
+                    | Some c, _, _, _ -> value = c
                     | _ -> false
                 )
             match constIndex with
             | Some i -> i
             | _ -> value?("$") 
         let readFields tag value =
-            let _, _, fields = cases.[tag]
+            let _, _, _, fields = cases.[tag]
             Array.init fields.Length (fun i ->
                 value?("$" + string i)
             )
         let createCase tag fieldValues =
             let o = if isNull t then New [] else JS.New t
             match cases.[tag] with
-            | Some constant, _, _ -> constant
+            | Some constant, _, _, _ -> constant
             | _ ->
                 o?("$") <- tag
                 fieldValues |> Seq.iteri (fun i v ->
                     o?("$" + string i) <- v
                 )
                 o
-        let cases = cases |> Array.map (fun (_, p, r) -> p, r) 
+        let cases = cases |> Array.map (fun (_, m, p, r) -> m, p, r) 
         Union getTag readFields createCase cases
 
     let internal Class (readFields: obj -> obj[]) (createObject: obj[] -> obj) (partsAndFields: Choice<string, Router<obj>>[]) (subClasses: Router<obj>[]) =

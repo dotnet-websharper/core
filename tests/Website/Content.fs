@@ -72,6 +72,7 @@ let TestsPage (ctx: Context<FullAction>) =
     let t12 = (1, 2)
     let jsonBaseUri =
         Tests.Json.String ""
+        |> ActionEncoding.Success
         |> SampleSite.Json
         |> SiteletsTests
         |> ctx.Link
