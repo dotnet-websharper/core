@@ -22,7 +22,7 @@ module WebSharper.Tests.Math
 
 open WebSharper
 open WebSharper.Testing
-module R = WebSharper.Testing.Random
+module R = WebSharper.Testing.RandomValues
 type private Math = System.Math
 
 [<JavaScript>]

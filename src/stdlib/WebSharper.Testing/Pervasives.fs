@@ -30,7 +30,7 @@ module internal Internal =
     open WebSharper.Core
     open WebSharper.Core.AST
 
-    open WebSharper.Testing.Random.Internal
+    open WebSharper.Testing.RandomValues.Internal
 
     let asserter = ty "WebSharper.Testing.Pervasives+QUnit+Asserter"
     let runnerOf t = !@asserter ^-> Definitions.FSharpChoice 2 @@[t; Definitions.FSharpAsync @@[t]]
@@ -1049,7 +1049,7 @@ type SubtestBuilder () =
     member this.PropertyWithSample<'T, 'A, 'B>
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] sample: 'A -> Random.Sample<'T>,
+            [<ProjectionParameter>] sample: 'A -> RandomValues.Sample<'T>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
         fun asserter ->
@@ -1068,7 +1068,7 @@ type SubtestBuilder () =
             )
 
     /// Runs a test for each element in a randomly generated sample.
-    member this.For(sample: Random.Sample<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+    member this.For(sample: RandomValues.Sample<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
         fun asserter ->
             let rec loop (acc: Choice<'B, Async<'B>>) (src: list<'A>) =
                 match src with
@@ -1084,14 +1084,14 @@ type SubtestBuilder () =
     member this.PropertyWith<'T, 'A, 'B>
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] gen: 'A -> Random.Generator<'T>,
+            [<ProjectionParameter>] gen: 'A -> RandomValues.Generator<'T>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
-            this.PropertyWithSample(r, (fun args -> Random.Sample<'T>(gen args)), attempt)
+            this.PropertyWithSample(r, (fun args -> RandomValues.Sample<'T>(gen args)), attempt)
 
     /// Runs a test for 100 occurrences of a random generator.
-    member this.For(gen: Random.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
-        this.For(Random.Sample(gen), f)
+    member this.For(gen: RandomValues.Generator<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        this.For(RandomValues.Sample(gen), f)
 
     /// Runs a test for 100 random occurrences.
     [<CustomOperation("property", MaintainsVariableSpace = true)>]
@@ -1101,7 +1101,7 @@ type SubtestBuilder () =
             r: Runner<'A>,
             [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
         ) : Runner<'A> =
-            this.PropertyWithSample(r, (fun _ -> Random.Sample<'T>()), attempt)
+            this.PropertyWithSample(r, (fun _ -> RandomValues.Sample<'T>()), attempt)
 
     /// Checks that an expression raises an exception.
     [<CustomOperation("raises", MaintainsVariableSpace = true)>]
@@ -1255,4 +1255,4 @@ let PropertyWithSample name set f =
 
 [<Macro(typeof<Internal.PropertyMacro>)>]
 let Property<'T, 'O> name (f: 'T -> Runner<'O>) =
-    PropertyWith name (Random.Auto<'T>()) f
+    PropertyWith name (RandomValues.Auto<'T>()) f

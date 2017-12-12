@@ -163,6 +163,17 @@ namespace WebSharper.CSharp.Tests
             Equal(x, x, "Self-equal: " + As<string>(x));
         }
 
+        [Test]
+        public void RandomPropertyTest()
+        {
+            foreach (var awrr in RandomValues.ArrayOf(RandomValues.Int))
+                Equal(awrr, awrr);
+            foreach (var arr in new RandomValues.Sample<int[]>(RandomValues.ArrayOf(RandomValues.Int)))
+                Equal(arr, arr);
+            foreach (var arr in new RandomValues.Sample<int[]>())
+                Equal(arr, arr);
+        }
+
         [Inline("$a + $b")]
         public static object InlinedAdd(object a, object b) => X<object>();
 

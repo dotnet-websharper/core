@@ -19,12 +19,14 @@
 // $end{copyright}
 
 /// Random test case generators and their combinators.
-module WebSharper.Testing.Random
+module WebSharper.Testing.RandomValues
 
 open WebSharper
 open WebSharper.JavaScript
+open System
 
 /// A test case generator.
+[<JavaScript>]
 type Generator<'T> =
     {
         /// An array of values that must be tested against.
@@ -163,12 +165,14 @@ let ArrayOf (generator: Generator<'T>) : Generator<'T[]> =
 
 /// Generates random resizable arrays.
 [<JavaScript>]
+[<CompiledName "GenericListOf">]
 let ResizeArrayOf (generator: Generator<'T>) : Generator<ResizeArray<'T>> =
     ArrayOf generator
     |> Map ResizeArray
 
 /// Generates random lists.
 [<JavaScript>]
+[<CompiledName "FSharpListOf">]
 let ListOf (generator: Generator<'T>) : Generator<list<'T>> =
     ArrayOf generator
     |> Map Array.toList
@@ -274,7 +278,7 @@ let Mix (a: Generator<'T>) (b: Generator<'T>) : Generator<'T> =
 
 /// Mixes many generators witohut bias.
 [<JavaScript>]
-let MixMany (gs: Generator<'T>[]) : Generator<'T> =
+let MixMany ([<ParamArray>] gs: Generator<'T>[]) : Generator<'T> =
     {
         Base = Array.concat [| for g in gs -> g.Base |]
         Next =
@@ -286,7 +290,7 @@ let MixMany (gs: Generator<'T>[]) : Generator<'T> =
 
 /// Mixes many generators ignoring their bases.
 [<JavaScript>]
-let MixManyWithoutBases (gs: Generator<'T>[]) : Generator<'T> =
+let MixManyWithoutBases ([<ParamArray>] gs: Generator<'T>[]) : Generator<'T> =
     {
         Base = [||]
         Next =
@@ -361,10 +365,10 @@ module internal Internal =
     let inline (!@) t = NonGenericType t
     let asm = "WebSharper.Testing"
     let ty name = Hashed { Assembly = asm; FullName = name }
-    let random = NonGeneric (ty "WebSharper.Testing.Random")
-    let sampleOf t = ty "WebSharper.Testing.Random+Sample`1" @@[t]
-    let generatorOf t = ty "WebSharper.Testing.Random+Generator`1" @@[t]
-    let staticSampleOf t = Generic (ty "WebSharper.Testing.Random+Sample`1") [t]
+    let random = NonGeneric (ty "WebSharper.Testing.RandomValues")
+    let sampleOf t = ty "WebSharper.Testing.RandomValues+Sample`1" @@[t]
+    let generatorOf t = ty "WebSharper.Testing.RandomValues+Generator`1" @@[t]
+    let staticSampleOf t = Generic (ty "WebSharper.Testing.RandomValues+Sample`1") [t]
     let arrayOf t = ArrayType(t, 1)
     let tupleOf ts = TupleType(ts, false)
     let (^->) tin tout = FSharpFuncType(tin, tout)
@@ -423,10 +427,10 @@ module internal Internal =
                 wrap, Choice1Of2 (nonGenericGen "String" e)
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "Microsoft.FSharp.Collections.FSharpList`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
-                wrap, Choice1Of2 (genericGen "ListOf" t ((@@) Definitions.FSharpList) x)
+                wrap, Choice1Of2 (genericGen "FSharpListOf" t ((@@) Definitions.FSharpList) x)
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.Collections.Generic.List`1" ->
                 mkGenerator wrap t >>= fun wrap x ->
-                wrap, Choice1Of2 (genericGen "ResizeArrayOf" t ((@@) Definitions.ResizeArray) x)
+                wrap, Choice1Of2 (genericGen "GenericListOf" t ((@@) Definitions.ResizeArray) x)
             | T.TupleType ([t1; t2], _) ->
                 mkGenerator wrap t1 >>= fun wrap x1 ->
                 mkGenerator wrap t2 >>= fun wrap x2 ->
@@ -503,7 +507,6 @@ let Auto<'A>() : Generator<'A> =
     }
 
 [<JavaScript>]
-[<Name "WebSharper.Testing.Random.Sample">]
 type Sample<'A> (data: list<'A>) =
 
     static member Make<'A> generator count =
@@ -526,3 +529,13 @@ type Sample<'A> (data: list<'A>) =
     new (count: int) = new Sample<'A>(Auto<'A>(), count)
 
     new (generator: Generator<'A>) = new Sample<'A>(generator, 100)
+
+    member this.GetEnumerator() = (Seq.ofList this.Data).GetEnumerator()
+
+    interface seq<'A> with
+        member this.GetEnumerator() = (Seq.ofList this.Data).GetEnumerator()
+        member this.GetEnumerator() = (Seq.ofList this.Data).GetEnumerator() :> System.Collections.IEnumerator
+
+[<JavaScript>]
+type Generator<'T> with
+    member this.GetEnumerator() = (Sample(this)).GetEnumerator()

@@ -44,13 +44,13 @@ type Sitelet<'T when 'T : equality> =
     member Box : unit -> Sitelet<obj>
     
     /// Constructs a protected sitelet given the filter specification.
-    member Protect : verifyUser: Func<string, bool> * loginRedirect: Func<'Action, 'Action> -> Sitelet<'T>
+    member Protect : verifyUser: Func<string, bool> * loginRedirect: Func<'T, 'T> -> Sitelet<'T>
 
     /// Maps over the sitelet action type. Requires a bijection.
-    member Map : embed: Func<'T, 'U> * unembed: Func<'U, 'T> -> Sitelet<'T>
+    member Map<'U when 'U : equality> : embed: Func<'T, 'U> * unembed: Func<'U, 'T> -> Sitelet<'U>
 
     /// Maps over the sitelet action type with only an injection.
-    member Embed : embed: Func<'T, 'U> * unembed: Func<'U, option<'T>> -> Sitelet<'T>
+    member Embed<'U when 'U : equality> : embed: Func<'T, 'U> * unembed: Func<'U, option<'T>> -> Sitelet<'U>
         
     /// Shifts all sitelet locations by a given prefix.
     member Shift : prefix: string -> Sitelet<'T>
