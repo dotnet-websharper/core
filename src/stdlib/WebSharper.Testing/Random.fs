@@ -140,7 +140,7 @@ let Within (low: int) (hi: int) : Generator<int> =
                 (Natural.Next() % (hi - low)) + low
     }
 
-/// Generates integers within a range.
+/// Generates doubles within a range.
 [<JavaScript>]
 let FloatWithin (low: float, hi: float) : Generator<float> =
     {

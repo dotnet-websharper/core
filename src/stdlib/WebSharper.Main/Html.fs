@@ -84,8 +84,12 @@ module Activator =
                     let obj = Json.Activate (Json.Parse text)
                     JS.GetFields obj
                     |> Array.iter (fun (k, v) ->
-                        let p = (As<IControl> v).Body
-                        let old = JS.Document.GetElementById k
-                        p.ReplaceInDom old)
+                        match v with
+                        | :? IControl as v ->
+                            let p = v.Body
+                            let old = JS.Document.GetElementById k
+                            p.ReplaceInDom old
+                        | _ -> ()
+                    )
                 ).Ignore
 

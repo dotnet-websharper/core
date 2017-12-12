@@ -1128,32 +1128,37 @@ let scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue
                 match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
                 | Some x ->
                     x |> Array.iter (fun i ->
-                        let e =
-                            match arguments.[i] with
-                            | P.Quote e -> e
-                            | P.Value v ->
-                                match vars.TryGetValue v with
-                                | true, e -> e
-                                | false, _ -> failwith "JavaScript attribute can only be used on a quotation argument."
-                            | _ -> failwith "JavaScript attribute can only be used on a quotation argument."
-                        let pos = e.Range.AsSourcePos
-                        let e = transformExpression env e
-                        let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
-                        let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
-                        let typ =
-                            Hashed {
-                                TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
-                                TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
-                            }
-                        let m =
-                            Hashed {
-                                MethodInfo.Generics = 0
-                                MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
-                                MethodInfo.Parameters = argTypes
-                                MethodInfo.ReturnType = retTy
-                            }
-                        let argIds = [ for (v, id, _) in env.FreeVars -> id, v.LogicalName ]
-                        env.Compilation.AddQuotation(pos, typ, m, argIds, e)
+                        let arg = arguments.[i]
+                        let err() =
+                            env.Compilation.AddError(Some arg.Range.AsSourcePos,
+                                CompilationError.SourceError "JavaScript attribute can only be used on a quotation argument.")
+                        match arg with
+                        | P.Quote e -> Some e
+                        | P.Value v ->
+                            match vars.TryGetValue v with
+                            | true, e -> Some e
+                            | false, _ -> err(); None
+                        | _ -> err(); None
+                        |> Option.iter (fun e ->
+                            let pos = e.Range.AsSourcePos
+                            let e = transformExpression env e
+                            let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                            let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
+                            let typ =
+                                Hashed {
+                                    TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
+                                    TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
+                                }
+                            let m =
+                                Hashed {
+                                    MethodInfo.Generics = 0
+                                    MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
+                                    MethodInfo.Parameters = argTypes
+                                    MethodInfo.ReturnType = retTy
+                                }
+                            let argIds = [ for (v, id, _) in env.FreeVars -> id, v.LogicalName ]
+                            env.Compilation.AddQuotation(pos, typ, m, argIds, e)
+                        )
                     )
                 | _ -> default'()
             | _ -> default'()
