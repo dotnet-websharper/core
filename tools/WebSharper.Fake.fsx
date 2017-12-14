@@ -90,6 +90,11 @@ let git cmd =
         Git.CommandHelper.directRunGitCommandAndFail "." s
     ) cmd
 
+let gitSilentNoFail cmd =
+    Printf.kprintf (fun s ->
+        Git.CommandHelper.directRunGitCommand "." s
+    ) cmd
+
 let hg cmd = shell "hg" cmd
 let hg' cmd = shellOut "hg" cmd
 
@@ -309,7 +314,13 @@ let MakeTargets (args: Args) =
                     try git "checkout -f -b %s" branch
                     with _ -> raise e
                 if args.MergeMaster then
-                    git "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef
+                    if not <| gitSilentNoFail "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef then
+                        for st, f in Git.FileStatus.getAllFiles "." do
+                            match st with
+                            | Git.FileStatus.Deleted -> git "rm %s" f
+                            | Git.FileStatus.Renamed -> try git "rm %s" f with _ -> File.Delete f
+                            | Git.FileStatus.Added -> try git "checkout %s -- %s" args.BaseRef f with _ -> File.Delete f
+                            | _ -> git "checkout %s -- %s" args.BaseRef f
             else
                 if Hg.branchExists branch
                 then hg "update -C %s" branch
