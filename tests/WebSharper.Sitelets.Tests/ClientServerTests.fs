@@ -48,7 +48,7 @@ module ClientServerTests =
                     testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
                         async {
                             try
-                                let! res = ShiftedRouter |> Router.Ajax testValue
+                                let! res = Router.Ajax ShiftedRouter testValue
                                 return box res
                             with e ->
                                 return box e.StackTrace

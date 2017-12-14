@@ -80,6 +80,19 @@ module PerformanceTests =
             UArray [| 1, "hi"; 2, "hi!"; 3, "hi!!" |]
             UPost 1
             UPut 2
+            UPost2 3
+            UJsonInput { A = "hello"; B = 123; C = false }
+            UJsonInt 4
+            UFormData "hello"
+            UMultiple
+            UMultiple2 1
+            UMultiple3 (1, 2)
+            UWildcardString "1/2/3/hi"
+            UWildcardArray [| 1; 2; 3 |]
+            UWildcardList [ 1; 2; 3 ]
+            UTwoUnions (A, A)
+            UTwoUnions (A1 1, A)
+            UTwoUnions (A1 1, A1 1)
         ]
 
     let Site =

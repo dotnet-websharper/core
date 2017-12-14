@@ -116,8 +116,20 @@ module internal ServerRouting =
             iWildcardList item (getRouter item)
         else failwithf "Invalid type for Wildcard field: %O" t
 
+    and getDateTimeRouter name fmt (t: Type) =
+        if t.FullName = "System.DateTime" then
+            iDateTime (Some fmt)
+        else failwithf "Expecting a DateTime field: %s" name
+    
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
-        let r() = getRouter t
+        let r() = 
+            match annot.DateTimeFormat with
+            | Some (Choice1Of2 fmt) ->
+                getDateTimeRouter name fmt t   
+            | Some (Choice2Of2 m) when m.ContainsKey name ->
+                getDateTimeRouter name m.[name] t    
+            | _ ->
+                getRouter t
         let q() =
             let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
             if gd = typedefof<option<_>> then 
@@ -165,7 +177,7 @@ module internal ServerRouting =
             if isGen && t.GetGenericTypeDefinition() = typedefof<list<_>> then
                 let item = t.GetGenericArguments().[0]
                 IList item (getRouter item)
-            elif isGen && t.GetGenericTypeDefinition() = typedefof<ActionEncoding.DecodeResult<_>> then
+            elif isGen && t.GetGenericTypeDefinition() = typedefof<ParseRequestResult<_>> then
                 let item = t.GetGenericArguments().[0]
                 IWithCustomErrors t (getRouter item)
             else
@@ -193,7 +205,14 @@ module internal ServerRouting =
                             fields |> Array.mapi (fun i f -> 
                                 let fTyp = f.PropertyType
                                 let fName = f.Name
-                                let r() = getRouter fTyp
+                                let r() = 
+                                    match cAnnot.DateTimeFormat with
+                                    | Some (Choice1Of2 fmt) ->
+                                        getDateTimeRouter fName fmt t   
+                                    | Some (Choice2Of2 m) when m.ContainsKey fName ->
+                                        getDateTimeRouter fName m.[fName] t    
+                                    | _ ->
+                                        getRouter fTyp
                                 let q() =
                                     if fTyp.IsGenericType && fTyp.GetGenericTypeDefinition() = typedefof<option<_>> then 
                                         let item = fTyp.GetGenericArguments().[0]
@@ -242,7 +261,7 @@ module internal ServerRouting =
             | "System.Double" ->
                 iDouble 
             | "System.DateTime" ->
-                iDateTime None // todo: pass along DateTimeFormat 
+                iDateTime None
             | "System.Nullable`1" ->
                 let item = t.GetGenericArguments().[0]
                 INullable (getRouter item)

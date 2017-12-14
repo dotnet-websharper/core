@@ -90,7 +90,10 @@ module private ClientRoutingInternals =
     let ClassOp = getMethod <@ RouterOperators.JSClass (fun () -> null) [||] [||] @>
     let BoxOp = getMethod <@ RouterOperators.JSBox Unchecked.defaultof<_> @>
     let DelayOp = getMethod <@ RouterOperators.JSDelayed Unchecked.defaultof<_> @>
-    
+    let rWildCardOp = getMethod <@ RouterOperators.rWildcard @>
+    let rWildCardArrayOp = getMethod <@ RouterOperators.rWildcardArray RouterOperators.rInt @>
+    let rWildCardListOp = getMethod <@ RouterOperators.rWildcardList RouterOperators.rInt @>
+
     let (|T|) (t: TypeDefinition) = t.Value.FullName
     let (|C|_|) (t: Type) =
         match t with 
@@ -157,6 +160,34 @@ type RoutingMacro() =
                     let _, _, call = genCall.Value
                     Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])    
             
+            and wildCardRouter (t: Type) =
+                match t with
+                | C (T "System.String", []) ->
+                    Call(None, NonGeneric routerOpsModule, NonGeneric rWildCardOp, []) 
+                | ArrayType (t, 1) ->
+                    Call(None, NonGeneric routerOpsModule, Generic rWildCardArrayOp [ t ], [ getRouter t ])   
+                | C (T "Microsoft.FSharp.Collections.FSharpList`1", [ t ]) ->
+                    Call(None, NonGeneric routerOpsModule, Generic rWildCardListOp [ t ], [ getRouter t ])   
+                | _ ->
+                    failwithf "Invalid type for Wildcard field: %O" t
+
+            and fieldRouter (t: Type) (annot: Annotation) name =
+                let r() = getRouter t
+                match annot.Query with
+                | Some _ -> 
+                    Call(None, NonGeneric routerOpsModule, NonGeneric QueryOp, [ cString name; r() ])
+                | _ ->
+                match annot.FormData with
+                | Some _ -> 
+                    Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ cString name; r() ])
+                | _ -> 
+                match annot.Json with
+                | Some _ ->
+                    Call(None, NonGeneric routerOpsModule, Generic JsonOp [ t ], [])
+                | _ when annot.IsWildcard ->
+                    wildCardRouter t
+                | _ -> r()
+
             and createRouter t =
                 match t with
                 | C (T "System.Object", []) ->
@@ -208,21 +239,8 @@ type RoutingMacro() =
                                     r |> List.map (fun f ->
                                         let fName = f.Name
                                         let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnot
-                                        let r() = getRouter (f.RecordFieldType.SubstituteGenerics(Array.ofList g))
-                                        let res =
-                                            match fAnnot.Query with
-                                            | Some _ -> 
-                                                Call(None, NonGeneric routerOpsModule, NonGeneric QueryOp, [ cString fName; r() ])
-                                            | _ ->
-                                            match fAnnot.FormData with
-                                            | Some _ -> 
-                                                Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ cString fName; r() ])
-                                            | _ -> 
-                                            match fAnnot.Json with
-                                            | Some _ ->
-                                                Call(None, NonGeneric routerOpsModule, Generic JsonOp [ t ], [])
-                                            | _ -> r()
-                                        NewArray [ cString f.JSName; res ]
+                                        let fTyp = f.RecordFieldType.SubstituteGenerics(Array.ofList g)
+                                        NewArray [ cString f.JSName; fieldRouter fTyp fAnnot fName ]
                                     )
                                 )
                             Call(None, NonGeneric routerOpsModule, NonGeneric RecordOp, [ getProto(); fields ])    
@@ -248,12 +266,20 @@ type RoutingMacro() =
                                             if isEmpty && not (List.isEmpty fields) then
                                                 failwithf "Union case %s.%s with root EndPoint cannot have any fields" e.Value.FullName c.Name
                                             let queryFields = annot.Query |> Option.map HashSet
+                                            let formDataFields = annot.FormData |> Option.map HashSet
+                                            let jsonField = annot.Json |> Option.bind id
                                             let fRouters = 
                                                 fields |> List.map (fun f ->
-                                                    let r = getRouter (f.UnionFieldType.SubstituteGenerics(Array.ofList g))
-                                                    if queryFields|> Option.exists (fun q -> q.Remove f.Name) then
-                                                        Call(None, NonGeneric routerOpsModule, NonGeneric QueryOp, [ cString f.Name; r ])
-                                                    else r
+                                                    let fTyp = f.UnionFieldType.SubstituteGenerics(Array.ofList g)
+                                                    let r() = getRouter fTyp
+                                                    if queryFields |> Option.exists (fun q -> q.Remove f.Name) then
+                                                        Call(None, NonGeneric routerOpsModule, NonGeneric QueryOp, [ cString f.Name; r() ])
+                                                    elif formDataFields |> Option.exists (fun q -> q.Remove f.Name) then
+                                                        Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ cString f.Name; r() ])
+                                                    elif jsonField |> Option.exists (fun j -> j = f.Name) then
+                                                        Call(None, NonGeneric routerOpsModule, Generic JsonOp [ fTyp ], [])
+                                                    elif annot.IsWildcard then wildCardRouter fTyp
+                                                    else r()
                                                 )
                                             if queryFields |> Option.exists (fun q -> q.Count > 0) then
                                                 failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
@@ -321,20 +347,8 @@ type RoutingMacro() =
                                                 match findField fName cls with
                                                 | Some (f, _, fTyp) ->
                                                     let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnot
-                                                    let r() = getRouter (fTyp.SubstituteGenerics(Array.ofList g))
-                                                    let res =
-                                                        match fAnnot.Query with
-                                                        | Some _ -> 
-                                                            Call(None, NonGeneric routerOpsModule, NonGeneric QueryOp, [ cString fName; r() ])
-                                                        | _ ->
-                                                        match fAnnot.FormData with
-                                                        | Some _ -> 
-                                                            Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ cString fName; r() ])
-                                                        | _ -> 
-                                                        match fAnnot.Json with
-                                                        | Some _ ->
-                                                            Call(None, NonGeneric routerOpsModule, Generic JsonOp [ t ], [])
-                                                        | _ -> r()
+                                                    let fTyp = fTyp.SubstituteGenerics(Array.ofList g)
+                                                    let res = fieldRouter fTyp fAnnot fName
                                                     match f with
                                                     | M.InstanceField n ->
                                                         choice 1 (NewArray [ cString n; cFalse; res ])
@@ -385,4 +399,4 @@ module InferRouter =
             let t = typeof<'T>
             S.getRouter t 
             |> ServerInferredOperators.IWithCustomErrors t 
-            |> ServerInferredOperators.IUnbox<ActionEncoding.DecodeResult<'T>>
+            |> ServerInferredOperators.IUnbox<ParseRequestResult<'T>>

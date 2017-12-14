@@ -26,6 +26,42 @@ open WebSharper.JQuery
 open System.Collections.Generic
 open System.Text
 
+[<NamedUnionCases "result"; RequireQualifiedAccess>]
+type ParseRequestResult<'T> =
+    | [<CompiledName "success">]
+      Success of endpoint: 'T
+    | [<CompiledName "invalidMethod">]
+      InvalidMethod of endpoint: 'T * ``method``: string
+    | [<CompiledName "invalidJson">]
+      InvalidJson of endpoint: 'T
+    | [<CompiledName "missingQueryParameter">]
+      MissingQueryParameter of endpoint: 'T * queryParam: string
+    | [<CompiledName "missingFormData">]
+      MissingFormData of endpoint: 'T * formFieldName: string
+
+    member this.Value =
+        match this with
+        | Success a
+        | InvalidMethod (a, _)
+        | InvalidJson a
+        | MissingQueryParameter (a, _)
+        | MissingFormData (a, _) -> a
+
+    [<System.Obsolete "Use Value instead">]
+    member this.Action = this.Value
+
+[<System.Obsolete "Use ParseRequestResult instead of ActionEncoding.DecodeResult">]
+/// For back-compatibility only, use ParseRequestResult instead of ActionEncoding.DecodeResult
+module ActionEncoding =
+
+    type DecodeResult<'T> = ParseRequestResult<'T>
+
+    let Success endpoint = ParseRequestResult.Success endpoint
+    let InvalidMethod (endpoint, ``method``) = ParseRequestResult.InvalidMethod(endpoint, ``method``)
+    let InvalidJson endpoint = ParseRequestResult.InvalidJson endpoint
+    let MissingQueryParameter (endpoint, queryParam) = ParseRequestResult.MissingQueryParameter(endpoint, queryParam)
+    let MissingFormData (endpoint, formFieldName) = ParseRequestResult.MissingFormData(endpoint, formFieldName)
+
 type internal PathUtil =
     static member WriteQuery q =
         let sb = StringBuilder 128
@@ -210,10 +246,10 @@ module internal List =
         | sh :: sr, lh :: lr when sh = lh -> startsWith sr lr
         | _ -> None
 
-type IRouter<'Action> =
-    abstract Route : Http.Request -> option<'Action>
-    abstract Link : 'Action -> option<Location>
-    abstract Handles : 'Action -> bool
+type IRouter<'T> =
+    abstract Route : Http.Request -> option<'T>
+    abstract Link : 'T -> option<Location>
+    abstract Handles : 'T -> bool
 
 [<JavaScript>]
 type Router =
@@ -403,25 +439,25 @@ module Router =
                 |> Option.map (fun p -> Seq.singleton { p with QueryArgs = Map.empty; Body = Some (Path.WriteQuery p.QueryArgs) })  
         }
     
-    let Parse path (router: Router<'A>) =
+    let Parse (router: Router<'A>) path =
         router.Parse path
         |> Seq.tryPick (fun (path, value) -> if List.isEmpty path.Segments then Some value else None)
 
-    let Write action (router: Router<'A>) =
-        router.Write action |> Option.map Path.Combine 
+    let Write (router: Router<'A>) endpoint =
+        router.Write endpoint |> Option.map Path.Combine 
 
-    let TryLink action (router: Router<'A>) =
-        match Write action router with
+    let TryLink (router: Router<'A>) endpoint =
+        match Write router endpoint with
         | Some p -> Some (p.ToLink())
         | None -> None
 
-    let Link action (router: Router<'A>) =
-        match Write action router with
+    let Link (router: Router<'A>) endpoint =
+        match Write router endpoint with
         | Some p -> p.ToLink()
         | None -> ""
 
-    let Ajax action (router: Router<'A>) =
-        match Write action router with
+    let Ajax (router: Router<'A>) endpoint =
+        match Write router endpoint with
         | Some path ->
             let settings = AjaxSettings(DataType = DataType.Text)
             match path.Method with
@@ -434,10 +470,10 @@ module Router =
                 JQuery.Ajax(path.ToLink(), settings) |> ignore
             )
         | _ -> 
-            failwith "Failed to map action to request" 
+            failwith "Failed to map endpoint to request" 
 
-    let HashLink action (router: Router<'A>) =
-        let h = (Link action router).Substring(1)
+    let HashLink (router: Router<'A>)  endpoint =
+        let h = (Link router endpoint).Substring(1)
         if h = "" then "" else "#" + h
     
     let Slice (decode: 'T -> 'U option) (encode: 'U -> 'T) (router: Router<'T>) : Router<'U> =
@@ -547,8 +583,8 @@ module Router =
         mapping |> Seq.map (fun (v, s) -> Router.FromString s |> MapTo v) |> Sum 
 
     // todo: optimize
-    let Single<'T when 'T : equality> (action: 'T) (route: string) : Router<'T> =
-        Router.FromString route |> MapTo action
+    let Single<'T when 'T : equality> (endpoint: 'T) (route: string) : Router<'T> =
+        Router.FromString route |> MapTo endpoint
 
     let Recursive<'T when 'T: equality> (createRouter: Router<'T> -> Router<'T>) : Router<'T> =
         let res = ref Unchecked.defaultof<Router<'T>>
@@ -643,16 +679,16 @@ type Router with
 type Router<'T when 'T: equality> with
 
     [<Inline>]
-    member this.Link(action: 'T) =
-        Router.Link action this
+    member this.Link(endpoint: 'T) =
+        Router.Link this endpoint
 
     [<Inline>]
-    member this.TryLink(action: 'T) =
-        Router.TryLink action this
+    member this.TryLink(endpoint: 'T) =
+        Router.TryLink this endpoint
 
     [<Inline>]
-    member this.HashLink(action: 'T) =
-        Router.HashLink action this
+    member this.HashLink(endpoint: 'T) =
+        Router.HashLink this endpoint
 
     [<Inline>]
     member this.Map(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) =
@@ -819,6 +855,44 @@ module RouterOperators =
                 Some (Seq.singleton (Path.Segment value))
         }
     
+    let rWildcardArray (item: Router<'A>) : Router<'A[]> =
+        {
+            Parse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    let rec collect path acc =
+                        match path.Segments with
+                        | [] -> Seq.singleton (path, Array.ofList (List.rev acc))
+                        | _ ->
+                            item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
+                    collect { path with Segments = t } []
+                | _ -> Seq.singleton (path, [||])
+            Write = fun value ->
+                let parts = value |> Array.map item.Write
+                if Array.forall Option.isSome parts then
+                    Some (parts |> Seq.collect Option.get)
+                else None                      
+        }
+
+    let rWildcardList (item: Router<'A>) : Router<'A list> = 
+        {
+            Parse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    let rec collect path acc =
+                        match path.Segments with
+                        | [] -> Seq.singleton (path, List.rev acc)
+                        | _ ->
+                            item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
+                    collect { path with Segments = t } []
+                | _ -> Seq.singleton (path, [])
+            Write = fun value ->
+                let parts = value |> List.map item.Write
+                if List.forall Option.isSome parts then
+                    Some (parts |> Seq.collect Option.get)
+                else None                      
+        }
+
     /// Parse/write a DateTime in `YYYY-MM-DD-HH.mm.ss` format.
     let rDateTime : Router<System.DateTime> =
         let pInt x =

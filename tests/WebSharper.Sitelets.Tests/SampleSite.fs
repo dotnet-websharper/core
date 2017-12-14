@@ -112,7 +112,7 @@ module SampleSite =
         | Echo of string
         | Api of Api.Action
         | [<EndPoint "GET /test.png">] TestImage
-        | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
+        | [<Method "POST">] Json of ParseRequestResult<Json.Action>
         | [<EndPoint "/"; Wildcard>] AnythingElse of string
 
     /// A helper function to create a hyperlink
@@ -268,7 +268,7 @@ module SampleSite =
                     Content.ServerError
                 | Action.Api _ ->
                     Content.ServerError
-                | Action.Json (ActionEncoding.Success a) ->
+                | Action.Json (ParseRequestResult.Success a) ->
                     WebSharper.Sitelets.Tests.Json.Content a
                 | Action.Json err ->
                     Content.Json err

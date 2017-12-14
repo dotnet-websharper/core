@@ -10,8 +10,6 @@
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Http.fs" />
-    <Compile Include="ActionEncoding.fsi" />
-    <Compile Include="ActionEncoding.fs" />
     <Compile Include="UserSession.fs" />
     <Compile Include="Page.fsi" />
     <Compile Include="Page.fs" />

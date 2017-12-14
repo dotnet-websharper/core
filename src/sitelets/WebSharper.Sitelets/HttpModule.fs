@@ -214,7 +214,7 @@ type HttpModule() =
         runtime
         |> Option.bind (fun (site, resCtx, appPath, rootFolder) ->
             let request = WebUtils.convertRequest ctx
-            site.Router |> Router.Parse (Path.FromRequest ctx.Request)
+            Router.Parse site.Router (Path.FromRequest ctx.Request)
             |> Option.map (fun action ->
                 HttpHandler(request, action, site, resCtx, appPath, rootFolder)))
 
