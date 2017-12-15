@@ -119,7 +119,7 @@ type internal PathUtilProxy =
         "/" + PathUtilProxy.Concat s + query
 
 [<JavaScript>]
-type Path =
+type Route =
     {
         Segments : list<string>
         QueryArgs : Map<string, string>
@@ -136,26 +136,26 @@ type Path =
         }
     
     static member Segment s =
-        { Path.Empty with
+        { Route.Empty with
             Segments = [ s ]
         }
 
     static member Segment s =
-        { Path.Empty with
+        { Route.Empty with
             Segments = s
         }
 
     static member Segment (s, m) =
-        { Path.Empty with
+        { Route.Empty with
             Segments = s
             Method = m
         }
 
-    static member Combine (paths: seq<Path>) =
+    static member Combine (paths: seq<Route>) =
         let paths = Seq.toArray paths
         match paths.Length with
         | 1 -> paths.[0]
-        | 0 -> Path.Empty
+        | 0 -> Route.Empty
         | _ ->
         let mutable method = None
         let mutable body = None
@@ -200,8 +200,8 @@ type Path =
             | -1 -> path, Map.empty
             | i -> 
                 path.Substring(0, i),
-                path.Substring(i + 1) |> Path.ParseQuery
-        { Path.Empty with
+                path.Substring(i + 1) |> Route.ParseQuery
+        { Route.Empty with
             Segments = 
                 s.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
             QueryArgs = q
@@ -211,7 +211,7 @@ type Path =
     static member FromRequest(r: System.Web.HttpRequestBase) =
         let u = r.Url
         let p = if u.IsAbsoluteUri then u.PathAndQuery else u.OriginalString
-        { Path.FromUrl(p) with
+        { Route.FromUrl(p) with
             Method = Some r.HttpMethod
             Body =
                 let i = r.InputStream 
@@ -235,7 +235,7 @@ type Path =
     static member FromWSRequest(r: Http.Request) =
         let u = r.Uri
         let p = if u.IsAbsoluteUri then u.PathAndQuery else u.OriginalString
-        { Path.FromUrl(p) with
+        { Route.FromUrl(p) with
             Method = Some (r.Method.ToString())
             Body =
                 let i = r.Body 
@@ -257,8 +257,8 @@ type Path =
 
     static member FromHash(path: string) =
         match path.IndexOf "#" with
-        | -1 -> Path.Empty
-        | i -> path.Substring(i) |> Path.FromUrl
+        | -1 -> Route.Empty
+        | i -> path.Substring(i) |> Route.FromUrl
 
     member this.ToLink() = PathUtil.WriteLink this.Segments this.QueryArgs
 
@@ -277,8 +277,8 @@ type IRouter<'T> =
 [<JavaScript>]
 type Router =
     {
-        Parse : Path -> Path seq
-        Segment : seq<Path> 
+        Parse : Route -> Route seq
+        Segment : seq<Route> 
     }
     
     static member Empty = 
@@ -300,7 +300,7 @@ type Router =
                         Seq.singleton ({ path with Segments = p })
                     | _ -> Seq.empty
                 Segment = 
-                    Seq.singleton (Path.Segment parts)
+                    Seq.singleton (Route.Segment parts)
             }
 
     static member (/) (before: Router, after: Router) =
@@ -330,8 +330,8 @@ type Router =
 
 and [<JavaScript>] Router<'T when 'T: equality> =
     {
-        Parse : Path -> (Path * 'T) seq
-        Write : 'T -> option<seq<Path>> 
+        Parse : Route -> (Route * 'T) seq
+        Write : 'T -> option<seq<Route>> 
     }
     
     static member (/) (before: Router<'T>, after: Router<'U>) =
@@ -379,15 +379,18 @@ and [<JavaScript>] Router<'T when 'T: equality> =
     interface IRouter<'T> with
         [<JavaScript false>]
         member this.Route req = 
-            let path = Path.FromWSRequest req
+            let path = Route.FromWSRequest req
             this.Parse path
             |> Seq.tryPick (fun (path, value) -> if List.isEmpty path.Segments then Some value else None)
         [<JavaScript false>]
         member this.Link ep =
-            this.Write ep |> Option.map (fun p -> System.Uri((Path.Combine p).ToLink(), System.UriKind.Relative))
+            this.Write ep |> Option.map (fun p -> System.Uri((Route.Combine p).ToLink(), System.UriKind.Relative))
         
 [<JavaScript>]
 module Router =
+    [<Inline>]
+    let Combine (a: Router<'A>) (b: Router<'B>) = a / b
+    
     [<Inline>]
     let Shift (prefix: string) (router: Router<'A>) =
         prefix / router
@@ -411,7 +414,7 @@ module Router =
             Parse = fun path ->
                 Seq.singleton ({ path with Segments = [] }, des path.Segments)
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment(ser value)))
+                Some (Seq.singleton (Route.Segment(ser value)))
         }
 
     /// Compatible with old UI.Next.RouteMap.CreateWithQuery.
@@ -421,7 +424,7 @@ module Router =
                 Seq.singleton ({ path with Segments = [];  }, des (path.Segments, path.QueryArgs))
             Write = fun value ->
                 let s, q = ser value
-                Some (Seq.singleton { Path.Empty with Segments = s; QueryArgs = q })
+                Some (Seq.singleton { Route.Empty with Segments = s; QueryArgs = q })
         }
     
     /// Parses/writes a single value from a query argument with the given key instead of url path.
@@ -432,15 +435,15 @@ module Router =
                 | None -> Seq.empty
                 | Some q -> 
                     let newQa = path.QueryArgs |> Map.remove key
-                    item.Parse { Path.Empty with Segments = [ q ] }
+                    item.Parse { Route.Empty with Segments = [ q ] }
                     |> Seq.map (fun (p, v) ->
                         { path with QueryArgs = newQa }, v
                     )
             Write = fun value ->
                 item.Write value |> Option.map (fun p -> 
-                    let p = Path.Combine p
+                    let p = Route.Combine p
                     match p.Segments with
-                    | [ v ] -> Seq.singleton { Path.Empty with QueryArgs = Map.ofList [ key, v ] }
+                    | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
                     | _ -> Seq.empty
                 )
         }
@@ -461,7 +464,7 @@ module Router =
                 | Some pm when pm = m -> Seq.singleton path
                 | _ -> Seq.empty
             Segment =
-                Seq.singleton { Path.Empty with Method = Some m }
+                Seq.singleton { Route.Empty with Method = Some m }
         }
 
     let Body (deserialize: string -> option<'A>) (serialize: 'A -> string) : Router<'A> =
@@ -471,7 +474,7 @@ module Router =
                 | Some b -> Seq.singleton ({ path with Body = None}, b)
                 | _ -> Seq.empty
             Write = fun value ->
-                Some <| Seq.singleton { Path.Empty with Body = Some (serialize value) }
+                Some <| Seq.singleton { Route.Empty with Body = Some (serialize value) }
         }
 
     let FormData (item: Router<'A>) : Router<'A> =
@@ -480,10 +483,10 @@ module Router =
                 match path.Body with
                 | None -> item.Parse path
                 | Some b ->
-                    item.Parse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Path.ParseQuery b); Body = None }
+                    item.Parse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Route.ParseQuery b); Body = None }
             Write = fun value ->
-                item.Write value |> Option.map Path.Combine 
-                |> Option.map (fun p -> Seq.singleton { p with QueryArgs = Map.empty; Body = Some (Path.WriteQuery p.QueryArgs) })  
+                item.Write value |> Option.map Route.Combine 
+                |> Option.map (fun p -> Seq.singleton { p with QueryArgs = Map.empty; Body = Some (Route.WriteQuery p.QueryArgs) })  
         }
     
     let Parse (router: Router<'A>) path =
@@ -491,7 +494,7 @@ module Router =
         |> Seq.tryPick (fun (path, value) -> if List.isEmpty path.Segments then Some value else None)
 
     let Write (router: Router<'A>) endpoint =
-        router.Write endpoint |> Option.map Path.Combine 
+        router.Write endpoint |> Option.map Route.Combine 
 
     let TryLink (router: Router<'A>) endpoint =
         match Write router endpoint with
@@ -666,7 +669,7 @@ module Router =
             Write = fun value ->
                 let parts = value |> Array.map item.Write
                 if Array.forall Option.isSome parts then
-                    Some (Seq.append (Seq.singleton (Path.Segment (string value.Length))) (parts |> Seq.collect Option.get))
+                    Some (Seq.append (Seq.singleton (Route.Segment (string value.Length))) (parts |> Seq.collect Option.get))
                 else None                      
         }
 
@@ -681,7 +684,7 @@ module Router =
                     item.Parse path |> Seq.map (fun (p, v) -> p, System.Nullable v)
             Write = fun value ->
                 if value.HasValue then 
-                    Some (Seq.singleton (Path.Segment "null"))
+                    Some (Seq.singleton (Route.Segment "null"))
                 else item.Write value.Value
         }
 
@@ -698,9 +701,9 @@ module Router =
                     Seq.empty
             Write = fun value ->
                 match value with 
-                | None -> Some (Seq.singleton (Path.Segment "None"))
+                | None -> Some (Seq.singleton (Route.Segment "None"))
                 | Some v -> 
-                    item.Write v |> Option.map (Seq.append (Seq.singleton (Path.Segment "None")))
+                    item.Write v |> Option.map (Seq.append (Seq.singleton (Route.Segment "None")))
         }
 
     module FArray = Collections.Array
@@ -856,7 +859,7 @@ module RouterOperators =
                     Seq.singleton ({ path with Segments = t }, decodeURIComponent h)
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (if isNull value then "null" else encodeURIComponent value)))
+                Some (Seq.singleton (Route.Segment (if isNull value then "null" else encodeURIComponent value)))
         }
 
     /// Parse/write a char.
@@ -868,7 +871,7 @@ module RouterOperators =
                     Seq.singleton ({ path with Segments = t }, char (decodeURIComponent h))
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (encodeURIComponent (string value))))
+                Some (Seq.singleton (Route.Segment (encodeURIComponent (string value))))
         }
 
     [<Inline>]
@@ -884,7 +887,7 @@ module RouterOperators =
                     else Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (string value)))
+                Some (Seq.singleton (Route.Segment (string value)))
         }
 
     // TODO: fix translating trait call here
@@ -918,7 +921,7 @@ module RouterOperators =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (string value)))
+                Some (Seq.singleton (Route.Segment (string value)))
         }
 
     /// Parse/write a bool.
@@ -933,7 +936,7 @@ module RouterOperators =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (if value then "True" else "False")))
+                Some (Seq.singleton (Route.Segment (if value then "True" else "False")))
         }
 
     /// Parse/write an int.
@@ -948,7 +951,7 @@ module RouterOperators =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (string value)))
+                Some (Seq.singleton (Route.Segment (string value)))
         }
 
     /// Parse/write a double.
@@ -963,7 +966,7 @@ module RouterOperators =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment (string value)))
+                Some (Seq.singleton (Route.Segment (string value)))
         }
 
     /// Parses any remaining part of the URL as a string, no URL encode/decode is done.
@@ -973,7 +976,7 @@ module RouterOperators =
                 let s = path.Segments |> String.concat "/"
                 Seq.singleton ({ path with Segments = [] }, s)
             Write = fun value ->
-                Some (Seq.singleton (Path.Segment value))
+                Some (Seq.singleton (Route.Segment value))
         }
     
     let rWildcardArray (item: Router<'A>) : Router<'A[]> =
@@ -1045,7 +1048,7 @@ module RouterOperators =
                 let s = 
                     pad4 d.Year + "-" + pad2 d.Month + "-" + pad2 d.Day
                     + "-" + pad2 d.Hour + "." + pad2 d.Minute + "." + pad2 d.Second
-                Some (Seq.singleton (Path.Segment s))
+                Some (Seq.singleton (Route.Segment s))
         }
       
     let internal Tuple (readItems: obj -> obj[]) (createTuple: obj[] -> obj) (items: Router<obj>[]) =
@@ -1164,12 +1167,12 @@ module RouterOperators =
                 let tag = getTag value
                 let method, path, fields = cases.[tag]
                 match fields with
-                | [||] -> Some (Seq.singleton (Path.Segment (List.ofArray path, method))) 
+                | [||] -> Some (Seq.singleton (Route.Segment (List.ofArray path, method))) 
                 | _ ->
                     let fieldParts =
                         (readFields tag value, fields) ||> Array.map2 (fun v f -> f.Write v)
                     if Array.forall Option.isSome fieldParts then
-                        Some (Seq.append (Seq.singleton (Path.Segment (List.ofArray path, method))) (fieldParts |> Seq.collect Option.get))
+                        Some (Seq.append (Seq.singleton (Route.Segment (List.ofArray path, method))) (fieldParts |> Seq.collect Option.get))
                     else None                      
         }
 
@@ -1222,7 +1225,7 @@ module RouterOperators =
                     let mutable index = -1
                     let parts =
                         partsAndFields |> Array.map (function
-                            | Choice1Of2 p -> Some (Seq.singleton (Path.Segment(p)))
+                            | Choice1Of2 p -> Some (Seq.singleton (Route.Segment(p)))
                             | Choice2Of2 r ->
                                 index <- index + 1
                                 r.Write(fields.[index])

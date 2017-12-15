@@ -243,7 +243,7 @@ module Sitelet =
     /// function.
     let Infer<'T when 'T : equality> (handle : Context<'T> -> 'T -> Async<Content<'T>>) =
         {
-            Router = Router.Infer<'T>()
+            Router = Router.IInfer<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let! content = handle ctx x
@@ -255,7 +255,7 @@ module Sitelet =
     [<Obsolete>]
     let InferWithCustomErrors<'T when 'T : equality> (handle : Context<'T> -> ParseRequestResult<'T> -> Async<Content<'T>>) =
         {
-            Router = Router.InferWithCustomErrors<'T>()
+            Router = Router.IInferWithCustomErrors<'T>()
             Controller = { Handle = fun x ->
                 C.CustomContentAsync <| fun ctx -> async {
                     let ctx = (Context.Map ParseRequestResult.Success ctx)
@@ -267,7 +267,7 @@ module Sitelet =
 
     let InferPartial (embed: 'T1 -> 'T2) (unembed: 'T2 -> 'T1 option) (mkContent: Context<'T2> -> 'T1 -> Async<Content<'T2>>) : Sitelet<'T2> =
         {
-            Router = Router.Infer<'T1>() |> Router.Embed embed unembed
+            Router = Router.IInfer<'T1>() |> IRouter.Embed embed unembed
             Controller = { Handle = fun p ->
                 C.CustomContentAsync <| fun ctx -> async {
                     match unembed p with

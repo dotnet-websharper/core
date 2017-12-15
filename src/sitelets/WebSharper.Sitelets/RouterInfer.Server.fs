@@ -50,7 +50,7 @@ module internal ServerRouting =
     let flags = BF.Public ||| BF.NonPublic ||| BF.Static ||| BF.Instance
 
     let ReadEndPointString (e: string) =
-        Path.FromUrl(e).Segments |> Array.ofList
+        Route.FromUrl(e).Segments |> Array.ofList
 
     type EndPointSegment =
         | StringSegment of string
@@ -64,7 +64,7 @@ module internal ServerRouting =
             else StringSegment p
         )
 
-    let GetPathHoles (p: Path) =
+    let GetPathHoles (p: Route) =
         p.Segments |> Array.ofList |> GetEndPointHoles
         ,
         p.QueryArgs |> Map.map(fun _ s -> [| s |] |> GetEndPointHoles)
@@ -279,7 +279,7 @@ module internal ServerRouting =
                 let annot = getClassAnnotation t 
                 let endpoint = 
                     match annot.EndPoint with
-                    | Some (_, e) -> e |> Path.FromUrl |> GetPathHoles |> fst
+                    | Some (_, e) -> e |> Route.FromUrl |> GetPathHoles |> fst
                     | None -> [||]
                 let fields = ResizeArray()
                 let partsAndFields =

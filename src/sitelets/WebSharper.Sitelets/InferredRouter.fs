@@ -54,7 +54,7 @@ module internal ServerInferredOperators =
                 Result = NoErrors
             }
 
-        static member OfPath(path: Path) =
+        static member OfPath(path: Route) =
             {
                 Segments = path.Segments
                 QueryArgs = path.QueryArgs
@@ -69,7 +69,7 @@ module internal ServerInferredOperators =
                 QueryArgs = this.QueryArgs
                 Method = this.Method
                 Body = this.Body
-            } : Path
+            } : Route
 
     type PathWriter =
         {
@@ -97,7 +97,7 @@ module internal ServerInferredOperators =
                 Segments = [ this.PathWriter.ToString() ]
                 QueryArgs = 
                     let q = this.QueryWriter
-                    if isNull q then Map.empty else Path.ParseQuery (q.ToString())
+                    if isNull q then Map.empty else Route.ParseQuery (q.ToString())
                 Method = None
                 Body = None
             }
@@ -383,7 +383,7 @@ module internal ServerInferredOperators =
                 item.IWrite (qw, v)
         }
 
-    let IUnbox<'A when 'A: equality> (router: InferredRouter) : Router<'A> =
+    let Unbox<'A when 'A: equality> (router: InferredRouter) : Router<'A> =
         {
             Parse = fun path ->
                 let mpath = MPath.OfPath(path)
@@ -394,6 +394,19 @@ module internal ServerInferredOperators =
                 let w = PathWriter.New(false)
                 router.IWrite(w, box value)
                 w.ToPath() |> Seq.singleton |> Some
+        }
+
+    let IUnbox<'A when 'A: equality> (router: InferredRouter) : IRouter<'A> =
+        { new IRouter<'A> with
+            member this.Route req =
+                let path = Route.FromWSRequest req |> MPath.OfPath
+                router.Parse path
+                |> Option.map unbox<'A>
+
+            member this.Link e =
+                let w = PathWriter.New(false)
+                router.IWrite(w, box e)
+                Some (System.Uri(w.ToLink(), System.UriKind.Relative))
         }
 
     let IJson<'T when 'T: equality> : InferredRouter =
@@ -412,7 +425,7 @@ module internal ServerInferredOperators =
                     match path.Body with
                     | None -> item.IParse path
                     | Some b ->
-                        item.IParse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Path.ParseQuery b); Body = None }
+                        item.IParse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Route.ParseQuery b); Body = None }
                 match path.Result with
                 | MissingQueryParameter k -> path.Result <- MissingFormData k
                 | _ -> ()

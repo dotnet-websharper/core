@@ -319,7 +319,7 @@ type RoutingMacro() =
                                 let annot = getClassAnnotation e 
                                 let endpoint = 
                                     match annot.EndPoint with
-                                    | Some (_, e) -> e |> Path.FromUrl |> S.GetPathHoles |> fst
+                                    | Some (_, e) -> e |> Route.FromUrl |> S.GetPathHoles |> fst
                                     | None -> [||]
                                 let subClasses =
                                     let nestedIn = e.Value.FullName + "+"
@@ -393,10 +393,26 @@ module InferRouter =
     module Router =
         /// Creates a router based on type shape and WebSharper attributes.
         [<Macro(typeof<RoutingMacro>)>]
-        let Infer<'T when 'T: equality>() = S.getRouter typeof<'T> |> ServerInferredOperators.IUnbox<'T>
+        let Infer<'T when 'T: equality>() = 
+            S.getRouter typeof<'T>
+            |> ServerInferredOperators.Unbox<'T>
 
+        /// Creates a router based on type shape and WebSharper attributes,
+        /// that catches wrong method, query and request body errors.
         let InferWithCustomErrors<'T when 'T: equality>() =
             let t = typeof<'T>
             S.getRouter t 
             |> ServerInferredOperators.IWithCustomErrors t 
-            |> ServerInferredOperators.IUnbox<ParseRequestResult<'T>>
+            |> ServerInferredOperators.Unbox<ParseRequestResult<'T>>
+
+        /// Optimized version of Infer to use straight in a Sitelet
+        let internal IInfer<'T when 'T: equality>() = 
+            S.getRouter typeof<'T>
+            |> ServerInferredOperators.IUnbox<'T>
+
+        /// Optimized version of InferWithCustomErrors to use straight in a Sitelet
+        let internal IInferWithCustomErrors<'T when 'T: equality>() =
+            let t = typeof<'T>
+            S.getRouter t 
+            |> ServerInferredOperators.IWithCustomErrors t 
+            |> ServerInferredOperators.Unbox<ParseRequestResult<'T>>
