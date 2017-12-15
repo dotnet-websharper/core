@@ -26,6 +26,8 @@ open WebSharper.JQuery
 open System.Collections.Generic
 open System.Text
 
+#nowarn "64" // type parameter renaming warnings 
+
 [<NamedUnionCases "result"; RequireQualifiedAccess>]
 type ParseRequestResult<'T> =
     | [<CompiledName "success">]
@@ -194,16 +196,21 @@ type Route =
     
     static member WriteQuery(q) = PathUtil.WriteQuery q
 
-    static member FromUrl(path: string) =
+    static member FromUrl(path: string, ?strict: bool) =
         let s, q = 
             match path.IndexOf '?' with
             | -1 -> path, Map.empty
             | i -> 
                 path.Substring(0, i),
                 path.Substring(i + 1) |> Route.ParseQuery
+        let splitOptions =
+            if strict = Some true then 
+                System.StringSplitOptions.None
+            else
+                System.StringSplitOptions.RemoveEmptyEntries
         { Route.Empty with
             Segments = 
-                s.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
+                s.Split([| '/' |], splitOptions) |> List.ofArray
             QueryArgs = q
         }
 
@@ -255,10 +262,10 @@ type Route =
                 else None
         }
 
-    static member FromHash(path: string) =
+    static member FromHash(path: string, ?strict: bool) =
         match path.IndexOf "#" with
         | -1 -> Route.Empty
-        | i -> path.Substring(i) |> Route.FromUrl
+        | i -> Route.FromUrl(path.Substring(i), ?strict = strict)
 
     member this.ToLink() = PathUtil.WriteLink this.Segments this.QueryArgs
 
@@ -446,6 +453,54 @@ module Router =
                     | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
                     | _ -> Seq.empty
                 )
+        }
+
+    /// Parses/writes a single option value from an optional query argument with the given key instead of url path.
+    let QueryOption key (item: Router<'A>) : Router<option<'A>> =
+        {
+            Parse = fun path ->
+                match path.QueryArgs.TryFind key with
+                | None -> Seq.singleton (path, None)
+                | Some q -> 
+                    let newQa = path.QueryArgs |> Map.remove key
+                    item.Parse { Route.Empty with Segments = [ q ] }
+                    |> Seq.map (fun (_, v) ->
+                        { path with QueryArgs = newQa }, Some v
+                    )
+            Write = fun value ->
+                match value with
+                | None -> Some Seq.empty
+                | Some v ->
+                    item.Write v |> Option.map (fun p -> 
+                        let p = Route.Combine p
+                        match p.Segments with
+                        | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
+                        | _ -> Seq.empty
+                    )
+        }
+
+    /// Parses/writes a single nullable value from an optional query argument with the given key instead of url path.
+    let QueryNullable key (item: Router<'A>) : Router<System.Nullable<'A>> =
+        {
+            Parse = fun path ->
+                match path.QueryArgs.TryFind key with
+                | None -> Seq.singleton (path, System.Nullable())
+                | Some q -> 
+                    let newQa = path.QueryArgs |> Map.remove key
+                    item.Parse { Route.Empty with Segments = [ q ] }
+                    |> Seq.map (fun (_, v) ->
+                        { path with QueryArgs = newQa }, System.Nullable v
+                    )
+            Write = fun value ->
+                if value.HasValue then
+                    item.Write value.Value |> Option.map (fun p -> 
+                        let p = Route.Combine p
+                        match p.Segments with
+                        | [ v ] -> Seq.singleton { Route.Empty with QueryArgs = Map.ofList [ key, v ] }
+                        | _ -> Seq.empty
+                    )
+                else
+                    Some Seq.empty
         }
 
     type IOptionConverter =
@@ -684,8 +739,9 @@ module Router =
                     item.Parse path |> Seq.map (fun (p, v) -> p, System.Nullable v)
             Write = fun value ->
                 if value.HasValue then 
+                    item.Write value.Value
+                else 
                     Some (Seq.singleton (Route.Segment "null"))
-                else item.Write value.Value
         }
 
     /// Creates a router for parsing/writing an F# option of a value.
@@ -768,8 +824,12 @@ module IRouter =
         }        
 
     let Sum (routers: seq<IRouter<'T>>) : IRouter<'T> =
+        let routers = Array.ofSeq routers
         if Seq.isEmpty routers then Empty else
-            Seq.reduce Add routers
+            { new IRouter<'T> with
+                member this.Route req = routers |> Array.tryPick (fun r -> r.Route req)
+                member this.Link e = routers |> Array.tryPick (fun r -> r.Link e)
+            }        
             
     let Map encode decode (router: IRouter<'T>) : IRouter<'U> =
         { new IRouter<'U> with
@@ -1095,7 +1155,13 @@ module RouterOperators =
     let internal JSQuery key item = Router.Query key item
 
     [<Inline>]
-    let internal JSFormData key item = Router.Query key item |> Router.FormData
+    let internal JSQueryOption key item = Router.QueryOption key item
+
+    [<Inline>]
+    let internal JSQueryNullable key item = Router.QueryNullable key item
+
+    [<Inline>]
+    let internal JSFormData item = Router.FormData item
 
     [<Inline>]
     let internal JSJson<'T when 'T: equality> = Router.Json<'T>

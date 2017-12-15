@@ -308,7 +308,7 @@ type CSharpSitelet =
     static member Folder (prefix, [<ParamArray>] sitelets: Sitelet<'T>[]) =
         Sitelet.Folder prefix sitelets
 
-type Sitelet<'T> with
+type Sitelet<'T when 'T : equality> with
     member this.Box() =
         Sitelet.Box this
 
