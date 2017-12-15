@@ -304,7 +304,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Path) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: System.Uri) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
@@ -390,7 +390,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
         async {
             let res = ResizeArray()
             for action in conf.Actions do
-                match conf.Sitelet.Router.Write(action) |> Option.map Path.Combine with
+                match conf.Sitelet.Router.Link(action) with
                 | Some location ->
                     let content = conf.Sitelet.Controller.Handle(action)
                     let! rC = resolveContent projectFolder rootFolder st location content
@@ -415,7 +415,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                         | true, p -> rC.RelativePath + P.ShowPath p
                         | false, _ ->
                             // Otherwise, link to the action using the router
-                            match conf.Sitelet.Router.Write action |> Option.map Path.Combine with
+                            match conf.Sitelet.Router.Link action with
                             | Some loc ->
                                 match urlTable.TryGetValue(loc) with
                                 | true, p -> rC.RelativePath + P.ShowPath p

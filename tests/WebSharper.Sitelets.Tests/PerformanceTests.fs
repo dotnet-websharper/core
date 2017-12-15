@@ -105,7 +105,8 @@ module PerformanceTests =
         )
 
     let ShiftedRouter = 
-        Router.Shift "perf-tests" <| Site.Router
+        Site.Router :?> Router<Action> 
+        |> Router.Shift "perf-tests"
         
     [<Remote>]
     let GetTestValues() =

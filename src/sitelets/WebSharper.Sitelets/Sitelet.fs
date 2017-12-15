@@ -28,17 +28,17 @@ open System.Runtime.CompilerServices
 
 type Sitelet<'T when 'T : equality> =
     {
-        Router : Router<'T>
+        Router : IRouter<'T>
         Controller : Controller<'T>
     }
 
     static member (+) (s1: Sitelet<'T>, s2: Sitelet<'T>) =
         {
-            Router = s1.Router + s2.Router
+            Router = IRouter.Add s1.Router s2.Router
             Controller =
                 {
                     Handle = fun endpoint ->
-                        match s1.Router.Write endpoint with
+                        match s1.Router.Link endpoint with
                         | Some _ -> s1.Controller.Handle endpoint
                         | None -> s2.Controller.Handle endpoint
                 }
@@ -72,7 +72,7 @@ module Sitelet =
         }
 
     /// Creates a WebSharper.Sitelet using the given router and handler function.
-    let New (router: Router<'T>) (handle: Context<'T> -> 'T -> Async<Content<'T>>) =
+    let New (router: IRouter<'T>) (handle: Context<'T> -> 'T -> Async<Content<'T>>) =
         {
             Router = router
             Controller =
@@ -142,7 +142,7 @@ module Sitelet =
     /// Maps over the sitelet endpoint type. Requires a bijection.
     let Map (f: 'T1 -> 'T2) (g: 'T2 -> 'T1) (s: Sitelet<'T1>) : Sitelet<'T2> =
         {
-            Router = Router.Map f g s.Router
+            Router = IRouter.Map f g s.Router
             Controller =
                 {
                     Handle = fun endpoint ->
@@ -157,7 +157,7 @@ module Sitelet =
     /// Maps over the sitelet endpoint type with only an injection.
     let Embed embed unembed sitelet =
         {
-            Router = Router.Embed embed unembed sitelet.Router
+            Router = IRouter.Embed embed unembed sitelet.Router
             Controller =
                 { Handle = fun a ->
                     match unembed a with
@@ -188,7 +188,7 @@ module Sitelet =
     /// Shifts all sitelet locations by a given prefix.
     let Shift (prefix: string) (sitelet: Sitelet<'T>) =
         {
-            Router = Router.Shift prefix sitelet.Router
+            Router = IRouter.Shift prefix sitelet.Router
             Controller = sitelet.Controller
         }
 
@@ -198,13 +198,13 @@ module Sitelet =
         let sitelets = Array.ofSeq sitelets 
         if Seq.isEmpty sitelets then Empty else
             {
-                Router = Router.Sum (sitelets |> Seq.map (fun s -> s.Router))
+                Router = IRouter.Sum (sitelets |> Seq.map (fun s -> s.Router))
                 Controller =
                     {
                         Handle = fun endpoint ->
                             sitelets 
                             |> Array.pick (fun s -> 
-                                match s.Router.Write endpoint with
+                                match s.Router.Link endpoint with
                                 | Some _ -> Some (s.Controller.Handle endpoint)
                                 | None -> None
                             )
@@ -220,7 +220,7 @@ module Sitelet =
     /// Boxes the sitelet endpoint type to Object type.
     let Box (sitelet: Sitelet<'T>) : Sitelet<obj> =
         {
-            Router = Router.Box sitelet.Router
+            Router = IRouter.Box sitelet.Router
             Controller =
                 { Handle = fun a ->
                     C.CustomContentAsync <| fun ctx ->
@@ -231,7 +231,7 @@ module Sitelet =
     /// Reverses the Box operation on the sitelet.
     let Unbox<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
         {
-            Router = Router.Unbox sitelet.Router
+            Router = IRouter.Unbox sitelet.Router
             Controller =
                 { Handle = fun a ->
                     C.CustomContentAsync <| fun ctx ->

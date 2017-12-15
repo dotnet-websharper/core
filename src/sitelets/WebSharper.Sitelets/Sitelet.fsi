@@ -30,7 +30,7 @@ open System.Runtime.CompilerServices
 /// the actions.
 type Sitelet<'T when 'T : equality> =
     {
-        Router : Router<'T>
+        Router : IRouter<'T>
         Controller : Controller<'T>
     }
 
@@ -65,7 +65,7 @@ module Sitelet =
     val Empty<'T when 'T : equality> : Sitelet<'T>
 
     /// Creates a WebSharper.Sitelet using the given router and handler function.
-    val New<'T when 'T : equality> : router: Router<'T> -> handle: (Context<'T> -> 'T -> Async<Content<'T>>) -> Sitelet<'T>
+    val New<'T when 'T : equality> : router: IRouter<'T> -> handle: (Context<'T> -> 'T -> Async<Content<'T>>) -> Sitelet<'T>
 
     /// Represents filters for protecting sitelets.
     type Filter<'T> =

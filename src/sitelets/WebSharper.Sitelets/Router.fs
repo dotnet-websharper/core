@@ -231,6 +231,30 @@ type Path =
                 else None
         }
 
+    [<JavaScript false>]
+    static member FromWSRequest(r: Http.Request) =
+        let u = r.Uri
+        let p = if u.IsAbsoluteUri then u.PathAndQuery else u.OriginalString
+        { Path.FromUrl(p) with
+            Method = Some (r.Method.ToString())
+            Body =
+                let i = r.Body 
+                if not (isNull i) then 
+                    // We need to copy the stream because else StreamReader would close it.
+                    use m =
+                        if i.CanSeek then
+                            new System.IO.MemoryStream(int i.Length)
+                        else
+                            new System.IO.MemoryStream()
+                    i.CopyTo m
+                    if i.CanSeek then
+                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    use reader = new System.IO.StreamReader(m)
+                    Some (reader.ReadToEnd())
+                else None
+        }
+
     static member FromHash(path: string) =
         match path.IndexOf "#" with
         | -1 -> Path.Empty
@@ -248,8 +272,7 @@ module internal List =
 
 type IRouter<'T> =
     abstract Route : Http.Request -> option<'T>
-    abstract Link : 'T -> option<Location>
-    abstract Handles : 'T -> bool
+    abstract Link : 'T -> option<System.Uri>
 
 [<JavaScript>]
 type Router =
@@ -309,7 +332,6 @@ and [<JavaScript>] Router<'T when 'T: equality> =
     {
         Parse : Path -> (Path * 'T) seq
         Write : 'T -> option<seq<Path>> 
-        //CanWrite : 'T -> bool 
     }
     
     static member (/) (before: Router<'T>, after: Router<'U>) =
@@ -320,7 +342,6 @@ and [<JavaScript>] Router<'T when 'T: equality> =
                 match before.Write v1, after.Write v2 with
                 | Some p1, Some p2 -> Some (Seq.append p1 p2)
                 | _ -> None
-            //CanWrite = fun (v1, v2) -> before.CanWrite v1 && after.CanWrite v2
         }
 
     static member (/) (before: Router, after: Router<'T>) =
@@ -329,7 +350,6 @@ and [<JavaScript>] Router<'T when 'T: equality> =
                 before.Parse path |> Seq.collect after.Parse
             Write = fun v ->
                 after.Write v |> Option.map (Seq.append before.Segment)
-            //CanWrite = fun (v1, v2) -> before.CanWrite v1 && after.CanWrite v2
         }
 
     static member (/) (before: Router<'T>, after: Router) =
@@ -356,6 +376,16 @@ and [<JavaScript>] Router<'T when 'T: equality> =
                 | p -> p
         }
 
+    interface IRouter<'T> with
+        [<JavaScript false>]
+        member this.Route req = 
+            let path = Path.FromWSRequest req
+            this.Parse path
+            |> Seq.tryPick (fun (path, value) -> if List.isEmpty path.Segments then Some value else None)
+        [<JavaScript false>]
+        member this.Link ep =
+            this.Write ep |> Option.map (fun p -> System.Uri((Path.Combine p).ToLink(), System.UriKind.Relative))
+        
 [<JavaScript>]
 module Router =
     [<Inline>]
@@ -368,13 +398,30 @@ module Router =
             Write = fun _ -> None
         }
 
-    /// For compatibility with old UI.Next.RouteMap.Create.
+    /// Creates a fully customized router.
+    let New (route: Http.Request -> option<'T>) (link: 'T -> option<System.Uri>) =
+        { new IRouter<'T> with
+            member this.Route req = route req
+            member this.Link e = link e
+        }
+
+    /// Compatible with old UI.Next.RouteMap.Create.
     let Create (ser: 'T -> list<string>) (des: list<string> -> 'T) =
         {
             Parse = fun path ->
                 Seq.singleton ({ path with Segments = [] }, des path.Segments)
             Write = fun value ->
                 Some (Seq.singleton (Path.Segment(ser value)))
+        }
+
+    /// Compatible with old UI.Next.RouteMap.CreateWithQuery.
+    let CreateWithQuery (ser: 'T -> list<string> * Map<string, string>) (des: list<string> * Map<string, string> -> 'T) =
+        {
+            Parse = fun path ->
+                Seq.singleton ({ path with Segments = [];  }, des (path.Segments, path.QueryArgs))
+            Write = fun value ->
+                let s, q = ser value
+                Some (Seq.singleton { Path.Empty with Segments = s; QueryArgs = q })
         }
     
     /// Parses/writes a single value from a query argument with the given key instead of url path.
@@ -701,6 +748,80 @@ type Router<'T when 'T: equality> with
     [<Inline>]
     member this.Cast<'U when 'U: equality>() : Router<'U> =
         Router.Cast this
+
+module IRouter =
+    open System
+
+    let Empty : IRouter<'T> =
+        { new IRouter<'T> with
+            member this.Route _ = None
+            member this.Link _ = None
+        }        
+
+    let Add (r1: IRouter<'T>) (r2: IRouter<'T>) =
+        { new IRouter<'T> with
+            member this.Route req = match r1.Route req with Some _ as l -> l | _ -> r2.Route req
+            member this.Link e = match r1.Link e with Some _ as l -> l | _ -> r2.Link e
+        }        
+
+    let Sum (routers: seq<IRouter<'T>>) : IRouter<'T> =
+        if Seq.isEmpty routers then Empty else
+            Seq.reduce Add routers
+            
+    let Map encode decode (router: IRouter<'T>) : IRouter<'U> =
+        { new IRouter<'U> with
+            member this.Route req = router.Route req |> Option.map encode
+            member this.Link e = decode e |> router.Link
+        } 
+        
+    let Embed encode decode (router: IRouter<'T>) : IRouter<'U> =
+        { new IRouter<'U> with
+            member this.Route req = router.Route req |> Option.map encode
+            member this.Link e = decode e |> Option.bind router.Link
+        } 
+
+    let private makeUri uri =
+        let mutable res = null
+        if Uri.TryCreate(uri, UriKind.Relative, &res) then res else
+            Uri(uri, UriKind.Absolute)
+    
+    let private path (uri: Uri) =
+        if uri.IsAbsoluteUri
+        then uri.AbsolutePath
+        else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
+        
+    let private trimFinalSlash (s: string) =
+        match s.TrimEnd('/') with
+        | "" -> "/"
+        | s -> s
+    
+    let Shift prefix (router: IRouter<'T>) =
+        let prefix = joinWithSlash "/" prefix
+        let shift (loc: System.Uri) =
+            if loc.IsAbsoluteUri then loc else
+                makeUri (joinWithSlash prefix (path loc |> trimFinalSlash))
+        { new IRouter<'T> with
+            member this.Route req =
+                let builder = UriBuilder req.Uri
+                if builder.Path.StartsWith prefix then
+                    builder.Path <- builder.Path.Substring prefix.Length
+                    router.Route {req with Uri = builder.Uri}
+                else
+                    None
+            member this.Link e = router.Link e |> Option.map shift
+        }     
+        
+    let Box (router: IRouter<'T>) : IRouter<obj> =
+        { new IRouter<obj> with
+            member this.Route req = router.Route req |> Option.map box
+            member this.Link e = tryUnbox<'T> e |> Option.bind router.Link
+        } 
+
+    let Unbox (router: IRouter<obj>) : IRouter<'T> =
+        { new IRouter<'T> with
+            member this.Route req = router.Route req |> Option.bind tryUnbox<'T>
+            member this.Link e = box e |> router.Link
+        } 
 
 [<JavaScript>]
 module RouterOperators =
