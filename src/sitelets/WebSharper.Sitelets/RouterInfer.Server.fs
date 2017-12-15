@@ -96,7 +96,7 @@ module internal ServerRouting =
         jsonRouterM.MakeGenericMethod(t).Invoke(null, [||]) :?> InferredRouter
 
     let recurringOn = HashSet()
-    
+
     let rec getRouter t =
         if recurringOn.Add t then
             let res = routerCache.GetOrAdd(t, valueFactory = fun t -> createRouter t)
@@ -121,6 +121,17 @@ module internal ServerRouting =
             iDateTime (Some fmt)
         else failwithf "Expecting a DateTime field: %s" name
     
+    and queryRouter (t: Type) name r =
+        let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
+        if gd = typedefof<option<_>> then 
+            let item = t.GetGenericArguments().[0]
+            getRouter item |> IQueryOption item name
+        elif gd = typedefof<Nullable<_>> then 
+            let item = t.GetGenericArguments().[0]
+            getRouter item |> IQueryNullable name
+        else
+            r() |> IQuery name
+    
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
         let r() = 
             match annot.DateTimeFormat with
@@ -130,21 +141,11 @@ module internal ServerRouting =
                 getDateTimeRouter name m.[name] t    
             | _ ->
                 getRouter t
-        let q() =
-            let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
-            if gd = typedefof<option<_>> then 
-                let item = t.GetGenericArguments().[0]
-                getRouter item |> IQueryOption item name
-            elif gd = typedefof<Nullable<_>> then 
-                let item = t.GetGenericArguments().[0]
-                getRouter item |> IQueryNullable name
-            else
-                r() |> IQuery name
         match annot.Query with
-        | Some _ -> q()
+        | Some _ -> queryRouter t name r
         | _ -> 
         match annot.FormData with
-        | Some _ -> q() |> IFormData
+        | Some _ -> queryRouter t name r |> IFormData
         | _ -> 
         match annot.Json with
         | Some _ -> getJsonRouter t
@@ -213,18 +214,12 @@ module internal ServerRouting =
                                         getDateTimeRouter fName m.[fName] t    
                                     | _ ->
                                         getRouter fTyp
-                                let q() =
-                                    if fTyp.IsGenericType && fTyp.GetGenericTypeDefinition() = typedefof<option<_>> then 
-                                        let item = fTyp.GetGenericArguments().[0]
-                                        getRouter item |> IQueryOption item fName
-                                    else
-                                        r() |> IQuery fName
                                 if queryFields.Contains fName then 
                                     queryFields <- queryFields |> Set.remove fName
-                                    q()
+                                    queryRouter fTyp fName r
                                 elif formDataFields.Contains fName then 
                                     formDataFields <- formDataFields |> Set.remove fName
-                                    q() |> IFormData
+                                    queryRouter fTyp fName r |> IFormData
                                 elif Option.isSome jsonField && jsonField.Value = fName then
                                     jsonField <- None
                                     getJsonRouter fTyp
@@ -245,26 +240,30 @@ module internal ServerRouting =
                     ))
                 
         else
-            match t.FullName with
-            | "System.Object" ->
-                IEmpty
-            | "System.String" ->
-                iString 
-            | "System.Char" ->
-                iChar 
-            | "System.Guid" ->
-                iGuid 
-            | "System.Boolean" ->
-                iBool 
-            | "System.Int32" ->
-                iInt
-            | "System.Double" ->
-                iDouble 
-            | "System.DateTime" ->
-                iDateTime None
-            | "System.Nullable`1" ->
-                let item = t.GetGenericArguments().[0]
-                INullable (getRouter item)
+            match t.Namespace with
+            | "System" ->
+                match t.Name with
+                | "Object" ->
+                    IEmpty
+                | "String" ->
+                    iString 
+                | "Char" ->
+                    iChar 
+                | "Guid" ->
+                    iGuid 
+                | "Boolean" ->
+                    iBool 
+                | "Int32" ->
+                    iInt
+                | "Double" ->
+                    iDouble 
+                | "DateTime" ->
+                    iDateTime None
+                | "Nullable`1" ->
+                    let item = t.GetGenericArguments().[0]
+                    INullable (getRouter item)
+                | n ->
+                    failwithf "System type not supported for inferred router: %s" n
             | _ ->
                 let rec getClassAnnotation td : Annotation =
                     match parsedClassEndpoints.TryFind(td) with

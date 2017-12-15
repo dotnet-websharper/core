@@ -48,6 +48,9 @@ module PerformanceTests =
         | [<EndPoint "/string">] UString of string
         | [<EndPoint "/tuple">] UTuple of p: int * string * bool
         | [<EndPoint "/tuple-with-queries"; Query("a", "b")>] UTupleQ of p: int * a: string * b: bool
+        | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
+        | [<EndPoint "/option-query"; Query "q">] UOptionQuery of q : option<int>
+        | [<EndPoint "/nullable-query"; Query "q">] UNullableQuery of q : System.Nullable<int>
         | [<EndPoint "/recursive">] URecursive of option<Action>
         | [<EndPoint "/record">] URecord of RecTest
         | [<EndPoint "/record-with-queries">] URecordQ of RecQTest
@@ -73,6 +76,12 @@ module PerformanceTests =
             UString "hello"
             UTuple (1, "hi", true)
             UTupleQ (1, "hi", true)
+            UNullable (System.Nullable())
+            UNullable (System.Nullable 2)
+            UOptionQuery None
+            UOptionQuery (Some 5)
+            UNullableQuery (System.Nullable())
+            UNullableQuery (System.Nullable 6)
             URecursive (Some (URecursive (Some (UTuple (1, "hi", true)))))
             URecord { A = "hello"; B = 123; C = false }
             URecordQ { A = "hello"; BQ = 123; CQ = false }
