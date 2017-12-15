@@ -146,12 +146,12 @@ type TestCategory() =
     member this.Expect(n: int) =
         asserter.Expect(n)
 
-    member this.Run(name: string, f: unit -> unit) =
+    member internal this.Run(name: string, f: unit -> unit) =
         QUnit.Test name (fun a ->
             asserter <- a
             f())
 
-    member this.Run(name: string, f: unit -> Task) =
+    member internal this.Run(name: string, f: unit -> Task) =
         QUnit.Test name (fun a ->
             asserter <- a
             let ``done`` = asserter.Async()
@@ -206,7 +206,7 @@ type TestGenerator() =
                     match m.GetParameters() with
                     | [||] -> Choice1Of2 (Expr.Call(v, m, []))
                     | [|p|] ->
-                        let sampleTy = typedefof<Random.Sample<_>>.MakeGenericType(p.ParameterType)
+                        let sampleTy = typedefof<RandomValues.Sample<_>>.MakeGenericType(p.ParameterType)
                         let sampleCtor = sampleTy.GetConstructor([||])
                         let sample = Expr.NewObject(sampleCtor, [])
                         let dataMeth = sampleTy.GetProperty("Data").GetGetMethod()

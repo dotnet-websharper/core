@@ -64,8 +64,7 @@ module internal SiteLoading =
                         let sitelet = p.GetGetMethod().Invoke(null, [||])
                         let upcastSitelet =
                             sitelet.GetType()
-                                .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                                .GetGetMethod(nonPublic = true)
+                                .GetMethod("Box", BF.Instance ||| BF.NonPublic)
                                 .Invoke(sitelet, [||])
                                 :?> Sitelet<obj>
                         Some (upcastSitelet, [])
@@ -111,31 +110,14 @@ module private WebUtils =
 
     /// Converts ASP.NET requests to Sitelet requests.
     let convertRequest (ctx: HttpContextBase) : Http.Request =
-        let METHOD = function
-            | "CONNECT" -> Http.Method.Connect
-            | "DELETE" -> Http.Method.Delete
-            | "GET" -> Http.Method.Get
-            | "HEAD" -> Http.Method.Head
-            | "OPTIONS" -> Http.Method.Options
-            | "POST" -> Http.Method.Post
-            | "PUT" -> Http.Method.Put
-            | "TRACE" -> Http.Method.Trace
-            | rest -> Http.Method.Custom rest
         let req = ctx.Request
-        let resp = ctx.Response
         let headers =
             seq {
                 for key in req.Headers.AllKeys do
                     yield Http.Header.Custom key req.Headers.[key]
             }
-        // app.Context.Request.Cookies
-        let parameters =
-            seq {
-                for p in ctx.Request.Params.AllKeys do
-                    yield (p, req.[p])
-            }
         {
-            Method = METHOD ctx.Request.HttpMethod
+            Method = Http.Method.OfString ctx.Request.HttpMethod
             Uri = getUri req
             Headers = headers
             Body = req.InputStream
@@ -143,12 +125,7 @@ module private WebUtils =
             Get  = new Http.ParameterCollection(req.QueryString)
             Cookies = req.Cookies
             ServerVariables = new Http.ParameterCollection(req.ServerVariables)
-            Files =
-                let fs = req.Files
-                seq {
-                    for i = 1 to fs.Count do
-                        yield fs.[i-1]
-                }
+            Files = Seq.cast<HttpPostedFileBase> req.Files
         }
 
     /// Constructs the sitelet context object.
@@ -161,7 +138,7 @@ module private WebUtils =
                 | Some loc ->
                     if loc.IsAbsoluteUri then string loc else
                         joinWithSlash appPath (string loc)
-                | None -> failwith "Failed to link to action"),
+                | None -> failwith "Failed to link to action"),            
             Metadata = Shared.Metadata,
             Dependencies = Shared.Dependencies,
             ResourceContext = resCtx,
@@ -176,17 +153,20 @@ module private WebUtils =
         // Create a context
         let context = getContext site ctx resCtx appPath rootFolder req
         // Handle action
-        async {
-            let! response = Content.ToResponse (site.Controller.Handle action) context
-            let resp = ctx.Response
-            resp.Status <- response.Status.ToString()
-            for header in response.Headers do
-                resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
-                RpcHandler.SetCsrfCookie resp
-            response.WriteBody resp.OutputStream
-            resp.End()
-        }
+        // we use AsyncBuilder directly so there is no .Delay, .For, .Combine calls for minimal overhead
+        async.Bind(
+            Content.ToResponse (site.Controller.Handle action) context,
+            fun response ->
+                let resp = ctx.Response
+                resp.Status <- response.Status.ToString()
+                for header in response.Headers do
+                    resp.AddHeader(header.Name, header.Value)
+                if req.Cookies.[RpcHandler.CsrfTokenKey] = null then
+                    RpcHandler.SetCsrfCookie resp
+                response.WriteBody resp.OutputStream
+                resp.End()
+                async.Zero()
+        )
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]

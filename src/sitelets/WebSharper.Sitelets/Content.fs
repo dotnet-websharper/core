@@ -160,8 +160,10 @@ module Content =
             }
         }
 
+    let JsonProvider = WebSharper.Core.Json.Provider.Create()
+
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
-        let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
+        let encoder = JsonProvider.GetEncoder<'U>()
         Content.CustomContent <| fun ctx ->
             let x = f ctx
             {
@@ -171,12 +173,12 @@ module Content =
                     use tw = new StreamWriter(s)
                     x
                     |> encoder.Encode
-                    |> ActionEncoding.JsonProvider.Pack
+                    |> JsonProvider.Pack
                     |> WebSharper.Core.Json.Write tw
             }
 
     let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
-        let encoder = ActionEncoding.JsonProvider.GetEncoder<'U>()
+        let encoder = JsonProvider.GetEncoder<'U>()
         Content.CustomContentAsync <| fun ctx ->
             async {
                 let! x = f ctx
@@ -187,14 +189,14 @@ module Content =
                         use tw = new StreamWriter(s)
                         x
                         |> encoder.Encode
-                        |> ActionEncoding.JsonProvider.Pack
+                        |> JsonProvider.Pack
                         |> WebSharper.Core.Json.Write tw
                 }
             }
 
     let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
         match c with
-        | CustomContent x -> async { return x ctx }
+        | CustomContent x -> async.Return (x ctx)
         | CustomContentAsync x -> x ctx
 
     let FromContext f =

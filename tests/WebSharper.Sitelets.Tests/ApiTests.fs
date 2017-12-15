@@ -64,6 +64,12 @@ module ApiTests =
                 |> ignore
 
         TestCategory "Sitelets JSON API" {
+            Test "Equality" {
+                isTrue (1 = 1)
+                isTrueMsg (1 = 1) "One equals one"
+                isTrueAsync (async { return 1 = 1 }) 
+                isTrueMsgAsync (async { return 1 = 1 }) "One equals one async version"
+            }
             Test "get/update" {
                 let! person1 = getPerson 1
                 equal person1.firstName "Alonzo"

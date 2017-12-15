@@ -23,7 +23,7 @@ module WebSharper.Tests.Operators
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-module R = WebSharper.Testing.Random
+module R = WebSharper.Testing.RandomValues
 
 type CustomNumber(x: int) =
     let inner = x

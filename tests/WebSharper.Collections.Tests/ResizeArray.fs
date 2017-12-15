@@ -61,8 +61,8 @@ let Tests =
             })
         }
 
-        let smallInt = Random.Within -20 20
-        let len = Random.Within 0 99
+        let smallInt = RandomValues.Within -20 20
+        let len = RandomValues.Within 0 99
         let invComparer =
             { new System.Collections.Generic.IComparer<int> with
                 member __.Compare(x, y) = compare y x
@@ -70,7 +70,7 @@ let Tests =
 
         Test "BinarySearch (basic)" {
             propertyWith (
-                Random.Tuple2Of (Random.ResizeArrayOf smallInt, smallInt)
+                RandomValues.Tuple2Of (RandomValues.ResizeArrayOf smallInt, smallInt)
             ) (fun (haystack, needle) -> Do {
                 haystack.Sort()
                 let expected =
@@ -84,7 +84,7 @@ let Tests =
 
         Test "BinarySearch (comparer)" {
             propertyWith (
-                Random.Tuple2Of (Random.ResizeArrayOf smallInt, smallInt)
+                RandomValues.Tuple2Of (RandomValues.ResizeArrayOf smallInt, smallInt)
             ) (fun (haystack, needle) -> Do {
                 haystack.Sort(fun x y -> compare y x)
                 let expected =
@@ -98,8 +98,8 @@ let Tests =
 
         Test "BinarySearch (bounds, comparer)" {
             propertyWith (
-                Random.Tuple4Of (Random.ResizeArrayOf smallInt, len, len, smallInt)
-                |> Random.SuchThat (fun (a, s, l, x) -> s + l <= a.Count)
+                RandomValues.Tuple4Of (RandomValues.ResizeArrayOf smallInt, len, len, smallInt)
+                |> RandomValues.SuchThat (fun (a, s, l, x) -> s + l <= a.Count)
             ) (fun (haystack, start, length, needle) -> Do {
                 haystack.Sort(fun x y -> compare y x)
                 let expected =
@@ -348,8 +348,8 @@ let Tests =
 
         Test "Sort" {
             propertyWith (
-                Random.Tuple3Of(Random.ResizeArrayOf smallInt, len, len)
-                |> Random.SuchThat (fun (keys, index, length) -> index + length < keys.Count)
+                RandomValues.Tuple3Of(RandomValues.ResizeArrayOf smallInt, len, len)
+                |> RandomValues.SuchThat (fun (keys, index, length) -> index + length < keys.Count)
             ) (fun (keys, index, length) -> Do {
                 let origKeys = ResizeArray(keys)
                 keys.Sort(index, length, invComparer)

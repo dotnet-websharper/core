@@ -24,6 +24,8 @@ module WebSharper.Tests.Website.Content
 open WebSharper
 open WebSharper.Sitelets
 open WebSharper.Sitelets.Tests.Server
+open WebSharper.Core.Json
+
 module PerformanceTests = WebSharper.Sitelets.Tests.PerformanceTests
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
@@ -72,7 +74,7 @@ let TestsPage (ctx: Context<FullAction>) =
     let t12 = (1, 2)
     let jsonBaseUri =
         Tests.Json.String ""
-        |> ActionEncoding.Success
+        |> ParseRequestResult.Success
         |> SampleSite.Json
         |> SiteletsTests
         |> ctx.Link
@@ -93,6 +95,7 @@ let TestsPage (ctx: Context<FullAction>) =
                 ClientSide <@ Client.ClientSideTupleTest t12 @>
                 ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
                 ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
+                ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri @> 
                 ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri true @>
             ] : list<Web.Control>
         )

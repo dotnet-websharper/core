@@ -23,7 +23,7 @@ module WebSharper.Tests.Seq
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-module R = WebSharper.Testing.Random
+module R = WebSharper.Testing.RandomValues
       
 [<JavaScript>]
 type CustomHash(a: int, b: int) =    

@@ -22,7 +22,7 @@ group fsharp3
     framework: net40
     source https://api.nuget.org/v3/index.json
 
-    nuget FSharp.Core 3.0.2
+    nuget FSharp.Core 4.0.0.1
 
 group roslyn
     framework: net46

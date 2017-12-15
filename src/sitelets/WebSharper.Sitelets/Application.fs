@@ -40,7 +40,7 @@ type Application =
 
     static member SinglePage (f: Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) =
         {
-            Router = Routing.Router.Table [SPA.EndPoint.Home, "/"]
+            Router = Router.Single SPA.EndPoint.Home "/"
             Controller =
                 { Handle = fun SPA.EndPoint.Home ->
                     Content.CustomContentAsync <| fun ctx -> async {

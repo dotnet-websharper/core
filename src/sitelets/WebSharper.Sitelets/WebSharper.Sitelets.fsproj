@@ -4,18 +4,20 @@
     <ProjectGuid>{d991329a-3aa3-4269-83ad-3597864855a0}</ProjectGuid>
     <OutputType>Library</OutputType>
     <Name>WebSharper.Sitelets</Name>
+    <WebSharperProject>Library</WebSharperProject>
   </PropertyGroup>
   <Import Project="../../../msbuild/WebSharper.FSharp.Internal.targets" />
   <ItemGroup>
     <Compile Include="Extensions.fs" />
     <Compile Include="Http.fs" />
-    <Compile Include="ActionEncoding.fsi" />
-    <Compile Include="ActionEncoding.fs" />
     <Compile Include="UserSession.fs" />
     <Compile Include="Page.fsi" />
     <Compile Include="Page.fs" />
-    <Compile Include="Router.fsi" />
     <Compile Include="Router.fs" />
+    <Compile Include="InferredRouter.fs" />
+    <Compile Include="RouterAttributeReader.fs" />
+    <Compile Include="RouterInfer.Server.fs" />
+    <Compile Include="RouterInfer.Client.fs" />
     <Compile Include="Context.fsi" />
     <Compile Include="Context.fs" />
     <Compile Include="Content.fsi" />
@@ -40,6 +42,21 @@
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj">
       <Name>WebSharper.Core</Name>
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj">
+      <Name>WebSharper.Collections</Name>
+      <Project>{4ef94364-b50f-4906-ab91-77bca8413d60}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj">
+      <Name>WebSharper.JavaScript</Name>
+      <Project>{3f2ceb8b-6ffd-45d0-8dbc-a5eed112ce68}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj">
+      <Name>WebSharper.JQuery</Name>
+      <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\stdlib\WebSharper.Main\WebSharper.Main.fsproj">

@@ -969,7 +969,9 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         let path = t.FullName.Split('+')
         let mutable res =
             lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
-                e.FullName = path.[0]
+                match e.TryFullName with
+                | Some fn when fn = path.[0] -> true
+                | _ -> false
             )
         for i = 1 to path.Length - 1 do
             if res.IsSome then

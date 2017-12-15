@@ -54,7 +54,7 @@ module PerformanceTests =
         | [<EndPoint "/list">] UList of list<int * string>
         | [<EndPoint "/array">] UArray of (int * string)[]
         | [<Method "POST"; EndPoint "/post">] UPost of int
-        | [<Method "PUT"; EndPoint "/post">] UUpdate of int
+        | [<Method "PUT"; EndPoint "/post">] UPut of int
         | [<EndPoint "POST /post2">] UPost2 of int
         | [<EndPoint "/json-input"; Json "json">] UJsonInput of json: RecTest 
         | [<EndPoint "/json-input"; Json "json">] UJsonInt of json: int 
@@ -67,6 +67,53 @@ module PerformanceTests =
         | [<EndPoint "/wildcard-list"; Wildcard>] UWildcardList of int list
         | [<EndPoint "/two-unions">] UTwoUnions of MultipleTest * MultipleTest
 
+    let TestValues =
+        [
+            URoot
+            UString "hello"
+            UTuple (1, "hi", true)
+            UTupleQ (1, "hi", true)
+            URecursive (Some (URecursive (Some (UTuple (1, "hi", true)))))
+            URecord { A = "hello"; B = 123; C = false }
+            URecordQ { A = "hello"; BQ = 123; CQ = false }
+            UList [ 1, "hi"; 2, "hi!"; 3, "hi!!" ]
+            UArray [| 1, "hi"; 2, "hi!"; 3, "hi!!" |]
+            UPost 1
+            UPut 2
+            UPost2 3
+            UJsonInput { A = "hello"; B = 123; C = false }
+            UJsonInt 4
+            UFormData "hello"
+            UMultiple
+            UMultiple2 1
+            UMultiple3 (1, 2)
+            UWildcardString "1/2/3/hi"
+            UWildcardArray [| 1; 2; 3 |]
+            UWildcardList [ 1; 2; 3 ]
+            UTwoUnions (A, A)
+            UTwoUnions (A1 1, A)
+            UTwoUnions (A1 1, A1 1)
+        ]
+
+    let Site =
+        Sitelet.Infer<Action> (fun ctx act -> 
+            for i in 1 .. 49 do
+                ctx.Link act |> ignore // stress-test writing links 
+            Content.Text (
+                ctx.Link act
+            ) 
+        )
+
+    let ShiftedRouter = 
+        Router.Infer<Action>()
+        |> Router.Shift "perf-tests"
+        
+    [<Remote>]
+    let GetTestValues() =
+        TestValues |> Seq.map (fun v ->
+            v, ShiftedRouter.Link v
+        ) |> Array.ofSeq |> async.Return
+               
 // test urls:
 // http://localhost:50668/perf-tests/
 // http://localhost:50668/perf-tests/string/hellothere
@@ -94,12 +141,3 @@ module PerformanceTests =
 // check that this fails:
 // GET http://localhost:50668/perf-tests/post/1
 // GET http://localhost:50668/perf-tests/post2/1
-
-    let Site =
-        Sitelet.Infer<Action> (fun ctx act -> 
-            for i in 1 .. 49 do
-                ctx.Link act |> ignore // stress-test writing links 
-            Content.Text (
-                ctx.Link act
-            ) 
-        )

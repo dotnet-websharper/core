@@ -77,20 +77,21 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Text("Go back to C# sitelets tests home")))))
                 .Install();
 
-        [EndPoint("/person")]
+        [EndPoint("/person/{name}/{age}")]
         public class Person
         {
             public Name name;
             public int age;
         }
 
+        [EndPoint("{first}/{last}")]
         public class Name
         {
             public string first;
             public string last;
         }
 
-        [EndPoint("/person")]
+        [EndPoint("qperson/{name}/{age}")]
         public class QueryPerson
         {
             public QueryName name;
@@ -99,6 +100,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public int? age;
         }
 
+        [EndPoint("{first}/{last}")]
         public class QueryName
         {
             [Query]

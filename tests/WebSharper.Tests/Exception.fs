@@ -35,6 +35,10 @@ let Tests =
 
     TestCategory "Exception" {
 
+        Test "Raises" {
+            raises (failwith "should fail")
+        }
+        
         Test "E0" {
             equal (try 1 with E0 -> 2) 1
             equal (try (raise E0; 1) with E0 -> 2) 2
