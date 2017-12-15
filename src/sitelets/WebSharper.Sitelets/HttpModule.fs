@@ -64,7 +64,7 @@ module internal SiteLoading =
                         let sitelet = p.GetGetMethod().Invoke(null, [||])
                         let upcastSitelet =
                             sitelet.GetType()
-                                .GetMethod("Box", BF.Instance ||| BF.NonPublic)
+                                .GetMethod("Box", BF.Instance ||| BF.Public)
                                 .Invoke(sitelet, [||])
                                 :?> Sitelet<obj>
                         Some (upcastSitelet, [])

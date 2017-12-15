@@ -26,6 +26,8 @@ open WebSharper.JQuery
 open System.Collections.Generic
 open System.Text
 
+#nowarn "64" // type parameter renaming warnings 
+
 [<NamedUnionCases "result"; RequireQualifiedAccess>]
 type ParseRequestResult<'T> =
     | [<CompiledName "success">]
