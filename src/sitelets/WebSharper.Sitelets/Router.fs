@@ -950,84 +950,30 @@ module RouterOperators =
                 Some (Seq.singleton (Route.Segment (string value)))
         }
 
-    // TODO: fix translating trait call here
-    ///// Parse/write a Guid.
-    //let rGuid = rTryParse<System.Guid>()
-    ///// Parse/write a bool.
-    //let rBool = rTryParse<bool>()
-    ///// Parse/write an int.
-    //let rInt = rTryParse<int>()
-    ///// Parse/write a double.
-    //let rDouble = rTryParse<double>()
-
-    //let rSByte = rTryParse<sbyte>() 
-    //let rByte = rTryParse<byte>() 
-    //let rInt16 = rTryParse<int16>() 
-    //let rUInt16 = rTryParse<uint16>() 
-    //let rUInt = rTryParse<uint32>() 
-    //let rInt64 = rTryParse<int64>() 
-    //let rUInt64 = rTryParse<uint64>() 
-    //let rSingle = rTryParse<single>() 
-
     /// Parse/write a Guid.
-    let rGuid : Router<System.Guid> =
-        {
-            Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    match System.Guid.TryParse h with
-                    | true, g ->
-                        Seq.singleton ({ path with Segments = t }, g)
-                    | _ -> Seq.empty
-                | _ -> Seq.empty
-            Write = fun value ->
-                Some (Seq.singleton (Route.Segment (string value)))
-        }
-
+    let rGuid = rTryParse<System.Guid>()
     /// Parse/write a bool.
-    let rBool : Router<bool> =
-        {
-            Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    match System.Boolean.TryParse h with
-                    | true, g ->
-                        Seq.singleton ({ path with Segments = t }, g)
-                    | _ -> Seq.empty
-                | _ -> Seq.empty
-            Write = fun value ->
-                Some (Seq.singleton (Route.Segment (if value then "True" else "False")))
-        }
-
+    let rBool = rTryParse<bool>()
     /// Parse/write an int.
-    let rInt : Router<int> =
-        {
-            Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    match System.Int32.TryParse h with
-                    | true, i ->
-                        Seq.singleton ({ path with Segments = t }, i)
-                    | _ -> Seq.empty
-                | _ -> Seq.empty
-            Write = fun value ->
-                Some (Seq.singleton (Route.Segment (string value)))
-        }
-
+    let rInt = rTryParse<int>()
     /// Parse/write a double.
-    let rDouble : Router<float> =
-        {
-            Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    match System.Double.TryParse h with
-                    | true, i ->
-                        Seq.singleton ({ path with Segments = t }, i)
-                    | _ -> Seq.empty
-                | _ -> Seq.empty
-            Write = fun value ->
-                Some (Seq.singleton (Route.Segment (string value)))
-        }
+    let rDouble = rTryParse<double>()
+    /// Parse/write a signed byte.
+    let rSByte = rTryParse<sbyte>() 
+    /// Parse/write a byte.
+    let rByte = rTryParse<byte>() 
+    /// Parse/write a 16-bit int.
+    let rInt16 = rTryParse<int16>() 
+    /// Parse/write a 16-bit unsigned int.
+    let rUInt16 = rTryParse<uint16>() 
+    /// Parse/write an unsigned int.
+    let rUInt = rTryParse<uint32>() 
+    /// Parse/write a 64-bit int.
+    let rInt64 = rTryParse<int64>() 
+    /// Parse/write a 64-bit unsigned int.
+    let rUInt64 = rTryParse<uint64>() 
+    /// Parse/write a single.
+    let rSingle = rTryParse<single>() 
 
     /// Parses any remaining part of the URL as a string, no URL encode/decode is done.
     let rWildcard : Router<string> = 

@@ -978,11 +978,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
-                    let gen = ct.Generics @ meth.Generics |> Array.ofList
-                    let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
-                    let ret = trmv.ReturnType.SubstituteGenerics gen
                     let methods = comp.GetMethods ct.Entity
-                    let ms =                    
+                    let getMethods pars ret =
                         methods |> Seq.choose (fun m ->
                             let mv = m.Value
                             if mv.MethodName = mName 
@@ -993,12 +990,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             else None
                         ) 
                         |> List.ofSeq
+                    let ms =                        
+                        match getMethods trmv.Parameters trmv.ReturnType with
+                        | [] -> []
+                        | [_] as ms -> ms
+                        | _ ->
+                            let gen = ct.Generics @ meth.Generics |> Array.ofList
+                            let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
+                            let ret = trmv.ReturnType.SubstituteGenerics gen
+                            getMethods pars ret
                     match ms with
                     | [ m ] ->
                         this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
                     | [] -> 
-                        let trmv = { trmv with Parameters = pars; ReturnType = ret }
-                        delay (sprintf "Could not find method for trait call: %A, options: %A" trmv (methods |> Seq.filter (fun m -> m.Value.MethodName = mName)))
+                        delay (sprintf "Could not find method for trait call: %s" mName)
                     | _ -> delay (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
                     delay "Using a trait call requires the Inline attribute"

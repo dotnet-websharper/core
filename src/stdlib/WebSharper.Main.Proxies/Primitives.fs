@@ -171,6 +171,12 @@ type internal NS =
     [<Inline "$0 === Infinity">]
     static member IsPositiveInfinity (f: single) = X<bool>
 
+    [<Macro(typeof<M.NumericMacro>)>]
+    static member Parse(x: string) = X<System.Single>
+
+    [<Macro(typeof<M.NumericMacro>)>]
+    static member TryParse(x: string, r: byref<System.Single>) = X<bool>
+
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
 type internal ND =
@@ -186,6 +192,12 @@ type internal ND =
 
     [<Inline "$0 === Infinity">]
     static member IsPositiveInfinity (f: double) = X<bool>
+
+    [<Macro(typeof<M.NumericMacro>)>]
+    static member Parse(x: string) = X<System.Double>
+
+    [<Macro(typeof<M.NumericMacro>)>]
+    static member TryParse(x: string, r: byref<System.Double>) = X<bool>
 
 [<Proxy(typeof<System.Boolean>)>]
 type internal B = 
