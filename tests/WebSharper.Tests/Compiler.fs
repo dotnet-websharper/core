@@ -71,6 +71,10 @@ module Server =
             | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
             | _ -> false
         
+            testWithMatch <@ Optimizations.TupledArgWithLocalAlias() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | _ -> false
+        
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
             | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
             | _ -> false

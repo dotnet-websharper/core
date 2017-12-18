@@ -374,6 +374,12 @@ let TupledArgWithLocal() =
     TupledArg LocalTupled
 
 [<JavaScript>]
+let TupledArgWithLocalAlias() =
+    let LocalTupled ((a, b) as x) =
+        a + b 
+    TupledArg LocalTupled
+
+[<JavaScript>]
 let CurriedArgWithGlobal() =
     CurriedArg GlobalCurried
 

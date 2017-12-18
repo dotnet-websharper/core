@@ -821,6 +821,14 @@ let Tests =
             equal test "correct"
         }
 
+        Test "#866 Local function incorrectly treated as tupled" {
+            let r1, r2 =
+                let f (s: string) = string s.[0] + string s.[2]
+                f "abc", f "123"
+            equal r1 "ac"
+            equal r2 "13"
+        }
+
         //Test "Recursive module value" {
         //    equal (moduleFuncValue 0) 5
         //}

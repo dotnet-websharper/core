@@ -217,18 +217,19 @@ module Definitions =
 
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
+    let isTuple = i.FullType.IsTupleType
     if i.IsCompilerGenerated then
         let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
         if n.Length > 0 then
-            Id.New(n.Substring(0, 1), i.IsMutable)
+            Id.New(n.Substring(0, 1), i.IsMutable, isTuple)
         else
-            Id.New(mut = i.IsMutable)
+            Id.New(mut = i.IsMutable, tup = isTuple)
     elif i.IsActivePattern then
-        Id.New(i.DisplayName.Split('|').[1], i.IsMutable)
+        Id.New(i.DisplayName.Split('|').[1], i.IsMutable, isTuple)
     else
         let n = i.DisplayName
-        if n = "( builder@ )" then Id.New("b", i.IsMutable)
-        else Id.New(n, i.IsMutable) 
+        if n = "( builder@ )" then Id.New("b", i.IsMutable, isTuple)
+        else Id.New(n, i.IsMutable, isTuple) 
 
 type MatchValueVisitor(okToInline: int[]) =
     inherit Visitor()

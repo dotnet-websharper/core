@@ -36,6 +36,7 @@ type Id =
         mutable IdName : string option
         Id: int64
         Mutable : bool
+        Tuple : bool
     }
 
     member this.Name 
@@ -43,25 +44,23 @@ type Id =
         and set n = this.IdName <- n
 
     member this.IsMutable = this.Mutable
+    member this.IsTuple = this.Tuple
     
-    static member New(?name, ?mut) =
+    static member New(?name, ?mut, ?tup) =
         {
             IdName = name
             Id = Ids.New()
             Mutable = defaultArg mut true
+            Tuple = defaultArg tup false
         }
 
     member this.Clone() =
-        {
-            IdName = this.IdName
+        { this with
             Id = if this.Id < 0L then this.Id else Ids.New()
-            Mutable = this.Mutable
         }
 
     member this.ToMutable() =
-        {
-            IdName = this.IdName
-            Id = this.Id
+        { this with
             Mutable = true
         }
 
@@ -652,6 +651,7 @@ module private Instances =
             IdName = Some "window"
             Id = -1L
             Mutable = false
+            Tuple = false
         }
 
     let DefaultCtor =
