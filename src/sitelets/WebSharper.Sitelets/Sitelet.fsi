@@ -46,11 +46,8 @@ type Sitelet<'T when 'T : equality> =
     /// Constructs a protected sitelet given the filter specification.
     member Protect : verifyUser: Func<string, bool> * loginRedirect: Func<'T, 'T> -> Sitelet<'T>
 
-    /// Maps over the sitelet endpoint type. Requires a bijection.
+    /// Maps over the sitelet endpoint type. Can be partial if embed/unembed returns null.
     member Map<'U when 'U : equality> : embed: Func<'T, 'U> * unembed: Func<'U, 'T> -> Sitelet<'U>
-
-    /// Maps over the sitelet endpoint type with only an injection.
-    member Embed<'U when 'U : equality> : embed: Func<'T, 'U> * unembed: Func<'U, option<'T>> -> Sitelet<'U>
         
     /// Shifts all sitelet locations by a given prefix.
     member Shift : prefix: string -> Sitelet<'T>
@@ -96,6 +93,10 @@ module Sitelet =
     val Embed<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> Sitelet<'T1> -> Sitelet<'T2>
 
+    /// Maps over the sitelet endpoint type with a partial mapping.
+    val TryMap<'T1,'T2 when 'T1 : equality and 'T2 : equality> :
+        ('T1 -> 'T2 option) -> ('T2 -> 'T1 option) -> Sitelet<'T1> -> Sitelet<'T2>
+
     /// Maps over the sitelet endpoint type, where the destination endpoint type
     /// is a discriminated union with a case containing the source type.
     val EmbedInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
@@ -119,8 +120,18 @@ module Sitelet =
     val Box<'T when 'T : equality> :
         sitelet: Sitelet<'T> -> Sitelet<obj>
 
+    /// Boxes the sitelet endpoint type to Object type.
+    [<Obsolete "Use Sitelet.Box instead.">]
+    val Upcast<'T when 'T : equality> :
+        sitelet: Sitelet<'T> -> Sitelet<obj>
+
     /// Reverses the Box operation on the sitelet.
     val Unbox<'T when 'T : equality> :
+        sitelet: Sitelet<obj> -> Sitelet<'T>
+
+    /// Reverses the Box operation on the sitelet.
+    [<Obsolete "Use Sitelet.Unbox instead, now safe, does a type check after parsing.">]
+    val UnsafeDowncast<'T when 'T : equality> :
         sitelet: Sitelet<obj> -> Sitelet<'T>
 
     /// Constructs a sitelet with an inferred router and a given controller function.

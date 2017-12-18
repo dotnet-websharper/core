@@ -568,6 +568,8 @@ module Router =
     let HashLink (router: Router<'A>)  endpoint =
         "#" + Link router endpoint
     
+    /// Maps a router to a narrower router type. The decode function must return None if the
+    /// value can't be mapped to a value of the target.
     let Slice (decode: 'T -> 'U option) (encode: 'U -> 'T) (router: Router<'T>) : Router<'U> =
         {
             Parse = fun path ->
@@ -576,7 +578,7 @@ module Router =
                 encode value |> router.Write
         }
 
-    /// Maps a router to a wider router type. The enc function must return None, if the
+    /// Maps a router to a wider router type. The encode function must return None if the
     /// value can't be mapped back to a value of the source.
     let Embed (decode: 'A -> 'B) (encode: 'B -> 'A option) router =
         {
@@ -593,6 +595,17 @@ module Router =
                 router.Parse path |> Seq.map (fun (p, v) -> p, decode v) 
             Write = fun value ->
                 encode value |> router.Write
+        }
+
+    /// Combination of Slice and Embed, a mapping from a subset of source values to
+    /// a subset of target values. Both encode and decode must return None if
+    /// there is no mapping to a value of the other type.
+    let TryMap (decode: 'A -> 'B option) (encode: 'B -> 'A option) router =
+        {
+            Parse = fun path ->
+                router.Parse path |> Seq.choose (fun (p, v) -> decode v |> Option.map (fun v -> p, v)) 
+            Write = fun value ->
+                encode value |> Option.bind router.Write
         }
 
     /// Filters a router, only parsing/writing values that pass the predicate check.
@@ -755,10 +768,6 @@ module Router =
     let List (item: Router<'A>) : Router<'A list> =
         Array item |> Map List.ofArray FArray.ofList
 
-    [<Inline>]
-    let internal ofObjNoConstraint (x: 'T) =
-        if obj.ReferenceEquals(x, null) then None else Some x
-
 type Router with
     [<Inline>]
     member this.MapTo(value: 'T) =
@@ -797,8 +806,8 @@ type Router with
         Router.Single endpoint route
 
     [<Inline>]
-    static member Delay(getRouter) =
-        Router.Delay getRouter
+    static member Delay(getRouter: System.Func<Router<'T>>) =
+        Router.Delay getRouter.Invoke
 
 type Router<'T when 'T: equality> with
 
@@ -824,15 +833,7 @@ type Router<'T when 'T: equality> with
 
     [<Inline>]
     member this.Map(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) =
-        Router.Map decode.Invoke encode.Invoke this
-
-    [<Inline>]
-    member this.Embed<'U when 'U: equality>(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) : Router<'U> =
-        Router.Embed decode.Invoke (encode.Invoke >> Router.ofObjNoConstraint) this
-
-    [<Inline>]
-    member this.Slice(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) =
-        Router.Slice (decode.Invoke >> Option.ofObj) encode.Invoke this
+        Router.TryMap (decode.Invoke >> ofObjNoConstraint) (encode.Invoke >> ofObjNoConstraint) this
 
     [<Inline>]
     member this.Filter(predicate: System.Func<'T, bool>) =
@@ -903,6 +904,12 @@ module IRouter =
             member this.Link e = decode e |> router.Link
         } 
         
+    let TryMap encode decode (router: IRouter<'T>) : IRouter<'U> =
+        { new IRouter<'U> with
+            member this.Route req = router.Route req |> Option.bind encode
+            member this.Link e = decode e |> Option.bind router.Link
+        } 
+
     let Embed encode decode (router: IRouter<'T>) : IRouter<'U> =
         { new IRouter<'U> with
             member this.Route req = router.Route req |> Option.map encode

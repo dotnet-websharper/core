@@ -21,6 +21,8 @@
 /// Implements utilities for use by the current assembly.
 namespace WebSharper.Sitelets
 
+open WebSharper
+
 [<AutoOpen>]
 module internal Extensions =
     open System.Diagnostics
@@ -47,3 +49,7 @@ module internal Extensions =
         | true, true -> a + b.Substring(1)
         | false, false -> a + "/" + b
         | _ -> a + b
+
+    [<Inline>]
+    let internal ofObjNoConstraint (x: 'T) =
+        if obj.ReferenceEquals(x, null) then None else Some x

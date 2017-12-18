@@ -154,6 +154,18 @@ module Sitelet =
                 }
         }
 
+    /// Maps over the sitelet endpoint type. Requires a bijection.
+    let TryMap (f: 'T1 -> 'T2 option) (g: 'T2 -> 'T1 option) (s: Sitelet<'T1>) : Sitelet<'T2> =
+        {
+            Router = IRouter.TryMap f g s.Router
+            Controller =
+                { Handle = fun a ->
+                    match g a with
+                    | Some ea -> C.CustomContentAsync <| fun ctx ->
+                        C.ToResponse (s.Controller.Handle ea) (Context.Map (f >> Option.get) ctx)
+                    | None -> failwith "Invalid endpoint in Sitelet.Embed" }
+        }
+
     /// Maps over the sitelet endpoint type with only an injection.
     let Embed embed unembed sitelet =
         {
@@ -228,6 +240,8 @@ module Sitelet =
                 }
         }
 
+    let Upcast sitelet = Box sitelet
+
     /// Reverses the Box operation on the sitelet.
     let Unbox<'T when 'T : equality> (sitelet: Sitelet<obj>) : Sitelet<'T> =
         {
@@ -238,6 +252,8 @@ module Sitelet =
                         C.ToResponse (sitelet.Controller.Handle (box a)) (Context.Map unbox ctx)
                 }
         }
+
+    let UnsafeDowncast sitelet = Unbox sitelet
 
     /// Constructs a sitelet with an inferred router and a given controller
     /// function.
@@ -319,10 +335,7 @@ type Sitelet<'T when 'T : equality> with
         }
 
     member this.Map (embed: Func<'T, 'U>, unembed: Func<'U, 'T>) =
-        Sitelet.Map embed.Invoke unembed.Invoke this
-
-    member this.Embed (embed: Func<'T, 'U>, unembed: Func<'U, option<'T>>) =
-        Sitelet.Embed embed.Invoke unembed.Invoke this
+        Sitelet.TryMap (embed.Invoke >> ofObjNoConstraint) (unembed.Invoke >> ofObjNoConstraint) this
         
     member this.Shift (prefix: string) =
         Sitelet.Shift prefix this
