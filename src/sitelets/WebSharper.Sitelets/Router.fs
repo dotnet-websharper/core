@@ -79,10 +79,13 @@ type internal PathUtil =
 
     static member WriteLink s q =
         let sb = StringBuilder 128
-        s |> List.iter (fun x ->
-            if not (System.String.IsNullOrEmpty x) then
-                sb.Append('/').Append(x) |> ignore
-        )
+        if List.isEmpty s then
+            sb.Append('/') |> ignore
+        else
+            s |> List.iter (fun x ->
+                if not (System.String.IsNullOrEmpty x) then
+                    sb.Append('/').Append(x) |> ignore
+            )
         if Map.isEmpty q then () 
         else 
             let mutable start = true
