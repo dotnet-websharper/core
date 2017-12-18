@@ -331,10 +331,19 @@ module internal ServerInferredOperators =
                 item.IWrite (qw, value)
         }
 
+    type IOptionConverter =
+        abstract Get: obj -> obj option
+        abstract Some: obj -> obj
+
+    type OptionConverter<'T>() =
+        interface IOptionConverter with
+            member this.Get (o: obj) = unbox<'T option> o |> Option.map box
+            member this.Some (x: obj) = Some (unbox<'T> x) |> box
+
     let IQueryOption (itemType: System.Type) key (item: InferredRouter) : InferredRouter =
         let converter = 
-            System.Activator.CreateInstance(typedefof<Router.OptionConverter<_>>.MakeGenericType(itemType))
-            :?> Router.IOptionConverter
+            System.Activator.CreateInstance(typedefof<OptionConverter<_>>.MakeGenericType(itemType))
+            :?> IOptionConverter
         {
             IParse = fun path ->
                 match path.QueryArgs.TryFind key with

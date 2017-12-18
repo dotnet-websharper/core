@@ -150,3 +150,24 @@ module PerformanceTests =
 // check that this fails:
 // GET http://localhost:50668/perf-tests/post/1
 // GET http://localhost:50668/perf-tests/post2/1
+
+    type PersonData =
+        {
+            Name : string
+            Age : int
+        }
+        
+    type RouterTest =
+        | [<EndPoint "/">] Root
+        | [<EndPoint "/about"; Query "p">] About of int option * p: PersonData option
+
+    open RouterOperators
+
+    [<JavaScript>]
+    let constructed =
+        let rPersonData =
+            rString / rInt |> Router.Map (fun (n, a) -> { Name = n; Age = a }) (fun p -> p.Name, p.Age) 
+        Router.Sum [
+            rRoot |> Router.MapTo Root
+            "about" / Router.Option rInt / (Router.Option rPersonData |> Router.Query "p") |> Router.Embed About (function About (i, p) -> Some (i, p) | _ -> None)
+        ]

@@ -288,16 +288,13 @@ type Router =
         Segment : seq<Route> 
     }
     
-    static member Empty = 
-        {
-            Parse = fun path -> Seq.singleton path
-            Segment = Seq.empty
-        }
-
     static member FromString (name: string) =
         let parts = name.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries)
         if Array.isEmpty parts then 
-            Router.Empty 
+            {
+                Parse = fun path -> Seq.singleton path
+                Segment = Seq.empty
+            }
         else
             let parts = List.ofArray parts
             {
@@ -503,15 +500,6 @@ module Router =
                     Some Seq.empty
         }
 
-    type IOptionConverter =
-        abstract Get: obj -> obj option
-        abstract Some: obj -> obj
-
-    type OptionConverter<'T>() =
-        interface IOptionConverter with
-            member this.Get (o: obj) = unbox<'T option> o |> Option.map box
-            member this.Some (x: obj) = Some (unbox<'T> x) |> box
-
     let Method (m: string) : Router =
         {
             Parse = fun path ->
@@ -578,8 +566,7 @@ module Router =
             failwith "Failed to map endpoint to request" 
 
     let HashLink (router: Router<'A>)  endpoint =
-        let h = (Link router endpoint).Substring(1)
-        if h = "" then "" else "#" + h
+        "#" + Link router endpoint
     
     let Slice (decode: 'T -> 'U option) (encode: 'U -> 'T) (router: Router<'T>) : Router<'U> =
         {
@@ -691,15 +678,6 @@ module Router =
     let Single<'T when 'T : equality> (endpoint: 'T) (route: string) : Router<'T> =
         Router.FromString route |> MapTo endpoint
 
-    let Recursive<'T when 'T: equality> (createRouter: Router<'T> -> Router<'T>) : Router<'T> =
-        let res = ref Unchecked.defaultof<Router<'T>>
-        let r =
-            {
-                Parse = fun path -> res.Value.Parse path
-                Write = fun value -> res.Value.Write value
-            }
-        createRouter r
-
     let Delay<'T when 'T: equality> (getRouter: unit -> Router<'T>) : Router<'T> =
         let r = lazy getRouter()
         {
@@ -777,21 +755,69 @@ module Router =
     let List (item: Router<'A>) : Router<'A list> =
         Array item |> Map List.ofArray FArray.ofList
 
+    [<Inline>]
+    let internal ofObjNoConstraint (x: 'T) =
+        if obj.ReferenceEquals(x, null) then None else Some x
+
 type Router with
     [<Inline>]
     member this.MapTo(value: 'T) =
         Router.MapTo value this
 
+    [<Inline>]
+    static member Sum ([<System.ParamArray>] routers: Router<'T>[]) =
+        Router.Sum routers
+
+    [<Inline>]
+    static member Empty<'T when 'T: equality>() =
+        Router.Empty<'T>
+
+    [<JavaScript false>]
+    static member New(route: System.Func<Http.Request, 'T>, link: System.Func<'T, System.Uri>) =
+        Router.New (route.Invoke >> Option.ofObj) (link.Invoke >> Option.ofObj)
+
+    [<Inline>]
+    static member Method(method:string) =
+        Router.Method method
+
+    [<Inline>]
+    static member Body(des:System.Func<string, 'T>, ser: System.Func<'T, string>) =
+        Router.Body (fun s -> des.Invoke s |> Option.ofObj) ser.Invoke 
+
+    [<Inline>]
+    static member Json<'T when 'T: equality>() =
+        Router.Json<'T>
+
+    [<Inline>]
+    static member Table([<System.ParamArray>] mapping: ('T * string)[]) =
+        Router.Table mapping
+
+    [<Inline>]
+    static member Single(endpoint, route) =
+        Router.Single endpoint route
+
+    [<Inline>]
+    static member Delay(getRouter) =
+        Router.Delay getRouter
+
 type Router<'T when 'T: equality> with
+
+    [<Inline>]
+    member this.Query(key: string) =
+        Router.Query key this
 
     [<Inline>]
     member this.Link(endpoint: 'T) =
         Router.Link this endpoint
 
     [<Inline>]
-    member this.TryLink(endpoint: 'T) =
-        Router.TryLink this endpoint
-
+    member this.TryLink(endpoint: 'T, link: byref<string>) =
+        match Router.TryLink this endpoint with
+        | Some l ->
+            link <- l
+            true
+        | _ -> false
+               
     [<Inline>]
     member this.HashLink(endpoint: 'T) =
         Router.HashLink this endpoint
@@ -801,12 +827,52 @@ type Router<'T when 'T: equality> with
         Router.Map decode.Invoke encode.Invoke this
 
     [<Inline>]
-    member this.Embed<'U when 'U: equality>(decode: System.Func<'T, 'U>, encode: System.Func<'U, option<'T>>) : Router<'U> =
-        Router.Embed decode.Invoke encode.Invoke this
+    member this.Embed<'U when 'U: equality>(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) : Router<'U> =
+        Router.Embed decode.Invoke (encode.Invoke >> Router.ofObjNoConstraint) this
+
+    [<Inline>]
+    member this.Slice(decode: System.Func<'T, 'U>, encode: System.Func<'U, 'T>) =
+        Router.Slice (decode.Invoke >> Option.ofObj) encode.Invoke this
+
+    [<Inline>]
+    member this.Filter(predicate: System.Func<'T, bool>) =
+        Router.Filter predicate.Invoke this
 
     [<Inline>]
     member this.Cast<'U when 'U: equality>() : Router<'U> =
         Router.Cast this
+
+    [<Inline>]
+    member this.FormData() =
+        Router.FormData this
+
+    [<Inline>]
+    member this.Ajax(endpoint) =
+        Router.Ajax this endpoint |> Async.StartAsTask
+
+    [<Inline>]
+    member this.Box() =
+        Router.Box this
+
+    [<Inline>]
+    member this.Array() =
+        Router.Array this
+
+open System.Runtime.CompilerServices
+    
+[<Extension>]
+type RouterExtensions =
+    [<Inline>]
+    static member QueryNullable(router, key) =
+        Router.QueryNullable key router
+
+    [<Inline>]
+    static member Unbox<'T when 'T: equality>(router) =
+        Router.Unbox<'T> router
+
+    [<Inline>]
+    static member Nullable(router) =
+        Router.Nullable router
 
 module IRouter =
     open System
@@ -862,7 +928,7 @@ module IRouter =
         let prefix = joinWithSlash "/" prefix
         let shift (loc: System.Uri) =
             if loc.IsAbsoluteUri then loc else
-                makeUri (joinWithSlash prefix (path loc |> trimFinalSlash))
+                makeUri (joinWithSlash prefix (path loc) |> trimFinalSlash)
         { new IRouter<'T> with
             member this.Route req =
                 let builder = UriBuilder req.Uri
@@ -890,12 +956,8 @@ module IRouter =
 module RouterOperators =
     let rRoot : Router =
         {
-            Parse = fun path ->
-                match path.Segments with
-                | [] -> Seq.singleton path
-                | _ -> Seq.empty
-            Segment = 
-                Seq.empty
+            Parse = fun path -> Seq.singleton path
+            Segment = Seq.empty
         }
     
     [<Inline>]
@@ -952,8 +1014,6 @@ module RouterOperators =
 
     /// Parse/write a Guid.
     let rGuid = rTryParse<System.Guid>()
-    /// Parse/write a bool.
-    let rBool = rTryParse<bool>()
     /// Parse/write an int.
     let rInt = rTryParse<int>()
     /// Parse/write a double.
@@ -974,6 +1034,23 @@ module RouterOperators =
     let rUInt64 = rTryParse<uint64>() 
     /// Parse/write a single.
     let rSingle = rTryParse<single>() 
+
+    /// Parse/write a bool.
+    let rBool : Router<bool> =
+        // we define rBool not with rTryParse so that fragments are capitalized
+        // to be fully consistent on client+server
+        {
+            Parse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    match System.Boolean.TryParse h with
+                    | true, g ->
+                        Seq.singleton ({ path with Segments = t }, g)
+                    | _ -> Seq.empty
+                | _ -> Seq.empty
+            Write = fun value ->
+                Some (Seq.singleton (Route.Segment (if value then "True" else "False")))
+        }
 
     /// Parses any remaining part of the URL as a string, no URL encode/decode is done.
     let rWildcard : Router<string> = 
