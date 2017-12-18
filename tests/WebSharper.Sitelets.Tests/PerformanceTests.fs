@@ -151,6 +151,8 @@ module PerformanceTests =
 // GET http://localhost:50668/perf-tests/post/1
 // GET http://localhost:50668/perf-tests/post2/1
 
+module CombinatorTests =
+
     type PersonData =
         {
             Name : string
@@ -158,8 +160,8 @@ module PerformanceTests =
         }
         
     type RouterTest =
-        | [<EndPoint "/">] Root
-        | [<EndPoint "/about"; Query "p">] About of int option * p: PersonData option
+        | Root
+        | About of int option * p: PersonData option
 
     open RouterOperators
 
@@ -169,5 +171,19 @@ module PerformanceTests =
             rString / rInt |> Router.Map (fun (n, a) -> { Name = n; Age = a }) (fun p -> p.Name, p.Age) 
         Router.Sum [
             rRoot |> Router.MapTo Root
-            "about" / Router.Option rInt / (Router.Option rPersonData |> Router.Query "p") |> Router.Embed About (function About (i, p) -> Some (i, p) | _ -> None)
+            "about" / Router.QueryOption "q" rInt / Router.Option rPersonData |> Router.Embed About (function About (i, p) -> Some (i, p) | _ -> None)
         ]
+
+    let TestValues =
+        [
+            Root
+            About (None, None)
+            About (Some 1, None)
+            About (Some 1, Some { Name = "Bob"; Age = 32 })
+        ]
+ 
+    [<Remote>]
+    let GetTestValues() =
+        TestValues |> Seq.map (fun v ->
+            v, constructed.Link v
+        ) |> Array.ofSeq |> async.Return

@@ -24,6 +24,7 @@ open WebSharper
 open WebSharper.Testing
 open WebSharper.Sitelets
 open PerformanceTests
+open RouterOperators
 
 [<JavaScript>]
 module ClientServerTests =
@@ -59,6 +60,23 @@ module ClientServerTests =
                         box serverLink
                     )
                 deepEqual ajaxResults expectedResults
+            }
+
+            Test "Primitive tests" {
+                let rUnit = rRoot |> Router.MapTo ()
+                equal (Router.Link rUnit ()) "/"
+                equal (Router.Parse rUnit (Route.FromUrl "/")) (Some ())
+                equal (Router.Link rInt 2) "/2"
+                equal (Router.Parse rInt (Route.FromUrl "/2")) (Some 2)
+            }
+
+            Test "Combinator tests" {
+                let! testValuesAndServerLinks = CombinatorTests.GetTestValues()
+                let testValuesAndClientLinks =
+                    testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
+                        testValue, CombinatorTests.constructed.Link testValue    
+                    )
+                equal testValuesAndServerLinks testValuesAndClientLinks
             }
         }
 

@@ -745,15 +745,15 @@ module Router =
                 match path.Segments with
                 | "None" :: p -> 
                     Seq.singleton ({ path with Segments = p }, None)
-                | "Some" :: _ ->
-                    item.Parse path |> Seq.map (fun (p, v) -> p, Some v)
+                | "Some" :: p ->
+                    item.Parse { path with Segments = p } |> Seq.map (fun (p, v) -> p, Some v)
                 | _ ->
                     Seq.empty
             Write = fun value ->
                 match value with 
                 | None -> Some (Seq.singleton (Route.Segment "None"))
                 | Some v -> 
-                    item.Write v |> Option.map (Seq.append (Seq.singleton (Route.Segment "None")))
+                    item.Write v |> Option.map (Seq.append (Seq.singleton (Route.Segment "Some")))
         }
 
     module FArray = Collections.Array
