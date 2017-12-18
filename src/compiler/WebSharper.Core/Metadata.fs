@@ -489,7 +489,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.1-alpha"
+    let CurrentVersion = "4.1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
