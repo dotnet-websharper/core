@@ -355,6 +355,13 @@ module TupledArgOpt =
         let x = t()
         // bug #756, this was throwing a compile-time error
         f x
+
+    let g2 (_: obj) (f: int * int -> int) =
+        f (1, 1)
+
+    type O() =
+        [<Inline>]
+        member this.G f = g2 this f
        
 [<JavaScript>]
 let Tests =
