@@ -690,9 +690,24 @@ module Router =
     let Table<'T when 'T : equality> (mapping: seq<'T * string>) : Router<'T> =
         mapping |> Seq.map (fun (v, s) -> Router.FromString s |> MapTo v) |> Sum 
 
-    // todo: optimize
     let Single<'T when 'T : equality> (endpoint: 'T) (route: string) : Router<'T> =
-        Router.FromString route |> MapTo endpoint
+        let parts = route.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries)
+        if Array.isEmpty parts then 
+            {
+                Parse = fun path -> Seq.singleton (path, endpoint)
+                Write = fun value -> if value = endpoint then Some Seq.empty else None
+            }
+        else
+            let parts = List.ofArray parts
+            {
+                Parse = fun path ->
+                    match path.Segments |> List.startsWith parts with
+                    | Some p -> 
+                        Seq.singleton ({ path with Segments = p }, endpoint)
+                    | _ -> Seq.empty
+                Write = fun value ->
+                    if value = endpoint then Some (Seq.singleton (Route.Segment parts)) else None
+            }
 
     let Delay<'T when 'T: equality> (getRouter: unit -> Router<'T>) : Router<'T> =
         let r = lazy getRouter()

@@ -347,10 +347,10 @@ type SiteletExtensions =
 
 type SiteletBuilder() =
 
-    let mutable sitelets = []
+    let sitelets = ResizeArray()
 
     member this.With<'T when 'T : equality>(content: Func<Context, 'T, Task<CSharpContent>>) =
-        let sitelet =
+        sitelets.Add <|
             Sitelet.InferPartial
                 box
                 tryUnbox<'T>
@@ -363,7 +363,6 @@ type SiteletBuilder() =
                         | CustomContent f -> CustomContent (f << Context.Map box)
                         | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
                 })
-        sitelets <- sitelet :: sitelets
         this
 
     member this.With(path: string, content: Func<Context, Task<CSharpContent>>) =
@@ -371,8 +370,8 @@ type SiteletBuilder() =
             content.Invoke(Context(ctx))
                 .ContinueWith(fun (t: Task<CSharpContent>) -> t.Result.AsContent)
             |> Async.AwaitTask
-        sitelets <- Sitelet.Content path (box path) content :: sitelets
+        sitelets.Add <| Sitelet.Content path (box path) content
         this
 
     member this.Install() =
-        Sitelet.Sum (List.rev sitelets)
+        Sitelet.Sum sitelets

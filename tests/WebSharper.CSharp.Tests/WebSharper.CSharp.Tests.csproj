@@ -55,6 +55,10 @@
       <Project>{52741881-8d64-4639-8b5c-19c060958c35}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj">
+      <Project>{d991329a-3aa3-4269-83ad-3597864855a0}</Project>
+      <Name>WebSharper.Sitelets</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj">
       <Project>{fe6ba781-fdc9-4bb5-b38a-3bb9841ea836}</Project>
       <Name>WebSharper.Web</Name>
@@ -87,6 +91,10 @@
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Name>WebSharper.Collections.Tests</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj">
+      <Project>{91e8e3cc-b1f5-4d27-8daf-639ca5c76f63}</Project>
+      <Name>WebSharper.CSharp.Sitelets.Tests</Name>
     </ProjectReference>
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj">
       <Name>WebSharper.InterfaceGenerator.Tests</Name>
