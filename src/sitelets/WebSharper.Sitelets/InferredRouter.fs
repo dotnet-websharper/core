@@ -79,9 +79,12 @@ module internal ServerInferredOperators =
         }
 
         static member New(startWithSlash) =
+            let b = StringBuilder 128
+            if startWithSlash then 
+                b.Append('/') |> ignore
             {
-                AddSlash = startWithSlash
-                PathWriter = StringBuilder 128
+                AddSlash = false
+                PathWriter = b
                 QueryWriter = null
             }
 

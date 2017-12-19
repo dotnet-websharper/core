@@ -353,7 +353,7 @@ type SiteletBuilder() =
         let sitelet =
             Sitelet.InferPartial
                 box
-                (function :? 'T as x -> Some x | _ -> None)
+                tryUnbox<'T>
                 (fun ctx endpoint -> async {
                     let! content =
                         content.Invoke(Context(ctx), endpoint)
