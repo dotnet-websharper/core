@@ -28,6 +28,8 @@ open System.Text
 
 module internal ServerInferredOperators =
 
+    let emptyParams = Http.ParameterCollection(Seq.empty)
+
     type ParseResult =
         | StrictMode
         | NoErrors
@@ -36,10 +38,11 @@ module internal ServerInferredOperators =
         | MissingQueryParameter of string
         | MissingFormData of string
 
-    type MPath =
+    type MRoute =
         {
             mutable Segments : list<string>
-            QueryArgs : Map<string, string>
+            QueryArgs : Http.ParameterCollection
+            FormData : Http.ParameterCollection
             Method : option<string> 
             Body : option<string>
             mutable Result: ParseResult 
@@ -48,28 +51,65 @@ module internal ServerInferredOperators =
         static member Empty =
             {
                 Segments = []
-                QueryArgs = Map.empty
+                QueryArgs = emptyParams
+                FormData = emptyParams
                 Method = None
                 Body = None
-                Result = NoErrors
+                Result = StrictMode
             }
 
         static member OfPath(path: Route) =
             {
                 Segments = path.Segments
-                QueryArgs = path.QueryArgs
+                QueryArgs = Http.ParameterCollection(path.QueryArgs |> Map.toSeq)
+                FormData = emptyParams
                 Method = path.Method
                 Body = path.Body
-                Result = NoErrors
+                Result = StrictMode
             }
 
         member this.ToPath() =
             {
                 Segments = this.Segments
-                QueryArgs = this.QueryArgs
+                QueryArgs = this.QueryArgs.ToList() |> Map.ofList
+                FormData = this.FormData.ToList() |> Map.ofList
                 Method = this.Method
                 Body = this.Body
             } : Route
+
+        static member FromWSRequest(r: Http.Request) =
+            let u = r.Uri
+            let p =
+                if u.IsAbsoluteUri then 
+                    u.AbsolutePath 
+                else 
+                    let s = u.OriginalString
+                    match s.IndexOf('?') with
+                    | -1 -> s
+                    | q -> s.Substring(0, q)
+            {
+                Segments = p.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
+                QueryArgs = r.Get
+                FormData = r.Post
+                Method = Some (r.Method.ToString())
+                Body =
+                    let i = r.Body 
+                    if not (isNull i) then 
+                        // We need to copy the stream because else StreamReader would close it.
+                        use m =
+                            if i.CanSeek then
+                                new System.IO.MemoryStream(int i.Length)
+                            else
+                                new System.IO.MemoryStream()
+                        i.CopyTo m
+                        if i.CanSeek then
+                            i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                        m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                        use reader = new System.IO.StreamReader(m)
+                        Some (reader.ReadToEnd())
+                    else None
+                Result = StrictMode
+            }
 
     type PathWriter =
         {
@@ -101,6 +141,7 @@ module internal ServerInferredOperators =
                 QueryArgs = 
                     let q = this.QueryWriter
                     if isNull q then Map.empty else Route.ParseQuery (q.ToString())
+                FormData = Map.empty
                 Method = None
                 Body = None
             }
@@ -114,7 +155,7 @@ module internal ServerInferredOperators =
 
     type InferredRouter =
         {
-            IParse : MPath -> obj option
+            IParse : MRoute -> obj option
             IWrite : PathWriter * obj -> unit 
         }   
 
@@ -181,7 +222,6 @@ module internal ServerInferredOperators =
         }
 
     let iGuid = iTryParse<System.Guid>()
-    let iBool = iTryParse<bool>()
     let iInt = iTryParse<int>()
     let iDouble = iTryParse<double>()
     let iSByte = iTryParse<sbyte>() 
@@ -192,6 +232,21 @@ module internal ServerInferredOperators =
     let iInt64 = iTryParse<int64>() 
     let iUInt64 = iTryParse<uint64>() 
     let iSingle = iTryParse<single>() 
+
+    let internal iBool : InferredRouter =
+        {
+            IParse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    match System.Boolean.TryParse h with
+                    | true, g ->
+                        path.Segments <- t
+                        Some (box g)
+                    | _ -> None
+                | _ -> None
+            IWrite = fun (w, value) ->
+                w.NextSegment().Append(if value :?> bool then "True" else "False") |> ignore
+        }
 
     let iDateTime format =
         let format = defaultArg format "yyyy-MM-dd-HH.mm.ss"
@@ -317,10 +372,10 @@ module internal ServerInferredOperators =
     let IQuery key (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
-                match path.QueryArgs.TryFind key with
+                match path.QueryArgs.[key] with
                 | None -> error (MissingQueryParameter key) path 
                 | Some q ->
-                    item.IParse { MPath.Empty with Segments = [ q ] }
+                    item.IParse { MRoute.Empty with Segments = [ q ] }
             IWrite = fun (w, value) ->
                 let q = 
                     match w.QueryWriter with
@@ -349,10 +404,10 @@ module internal ServerInferredOperators =
             :?> IOptionConverter
         {
             IParse = fun path ->
-                match path.QueryArgs.TryFind key with
+                match path.QueryArgs.[key] with
                 | None -> Some null
                 | Some q ->
-                    item.IParse { MPath.Empty with Segments = [ q ] }
+                    item.IParse { MRoute.Empty with Segments = [ q ] }
                     |> Option.map (fun v ->
                         converter.Some v
                     )
@@ -375,10 +430,10 @@ module internal ServerInferredOperators =
     let IQueryNullable key (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
-                match path.QueryArgs.TryFind key with
+                match path.QueryArgs.[key] with
                 | None -> Some null
                 | Some q ->
-                    item.IParse { MPath.Empty with Segments = [ q ] }
+                    item.IParse { MRoute.Empty with Segments = [ q ] }
             IWrite = fun (w, value) ->
                 match value with
                 | null -> ()
@@ -398,9 +453,9 @@ module internal ServerInferredOperators =
     let Unbox<'A when 'A: equality> (router: InferredRouter) : Router<'A> =
         {
             Parse = fun path ->
-                let mpath = MPath.OfPath(path)
-                match router.IParse mpath with
-                | Some v -> Seq.singleton (mpath.ToPath(), unbox v)
+                let MRoute = MRoute.OfPath(path)
+                match router.IParse MRoute with
+                | Some v -> Seq.singleton (MRoute.ToPath(), unbox v)
                 | _ -> Seq.empty
             Write = fun value ->
                 let w = PathWriter.New(false)
@@ -411,7 +466,7 @@ module internal ServerInferredOperators =
     let IUnbox<'A when 'A: equality> (router: InferredRouter) : IRouter<'A> =
         { new IRouter<'A> with
             member this.Route req =
-                let path = Route.FromWSRequest req |> MPath.OfPath
+                let path = MRoute.FromWSRequest req
                 router.Parse path
                 |> Option.map unbox<'A>
 
@@ -433,11 +488,7 @@ module internal ServerInferredOperators =
     let IFormData (item: InferredRouter) : InferredRouter =
         {
             IParse = fun path ->
-                let res =
-                    match path.Body with
-                    | None -> item.IParse path
-                    | Some b ->
-                        item.IParse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Route.ParseQuery b); Body = None }
+                let res = item.IParse { path with QueryArgs = path.FormData }
                 match path.Result with
                 | MissingQueryParameter k -> path.Result <- MissingFormData k
                 | _ -> ()

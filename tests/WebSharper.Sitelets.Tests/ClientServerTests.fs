@@ -45,16 +45,19 @@ module ClientServerTests =
 
             Test "Ajax test" {
                 let! testValuesAndServerLinks = GetTestValues()
+                let ajaxResults = ResizeArray()
                 let! ajaxResults =
-                    testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
-                        async {
+                    async {
+                        let arr = ResizeArray()
+                        for testValue, _ in testValuesAndServerLinks do
                             try
+                                do! Expect testValue
                                 let! res = Router.Ajax ShiftedRouter testValue
-                                return box res
+                                arr.Add (box res)
                             with e ->
-                                return box e.StackTrace
-                        }
-                    ) |> Async.Parallel
+                                arr.Add (box e.StackTrace)
+                        return arr.ToArray()
+                    }
                 let expectedResults =
                     testValuesAndServerLinks |> Array.map (fun (_, serverLink) ->
                         box serverLink

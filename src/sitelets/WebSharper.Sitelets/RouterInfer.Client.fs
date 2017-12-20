@@ -52,13 +52,14 @@ module private ClientRoutingInternals =
     let cString s = !~ (Literal.String s)
     let cTrue = !~ (Literal.Bool true)
     let cFalse = !~ (Literal.Bool false)
+    let cBool x = if x then cTrue else cFalse
     let inline cInt i = !~ (Int i)
 
     let routerOpsModule =
         match <@ RouterOperators.rString @> with
         | P.PropertyGet(_, pi, _) -> Reflection.ReadTypeDefinition pi.DeclaringType
         | e -> 
-            eprintfn "Reflection error in Warp.Internals, not a PropertyGet: %A" e
+            eprintfn "Reflection error in RouterInfer.Client, not a PropertyGet: %A" e
             Unchecked.defaultof<_>
 
     let getMethod expr =
@@ -66,10 +67,10 @@ module private ClientRoutingInternals =
         | P.Call(_, mi, _) -> Reflection.ReadMethod mi
         | P.PropertyGet(_, pi, _) -> Reflection.ReadMethod (pi.GetGetMethod())
         | _ ->              
-            eprintfn "Reflection error in Warp.Internals, not a Call or PropertyGet: %A" expr
+            eprintfn "Reflection error in RouterInfer.Client, not a Call or PropertyGet: %A" expr
             Unchecked.defaultof<_>
     
-    let rEmptyOp = getMethod <@ RouterOperators.JSEmpty @>
+    let rEmptyOp = getMethod <@ RouterOperators.JSEmpty() @>
     let rStringOp = getMethod <@ RouterOperators.rString @>
     let rCharOp = getMethod <@ RouterOperators.rChar @>
     let rGuidOp = getMethod <@ RouterOperators.rGuid @>
@@ -87,7 +88,6 @@ module private ClientRoutingInternals =
     let QueryNullableOp = getMethod <@ RouterOperators.JSQueryNullable null RouterOperators.rInt @>
     let FormDataOp = getMethod <@ RouterOperators.JSFormData RouterOperators.rInt @>
     let JsonOp = getMethod <@ RouterOperators.JSJson<int> @>
-    let OptionOp = getMethod <@ RouterOperators.JSOption RouterOperators.rInt @>
     let NullableOp = getMethod <@ RouterOperators.JSNullable RouterOperators.rInt @>
     let ClassOp = getMethod <@ RouterOperators.JSClass (fun () -> null) [||] [||] @>
     let BoxOp = getMethod <@ RouterOperators.JSBox Unchecked.defaultof<_> @>
@@ -129,7 +129,6 @@ type RoutingMacro() =
     override this.TranslateCall(c) =
         match c.Method.Generics with
         | t :: _ -> 
-          try
             if t.IsParameter then MacroNeedsResolvedTypeArg t else // todo on inner generics too
 
             let comp = c.Compilation
@@ -160,7 +159,7 @@ type RoutingMacro() =
                         call
                 | true, genCall -> 
                     let _, _, call = genCall.Value
-                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])    
+                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])   
             
             and wildCardRouter (t: Type) =
                 match t with
@@ -251,7 +250,7 @@ type RoutingMacro() =
                                         let fName = f.Name
                                         let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnot
                                         let fTyp = f.RecordFieldType.SubstituteGenerics(Array.ofList g)
-                                        NewArray [ cString f.JSName; fieldRouter fTyp fAnnot fName ]
+                                        NewArray [ cString f.JSName; cBool f.Optional; fieldRouter fTyp fAnnot fName ]
                                     )
                                 )
                             Call(None, NonGeneric routerOpsModule, NonGeneric RecordOp, [ getProto(); fields ])    
@@ -392,9 +391,6 @@ type RoutingMacro() =
             if deps.Count > 0 then
                 WebSharper.Core.MacroDependencies (List.ofSeq deps, res)
             else res   
-            
-          with e ->
-            MacroError (sprintf "Error in RoutingMacro: %s at %s" e.Message e.StackTrace) 
 
         | _ -> MacroError "Expecting a type argument for RoutingMacro"
 

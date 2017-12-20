@@ -88,7 +88,7 @@ module internal ServerRouting =
         match expr with
         | P.Call(_, mi, _) -> mi.GetGenericMethodDefinition()
         | _ ->              
-            eprintfn "Reflection error in Warp.Internals, not a Call: %A" expr
+            eprintfn "Reflection error in RouterInfer.Server, not a Call: %A" expr
             Unchecked.defaultof<_>
 
     let jsonRouterM = getMethod <@ IJson<int> @>

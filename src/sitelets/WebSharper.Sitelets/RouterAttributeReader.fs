@@ -86,6 +86,7 @@ type AttributeReader<'A>() =
         let ep = ResizeArray()
         let ms = ResizeArray()
         let cn = ref None 
+        let wn = ref None 
         let q = ref None
         let fd = ref None
         let mutable j = None
@@ -106,6 +107,8 @@ type AttributeReader<'A>() =
                 match this.GetName attr with
                 | "EndPointAttribute" ->
                     this.GetCtorArgOpt(attr) |> Option.iter ep.Add
+                | "NameAttribute" ->
+                    wn := this.GetCtorArgOpt(attr)
                 | "MethodAttribute" ->
                     this.GetCtorParamArgs(attr) |> Array.iter ms.Add
                 | "QueryAttribute" ->
@@ -136,6 +139,9 @@ type AttributeReader<'A>() =
         if ep.Count = 0 then
             match name with
             | Some n ->
+                match !wn with
+                | Some wn -> ep.Add wn
+                | _ ->
                 match !cn with 
                 | Some cn -> ep.Add cn 
                 | _ -> ep.Add n

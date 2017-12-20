@@ -43,6 +43,13 @@ module PerformanceTests =
         | [<EndPoint "/a" >] A
         | [<EndPoint "/a" >] A1 of int
     
+    type MultipleFormData =
+        {
+            [<FormData>] Text: string
+            [<FormData; OptionalField>] Id: int option
+            [<FormData>] Flag: bool
+        }
+
     type Action =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/string">] UString of string
@@ -57,11 +64,12 @@ module PerformanceTests =
         | [<EndPoint "/list">] UList of list<int * string>
         | [<EndPoint "/array">] UArray of (int * string)[]
         | [<Method "POST"; EndPoint "/post">] UPost of int
-        | [<Method "PUT"; EndPoint "/post">] UPut of int
+        | [<Method "PUT"; EndPoint "/put">] UPut of int
         | [<EndPoint "POST /post2">] UPost2 of int
         | [<EndPoint "/json-input"; Json "json">] UJsonInput of json: RecTest 
         | [<EndPoint "/json-input"; Json "json">] UJsonInt of json: int 
         | [<EndPoint "/formdata"; FormData "data">] UFormData of data: string 
+        | [<EndPoint "/multi-formdata">] UMultiFormData of data: MultipleFormData 
         | [<EndPoint "/multiple" >] UMultiple
         | [<EndPoint "/multiple" >] UMultiple2 of int
         | [<EndPoint "/multiple" >] UMultiple3 of int * int
@@ -93,6 +101,8 @@ module PerformanceTests =
             UJsonInput { A = "hello"; B = 123; C = false }
             UJsonInt 4
             UFormData "hello"
+            UMultiFormData { Text = "hello"; Id = None; Flag = true }
+            UMultiFormData { Text = "hello"; Id = Some 2; Flag = false }
             UMultiple
             UMultiple2 1
             UMultiple3 (1, 2)
@@ -104,13 +114,31 @@ module PerformanceTests =
             UTwoUnions (A1 1, A1 1)
         ]
 
+    let mutable expecting = None
+
+    [<Remote>]
+    let Expect (ep: Action) =
+        expecting <- Some ep
+        async.Zero()    
+    
     let Site =
         Sitelet.Infer<Action> (fun ctx act -> 
-            for i in 1 .. 49 do
-                ctx.Link act |> ignore // stress-test writing links 
-            Content.Text (
-                ctx.Link act
-            ) 
+            let def() =
+                for i in 1 .. 49 do
+                    ctx.Link act |> ignore // stress-test writing links 
+                Content.Text (
+                    ctx.Link act
+                ) 
+            match expecting with
+            | Some exp ->
+                if exp <> act then
+                    Content.Text (
+                        sprintf "Wrong endpoint parsed, expecting %A, got %A" exp act
+                    ) 
+                else
+                    expecting <- None
+                    def()
+            | _ -> def()
         )
 
     let ShiftedRouter = 

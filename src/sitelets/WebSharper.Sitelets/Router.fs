@@ -128,6 +128,7 @@ type Route =
     {
         Segments : list<string>
         QueryArgs : Map<string, string>
+        FormData : Map<string, string>
         Method : option<string> 
         Body : option<string>
     }
@@ -136,6 +137,7 @@ type Route =
         {
             Segments = []
             QueryArgs = Map.empty
+            FormData = Map.empty
             Method = None
             Body = None
         }
@@ -166,6 +168,7 @@ type Route =
         let mutable body = None
         let segments = System.Collections.Generic.Queue()
         let mutable queryArgs = Map.empty
+        let mutable formData = Map.empty
         let mutable i = 0
         let l = paths.Length
         while i < l do
@@ -179,11 +182,13 @@ type Route =
                 body <- b
             | _ -> ()
             queryArgs <- p.QueryArgs |> Map.foldBack Map.add queryArgs 
+            formData <- p.FormData |> Map.foldBack Map.add formData 
             p.Segments |> List.iter segments.Enqueue
             i <- i + 1
         {
             Segments = List.ofSeq segments
             QueryArgs = queryArgs
+            FormData = formData
             Method = method
             Body = body
         }
@@ -218,34 +223,20 @@ type Route =
         }
 
     [<JavaScript false>]
-    static member FromRequest(r: System.Web.HttpRequestBase) =
-        let u = r.Url
-        let p = if u.IsAbsoluteUri then u.PathAndQuery else u.OriginalString
-        { Route.FromUrl(p) with
-            Method = Some r.HttpMethod
-            Body =
-                let i = r.InputStream 
-                if not (isNull i) then 
-                    // We need to copy the stream because else StreamReader would close it.
-                    use m =
-                        if i.CanSeek then
-                            new System.IO.MemoryStream(int i.Length)
-                        else
-                            new System.IO.MemoryStream()
-                    i.CopyTo m
-                    if i.CanSeek then
-                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    use reader = new System.IO.StreamReader(m)
-                    Some (reader.ReadToEnd())
-                else None
-        }
-
-    [<JavaScript false>]
-    static member FromWSRequest(r: Http.Request) =
+    static member FromRequest(r: Http.Request) =
         let u = r.Uri
-        let p = if u.IsAbsoluteUri then u.PathAndQuery else u.OriginalString
-        { Route.FromUrl(p) with
+        let p =
+            if u.IsAbsoluteUri then 
+                u.AbsolutePath 
+            else 
+                let s = u.OriginalString
+                match s.IndexOf('?') with
+                | -1 -> s
+                | q -> s.Substring(0, q)
+        {
+            Segments = p.Split([| '/' |], System.StringSplitOptions.RemoveEmptyEntries) |> List.ofArray
+            QueryArgs = r.Get.ToList() |> Map.ofList
+            FormData = r.Post.ToList() |> Map.ofList
             Method = Some (r.Method.ToString())
             Body =
                 let i = r.Body 
@@ -386,7 +377,7 @@ and [<JavaScript>] Router<'T when 'T: equality> =
     interface IRouter<'T> with
         [<JavaScript false>]
         member this.Route req = 
-            let path = Route.FromWSRequest req
+            let path = Route.FromRequest req
             this.Parse path
             |> Seq.tryPick (fun (path, value) -> if List.isEmpty path.Segments then Some value else None)
         [<JavaScript false>]
@@ -526,13 +517,11 @@ module Router =
     let FormData (item: Router<'A>) : Router<'A> =
         {
             Parse = fun path ->
-                match path.Body with
-                | None -> item.Parse path
-                | Some b ->
-                    item.Parse { path with QueryArgs = path.QueryArgs |> Map.foldBack Map.add (Route.ParseQuery b); Body = None }
+                item.Parse { path with QueryArgs = path.FormData }
+                |> Seq.map (fun (_, r) -> path, r)
             Write = fun value ->
-                item.Write value |> Option.map Route.Combine 
-                |> Option.map (fun p -> Seq.singleton { p with QueryArgs = Map.empty; Body = Some (Route.WriteQuery p.QueryArgs) })  
+                item.Write value
+                |> Option.map (Seq.map (fun p -> { p with QueryArgs = Map.empty; FormData = p.QueryArgs }))  
         }
     
     let Parse (router: Router<'A>) path =
@@ -557,13 +546,29 @@ module Router =
         | Some path ->
             let settings = AjaxSettings(DataType = DataType.Text)
             match path.Method with
-            | Some m -> settings.Method <- As m
+            | Some m -> settings.Type <- As m
             | _ -> ()
+            match path.Body with
+            | Some b ->
+                settings.ContentType <- Union2Of2 "application/json"
+                settings.Data <- b
+                settings.ProcessData <- false
+                if Option.isNone path.Method then settings.Type <- RequestType.POST 
+            | _ ->
+                if not (Map.isEmpty path.FormData) then
+                    let fd = JavaScript.FormData()
+                    path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
+                    settings.ContentType <- Union1Of2 false
+                    settings.Data <- fd
+                    settings.ProcessData <- false
+                if Option.isNone path.Method then settings.Type <- RequestType.POST 
             Async.FromContinuations (fun (ok, err, cc) ->
                 settings.Success <- fun res _ _ -> ok (As<string> res) 
                 settings.Error <- fun _ _ msg -> err (exn msg)
                 // todo: cancellation
-                JQuery.Ajax(path.ToLink(), settings) |> ignore
+                let url = path.ToLink()
+                //Console.Log("ajax call", endpoint, path, url, settings)
+                JQuery.Ajax(url, settings) |> ignore
             )
         | _ -> 
             failwith "Failed to map endpoint to request" 
@@ -1185,7 +1190,7 @@ module RouterOperators =
         Tuple readItems box items
 
     [<Inline>]
-    let internal JSEmpty item = Router.Empty<obj>
+    let internal JSEmpty () : Router<obj> = Router.Empty<obj>
 
     [<Inline>]
     let internal JSArray item = Router.Array item
@@ -1239,18 +1244,28 @@ module RouterOperators =
                 else None                      
         }
         
-    let internal JSRecord (t: obj) (fields: (string * Router<obj>)[]) : Router<obj> =
+    let internal JSRecord (t: obj) (fields: (string * bool * Router<obj>)[]) : Router<obj> =
         let readFields value =
-            fields |> Array.map (fun (n, _) ->
-                value?(n)
+            fields |> Array.map (fun (fn, opt, _) ->
+                if opt then
+                    let v = value?(fn)
+                    if v = JS.Undefined then box None else box (Some v)
+                else
+                    value?(fn)
             )
         let createRecord fieldValues =
             let o = if isNull t then New [] else JS.New t
-            (fields, fieldValues) ||> Array.iter2 (fun (n, _) v ->
-                o?(n) <- v
+            (fields, fieldValues) ||> Array.iter2 (fun (fn, opt, _) v ->
+                if opt then
+                    match As<option<obj>> v with
+                    | None -> ()
+                    | Some v ->
+                        o?(fn) <- v
+                else
+                    o?(fn) <- v
             )
             o
-        let fields = fields |> Array.map snd
+        let fields = fields |> Array.map (fun (_, _, r) -> r)
         Record readFields createRecord fields
     
     let internal Union getTag readFields createCase (cases: (option<string> * string[] * Router<obj>[])[]) : Router<obj> =
@@ -1280,13 +1295,14 @@ module RouterOperators =
             Write = fun value ->
                 let tag = getTag value
                 let method, path, fields = cases.[tag]
+                let casePath = Seq.singleton (Route.Segment (List.ofArray path, method))
                 match fields with
-                | [||] -> Some (Seq.singleton (Route.Segment (List.ofArray path, method))) 
+                | [||] -> Some casePath
                 | _ ->
                     let fieldParts =
                         (readFields tag value, fields) ||> Array.map2 (fun v f -> f.Write v)
                     if Array.forall Option.isSome fieldParts then
-                        Some (Seq.append (Seq.singleton (Route.Segment (List.ofArray path, method))) (fieldParts |> Seq.collect Option.get))
+                        Some (Seq.append casePath (fieldParts |> Seq.collect Option.get))
                     else None                      
         }
 

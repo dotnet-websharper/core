@@ -95,6 +95,23 @@ module Definition =
             "responseXML" =? Dom.Interfaces.Document
         ]
 
+    let FormDataEntryValue = T<string> + Html5.File.File
+    
+    let FormData =
+        Class "FormData"
+        |+> Instance [
+            Constructor(!? Html5.Elements.HTMLFormElement?form)
+            "append" => T<string>?names * T<string>?value ^-> T<unit> 
+            "append" => T<string>?names * Html5.File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "delete" => T<string>?name ^-> T<unit> 
+            "get" => T<string>?name ^-> FormDataEntryValue
+            "getAll" => T<string>?name ^-> !|FormDataEntryValue
+            "has"  => T<string>?name ^-> T<bool>
+            "set" => T<string>?names * T<string>?value ^-> T<unit> 
+            "set" => T<string>?names * Html5.File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "" =@ FormDataEntryValue |> Indexed T<string> 
+        ]
+
     let Namespaces = 
         [
             Namespace "WebSharper.JavaScript" [
@@ -102,5 +119,6 @@ module Definition =
                 XMLHttpRequestEventTarget
                 XMLHttpRequestResponseType
                 XMLHttpRequestUpload
+                FormData
             ]
         ]
