@@ -273,9 +273,9 @@ type RoutingMacro() =
                                         let m = optOf method
                                         match c.Kind with
                                         | M.ConstantFSharpUnionCase v ->
-                                            NewArray [ m; someOf (Value v); path; NewArray [] ]
+                                            NewArray [ someOf (Value v); m; path; NewArray [] ]
                                         | M.SingletonFSharpUnionCase ->
-                                            NewArray [ m; none; path; NewArray [] ]
+                                            NewArray [ none; m; path; NewArray [] ]
                                         | M.NormalFSharpUnionCase fields ->
                                             if isEmpty && not (List.isEmpty fields) then
                                                 failwithf "Union case %s.%s with root EndPoint cannot have any fields" e.Value.FullName c.Name
@@ -297,7 +297,7 @@ type RoutingMacro() =
                                                 )
                                             if queryFields |> Option.exists (fun q -> q.Count > 0) then
                                                 failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
-                                            NewArray [ m; none; path; NewArray fRouters ]
+                                            NewArray [ none; m; path; NewArray fRouters ]
                                     )
                                 )
 

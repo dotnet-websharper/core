@@ -272,6 +272,7 @@ type AttributeReader<'A>() =
                 | A.Stub -> stub <- true
                 | A.Proxy t -> proxy <- Some t
                 | A.Prototype p -> prot <- Some p
+                | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
             | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
