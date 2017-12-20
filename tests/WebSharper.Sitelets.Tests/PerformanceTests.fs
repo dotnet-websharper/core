@@ -45,9 +45,9 @@ module PerformanceTests =
     
     type MultipleFormData =
         {
-            [<FormData>] Text: string
-            [<FormData; OptionalField>] Id: int option
-            [<FormData>] Flag: bool
+            [<FormData; Name "text">] Text: string
+            [<FormData; OptionalField; Name "id">] Id: int option
+            [<FormData; Name "flag">] Flag: bool
         }
 
     type Action =

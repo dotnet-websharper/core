@@ -91,7 +91,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public string last;
         }
 
-        [EndPoint("qperson/{name}/{age}")]
+        [EndPoint("qperson/{name}")]
         public class QueryPerson
         {
             public QueryName name;
@@ -100,7 +100,6 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public int? age;
         }
 
-        [EndPoint("{first}/{last}")]
         public class QueryName
         {
             [Query]

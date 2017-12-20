@@ -108,8 +108,8 @@ module SampleSite =
         | Contact
         | Protected
         | Login of option<Action>
-        | [<Query("firstName", "lastName")>] FormResultGet of firstName: string * lastName: string
-        | [<FormData("firstName", "lastName")>] FormResultPost of firstName: string * lastName: string
+        | [<Query("firstName", "lastName", "message")>] FormResultGet of firstName: string * lastName: string * message: string
+        | [<FormData("firstName", "lastName", "message")>] FormResultPost of firstName: string * lastName: string * message: string
         | Logout
         | Echo of string
         | Api of Api.Action
@@ -213,6 +213,7 @@ module SampleSite =
                         Elt("input", Attr("type", "text"), Attr("name", "firstName")),
                         Text("Last name: "),
                         Elt("input", Attr("type", "text"), Attr("name", "lastName")),
+                        Elt("textarea", Attr("name", "message")),
                         Elt("input", Attr("type", "submit"), Attr("value", "Submit with " + method))
                     )
                 )
@@ -233,10 +234,11 @@ module SampleSite =
                 ]
 
         /// A simple page that echoes two form fields.
-        let FormResult x y =
+        let FormResult x y z =
             Template "Form result" <| fun ctx ->
                 [
                     Elt("h1", Text (x + " " + y))
+                    Elt("code", Text z)
                 ]
        
         /// A simple login page.
@@ -286,9 +288,9 @@ module SampleSite =
                         do! ctx.UserSession.Logout ()
                         return! Content.RedirectTemporary Action.Home
                     }
-                | Action.FormResultGet (x, y)
-                | Action.FormResultPost (x, y) ->
-                    Pages.FormResult x y ctx
+                | Action.FormResultGet (x, y, z)
+                | Action.FormResultPost (x, y, z) ->
+                    Pages.FormResult x y z ctx
                 | Action.Home ->
                     Content.RedirectPermanent Action.Home
                 | Action.Protected ->

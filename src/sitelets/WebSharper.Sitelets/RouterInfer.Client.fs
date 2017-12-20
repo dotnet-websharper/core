@@ -182,6 +182,10 @@ type RoutingMacro() =
                     Call(None, NonGeneric routerOpsModule, Generic QueryOp [t], [ cString name; r() ])
 
             and fieldRouter (t: Type) (annot: Annotation) name =
+                let name =
+                    match annot.EndPoint with
+                    | Some (_, n) -> n
+                    | _ -> name
                 let r() = getRouter t
                 match annot.Query with
                 | Some _ -> 
@@ -248,7 +252,7 @@ type RoutingMacro() =
                                 NewArray (
                                     r |> List.map (fun f ->
                                         let fName = f.Name
-                                        let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnot
+                                        let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnotNamed fName
                                         let fTyp = f.RecordFieldType.SubstituteGenerics(Array.ofList g)
                                         NewArray [ cString f.JSName; cBool f.Optional; fieldRouter fTyp fAnnot fName ]
                                     )
@@ -341,37 +345,54 @@ type RoutingMacro() =
                                         else None
                                     ) |> List.ofSeq
                                 let choice i x = Object [ "$", cInt i; "$0", x ] 
-                                let rec findField f (cls: M.IClassInfo) =
-                                    match cls.Fields.TryFind f with
-                                    | Some fi -> Some fi
+                                let rec getAllFields td (cls: M.IClassInfo) = 
+                                    let currentFields =
+                                        cls.Fields |> Seq.map (fun (KeyValue(fn, f)) -> 
+                                            let fAnnot = comp.GetFieldAttributes(td, fn) |> getAnnotNamed fn
+                                            fn, (f, fAnnot)
+                                        )
+                                    match cls.BaseClass with
+                                    | None -> currentFields
+                                    | Some bc when bc = Definitions.Object -> currentFields
+                                    | Some bc -> Seq.append currentFields (getAllFields bc allJSClasses.[bc])
+                                let allFieldsArr = getAllFields e cls |> Array.ofSeq
+                                let allFields = dict allFieldsArr
+                                let allQueryFields =
+                                    allFieldsArr |> Seq.choose (
+                                        function
+                                        | fn, (_, { Query = Some _ }) -> Some fn
+                                        | _ -> None
+                                    ) |> HashSet
+                                let getFieldRouter fName = 
+                                    match allFields.TryFind fName with
+                                    | Some ((f, _, fTyp), fAnnot) ->
+                                        let fTyp = fTyp.SubstituteGenerics(Array.ofList g)
+                                        let res = fieldRouter fTyp fAnnot fName
+                                        match f with
+                                        | M.InstanceField n ->
+                                            choice 1 (NewArray [ cString n; cFalse; res ])
+                                        | M.IndexedField i ->
+                                            choice 1 (NewArray [ cInt i; cFalse; res ])
+                                        | M.OptionalField n ->
+                                            choice 1 (NewArray [ cString n; cTrue; res ]) 
+                                        | M.StaticField _ ->
+                                            failwith "Static field cannot be encoded to URL path"
                                     | _ ->
-                                        match cls.BaseClass with
-                                        | None -> None
-                                        | Some bc when bc = Definitions.Object -> None
-                                        | Some bc -> findField f allJSClasses.[bc]
+                                        failwithf "Could not find field %s" fName
                                 let partsAndFields =
                                     NewArray (
-                                        endpoint |> Seq.map (function
-                                            | S.StringSegment s -> choice 0 (cString s)
-                                            | S.FieldSegment fName ->
-                                                match findField fName cls with
-                                                | Some (f, _, fTyp) ->
-                                                    let fAnnot = comp.GetFieldAttributes(e, fName) |> getAnnot
-                                                    let fTyp = fTyp.SubstituteGenerics(Array.ofList g)
-                                                    let res = fieldRouter fTyp fAnnot fName
-                                                    match f with
-                                                    | M.InstanceField n ->
-                                                        choice 1 (NewArray [ cString n; cFalse; res ])
-                                                    | M.IndexedField i ->
-                                                        choice 1 (NewArray [ cInt i; cFalse; res ])
-                                                    | M.OptionalField n ->
-                                                        choice 1 (NewArray [ cString n; cTrue; res ]) 
-                                                    | M.StaticField _ ->
-                                                        failwith "Static field cannot be encoded to URL path"
-                                                | _ ->
-                                                    failwithf "Could not find field %s" fName
+                                        (
+                                            endpoint |> Seq.map (function
+                                                | S.StringSegment s -> choice 0 (cString s)
+                                                | S.FieldSegment fName ->
+                                                    allQueryFields.Remove fName |> ignore
+                                                    getFieldRouter fName
+                                            )
+                                            |> List.ofSeq
                                         )
-                                        |> List.ofSeq
+                                        @ (
+                                            allQueryFields |> Seq.map getFieldRouter |> List.ofSeq
+                                        )
                                     )
                                 let subClassRouters =
                                     NewArray (

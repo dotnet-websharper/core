@@ -76,10 +76,10 @@ module internal ServerRouting =
         attrReader.GetAnnotation(uc.GetCustomAttributesData(), uc.Name)
 
     let getPropertyAnnot (p: Reflection.PropertyInfo) =
-        attrReader.GetAnnotation(p.GetCustomAttributesData())
+        attrReader.GetAnnotation(p.GetCustomAttributesData(), p.Name)
 
     let getFieldAnnot (f: Reflection.FieldInfo) =
-        attrReader.GetAnnotation(f.GetCustomAttributesData())
+        attrReader.GetAnnotation(f.GetCustomAttributesData(), f.Name)
 
     let routerCache = System.Collections.Concurrent.ConcurrentDictionary<Type, InferredRouter>()
     let parsedClassEndpoints = Dictionary<Type, Annotation>()
@@ -133,6 +133,10 @@ module internal ServerRouting =
             r() |> IQuery name
     
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
+        let name =
+            match annot.EndPoint with
+            | Some (_, n) -> n
+            | _ -> name
         let r() = 
             match annot.DateTimeFormat with
             | Some (Choice1Of2 fmt) ->
@@ -280,14 +284,34 @@ module internal ServerRouting =
                     match annot.EndPoint with
                     | Some (_, e) -> e |> Route.FromUrl |> GetPathHoles |> fst
                     | None -> [||]
+                let allFieldsArr =
+                    t.GetFields(BF.Instance ||| BF.Public)
+                    |> Array.map (fun f ->
+                        f.Name,
+                        (f, getFieldAnnot f)
+                    )
+                let allFields = dict allFieldsArr
+                let allQueryFields =
+                    allFieldsArr |> Seq.choose (
+                        function
+                        | fn, (_, { Query = Some _ }) -> Some fn
+                        | _ -> None
+                    ) |> HashSet
                 let fields = ResizeArray()
+                let getFieldRouter f = 
+                    let field, fAnnot = allFields.[f]
+                    fields.Add(field)
+                    Choice2Of2 (fieldRouter field.FieldType fAnnot f)
                 let partsAndFields =
-                    endpoint |> Array.map (function
-                        | StringSegment s -> Choice1Of2 s
-                        | FieldSegment f ->  
-                            let field = t.GetField(f)
-                            fields.Add(field)
-                            Choice2Of2 (fieldRouter field.FieldType (getFieldAnnot field) f)
+                    Array.append (
+                        endpoint |> Array.map (function
+                            | StringSegment s -> Choice1Of2 s
+                            | FieldSegment f ->  
+                                allQueryFields.Remove f |> ignore 
+                                getFieldRouter f
+                        )
+                    ) (
+                        allQueryFields |> Seq.map getFieldRouter |> Array.ofSeq
                     )
                 let fields = fields.ToArray()
                 let readFields (o: obj) =
