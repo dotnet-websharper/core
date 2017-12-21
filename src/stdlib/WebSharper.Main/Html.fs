@@ -71,12 +71,12 @@ module Activator =
     [<Literal>]
     let META_ID = "websharper-data"
 
-    [<Direct "typeof document !== 'undefined'">]
-    let private hasDocument () = false
+    [<Direct "typeof document !== 'undefined' && typeof jQuery !== 'undefined'">]
+    let private hasDocumentAndJQuery () = false
 
     [<JavaScript>]
     let private Activate() =
-        if hasDocument () then
+        if hasDocumentAndJQuery () then
             let meta = JS.Document.GetElementById(META_ID)
             if (As meta) then
                 JQuery.Of(JS.Document).Ready(fun () ->
