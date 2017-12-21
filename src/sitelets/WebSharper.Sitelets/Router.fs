@@ -212,7 +212,7 @@ type Route =
                 path.Substring(0, i),
                 path.Substring(i + 1) |> Route.ParseQuery
         let splitOptions =
-            if strict = Some true then 
+            if Option.isSome strict && strict.Value then 
                 System.StringSplitOptions.None
             else
                 System.StringSplitOptions.RemoveEmptyEntries
@@ -259,7 +259,17 @@ type Route =
     static member FromHash(path: string, ?strict: bool) =
         match path.IndexOf "#" with
         | -1 -> Route.Empty
-        | i -> Route.FromUrl(path.Substring(i), ?strict = strict)
+        | i -> 
+            let h = path.Substring(i + 1)
+            if Option.isSome strict && strict.Value then 
+                if h = "" || h = "/" then
+                    Route.Empty
+                elif h.StartsWith "/" then
+                    Route.FromUrl(h.Substring(1), true)
+                else
+                    Route.Segment(h)                    
+            else
+                Route.FromUrl(path.Substring(i), false)
 
     member this.ToLink() = PathUtil.WriteLink this.Segments this.QueryArgs
 

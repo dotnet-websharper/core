@@ -33,6 +33,12 @@ module ClientServerTests =
         Router.Shift "perf-tests" <| Router.Infer<Action>()
 
     let Tests apiBaseUri =
+        let parse router p =
+            Route.FromUrl(p) |> Router.Parse router    
+        let parseHash router p =
+            Route.FromHash(p, true) |> Router.Parse router
+        let rUnit = rRoot |> Router.MapTo ()
+
         TestCategory "Sitelets Client-server routing" {
             Test "compatibility tests" {
                 let! testValuesAndServerLinks = GetTestValues()
@@ -43,7 +49,7 @@ module ClientServerTests =
                 equal testValuesAndServerLinks testValuesAndClientLinks
             }
 
-            Test "Ajax test" {
+            Test "Router.Ajax" {
                 let! testValuesAndServerLinks = GetTestValues()
                 let ajaxResults = ResizeArray()
                 let! ajaxResults =
@@ -65,15 +71,23 @@ module ClientServerTests =
                 deepEqual ajaxResults expectedResults
             }
 
-            Test "Primitive tests" {
-                let rUnit = rRoot |> Router.MapTo ()
+            Test "Rotuer primitives" {
                 equal (Router.Link rUnit ()) "/"
-                equal (Router.Parse rUnit (Route.FromUrl "/")) (Some ())
+                equal (parse rUnit "/") (Some ())
                 equal (Router.Link rInt 2) "/2"
-                equal (Router.Parse rInt (Route.FromUrl "/2")) (Some 2)
+                equal (parse rInt "/2") (Some 2)
             }
 
-            Test "Combinator tests" {
+            Test "Router.HashLink" {
+                equal (Router.HashLink rUnit ()) "#/"
+                equal (parseHash rUnit "") (Some ())
+                equal (parseHash rUnit "#") (Some ())
+                equal (parseHash rUnit "#/") (Some ())
+                equal (Router.HashLink rInt 2) "#/2"
+                equal (parseHash rInt "#/2") (Some 2)                
+            }
+
+            Test "Router combinator" {
                 let! testValuesAndServerLinks = CombinatorTests.GetTestValues()
                 let testValuesAndClientLinks =
                     testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
