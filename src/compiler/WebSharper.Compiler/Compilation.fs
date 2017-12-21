@@ -338,23 +338,6 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
 
-    member this.AddQuotation(pos, typ, m, args, e) =
-        let argIds, argNames = List.unzip args
-        quotations.Add(pos, (typ, m, argNames))
-        let cAddr = defaultAddressOf typ
-        match this.TryLookupClassInfo typ with
-        | Some _ -> ()
-        | None ->
-            classes.Add(typ,
-                { ClassInfo.None with
-                    Address = Some (Hashed cAddr)
-                    Methods = Dictionary()
-                })
-        let mAddr = Hashed (m.Value.MethodName :: cAddr)
-        let mem = CompilingMember.NotCompiled(CompiledMember.Static mAddr, true, Optimizations.None)
-        let e = Lambda(argIds, e)
-        compilingMethods.Add((typ, m), (mem, e))
-
     member this.AddQuotedArgMethod(typ, m, a) =
         compilingQuotedArgMethods.Add((typ, m), a)
 
@@ -931,6 +914,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledStaticMember (address: Address) (nr : NotResolvedMethod) =
             match nr.Kind with
+            | N.Quotation _
             | N.Static -> Static address
             | N.Constructor -> Constructor address
             | _ -> failwith "Invalid static member kind"
@@ -1032,6 +1016,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Instance -> sn, Some false, false
                         | N.Static
                         | N.Constructor -> sn, Some true, false
+                        | N.Quotation (pos, argNames) -> 
+                            match m with 
+                            | M.Method (mdef, _) ->
+                                quotations.Add(pos, (typ, mdef, argNames))
+                            | _ -> failwith "quoted javascript code must be inside a method"
+                            sn, Some true, false 
                         | N.Remote _
                         | N.Inline
                         | N.NoFallback -> sn, None, false

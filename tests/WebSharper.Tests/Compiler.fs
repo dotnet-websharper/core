@@ -101,6 +101,16 @@ module Server =
         
         |]
 
+    let funcWithJSAttr ([<JavaScript>] x : Quotations.Expr<unit>) = ()
+
+    let moduleVal = 1
+
+    let callFuncWithJSAttr =
+        let x = 2
+        if IsClient then
+            funcWithJSAttr <@ JavaScript.Console.Log("Hello from callFuncWithJSAttr") @>
+            funcWithJSAttr <@ JavaScript.Console.Log("Hello from callFuncWithJSAttr with arg", x) @>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Compiler" {

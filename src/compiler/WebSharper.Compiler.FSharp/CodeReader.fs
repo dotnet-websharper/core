@@ -1110,8 +1110,9 @@ type Microsoft.FSharp.Compiler.Range.range with
             End = this.EndLine, this.EndColumn
         }
 
-let scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue) (expr: FSharpExpr) =
+let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
     let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
+    let quotations = ResizeArray()
     let rec scan (expr: FSharpExpr) =
         let default'() =
             List.iter scan expr.ImmediateSubExpressions
@@ -1145,23 +1146,20 @@ let scanExpression (env: Environment) (containing: FSharpMemberOrFunctionOrValue
                             let e = transformExpression env e
                             let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                             let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
-                            let typ =
-                                Hashed {
-                                    TypeDefinitionInfo.Assembly = env.Compilation.AssemblyName
-                                    TypeDefinitionInfo.FullName = containing.EnclosingEntity.Value.FullName
-                                }
-                            let m =
+                            let qm =
                                 Hashed {
                                     MethodInfo.Generics = 0
-                                    MethodInfo.MethodName = sprintf "%s$%i$%i" containing.LogicalName (fst pos.Start) (snd pos.Start)
+                                    MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
                                     MethodInfo.Parameters = argTypes
                                     MethodInfo.ReturnType = retTy
                                 }
-                            let argIds = [ for (v, id, _) in env.FreeVars -> id, v.LogicalName ]
-                            env.Compilation.AddQuotation(pos, typ, m, argIds, e)
+                            let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
+                            let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
+                            quotations.Add(pos, qm, argNames, f) 
                         )
                     )
                 | _ -> default'()
             | _ -> default'()
         | _ -> default'()
     scan expr
+    quotations :> _ seq
