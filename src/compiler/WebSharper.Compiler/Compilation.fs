@@ -357,12 +357,12 @@ type Compilation(meta: Info, ?hasGraph) =
             notResolvedClasses.Add(typ, cls)
         with _ ->
             if cls.IsProxy then
+                let orig = notResolvedClasses.[typ]                    
                 if Option.isSome cls.StrongName then
                     this.AddError(None, SourceError ("Proxy extension can't be strongly named: " + typ.Value.FullName))
-                elif Option.isSome cls.BaseClass then
-                    this.AddError(None, SourceError ("Proxy extension can't have a non-Object base class: " + typ.Value.FullName))
+                elif Option.isSome cls.BaseClass && cls.BaseClass <> orig.BaseClass then
+                    this.AddError(None, SourceError ("Proxy extension must have the same base class as the original: " + typ.Value.FullName))
                 else 
-                    let orig = notResolvedClasses.[typ]                    
                     notResolvedClasses.[typ] <-
                         { orig with
                             Requires = cls.Requires @ orig.Requires
