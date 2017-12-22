@@ -169,7 +169,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
                     | Some _ as res -> res
                     | _ -> current.Classes.TryFind c
                 match c.BaseClass |> Option.bind tryFindClass |> Option.bind (fun b -> b.Address) with
-                | Some ba -> GlobalAccess ba
+                | Some ba -> getOrImportAddress false ba
                 | _ -> Value Null
              
             if c.HasWSPrototype then
