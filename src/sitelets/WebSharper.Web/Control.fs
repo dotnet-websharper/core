@@ -370,6 +370,9 @@ module ClientSideInternals =
         | P.QuoteTyped q
         | P.VarSet (_, q)
         | P.WithValue (_, _, q)
+        | P.TupleGet (q, _)
+        | P.TypeTest (q, _)
+        | P.UnionCaseTest (q, _)
             -> findArgs env setArg q
         | P.AddressSet (q1, q2)
         | P.Application (q1, q2)
@@ -418,7 +421,9 @@ module ClientSideInternals =
             findArgs (Set.add v2.Name env) setArg q2
         | _ -> ()
 
-    let compile (meta: M.Info) (json: J.Provider) (reqs: list<M.Node>) (q: Expr) : (obj[] * _) =
+    let emptyArg = obj()
+    
+    let internal compileClientSide (meta: M.Info) (reqs: list<M.Node>) (q: Expr) : (obj[] * _) =
         let rec compile (reqs: list<M.Node>) (q: Expr) =
             match getLocation q with
             | Some p ->
@@ -431,30 +436,34 @@ module ClientSideInternals =
                     failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%s" p ex
                 | true, (declType, meth, argNames) ->
                     match meta.Classes.TryGetValue declType with
-                    | false, _ -> failwithf "Error in Handler: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
+                    | false, _ -> failwithf "Error in ClientSide: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
                     | true, c ->
                         let argIndices = Map (argNames |> List.mapi (fun i x -> x, i))
-                        let args = Array.create argNames.Length null
+                        let args = Array.create argNames.Length emptyArg
                         let reqs = ref (M.MethodNode (declType, meth) :: M.TypeNode declType :: reqs)
                         let setArg (name: string) (value: obj) =
                             let i = argIndices.[name]
-                            if isNull args.[i] then
+                            if args.[i] = emptyArg then
                                 args.[i] <-
                                     match value with
                                     | :? Expr as q ->
-                                        failwith "Error in Handler: Spliced expressions are not allowed"
+                                        failwith "Error in ClientSide: Spliced expressions are not allowed"
                                         //let x, reqs' = compile !reqs q
                                         //reqs := reqs'
                                         //x
                                     | value ->
-                                        let typ = value.GetType()
+                                        let typ = value.GetType ()
                                         reqs := M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition typ) :: !reqs
                                         value
                         findArgs Set.empty setArg q
+                        match args |> Array.tryFindIndex ((=) emptyArg) with
+                        | Some u ->
+                             failwithf "Error in ClientSide: captured argument failed to be filled: %s in %A" argNames.[u] q
+                        | _ -> ()
                         let addr =
                             match c.Methods.TryGetValue meth with
                             | true, (M.CompiledMember.Static x, _, _) -> x.Value
-                            | _ -> failwithf "Error in Handler: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
+                            | _ -> failwithf "Error in ClientSide: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
                         args, !reqs
             | None -> failwithf "Failed to find location of quotation: %A" q
         compile reqs q 
@@ -469,45 +478,17 @@ module WebExtensions =
     open WebSharper.Core
     open WebSharper.Web
 
-    /// Embed the given client-side control body in a server-side control.
-    /// The client-side control body must be either a module-bound or static value,
-    /// or a call to a module-bound function or static method, and all arguments
-    /// must be either literals or references to local variables.
-    let ClientSide (e: Expr<#IControlBody>) =
-        new InlineControl<_>(e)
-
     open ClientSideInternals
 
     /// Embed the given client-side control body in a server-side control.
-    /// The client-side control body must be either a module-bound or static value,
-    /// or a call to a module-bound function or static method, and all arguments
-    /// must be either literals or references to local variables.
-    let ClientSide2 ([<JavaScript>] e: Expr<#IControlBody>) =
-        let (|Val|_|) e : 't option =
-            match e with
-            | Quotations.Patterns.Value(:? 't as v,_) -> Some v
-            | _ -> None
-        let pos =
-            e.CustomAttributes |> Seq.tryPick (function
-                | NewTuple [ Val "DebugRange";
-                             NewTuple [ Val (file: string)
-                                        Val (startLine: int)
-                                        Val (startCol: int)
-                                        Val (endLine: int)
-                                        Val (endCol: int) ] ] ->
-                    ({
-                        FileName = System.IO.Path.GetFileName(file)
-                        Start = (startLine, startCol)
-                        End = (endLine, endCol)
-                    } : WebSharper.Core.AST.SourcePos)
-                    |> Some
-                | _ -> None)
-        match pos with
+    /// The client-side control body must be an implicit or explicit quotation expression.
+    let ClientSide ([<JavaScript; ReflectedDefinition>] e: Expr<#IControlBody>) =
+        match getLocation e with
         | None -> failwith "Failed to find location of quotation"
         | Some p ->
             match Shared.Metadata.Quotations.TryGetValue p with
             | true, (ty, m, _) ->
-                let args, deps = compile Shared.Metadata Shared.Json [] e
+                let args, deps = compileClientSide Shared.Metadata [] e
                 new InlineControl<_>((fun () -> ""), (args, (ty, m, deps)))
             | false, _ ->
                 let all =
