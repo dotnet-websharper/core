@@ -314,6 +314,151 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
             let _, _, reqs = snd bodyAndReqs 
             this.GetBodyNode() :: reqs |> Seq.ofList
 
+module ClientSideInternals =
+
+    open System.Web.UI
+    module M = WebSharper.Core.Metadata
+    module R = WebSharper.Core.AST.Reflection
+    module J = WebSharper.Core.Json
+    module P = FSharp.Quotations.Patterns
+
+    let getLocation' (q: Expr) =
+        let (|Val|_|) e : 't option =
+            match e with
+            | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+            | _ -> None
+        let l =
+            q.CustomAttributes |> Seq.tryPick (function
+                | NewTuple [ Val "DebugRange";
+                             NewTuple [ Val (file: string)
+                                        Val (startLine: int)
+                                        Val (startCol: int)
+                                        Val (endLine: int)
+                                        Val (endCol: int) ] ] ->
+                    Some (sprintf "%s: %i.%i-%i.%i" file startLine startCol endLine endCol)
+                | _ -> None)
+        defaultArg l "(no location)"
+
+    let (|Val|_|) e : 't option =
+        match e with
+        | Quotations.Patterns.Value(:? 't as v,_) -> Some v
+        | _ -> None
+
+    let getLocation (q: Expr) =
+        q.CustomAttributes |> Seq.tryPick (function
+            | P.NewTuple [ Val "DebugRange";
+                           P.NewTuple [ Val (file: string)
+                                        Val (startLine: int)
+                                        Val (startCol: int)
+                                        Val (endLine: int)
+                                        Val (endCol: int) ] ] ->
+                ({
+                    FileName = System.IO.Path.GetFileName(file)
+                    Start = (startLine, startCol)
+                    End = (endLine, endCol)
+                } : WebSharper.Core.AST.SourcePos)
+                |> Some
+            | _ -> None)
+
+    let rec findArgs (env: Set<string>) (setArg: string -> obj -> unit) (q: Expr) =
+        match q with
+        | P.ValueWithName (v, _, n) when not (env.Contains n) -> setArg n v
+        | P.AddressOf q
+        | P.Coerce (q, _)
+        | P.FieldGet (Some q, _)
+        | P.QuoteRaw q
+        | P.QuoteTyped q
+        | P.VarSet (_, q)
+        | P.WithValue (_, _, q)
+            -> findArgs env setArg q
+        | P.AddressSet (q1, q2)
+        | P.Application (q1, q2)
+        | P.Sequential (q1, q2)
+        | P.TryFinally (q1, q2)
+        | P.WhileLoop (q1, q2)
+            -> findArgs env setArg q1; findArgs env setArg q2
+        | P.PropertyGet (q, _, qs)
+        | P.Call (q, _, qs) ->
+            Option.iter (findArgs env setArg) q
+            List.iter (findArgs env setArg) qs
+        | P.FieldSet (q1, _, q2) ->
+            Option.iter (findArgs env setArg) q1; findArgs env setArg q2
+        | P.ForIntegerRangeLoop (v, q1, q2, q3) ->
+            findArgs env setArg q1
+            findArgs env setArg q2
+            findArgs (Set.add v.Name env) setArg q3
+        | P.IfThenElse (q1, q2, q3)
+            -> findArgs env setArg q1; findArgs env setArg q2; findArgs env setArg q3
+        | P.Lambda (v, q) ->
+            findArgs (Set.add v.Name env) setArg q
+        | P.Let (v, q1, q2) ->
+            findArgs env setArg q1
+            findArgs (Set.add v.Name env) setArg q2
+        | P.LetRecursive (vqs, q) ->
+            let vs, qs = List.unzip vqs
+            let env = (env, vs) ||> List.fold (fun env v -> Set.add v.Name env)
+            List.iter (findArgs env setArg) qs
+            findArgs env setArg q
+        | P.NewObject (_, qs)
+        | P.NewRecord (_, qs)
+        | P.NewTuple qs
+        | P.NewUnionCase (_, qs)
+        | P.NewArray (_, qs) ->
+            List.iter (findArgs env setArg) qs
+        | P.NewDelegate (_, vs, q) ->
+            let env = (env, vs) ||> List.fold (fun env v -> Set.add v.Name env)
+            findArgs env setArg q
+        | P.PropertySet (q1, _, qs, q2) ->
+            Option.iter (findArgs env setArg) q1
+            List.iter (findArgs env setArg) qs
+            findArgs env setArg q2
+        | P.TryWith (q, v1, q1, v2, q2) ->
+            findArgs env setArg q
+            findArgs (Set.add v1.Name env) setArg q1
+            findArgs (Set.add v2.Name env) setArg q2
+        | _ -> ()
+
+    let compile (meta: M.Info) (json: J.Provider) (reqs: list<M.Node>) (q: Expr) : (obj[] * _) =
+        let rec compile (reqs: list<M.Node>) (q: Expr) =
+            match getLocation q with
+            | Some p ->
+                match meta.Quotations.TryGetValue(p) with
+                | false, _ ->
+                    let ex =
+                        meta.Quotations.Keys
+                        |> Seq.map (sprintf "  %O")
+                        |> String.concat "\n"
+                    failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%s" p ex
+                | true, (declType, meth, argNames) ->
+                    match meta.Classes.TryGetValue declType with
+                    | false, _ -> failwithf "Error in Handler: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
+                    | true, c ->
+                        let argIndices = Map (argNames |> List.mapi (fun i x -> x, i))
+                        let args = Array.create argNames.Length null
+                        let reqs = ref (M.MethodNode (declType, meth) :: M.TypeNode declType :: reqs)
+                        let setArg (name: string) (value: obj) =
+                            let i = argIndices.[name]
+                            if isNull args.[i] then
+                                args.[i] <-
+                                    match value with
+                                    | :? Expr as q ->
+                                        failwith "Error in Handler: Spliced expressions are not allowed"
+                                        //let x, reqs' = compile !reqs q
+                                        //reqs := reqs'
+                                        //x
+                                    | value ->
+                                        let typ = value.GetType()
+                                        reqs := M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition typ) :: !reqs
+                                        value
+                        findArgs Set.empty setArg q
+                        let addr =
+                            match c.Methods.TryGetValue meth with
+                            | true, (M.CompiledMember.Static x, _, _) -> x.Value
+                            | _ -> failwithf "Error in Handler: Couldn't find JavaScript address for method %s.%s" declType.Value.FullName meth.Value.MethodName
+                        args, !reqs
+            | None -> failwithf "Failed to find location of quotation: %A" q
+        compile reqs q 
+
 namespace WebSharper
 
 [<AutoOpen>]
@@ -330,6 +475,8 @@ module WebExtensions =
     /// must be either literals or references to local variables.
     let ClientSide (e: Expr<#IControlBody>) =
         new InlineControl<_>(e)
+
+    open ClientSideInternals
 
     /// Embed the given client-side control body in a server-side control.
     /// The client-side control body must be either a module-bound or static value,
@@ -359,9 +506,9 @@ module WebExtensions =
         | None -> failwith "Failed to find location of quotation"
         | Some p ->
             match Shared.Metadata.Quotations.TryGetValue p with
-            | true, (ty, m) ->
-                let deps = Shared.Dependencies.GetDependencies [Metadata.MethodNode(ty, m)]
-                new InlineControl<_>((fun () -> ""), ([||], (ty, m, deps)))
+            | true, (ty, m, _) ->
+                let args, deps = compile Shared.Metadata Shared.Json [] e
+                new InlineControl<_>((fun () -> ""), (args, (ty, m, deps)))
             | false, _ ->
                 let all =
                     Shared.Metadata.Quotations.Keys
@@ -394,7 +541,7 @@ module WebExtensions =
             | None -> failwith "Failed to find location of quotation"
             | Some p ->
                 match this.Metadata.Quotations.TryGetValue p with
-                | true, (ty, m) ->
+                | true, (ty, m, _) ->
                     let deps = this.Dependencies.GetDependencies [WebSharper.Core.Metadata.MethodNode(ty, m)]
                     new InlineControl<_>((fun () -> ""), ([||], (ty, m, deps)))
                 | false, _ ->
