@@ -1291,7 +1291,9 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
             }
         match x with
         | Null
-        | Object [ "tree", Null ] -> System.Activator.CreateInstance(t)
+        | Object [ "tree", Null ] ->
+            let tEls = System.Array.CreateInstance(tt, 0)
+            System.Activator.CreateInstance(t, tEls)
         | Object [ "tree", Object tr ] ->
             let els = walk tr |> Array.ofSeq
             let tEls = System.Array.CreateInstance(tt, els.Length)

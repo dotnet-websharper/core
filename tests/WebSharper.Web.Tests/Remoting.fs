@@ -543,6 +543,7 @@ module Remoting =
             }
 
             Test "Map<int,int> -> Map<int,int>" {
+                equalAsync (Server.add2_2ToMap Map.empty) (Map.ofArray [| 2, 2 |])
                 equalAsync (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
             }
 
