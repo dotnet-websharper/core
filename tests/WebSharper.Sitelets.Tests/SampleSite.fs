@@ -215,9 +215,9 @@ module SampleSite =
                 [
                     Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
-                    Elt("div", ctx.ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
+                    Elt("div", ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
                     Elt("div",
-                        ctx.ClientSide
+                        ClientSide
                             <@ Client.Elt "i" [|
                                 Client.Text "It "
                                 Client.Elt "b" [|Client.Text "really"|]
