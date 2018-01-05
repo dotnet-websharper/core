@@ -20,19 +20,34 @@
 
 namespace WebSharper.Sitelets.Tests
 
+open System
 open WebSharper
 
 module Client =
     open WebSharper.JavaScript
 
     [<JavaScript>]
-    type Elt(name, text) =
-        let e = JS.Document.CreateElement(name)
-        do e.AppendChild(JS.Document.CreateTextNode(text)) |> ignore
+    type Node =
+        | Elt of string * Node[]
+        | Text of string
+
+        member this.ToNode() =
+            match this with
+            | Text t -> JS.Document.CreateTextNode(t) :> Dom.Node
+            | Elt (n, ch) ->
+                let e = JS.Document.CreateElement(n)
+                for ch in ch do e.AppendChild(ch.ToNode()) |> ignore
+                e :> Dom.Node
 
         interface IControlBody with
             member this.ReplaceInDom x =
-                x.ParentNode.ReplaceChild(e, x) |> ignore
+                x.ParentNode.ReplaceChild(this.ToNode(), x) |> ignore
+
+    [<JavaScript>]
+    let Elt n ([<ParamArray>] ch) = Node.Elt(n, ch)
+
+    [<JavaScript>]
+    let Text t = Node.Text(t)
 
     [<Sealed>]
     type SignupSequenceControl() =
@@ -40,7 +55,7 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Elt("div", "SIGNUP-SEQUENCE") :> _
+            Elt "div" [|Text "SIGNUP-SEQUENCE"|] :> _
 
     [<Sealed>]
     type LoginControl(link: string) =
@@ -48,11 +63,11 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Elt("div", "LOGIN: " + link) :> _
+            Elt "div" [|Text ("LOGIN: " + link)|] :> _
 
     [<JavaScript>]
     let Widget () =
-        Elt("button", "click me!")
+        Elt "button" [|Text "click me!"|]
 
 /// A mini server-side HTML language
 module Server =
@@ -200,6 +215,14 @@ module SampleSite =
                 [
                     Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
+                    Elt("div", ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
+                    Elt("div",
+                        ClientSide
+                            <@ Client.Elt "i" [|
+                                Client.Text "It "
+                                Client.Elt "b" [|Client.Text "really"|]
+                                Client.Text " is!"
+                            |] @>)
                 ]
 
         /// A page to collect contact information.

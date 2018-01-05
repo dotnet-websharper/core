@@ -1155,6 +1155,8 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                 }
                             let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
                             let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
+                            // emptying FreeVars so that env can be reused for reading multiple quotation arguments
+                            env.FreeVars.Clear()
                             quotations.Add(pos, qm, argNames, f) 
                         )
                     )

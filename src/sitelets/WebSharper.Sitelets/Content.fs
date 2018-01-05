@@ -63,6 +63,7 @@ module Content =
 
     let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> UI.HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
+        // Some controls may depend on Requires called first and Encode second, do not break this
         let resources =
             let nodeSet =
                 controls
