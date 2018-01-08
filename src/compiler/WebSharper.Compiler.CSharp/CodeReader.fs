@@ -1054,13 +1054,22 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformIfStatement (x: IfStatementData) =
         let condition = x.Condition |> this.TransformExpression
-        let statement = x.Statement |> this.TransformStatement
-        let else_ = 
-            match x.Else with
-            | Some e -> e |> this.TransformElseClause
-            | _ -> Empty
-        If (condition, statement, else_)
-        |> withStatementSourcePos x.Node
+        match condition with
+        | IsClientCall b ->
+            if b then
+                x.Statement |> this.TransformStatement
+            else
+                match x.Else with
+                | Some e -> e |> this.TransformElseClause
+                | _ -> Empty
+        | _ ->
+            let statement = x.Statement |> this.TransformStatement
+            let else_ = 
+                match x.Else with
+                | Some e -> e |> this.TransformElseClause
+                | _ -> Empty
+            If (condition, statement, else_)
+            |> withStatementSourcePos x.Node
 
     member this.TransformElseClause (x: ElseClauseData) : Statement =
         x.Statement |> this.TransformStatement
@@ -1238,10 +1247,15 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =
         let condition = x.Condition |> this.TransformExpression
-        let whenTrue = x.WhenTrue |> this.TransformExpression
-        let whenFalse = x.WhenFalse |> this.TransformExpression
-        Conditional(condition, whenTrue, whenFalse)
-        |> withExprSourcePos x.Node
+        match condition with
+        | IsClientCall b ->
+            if b then x.WhenTrue |> this.TransformExpression
+            else x.WhenFalse |> this.TransformExpression
+        | _ ->
+            let whenTrue = x.WhenTrue |> this.TransformExpression
+            let whenFalse = x.WhenFalse |> this.TransformExpression
+            Conditional(condition, whenTrue, whenFalse)
+            |> withExprSourcePos x.Node
 
     member this.TransformMethodDeclarationBase (symbol: IMethodSymbol, parameterList, stBody, exprBody) : CSharpMethod =
         let returnType = sr.ReadType symbol.ReturnType

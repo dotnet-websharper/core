@@ -699,7 +699,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.Const (value, _) ->
             Value(ReadLiteral value)
         | P.IfThenElse (cond, then_, else_) ->
-            Conditional(tr cond, tr then_, tr else_)    
+            let trCond = tr cond
+            match trCond with
+            | IsClientCall b ->
+                if b then tr then_ else tr else_
+            | _ ->
+                Conditional(trCond, tr then_, tr else_)    
         | P.NewObject (ctor, typeGenerics, arguments) -> 
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity ctor)
             let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))

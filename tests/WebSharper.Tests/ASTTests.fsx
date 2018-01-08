@@ -16,7 +16,7 @@
 #r "../../build/Release/WebSharper.Core.dll"
 #r "../../build/Release/WebSharper.JavaScript.dll"
 #r "../../build/Release/WebSharper.JQuery.dll"
-//#r "../../build/Release/WebSharper.Main.dll"
+#r "../../build/Release/WebSharper.Main.dll"
 //#r "../../build/Release/WebSharper.Collections.dll"
 //#r "../../build/Release/WebSharper.Control.dll"
 //#r "../../build/Release/WebSharper.Web.dll"
@@ -265,7 +265,7 @@ let wsRefs =
         "WebSharper.Core"
         "WebSharper.JavaScript"
         "WebSharper.JQuery"
-        //"WebSharper.Main"
+        "WebSharper.Main"
         //"WebSharper.Collections"
         //"WebSharper.Control"
         //"WebSharper.Web"
@@ -384,11 +384,12 @@ translate """
 module M
 
 open WebSharper
-open System.Runtime.CompilerServices
+
+
 
 [<JavaScript>]
-[<MethodImpl(MethodImplOptions.PreserveSig)>]
-let Fst (x: System.Tuple<'T1,'T2>) = x
+let Test() = 
+    if IsClient then 1 else 0
 
     """
 
