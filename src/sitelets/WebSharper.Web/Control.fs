@@ -243,7 +243,8 @@ module ClientSideInternals =
                                         let typ = value.GetType ()
                                         reqs := M.TypeNode (WebSharper.Core.AST.Reflection.ReadTypeDefinition typ) :: !reqs
                                         value
-                        findArgs Set.empty setArg q
+                        if not (List.isEmpty argNames) then
+                            findArgs Set.empty setArg q
                         args, !reqs
             | None -> failwithf "Failed to find location of quotation: %A" q
         compile reqs q 
