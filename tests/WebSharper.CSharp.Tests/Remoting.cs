@@ -115,18 +115,7 @@ namespace WebSharper.CSharp.Tests
 
         static Server()
         {
-            // test IsClient
-            if (WebSharper.Pervasives.IsClient)
-            {
-                throw (new Exception("This should not happen: IsClient is true on the server"));
-            }
-            else
-            {
-                if (!WebSharper.Pervasives.IsClient)
-                {
-                    WebSharper.Core.Remoting.AddHandler(typeof(Handler), new HandlerImpl());
-                }
-            }
+            WebSharper.Core.Remoting.AddHandler(typeof(Handler), new HandlerImpl());
         }
     }
 
