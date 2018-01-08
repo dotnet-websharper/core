@@ -23,7 +23,11 @@ module WebSharper.Compiler.Stubs
 open WebSharper.Core.AST
 open AttributeReader
 
-let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstance (mdef: Method) =
+let GetSimpleTypeName (tdef: TypeDefinition) =
+    let n = tdef.Value.FullName.Split('.', '+') |> Array.last
+    n.Split('`').[0]
+
+let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstance (tdef: TypeDefinition) (mdef: Method) =
     let mutable error = None
     let mname, isGet, isSet =
         let mname = mdef.Value.MethodName
@@ -68,10 +72,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
                 | Some cn ->
                     Some (cn.Split('.') |> List.ofArray, n)
                 | _ ->
-                    if isProp then
-                        error <- Some "Static stub property with short name requres the type to have a Name attribute"
-                        None
-                    else Some ([], n)
+                    Some ([ GetSimpleTypeName tdef ], n)
             | _ ->
                 let l = p.Length
                 Some (p.[ .. l - 2] |> List.ofArray, p.[l - 1])
@@ -107,10 +108,7 @@ let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (td
             match tAnnot.Name with
             | Some a -> a.Split('.') |> List.ofArray
             | _ ->
-                let typeName =
-                    let n = tdef.Value.FullName.Split('.', '+') |> Array.last
-                    n.Split('`').[0]
-                [ typeName ]
+                [ GetSimpleTypeName tdef ]
     match a with
     | [] -> 
         Object []

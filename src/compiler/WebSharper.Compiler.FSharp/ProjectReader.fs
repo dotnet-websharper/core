@@ -278,7 +278,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
+                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance def mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true None expr
