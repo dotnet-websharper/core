@@ -668,23 +668,23 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
                     clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
-            | None ->
-                let jsArgs =
-                    meth.CurriedParameterGroups
-                    |> Seq.concat
-                    |> Seq.mapi (fun i p -> i, sr.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess)
-                    |> Seq.choose (fun (i, x) -> if x then Some i else None)
-                    |> Array.ofSeq
-                if not (Array.isEmpty jsArgs) then
-                    match sr.ReadMember meth with
-                    | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
-                    | _ -> error "JavaScript attribute on parameter is only allowed on methods"
-                let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-                let env = CodeReader.Environment.New ([], tparams, comp, sr)
-                CodeReader.scanExpression env meth.LogicalName expr
-                |> Seq.iter (fun (pos, mdef, argNames, e) ->
-                    addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
-                )
+            | None -> ()
+            let jsArgs =
+                meth.CurriedParameterGroups
+                |> Seq.concat
+                |> Seq.mapi (fun i p -> i, sr.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess)
+                |> Seq.choose (fun (i, x) -> if x then Some i else None)
+                |> Array.ofSeq
+            if not (Array.isEmpty jsArgs) then
+                match sr.ReadMember meth with
+                | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
+                | _ -> error "JavaScript attribute on parameter is only allowed on methods"
+            let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+            let env = CodeReader.Environment.New ([], tparams, comp, sr)
+            CodeReader.scanExpression env meth.LogicalName expr
+            |> Seq.iter (fun (pos, mdef, argNames, e) ->
+                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
+            )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
