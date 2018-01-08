@@ -283,8 +283,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 stubs.Add memdef |> ignore
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true None expr
             | Member.Constructor cdef ->
-                let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
-                err |> Option.iter error
+                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
                 addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"

@@ -320,8 +320,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 err |> Option.iter error
                 addMethod mAnnot mdef N.Inline true expr
             | Member.Constructor cdef ->
-                let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
-                err |> Option.iter error
+                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
                 addConstructor mAnnot cdef N.Inline true expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Virtual or override method can't have Stub attribute"
