@@ -1131,16 +1131,13 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 | Some x ->
                     x |> Array.iter (fun i ->
                         let arg = arguments.[i]
-                        let err() =
-                            env.Compilation.AddError(Some arg.Range.AsSourcePos,
-                                CompilationError.SourceError "JavaScript attribute can only be used on a quotation argument.")
                         match arg with
                         | P.Quote e -> Some e
                         | P.Value v ->
                             match vars.TryGetValue v with
                             | true, e -> Some e
-                            | false, _ -> err(); None
-                        | _ -> err(); None
+                            | false, _ -> None
+                        | _ -> None
                         |> Option.iter (fun e ->
                             let pos = e.Range.AsSourcePos
                             let e = transformExpression env e
