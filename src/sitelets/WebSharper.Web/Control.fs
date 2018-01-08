@@ -249,6 +249,49 @@ module ClientSideInternals =
             | None -> failwithf "Failed to find location of quotation: %A" q
         compile reqs q 
 
+    type private FSV = Reflection.FSharpValue
+
+    let internal compileClientSideFallback (elt: Expr) = 
+        let declType, meth, args, fReqs, subs =
+            let elt =
+                match elt with
+                | Coerce (e, _) -> e
+                | e -> e
+            let rec get subs expr =
+                match expr with
+                | PropertyGet(None, p, args) ->
+                    let m = p.GetGetMethod(true)
+                    let dt = R.ReadTypeDefinition p.DeclaringType
+                    let meth = R.ReadMethod m
+                    dt, meth, args, [M.MethodNode (dt, meth)], subs
+                | Call(None, m, args) ->
+                    let dt = R.ReadTypeDefinition m.DeclaringType
+                    let meth = R.ReadMethod m
+                    dt, meth, args, [M.MethodNode (dt, meth)], subs
+                | Let(var, value, body) ->
+                    get (subs |> Map.add var value) body
+                | e -> failwithf "Wrong format for InlineControl at %s: expected global value or function access, got: %A" (getLocation' elt) e
+            get Map.empty elt
+        let args, argReqs =
+            args
+            |> List.mapi (fun i value ->
+                let rec get expr =
+                    match expr with
+                    | Value (v, t) ->
+                        let v = match v with null -> WebSharper.Core.Json.Internal.MakeTypedNull t | _ -> v
+                        v, M.TypeNode (R.ReadTypeDefinition t)
+                    | TupleGet(v, i) ->
+                        let v, n = get v
+                        FSV.GetTupleField(v, i), n
+                    | Var v when subs.ContainsKey v ->
+                        get subs.[v]   
+                    | _ -> failwithf "Wrong format for InlineControl at %s: argument #%i is not a literal or a local variable" (getLocation' elt) (i+1)
+                get value
+            )
+            |> List.unzip
+        let args = Array.ofList args
+        args, declType, meth, fReqs @ argReqs
+
 open ClientSideInternals
 
 /// Implements a web control based on a quotation-wrapped top-level body.
@@ -280,11 +323,9 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                         args <- argVals
                         ty, m, deps
                     | false, _ ->
-                        let all =
-                            meta.Quotations.Keys
-                            |> Seq.map (sprintf "    %O")
-                            |> String.concat "\n"
-                        failwithf "Failed to find compiled quotation at position %O\nExisting ones:\n%O" p all
+                        let argVals, ty, m, deps = compileClientSideFallback elt
+                        args <- argVals
+                        ty, m, deps
 
             // set funcName
             let fail() =

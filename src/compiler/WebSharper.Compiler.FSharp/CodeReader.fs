@@ -1157,7 +1157,15 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                             let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
                             // emptying FreeVars so that env can be reused for reading multiple quotation arguments
                             env.FreeVars.Clear()
-                            quotations.Add(pos, qm, argNames, f) 
+                            // if the quotation is a single static call, the runtime fallback will be able to 
+                            // handle it without introducing a pre-compiled function for it
+                            let isTrivial =
+                                match e with 
+                                | I.Call(None, _, _, args) ->
+                                    args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
+                                | _ -> false
+                            if not isTrivial then
+                                quotations.Add(pos, qm, argNames, f) 
                         )
                     )
                 | _ -> default'()
