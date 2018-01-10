@@ -42,7 +42,7 @@ module PerformanceTests =
     type MultipleTest =
         | [<EndPoint "/a" >] A
         | [<EndPoint "/a" >] A1 of int
-    
+
     type MultipleFormData =
         {
             [<FormData; Name "text">] Text: string
@@ -50,8 +50,13 @@ module PerformanceTests =
             [<FormData; Name "flag">] Flag: bool
         }
 
+    type SubAction = 
+        | [<EndPoint "/sub1">] Sub1
+        | [<EndPoint "/sub2">] Sub2 of string
+
     type Action =
         | [<EndPoint "/">] URoot
+        | [<EndPoint "/">] USubAction of SubAction
         | [<EndPoint "/string">] UString of string
         | [<EndPoint "/tuple">] UTuple of p: int * string * bool
         | [<EndPoint "/tuple-with-queries"; Query("a", "b")>] UTupleQ of p: int * a: string * b: bool
@@ -81,6 +86,8 @@ module PerformanceTests =
     let TestValues =
         [
             URoot
+            USubAction Sub1
+            USubAction (Sub2 "x")
             UString "hello"
             UTuple (1, "hi", true)
             UTupleQ (1, "hi", true)
@@ -148,7 +155,8 @@ module PerformanceTests =
     [<Remote>]
     let GetTestValues() =
         TestValues |> Seq.map (fun v ->
-            v, ShiftedRouter.Link v
+            let l = ShiftedRouter.Link v 
+            v, ShiftedRouter.Link v, Router.Parse ShiftedRouter (Route.FromUrl l)
         ) |> Array.ofSeq |> async.Return
                
 // test urls:

@@ -277,8 +277,6 @@ type RoutingMacro() =
                                         | M.SingletonFSharpUnionCase ->
                                             NewArray [ none; m; path; NewArray [] ]
                                         | M.NormalFSharpUnionCase fields ->
-                                            if isEmpty && not (List.isEmpty fields) then
-                                                failwithf "Union case %s.%s with root EndPoint cannot have any fields" e.Value.FullName c.Name
                                             let queryFields = annot.Query |> Option.map HashSet
                                             let formDataFields = annot.FormData |> Option.map HashSet
                                             let jsonField = annot.Json |> Option.bind id

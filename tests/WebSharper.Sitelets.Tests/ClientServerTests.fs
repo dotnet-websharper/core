@@ -39,23 +39,49 @@ module ClientServerTests =
             Route.FromHash(p, true) |> Router.Parse router
         let rUnit = rRoot |> Router.MapTo ()
 
+        let writeAction (v: Action) =
+            try sprintf "%A" v
+            with _ -> "Failed writing action value"
+
+        let hasMethodOrBody (v: Action) =
+            match v with
+            | UPost _ 
+            | UPut _
+            | UPost2 _
+            | UJsonInput _
+            | UJsonInt _
+            | UFormData _
+            | UMultiFormData _
+                -> true
+            | _ -> false
+
         TestCategory "Sitelets Client-server routing" {
             Test "compatibility tests" {
-                let! testValuesAndServerLinks = GetTestValues()
-                let testValuesAndClientLinks =
-                    testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
-                        testValue, ShiftedRouter.Link testValue    
-                    )
-                equal testValuesAndServerLinks testValuesAndClientLinks
+                let! serverResults = GetTestValues()
+                let testValues = serverResults |> Array.map (fun (testValue, _, _) -> testValue)
+                let serverLinks = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+                let serverParsed = serverResults |> Array.map (fun (_, _, testValue) -> testValue)
+                let clientLinks = testValues |> Array.map ShiftedRouter.Link
+                let clientParsed = clientLinks |> Array.map (fun l -> Router.Parse ShiftedRouter (Route.FromUrl l))
+                forEach (Array.zip3 testValues serverLinks clientLinks) (fun (v, s, c) ->
+                    Do { equalMsg s c ("Generated link equal: " + writeAction v) }
+                )
+                forEach (Array.zip testValues serverParsed) (fun (v, p) ->
+                    if hasMethodOrBody v then Do.Zero() else
+                    Do { equalMsg p (Some v) ("Parsing back on the server: " + writeAction v) }
+                )
+                forEach (Array.zip testValues clientParsed) (fun (v, p) ->
+                    if hasMethodOrBody v then Do.Zero() else
+                    Do { equalMsg p (Some v) ("Parsing back on the client: " + writeAction v) }
+                )
             }
 
             Test "Router.Ajax" {
-                let! testValuesAndServerLinks = GetTestValues()
-                let ajaxResults = ResizeArray()
+                let! serverResults = GetTestValues()
                 let! ajaxResults =
                     async {
                         let arr = ResizeArray()
-                        for testValue, _ in testValuesAndServerLinks do
+                        for testValue, _, _ in serverResults do
                             try
                                 do! Expect testValue
                                 let! res = Router.Ajax ShiftedRouter testValue
@@ -65,13 +91,15 @@ module ClientServerTests =
                         return arr.ToArray()
                     }
                 let expectedResults =
-                    testValuesAndServerLinks |> Array.map (fun (_, serverLink) ->
+                    serverResults |> Array.map (fun (_, serverLink, _) ->
                         box serverLink
                     )
-                deepEqual ajaxResults expectedResults
+                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) ->
+                    Do { equalMsg r v (sprintf "Ajax call for: " + string v) }
+                )
             }
 
-            Test "Rotuer primitives" {
+            Test "Router primitives" {
                 equal (Router.Link rUnit ()) "/"
                 equal (parse rUnit "/") (Some ())
                 equal (Router.Link rInt 2) "/2"

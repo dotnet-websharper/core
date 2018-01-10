@@ -134,7 +134,7 @@ module Dict =
             for KeyValue(k, v) in s do 
                 match d.TryFind k with
                 | Some l ->
-                    d.Add(k, List.append v l)
+                    d.[k] <- List.append v l
                 | _ ->
                     d.Add(k, v)
         d

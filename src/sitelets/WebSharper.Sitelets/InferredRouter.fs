@@ -673,20 +673,24 @@ module internal ServerInferredOperators =
             cases |> Array.map (fun (_, s, fields) -> 
                 String.concat "/" s, fields
             )
+        let parseWithLookup (lookup: IDictionary<_,_>) path =
+            match path.Segments with
+            | [] -> 
+                match lookup.TryGetValue("") with
+                | true, parse -> parse [] path
+                | _ -> None
+            | h :: t ->
+                match lookup.TryGetValue(h) with
+                | true, parse -> parse t path
+                | _ ->
+                    match lookup.TryGetValue("") with
+                    | true, parse -> parse path.Segments path
+                    | _ -> None 
         let parse =
             match lookupCases.TryGetValue(None) with
             | true, lookup when lookupCases.Count = 1 -> 
                 // no union case specifies a method
-                fun path ->
-                    match path.Segments with
-                    | [] -> 
-                        match lookup.TryGetValue("") with
-                        | true, parse -> parse [] path
-                        | _ -> None
-                    | h :: t ->
-                        match lookup.TryGetValue(h) with
-                        | true, parse -> parse t path
-                        | _ -> None
+                parseWithLookup lookup
             | _ ->
                 // some union case specifies a method
                 let ignoreMethodLookup =
@@ -711,42 +715,19 @@ module internal ServerInferredOperators =
                         match path.Result with
                         | StrictMode -> None
                         | _ -> 
-                            let res =
-                                match path.Segments with
-                                | [] -> 
-                                    match wrongMethodLookup.TryGetValue("") with
-                                    | true, parse -> parse [] path
-                                    | _ -> None
-                                | h :: t ->
-                                    match wrongMethodLookup.TryGetValue(h) with
-                                    | true, parse -> parse t path
-                                    | _ -> None
+                            let res = parseWithLookup wrongMethodLookup path
                             if Option.isSome res then path.Result <- InvalidMethod path.Method.Value 
                             res
                     let explicit =
                         match lookupCases.TryGetValue(path.Method) with
                         | true, lookup -> 
-                            match path.Segments with
-                            | [] -> 
-                                match lookup.TryGetValue("") with
-                                | true, parse -> parse [] path
-                                | _ -> notFound()
-                            | h :: t ->
-                                match lookup.TryGetValue(h) with
-                                | true, parse -> parse t path
-                                | _ -> notFound()
+                            let res = parseWithLookup lookup path
+                            if Option.isNone res then notFound() else res
                         | _ -> notFound()
                     if Option.isSome explicit then explicit else
                     // not found with explicit method, fall back to cases ignoring method
-                    match path.Segments with
-                    | [] -> 
-                        match ignoreMethodLookup.TryGetValue("") with
-                        | true, parse -> parse [] path
-                        | _ -> notFound()
-                    | h :: t ->
-                        match ignoreMethodLookup.TryGetValue(h) with
-                        | true, parse -> parse t path
-                        | _ -> notFound()
+                    let res = parseWithLookup ignoreMethodLookup path
+                    if Option.isNone res then notFound() else res
         {
             IParse = parse
             IWrite = fun (w, value) ->

@@ -1105,15 +1105,12 @@ module RouterOperators =
     let rWildcardArray (item: Router<'A>) : Router<'A[]> =
         {
             Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    let rec collect path acc =
-                        match path.Segments with
-                        | [] -> Seq.singleton (path, Array.ofList (List.rev acc))
-                        | _ ->
-                            item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
-                    collect { path with Segments = t } []
-                | _ -> Seq.singleton (path, [||])
+                let rec collect path acc =
+                    match path.Segments with
+                    | [] -> Seq.singleton (path, Array.ofList (List.rev acc))
+                    | _ ->
+                        item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
+                collect path []
             Write = fun value ->
                 let parts = value |> Array.map item.Write
                 if Array.forall Option.isSome parts then
@@ -1124,15 +1121,12 @@ module RouterOperators =
     let rWildcardList (item: Router<'A>) : Router<'A list> = 
         {
             Parse = fun path ->
-                match path.Segments with
-                | h :: t -> 
-                    let rec collect path acc =
-                        match path.Segments with
-                        | [] -> Seq.singleton (path, List.rev acc)
-                        | _ ->
-                            item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
-                    collect { path with Segments = t } []
-                | _ -> Seq.singleton (path, [])
+                let rec collect path acc =
+                    match path.Segments with
+                    | [] -> Seq.singleton (path, List.rev acc)
+                    | _ ->
+                        item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
+                collect path []
             Write = fun value ->
                 let parts = value |> List.map item.Write
                 if List.forall Option.isSome parts then
