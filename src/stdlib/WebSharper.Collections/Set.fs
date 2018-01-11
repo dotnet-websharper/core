@@ -31,7 +31,7 @@ module T = BalancedTree
 [<Proxy(typeof<Set<_>>)>]
 type private FSharpSet<'T when 'T : comparison>
 
-    internal (tree: T.Tree<'T>) =
+    internal (tree: Optional<T.Tree<'T>>) =
 
         new (s: seq<'T>) = new FSharpSet<'T>(T.OfSeq s)
 
@@ -42,7 +42,7 @@ type private FSharpSet<'T when 'T : comparison>
             Set.difference (As this) x
 
         member this.Add x : Set<'T> =
-            As (FSharpSet<'T>(T.Add x tree))
+            As (FSharpSet<'T>(Defined (T.Add x tree)))
 
         member this.Contains v = T.Contains v tree
 

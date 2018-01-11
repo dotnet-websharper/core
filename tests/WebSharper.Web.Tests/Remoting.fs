@@ -154,8 +154,18 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let add2_a_2ToMap m =
+        m |> Map.add { a = 2; b = "a" } 2
+        |> async.Return
+
+    [<Remote>]
     let add2ToSet s =
         s |> Set.add 2
+        |> async.Return
+
+    [<Remote>]
+    let add2_aToSet s =
+        s |> Set.add { a = 2; b = "a" }
         |> async.Return
 
     type T1 =
@@ -547,8 +557,19 @@ module Remoting =
                 equalAsync (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
             }
 
+            Test "Map with non-trivial key type" {
+                equalAsync (Server.add2_a_2ToMap Map.empty) (Map.ofArray [| { a = 2; b = "a" }, 2 |])
+                equalAsync (Server.add2_a_2ToMap (Map.ofArray [| { a = 2; b = "b" }, 1 |])) (Map.ofArray [| { a = 2; b = "b" }, 1; { a = 2; b = "a" }, 2 |])
+            }
+
             Test "Set<int> -> Set<int>" {
+                equalAsync (Server.add2ToSet Set.empty) (Set.ofArray [| 2 |])
                 equalAsync (Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |])) (Set.ofArray [| 0 .. 4 |])
+            }
+
+            Test "Set with non-trivial key type" {
+                equalAsync (Server.add2_aToSet Set.empty) (Set.ofArray [| { a = 2; b = "a" } |])
+                equalAsync (Server.add2_aToSet (Set.ofArray [| { a = 1; b = "a" } |])) (Set.ofArray [| { a = 1; b = "a" } ; { a = 2; b = "a" } |])
             }
 
             Test "LoginUser()" {

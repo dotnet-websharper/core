@@ -32,6 +32,8 @@ type OptionalFieldKind =
     | NormalOption = 1
     /// The field has type option<'T> and is marked [<OptionalField>]
     | MarkedOption = 2
+    /// The field has type Optional<'T>
+    | ErasedOption = 3
 
 let ServerSideProvider = WebSharper.Core.Json.Provider.Create ()
 
@@ -73,6 +75,9 @@ module Provider =
                     | None -> ()
                 | OptionalFieldKind.MarkedOption ->
                     if JS.HasOwnProperty x name then
+                        o?(name) <- enc () x?(name)
+                | OptionalFieldKind.ErasedOption ->
+                    if x?(name) ===. JS.Undefined then
                         o?(name) <- enc () x?(name)
                 | _ -> failwith "Invalid field option kind")
             o
@@ -177,6 +182,9 @@ module Provider =
                         else None
                 | OptionalFieldKind.MarkedOption ->
                     if JS.HasOwnProperty x name then
+                        o?(name) <- (dec () x?(name))
+                | OptionalFieldKind.ErasedOption ->
+                    if x?(name) ===. JS.Undefined then
                         o?(name) <- (dec () x?(name))
                 | _ -> failwith "Invalid field option kind")
             o
@@ -420,8 +428,10 @@ module Macro =
                             let t, optionKind =
                                 match f.RecordFieldType with
                                 | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
-                                    if f.Optional then p, OptionalFieldKind.MarkedOption    
-                                    else p, OptionalFieldKind.NormalOption 
+                                    if f.Optional then p, OptionalFieldKind.MarkedOption
+                                    else p, OptionalFieldKind.NormalOption
+                                | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "WebSharper.JavaScript.Optional`1" ->
+                                    p, OptionalFieldKind.ErasedOption
                                 | t ->    
                                     t, OptionalFieldKind.NotOption
                             f.JSName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
@@ -597,6 +607,8 @@ module Macro =
                                                 Some (name, p, OptionalFieldKind.MarkedOption) 
                                             else
                                                 Some (name, p, OptionalFieldKind.NormalOption) 
+                                        | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "WebSharper.JavaScript.Optional`1" ->
+                                            Some (name, p, OptionalFieldKind.ErasedOption) 
                                         | ft ->    
                                             Some (name, ft, OptionalFieldKind.NotOption)
                                     match f with

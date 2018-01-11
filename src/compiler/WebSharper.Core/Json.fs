@@ -1208,11 +1208,11 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let btree node left right height count = 
     EncodedObject [
-        "Node", node  
-        "Left", left
-        "Right", right  
-        "Height", EncodedNumber height
-        "Count", EncodedNumber count  
+        match left with Some l -> yield "Left", l | None -> ()
+        match right with Some r -> yield "Right", r | None -> ()
+        yield "Node", node  
+        yield "Height", EncodedNumber height
+        yield "Count", EncodedNumber count  
     ]
 
 let unmakeMap<'T> (dV: obj -> Encoded)  (x: obj) =
@@ -1243,22 +1243,24 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     fun (x: obj) ->
         let rec encNode v = 
             match v with
-            | null -> EncodedNull, 0
+            | null -> None, 0
             | _ ->
             match tR v with
-            | 0 -> EncodedNull, 0
+            | 0 -> None, 0
             | 1 ->
                 let u = uR.[1] v
-                btree (pair (dK u.[0]) (dV u.[1])) EncodedNull EncodedNull "1" "1", 1
+                Some (btree (pair (dK u.[0]) (dV u.[1])) None None "1" "1"), 1
             | 2 ->
                 let u = uR.[2] v
                 let l, lc = encNode u.[2]
                 let r, rc = encNode u.[3]
                 let c = 1 + lc + rc
-                btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c), c 
+                Some (btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c)), c
             | _ -> raise EncoderException     
-        let tr = fst (encNode (treeF.GetValue x))
-        EncodedObject [ "tree", tr ] |> i.AddTag t
+        match encNode (treeF.GetValue x) with
+        | Some tr, _ -> EncodedObject [ "tree", tr ]
+        | None, _ -> EncodedObject []
+        |> i.AddTag t
 
 let makeMap<'T> (dV: Value -> obj) = function
     | Object vs ->
@@ -1291,6 +1293,7 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
             }
         match x with
         | Null
+        | Object []
         | Object [ "tree", Null ] ->
             let tEls = System.Array.CreateInstance(tt, 0)
             System.Activator.CreateInstance(t, tEls)
@@ -1320,22 +1323,24 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
     fun (x: obj) ->
         let rec encNode v = 
             match v with
-            | null -> EncodedNull, 0
+            | null -> None, 0
             | _ ->
             match tR v with
-            | 0 -> EncodedNull, 0
+            | 0 -> None, 0
             | 1 ->
                 let u = uR.[1] v
                 let l, lc = encNode u.[1]
                 let r, rc = encNode u.[2]
                 let c = 1 + lc + rc
-                btree (dI u.[0]) l r (string u.[3]) (string c), c
+                Some (btree (dI u.[0]) l r (string u.[3]) (string c)), c
             | 2 ->
                 let u = uR.[2] v
-                btree (dI u.[0]) EncodedNull EncodedNull "1" "1", 1
-            | _ -> raise EncoderException     
-        let tr = fst (encNode (treeF.GetValue x))
-        EncodedObject [ "tree", tr ] |> i.AddTag t
+                Some (btree (dI u.[0]) None None "1" "1"), 1
+            | _ -> raise EncoderException
+        match encNode (treeF.GetValue x) with
+        | Some tr, _ -> EncodedObject [ "tree", tr ]
+        | None, _ -> EncodedObject []
+        |> i.AddTag t
 
 let unmakeResizeArray<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
     EncodedArray [for v in unbox<ResizeArray<'T>> x -> dV v]

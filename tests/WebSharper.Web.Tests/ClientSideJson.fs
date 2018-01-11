@@ -37,6 +37,13 @@ type private Enum =
 [<JavaScript>]
 module ClientSideJson =
 
+    type Record =
+        {
+            a : int
+            b : string
+        }
+
+
     [<Inline>]
     let InlineSerialize x = "x" + Json.Serialize x
 
@@ -128,6 +135,11 @@ module ClientSideJson =
                 equal (Json.Deserialize (Json.Stringify (Set.toArray x))) x
             })
 
+            Property "deserialize set with complex key type" (fun (x: (int * string)[]) -> Do {
+                let x = Set.ofArray [| for a, b in x -> { a = a; b = b } |]
+                equal (Json.Deserialize (Json.Stringify (Set.toArray x))) x
+            })
+
             Property "serialize map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
                 let x = Map.toArray m
@@ -137,6 +149,11 @@ module ClientSideJson =
             Property "deserialize map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
                 let x = New (As (Map.toArray m))
+                equal (Json.Deserialize (Json.Stringify x)) m
+            })
+
+            Property "deserialize map with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let m = Map.ofArray [| for a, b, c in x -> { a = a; b = b }, c |]
                 equal (Json.Deserialize (Json.Stringify x)) m
             })
 
