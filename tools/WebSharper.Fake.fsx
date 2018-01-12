@@ -264,7 +264,7 @@ let MakeTargets (args: Args) =
             mainGroup.Packages
             |> Seq.exists (fun { Name = pkg } ->
                 pkg.Name.Contains "WebSharper" || pkg.Name.Contains "Zafir")
-        if needsUpdate then shell ".paket/paket.exe" "update"
+        if needsUpdate then shell ".paket/paket.exe" "update -g %s" mainGroup.Name.Name
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
