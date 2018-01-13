@@ -1418,6 +1418,7 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
         }
     function
         | Null
+        | Object []
         | Object [ "tree", Null ] -> mk Seq.empty
         | Object [ "tree", Object tr ] -> mk (walk tr)
         | x -> raise (DecoderException(x, ta.Type))

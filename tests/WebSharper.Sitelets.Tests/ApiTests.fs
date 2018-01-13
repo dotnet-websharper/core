@@ -72,7 +72,7 @@ module ApiTests =
             }
             Test "get/update" {
                 let! person1 = getPerson 1
-                equal person1.firstName "Alonzo"
+                isTrue (person1.firstName = "Alonzo" || person1.firstName = "Updated")
 
                 do! updatePerson 1 { person1 with firstName = "Updated" }
                 let! person1again = getPerson 1
