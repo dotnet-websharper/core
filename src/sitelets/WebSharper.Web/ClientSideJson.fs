@@ -129,6 +129,15 @@ module Provider =
             m |> Map.iter (fun k v -> o?(k) <- e v)
             o
 
+    let EncodeArrayMap (encKey:(unit -> 'K -> obj)) (encEl:(unit -> 'V -> obj)) : (unit -> Map<'K, 'V> -> obj) =
+        ()
+        fun () (m: Map<'K, 'V>) ->
+            let a : obj[][] = [||]
+            let k = encKey()
+            let e = encEl()
+            m |> Map.iter (fun key el -> a.JS.Push([| [| k key; e el |] |]) |> ignore)
+            box a
+
     let EncodeStringDictionary (encEl:(unit -> 'T -> obj)) : (unit -> Dictionary<string, 'T> -> obj) =
         ()
         fun () (d: Dictionary<string, 'T>) ->
@@ -136,6 +145,15 @@ module Provider =
             let e = encEl()
             for KeyValue(k, v) in d :> seq<_> do o?(k) <- e v
             o
+
+    let EncodeArrayDictionary (encKey: (unit -> 'K -> obj)) (encEl: (unit -> 'V -> obj)) : (unit -> Dictionary<'K, 'V> -> obj) =
+        ()
+        fun () (d: Dictionary<'K, 'V>) ->
+            let a : obj[][] = [||]
+            let k = encKey()
+            let e = encEl()
+            for KeyValue(key, el) in d do a.JS.Push([| [| k key; e el |] |]) |> ignore
+            box a
 
     let EncodeLinkedList (encEl:(unit -> 'T -> obj)) : (unit -> LinkedList<'T> -> obj) =
         ()
@@ -237,12 +255,30 @@ module Provider =
             JS.ForEach o (fun k -> m := Map.add k (decEl o?(k)) !m; false)
             !m
 
+    let DecodeArrayMap (decKey :(unit -> obj -> 'K)) (decEl :(unit -> obj -> 'V)) : (unit -> obj -> Map<'K, 'V>) =
+        ()
+        fun () (o: obj) ->
+            let decKey = decKey()
+            let decEl = decEl()
+            let mutable m = Map<'K, 'V> []
+            for k, v in o :?> (obj * obj)[] do m <- Map.add (decKey k) (decEl v) m
+            m
+
     let DecodeStringDictionary (decEl: unit -> obj -> 'T) : (unit -> obj -> Dictionary<string, 'T>) =
         ()
         fun () (o: obj) ->
             let d = System.Collections.Generic.Dictionary()
             let decEl = decEl ()
             JS.ForEach o (fun k -> d.Add(k, decEl o?(k)); false)
+            d
+
+    let DecodeArrayDictionary (decKey :(unit -> obj -> 'K)) (decEl :(unit -> obj -> 'V)) : (unit -> obj -> Dictionary<'K, 'V>) =
+        ()
+        fun () (o: obj) ->
+            let decKey = decKey()
+            let decEl = decEl()
+            let d = Dictionary<'K, 'V>()
+            for k, v in o :?> (obj * obj)[] do d.Add(decKey k, decEl v)
             d
 
     let DecodeLinkedList (decEl: unit -> obj -> 'T) : (unit -> obj -> LinkedList<'T>) =
@@ -354,14 +390,24 @@ module Macro =
                 | C (T "Microsoft.FSharp.Collections.FSharpSet`1", [t]) ->
                     encode t >>= fun e ->
                     ok (call "Set" [e])
-                | C (T "Microsoft.FSharp.Collections.FSharpMap`2",
-                                [C (T "System.String", []); t]) ->
-                    encode t >>= fun e -> 
-                    ok (call "StringMap" [e])
-                | C (T "System.Collections.Generic.Dictionary`2",
-                                [C (T "System.String", []); t]) ->
-                    encode t >>= fun e ->
-                    ok (call "StringDictionary" [e])
+                | C (T "Microsoft.FSharp.Collections.FSharpMap`2", [k; t]) ->
+                    match k with
+                    | C (T "System.String", []) ->
+                        encode t >>= fun e -> 
+                        ok (call "StringMap" [e])
+                    | _ ->
+                        encode k >>= fun k -> 
+                        encode t >>= fun e -> 
+                        ok (call "ArrayMap" [k; e])
+                | C (T "System.Collections.Generic.Dictionary`2", [k; t]) ->
+                    match k with
+                    | C (T "System.String", []) ->
+                        encode t >>= fun e ->
+                        ok (call "StringDictionary" [e])
+                    | _ ->
+                        encode k >>= fun k ->
+                        encode t >>= fun e ->
+                        ok (call "ArrayDictionary" [k; e])
                 | C (T "System.Collections.Generic.LinkedList`1", [t]) ->
                     encode t >>= fun e ->
                     ok (call "LinkedList" [e])

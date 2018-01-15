@@ -130,7 +130,9 @@ module Json =
         | [<Json "x">] List of x: list<int>
         | [<Json "x">] Set of x: Set<int>
         | [<Json "x">] Map of x: Map<string, int>
+        | [<Json "x">] ComplexMap of x: Map<Types.Id, int>
         | [<Json "x">] Dictionary of x: System.Collections.Generic.Dictionary<string, int>
+        | [<Json "x">] ComplexDictionary of x: System.Collections.Generic.Dictionary<Types.Id, int>
         | [<Json "x">] SimpleRecord of x: Types.SimpleRecord
         | [<Json "x">] SimpleRecordArray of x: Types.SimpleRecord[]
         | [<Json "x">] RecordOptions of x: Types.RecordWithOptions
@@ -156,7 +158,9 @@ module Json =
         | List x -> Content.Json x
         | Set x -> Content.Json x
         | Map x -> Content.Json x
+        | ComplexMap x -> Content.Json x
         | Dictionary x -> Content.Json x
+        | ComplexDictionary x -> Content.Json x
         | SimpleRecord x -> Content.Json x
         | SimpleRecordArray x -> Content.Json x
         | RecordOptions x -> Content.Json x

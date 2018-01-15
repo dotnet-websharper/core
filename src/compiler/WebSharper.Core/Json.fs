@@ -424,6 +424,7 @@ type FormatSettings =
         /// * Flatten collections:
         ///     * list<'T>, Set<'T> -> array
         ///     * Map<string, _>, Dictionary<string, _> -> flat object
+        ///     * Map<_, _>, Dictionary<_> -> array of [key, value] arrays
         /// * Inline single record argument of a union into the union object itself.
         ConciseRepresentation : bool
         /// Pack an encoded value to JSON.
@@ -683,6 +684,12 @@ let callGeneric (func: Expr<'f -> 'i -> 'o>) (dD: TAttrs -> 'f) ta (targ: System
     let m = genLetMethod(func, [|targ|])
     let dI = dD { ta with Type = targ }
     fun x -> unbox<'o> (m.Invoke2(dI, x))
+
+let callGeneric2 (func: Expr<'f -> 'f -> 'i -> 'o>) (dD: TAttrs -> 'f) ta (targ1: System.Type) (targ2: System.Type) : 'i -> 'o =
+    let m = genLetMethod(func, [|targ1; targ2|])
+    let dI1 = dD { ta with Type = targ1 }
+    let dI2 = dD { ta with Type = targ2 }
+    fun x -> unbox<'o> (m.Invoke3(dI1, dI2, x))
 
 let unmakeOption<'T> (dV: obj -> Encoded) (x: obj) =
     x |> unbox<option<'T>> |> Option.map (box >> dV)
@@ -1079,10 +1086,16 @@ let getObjectFields (t: System.Type) =
         f.DeclaringType.IsSerializable && int nS = 0)
     |> Seq.toArray
 
-let unmakeDictionary<'T> (dE: obj -> Encoded) (x: obj) =
+let unmakeFlatDictionary<'T> (dE: obj -> Encoded) (x: obj) =
     EncodedObject [
         for KeyValue(k, v) in unbox<Dictionary<string, 'T>> x ->
             k, dE (box v)
+    ]
+
+let unmakeArrayDictionary<'K, 'V when 'K : equality> (dK: obj -> Encoded) (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [
+        for KeyValue(k, v) in unbox<Dictionary<'K, 'V>> x ->
+            EncodedArray [dK (box k); dV (box v)]
     ]
 
 let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
@@ -1096,11 +1109,13 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         fun _ -> EncodedNull
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
-        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
-        t.GetGenericArguments().[0] = typeof<string>
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> 
     then
-        t.GetGenericArguments().[1]
-        |> callGeneric <@ unmakeDictionary @> dE ta
+        let ga = t.GetGenericArguments()
+        if t.GetGenericArguments().[0] = typeof<string> then
+            callGeneric <@ unmakeFlatDictionary @> dE ta ga.[1]
+        else
+            callGeneric2 <@ unmakeArrayDictionary @> dE ta ga.[0] ga.[1]
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     else
@@ -1133,12 +1148,22 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         | _ ->
             raise EncoderException
 
-let makeDictionary<'T> (dD: Value -> obj) = function
+let makeFlatDictionary<'T> (dD: Value -> obj) = function
     | Object vs ->
         let d = Dictionary<string, 'T>()
         for k, v in vs do d.Add(k, unbox<'T>(dD v))
         box d
     | x -> raise (DecoderException(x, typeof<Dictionary<string,'T>>))
+
+let makeArrayDictionary<'K, 'V when 'K : equality> (dK: Value -> obj) (dV: Value -> obj) = function
+    | Array vs ->
+        let d = Dictionary<'K, 'V>()
+        for e in vs do
+            match e with
+            | Array [k; v] -> d.Add(unbox<'K>(dK k), unbox<'V>(dV v))
+            | x -> raise (DecoderException(x, typeof<Dictionary<'K,'V>>))
+        box d
+    | x -> raise (DecoderException(x, typeof<Dictionary<'K,'V>>))
 
 let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1153,11 +1178,13 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | x -> raise (DecoderException(x, typeof<unit>))
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
-        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
-        t.GetGenericArguments().[0] = typeof<string>
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>>
     then
-        t.GetGenericArguments().[1]
-        |> callGeneric <@ makeDictionary @> dD ta
+        let ga = t.GetGenericArguments()
+        if t.GetGenericArguments().[0] = typeof<string> then
+            callGeneric <@ makeFlatDictionary @> dD ta ga.[1]
+        else
+            callGeneric2 <@ makeArrayDictionary @> dD ta ga.[0] ga.[1]
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     elif t.IsValueType then
@@ -1215,18 +1242,27 @@ let btree node left right height count =
         yield "Count", EncodedNumber count  
     ]
 
-let unmakeMap<'T> (dV: obj -> Encoded)  (x: obj) =
+let unmakeFlatMap<'T> (dV: obj -> Encoded)  (x: obj) =
     EncodedObject [
         for KeyValue(k, v) in unbox<Map<string, 'T>> x ->
             k, dV (box v)
+    ]
+
+let unmakeArrayMap<'K, 'T when 'K : comparison> (dK: obj -> Encoded) (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [
+        for KeyValue(k, v) in unbox<Map<'K, 'T>> x ->
+            EncodedArray [ dK (box k); dV (box v) ]
     ]
 
 let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
-    if i.ConciseRepresentation && tg.[0] = typeof<string> then
-        callGeneric <@ unmakeMap @> dE ta tg.[1]
+    if i.ConciseRepresentation then
+        if tg.[0] = typeof<string> then
+            callGeneric <@ unmakeFlatMap @> dE ta tg.[1]
+        else
+            callGeneric2 <@ unmakeArrayMap @> dE ta tg.[0] tg.[1]
     else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let pair key value =
@@ -1262,7 +1298,8 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
         | None, _ -> EncodedObject []
         |> i.AddTag t
 
-let makeMap<'T> (dV: Value -> obj) = function
+/// Decode a Map<string, _> from { key: value, ... } JSON object
+let makeFlatMap<'T> (dV: Value -> obj) = function
     | Object vs ->
         Map.ofList<string, 'T>(
             vs |> List.map (fun (k, v) -> k, unbox<'T> (dV v))
@@ -1270,11 +1307,25 @@ let makeMap<'T> (dV: Value -> obj) = function
         |> box
     | x -> raise (DecoderException(x, typeof<Map<string, 'T>>))
 
+/// Decode a Map<_, _> from [ [key, value], ... ] JSON object
+let makeArrayMap<'K, 'V when 'K : comparison> (dK: Value -> obj) (dV: Value -> obj) = function
+    | Array vs ->
+        Map.ofList<'K, 'V>(
+            vs |> List.map (function
+            | Array [k; v] -> unbox<'K> (dK k), unbox<'V> (dV v)
+            | x -> raise (DecoderException(x, typeof<Map<'K, 'V>>)))
+        )
+        |> box
+    | x -> raise (DecoderException(x, typeof<Map<'K, 'V>>))
+
 let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
-    if i.ConciseRepresentation && tg.[0] = typeof<string> then
-        callGeneric <@ makeMap @> dD ta tg.[1]
+    if i.ConciseRepresentation then
+        if tg.[0] = typeof<string> then
+            callGeneric <@ makeFlatMap @> dD ta tg.[1]
+        else
+            callGeneric2 <@ makeArrayMap @> dD ta tg.[0] tg.[1]
     else
     let dK = dD (TAttrs.Get(i, tg.[0]))
     let dV = dD (TAttrs.Get(i, tg.[1]))

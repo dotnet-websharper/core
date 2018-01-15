@@ -146,6 +146,15 @@ module ClientSideJson =
                 equal (Json.Serialize m) (Json.Stringify (New (As x)))
             })
 
+            Property "serialize map with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let m = Map.ofArray a
+                let enc = Json.Encode m :?> (Record * int)[]
+                Array.sortInPlaceBy fst a
+                Array.sortInPlaceBy fst enc
+                equal enc a
+            })
+
             Property "deserialize map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
                 let x = New (As (Map.toArray m))
@@ -153,8 +162,9 @@ module ClientSideJson =
             })
 
             Property "deserialize map with complex key type" (fun (x: (int * string * int)[]) -> Do {
-                let m = Map.ofArray [| for a, b, c in x -> { a = a; b = b }, c |]
-                equal (Json.Deserialize (Json.Stringify x)) m
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let m = Map.ofArray a
+                isTrue (Json.Deserialize (Json.Stringify a) = m)
             })
 
             Property "serialize dictionary" (fun (x: (string * int)[]) -> Do {
@@ -177,6 +187,16 @@ module ClientSideJson =
                 let y = New []
                 do for KeyValue(k, v) in deser :> seq<_> do y?(k) <- v
                 equal y ser
+            })
+
+            Property "deserialize dictionary with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let d = Dictionary()
+                do for k, v in a :> seq<_> do d.[k] <- v
+                let enc = Json.Encode d :?> (Record * int)[]
+                Array.sortInPlaceBy fst a
+                Array.sortInPlaceBy fst enc
+                equal enc a
             })
 
             Test "de/serialize record with optional value" {
@@ -507,8 +527,12 @@ module ClientSideJson =
 
             Property "map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
-                let x = Map.toArray m
                 equalAsync (echo "Map" (Json.Serialize m) Json.Decode) m
+            })
+
+            Property "map with complex keys" (fun (x: (int * int)[]) -> Do {
+                let m = Map.ofArray [| for k, v in x -> { WebSharper.Sitelets.Tests.Json.Types.id = k }, v |]
+                equalAsync (echo "ComplexMap" (Json.Serialize m) Json.Decode) m
             })
 
             Property "dictionary" (fun (x: (string * int)[]) -> Do {
@@ -521,6 +545,15 @@ module ClientSideJson =
                 let y = New []
                 do for KeyValue(k, v) in r :> seq<_> do y?(k) <- v
                 equal y (New (As x))
+            })
+
+            Property "dictionary with complex keys" (fun (x: (int * int)[]) -> Do {
+                let d = Dictionary()
+                do for k, v in x :> seq<_> do d.[{ WebSharper.Sitelets.Tests.Json.Types.id = k }] <- v
+                let! (r : Dictionary<WebSharper.Sitelets.Tests.Json.Types.Id, int>) =
+                    echo "ComplexDictionary" (Json.Serialize d) Json.Decode
+                forEach d (fun (KeyValue(k, v)) -> Do { equal v r.[k] })
+                forEach r (fun (KeyValue(k, v)) -> Do { equal v d.[k] })
             })
 
             Test "simple record" {
