@@ -14,7 +14,7 @@ NUGET
     AjaxMin (5.14.5506.26202)
     Chessie (0.6)
       FSharp.Core
-    FAKE (4.63.2)
+    FAKE (4.64.2)
     FSharp.Compiler.Tools (4.1.29)
     FSharp.Core (4.2.3)
     Mono.Cecil (0.10.0-beta7)
@@ -59,7 +59,7 @@ RESTRICTION: == net46
 NUGET
   remote: https://api.nuget.org/v3/index.json
     Microsoft.CodeAnalysis.Analyzers (1.1)
-    Microsoft.CodeAnalysis.Common (2.4)
+    Microsoft.CodeAnalysis.Common (2.6.1)
       Microsoft.CodeAnalysis.Analyzers (>= 1.1)
       System.AppContext (>= 4.3)
       System.Collections (>= 4.3)
@@ -99,8 +99,8 @@ NUGET
       System.Xml.XDocument (>= 4.3)
       System.Xml.XmlDocument (>= 4.3)
       System.Xml.XPath.XDocument (>= 4.3)
-    Microsoft.CodeAnalysis.CSharp (2.4)
-      Microsoft.CodeAnalysis.Common (2.4)
+    Microsoft.CodeAnalysis.CSharp (2.6.1)
+      Microsoft.CodeAnalysis.Common (2.6.1)
     System.AppContext (4.3)
     System.Collections (4.3)
     System.Collections.Concurrent (4.3)

@@ -438,6 +438,20 @@ type RoslynTransformer(env: Environment) =
 
     let sr = env.SymbolReader
 
+    let fixNonTrailingNamedArguments (argumentList : list<int option * Expression>) =
+        let isNotNamed (iOpt, _) = Option.isNone iOpt 
+        let lastNonNamedIndex = 
+            argumentList |> List.tryFindIndexBack isNotNamed
+        match lastNonNamedIndex with
+        | None -> argumentList 
+        | Some l -> 
+            if argumentList |> List.forall isNotNamed then
+                argumentList
+            else
+                argumentList |> List.mapi (fun i a ->
+                    if i < l then None, snd a else a
+                )
+    
     let fixParamArray (symbol: IMethodSymbol) (args: ArgumentListData) argumentList  =
         let ps = symbol.Parameters
         let paramCount = ps.Length
@@ -504,7 +518,7 @@ type RoslynTransformer(env: Environment) =
                     | _ -> Undefined
                 ) 
             [], fargs 
-
+    
     let setterOf (getter : Concrete<Method>) =
         let m = getter.Entity.Value
         if not (m.MethodName.StartsWith "get_") then
@@ -517,7 +531,30 @@ type RoslynTransformer(env: Environment) =
                     Parameters = m.Parameters @ [ m.ReturnType ]
                     Generics = m.Generics
                 }
-        }                
+        }        
+        
+    let createRef (e: Expression) =
+        match IgnoreExprSourcePos e with
+        | Var v ->
+            MakeRef e (fun value -> VarSet(v, value))
+        | NewVar (v, Undefined) -> // out var
+            Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
+        | ItemGet(o, i, _) ->
+            let ov = Id.New ()
+            let iv = Id.New ()
+            Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value))))
+        | FieldGet(o, t, f) ->
+            match o with
+            | Some o ->
+                let ov = Id.New ()
+                Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
+            | _ ->
+                MakeRef e (fun value -> FieldSet(None, t, f, value))  
+        | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
+            r
+        | Call (thisOpt, typ, getter, args) ->
+            MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
+        | e -> failwithf "ref argument or expression has unexpected form: %s" (Debug.PrintExpression e)     
 
     let jsConcat expr args =
         Application(ItemGet(expr, Value (String "concat"), Pure), args, Pure, None)
@@ -728,40 +765,19 @@ type RoslynTransformer(env: Environment) =
                 | _ -> None
             )
         let expression = x.Expression |> this.TransformExpression
-        let refOrOut =
+        let value =
             match x.RefOrOutKeyword with
             | Some ArgumentRefOrOutKeyword.RefKeyword 
             | Some ArgumentRefOrOutKeyword.OutKeyword ->
-                let e = IgnoreExprSourcePos expression
-                match e with
-                | Var v ->
-                    MakeRef e (fun value -> VarSet(v, value))
-                | NewVar (v, Undefined) -> // out var
-                    Sequential [ e; MakeRef e (fun value -> VarSet(v, value)) ]
-                | ItemGet(o, i, _) ->
-                    let ov = Id.New ()
-                    let iv = Id.New ()
-                    Let (ov, o, Let(iv, i, MakeRef (ItemGet(Var ov, Var iv, NoSideEffect)) (fun value -> ItemSet(Var ov, Var iv, value))))
-                | FieldGet(o, t, f) ->
-                    match o with
-                    | Some o ->
-                        let ov = Id.New ()
-                        Let (ov, o, MakeRef (FieldGet(Some (Var ov), t, f)) (fun value -> FieldSet(Some (Var ov), t, f, value)))     
-                    | _ ->
-                        MakeRef e (fun value -> FieldSet(None, t, f, value))  
-                | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
-                    r
-                | Call (thisOpt, typ, getter, args) ->
-                    MakeRef e (fun value -> (Call (thisOpt, typ, setterOf getter, args @ [value])))
-                | _ -> failwithf "ref argument has unexpected form: %+A" e     
+                createRef expression
             | None ->
-                // TODO: struct value passing
+                // TODO: copy struct values, if support for mutable structs on the client-side is added
                 //if env.SemanticModel.GetTypeInfo(x.Node).Type.IsValueType then ...
                 expression
-        namedParamOrdinal, refOrOut
+        namedParamOrdinal, value
 
     member this.TransformArgumentList (x: ArgumentListData) =
-        x.Arguments |> Seq.map this.TransformArgument |> List.ofSeq
+        x.Arguments |> Seq.map this.TransformArgument |> List.ofSeq |> fixNonTrailingNamedArguments
 
     member this.TransformBracketedArgumentList (x: BracketedArgumentListData) =
         x.Arguments |> Seq.map this.TransformArgument |> Seq.map snd |> List.ofSeq
@@ -1969,8 +1985,7 @@ type RoslynTransformer(env: Environment) =
             call symbol None [ expression ]
 
      member this.TransformRefExpression (x: RefExpressionData) : _ =
-        let expression = x.Expression |> this.TransformExpression
-        TODO x
+        x.Expression |> this.TransformExpression |> createRef
 
     member this.TransformQueryExpression (x: QueryExpressionData) : _ =
         let expression = x.FromClause.Expression |> this.TransformExpression

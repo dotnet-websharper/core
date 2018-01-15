@@ -30,7 +30,7 @@ group roslyn
     strategy: min
 
     nuget System.ValueTuple 4.3.0
-    nuget Microsoft.CodeAnalysis.CSharp ~2.4.0
+    nuget Microsoft.CodeAnalysis.CSharp ~2.6.0
 
 group fcs
     framework: net45
