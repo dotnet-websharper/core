@@ -41,7 +41,7 @@ type WsConfig =
         OutputDir  : string option
         AssemblyFile : string
         References  : string[] 
-        Resources : string[]
+        Resources : (string * string option)[]
         KeyFile : string option
         CompilerArgs : string[]        
         ProjectFile : string
@@ -213,7 +213,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     AssemblyResolver = Some aR
                     AssemblyVersion = name.Version
                     DocPath = config.Documentation
-                    EmbeddedResources = config.Resources
+                    EmbeddedResources = config.Resources |> Seq.map fst
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
                     StrongNameKeyPair = snk

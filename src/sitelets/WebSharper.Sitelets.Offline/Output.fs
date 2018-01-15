@@ -191,12 +191,13 @@ let createFile (cfg: Config) (targetPath: P.Path) =
 /// Writes an embedded resource to the target path.
 let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targetPath: P.Path) =
     let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let fn = aD.Name.Name + "." + n
     let stream =
         aD.MainModule.Resources
         |> Seq.tryPick (fun r ->
             match r with
             | :? Mono.Cecil.EmbeddedResource as r ->
-                if r.Name = n then Some (r.GetResourceStream()) else None
+                if r.Name = n || r.Name = fn then Some (r.GetResourceStream()) else None
             | _ -> None)
     match stream with
     | None -> failwithf "No resource %s in %s at %s" n aD.FullName assemblyPath

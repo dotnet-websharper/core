@@ -39,9 +39,10 @@ module AssemblyUtility =
             | _ -> None)
 
     let ReadResourceBytes name (def: Mono.Cecil.AssemblyDefinition) =
+        let longName = def.Name.Name + "." + name
         def.MainModule.Resources
         |> Seq.tryPick (function
-            | :? Mono.Cecil.EmbeddedResource as r when r.Name = name ->
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name = name || r.Name = longName ->
                 use r = r.GetResourceStream()
                 Some (ReadStream r)
             | _ -> None)
