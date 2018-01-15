@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 namespace WebSharper.CSharp.Sitelets.Tests
 {
 
-    [JavaScript, EndPoint("/"), EndPoint("/home"), Serializable]
+    [JavaScript, EndPoint("/"), EndPoint("/home", order: 1), Serializable]
     public class CSharpEndPointRoot
     {
         public virtual int Tag => 0;
@@ -15,7 +15,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
 
         [Serializable]
         [EndPoint("/sub1/{X}")]
-        [EndPoint("/sub1full/{X}", inheritRoute: false)]
+        [EndPoint("/sub1full/{X}", order: 1, inheritRoute: false)]
         public class Sub1 : CSharpEndPointRoot
         {
             public override int Tag => 1;

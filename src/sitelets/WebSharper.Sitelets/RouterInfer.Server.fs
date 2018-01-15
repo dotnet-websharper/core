@@ -46,13 +46,16 @@ module internal ServerRouting =
             | _ -> failwithf "Unrecognized %s attribute constructor" attr.Constructor.DeclaringType.Name 
         override this.GetCtorParamArgsOrPair attr =
             match attr.ConstructorArguments |> Array.ofSeq with
+            | [| a |] when a.ArgumentType = typeof<string> ->
+                [| unbox<string> a.Value, 0, true |]
             | [| a |] ->
-                if a.ArgumentType = typeof<string> then
-                    [| unbox<string> a.Value, true |]
-                else
-                    a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.map (fun a -> unbox<string> a.Value, true) |> Array.ofSeq
+                a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.mapi (fun i a -> unbox<string> a.Value, i, true) |> Array.ofSeq
+            | [| a; b |] when b.ArgumentType = typeof<int> ->
+                [| unbox<string> a.Value, unbox<int> b.Value, true |]
             | [| a; b |] ->
-                [| unbox<string> a.Value, unbox<bool> b.Value |]
+                [| unbox<string> a.Value, 0, unbox<bool> b.Value |]
+            | [| a; b; c |] ->
+                [| unbox<string> a.Value, unbox<int> b.Value, unbox<bool> c.Value |]
             | _ -> failwith "Unrecognized Endpoint attribute constructor"
 
     let attrReader = ReflectionAttributeReader() 

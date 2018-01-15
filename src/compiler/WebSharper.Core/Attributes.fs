@@ -238,6 +238,16 @@ type EndPointAttribute =
     /// base class.
     new (endpoint: string, inheritRoute: bool) = { inherit A() } 
 
+    /// Indicates the URL fragments parsed by this class.
+    /// `order` specifies the parsing order.
+    new (endpoint: string, order: int) = { inherit A() } 
+
+    /// Indicates the URL fragments parsed by this class.
+    /// `order` specifies the parsing order.
+    /// `inheritRoute = false` allows re-specifying the full route instead of inheriting starting segment(s) from
+    /// base class.
+    new (endpoint: string, order: int, inheritRoute: bool) = { inherit A() } 
+
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
 /// Example: type Action = | [<Method "POST">] MyPostAction

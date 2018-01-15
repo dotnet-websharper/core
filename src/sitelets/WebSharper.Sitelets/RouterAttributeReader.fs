@@ -94,7 +94,7 @@ type AttributeReader<'A>() =
     abstract GetName : 'A -> string
     abstract GetCtorArgOpt : 'A -> string option
     abstract GetCtorParamArgs : 'A -> string[]
-    abstract GetCtorParamArgsOrPair : 'A -> (string * bool)[]
+    abstract GetCtorParamArgsOrPair : 'A -> (string * int * bool)[]
 
     member this.GetAnnotation(attrs: seq<'A>, ?name: string) =
         let ep = ResizeArray()
@@ -154,19 +154,19 @@ type AttributeReader<'A>() =
             match name with
             | Some n ->
                 match !wn with
-                | Some wn -> ep.Add (wn, false)
+                | Some wn -> ep.Add (wn, 0, false)
                 | _ ->
                 match !cn with 
-                | Some cn -> ep.Add (cn, false) 
-                | _ -> ep.Add (n, false)
+                | Some cn -> ep.Add (cn, 0, false) 
+                | _ -> ep.Add (n, 0, false)
             | _ -> ()
         let endpointsWithExplicitMethods =
-            ep |> Seq.map (fun (e, inh) -> 
+            ep |> Seq.sortBy (fun (_, o, _) -> o)
+            |> Seq.map (fun (e, _, inh) -> 
                 match e.IndexOf(" ") with
                 | -1 -> None, e, inh
                 | i -> Some (e.Substring(0, i)), e.Substring(i + 1), inh
             ) |> List.ofSeq 
-            |> List.sortBy (fun (_, e, _) -> e.Length)
         let endpoints =
             if ms.Count = 0 then
                 endpointsWithExplicitMethods

@@ -49,9 +49,11 @@ module private ClientRoutingInternals =
         override this.GetCtorParamArgsOrPair attr =
             match attr with
             | _, [| M.ParameterObject.Array a |] -> 
-                a |> Array.map (fun x -> M.ParameterObject.ToObj x |> unbox<string>, true)
-            | _, [| M.ParameterObject.String s |] -> [| s, true |]
-            | _, [| M.ParameterObject.String s; M.ParameterObject.Bool b |] -> [| s, b |]
+                a |> Array.mapi (fun i x -> M.ParameterObject.ToObj x |> unbox<string>, i, true)
+            | _, [| M.ParameterObject.String s |] -> [| s, 0, true |]
+            | _, [| M.ParameterObject.String s; M.ParameterObject.Int32 o |] -> [| s, o, true |]
+            | _, [| M.ParameterObject.String s; M.ParameterObject.Bool b |] -> [| s, 0, b |]
+            | _, [| M.ParameterObject.String s; M.ParameterObject.Int32 o; M.ParameterObject.Bool b |] -> [| s, o, b |]
             | _ -> [||]
 
     let attrReader = MetadataAttributeReader()
