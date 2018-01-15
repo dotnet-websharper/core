@@ -221,13 +221,22 @@ type PrototypeAttribute() =
     /// usable only for sealed classes and F# unions and records.
     new (force: bool) = PrototypeAttribute()
 
-/// Indicates the URL fragment parsed by this union case.
-/// Example: type Action = | [<EndPoint "/article">] GetArticle
-[<Sealed; U(T.Class ||| T.Property)>]
-type EndPointAttribute(endpoint: string) =
-    inherit A()
+/// Indicates the URL fragment parsed by this class or union case.
+[<Sealed; U(T.Class ||| T.Property, AllowMultiple = true)>]
+type EndPointAttribute =
+    inherit A
 
-    member this.EndPoint = endpoint
+    /// Indicates the URL fragments parsed by this class or union case.
+    new (endpoint: string) = { inherit A() } 
+
+    /// Indicates the URL fragments parsed by this class or union case.
+    /// If there are multiple arguments, first is the canonical form, used for writing links but all are parsed.
+    new ([<ParamArray>] endpoints: string[]) = { inherit A() } 
+
+    /// Indicates the URL fragments parsed by this class.
+    /// `inheritRoute = false` allows re-specifying the full route instead of inheriting starting segment(s) from
+    /// base class.
+    new (endpoint: string, inheritRoute: bool) = { inherit A() } 
 
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).

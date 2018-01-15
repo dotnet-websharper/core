@@ -24,6 +24,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Routers.cs" />
     <Compile Include="Tests.cs" />
   </ItemGroup>
   <ItemGroup>

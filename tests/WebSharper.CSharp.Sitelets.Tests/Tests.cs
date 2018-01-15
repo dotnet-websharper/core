@@ -78,7 +78,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Text("Go back to C# sitelets tests home")))))
                 .Install();
 
-        [EndPoint("/person/{name}/{age}")]
+        [EndPoint("/person/{name}/{age}", "/person/{age}/{name}")]
         public class Person
         {
             public Name name;

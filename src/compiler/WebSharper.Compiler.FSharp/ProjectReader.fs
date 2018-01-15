@@ -981,22 +981,28 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         res 
 
     let readAttribute (a: FSharpAttribute) =
-        let fixTypeValue (o: obj) =
-            match o with
-            | :? FSharpType as t -> box (sr.ReadType Map.empty t)
-            | _ -> o
-        sr.ReadTypeDefinition a.AttributeType,
-        a.ConstructorArguments |> Seq.map (snd >> fixTypeValue >> ParameterObject.OfObj) |> Array.ofSeq
+        try
+            let fixTypeValue (o: obj) =
+                match o with
+                | :? FSharpType as t -> box (sr.ReadType Map.empty t)
+                | _ -> o
+            sr.ReadTypeDefinition a.AttributeType,
+            a.ConstructorArguments |> Seq.map (snd >> fixTypeValue >> ParameterObject.OfObj) |> Array.ofSeq
+        with _ ->
+            failwithf "Failed to read custom attribute from F#: %s" a.AttributeType.FullName
+
+    let readAttributes (a: seq<FSharpAttribute>) =
+        a |> Seq.map readAttribute |> List.ofSeq
 
     let lookupTypeAttributes (typ: TypeDefinition) =
         lookupTypeDefinition typ |> Option.map (fun e ->
-            e.Attributes |> Seq.map readAttribute |> List.ofSeq
+            e.Attributes |> readAttributes
         )
 
     let lookupFieldAttributes (typ: TypeDefinition) (field: string) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.FSharpFields |> Seq.tryFind (fun f -> f.Name = field) |> Option.map (fun f ->
-                Seq.append f.FieldAttributes f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+                Seq.append f.FieldAttributes f.PropertyAttributes |> readAttributes
             ) 
         )
 
@@ -1011,7 +1017,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 | _ -> false
             ) 
             |> Option.map (fun m ->
-                m.Attributes |> Seq.map readAttribute |> List.ofSeq
+                m.Attributes |> readAttributes
             ) 
             |> Option.orElseWith (fun () ->
                 if e.IsFSharpUnion then 
@@ -1023,7 +1029,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                     caseName |> Option.bind (fun cn ->
                         let case = e.UnionCases |> Seq.tryFind (fun c -> c.CompiledName = cn)
                         case |> Option.map (fun c ->
-                            c.Attributes |> Seq.map readAttribute |> List.ofSeq
+                            c.Attributes |> readAttributes
                         )
                     )
                 elif e.IsFSharpRecord then
@@ -1033,7 +1039,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                     fieldName |> Option.bind (fun fn ->
                         let field = e.FSharpFields |> Seq.tryFind (fun f -> f.Name = fn)
                         field |> Option.map (fun f ->
-                            f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+                            f.PropertyAttributes |> readAttributes
                         )
                     )
                 else None
@@ -1049,7 +1055,7 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
                 | _ -> false
             ) 
             |> Option.map (fun m ->
-                m.Attributes |> Seq.map readAttribute |> List.ofSeq
+                m.Attributes |> readAttributes
             ) 
         )
 

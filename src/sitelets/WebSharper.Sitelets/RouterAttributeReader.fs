@@ -30,7 +30,7 @@ module P = FSharp.Quotations.Patterns
 
 type Annotation =
     {
-        EndPoint : option<option<string> * string>
+        EndPoints : list<option<string> * string * bool>
         Query : option<Set<string>>
         Json : option<option<string>>
         FormData : option<Set<string>>
@@ -41,7 +41,7 @@ type Annotation =
 module Annotation =
     let Empty = 
         {
-            EndPoint = None
+            EndPoints = []
             Query = None
             Json = None
             FormData = None
@@ -61,7 +61,20 @@ module Annotation =
             elif String.IsNullOrEmpty b || b = "/" then a
             elif b.StartsWith "/" then a + b else a + "/" + b
         {
-            EndPoint = comb (fun (_, ae) (_, be) -> None, pcomb ae be) a.EndPoint b.EndPoint // todo combine methods
+            EndPoints = 
+                [
+                    for (bm, bp, inh) in b.EndPoints do
+                        if inh then
+                            for (am, ap, _) in a.EndPoints do
+                                match am, bm with
+                                | None, None -> 
+                                    yield None, pcomb ap bp, false
+                                | Some m, None
+                                | None, Some m ->
+                                    yield Some m, pcomb ap bp, false
+                                | _ -> ()
+                        else yield bm, bp, false
+                ]
             Query = comb Set.union a.Query b.Query
             Json = comb (fun a b -> comb (fun _ _ -> failwith "multiple json fields") a b) a.Json b.Json 
             FormData = comb Set.union a.FormData b.FormData 
@@ -81,6 +94,7 @@ type AttributeReader<'A>() =
     abstract GetName : 'A -> string
     abstract GetCtorArgOpt : 'A -> string option
     abstract GetCtorParamArgs : 'A -> string[]
+    abstract GetCtorParamArgsOrPair : 'A -> (string * bool)[]
 
     member this.GetAnnotation(attrs: seq<'A>, ?name: string) =
         let ep = ResizeArray()
@@ -106,7 +120,7 @@ type AttributeReader<'A>() =
             | "WebSharper.Core" ->
                 match this.GetName attr with
                 | "EndPointAttribute" ->
-                    this.GetCtorArgOpt(attr) |> Option.iter ep.Add
+                    this.GetCtorParamArgsOrPair(attr) |> Array.iter ep.Add
                 | "NameAttribute" ->
                     wn := this.GetCtorArgOpt(attr)
                 | "MethodAttribute" ->
@@ -140,28 +154,31 @@ type AttributeReader<'A>() =
             match name with
             | Some n ->
                 match !wn with
-                | Some wn -> ep.Add wn
+                | Some wn -> ep.Add (wn, false)
                 | _ ->
                 match !cn with 
-                | Some cn -> ep.Add cn 
-                | _ -> ep.Add n
+                | Some cn -> ep.Add (cn, false) 
+                | _ -> ep.Add (n, false)
             | _ -> ()
+        let endpointsWithExplicitMethods =
+            ep |> Seq.map (fun (e, inh) -> 
+                match e.IndexOf(" ") with
+                | -1 -> None, e, inh
+                | i -> Some (e.Substring(0, i)), e.Substring(i + 1), inh
+            ) |> List.ofSeq 
+            |> List.sortBy (fun (_, e, _) -> e.Length)
         let endpoints =
             if ms.Count = 0 then
-                ep |> Seq.map (fun e -> 
-                    match e.IndexOf(" ") with
-                    | -1 -> None, e
-                    | i -> Some (e.Substring(0, i)), e.Substring(i + 1)
-                ) |> List.ofSeq
+                endpointsWithExplicitMethods
             else
                 [
-                    for e in ep do
-                        for m in ms ->
-                            Some m, e
+                    for (em, p, i) as e in endpointsWithExplicitMethods do
+                        match em with
+                        | Some _ -> yield e
+                        | _ -> for m in ms -> Some m, p, i
                 ]
-        // todo: multiple endpoint attributes    
         {
-            EndPoint = List.tryHead endpoints 
+            EndPoints = endpoints 
             Query = !q |> Option.map Set.ofSeq
             Json = j
             FormData = !fd |> Option.map Set.ofSeq

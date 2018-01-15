@@ -58,21 +58,26 @@ module ClientServerTests =
         TestCategory "Sitelets Client-server routing" {
             Test "compatibility tests" {
                 let! serverResults = GetTestValues()
+                let! extraServerResults = GetExtraTestValues()
                 let testValues = serverResults |> Array.map (fun (testValue, _, _) -> testValue)
                 let serverLinks = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
-                let serverParsed = serverResults |> Array.map (fun (_, _, testValue) -> testValue)
                 let clientLinks = testValues |> Array.map ShiftedRouter.Link
-                let clientParsed = clientLinks |> Array.map (fun l -> Router.Parse ShiftedRouter (Route.FromUrl l))
                 forEach (Array.zip3 testValues serverLinks clientLinks) (fun (v, s, c) ->
                     Do { equalMsg s c ("Generated link equal: " + writeAction v) }
                 )
-                forEach (Array.zip testValues serverParsed) (fun (v, p) ->
+                let extraValues = extraServerResults |> Array.map (fun (testValue, _, _) -> testValue)
+                let allServerLinks = Array.append serverLinks (extraServerResults |> Array.map (fun (_, serverLink, _) -> serverLink))
+                let allTestValues = Array.append testValues extraValues
+                let serverParsed = Array.append serverResults extraServerResults |> Array.map (fun (_, _, testValue) -> testValue)
+                forEach (Array.zip3 allTestValues allServerLinks serverParsed) (fun (v, l, p) ->
                     if hasMethodOrBody v then Do.Zero() else
-                    Do { equalMsg p (Some v) ("Parsing back on the server: " + writeAction v) }
+                    Do { equalMsg p (Some v) ("Parsing back on the server: " + l) }
                 )
-                forEach (Array.zip testValues clientParsed) (fun (v, p) ->
+                let extraLinks = extraServerResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+                let clientParsed = Array.append clientLinks extraLinks |> Array.map (fun l -> Router.Parse ShiftedRouter (Route.FromUrl l))
+                forEach (Array.zip3 allTestValues allServerLinks clientParsed) (fun (v, l, p) ->
                     if hasMethodOrBody v then Do.Zero() else
-                    Do { equalMsg p (Some v) ("Parsing back on the client: " + writeAction v) }
+                    Do { equalMsg p (Some v) ("Parsing back on the client: " + l) }
                 )
             }
 

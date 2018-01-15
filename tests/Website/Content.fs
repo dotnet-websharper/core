@@ -94,8 +94,8 @@ let TestsPage (ctx: Context<FullAction>) =
                 WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl
                 ClientSide <@ Client.ClientSideTupleTest t12 @>
                 ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
-                ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
                 ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri @> 
+                ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
                 ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri true @>
             ] : list<Web.Control>
         )

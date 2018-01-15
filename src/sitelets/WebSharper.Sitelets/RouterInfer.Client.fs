@@ -46,6 +46,13 @@ module private ClientRoutingInternals =
             match attr with
             | _, [| M.ParameterObject.Array a |] -> a |> Array.map (M.ParameterObject.ToObj >> unbox<string>)
             | _ -> [||]
+        override this.GetCtorParamArgsOrPair attr =
+            match attr with
+            | _, [| M.ParameterObject.Array a |] -> 
+                a |> Array.map (fun x -> M.ParameterObject.ToObj x |> unbox<string>, true)
+            | _, [| M.ParameterObject.String s |] -> [| s, true |]
+            | _, [| M.ParameterObject.String s; M.ParameterObject.Bool b |] -> [| s, b |]
+            | _ -> [||]
 
     let attrReader = MetadataAttributeReader()
     
@@ -59,7 +66,7 @@ module private ClientRoutingInternals =
         match <@ RouterOperators.rString @> with
         | P.PropertyGet(_, pi, _) -> Reflection.ReadTypeDefinition pi.DeclaringType
         | e -> 
-            eprintfn "Reflection error in RouterInfer.Client, not a PropertyGet: %A" e
+            failwithf "Reflection error in RouterInfer.Client, not a PropertyGet: %A" e
             Unchecked.defaultof<_>
 
     let getMethod expr =
@@ -67,8 +74,7 @@ module private ClientRoutingInternals =
         | P.Call(_, mi, _) -> Reflection.ReadMethod mi
         | P.PropertyGet(_, pi, _) -> Reflection.ReadMethod (pi.GetGetMethod())
         | _ ->              
-            eprintfn "Reflection error in RouterInfer.Client, not a Call or PropertyGet: %A" expr
-            Unchecked.defaultof<_>
+            failwithf "Reflection error in RouterInfer.Client, not a Call or PropertyGet: %A" expr
     
     let rEmptyOp = getMethod <@ RouterOperators.JSEmpty() @>
     let rStringOp = getMethod <@ RouterOperators.rString @>
@@ -89,7 +95,7 @@ module private ClientRoutingInternals =
     let FormDataOp = getMethod <@ RouterOperators.JSFormData RouterOperators.rInt @>
     let JsonOp = getMethod <@ RouterOperators.JSJson<int> @>
     let NullableOp = getMethod <@ RouterOperators.JSNullable RouterOperators.rInt @>
-    let ClassOp = getMethod <@ RouterOperators.JSClass (fun () -> null) [||] [||] @>
+    let ClassOp = getMethod <@ RouterOperators.JSClass (fun () -> null) [||] [||] [||] @>
     let BoxOp = getMethod <@ RouterOperators.JSBox Unchecked.defaultof<_> @>
     let DelayOp = getMethod <@ RouterOperators.JSDelayed Unchecked.defaultof<_> @>
     let rWildCardOp = getMethod <@ RouterOperators.rWildcard @>
@@ -183,8 +189,8 @@ type RoutingMacro() =
 
             and fieldRouter (t: Type) (annot: Annotation) name =
                 let name =
-                    match annot.EndPoint with
-                    | Some (_, n) -> n
+                    match annot.EndPoints with
+                    | (_, n, _) :: _ -> n
                     | _ -> name
                 let r() = getRouter t
                 match annot.Query with
@@ -263,39 +269,42 @@ type RoutingMacro() =
                                 NewArray (
                                     u.Cases |> List.map (fun c ->
                                         let annot = comp.GetMethodAttributes(e, M.UnionCaseConstructMethod e c) |> getAnnotNamed c.Name
-                                        let method, path, isEmpty = 
-                                            match annot.EndPoint with 
-                                            | Some (m, e) -> 
-                                                match S.ReadEndPointString e with
-                                                | [||] -> m, NewArray [], true
-                                                | s -> m, s |> Seq.map cString |> List.ofSeq |> NewArray, false
-                                            | _ -> None, NewArray [ cString c.Name ], false 
-                                        let m = optOf method
-                                        match c.Kind with
-                                        | M.ConstantFSharpUnionCase v ->
-                                            NewArray [ someOf (Value v); m; path; NewArray [] ]
-                                        | M.SingletonFSharpUnionCase ->
-                                            NewArray [ none; m; path; NewArray [] ]
-                                        | M.NormalFSharpUnionCase fields ->
-                                            let queryFields = annot.Query |> Option.map HashSet
-                                            let formDataFields = annot.FormData |> Option.map HashSet
-                                            let jsonField = annot.Json |> Option.bind id
-                                            let fRouters = 
-                                                fields |> List.map (fun f ->
-                                                    let fTyp = f.UnionFieldType.SubstituteGenerics(Array.ofList g)
-                                                    let r() = getRouter fTyp
-                                                    if queryFields |> Option.exists (fun q -> q.Remove f.Name) then
-                                                        queryRouter fTyp f.Name r
-                                                    elif formDataFields |> Option.exists (fun q -> q.Remove f.Name) then
-                                                        Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ queryRouter fTyp f.Name r ])
-                                                    elif jsonField |> Option.exists (fun j -> j = f.Name) then
-                                                        Call(None, NonGeneric routerOpsModule, Generic JsonOp [ fTyp ], [])
-                                                    elif annot.IsWildcard then wildCardRouter fTyp
-                                                    else r()
-                                                )
-                                            if queryFields |> Option.exists (fun q -> q.Count > 0) then
-                                                failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
-                                            NewArray [ none; m; path; NewArray fRouters ]
+                                        let endpoints =
+                                            annot.EndPoints |> List.map (fun (m, e, _) -> 
+                                                let paths =
+                                                    match S.ReadEndPointString e with
+                                                    | [||] -> NewArray []
+                                                    | s -> s |> Seq.map cString |> List.ofSeq |> NewArray
+                                                NewArray [ optOf m; paths ]
+                                            ) |> NewArray
+                                        let constant, routers = 
+                                            match c.Kind with
+                                            | M.ConstantFSharpUnionCase v ->
+                                                someOf (Value v), NewArray []
+                                            | M.SingletonFSharpUnionCase ->
+                                                none, NewArray []
+                                            | M.NormalFSharpUnionCase fields ->
+                                                let queryFields = annot.Query |> Option.map HashSet
+                                                let formDataFields = annot.FormData |> Option.map HashSet
+                                                let jsonField = annot.Json |> Option.bind id
+                                                let fRouters = 
+                                                    fields |> List.map (fun f ->
+                                                        let fTyp = f.UnionFieldType.SubstituteGenerics(Array.ofList g)
+                                                        let r() = getRouter fTyp
+                                                        if queryFields |> Option.exists (fun q -> q.Remove f.Name) then
+                                                            queryRouter fTyp f.Name r
+                                                        elif formDataFields |> Option.exists (fun q -> q.Remove f.Name) then
+                                                            Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ queryRouter fTyp f.Name r ])
+                                                        elif jsonField |> Option.exists (fun j -> j = f.Name) then
+                                                            Call(None, NonGeneric routerOpsModule, Generic JsonOp [ fTyp ], [])
+                                                        elif annot.IsWildcard then wildCardRouter fTyp
+                                                        else r()
+                                                    )
+                                                if queryFields |> Option.exists (fun q -> q.Count > 0) then
+                                                    failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
+                                                none, NewArray fRouters
+                                               
+                                        NewArray [ constant; endpoints; routers ]
                                     )
                                 )
 
@@ -310,7 +319,7 @@ type RoutingMacro() =
                                 for td in comp.GetJavaScriptClasses() do
                                     match comp.GetClassInfo(td) with
                                     | Some cls ->
-                                        allJSClasses.Add(td, cls)
+                                        allJSClasses.[td] <- cls
                                     | _ -> ()
                                 allJSClassesInitialized <- true
                             match allJSClasses.TryFind e with
@@ -322,17 +331,20 @@ type RoutingMacro() =
                                     | None ->
                                         let b = 
                                             match cls.BaseClass with
-                                            | None -> Annotation.Empty
-                                            | Some bc when bc = Definitions.Object -> Annotation.Empty
-                                            | Some bc -> getClassAnnotation bc
-                                        let annot = comp.GetTypeAttributes(e) |> getAnnot |> Annotation.Combine b
+                                            | None -> None
+                                            | Some bc when bc = Definitions.Object -> None
+                                            | Some bc -> Some ( getClassAnnotation bc)
+                                        let thisAnnot = comp.GetTypeAttributes(e) |> getAnnot
+                                        let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
                                         parsedClassEndpoints.Add(td, annot)
                                         annot
                                 let annot = getClassAnnotation e 
-                                let endpoint = 
-                                    match annot.EndPoint with
-                                    | Some (_, e) -> e |> Route.FromUrl |> S.GetPathHoles |> fst
-                                    | None -> [||]
+                                let endpoints = 
+                                    annot.EndPoints |> List.map (fun (m, p, _) -> 
+                                        m, Route.FromUrl p |> S.GetPathHoles |> fst
+                                    ) 
+                                let endpoints =
+                                    if List.isEmpty endpoints then [None, [||]] else endpoints
                                 let subClasses =
                                     let nestedIn = e.Value.FullName + "+"
                                     allJSClasses |> Seq.choose (fun (KeyValue(td, cls)) ->
@@ -360,7 +372,7 @@ type RoutingMacro() =
                                         function
                                         | fn, (_, { Query = Some _ }) -> Some fn
                                         | _ -> None
-                                    ) |> HashSet
+                                    ) |> Set
                                 let getFieldRouter fName = 
                                     match allFields.TryFind fName with
                                     | Some ((f, _, fTyp), fAnnot) ->
@@ -368,28 +380,48 @@ type RoutingMacro() =
                                         let res = fieldRouter fTyp fAnnot fName
                                         match f with
                                         | M.InstanceField n ->
-                                            choice 1 (NewArray [ cString n; cFalse; res ])
+                                            NewArray [ cString n; cFalse; res ]
                                         | M.IndexedField i ->
-                                            choice 1 (NewArray [ cInt i; cFalse; res ])
+                                            NewArray [ cInt i; cFalse; res ]
                                         | M.OptionalField n ->
-                                            choice 1 (NewArray [ cString n; cTrue; res ]) 
+                                            NewArray [ cString n; cTrue; res ] 
                                         | M.StaticField _ ->
                                             failwith "Static field cannot be encoded to URL path"
                                     | _ ->
                                         failwithf "Could not find field %s" fName
+                                let routedFieldNames = 
+                                    endpoints |> Seq.collect (fun (_, ep) ->
+                                        ep |> Seq.choose (fun s ->
+                                            match s with
+                                            | S.StringSegment _ -> None
+                                            | S.FieldSegment fName -> Some fName 
+                                        )
+                                    ) |> Seq.distinct |> Array.ofSeq
+                                let fieldIndexes =
+                                    routedFieldNames |> Seq.mapi (fun i n -> n, cInt i) |> dict
+                                let fieldRouters =
+                                    routedFieldNames
+                                    |> Seq.map getFieldRouter
+                                    |> List.ofSeq |> NewArray
                                 let partsAndFields =
                                     NewArray (
-                                        (
-                                            endpoint |> Seq.map (function
-                                                | S.StringSegment s -> choice 0 (cString s)
-                                                | S.FieldSegment fName ->
-                                                    allQueryFields.Remove fName |> ignore
-                                                    getFieldRouter fName
-                                            )
-                                            |> List.ofSeq
-                                        )
-                                        @ (
-                                            allQueryFields |> Seq.map getFieldRouter |> List.ofSeq
+                                        endpoints |> List.map (fun (m, ep) ->
+                                            let mutable queryFields = allQueryFields
+                                            let explicitSegments =
+                                                ep |> Seq.map (function
+                                                    | S.StringSegment s -> cString s
+                                                    | S.FieldSegment fName ->
+                                                        queryFields <- queryFields.Remove fName
+                                                        fieldIndexes.[fName]
+                                                ) |> List.ofSeq
+                                            NewArray [
+                                                optOf m;
+                                                NewArray (
+                                                    explicitSegments @ (
+                                                        queryFields |> Seq.map (fun f -> fieldIndexes.[f]) |> List.ofSeq    
+                                                    )
+                                                )
+                                            ]
                                         )
                                     )
                                 let subClassRouters =
@@ -398,7 +430,7 @@ type RoutingMacro() =
                                     )
                                 let ctor =
                                     Lambda([], Ctor(Generic e g, ConstructorInfo.Default(), []))
-                                let unboxed = Call(None, NonGeneric routerOpsModule, NonGeneric ClassOp, [ ctor; partsAndFields; subClassRouters ]) // todo use ctor instead of getProto   
+                                let unboxed = Call(None, NonGeneric routerOpsModule, NonGeneric ClassOp, [ ctor; fieldRouters; partsAndFields; subClassRouters ]) // todo use ctor instead of getProto   
                                 Call(None, NonGeneric routerOpsModule, Generic BoxOp [ t ], [ unboxed ])
                             | _ -> failwithf "Failed to create Router for type %O, it does not have the JavaScript attribute" t
                         
