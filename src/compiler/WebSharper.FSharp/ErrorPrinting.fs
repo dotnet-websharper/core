@@ -96,7 +96,7 @@ let fullpath cwd nm =
 let PrintWebSharperErrors warnOnly projFile (comp: Compilation) =
     let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError && not warnOnly then "error" else "warning"
+        let severity = if isError && not warnOnly then "error FS9001" else "warning FS9002"
         match pos with
         | Some pos ->
             eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 

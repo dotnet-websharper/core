@@ -675,7 +675,8 @@ let table ts =
 /// parameterized with the given types.
 let genLetMethod (e: Expr, ts: System.Type[]) =
     match e with
-    | Lambda(_, Lambda(_, Call(None, m, [_;_]))) // function
+    | Lambda(_, Lambda(_, Call(None, m, [_;_])))                // callGeneric function
+    | Lambda(_, Lambda(_, Lambda(_, Call(None, m, [_;_;_]))))   // callGeneric2 function
     | Call(None, m, []) -> // value
         FastInvoke.Compile(m.GetGenericMethodDefinition().MakeGenericMethod(ts))
     | _ -> failwithf "Json.genLetMethod: invalid expr passed: %A" e

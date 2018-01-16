@@ -39,10 +39,24 @@ module internal ServerRouting =
         override this.GetName attr = attr.Constructor.DeclaringType.Name
         override this.GetCtorArgOpt attr = attr.ConstructorArguments |> Seq.tryHead |> Option.map (fun a -> unbox<string> a.Value)
         override this.GetCtorParamArgs attr =
-            match attr.ConstructorArguments |> Seq.tryHead with
-            | Some a ->
+            match attr.ConstructorArguments |> Array.ofSeq with
+            | [| a |] ->
                 a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.map (fun a -> unbox<string> a.Value) |> Array.ofSeq
-            | _ -> [||]
+            | [||] -> [||]
+            | _ -> failwithf "Unrecognized %s attribute constructor" attr.Constructor.DeclaringType.Name 
+        override this.GetCtorParamArgsOrPair attr =
+            match attr.ConstructorArguments |> Array.ofSeq with
+            | [| a |] when a.ArgumentType = typeof<string> ->
+                [| unbox<string> a.Value, 0, true |]
+            | [| a |] ->
+                a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.mapi (fun i a -> unbox<string> a.Value, i, true) |> Array.ofSeq
+            | [| a; b |] when b.ArgumentType = typeof<int> ->
+                [| unbox<string> a.Value, unbox<int> b.Value, true |]
+            | [| a; b |] ->
+                [| unbox<string> a.Value, 0, unbox<bool> b.Value |]
+            | [| a; b; c |] ->
+                [| unbox<string> a.Value, unbox<int> b.Value, unbox<bool> c.Value |]
+            | _ -> failwith "Unrecognized Endpoint attribute constructor"
 
     let attrReader = ReflectionAttributeReader() 
 
@@ -134,8 +148,8 @@ module internal ServerRouting =
     
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
         let name =
-            match annot.EndPoint with
-            | Some (_, n) -> n
+            match annot.EndPoints with
+            | (_, n, _) :: _ -> n
             | _ -> name
         let r() = 
             match annot.DateTimeFormat with
@@ -201,10 +215,8 @@ module internal ServerRouting =
                         let mutable queryFields = defaultArg cAnnot.Query Set.empty
                         let mutable jsonField = cAnnot.Json |> Option.bind id
                         let mutable formDataFields = defaultArg cAnnot.FormData Set.empty
-                        let m, e = 
-                            match cAnnot.EndPoint with
-                            | Some (m, e) -> m, ReadEndPointString e
-                            | _ -> None, [| c.Name |]
+                        let endpoints = 
+                            cAnnot.EndPoints |> Seq.map (fun (m, e, _) -> m, ReadEndPointString e) |> Array.ofSeq
                         let f =
                             let fields = c.GetFields()
                             fields |> Array.mapi (fun i f -> 
@@ -240,7 +252,7 @@ module internal ServerRouting =
                         if formDataFields.Count > 0 then 
                             failwithf "FormData field not found: %s" (Seq.head formDataFields)
                         // todo: more error reports
-                        m, e, f
+                        endpoints, f
                     ))
                 
         else
@@ -275,15 +287,18 @@ module internal ServerRouting =
                     | None ->
                         let b = 
                             let b = t.BaseType  
-                            if b.FullName = "System.Object" then Annotation.Empty else getClassAnnotation b
-                        let annot = getTypeAnnot t |> Annotation.Combine b
+                            if b.FullName = "System.Object" then None else Some (getClassAnnotation b)
+                        let thisAnnot = getTypeAnnot t
+                        let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
                         parsedClassEndpoints.Add(td, annot)
                         annot
                 let annot = getClassAnnotation t 
-                let endpoint = 
-                    match annot.EndPoint with
-                    | Some (_, e) -> e |> Route.FromUrl |> GetPathHoles |> fst
-                    | None -> [||]
+                let endpoints = 
+                    annot.EndPoints |> List.map (fun (m, p, _) -> 
+                        m, Route.FromUrl p |> GetPathHoles |> fst
+                    ) 
+                let endpoints =
+                    if List.isEmpty endpoints then [None, [||]] else endpoints
                 let allFieldsArr =
                     t.GetFields(BF.Instance ||| BF.Public)
                     |> Array.map (fun f ->
@@ -296,24 +311,45 @@ module internal ServerRouting =
                         function
                         | fn, (_, { Query = Some _ }) -> Some fn
                         | _ -> None
-                    ) |> HashSet
-                let fields = ResizeArray()
-                let getFieldRouter f = 
-                    let field, fAnnot = allFields.[f]
-                    fields.Add(field)
-                    Choice2Of2 (fieldRouter field.FieldType fAnnot f)
-                let partsAndFields =
-                    Array.append (
-                        endpoint |> Array.map (function
-                            | StringSegment s -> Choice1Of2 s
-                            | FieldSegment f ->  
-                                allQueryFields.Remove f |> ignore 
-                                getFieldRouter f
+                    ) |> Set
+                let routedFieldNames = 
+                    endpoints |> Seq.collect (fun (_, ep) ->
+                        ep |> Seq.choose (fun s ->
+                            match s with
+                            | StringSegment _ -> None
+                            | FieldSegment fName -> Some fName 
                         )
-                    ) (
-                        allQueryFields |> Seq.map getFieldRouter |> Array.ofSeq
+                    ) |> Seq.append allQueryFields |> Seq.distinct |> Array.ofSeq
+                let fieldIndexes =
+                    routedFieldNames |> Seq.mapi (fun i n -> n, i) |> dict
+                let fieldRouters =
+                    routedFieldNames
+                    |> Seq.map (fun fName ->
+                        let field, fAnnot = allFields.[fName]
+                        fieldRouter field.FieldType fAnnot fName
                     )
-                let fields = fields.ToArray()
+                    |> Array.ofSeq 
+                let fields =
+                    routedFieldNames
+                    |> Seq.map (fun fName ->
+                        fst allFields.[fName]
+                    )
+                    |> Array.ofSeq 
+                let partsAndFields =
+                    endpoints |> Seq.map (fun (m, ep) ->
+                        let mutable queryFields = allQueryFields
+                        let explicitSegments =
+                            ep |> Seq.map (function
+                            | StringSegment s -> Choice1Of2 s
+                            | FieldSegment fName ->  
+                                queryFields <- queryFields.Remove fName
+                                Choice2Of2 fieldIndexes.[fName]
+                            ) |> Array.ofSeq
+                        m,
+                        Array.append explicitSegments (
+                            queryFields |> Seq.map (fun f -> Choice2Of2 fieldIndexes.[f]) |> Array.ofSeq       
+                        )
+                    ) |> Array.ofSeq
                 let readFields (o: obj) =
                     fields |> Array.map (fun f -> f.GetValue(o))
                 let createObject values =
@@ -324,4 +360,4 @@ module internal ServerRouting =
                     t.GetNestedTypes() |> Array.choose (fun nt ->
                         if nt.BaseType = t then Some (nt, getRouter nt) else None
                     )
-                IClass readFields createObject partsAndFields subClasses
+                IClass readFields createObject fieldRouters partsAndFields subClasses

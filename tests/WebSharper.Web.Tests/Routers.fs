@@ -22,8 +22,10 @@ namespace WebSharper.Sitelets.Tests
 
 open WebSharper
 open WebSharper.Sitelets
+open WebSharper.CSharp.Sitelets.Tests
 
 module PerformanceTests =
+    open WebSharper.Remoting
     
     type RecTest =
         {
@@ -57,7 +59,8 @@ module PerformanceTests =
     type Action =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/">] USubAction of SubAction
-        | [<EndPoint "/string">] UString of string
+        | [<EndPoint ("/string", "/stringtoo")>] UString of string
+        | [<EndPoint "/query"; Query "s">] UQuery of s: string
         | [<EndPoint "/tuple">] UTuple of p: int * string * bool
         | [<EndPoint "/tuple-with-queries"; Query("a", "b")>] UTupleQ of p: int * a: string * b: bool
         | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
@@ -82,6 +85,7 @@ module PerformanceTests =
         | [<EndPoint "/wildcard-array"; Wildcard>] UWildcardArray of int[]
         | [<EndPoint "/wildcard-list"; Wildcard>] UWildcardList of int list
         | [<EndPoint "/two-unions">] UTwoUnions of MultipleTest * MultipleTest
+        | [<EndPoint "/csharp">] UCSharp of CSharpEndPointRoot
 
     let TestValues =
         [
@@ -89,6 +93,9 @@ module PerformanceTests =
             USubAction Sub1
             USubAction (Sub2 "x")
             UString "hello"
+            UString """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
+            UQuery "hello"
+            UQuery """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UTuple (1, "hi", true)
             UTupleQ (1, "hi", true)
             UNullable (System.Nullable())
@@ -108,6 +115,7 @@ module PerformanceTests =
             UJsonInput { A = "hello"; B = 123; C = false }
             UJsonInt 4
             UFormData "hello"
+            UFormData """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UMultiFormData { Text = "hello"; Id = None; Flag = true }
             UMultiFormData { Text = "hello"; Id = Some 2; Flag = false }
             UMultiple
@@ -119,6 +127,15 @@ module PerformanceTests =
             UTwoUnions (A, A)
             UTwoUnions (A1 1, A)
             UTwoUnions (A1 1, A1 1)
+            UCSharp (new CSharpEndPointRoot())
+            UCSharp (new CSharpEndPointRoot.Sub1(X = 42))
+        ]
+
+    let ExtraTestValues =
+        [
+            UString "xx", "/stringtoo/xx"
+            UCSharp (new CSharpEndPointRoot()), "/csharp/home"
+            UCSharp (new CSharpEndPointRoot.Sub1(X = 42)), "/csharp/sub1full/42"
         ]
 
     let mutable expecting = None
@@ -138,7 +155,7 @@ module PerformanceTests =
                 ) 
             match expecting with
             | Some exp ->
-                if exp <> act then
+                if exp <> act && (match exp with UCSharp _ -> false | _ -> true) then
                     Content.Text (
                         sprintf "Wrong endpoint parsed, expecting %A, got %A" exp act
                     ) 
@@ -158,35 +175,14 @@ module PerformanceTests =
             let l = ShiftedRouter.Link v 
             v, ShiftedRouter.Link v, Router.Parse ShiftedRouter (Route.FromUrl l)
         ) |> Array.ofSeq |> async.Return
+
+    [<Remote>]
+    let GetExtraTestValues() =
+        ExtraTestValues |> Seq.map (fun (v, p) ->
+            let l = "/perf-tests" + p 
+            v, l, Router.Parse ShiftedRouter (Route.FromUrl l)
+        ) |> Array.ofSeq |> async.Return
                
-// test urls:
-// http://localhost:50668/perf-tests/
-// http://localhost:50668/perf-tests/string/hellothere
-// http://localhost:50668/perf-tests/tuple/1/hi/True
-// http://localhost:50668/perf-tests/tuple-with-queries/1?a=hi&b=True
-// http://localhost:50668/perf-tests/recursive/Some/recursive/Some/tuple/1/hi/True
-// http://localhost:50668/perf-tests/record/hello/123/False
-// http://localhost:50668/perf-tests/record-with-queries/hello?BQ=123&CQ=False
-// http://localhost:50668/perf-tests/list/4/232/grer/232/grer/232/grer/232/grer
-// http://localhost:50668/perf-tests/array/4/232/grer/232/grer/232/grer/232/grer
-// POST http://localhost:50668/perf-tests/post/1
-// PUT http://localhost:50668/perf-tests/post/1
-// POST http://localhost:50668/perf-tests/post2/1
-// http://localhost:50668/perf-tests/json-input BODY: { "A": "x", "B": 12, "C": false }
-// http://localhost:50668/perf-tests/json-input BODY: 123
-// POST http://localhost:50668/perf-tests/formdata BODY: data=thisisdata HEADER: Content-Type: application/x-www-form-urlencoded
-// http://localhost:50668/perf-tests/multiple 
-// http://localhost:50668/perf-tests/multiple/1 
-// http://localhost:50668/perf-tests/multiple/1/2 
-// http://localhost:50668/perf-tests/wildcard-string/anything/here/is/ok
-// http://localhost:50668/perf-tests/wildcard-array/0/1/2/3
-// http://localhost:50668/perf-tests/wildcard-list/0/1/2/3
-// http://localhost:50668/perf-tests/two-unions/a/1/a/2
-
-// check that this fails:
-// GET http://localhost:50668/perf-tests/post/1
-// GET http://localhost:50668/perf-tests/post2/1
-
 module CombinatorTests =
 
     type PersonData =

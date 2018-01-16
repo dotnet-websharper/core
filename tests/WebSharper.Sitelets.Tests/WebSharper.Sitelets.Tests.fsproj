@@ -8,8 +8,6 @@
     <Compile Include="ApiTests.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="SampleSite.fs" />
-    <Compile Include="PerformanceTests.fs" />
-    <Compile Include="ClientServerTests.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">

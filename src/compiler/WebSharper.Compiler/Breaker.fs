@@ -548,6 +548,10 @@ let rec breakExpr expr : Broken<BreakResult> =
         | t :: r -> Sequential (List.rev (Conditional (t, b, c) :: r)) |> br
     | Conditional (I.Value (Bool a), b, c) ->
         if a then br b else br c    
+    | Conditional (a, I.Value (Bool true), I.Value (Bool false)) ->
+        br a
+    | Conditional (a, I.Value (Bool false), I.Value (Bool true)) ->
+        negate a |> br
     | Conditional (a, b, I.Value (Bool false)) ->
         boolOp a BinaryOperator.``&&`` b
     | Conditional (a, I.Value (Bool true), c) ->

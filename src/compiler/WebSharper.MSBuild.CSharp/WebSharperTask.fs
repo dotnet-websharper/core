@@ -86,11 +86,11 @@ type WebSharperTask() =
 
         writeStringIfSet "/target:" this.TargetType
 
-        writeStringIfSet "/debug" this.DebugType
+        writeStringIfSet "/debug:" this.DebugType
 
-        writeStringIfSet "/subsystemversion" this.SubsystemVersion
+        writeStringIfSet "/subsystemversion:" this.SubsystemVersion
 
-        writeStringIfSet "/langVersion" this.LangVersion
+        writeStringIfSet "/langVersion:" this.LangVersion
 
         writeStringIfSet "/doc:" this.DocumentationFile
 

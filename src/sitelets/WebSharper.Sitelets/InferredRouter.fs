@@ -183,26 +183,32 @@ module internal ServerInferredOperators =
             IParse = fun path ->
                 match path.Segments with
                 | h :: t -> 
-                    path.Segments <- t
-                    Some (decodeURIComponent h |> box)
+                    match StringEncoding.read h with
+                    | Some s ->
+                        path.Segments <- t
+                        Some (box s)
+                    | _ -> None
                 | _ -> None
             IWrite = fun (w, value) ->
                 if isNull value then 
                     w.NextSegment().Append("null") |> ignore
                 else
-                    w.NextSegment().Append(encodeURIComponent (unbox value)) |> ignore
+                    w.NextSegment().Append(StringEncoding.write (unbox value)) |> ignore
         }
 
     let internal iChar : InferredRouter =
         {
             IParse = fun path ->
                 match path.Segments with
-                | h :: t when h.Length = 1 -> 
-                    path.Segments <- t
-                    Some (char (decodeURIComponent h) |> box)
+                | h :: t -> 
+                    match StringEncoding.read h with
+                    | Some c when c.Length = 1 ->
+                        path.Segments <- t
+                        Some (char c |> box)
+                    | _ -> None
                 | _ -> None
             IWrite = fun (w, value) ->
-                w.NextSegment().Append(encodeURIComponent (string value)) |> ignore
+                w.NextSegment().Append(StringEncoding.write (string value)) |> ignore
         }
 
     let inline iTryParse< ^T when ^T: (static member TryParse: string * byref< ^T> -> bool) and ^T: equality>() =
@@ -591,9 +597,9 @@ module internal ServerInferredOperators =
             :?> Router.IListArrayConverter
         IArray itemType item |> IMap converter.OfArray converter.ToArray
 
-    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: (option<string> * string[] * InferredRouter[])[]) : InferredRouter =
+    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[])[]) : InferredRouter =
         let lookupCases =
-            cases |> Seq.mapi (fun i (m, s, fields) -> 
+            cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields)) -> 
                 let fieldList = List.ofArray fields
                 let l = fields.Length
                 let parseFields p path =
@@ -613,44 +619,46 @@ module internal ServerInferredOperators =
                                 None
                     path.Segments <- p
                     collect 0 fieldList
-                let s = List.ofArray s
-                m,
-                match s with
-                | [] -> 
-                    "",
-                    match fieldList with
-                    | [] ->
-                        let c = caseCtors.[i] [||]
-                        -1,
-                        fun p path -> Some c
-                    | _ ->
-                        fieldList.Length - 1, parseFields
-                | [ h ] ->
-                    h, 
-                    match fieldList with
-                    | [] ->
-                        let c = caseCtors.[i] [||]
-                        0,
-                        fun p path -> 
-                            path.Segments <- p
-                            Some c
-                    | _ ->
-                        fieldList.Length, parseFields
-                | h :: t ->
-                    h, 
-                    match fieldList with
-                    | [] ->
-                        let c = caseCtors.[i] [||]
-                        t.Length,
-                        fun p path -> 
-                            path.Segments <- p
-                            Some c
-                    | _ ->
-                        t.Length + fieldList.Length,
-                        fun p path ->
-                            match p |> List.startsWith t with
-                            | Some p -> parseFields p path
-                            | None -> None
+                eps |> Seq.map (fun (m, s) ->
+                    let s = List.ofArray s
+                    m,
+                    match s with
+                    | [] -> 
+                        "",
+                        match fieldList with
+                        | [] ->
+                            let c = caseCtors.[i] [||]
+                            -1,
+                            fun p path -> Some c
+                        | _ ->
+                            fieldList.Length - 1, parseFields
+                    | [ h ] ->
+                        h, 
+                        match fieldList with
+                        | [] ->
+                            let c = caseCtors.[i] [||]
+                            0,
+                            fun p path -> 
+                                path.Segments <- p
+                                Some c
+                        | _ ->
+                            fieldList.Length, parseFields
+                    | h :: t ->
+                        h, 
+                        match fieldList with
+                        | [] ->
+                            let c = caseCtors.[i] [||]
+                            t.Length,
+                            fun p path -> 
+                                path.Segments <- p
+                                Some c
+                        | _ ->
+                            t.Length + fieldList.Length,
+                            fun p path ->
+                                match p |> List.startsWith t with
+                                | Some p -> parseFields p path
+                                | None -> None
+                )
             ) 
             // group by method
             |> Seq.groupBy fst |> Seq.map (fun (m, mcases) ->
@@ -670,8 +678,8 @@ module internal ServerInferredOperators =
             )
             |> dict
         let writeCases =
-            cases |> Array.map (fun (_, s, fields) -> 
-                String.concat "/" s, fields
+            cases |> Array.map (fun (eps, fields) -> 
+                String.concat "/" (snd eps.[0]), fields
             )
         let parseWithLookup (lookup: IDictionary<_,_>) path =
             match path.Segments with
@@ -743,48 +751,72 @@ module internal ServerInferredOperators =
                         fields.[i].IWrite (w, values.[i]) 
         }
 
-    let internal IClass (readFields: obj -> obj[]) (createObject: obj[] -> obj) (partsAndFields: Choice<string, InferredRouter>[]) (subClasses: (System.Type * InferredRouter)[]) =
-        let partsAndFieldsList =  List.ofArray partsAndFields        
-        let l = partsAndFields |> Seq.where (function Choice2Of2 _ -> true | _ -> false) |> Seq.length
+    let internal isCorrectMethod m p =
+        match p, m with
+        | Some pm, Some m -> pm = m
+        | _, Some _ -> false
+        | _ -> true
+
+    let internal IClass (readFields: obj -> obj[]) (createObject: obj[] -> obj) (fields: InferredRouter[]) (endpoints: (option<string> * Choice<string, int>[])[]) (subClasses: (System.Type * InferredRouter)[]) =
+        let partsAndRoutersLists =
+                endpoints |> Array.map (fun (m, ep) ->
+                    m, 
+                    ep |> Seq.map (fun p ->
+                        match p with
+                        | Choice1Of2 s -> Choice1Of2 s
+                        | Choice2Of2 i -> Choice2Of2 (i, fields.[i])
+                    ) |> List.ofSeq
+                )
+        let writeSegments =
+            snd partsAndRoutersLists.[0] |> Array.ofList
+        let partsAndRoutersLists = 
+            partsAndRoutersLists
+            |> Array.sortByDescending (fun (_, ep) -> ep.Length)
         let thisClass =
             {
                 IParse = fun path ->
-                    let arr = Array.zeroCreate l
+                    let arr = Array.zeroCreate fields.Length
                     let origSegments = path.Segments
-                    let rec collect i fields =
+                    let rec collect fields =
                         match fields with 
                         | [] -> Some (createObject arr)
                         | Choice1Of2 p :: t -> 
                             match path.Segments with
                             | pp :: pr when pp = p ->
                                 path.Segments <- pr
-                                collect i t
+                                collect t
                             | _ ->
                                 path.Segments <- origSegments
                                 None
-                        | Choice2Of2 h :: t -> 
+                        | Choice2Of2 (i, h) :: t -> 
                             match h.IParse path with
                             | Some a ->
                                 arr.[i] <- a
-                                collect (i + 1) t
+                                collect t
                             | _ ->
                                 path.Segments <- origSegments
                                 None
-                    collect 0 partsAndFieldsList
+                    partsAndRoutersLists |> Array.tryPick (fun (m, ep) ->
+                        if isCorrectMethod m path.Method then
+                            collect ep
+                        else None
+                    )
                 IWrite = fun (w, value) ->
-                    let fields = readFields value
-                    let mutable index = -1
-                    partsAndFields |> Array.iter (function
+                    let values = readFields value
+                    writeSegments |> Array.iter (function
                         | Choice1Of2 p -> w.NextSegment().Append(p) |> ignore
-                        | Choice2Of2 r ->
-                            index <- index + 1
-                            r.IWrite(w, fields.[index])
+                        | Choice2Of2 (i, r) ->
+                            r.IWrite(w, values.[i])
                     )
             }
         if Array.isEmpty subClasses then
             thisClass
         else
-            { thisClass with
+            {
+                IParse = fun path ->
+                    match subClasses |> Array.tryPick (fun (_, sr) -> sr.IParse path) with
+                    | Some _ as res -> res
+                    | _ -> thisClass.IParse path 
                 IWrite = fun (w, value) ->
                     let t = value.GetType()
                     let sub = subClasses |> Array.tryPick (fun (st, sr) -> if st = t then Some sr else None)

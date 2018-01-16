@@ -838,7 +838,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             IsInline = currentIsInline
                             Compilation = comp
                         }
-                    with e -> MacroError e.Message 
+                    with e -> MacroError (e.Message + " at " + e.StackTrace) 
                 | _ -> 
                     if comp.UseLocalMacros then
                         MacroError "Macro type failed to load"
@@ -1085,7 +1085,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                              IsInline = currentIsInline
                              Compilation = comp
                         }
-                    with e -> MacroError e.Message 
+                    with e -> MacroError (e.Message + " at " + e.StackTrace)  
                 | _ -> MacroError "Macro type failed to load"
             let rec getExpr mres =
                 match mres with

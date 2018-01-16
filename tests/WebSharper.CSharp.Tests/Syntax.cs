@@ -225,6 +225,11 @@ namespace WebSharper.CSharp.Tests
             x = 1;
         }
 
+        public ref readonly int InRefOut(in int x)
+        {
+            return ref x;
+        }
+
         public int f = 0;
 
         [Test]
@@ -234,6 +239,8 @@ namespace WebSharper.CSharp.Tests
             Increment(ref x);
             Equal(x, 1);
 #if CSHARP7
+            int xr = InRefOut(x);
+            Equal(xr, 1);
             OutOne(out var y);
             Equal(y, 1);
             OutOne(out int z);
@@ -372,17 +379,17 @@ namespace WebSharper.CSharp.Tests
             Equal($"format:{d:hh}", "format:03");
         }
 
-        public int OptionalTest(int x, int y = 2, int z = 0) => x + y + z;
+        public int OptionalTest(int x, int y = 2, int z = 0, int w = 0) => 100*x + 10*y + z - w;
 
         public int DefaultOptionalTest([Optional] int x) => x;
 
         [Test]
         public void OptionalArgument()
         {
-            Equal(OptionalTest(1), 3);
-            Equal(OptionalTest(1, 0), 1);
-            Equal(OptionalTest(1, 5), 6);
-            Equal(OptionalTest(1, 5, 2), 8);
+            Equal(OptionalTest(1), 120);
+            Equal(OptionalTest(1, 0), 100);
+            Equal(OptionalTest(1, 5), 150);
+            Equal(OptionalTest(1, 5, 2), 152);
             Equal(DefaultOptionalTest(1), 1);
             Equal(DefaultOptionalTest(), 0);
         }
@@ -390,9 +397,11 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void NamedArgument()
         {
-            Equal(OptionalTest(x: 1), 3);
-            Equal(OptionalTest(y: 5, x: 1), 6);
-            Equal(OptionalTest(z: 2, x: 2), 6);
+            Equal(OptionalTest(x: 1), 120);
+            Equal(OptionalTest(y: 5, x: 1), 150);
+            Equal(OptionalTest(z: 3, x: 1), 123);
+            Equal(OptionalTest(x: 1, 3), 130);
+            Equal(OptionalTest(x: 1, 3, w: 1), 129);
         }
 
         public int ParamArrayTest(int x = 0, params int[] xs) => x + xs.Sum();

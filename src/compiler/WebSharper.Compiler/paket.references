@@ -3,4 +3,3 @@ Mono.Cecil
 System.Configuration.ConfigurationManager
 Microsoft.Extensions.DependencyModel
 FSharp.Core
-System.CodeDom
