@@ -320,6 +320,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             if x.IsOverride then
                 let o = x.OverriddenMethod.OriginalDefinition
                 Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
+            elif x.IsVirtual then
+                let o = x.OriginalDefinition                                        
+                Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
             elif x.ExplicitInterfaceImplementations.Length > 0 then
                 let o = x.ExplicitInterfaceImplementations.[0].OriginalDefinition
                 Member.Implementation(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
@@ -1058,13 +1061,22 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformIfStatement (x: IfStatementData) =
         let condition = x.Condition |> this.TransformExpression
-        let statement = x.Statement |> this.TransformStatement
-        let else_ = 
-            match x.Else with
-            | Some e -> e |> this.TransformElseClause
-            | _ -> Empty
-        If (condition, statement, else_)
-        |> withStatementSourcePos x.Node
+        match condition with
+        | IsClientCall b ->
+            if b then
+                x.Statement |> this.TransformStatement
+            else
+                match x.Else with
+                | Some e -> e |> this.TransformElseClause
+                | _ -> Empty
+        | _ ->
+            let statement = x.Statement |> this.TransformStatement
+            let else_ = 
+                match x.Else with
+                | Some e -> e |> this.TransformElseClause
+                | _ -> Empty
+            If (condition, statement, else_)
+            |> withStatementSourcePos x.Node
 
     member this.TransformElseClause (x: ElseClauseData) : Statement =
         x.Statement |> this.TransformStatement
@@ -1242,10 +1254,15 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =
         let condition = x.Condition |> this.TransformExpression
-        let whenTrue = x.WhenTrue |> this.TransformExpression
-        let whenFalse = x.WhenFalse |> this.TransformExpression
-        Conditional(condition, whenTrue, whenFalse)
-        |> withExprSourcePos x.Node
+        match condition with
+        | IsClientCall b ->
+            if b then x.WhenTrue |> this.TransformExpression
+            else x.WhenFalse |> this.TransformExpression
+        | _ ->
+            let whenTrue = x.WhenTrue |> this.TransformExpression
+            let whenFalse = x.WhenFalse |> this.TransformExpression
+            Conditional(condition, whenTrue, whenFalse)
+            |> withExprSourcePos x.Node
 
     member this.TransformMethodDeclarationBase (symbol: IMethodSymbol, parameterList, stBody, exprBody) : CSharpMethod =
         let returnType = sr.ReadType symbol.ReturnType
@@ -1333,12 +1350,13 @@ type RoslynTransformer(env: Environment) =
     member this.TransformArrowExpressionClauseAsMethod (meth: IMethodSymbol) (x: ArrowExpressionClauseData) : CSharpMethod =
         let parameterList = sr.ReadParameters meth
         for p in parameterList do
-            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
+            env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))        
         let body = x.Expression |> this.TransformExpression
+        let rTyp = sr.ReadType meth.ReturnType
         {
             IsStatic = meth.IsStatic
             Parameters = parameterList
-            Body = Return body
+            Body = if rTyp = VoidType then ExprStatement body else Return body
             IsAsync = meth.IsAsync
             ReturnType = sr.ReadType meth.ReturnType
         }
@@ -1681,9 +1699,9 @@ type RoslynTransformer(env: Environment) =
     member this.TransformCatchClause (x: CatchClauseData) : _ =
         let declaration = x.Declaration |> Option.map (this.TransformCatchDeclaration)
         match declaration with
-        | Some (symbol, typ) ->
+        | Some (symbolOpt, typ) ->
             let err = env.Caught.Value    
-            env.Vars.Add(symbol, err)
+            symbolOpt |> Option.iter (fun symbol -> env.Vars.Add(symbol, err))
             let filter = x.Filter |> Option.map (this.TransformCatchFilterClause)
             let typeCheck = TypeCheck(Var err, typ) 
             let cond = 
@@ -1693,13 +1711,14 @@ type RoslynTransformer(env: Environment) =
             let block = x.Block |> this.TransformBlock
             Some cond, block
         | None ->
+            let filter = x.Filter |> Option.map (this.TransformCatchFilterClause)
             let block = x.Block |> this.TransformBlock
-            None, block        
+            filter, block        
 
     member this.TransformCatchDeclaration (x: CatchDeclarationData) : _ =
         let symbol = env.SemanticModel.GetDeclaredSymbol(x.Node)
-        let typ = sr.ReadType symbol.Type
-        symbol, typ
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type
+        Option.ofObj symbol, sr.ReadType typ
 
     member this.TransformCatchFilterClause (x: CatchFilterClauseData) : _ =
         x.FilterExpression |> this.TransformExpression

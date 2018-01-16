@@ -34,6 +34,63 @@ open System.Web.Hosting
 open WebSharper.Web
 module R = WebSharper.Core.Remoting
 
+module internal SiteLoading =
+
+    type private BF = BindingFlags
+
+    /// Looks up assembly-wide Website attribute and runs it if present
+    let TryLoadSiteA (assembly: Assembly) =
+        let aT = typeof<WebsiteAttribute>
+        match Attribute.GetCustomAttribute(assembly, aT) with
+        | :? WebsiteAttribute as attr ->
+            attr.Run () |> Some
+        | _ -> None
+    
+    /// Searches for static property with Website attribute and loads it if found
+    let TryLoadSiteB (assembly: Assembly) =
+        let aT = typeof<WebsiteAttribute>
+        assembly.GetModules(false)
+        |> Seq.collect (fun m ->
+            try m.GetTypes() |> Seq.ofArray
+            with
+            | :? ReflectionTypeLoadException as e ->
+                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))
+            | _ -> Seq.empty
+        )
+        |> Seq.tryPick (fun ty ->
+            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
+            |> Array.tryPick (fun p ->
+                match Attribute.GetCustomAttribute(p, aT) with
+                | :? WebsiteAttribute ->
+                    try
+                        let sitelet = p.GetGetMethod().Invoke(null, [||])
+                        let upcastSitelet =
+                            sitelet.GetType()
+                                .GetMethod("Box", BF.Instance ||| BF.Public)
+                                .Invoke(sitelet, [||])
+                                :?> Sitelet<obj>
+                        Some (upcastSitelet, [])
+                    with e ->
+                        raise <| exn("Failed to initialize sitelet definition: " + ty.FullName + "." + p.Name, e)  
+                | _ -> None
+            )
+        )
+
+    let TryLoadSite (assembly: Assembly) =
+        match TryLoadSiteA assembly with
+        | Some _ as res -> res
+        | _ -> TryLoadSiteB assembly
+
+    let LoadFromAssemblies (app: HttpApplication) =
+        Timed "Initialized sitelets" <| fun () ->
+            let assemblies =
+                BuildManager.GetReferencedAssemblies()
+                |> Seq.cast<Assembly>
+            let sitelets, actions = 
+                Seq.choose TryLoadSite assemblies 
+                |> List.ofSeq |> List.unzip
+            (Sitelet.Sum sitelets, Seq.concat actions)
+
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
@@ -52,31 +109,14 @@ module private WebUtils =
 
     /// Converts ASP.NET requests to Sitelet requests.
     let convertRequest (ctx: HttpContextBase) : Http.Request =
-        let METHOD = function
-            | "CONNECT" -> Http.Method.Connect
-            | "DELETE" -> Http.Method.Delete
-            | "GET" -> Http.Method.Get
-            | "HEAD" -> Http.Method.Head
-            | "OPTIONS" -> Http.Method.Options
-            | "POST" -> Http.Method.Post
-            | "PUT" -> Http.Method.Put
-            | "TRACE" -> Http.Method.Trace
-            | rest -> Http.Method.Custom rest
         let req = ctx.Request
-        let resp = ctx.Response
         let headers =
             seq {
                 for key in req.Headers.AllKeys do
                     yield Http.Header.Custom key req.Headers.[key]
             }
-        // app.Context.Request.Cookies
-        let parameters =
-            seq {
-                for p in ctx.Request.Params.AllKeys do
-                    yield (p, req.[p])
-            }
         {
-            Method = METHOD ctx.Request.HttpMethod
+            Method = Http.Method.OfString ctx.Request.HttpMethod
             Uri = getUri req
             Headers = headers
             Body = req.InputStream
@@ -110,7 +150,7 @@ module private WebUtils =
                 | Some loc ->
                     if loc.IsAbsoluteUri then string loc else
                         joinWithSlash appPath (string loc)
-                | None -> failwith "Failed to link to action"),
+                | None -> failwith "Failed to link to action"),            
             Metadata = Shared.Metadata,
             Dependencies = Shared.Dependencies,
             ResourceContext = resCtx,
@@ -125,17 +165,20 @@ module private WebUtils =
         // Create a context
         let context = getContext site ctx resCtx appPath rootFolder req
         // Handle action
-        async {
-            let! response = Content.ToResponse (site.Controller.Handle action) context
-            let resp = ctx.Response
-            resp.Status <- response.Status.ToString()
-            for header in response.Headers do
-                resp.AddHeader(header.Name, header.Value)
-            if req.Cookies.[RpcHandler.CsrfTokenKey].IsNone then
-                RpcHandler.SetCsrfCookie resp
-            response.WriteBody resp.OutputStream
-            resp.End()
-        }
+        // we use AsyncBuilder directly so there is no .Delay, .For, .Combine calls for minimal overhead
+        async.Bind(
+            Content.ToResponse (site.Controller.Handle action) context,
+            fun response ->
+                let resp = ctx.Response
+                resp.Status <- response.Status.ToString()
+                for header in response.Headers do
+                    resp.AddHeader(header.Name, header.Value)
+                if req.Cookies.[RpcHandler.CsrfTokenKey].IsNone then
+                    RpcHandler.SetCsrfCookie resp
+                response.WriteBody resp.OutputStream
+                resp.End()
+                async.Zero()
+        )
 
 /// The ISS handler for WebSharper applications.
 [<Sealed>]

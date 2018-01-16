@@ -5,8 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Api.fs" />
+    <Compile Include="ApiTests.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="SampleSite.fs" />
+    <Compile Include="PerformanceTests.fs" />
+    <Compile Include="ClientServerTests.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
@@ -16,9 +19,11 @@
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
   </ItemGroup>
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />

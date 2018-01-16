@@ -934,10 +934,16 @@ module Interfaces =
         |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =? T<bool>
+                "charCode" =? T<int>
+                |> WithComment "Get the character code of a keypress event."
                 "code" =? T<string>
+                |> WithComment "Get the key code of a keyboard event."
                 "ctrlKey" =? T<bool>
                 "isComposing" =? T<bool>
                 "key" =? T<string>
+                |> WithComment "Get the character code of a keyboard event."
+                "keyCode" =? T<int>
+                |> WithComment "Get the key code of a keydown / keyup event."
                 "keyIdentifier" =? T<string> |> Obsolete
                 "keyLocation" =@ KeyLocationCode |> Obsolete
                 "location" =? T<int>
@@ -964,6 +970,9 @@ module Interfaces =
                     KeyLocationCode *
                     T<string>?modifiersListArg ^-> T<unit>
                     |> Obsolete
+                "which" =? T<int>
+                |> WithComment "Get the key code of a keydown / keyup event, \
+                                or the character code of a keypress event."
             ]
     let CompositionEvent =
         Class "CompositionEvent"

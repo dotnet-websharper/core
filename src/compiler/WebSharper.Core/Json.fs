@@ -424,6 +424,7 @@ type FormatSettings =
         /// * Flatten collections:
         ///     * list<'T>, Set<'T> -> array
         ///     * Map<string, _>, Dictionary<string, _> -> flat object
+        ///     * Map<_, _>, Dictionary<_> -> array of [key, value] arrays
         /// * Inline single record argument of a union into the union object itself.
         ConciseRepresentation : bool
         /// Pack an encoded value to JSON.
@@ -683,6 +684,12 @@ let callGeneric (func: Expr<'f -> 'i -> 'o>) (dD: TAttrs -> 'f) ta (targ: System
     let m = genLetMethod(func, [|targ|])
     let dI = dD { ta with Type = targ }
     fun x -> unbox<'o> (m.Invoke2(dI, x))
+
+let callGeneric2 (func: Expr<'f -> 'f -> 'i -> 'o>) (dD: TAttrs -> 'f) ta (targ1: System.Type) (targ2: System.Type) : 'i -> 'o =
+    let m = genLetMethod(func, [|targ1; targ2|])
+    let dI1 = dD { ta with Type = targ1 }
+    let dI2 = dD { ta with Type = targ2 }
+    fun x -> unbox<'o> (m.Invoke3(dI1, dI2, x))
 
 let unmakeOption<'T> (dV: obj -> Encoded) (x: obj) =
     x |> unbox<option<'T>> |> Option.map (box >> dV)
@@ -1079,10 +1086,16 @@ let getObjectFields (t: System.Type) =
         f.DeclaringType.IsSerializable && int nS = 0)
     |> Seq.toArray
 
-let unmakeDictionary<'T> (dE: obj -> Encoded) (x: obj) =
+let unmakeFlatDictionary<'T> (dE: obj -> Encoded) (x: obj) =
     EncodedObject [
         for KeyValue(k, v) in unbox<Dictionary<string, 'T>> x ->
             k, dE (box v)
+    ]
+
+let unmakeArrayDictionary<'K, 'V when 'K : equality> (dK: obj -> Encoded) (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [
+        for KeyValue(k, v) in unbox<Dictionary<'K, 'V>> x ->
+            EncodedArray [dK (box k); dV (box v)]
     ]
 
 let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
@@ -1096,11 +1109,13 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         fun _ -> EncodedNull
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
-        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
-        t.GetGenericArguments().[0] = typeof<string>
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> 
     then
-        t.GetGenericArguments().[1]
-        |> callGeneric <@ unmakeDictionary @> dE ta
+        let ga = t.GetGenericArguments()
+        if t.GetGenericArguments().[0] = typeof<string> then
+            callGeneric <@ unmakeFlatDictionary @> dE ta ga.[1]
+        else
+            callGeneric2 <@ unmakeArrayDictionary @> dE ta ga.[0] ga.[1]
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     else
@@ -1133,12 +1148,22 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         | _ ->
             raise EncoderException
 
-let makeDictionary<'T> (dD: Value -> obj) = function
+let makeFlatDictionary<'T> (dD: Value -> obj) = function
     | Object vs ->
         let d = Dictionary<string, 'T>()
         for k, v in vs do d.Add(k, unbox<'T>(dD v))
         box d
     | x -> raise (DecoderException(x, typeof<Dictionary<string,'T>>))
+
+let makeArrayDictionary<'K, 'V when 'K : equality> (dK: Value -> obj) (dV: Value -> obj) = function
+    | Array vs ->
+        let d = Dictionary<'K, 'V>()
+        for e in vs do
+            match e with
+            | Array [k; v] -> d.Add(unbox<'K>(dK k), unbox<'V>(dV v))
+            | x -> raise (DecoderException(x, typeof<Dictionary<'K,'V>>))
+        box d
+    | x -> raise (DecoderException(x, typeof<Dictionary<'K,'V>>))
 
 let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
@@ -1153,11 +1178,13 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | x -> raise (DecoderException(x, typeof<unit>))
     elif i.ConciseRepresentation &&
         t.IsGenericType &&
-        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>> &&
-        t.GetGenericArguments().[0] = typeof<string>
+        t.GetGenericTypeDefinition() = typedefof<Dictionary<_,_>>
     then
-        t.GetGenericArguments().[1]
-        |> callGeneric <@ makeDictionary @> dD ta
+        let ga = t.GetGenericArguments()
+        if t.GetGenericArguments().[0] = typeof<string> then
+            callGeneric <@ makeFlatDictionary @> dD ta ga.[1]
+        else
+            callGeneric2 <@ makeArrayDictionary @> dD ta ga.[0] ga.[1]
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     elif t.IsValueType then
@@ -1208,25 +1235,34 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
 
 let btree node left right height count = 
     EncodedObject [
-        "Node", node  
-        "Left", left
-        "Right", right  
-        "Height", EncodedNumber height
-        "Count", EncodedNumber count  
+        match left with Some l -> yield "Left", l | None -> ()
+        match right with Some r -> yield "Right", r | None -> ()
+        yield "Node", node  
+        yield "Height", EncodedNumber height
+        yield "Count", EncodedNumber count  
     ]
 
-let unmakeMap<'T> (dV: obj -> Encoded)  (x: obj) =
+let unmakeFlatMap<'T> (dV: obj -> Encoded)  (x: obj) =
     EncodedObject [
         for KeyValue(k, v) in unbox<Map<string, 'T>> x ->
             k, dV (box v)
+    ]
+
+let unmakeArrayMap<'K, 'T when 'K : comparison> (dK: obj -> Encoded) (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [
+        for KeyValue(k, v) in unbox<Map<'K, 'T>> x ->
+            EncodedArray [ dK (box k); dV (box v) ]
     ]
 
 let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
     if tg.Length <> 2 then raise EncoderException
-    if i.ConciseRepresentation && tg.[0] = typeof<string> then
-        callGeneric <@ unmakeMap @> dE ta tg.[1]
+    if i.ConciseRepresentation then
+        if tg.[0] = typeof<string> then
+            callGeneric <@ unmakeFlatMap @> dE ta tg.[1]
+        else
+            callGeneric2 <@ unmakeArrayMap @> dE ta tg.[0] tg.[1]
     else
     let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
     let pair key value =
@@ -1243,24 +1279,27 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     fun (x: obj) ->
         let rec encNode v = 
             match v with
-            | null -> EncodedNull, 0
+            | null -> None, 0
             | _ ->
             match tR v with
-            | 0 -> EncodedNull, 0
+            | 0 -> None, 0
             | 1 ->
                 let u = uR.[1] v
-                btree (pair (dK u.[0]) (dV u.[1])) EncodedNull EncodedNull "1" "1", 1
+                Some (btree (pair (dK u.[0]) (dV u.[1])) None None "1" "1"), 1
             | 2 ->
                 let u = uR.[2] v
                 let l, lc = encNode u.[2]
                 let r, rc = encNode u.[3]
                 let c = 1 + lc + rc
-                btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c), c 
+                Some (btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c)), c
             | _ -> raise EncoderException     
-        let tr = fst (encNode (treeF.GetValue x))
-        EncodedObject [ "tree", tr ] |> i.AddTag t
+        match encNode (treeF.GetValue x) with
+        | Some tr, _ -> EncodedObject [ "tree", tr ]
+        | None, _ -> EncodedObject []
+        |> i.AddTag t
 
-let makeMap<'T> (dV: Value -> obj) = function
+/// Decode a Map<string, _> from { key: value, ... } JSON object
+let makeFlatMap<'T> (dV: Value -> obj) = function
     | Object vs ->
         Map.ofList<string, 'T>(
             vs |> List.map (fun (k, v) -> k, unbox<'T> (dV v))
@@ -1268,11 +1307,25 @@ let makeMap<'T> (dV: Value -> obj) = function
         |> box
     | x -> raise (DecoderException(x, typeof<Map<string, 'T>>))
 
+/// Decode a Map<_, _> from [ [key, value], ... ] JSON object
+let makeArrayMap<'K, 'V when 'K : comparison> (dK: Value -> obj) (dV: Value -> obj) = function
+    | Array vs ->
+        Map.ofList<'K, 'V>(
+            vs |> List.map (function
+            | Array [k; v] -> unbox<'K> (dK k), unbox<'V> (dV v)
+            | x -> raise (DecoderException(x, typeof<Map<'K, 'V>>)))
+        )
+        |> box
+    | x -> raise (DecoderException(x, typeof<Map<'K, 'V>>))
+
 let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
-    if i.ConciseRepresentation && tg.[0] = typeof<string> then
-        callGeneric <@ makeMap @> dD ta tg.[1]
+    if i.ConciseRepresentation then
+        if tg.[0] = typeof<string> then
+            callGeneric <@ makeFlatMap @> dD ta tg.[1]
+        else
+            callGeneric2 <@ makeArrayMap @> dD ta tg.[0] tg.[1]
     else
     let dK = dD (TAttrs.Get(i, tg.[0]))
     let dV = dD (TAttrs.Get(i, tg.[1]))
@@ -1291,7 +1344,10 @@ let mapDecoder dD (i: FormatSettings) (ta: TAttrs) =
             }
         match x with
         | Null
-        | Object [ "tree", Null ] -> System.Activator.CreateInstance(t)
+        | Object []
+        | Object [ "tree", Null ] ->
+            let tEls = System.Array.CreateInstance(tt, 0)
+            System.Activator.CreateInstance(t, tEls)
         | Object [ "tree", Object tr ] ->
             let els = walk tr |> Array.ofSeq
             let tEls = System.Array.CreateInstance(tt, els.Length)
@@ -1318,23 +1374,61 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
     fun (x: obj) ->
         let rec encNode v = 
             match v with
-            | null -> EncodedNull, 0
+            | null -> None, 0
             | _ ->
             match tR v with
-            | 0 -> EncodedNull, 0
+            | 0 -> None, 0
             | 1 ->
                 let u = uR.[1] v
                 let l, lc = encNode u.[1]
                 let r, rc = encNode u.[2]
                 let c = 1 + lc + rc
-                btree (dI u.[0]) l r (string u.[3]) (string c), c
+                Some (btree (dI u.[0]) l r (string u.[3]) (string c)), c
             | 2 ->
                 let u = uR.[2] v
-                btree (dI u.[0]) EncodedNull EncodedNull "1" "1", 1
-            | _ -> raise EncoderException     
-        let tr = fst (encNode (treeF.GetValue x))
-        EncodedObject [ "tree", tr ] |> i.AddTag t
-        
+                Some (btree (dI u.[0]) None None "1" "1"), 1
+            | _ -> raise EncoderException
+        match encNode (treeF.GetValue x) with
+        | Some tr, _ -> EncodedObject [ "tree", tr ]
+        | None, _ -> EncodedObject []
+        |> i.AddTag t
+
+let unmakeResizeArray<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<ResizeArray<'T>> x -> dV v]
+
+let resizeArrayEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeResizeArray @> dE ta tg.[0]
+
+let unmakeQueue<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<Queue<'T>> x -> dV v]
+
+let queueEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeQueue @> dE ta tg.[0]
+
+let unmakeStack<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<Stack<'T>> x -> dV v]
+
+let stackEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeStack @> dE ta tg.[0]
+
+let unmakeLinkedList<'T when 'T : comparison> (dV: obj -> Encoded) (x: obj) =
+    EncodedArray [for v in unbox<LinkedList<'T>> x -> dV v]
+
+let linkedListEncoder dE (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ unmakeLinkedList @> dE ta tg.[0]
+
 let unmakeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: obj -> Encoded) (x: obj) =
     if obj.ReferenceEquals(x, null) then EncodedNull else dV x    
            
@@ -1375,9 +1469,58 @@ let setDecoder dD (i: FormatSettings) (ta: TAttrs) =
         }
     function
         | Null
+        | Object []
         | Object [ "tree", Null ] -> mk Seq.empty
         | Object [ "tree", Object tr ] -> mk (walk tr)
         | x -> raise (DecoderException(x, ta.Type))
+
+let makeResizeArray<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        ResizeArray(vs |> Seq.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<ResizeArray<'T>>))
+
+let resizeArrayDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeResizeArray @> dD ta tg.[0]
+
+let makeQueue<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        Queue(vs |> Seq.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<Queue<'T>>))
+
+let queueDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeQueue @> dD ta tg.[0]
+
+let makeStack<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        Stack(vs |> List.map (unbox<'T> << dV) |> List.rev)
+        |> box
+    | x -> raise (DecoderException(x, typeof<Stack<'T>>))
+
+let stackDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeStack @> dD ta tg.[0]
+
+let makeLinkedList<'T when 'T : comparison> (dV: Value -> obj) = function
+    | Array vs ->
+        LinkedList(vs |> Seq.map (unbox<'T> << dV))
+        |> box
+    | x -> raise (DecoderException(x, typeof<LinkedList<'T>>))
+
+let linkedListDecoder dD (i: FormatSettings) (ta: TAttrs) =
+    let t = ta.Type
+    let tg = t.GetGenericArguments()
+    if tg.Length <> 1 then raise EncoderException
+    callGeneric <@ makeLinkedList @> dD ta tg.[0]
 
 let makeNullable<'T when 'T: (new: unit -> 'T) and 'T: struct and 'T :> System.ValueType> (dV: Value -> obj) =
     function
@@ -1405,39 +1548,141 @@ let enumDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let y : obj = uD x
         System.Enum.ToObject(t, y)
 
-let getEncoding scalar array tuple union record enu map set nble obj wrap (fo: FormatSettings)
-                (cache: ConcurrentDictionary<_,_>) =
+type TypeEncoding<'a, 'b> = (TAttrs -> 'a -> 'b) -> FormatSettings -> TAttrs -> 'a -> 'b
+
+type Encodings<'a, 'b> =
+    {
+        Scalar: Serializer -> option<'a -> 'b>
+        Array: TypeEncoding<'a, 'b>
+        Tuple: TypeEncoding<'a, 'b>
+        Union: TypeEncoding<'a, 'b>
+        Record: TypeEncoding<'a, 'b>
+        Enum: TypeEncoding<'a, 'b>
+        Map: TypeEncoding<'a, 'b>
+        Set: TypeEncoding<'a, 'b>
+        ResizeArray: TypeEncoding<'a, 'b>
+        Queue: TypeEncoding<'a, 'b>
+        Stack: TypeEncoding<'a, 'b>
+        LinkedList: TypeEncoding<'a, 'b>
+        Nullable: TypeEncoding<'a, 'b>
+        Object: TypeEncoding<'a, 'b>
+    }
+
+module Encodings =
+
+    let Decode =
+        {
+            Scalar = fun { Decode = x } -> x
+            Array = arrayDecoder
+            Tuple = tupleDecoder
+            Union = unionDecoder
+            Record = recordDecoder
+            Enum = enumDecoder
+            Map = mapDecoder
+            Set = setDecoder
+            ResizeArray = resizeArrayDecoder
+            Queue = queueDecoder
+            Stack = stackDecoder
+            LinkedList = linkedListDecoder
+            Nullable = nbleDecoder
+            Object = objectDecoder
+        }
+
+    let Encode =
+        {
+            Scalar = fun { Encode = x } -> x
+            Array = arrayEncoder
+            Tuple = tupleEncoder
+            Union = unionEncoder
+            Record = recordEncoder
+            Enum = enumEncoder
+            Map = mapEncoder
+            Set = setEncoder
+            ResizeArray = resizeArrayEncoder
+            Queue = queueEncoder
+            Stack = stackEncoder
+            LinkedList = linkedListEncoder
+            Nullable = nbleEncoder
+            Object = objectEncoder
+        }
+
+    let private defaultof (t: System.Type) =
+        if t.IsValueType then
+            System.Activator.CreateInstance(t)
+        else null
+
+    let Dummy =
+        {
+            Scalar = fun _ -> Some defaultof
+            Array = fun dD i ta ->
+                let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
+                fun _ -> x
+            Tuple = fun dD i ta ->
+                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
+                let x = FSV.MakeTuple(xs, ta.Type)
+                fun _ -> x
+            Union = fun dD i ta ->
+                let uci = FST.GetUnionCases(ta.Type, flags).[0]
+                let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeUnion(uci, xs, flags)
+                fun _ -> x
+            Record = fun dD i ta ->
+                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
+                let x = FSV.MakeRecord(ta.Type, xs, flags)
+                fun _ -> x
+            Enum = fun dD i ta ->
+                let x = defaultof ta.Type
+                fun _ -> x
+            Map = fun dD i ta ->
+                let x = genLetMethod(<@ Map.empty @>, ta.Type.GetGenericArguments()).Invoke0()
+                fun _ -> x
+            Set = fun dD i ta ->
+                let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
+                fun _ -> x
+            ResizeArray = fun dD i ta _ -> null
+            Queue = fun dD i ta _ -> null
+            Stack = fun dD i ta _ -> null
+            LinkedList = fun dD i ta _ -> null
+            Nullable = fun dD i ta _ -> null
+            Object = fun _ _ _ _ -> null
+        }
+
+let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
     let rec get (ta: TAttrs) =
         let derive dD =
             try
                 if ta.Type.IsArray then
                     if ta.Type.GetArrayRank() = 1 then
-                        array dD fo ta
+                        e.Array dD fo ta
                     else raise (NoEncodingException ta.Type)
                 elif FST.IsTuple ta.Type then
-                    tuple dD fo ta
+                    e.Tuple dD fo ta
                 elif FST.IsUnion (ta.Type, flags) then
-                    union dD fo ta
+                    e.Union dD fo ta
                 elif FST.IsRecord (ta.Type, flags) then
-                    record dD fo ta
+                    e.Record dD fo ta
                 elif ta.Type.IsEnum then
-                    enu dD fo ta
+                    e.Enum dD fo ta
                 else
                     let tn =
                         if ta.Type.IsGenericType 
                         then Some (ta.Type.GetGenericTypeDefinition().FullName)
                         else None
                     match tn with
-                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> map dD fo ta
-                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> set dD fo ta
-                    | Some "System.Nullable`1" -> nble dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpMap`2" -> e.Map dD fo ta
+                    | Some "Microsoft.FSharp.Collections.FSharpSet`1" -> e.Set dD fo ta
+                    | Some "System.Collections.Generic.List`1" -> e.ResizeArray dD fo ta
+                    | Some "System.Collections.Generic.Queue`1" -> e.Queue dD fo ta
+                    | Some "System.Collections.Generic.Stack`1" -> e.Stack dD fo ta
+                    | Some "System.Collections.Generic.LinkedList`1" -> e.LinkedList dD fo ta
+                    | Some "System.Nullable`1" -> e.Nullable dD fo ta
                     | _ -> 
-                        obj dD fo ta
+                        e.Object dD fo ta
             with e -> fun _ -> raise (System.Exception("Error during RPC JSON conversion", e))
         if ta.Type = null then raise (NoEncodingException ta.Type) else
             match serializers.TryGetValue ta.Type with
-            | true, x when Option.isSome (scalar x) ->
-                (scalar x).Value
+            | true, x when Option.isSome (e.Scalar x) ->
+                (e.Scalar x).Value
             | _ ->
                 let newRef = ref Unchecked.defaultof<_>
                 lock newRef <| fun () ->
@@ -1522,12 +1767,15 @@ module TypedProviderInternals =
             | [] -> failwith "types array must not be empty"
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
-        let types =
-            Array (List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA [])))
-        Object [
-            TYPES, types
-            DATA, data
-        ]
+        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA []))
+        match types, data with
+        | _::_, _
+        | _, Object (((TYPES | VALUE), _) :: _) ->
+            Object [
+                TYPES, Array types
+                DATA, data
+            ]
+        | [], data -> data
 
     let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
 
@@ -1682,77 +1930,18 @@ type Provider(fo: FormatSettings) =
     [<System.NonSerialized>]
     let encoders = ConcurrentDictionary()
 
-    let defaultof (t: System.Type) =
-        if t.IsValueType then
-            System.Activator.CreateInstance(t)
-        else null
-
     [<System.NonSerialized>]
     let getDefaultBuilder =
-        getEncoding
-            (fun _ -> Some defaultof)
-            (fun dD i ta ->
-                let x = box (System.Array.CreateInstance(ta.Type.GetElementType(), 0))
-                fun _ -> x)
-            (fun dD i ta ->
-                let xs = FST.GetTupleElements ta.Type |> Array.map (fun t -> dD (TAttrs.Get(i, t)) t)
-                let x = FSV.MakeTuple(xs, ta.Type)
-                fun _ -> x)
-            (fun dD i ta ->
-                let uci = FST.GetUnionCases(ta.Type, flags).[0]
-                let xs = uci.GetFields() |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeUnion(uci, xs, flags)
-                fun _ -> x)
-            (fun dD i ta ->
-                let xs = FST.GetRecordFields(ta.Type, flags) |> Array.map (fun f -> dD (TAttrs.Get(i, f.PropertyType, f)) f.PropertyType)
-                let x = FSV.MakeRecord(ta.Type, xs, flags)
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = defaultof ta.Type
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = genLetMethod(<@ Map.empty @>, ta.Type.GetGenericArguments()).Invoke0()
-                fun _ -> x)
-            (fun dD i ta ->
-                let x = genLetMethod(<@ Set.empty @>, ta.Type.GetGenericArguments()).Invoke0()
-                fun _ -> x)
-            (fun dD i ta ->
-                fun _ -> null
-            )
-            (fun _ _ _ _ -> null)
-            id
-            fo
-            (ConcurrentDictionary<_,_>())
+        getEncoding Encodings.Dummy id fo (ConcurrentDictionary<_,_>())
 
     [<System.NonSerialized>]
     let getDecoder =
-        getEncoding (fun {Decode=x} -> x)
-            arrayDecoder
-            tupleDecoder
-            unionDecoder
-            recordDecoder
-            enumDecoder
-            mapDecoder
-            setDecoder
-            nbleDecoder
-            objectDecoder
-            id
-            fo
-            decoders
+        getEncoding Encodings.Decode id fo decoders
         >> Decoder
 
     [<System.NonSerialized>]
     let getEncoder =
-        getEncoding (fun {Encode=x} -> x)
-            arrayEncoder
-            tupleEncoder
-            unionEncoder
-            recordEncoder
-            enumEncoder
-            mapEncoder
-            setEncoder
-            nbleEncoder
-            objectEncoder
+        getEncoding Encodings.Encode
             (fun dE ta ->
                 if ta.Type.IsSealed || FST.IsUnion(ta.Type, flags) then dE ta else
                 fun x -> dE (if x = null then ta else { ta with Type = x.GetType() }) x)

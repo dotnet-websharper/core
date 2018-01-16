@@ -122,11 +122,10 @@ module Http =
         /// Transforms the parameter list into a list of
         /// name and value pairs.
         member pc.ToList() =
-            seq {
+            [
                 for k in nameValues.Keys do
                    yield (k, nameValues.[k])
-            }
-            |> Seq.toList
+            ]
 
     type IPostedFile =
         abstract Key : string

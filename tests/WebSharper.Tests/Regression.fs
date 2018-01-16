@@ -355,6 +355,13 @@ module TupledArgOpt =
         let x = t()
         // bug #756, this was throwing a compile-time error
         f x
+
+    let g2 (_: obj) (f: int * int -> int) =
+        f (1, 1)
+
+    type O() =
+        [<Inline>]
+        member this.G f = g2 this f
        
 [<JavaScript>]
 let Tests =
@@ -809,6 +816,24 @@ let Tests =
         Test "Static lets" {
             equal (StaticLetFunctionTest().SayWhat()) "mooo"
             equal (MultipleStaticLetTest().SayWhat()) "mooomooohmeh"       
+        }
+
+        Test "#859 Optimizer incorrectly inlining through variable set" {
+            let test =
+                let arr = [| "correct"; "wrong" |]
+                let mutable index = 0
+                let res = arr.[index]
+                index <- index + 1
+                res
+            equal test "correct"
+        }
+
+        Test "#866 Local function incorrectly treated as tupled" {
+            let r1, r2 =
+                let f (s: string) = string s.[0] + string s.[2]
+                f "abc", f "123"
+            equal r1 "ac"
+            equal r2 "13"
         }
 
         //Test "Recursive module value" {

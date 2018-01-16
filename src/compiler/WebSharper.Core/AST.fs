@@ -150,7 +150,7 @@ and Expression =
     /// .NET - F# successful match
     | MatchSuccess of Index:int * Captures:list<Expression>
     /// .NET - Method call
-    | TraitCall of ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression>
+    | TraitCall of ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression>
     /// Temporary - C# await expression
     | Await of Expression:Expression
     /// Temporary - C# named parameter
@@ -383,8 +383,8 @@ type Transformer() =
     abstract TransformMatchSuccess : Index:int * Captures:list<Expression> -> Expression
     override this.TransformMatchSuccess (a, b) = MatchSuccess (a, List.map this.TransformExpression b)
     /// .NET - Method call
-    abstract TransformTraitCall : ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
-    override this.TransformTraitCall (a, b, c) = TraitCall (a, b, List.map this.TransformExpression c)
+    abstract TransformTraitCall : ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> Expression
+    override this.TransformTraitCall (a, b, c, d) = TraitCall (Option.map this.TransformExpression a, b, c, List.map this.TransformExpression d)
     /// Temporary - C# await expression
     abstract TransformAwait : Expression:Expression -> Expression
     override this.TransformAwait a = Await (this.TransformExpression a)
@@ -534,7 +534,7 @@ type Transformer() =
         | UnionCaseGet (a, b, c, d) -> this.TransformUnionCaseGet (a, b, c, d)
         | UnionCaseTag (a, b) -> this.TransformUnionCaseTag (a, b)
         | MatchSuccess (a, b) -> this.TransformMatchSuccess (a, b)
-        | TraitCall (a, b, c) -> this.TransformTraitCall (a, b, c)
+        | TraitCall (a, b, c, d) -> this.TransformTraitCall (a, b, c, d)
         | Await a -> this.TransformAwait a
         | NamedParameter (a, b) -> this.TransformNamedParameter (a, b)
         | RefOrOutParameter a -> this.TransformRefOrOutParameter a
@@ -713,8 +713,8 @@ type Visitor() =
     abstract VisitMatchSuccess : Index:int * Captures:list<Expression> -> unit
     override this.VisitMatchSuccess (a, b) = (); List.iter this.VisitExpression b
     /// .NET - Method call
-    abstract VisitTraitCall : ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> unit
-    override this.VisitTraitCall (a, b, c) = (); (); List.iter this.VisitExpression c
+    abstract VisitTraitCall : ThisObject:option<Expression> * ObjectType:list<Type> * Method:Concrete<Method> * Arguments:list<Expression> -> unit
+    override this.VisitTraitCall (a, b, c, d) = Option.iter this.VisitExpression a; (); (); List.iter this.VisitExpression d
     /// Temporary - C# await expression
     abstract VisitAwait : Expression:Expression -> unit
     override this.VisitAwait a = (this.VisitExpression a)
@@ -862,7 +862,7 @@ type Visitor() =
         | UnionCaseGet (a, b, c, d) -> this.VisitUnionCaseGet (a, b, c, d)
         | UnionCaseTag (a, b) -> this.VisitUnionCaseTag (a, b)
         | MatchSuccess (a, b) -> this.VisitMatchSuccess (a, b)
-        | TraitCall (a, b, c) -> this.VisitTraitCall (a, b, c)
+        | TraitCall (a, b, c, d) -> this.VisitTraitCall (a, b, c, d)
         | Await a -> this.VisitAwait a
         | NamedParameter (a, b) -> this.VisitNamedParameter (a, b)
         | RefOrOutParameter a -> this.VisitRefOrOutParameter a
@@ -952,7 +952,7 @@ module IgnoreSourcePos =
     let (|UnionCaseGet|_|) x = match ignoreExprSourcePos x with UnionCaseGet (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|UnionCaseTag|_|) x = match ignoreExprSourcePos x with UnionCaseTag (a, b) -> Some (a, b) | _ -> None
     let (|MatchSuccess|_|) x = match ignoreExprSourcePos x with MatchSuccess (a, b) -> Some (a, b) | _ -> None
-    let (|TraitCall|_|) x = match ignoreExprSourcePos x with TraitCall (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|TraitCall|_|) x = match ignoreExprSourcePos x with TraitCall (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Await|_|) x = match ignoreExprSourcePos x with Await a -> Some a | _ -> None
     let (|NamedParameter|_|) x = match ignoreExprSourcePos x with NamedParameter (a, b) -> Some (a, b) | _ -> None
     let (|RefOrOutParameter|_|) x = match ignoreExprSourcePos x with RefOrOutParameter a -> Some a | _ -> None
@@ -1039,7 +1039,7 @@ module Debug =
         | UnionCaseGet (a, b, c, d) -> "UnionCaseGet" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ", " + PrintObject c + ", " + PrintObject d + ")"
         | UnionCaseTag (a, b) -> "UnionCaseTag" + "(" + PrintExpression a + ", " + b.Entity.Value.FullName + ")"
         | MatchSuccess (a, b) -> "MatchSuccess" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
-        | TraitCall (a, b, c) -> "TraitCall" + "(" + "[" + String.concat "; " (List.map PrintObject a) + "]" + ", " + b.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | TraitCall (a, b, c, d) -> "TraitCall" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + c.Entity.Value.MethodName + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | Await a -> "Await" + "(" + PrintExpression a + ")"
         | NamedParameter (a, b) -> "NamedParameter" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | RefOrOutParameter a -> "RefOrOutParameter" + "(" + PrintExpression a + ")"

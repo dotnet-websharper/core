@@ -275,6 +275,8 @@ let resourceContext (st: State) (level: int) : R.Context =
             st.UseResource(EmbeddedResource.Create(name, ty))
             scriptsFile (ty.Assembly.GetName().Name) name
 
+        WebRoot = relPath
+
         RenderingCache = System.Collections.Concurrent.ConcurrentDictionary()
         ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
     }
@@ -302,7 +304,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: Location) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: System.Uri) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then

@@ -5,6 +5,7 @@ using WebSharper.Sitelets;
 using Elt = WebSharper.Sitelets.Tests.Server.Elt;
 using Attr = WebSharper.Sitelets.Tests.Server.Attr;
 using Text = WebSharper.Sitelets.Tests.Server.Text;
+using C = WebSharper.Sitelets.Tests.Client;
 
 namespace WebSharper.CSharp.Sitelets.Tests
 {
@@ -13,28 +14,28 @@ namespace WebSharper.CSharp.Sitelets.Tests
     {
         [JavaScript]
         public override IControlBody Body =>
-            new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from a web control class!");
+            C.Elt("div", C.Text("Hello from a web control class!"));
     }
 
     public class SiteletTest
     {
         [JavaScript]
-        public static WebSharper.Sitelets.Tests.Client.Elt SayHello()
+        public static C.Node SayHello()
         {
             Console.WriteLine("Hello world from System.Console!");
             JavaScript.Console.Log("Hello world from WebSharper.JavaScript.Console!");
-            return new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control!");
+            return C.Elt("div", C.Text("Hello from an inline control!"));
         }
 
         [JavaScript]
-        public static WebSharper.Sitelets.Tests.Client.Elt SayHello(string msg)
+        public static C.Node SayHello(string msg)
         {
-            return new WebSharper.Sitelets.Tests.Client.Elt("div", $"Hello from an inline control with message: {msg}!");
+            return C.Elt("div", C.Text($"Hello from an inline control with message: {msg}!"));
         }
 
         [JavaScript]
-        public static WebSharper.Sitelets.Tests.Client.Elt Hello =>
-            new WebSharper.Sitelets.Tests.Client.Elt("div", "Hello from an inline control calling a static property!");
+        public static C.Node Hello =>
+            C.Elt("div", C.Text("Hello from an inline control calling a static property!"));
 
         public static Sitelet<object> Main =>
             new SiteletBuilder()
@@ -77,20 +78,21 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                     Text("Go back to C# sitelets tests home")))))
                 .Install();
 
-        [EndPoint("/person")]
+        [EndPoint("/person/{name}/{age}")]
         public class Person
         {
             public Name name;
             public int age;
         }
 
+        [EndPoint("{first}/{last}")]
         public class Name
         {
             public string first;
             public string last;
         }
 
-        [EndPoint("/person")]
+        [EndPoint("qperson/{name}")]
         public class QueryPerson
         {
             public QueryName name;

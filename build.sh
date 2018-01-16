@@ -3,18 +3,11 @@
 set -e
 
 if [ "$OS" = "Windows_NT" ]; then
-    fake() { packages/build/FAKE/tools/FAKE.exe "$@" --fsiargs build.fsx; }
-    paket() { .paket/paket.exe "$@"; }
+    .paket/paket.bootstrapper.exe
+    .paket/paket.exe restore -g build
 else
-    fake() { mono packages/build/FAKE/tools/FAKE.exe "$@" --fsiargs -d:MONO build.fsx; }
-    paket() { mono .paket/paket.exe "$@"; }
+    mono .paket/paket.bootstrapper.exe
+    mono .paket/paket.exe restore -g build
 fi
 
-paket restore -g build
-
-if [ "$BuildBranch" != "" ]; then
-    fake ws-checkout
-    export BuildFromRef=$(<.fake/buildFromRef)
-fi
-
-exec tools/build.sh "$@"
+exec tools/WebSharper.Fake.sh "$@"

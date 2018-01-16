@@ -158,6 +158,7 @@ type Context =
         GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>
         GetWebResourceRendering : Type -> string -> Rendering
+        WebRoot : string  
         RenderingCache : System.Collections.Concurrent.ConcurrentDictionary<IResource, (RenderLocation -> HtmlTextWriter) -> unit>
         ResourceDependencyCache : System.Collections.Concurrent.ConcurrentDictionary<Metadata.Node Set, IResource list>
     }
@@ -360,6 +361,7 @@ type BaseResource(kind: Kind) as this =
             let dHttp = ctx.DefaultToHttp
             let isLocal = ctx.GetSetting "UseDownloadedResources" |> Option.exists (fun s -> s.ToLower() = "true")
             let localFolder isCss f =
+                ctx.WebRoot + 
                 (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
             match kind with
             | Basic spec ->

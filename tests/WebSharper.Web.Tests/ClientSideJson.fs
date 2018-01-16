@@ -37,6 +37,13 @@ type private Enum =
 [<JavaScript>]
 module ClientSideJson =
 
+    type Record =
+        {
+            a : int
+            b : string
+        }
+
+
     [<Inline>]
     let InlineSerialize x = "x" + Json.Serialize x
 
@@ -128,16 +135,36 @@ module ClientSideJson =
                 equal (Json.Deserialize (Json.Stringify (Set.toArray x))) x
             })
 
+            Property "deserialize set with complex key type" (fun (x: (int * string)[]) -> Do {
+                let x = Set.ofArray [| for a, b in x -> { a = a; b = b } |]
+                equal (Json.Deserialize (Json.Stringify (Set.toArray x))) x
+            })
+
             Property "serialize map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
                 let x = Map.toArray m
                 equal (Json.Serialize m) (Json.Stringify (New (As x)))
             })
 
+            Property "serialize map with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let m = Map.ofArray a
+                let enc = Json.Encode m :?> (Record * int)[]
+                Array.sortInPlaceBy fst a
+                Array.sortInPlaceBy fst enc
+                equal enc a
+            })
+
             Property "deserialize map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
                 let x = New (As (Map.toArray m))
                 equal (Json.Deserialize (Json.Stringify x)) m
+            })
+
+            Property "deserialize map with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let m = Map.ofArray a
+                isTrue (Json.Deserialize (Json.Stringify a) = m)
             })
 
             Property "serialize dictionary" (fun (x: (string * int)[]) -> Do {
@@ -160,6 +187,16 @@ module ClientSideJson =
                 let y = New []
                 do for KeyValue(k, v) in deser :> seq<_> do y?(k) <- v
                 equal y ser
+            })
+
+            Property "deserialize dictionary with complex key type" (fun (x: (int * string * int)[]) -> Do {
+                let a = Array.distinctBy fst [| for a, b, c in x -> { a = a; b = b }, c |]
+                let d = Dictionary()
+                do for k, v in a :> seq<_> do d.[k] <- v
+                let enc = Json.Encode d :?> (Record * int)[]
+                Array.sortInPlaceBy fst a
+                Array.sortInPlaceBy fst enc
+                equal enc a
             })
 
             Test "de/serialize record with optional value" {
@@ -377,6 +414,54 @@ module ClientSideJson =
                 equal (InlineDeserialize "x42") 42
             }
 
+            Test "serialize ResizeArray" {
+                equal (Json.Serialize (ResizeArray<int>())) "[]"
+                equal (Json.Serialize (ResizeArray [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize ResizeArray" {
+                equal (Json.Deserialize "[]") (ResizeArray<int>())
+                equal (Json.Deserialize "[87,9,124]") (ResizeArray [87;9;124])
+            }
+
+            Test "serialize Queue" {
+                equal (Json.Serialize (Queue<int>())) "[]"
+                equal (Json.Serialize (Queue [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize Queue" {
+                equal (Json.Deserialize "[]") (Queue<int>())
+                equal (Json.Deserialize "[87,9,124]") (Queue [87;9;124])
+            }
+
+            Test "serialize Stack" {
+                equal (Json.Serialize (Stack<int>())) "[]"
+                equal (Json.Serialize (Stack [3; 0; 423])) "[423,0,3]"
+            }
+
+            Test "deserialize Stack" {
+                equal (Json.Deserialize "[]") (Stack<int>())
+                equal (Json.Deserialize "[87,9,124]") (Stack [124;9;87])
+            }
+
+            Test "serialize LinkedList" {
+                equal (Json.Serialize (LinkedList<int>())) "[]"
+                equal (Json.Serialize (LinkedList [3; 0; 423])) "[3,0,423]"
+            }
+
+            Test "deserialize LinkedList" {
+                let l = Json.Deserialize<LinkedList<int>> "[]"
+                equal l.First null
+                let l = Json.Deserialize<LinkedList<int>> "[87,9,124]"
+                equal l.First.Value 87
+                l.RemoveFirst()
+                equal l.First.Value 9
+                l.RemoveFirst()
+                equal l.First.Value 124
+                l.RemoveFirst()
+                equal l.First null
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
@@ -442,8 +527,12 @@ module ClientSideJson =
 
             Property "map" (fun (x: (string * int)[]) -> Do {
                 let m = Map.ofArray x
-                let x = Map.toArray m
                 equalAsync (echo "Map" (Json.Serialize m) Json.Decode) m
+            })
+
+            Property "map with complex keys" (fun (x: (int * int)[]) -> Do {
+                let m = Map.ofArray [| for k, v in x -> { WebSharper.Sitelets.Tests.Json.Types.id = k }, v |]
+                equalAsync (echo "ComplexMap" (Json.Serialize m) Json.Decode) m
             })
 
             Property "dictionary" (fun (x: (string * int)[]) -> Do {
@@ -456,6 +545,15 @@ module ClientSideJson =
                 let y = New []
                 do for KeyValue(k, v) in r :> seq<_> do y?(k) <- v
                 equal y (New (As x))
+            })
+
+            Property "dictionary with complex keys" (fun (x: (int * int)[]) -> Do {
+                let d = Dictionary()
+                do for k, v in x :> seq<_> do d.[{ WebSharper.Sitelets.Tests.Json.Types.id = k }] <- v
+                let! (r : Dictionary<WebSharper.Sitelets.Tests.Json.Types.Id, int>) =
+                    echo "ComplexDictionary" (Json.Serialize d) Json.Decode
+                forEach d (fun (KeyValue(k, v)) -> Do { equal v r.[k] })
+                forEach r (fun (KeyValue(k, v)) -> Do { equal v d.[k] })
             })
 
             Test "simple record" {
@@ -532,5 +630,28 @@ module ClientSideJson =
                     echo "DateTime" (Json.Serialize r) Json.Decode<System.DateTime>
                 equalAsync (f d.Self) d.Self
                 equalAsync (f now) now
+            }
+
+            Test "Queue" {
+                let f (r: Queue<int>) =
+                    echo "Queue" (Json.Serialize r) Json.Decode<Queue<int>>
+                equalAsync (f (Queue())) (Queue())
+                equalAsync (f (Queue [34; 5; 58])) (Queue [34; 5; 58])
+            }
+
+            Test "Stack" {
+                let f (r: Stack<int>) =
+                    echo "Stack" (Json.Serialize r) Json.Decode<Stack<int>>
+                equalAsync (f (Stack())) (Stack())
+                equalAsync (f (Stack [34; 5; 58])) (Stack [34; 5; 58])
+            }
+
+            Test "LinkedList" {
+                let f (r: LinkedList<int>) =
+                    echo "LinkedList" (Json.Serialize r) Json.Decode<LinkedList<int>>
+                let! res = f (LinkedList())
+                equal (List.ofSeq res) []
+                let! res2 = f (LinkedList [34; 5; 58])
+                equal (List.ofSeq res2) [34; 5; 58]
             }
         }

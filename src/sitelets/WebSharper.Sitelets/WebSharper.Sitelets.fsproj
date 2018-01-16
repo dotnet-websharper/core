@@ -6,15 +6,15 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Extensions.fs" />
-    <Compile Include="Attributes.fs" />
     <Compile Include="Http.fs" />
-    <Compile Include="ActionEncoding.fsi" />
-    <Compile Include="ActionEncoding.fs" />
     <Compile Include="UserSession.fs" />
     <Compile Include="Page.fsi" />
     <Compile Include="Page.fs" />
-    <Compile Include="Router.fsi" />
     <Compile Include="Router.fs" />
+    <Compile Include="InferredRouter.fs" />
+    <Compile Include="RouterAttributeReader.fs" />
+    <Compile Include="RouterInfer.Server.fs" />
+    <Compile Include="RouterInfer.Client.fs" />
     <Compile Include="Context.fsi" />
     <Compile Include="Context.fs" />
     <Compile Include="Content.fsi" />

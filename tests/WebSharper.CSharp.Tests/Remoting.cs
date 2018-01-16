@@ -108,6 +108,11 @@ namespace WebSharper.CSharp.Tests
             return Task.FromResult(new TestStruct(o.X + 1, o.Y + 1));
         }
 
+        public static int Zero()
+        {
+            return 0;
+        }
+
         static Server()
         {
             WebSharper.Core.Remoting.AddHandler(typeof(Handler), new HandlerImpl());
@@ -233,6 +238,31 @@ namespace WebSharper.CSharp.Tests
             o = await Server.IncrementXYStruct(o);
             Equal(o.X, 2);
             Equal(o.Y, 2);
+        }
+
+        [Test]
+        public void IsClientTest()
+        {
+            if (WebSharper.Pervasives.IsClient)
+            {
+                if (!WebSharper.Pervasives.IsClient)
+                {
+                    Server.Zero();
+                }
+                else
+                {
+                    Equal(1, 1, "IsClient in if statement");
+                }
+            }
+            else
+            {
+                Server.Zero();
+            }
+            var ok =
+                WebSharper.Pervasives.IsClient ? 
+                    (!WebSharper.Pervasives.IsClient ? Server.Zero() : 1)
+                    : Server.Zero();
+            Equal(ok, 1, "IsClient in conditional expression");
         }
     }
 }

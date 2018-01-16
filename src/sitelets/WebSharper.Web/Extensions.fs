@@ -19,24 +19,12 @@
 // $end{copyright}
 
 /// Implements utilities for use by the current assembly.
-namespace WebSharper.Sitelets
+namespace WebSharper.Web
 
 open WebSharper
 
 [<AutoOpen>]
 module internal Extensions =
-    open System.Diagnostics
-
-    let private source =
-        TraceSource("WebSharper", SourceLevels.All)
-
-    let Timed message action =
-        let sw = Stopwatch()
-        sw.Start()
-        let r = action()
-        source.TraceInformation("{0} in {1} sec.",
-            message, sw.Elapsed.TotalSeconds)
-        r
 
     let startsWithSlash (s: string) =
         s.Length > 0
@@ -54,7 +42,3 @@ module internal Extensions =
 
     let appendSlash (s: string) =
         if endsWithSlash s then s else s + "/"
-
-    [<Inline>]
-    let internal ofObjNoConstraint (x: 'T) =
-        if obj.ReferenceEquals(x, null) then None else Some x

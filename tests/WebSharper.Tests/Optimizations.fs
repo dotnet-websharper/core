@@ -23,7 +23,7 @@ module WebSharper.Tests.Optimizations
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-module R = WebSharper.Testing.Random
+module R = WebSharper.Testing.RandomValues
 
 [<JavaScript>]
 let GlobalTupled (a, b) =
@@ -370,6 +370,12 @@ let TupledArgWithGlobal() =
 [<JavaScript>]
 let TupledArgWithLocal() =
     let LocalTupled (a, b) =
+        a + b 
+    TupledArg LocalTupled
+
+[<JavaScript>]
+let TupledArgWithLocalAlias() =
+    let LocalTupled ((a, b) as x) =
         a + b 
     TupledArg LocalTupled
 

@@ -36,6 +36,7 @@ type Id =
         mutable IdName : string option
         Id: int64
         Mutable : bool
+        Tuple : bool
     }
 
     member this.Name 
@@ -43,25 +44,23 @@ type Id =
         and set n = this.IdName <- n
 
     member this.IsMutable = this.Mutable
+    member this.IsTuple = this.Tuple
     
-    static member New(?name, ?mut) =
+    static member New(?name, ?mut, ?tup) =
         {
             IdName = name
             Id = Ids.New()
             Mutable = defaultArg mut true
+            Tuple = defaultArg tup false
         }
 
     member this.Clone() =
-        {
-            IdName = this.IdName
+        { this with
             Id = if this.Id < 0L then this.Id else Ids.New()
-            Mutable = this.Mutable
         }
 
     member this.ToMutable() =
-        {
-            IdName = this.IdName
-            Id = this.Id
+        { this with
             Mutable = true
         }
 
@@ -258,7 +257,17 @@ type TypeDefinitionInfo =
     member this.AssemblyQualifiedName =
         this.FullName + ", " + this.Assembly
         
-    override this.ToString() = this.FullName            
+    override this.ToString() = this.FullName    
+    
+    member this.GenericLength =
+        try
+            this.FullName.Split('.', '+') |> Array.sumBy (fun n ->
+                match n.IndexOf '`' with
+                | -1 -> 0
+                | i -> int (n.Substring(i + 1))
+            )
+        with _ ->
+            failwithf "failed to get generics count of type %s" this.FullName
 
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
@@ -311,8 +320,8 @@ module Definitions =
 
     let Void =
         TypeDefinition {
-            Assembly = "System.Void"
-            FullName = "netstandard"
+            Assembly = "netstandard"
+            FullName = "System.Void"
         }
 
     let Object =
@@ -510,14 +519,14 @@ and Type =
     member this.SubstituteGenerics (gs : Type[]) =
         match this with 
         | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
-        | TypeParameter i -> gs.[i]
+        | TypeParameter i
+        | StaticTypeParameter i -> if gs.Length > i then gs.[i] else this
         | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics gs, i)
         | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
         | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
         | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
-        | VoidType 
-        | StaticTypeParameter _ 
-        | LocalTypeParameter -> this
+        | VoidType -> this
+        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -580,6 +589,19 @@ and Type =
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
 
+    static member IsGenericCompatible(t1, t2) =
+        match t1, t2 with
+        | (StaticTypeParameter _ | LocalTypeParameter | TypeParameter _), _
+        | _, (StaticTypeParameter _ | LocalTypeParameter | TypeParameter _) ->
+            true
+        | ConcreteType t1, ConcreteType t2 -> t1.Entity = t2.Entity && t1.Generics.Length = t2.Generics.Length && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) t1.Generics t2.Generics
+        | ArrayType (t1, r1), ArrayType (t2, r2) -> r1 = r2 && Type.IsGenericCompatible(t1, t2)
+        | TupleType (t1, s1), TupleType (t2, s2) -> s1 = s2 && t1.Length = t2.Length && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) t1 t2 
+        | FSharpFuncType (a1, r1), FSharpFuncType (a2, r2) -> Type.IsGenericCompatible(a1, a2) && Type.IsGenericCompatible(r1, r2)
+        | ByRefType t1, ByRefType t2 -> Type.IsGenericCompatible(t1, t2)
+        | VoidType, VoidType -> true
+        | _ -> false
+
 type MethodInfo =
     {
         MethodName : string
@@ -629,6 +651,7 @@ module private Instances =
             IdName = Some "window"
             Id = -1L
             Mutable = false
+            Tuple = false
         }
 
     let DefaultCtor =

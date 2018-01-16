@@ -37,11 +37,47 @@ type TestCategory() =
     member this.JsEqual(x: 'T, y: 'T, message) =
         asserter.Equal(x, y, message)
 
+    member this.NotJsEqual(x: 'T, y: 'T) =
+        asserter.NotEqual(x, y)
+
+    member this.NotJsEqual(x: 'T, y: 'T, message) =
+        asserter.NotEqual(x, y, message)
+
     member this.DeepEqual(x: 'T, y: 'T) =
         asserter.DeepEqual(x, y)
 
     member this.DeepEqual(x: 'T, y: 'T, message) =
         asserter.DeepEqual(x, y, message)
+
+    member this.NotDeepEqual(x: 'T, y: 'T) =
+        asserter.NotDeepEqual(x, y)
+
+    member this.NotDeepEqual(x: 'T, y: 'T, message) =
+        asserter.NotDeepEqual(x, y, message)
+
+    member this.StrictEqual(x: 'T, y: 'T) =
+        asserter.StrictEqual(x, y)
+
+    member this.StrictEqual(x: 'T, y: 'T, message) =
+        asserter.StrictEqual(x, y, message)
+
+    member this.NotStrictEqual(x: 'T, y: 'T) =
+        asserter.NotStrictEqual(x, y)
+
+    member this.NotStrictEqual(x: 'T, y: 'T, message) =
+        asserter.NotStrictEqual(x, y, message)
+
+    member this.PropEqual(x: 'T, y: 'T) =
+        asserter.PropEqual(x, y)
+
+    member this.PropEqual(x: 'T, y: 'T, message) =
+        asserter.PropEqual(x, y, message)
+
+    member this.NotPropEqual(x: 'T, y: 'T) =
+        asserter.NotPropEqual(x, y)
+
+    member this.NotPropEqual(x: 'T, y: 'T, message) =
+        asserter.NotPropEqual(x, y, message)
 
     member this.ApproxEqual(x: float, y: float) =
         asserter.Push(abs (x - y) < 0.0001, x, y)
@@ -110,12 +146,12 @@ type TestCategory() =
     member this.Expect(n: int) =
         asserter.Expect(n)
 
-    member this.Run(name: string, f: unit -> unit) =
+    member internal this.Run(name: string, f: unit -> unit) =
         QUnit.Test name (fun a ->
             asserter <- a
             f())
 
-    member this.Run(name: string, f: unit -> Task) =
+    member internal this.Run(name: string, f: unit -> Task) =
         QUnit.Test name (fun a ->
             asserter <- a
             let ``done`` = asserter.Async()
@@ -170,7 +206,7 @@ type TestGenerator() =
                     match m.GetParameters() with
                     | [||] -> Choice1Of2 (Expr.Call(v, m, []))
                     | [|p|] ->
-                        let sampleTy = typedefof<Random.Sample<_>>.MakeGenericType(p.ParameterType)
+                        let sampleTy = typedefof<RandomValues.Sample<_>>.MakeGenericType(p.ParameterType)
                         let sampleCtor = sampleTy.GetConstructor([||])
                         let sample = Expr.NewObject(sampleCtor, [])
                         let dataMeth = sampleTy.GetProperty("Data").GetGetMethod()

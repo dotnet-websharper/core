@@ -37,6 +37,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notAnnotatedCustomTypes = Dictionary()
     let customTypes = MergedDictionary meta.CustomTypes
     let macroEntries = MergedDictionary meta.MacroEntries
+    let quotations = MergedDictionary meta.Quotations
 
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
@@ -47,6 +48,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
+    let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -59,6 +61,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
+
+    let defaultAddressOf (typ: TypeDefinition) =
+        let removeGen (n: string) =
+            match n.LastIndexOf '`' with
+            | -1 -> n
+            | i -> n.[.. i - 1]
+        typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
 
     member val UseLocalMacros = true with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
@@ -123,6 +132,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Fields = Dictionary() 
                     StaticConstructor = None 
                     Methods = Dictionary()
+                    QuotedArgMethods = Dictionary()
                     Implementations = Dictionary()
                     HasWSPrototype = false
                     Macros = []
@@ -154,6 +164,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.HasWSPrototype = cls.HasWSPrototype
                     member this.Macros = cls.Macros
                 }
+
+        member this.GetQuotation(pos) = quotations.TryFind pos
 
         member this.GetJavaScriptClasses() = classes.Keys |> List.ofSeq
         member this.GetTypeAttributes(typ) = this.LookupTypeAttributes typ
@@ -319,23 +331,38 @@ type Compilation(meta: Info, ?hasGraph) =
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
+            Quotations = quotations.Current
             ResourceHashes = Dictionary()
         }    
 
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
 
+    member this.AddQuotedArgMethod(typ, m, a) =
+        compilingQuotedArgMethods.Add((typ, m), a)
+
+    member this.TryLookupQuotedArgMethod(typ, m) =
+        match compilingQuotedArgMethods.TryFind(typ, m) with
+        | Some x -> Some x
+        | None ->
+            match meta.Classes.TryFind(typ) with
+            | Some c ->
+                match c.QuotedArgMethods.TryFind(m) with
+                | Some x -> Some x
+                | None -> None
+            | None -> None
+
     member this.AddClass(typ, cls) =
         try
             notResolvedClasses.Add(typ, cls)
         with _ ->
             if cls.IsProxy then
+                let orig = notResolvedClasses.[typ]                    
                 if Option.isSome cls.StrongName then
                     this.AddError(None, SourceError ("Proxy extension can't be strongly named: " + typ.Value.FullName))
-                elif Option.isSome cls.BaseClass then
-                    this.AddError(None, SourceError ("Proxy extension can't have a non-Object base class: " + typ.Value.FullName))
+                elif Option.isSome cls.BaseClass && cls.BaseClass <> orig.BaseClass then
+                    this.AddError(None, SourceError ("Proxy extension must have the same base class as the original: " + typ.Value.FullName))
                 else 
-                    let orig = notResolvedClasses.[typ]                    
                     notResolvedClasses.[typ] <-
                         { orig with
                             Requires = cls.Requires @ orig.Requires
@@ -792,6 +819,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     StaticConstructor = if Option.isSome cctor then unresolvedCctor else None 
                     Methods = methods
                     Implementations = Dictionary()
+                    QuotedArgMethods = Dictionary()
                     HasWSPrototype = hasWSPrototype
                     Macros = cls.Macros |> List.map (fun (m, p) -> m, p |> Option.map ParameterObject.OfObj)
                 }
@@ -886,6 +914,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let compiledStaticMember (address: Address) (nr : NotResolvedMethod) =
             match nr.Kind with
+            | N.Quotation _
             | N.Static -> Static address
             | N.Constructor -> Constructor address
             | _ -> failwith "Invalid static member kind"
@@ -987,6 +1016,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Instance -> sn, Some false, false
                         | N.Static
                         | N.Constructor -> sn, Some true, false
+                        | N.Quotation (pos, argNames) -> 
+                            match m with 
+                            | M.Method (mdef, _) ->
+                                quotations.Add(pos, (typ, mdef, argNames))
+                            | _ -> failwith "quoted javascript code must be inside a method"
+                            sn, Some true, false 
                         | N.Remote _
                         | N.Inline
                         | N.NoFallback -> sn, None, false
@@ -1157,13 +1192,31 @@ type Compilation(meta: Info, ?hasGraph) =
             if not (r.ExactStaticAddress addr) then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
             nameStaticMember typ (Address addr) m
+
+        for KeyValue((td, m), args) in compilingQuotedArgMethods do
+            let cls =
+                match classes.TryFind td with
+                | Some cls -> cls
+                | None ->
+                    let cls =
+                        {
+                            Address = Some (r.ClassAddress(defaultAddressOf td, false))
+                            BaseClass = None
+                            Constructors = Dictionary()
+                            Fields = Dictionary()
+                            StaticConstructor = None
+                            Methods = Dictionary()
+                            QuotedArgMethods = Dictionary()
+                            Implementations = Dictionary()
+                            HasWSPrototype = false
+                            Macros = []
+                        }
+                    classes.Add(td, cls)
+                    cls
+            cls.QuotedArgMethods.Add(m, args)
               
         for typ in remainingClasses do
-            let removeGen (n: string) =
-                match n.LastIndexOf '`' with
-                | -1 -> n
-                | i -> n.[.. i - 1]
-            let addr = typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
+            let addr = defaultAddressOf typ
             r.ClassAddress(addr, classes.[typ].HasWSPrototype)
             |> setClassAddress typ
         
@@ -1345,6 +1398,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = 0
                 }
 
+            let equalsImpl =
+                Method { equals.Value with MethodName = "EqualsImpl" }
+
             let getHashCode =
                 Method {
                     MethodName = "GetHashCode"
@@ -1352,6 +1408,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     ReturnType = NonGenericType Definitions.Int
                     Generics = 0
                 } 
+
+            let getHashCodeImpl =
+                Method { getHashCode.Value with MethodName = "GetHashCodeImpl" } 
 
             let toString =
                 Method {
@@ -1405,15 +1464,19 @@ type Compilation(meta: Info, ?hasGraph) =
             let uchEqIndex =
                 try graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
                 with e -> failwithf "%A | %A" uncheckedMdl.Value uncheckedEquals.Value
+            let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 
             graph.AddEdge(objEqIndex, uchEqIndex)
-            graph.AddEdge(uchEqIndex, objEqIndex)
+            graph.AddEdge(uchEqIndex, implEqIndex)
+            graph.AddEdge(implEqIndex, objEqIndex)
 
             let objHashIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, getHashCode)]
             let uchHashIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedHash)]
+            let implHashIndex = graph.Lookup.[MethodNode (Definitions.Obj, getHashCodeImpl)]
 
             graph.AddEdge(objHashIndex, uchHashIndex)
-            graph.AddEdge(uchHashIndex, objHashIndex)
+            graph.AddEdge(uchHashIndex, implHashIndex)
+            graph.AddEdge(implHashIndex, objHashIndex)
 
             let objToStringIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, toString)]
             let oprToString = MethodNode (operatorsMdl, operatorsToString)
@@ -1475,6 +1538,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
                 EntryPoint = None
                 MacroEntries = macroEntries
+                Quotations = quotations
                 ResourceHashes = Dictionary()
             }    
         let jP = Json.Provider.CreateTyped(info)

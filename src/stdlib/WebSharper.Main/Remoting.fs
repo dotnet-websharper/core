@@ -158,12 +158,12 @@ type AjaxRemotingProvider() =
                 let ok (x: Data) = 
                     if !waiting then
                         waiting := false
-                        (reg :> System.IDisposable).Dispose()
+                        reg.Dispose()
                         ok (Json.Activate (Json.Parse x))
                 let err (e: exn) =
                     if !waiting then
                         waiting := false
-                        (reg :> System.IDisposable).Dispose()
+                        reg.Dispose()
                         err e
                 AjaxProvider.Async this.EndPoint headers payload ok err)
         }

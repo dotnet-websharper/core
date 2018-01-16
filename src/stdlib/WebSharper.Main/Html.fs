@@ -29,7 +29,7 @@ module J = WebSharper.Core.Json
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : seq<M.Node>
+    abstract member Requires : M.Info -> seq<M.Node>
     abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
 
 /// HTML content that can be used as the Body of a web Control.
@@ -71,12 +71,12 @@ module Activator =
     [<Literal>]
     let META_ID = "websharper-data"
 
-    [<Direct "typeof document !== 'undefined'">]
-    let private hasDocument () = false
+    [<Direct "typeof document !== 'undefined' && typeof jQuery !== 'undefined'">]
+    let private hasDocumentAndJQuery () = false
 
     [<JavaScript>]
     let private Activate() =
-        if hasDocument () then
+        if hasDocumentAndJQuery () then
             let meta = JS.Document.GetElementById(META_ID)
             if (As meta) then
                 JQuery.Of(JS.Document).Ready(fun () ->
@@ -84,8 +84,12 @@ module Activator =
                     let obj = Json.Activate (Json.Parse text)
                     JS.GetFields obj
                     |> Array.iter (fun (k, v) ->
-                        let p = (As<IControl> v).Body
-                        let old = JS.Document.GetElementById k
-                        p.ReplaceInDom old)
+                        match v with
+                        | :? IControl as v ->
+                            let p = v.Body
+                            let old = JS.Document.GetElementById k
+                            p.ReplaceInDom old
+                        | _ -> ()
+                    )
                 ).Ignore
 

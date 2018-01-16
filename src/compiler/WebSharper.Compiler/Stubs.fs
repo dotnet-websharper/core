@@ -23,7 +23,11 @@ module WebSharper.Compiler.Stubs
 open WebSharper.Core.AST
 open AttributeReader
 
-let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstance (mdef: Method) =
+let GetSimpleTypeName (tdef: TypeDefinition) =
+    let n = tdef.Value.FullName.Split('.', '+') |> Array.last
+    n.Split('`').[0]
+
+let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstance (tdef: TypeDefinition) (mdef: Method) =
     let mutable error = None
     let mname, isGet, isSet =
         let mname = mdef.Value.MethodName
@@ -68,10 +72,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
                 | Some cn ->
                     Some (cn.Split('.') |> List.ofArray, n)
                 | _ ->
-                    if isProp then
-                        error <- Some "Static stub property with short name requres the type to have a Name attribute"
-                        None
-                    else Some ([], n)
+                    Some ([ GetSimpleTypeName tdef ], n)
             | _ ->
                 let l = p.Length
                 Some (p.[ .. l - 2] |> List.ofArray, p.[l - 1])
@@ -99,8 +100,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isInstan
             Application(a, args, NonPure, Some l)
     , error
 
-let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (cdef: Constructor) =
-    let mutable error = None
+let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (tdef: TypeDefinition) (cdef: Constructor) =
     let a =
         match mAnnot.Name with
         | Some a ->  a.Split('.') |> List.ofArray
@@ -108,14 +108,12 @@ let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (cd
             match tAnnot.Name with
             | Some a -> a.Split('.') |> List.ofArray
             | _ ->
-                if not cdef.Value.CtorParameters.IsEmpty then
-                    error <- Some "Constructor or containing class must have Name attribute"
-                []
-    match a, error with
-    | [], None -> 
-        Object [], None
+                [ GetSimpleTypeName tdef ]
+    match a with
+    | [] -> 
+        Object []
     | _ ->
         let l = cdef.Value.CtorParameters.Length
         let args = List.init l Hole
         let f = if a.IsEmpty then errorPlaceholder else Global a
-        New(f, args), error
+        New(f, args)

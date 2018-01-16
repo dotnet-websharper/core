@@ -195,6 +195,12 @@ type MyObj () =
     class end
 
 [<JavaScript>]
+type AlwaysEqual (x) =
+    member this.Value: int = x
+    override this.Equals(o) = true
+    override this.GetHashCode() = 0
+
+[<JavaScript>]
 let Tests =
     TestCategory "Object" {
 
@@ -228,6 +234,14 @@ let Tests =
             let a = { K = 4 }
             let b = { K = 4 }
             isFalse (System.Object.ReferenceEquals(a, b))
+        }
+
+        Test "Overridden Equals method" {
+            let a = AlwaysEqual 1
+            let b = AlwaysEqual 2
+            equalAsync (async { return 1 }) 1
+            equalMsg a b "WebSharper's equality"
+            isFalseMsg (a ==. b) "JS equality not "
         }
 
         Test "ToString" {
@@ -370,8 +384,11 @@ let Tests =
         Test "Record with interface" {
             let r = { R3A = 4 }
             equal ((r :> I).Get()) 4
+            equal ((r :> I2).Get()) 4
             equal ((r :> I2)?``I2$Get``()) 4
+            equal ((r :> I3).Get()) 4
             equal ((r :> I3)?Get()) 4
+            equal ((r :> I4).Value) 4
             equal ((r :> I4)?I4Value()) 4
             (r :> I4).Value <- 5
             equal ((r :> I4)?I4Value()) 5

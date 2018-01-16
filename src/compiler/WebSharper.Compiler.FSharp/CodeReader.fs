@@ -25,6 +25,7 @@ open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
+open System.Collections.Generic
 
 type VarKind =
     | LocalVar 
@@ -224,18 +225,19 @@ module Definitions =
 
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
+    let isTuple = i.FullType.IsTupleType
     if i.IsCompilerGenerated then
         let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
         if n.Length > 0 then
-            Id.New(n.Substring(0, 1), i.IsMutable)
+            Id.New(n.Substring(0, 1), i.IsMutable, isTuple)
         else
-            Id.New(mut = i.IsMutable)
+            Id.New(mut = i.IsMutable, tup = isTuple)
     elif i.IsActivePattern then
-        Id.New(i.DisplayName.Split('|').[1], i.IsMutable)
+        Id.New(i.DisplayName.Split('|').[1], i.IsMutable, isTuple)
     else
         let n = i.DisplayName
-        if n = "( builder@ )" then Id.New("b", i.IsMutable)
-        else Id.New(n, i.IsMutable) 
+        if n = "( builder@ )" then Id.New("b", i.IsMutable, isTuple)
+        else Id.New(n, i.IsMutable, isTuple) 
 
 type MatchValueVisitor(okToInline: int[]) =
     inherit Visitor()
@@ -507,6 +509,7 @@ type Environment =
     {
         ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
         TParams : Map<string, int>
+        FreeVars : ResizeArray<FSharpMemberOrFunctionOrValue * Id * VarKind>
         Exception : option<Id>
         Compilation : Compilation
         SymbolReader : SymbolReader
@@ -518,6 +521,7 @@ type Environment =
         { 
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
+            FreeVars = ResizeArray()
             Exception = None
             Compilation = comp
             SymbolReader = sr 
@@ -532,9 +536,17 @@ type Environment =
             Exception = Some i }
 
     member this.LookupVar (v: FSharpMemberOrFunctionOrValue) =
-        match this.ScopeIds |> List.tryPick (fun (sv, i, k) -> if sv = v then Some (i, k) else None) with
+        let isMatch (sv, i, k) = if sv = v then Some (i, k) else None
+        match this.ScopeIds |> List.tryPick isMatch with
         | Some var -> var
-        | _ -> failwithf "Variable lookup failed: %s" v.DisplayName
+        | None ->
+            match this.FreeVars |> Seq.tryPick isMatch with
+            | Some var -> var
+            | None ->
+            let id = namedId v
+            let kind = VarKind.FuncArg
+            this.FreeVars.Add((v, id, kind))
+            id, kind
     
 let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
     match expr with 
@@ -707,7 +719,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.Const (value, _) ->
             Value(ReadLiteral value)
         | P.IfThenElse (cond, then_, else_) ->
-            Conditional(tr cond, tr then_, tr else_)    
+            let trCond = tr cond
+            match trCond with
+            | IsClientCall b ->
+                if b then tr then_ else tr else_
+            | _ ->
+                Conditional(trCond, tr then_, tr else_)    
         | P.NewObject (ctor, typeGenerics, arguments) -> 
             let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity ctor)
             let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
@@ -1080,15 +1097,24 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
         | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
+            let isInstance = memberFlags.IsInstance
             let meth =
                 Method {
                     MethodName = traitName
-                    Parameters = typeInstantiation |> List.map (sr.ReadTypeSt true env.TParams)
+                    Parameters = argExprs |> List.skip (if isInstance then 1 else 0) |> List.map (fun e -> e.Type |> sr.ReadTypeSt true env.TParams)
                     ReturnType = sr.ReadTypeSt true env.TParams expr.Type
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            TraitCall(s, NonGeneric meth, argExprs |> List.map tr)  
+            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
+            if isInstance then 
+                match argExprs |> List.map tr with
+                | t :: a ->
+                    TraitCall(Some t, s, m, a)
+                | _ ->
+                    failwith "No this value found for instance trait call"
+            else
+                TraitCall(None, s, m, argExprs |> List.map tr)  
         | P.UnionCaseSet _ ->
             parsefailf "UnionCaseSet pattern is only allowed in FSharp.Core"
         | _ -> parsefailf "F# expression not recognized"
@@ -1100,3 +1126,72 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         env.Compilation.AddError(Some (getSourcePos expr), WebSharper.Compiler.SourceError msg)
         errorPlaceholder        
     |> withSourcePos expr
+
+type Microsoft.FSharp.Compiler.Range.range with
+    member this.AsSourcePos =
+        {
+            FileName = System.IO.Path.GetFileName(this.FileName)
+            Start = this.StartLine, this.StartColumn
+            End = this.EndLine, this.EndColumn
+        }
+
+let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
+    let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
+    let quotations = ResizeArray()
+    let rec scan (expr: FSharpExpr) =
+        let default'() =
+            List.iter scan expr.ImmediateSubExpressions
+        match expr with
+        | P.Let ((id, (P.Quote value)), body) ->
+            // I'd rather pass around a Map than do this dictionary mutation,
+            // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
+            vars.[id] <- value
+            scan body
+            vars.Remove(id) |> ignore
+        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+            let typ = env.SymbolReader.ReadTypeDefinition(meth.EnclosingEntity.Value)
+            match env.SymbolReader.ReadMember(meth) with
+            | Member.Method(_, m) ->
+                match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
+                | Some x ->
+                    x |> Array.iter (fun i ->
+                        let arg = arguments.[i]
+                        match arg with
+                        | P.Quote e -> Some e
+                        | P.Value v ->
+                            match vars.TryGetValue v with
+                            | true, e -> Some e
+                            | false, _ -> None
+                        | _ -> None
+                        |> Option.iter (fun e ->
+                            let pos = e.Range.AsSourcePos
+                            let e = transformExpression env e
+                            let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                            let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
+                            let qm =
+                                Hashed {
+                                    MethodInfo.Generics = 0
+                                    MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
+                                    MethodInfo.Parameters = argTypes
+                                    MethodInfo.ReturnType = retTy
+                                }
+                            let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
+                            let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
+                            // emptying FreeVars so that env can be reused for reading multiple quotation arguments
+                            env.FreeVars.Clear()
+                            // if the quotation is a single static call, the runtime fallback will be able to 
+                            // handle it without introducing a pre-compiled function for it
+                            let isTrivial =
+                                match e with 
+                                | I.Call(None, _, _, args) ->
+                                    args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
+                                | _ -> false
+                            if not isTrivial then
+                                quotations.Add(pos, qm, argNames, f) 
+                        )
+                    )
+                | _ -> default'()
+            | _ -> default'()
+        | _ -> default'()
+    scan expr
+    quotations :> _ seq

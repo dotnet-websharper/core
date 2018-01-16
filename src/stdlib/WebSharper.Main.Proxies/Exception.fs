@@ -36,6 +36,7 @@ type private ExceptionProxy =
 
     member this.Message with [<Inline "$this.message">] get () = X<string>
     member this.InnerException with [<Inline "$this.inner">] get () = X<System.Exception>
+    member this.StackTrace with [<Inline "$this.stack">] get () = X<string>
 
 [<Proxy(typeof<MatchFailureException>)>]
 [<Name "MatchFailureException">]

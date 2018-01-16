@@ -40,8 +40,8 @@ let Tests =
             })
         }
 
-        let smallInt = Random.Within -20 20
-        let len = Random.Within 0 99
+        let smallInt = RandomValues.Within -20 20
+        let len = RandomValues.Within 0 99
         let invComparer =
             { new System.Collections.Generic.IComparer<int> with
                 member __.Compare(x, y) = compare y x
@@ -49,7 +49,7 @@ let Tests =
 
         Test "BinarySearch (basic)" {
             propertyWith (
-                Random.Tuple2Of (Random.ArrayOf smallInt, smallInt)
+                RandomValues.Tuple2Of (RandomValues.ArrayOf smallInt, smallInt)
             ) (fun (haystack, needle) -> Do {
                 Array.sortInPlace haystack
                 let expected =
@@ -64,7 +64,7 @@ let Tests =
 
         Test "BinarySearch (comparer)" {
             propertyWith (
-                Random.Tuple2Of (Random.ArrayOf smallInt, smallInt)
+                RandomValues.Tuple2Of (RandomValues.ArrayOf smallInt, smallInt)
             ) (fun (haystack, needle) -> Do {
                 Array.sortInPlaceBy (~-) haystack
                 let expected =
@@ -79,8 +79,8 @@ let Tests =
 
         Test "BinarySearch (bounds)" {
             propertyWith (
-                Random.Tuple4Of (Random.ArrayOf smallInt, len, len, smallInt)
-                |> Random.SuchThat (fun (a, s, l, x) -> s + l <= a.Length)
+                RandomValues.Tuple4Of (RandomValues.ArrayOf smallInt, len, len, smallInt)
+                |> RandomValues.SuchThat (fun (a, s, l, x) -> s + l <= a.Length)
             ) (fun (haystack, start, length, needle) -> Do {
                 Array.sortInPlace haystack
                 let expected =
@@ -97,8 +97,8 @@ let Tests =
 
         Test "BinarySearch (bounds, comparer)" {
             propertyWith (
-                Random.Tuple4Of (Random.ArrayOf smallInt, len, len, smallInt)
-                |> Random.SuchThat (fun (a, s, l, x) -> s + l <= a.Length)
+                RandomValues.Tuple4Of (RandomValues.ArrayOf smallInt, len, len, smallInt)
+                |> RandomValues.SuchThat (fun (a, s, l, x) -> s + l <= a.Length)
             ) (fun (haystack, start, length, needle) -> Do {
                 Array.sortInPlaceBy (~-) haystack
                 let expected =
@@ -115,8 +115,8 @@ let Tests =
 
         Test "Clear" {
             propertyWith (
-                Random.Tuple3Of (Random.ArrayOf smallInt, len, len)
-                |> Random.SuchThat (fun (a, s, l) -> s + l <= a.Length)
+                RandomValues.Tuple3Of (RandomValues.ArrayOf smallInt, len, len)
+                |> RandomValues.SuchThat (fun (a, s, l) -> s + l <= a.Length)
             ) (fun (a, s, l) -> Do {
                 let b = Array.copy a
                 System.Array.Clear(b, s, l)
@@ -273,7 +273,7 @@ let Tests =
             System.Array.Resize(r, 3)
             equalMsg (!r) [|0; 0; 0|] "null"
             propertyWith (
-                Random.Tuple2Of(Random.ArrayOf smallInt, len)
+                RandomValues.Tuple2Of(RandomValues.ArrayOf smallInt, len)
             ) (fun (a, n) -> Do {
                 let r = ref a
                 System.Array.Resize(r, n)
@@ -285,8 +285,8 @@ let Tests =
 
         Test "Sort" {
             propertyWith (
-                Random.Tuple4Of(Random.ArrayOf smallInt, Random.ArrayOf Random.StringReadable, len, len)
-                |> Random.SuchThat (fun (keys, items, index, length) ->
+                RandomValues.Tuple4Of(RandomValues.ArrayOf smallInt, RandomValues.ArrayOf RandomValues.StringReadable, len, len)
+                |> RandomValues.SuchThat (fun (keys, items, index, length) ->
                     keys.Length = items.Length && index + length < keys.Length
                 )
             ) (fun (keys, items, index, length) -> Do {

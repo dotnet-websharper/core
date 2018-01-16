@@ -11,29 +11,37 @@ dependencies
     WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.CSharp.targets ==> build
-    ../build/Release/CSharp/net461/ZafirCs.exe ==> tools
-    ../build/Release/CSharp/net461/ZafirCs.exe.config ==> tools
-    ../build/Release/CSharp/net461/WebSharper.Compiler.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> tools
-    ../build/Release/CSharp/net46/WebSharper.MSBuild.CSharp.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.CSharp.Analyzer.dll ==> tools
-    ../build/Release/FSharp/net461/WebSharper.Sitelets.Offline.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.Core.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.Core.JavaScript.dll ==> tools
-    ../build/Release/CSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools
-    ../build/Release/CSharp/net461/FSharp.Core.dll ==> tools
-    ../build/Release/CSharp/net461/Mono.Cecil.dll ==> tools
-    ../build/Release/CSharp/net461/Mono.Cecil.Mdb.dll ==> tools
-    ../build/Release/CSharp/net461/Mono.Cecil.Pdb.dll ==> tools
-    ../build/Release/CSharp/net461/Microsoft.CodeAnalysis.dll ==> tools
-    ../build/Release/CSharp/net461/Microsoft.CodeAnalysis.CSharp.dll ==> tools
-    ../build/Release/CSharp/net461/System.ValueTuple.dll ==> tools
-    ../build/Release/CSharp/net461/System.Collections.Immutable.dll ==> tools
-    ../build/Release/CSharp/net461/System.Reflection.Metadata.dll ==> tools
-    ../build/Release/CSharp/net461/System.IO.FileSystem.dll ==> tools
-    ../build/Release/FSharp/net461/System.Globalization.dll ==> tools
-    ../build/Release/CSharp/net461/System.Security.Cryptography.Algorithms.dll ==> tools
-    ../build/Release/CSharp/net461/System.Security.Cryptography.Primitives.dll ==> tools
-    ../build/Release/CSharp/net461/netstandard.dll.ref ==> tools
+    ../build/Release/CSharp/ZafirCs.exe ==> tools
+    ../build/Release/CSharp/ZafirCs.exe.config ==> tools
+    ../build/Release/CSharp/WebSharper.Compiler.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> tools
+    ../build/Release/CSharp/WebSharper.MSBuild.CSharp.dll ==> tools
+    ../build/Release/WebSharper.Sitelets.Offline.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Core.dll ==> tools
+    ../build/Release/CSharp/WebSharper.Core.JavaScript.dll ==> tools
+    ../build/Release/CSharp/WebSharper.InterfaceGenerator.dll ==> tools
+    ../build/Release/CSharp/FSharp.Core.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.Mdb.dll ==> tools
+    ../build/Release/CSharp/Mono.Cecil.Pdb.dll ==> tools
+    ../build/Release/CSharp/Microsoft.CodeAnalysis.dll ==> tools
+    ../build/Release/CSharp/Microsoft.CodeAnalysis.CSharp.dll ==> tools
+    ../build/Release/CSharp/System.ValueTuple.dll ==> tools
+    ../build/Release/CSharp/System.Collections.Immutable.dll ==> tools
+    ../build/Release/CSharp/System.Reflection.Metadata.dll ==> tools
+    ../build/Release/CSharp/System.IO.FileSystem.dll ==> tools
+    ../build/Release/CSharp/System.Security.Cryptography.Algorithms.dll ==> tools
+    ../build/Release/CSharp/System.Security.Cryptography.Primitives.dll ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools
+    ../build/Release/CSharp/FSharp.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/System.ValueTuple.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs

@@ -51,6 +51,7 @@ type private Attribute =
     | Website of TypeDefinition
     | SPAEntryPoint
     | Prototype of bool
+    | OtherAttribute
     
 type private A = Attribute
 
@@ -111,6 +112,11 @@ type MemberAnnotation =
         DateTimeFormat : list<option<string> * string>
         Pure : bool
         Warn : option<string>
+    }
+
+type ParameterAnnotation =
+    {
+        ClientAccess: bool
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -249,7 +255,7 @@ type AttributeReader<'A>() =
         | "PrototypeAttribute" ->
             A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
         | n -> 
-            failwithf "Unknown attribute type: %s" n
+            A.OtherAttribute
 
     member private this.GetAttrs (parent: TypeAnnotation, attrs: seq<'A>) =
         let attrArr = ResizeArray()
@@ -271,6 +277,7 @@ type AttributeReader<'A>() =
                 | A.Stub -> stub <- true
                 | A.Proxy t -> proxy <- Some t
                 | A.Prototype p -> prot <- Some p
+                | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
             | _ -> ()
         if Option.isNone js && not stub && Option.isSome proxy then 
@@ -357,6 +364,20 @@ type AttributeReader<'A>() =
             Pure = isPure
             Warn = warning
         }
+
+    member this.GetParamAnnot (attrs: seq<'A>) =
+        let clientAccess =
+            attrs |> Seq.exists (fun a ->
+                match this.GetAssemblyName a with
+                | "WebSharper.Core" ->
+                    match this.Read a with
+                    | A.JavaScript true -> true
+                    | _ -> false
+                | _ -> false
+            )
+        {
+            ClientAccess = clientAccess
+        }
    
     member this.GetAssemblyAnnot (attrs: seq<'A>) =
         let reqs = ResizeArray()
@@ -366,8 +387,7 @@ type AttributeReader<'A>() =
         let jsTypesAndFiles = ResizeArray()
         for a in attrs do
             match this.GetAssemblyName a with
-            | "WebSharper.Core"
-            | "WebSharper.Sitelets" ->
+            | "WebSharper.Core" ->
                 match this.Read a with
                 | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Website t -> sitelet <- Some t

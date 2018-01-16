@@ -20,19 +20,34 @@
 
 namespace WebSharper.Sitelets.Tests
 
+open System
 open WebSharper
 
 module Client =
     open WebSharper.JavaScript
 
     [<JavaScript>]
-    type Elt(name, text) =
-        let e = JS.Document.CreateElement(name)
-        do e.AppendChild(JS.Document.CreateTextNode(text)) |> ignore
+    type Node =
+        | Elt of string * Node[]
+        | Text of string
+
+        member this.ToNode() =
+            match this with
+            | Text t -> JS.Document.CreateTextNode(t) :> Dom.Node
+            | Elt (n, ch) ->
+                let e = JS.Document.CreateElement(n)
+                for ch in ch do e.AppendChild(ch.ToNode()) |> ignore
+                e :> Dom.Node
 
         interface IControlBody with
             member this.ReplaceInDom x =
-                x.ParentNode.ReplaceChild(e, x) |> ignore
+                x.ParentNode.ReplaceChild(this.ToNode(), x) |> ignore
+
+    [<JavaScript>]
+    let Elt n ([<ParamArray>] ch) = Node.Elt(n, ch)
+
+    [<JavaScript>]
+    let Text t = Node.Text(t)
 
     [<Sealed>]
     type SignupSequenceControl() =
@@ -40,7 +55,7 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Elt("div", "SIGNUP-SEQUENCE") :> _
+            Elt "div" [|Text "SIGNUP-SEQUENCE"|] :> _
 
     [<Sealed>]
     type LoginControl(link: string) =
@@ -48,11 +63,11 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Elt("div", "LOGIN: " + link) :> _
+            Elt "div" [|Text ("LOGIN: " + link)|] :> _
 
     [<JavaScript>]
     let Widget () =
-        Elt("button", "click me!")
+        Elt "button" [|Text "click me!"|]
 
 /// A mini server-side HTML language
 module Server =
@@ -61,14 +76,14 @@ module Server =
     [<AbstractClass>]
     type RequiresNoResources() =
         interface IRequiresResources with
-            member this.Requires = Seq.empty
+            member this.Requires(_) = Seq.empty
             member this.Encode(_, _) = []
 
     type Elt(name, [<System.ParamArray>] contents: INode[]) =
         let attributes, children =
             contents |> Array.partition (fun n -> n.IsAttribute)
         interface IRequiresResources with
-            member this.Requires = children |> Seq.collect (fun c -> c.Requires)
+            member this.Requires(meta) = children |> Seq.collect (fun c -> c.Requires(meta))
             member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
         interface INode with
             member this.Write(ctx, w) =
@@ -108,11 +123,13 @@ module SampleSite =
         | Contact
         | Protected
         | Login of option<Action>
+        | [<Query("firstName", "lastName", "message")>] FormResultGet of firstName: string * lastName: string * message: string
+        | [<FormData("firstName", "lastName", "message")>] FormResultPost of firstName: string * lastName: string * message: string
         | Logout
         | Echo of string
         | Api of Api.Action
         | [<EndPoint "GET /test.png">] TestImage
-        | [<Method "POST">] Json of ActionEncoding.DecodeResult<Json.Action>
+        | [<Method "POST">] Json of ParseRequestResult<Json.Action>
         | [<EndPoint "/"; Wildcard>] AnythingElse of string
 
     /// A helper function to create a hyperlink
@@ -198,14 +215,38 @@ module SampleSite =
                 [
                     Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
+                    Elt("div", ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
+                    Elt("div",
+                        ClientSide
+                            <@ Client.Elt "i" [|
+                                Client.Text "It "
+                                Client.Elt "b" [|Client.Text "really"|]
+                                Client.Text " is!"
+                            |] @>)
                 ]
 
         /// A page to collect contact information.
         let ContactPage =
+            let form isGet =
+                let method = if isGet then "get" else "post" 
+                let action = "/sitelet-tests/FormResult" + if isGet then "Get" else "Post"  
+                Elt("div",
+                    Elt("form", Attr("action", action), Attr("method", method),
+                        Text("First name: "),
+                        Elt("input", Attr("type", "text"), Attr("name", "firstName")),
+                        Text("Last name: "),
+                        Elt("input", Attr("type", "text"), Attr("name", "lastName")),
+                        Elt("textarea", Attr("name", "message")),
+                        Elt("input", Attr("type", "submit"), Attr("value", "Submit with " + method))
+                    )
+                )
             Template "Contact" <| fun ctx ->
                 [
                     Elt("h1", Text "Contact Form")
                     Elt("div", new Client.SignupSequenceControl())
+
+                    form true
+                    form false
                 ]
 
         /// A simple page that echoes a parameter.
@@ -215,6 +256,14 @@ module SampleSite =
                     Elt("h1", Text param)
                 ]
 
+        /// A simple page that echoes two form fields.
+        let FormResult x y z =
+            Template "Form result" <| fun ctx ->
+                [
+                    Elt("h1", Text (x + " " + y))
+                    Elt("code", Text z)
+                ]
+       
         /// A simple login page.
         let LoginPage (redirectAction: option<Action>) =
             Template "Login" <| fun ctx ->
@@ -262,13 +311,16 @@ module SampleSite =
                         do! ctx.UserSession.Logout ()
                         return! Content.RedirectTemporary Action.Home
                     }
+                | Action.FormResultGet (x, y, z)
+                | Action.FormResultPost (x, y, z) ->
+                    Pages.FormResult x y z ctx
                 | Action.Home ->
                     Content.RedirectPermanent Action.Home
                 | Action.Protected ->
                     Content.ServerError
                 | Action.Api _ ->
                     Content.ServerError
-                | Action.Json (ActionEncoding.Success a) ->
+                | Action.Json (ParseRequestResult.Success a) ->
                     WebSharper.Sitelets.Tests.Json.Content a
                 | Action.Json err ->
                     Content.Json err

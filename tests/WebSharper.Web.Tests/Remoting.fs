@@ -57,6 +57,13 @@ module Server =
         | [<Constant true>] UBool
         | UNotConst
 
+    [<Prototype false>]
+    type NoProtoTypes =
+        {
+            [<CompiledName "$TYPES">]
+            Types: string[][]
+        }
+
     [<Remote>]
     let reset1 () =
         counter1 := 123
@@ -147,8 +154,18 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let add2_a_2ToMap m =
+        m |> Map.add { a = 2; b = "a" } 2
+        |> async.Return
+
+    [<Remote>]
     let add2ToSet s =
         s |> Set.add 2
+        |> async.Return
+
+    [<Remote>]
+    let add2_aToSet s =
+        s |> Set.add { a = 2; b = "a" }
         |> async.Return
 
     type T1 =
@@ -266,6 +283,27 @@ module Server =
         }
 
     [<Remote>]
+    let f22 (a: ResizeArray<string>) =
+        a.Add("test")
+        async { return a }
+
+    [<Remote>]
+    let f23 (a: System.Collections.Generic.Queue<string>) =
+        a.Enqueue("test")
+        let d = a.Dequeue()
+        async { return (d, a) }
+
+    [<Remote>]
+    let f24 (a: System.Collections.Generic.Stack<string>) =
+        let d = a.Pop()
+        a.Push("test")
+        async { return (d, a) }
+
+    [<Remote>]
+    let f25 () =
+        async { return { Types = [| [| "Serializing record with field $TYPES" |] |] } }
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -345,6 +383,7 @@ module Server =
 module Remoting =
 
     open WebSharper.Testing
+    open System.Collections.Generic
 
     [<JavaScript>]
     let Tests =
@@ -474,6 +513,32 @@ module Remoting =
                 equal y.X 6
             }
 
+            Test "ResizeArray" {
+                let! x = ResizeArray [ "Hello"; "world" ] |> Server.f22
+                equal (x.ToArray()) [| "Hello"; "world"; "test" |]
+            }
+
+            Test "Queue" {
+                let! x, q = Queue [ "Hello"; "world" ] |> Server.f23
+                equal x "Hello"
+                equal (q.ToArray()) [| "world"; "test" |]
+            }
+
+            Test "Stack" {
+                let s = Stack()
+                s.Push("Hello")
+                s.Push("world")
+                let! x, s2 = Server.f24 s
+                equal x "world"
+                equal (s2.Pop()) "test"
+                equal (s2.Pop()) "Hello"
+            }
+
+            Test "Record with field named $TYPES" {
+                let! x = Server.f25 ()
+                equal x.Types [| [| "Serializing record with field $TYPES" |] |]
+            }
+
             // currently failing
             Test "Struct" {
                 let x = Server.Struct(1, "h")
@@ -488,11 +553,23 @@ module Remoting =
             }
 
             Test "Map<int,int> -> Map<int,int>" {
+                equalAsync (Server.add2_2ToMap Map.empty) (Map.ofArray [| 2, 2 |])
                 equalAsync (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
             }
 
+            Test "Map with non-trivial key type" {
+                equalAsync (Server.add2_a_2ToMap Map.empty) (Map.ofArray [| { a = 2; b = "a" }, 2 |])
+                equalAsync (Server.add2_a_2ToMap (Map.ofArray [| { a = 2; b = "b" }, 1 |])) (Map.ofArray [| { a = 2; b = "b" }, 1; { a = 2; b = "a" }, 2 |])
+            }
+
             Test "Set<int> -> Set<int>" {
+                equalAsync (Server.add2ToSet Set.empty) (Set.ofArray [| 2 |])
                 equalAsync (Server.add2ToSet (Set.ofArray [| 0; 1; 3; 4 |])) (Set.ofArray [| 0 .. 4 |])
+            }
+
+            Test "Set with non-trivial key type" {
+                equalAsync (Server.add2_aToSet Set.empty) (Set.ofArray [| { a = 2; b = "a" } |])
+                equalAsync (Server.add2_aToSet (Set.ofArray [| { a = 1; b = "a" } |])) (Set.ofArray [| { a = 1; b = "a" } ; { a = 2; b = "a" } |])
             }
 
             Test "LoginUser()" {

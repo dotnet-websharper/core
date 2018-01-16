@@ -44,6 +44,7 @@ module NotResolved =
         | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
         | Inline
         | NoFallback
+        | Quotation of SourcePos * string list
 
     type NotResolvedMethod =
         {

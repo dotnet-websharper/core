@@ -278,13 +278,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance mdef
+                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance def mdef
                 err |> Option.iter error
                 stubs.Add memdef |> ignore
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true None expr
             | Member.Constructor cdef ->
-                let expr, err = Stubs.GetConstructorInline annot mAnnot cdef
-                err |> Option.iter error
+                let expr = Stubs.GetConstructorInline annot mAnnot def cdef
                 addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true None expr
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
@@ -668,8 +667,23 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
                     clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
-            | None 
-            | _ -> ()
+            | None -> ()
+            let jsArgs =
+                meth.CurriedParameterGroups
+                |> Seq.concat
+                |> Seq.mapi (fun i p -> i, sr.AttributeReader.GetParamAnnot(p.Attributes).ClientAccess)
+                |> Seq.choose (fun (i, x) -> if x then Some i else None)
+                |> Array.ofSeq
+            if not (Array.isEmpty jsArgs) then
+                match sr.ReadMember meth with
+                | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
+                | _ -> error "JavaScript attribute on parameter is only allowed on methods"
+            let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
+            let env = CodeReader.Environment.New ([], tparams, comp, sr)
+            CodeReader.scanExpression env meth.LogicalName expr
+            |> Seq.iter (fun (pos, mdef, argNames, e) ->
+                addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
+            )
         | SourceEntity (ent, nmembers) ->
             transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
@@ -957,7 +971,9 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
         let path = t.FullName.Split('+')
         let mutable res =
             lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
-                e.FullName = path.[0]
+                match e.TryFullName with
+                | Some fn when fn = path.[0] -> true
+                | _ -> false
             )
         for i = 1 to path.Length - 1 do
             if res.IsSome then
@@ -997,7 +1013,32 @@ let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpChe
             |> Option.map (fun m ->
                 m.Attributes |> Seq.map readAttribute |> List.ofSeq
             ) 
-        )
+            |> Option.orElseWith (fun () ->
+                if e.IsFSharpUnion then 
+                    let mn = meth.Value.MethodName
+                    let caseName =
+                        if mn.StartsWith "New" then Some (mn.Substring(3))
+                        elif mn.StartsWith "get_" then Some (mn.Substring(4))
+                        else None
+                    caseName |> Option.bind (fun cn ->
+                        let case = e.UnionCases |> Seq.tryFind (fun c -> c.CompiledName = cn)
+                        case |> Option.map (fun c ->
+                            c.Attributes |> Seq.map readAttribute |> List.ofSeq
+                        )
+                    )
+                elif e.IsFSharpRecord then
+                    let mn = meth.Value.MethodName
+                    let fieldName = 
+                        if mn.StartsWith "get_" then Some (mn.Substring(4)) else None
+                    fieldName |> Option.bind (fun fn ->
+                        let field = e.FSharpFields |> Seq.tryFind (fun f -> f.Name = fn)
+                        field |> Option.map (fun f ->
+                            f.PropertyAttributes |> Seq.map readAttribute |> List.ofSeq
+                        )
+                    )
+                else None
+            )
+        ) 
 
     let lookupConstructorAttributes (typ: TypeDefinition) (ctor: Constructor) =
         lookupTypeDefinition typ |> Option.bind (fun e -> 

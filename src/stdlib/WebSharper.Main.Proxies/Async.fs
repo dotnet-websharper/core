@@ -187,3 +187,12 @@ type private CancellationTokenSourceProxy () =
 
     static member CreateLinkedTokenSource(t1: CT, t2: CT) =
         CancellationTokenSourceProxy.CreateLinkedTokenSource [| t1; t2 |]
+
+[<Proxy(typeof<System.Threading.CancellationTokenRegistration>)>]
+type private CancellationTokenRegistrationProxy =
+    [<Inline>]
+    member this.Dispose() = (this :> System.IDisposable).Dispose() 
+    
+    interface System.IDisposable with
+        [<JavaScript false>]
+        member this.Dispose() = ()

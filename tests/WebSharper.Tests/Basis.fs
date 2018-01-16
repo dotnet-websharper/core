@@ -54,6 +54,8 @@ let rec private shadowRec bar =
     let bar = bar
     bar
 
+let serverOnlyZero() = 0
+
 module private Peano =
 
     type Peano = Z | S of Peano
@@ -479,5 +481,10 @@ let Tests =
             equalMsg a 1024 "underscores in numeric literals"                
             equalMsg (TestOptionals().TestOptionals()) 6 "Optional and DefaultParameterValue respected in F# within the same project"
             equalMsg (SameName().X(), SameName.X()) (3, 4) "implicit Module suffix"
+        }
+
+        Test "IsClient" {
+            equal (if IsClient then 1 else serverOnlyZero()) 1
+            equal (if not IsClient then serverOnlyZero() else 1) 1
         }
     }

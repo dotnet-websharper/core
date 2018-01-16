@@ -24,6 +24,9 @@ module WebSharper.Tests.Website.Content
 open WebSharper
 open WebSharper.Sitelets
 open WebSharper.Sitelets.Tests.Server
+open WebSharper.Core.Json
+
+module PerformanceTests = WebSharper.Sitelets.Tests.PerformanceTests
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
 
 [<NoComparison>]
@@ -31,6 +34,7 @@ type FullAction =
     | Site of Actions.Action
     | SiteletsTests of SampleSite.Action
     | CSharpSiteletsTests of obj
+    | PerformanceTests of PerformanceTests.Action
 
 let HomePage (ctx: Context<_>) =
     Content.Page(
@@ -70,14 +74,17 @@ let TestsPage (ctx: Context<FullAction>) =
     let t12 = (1, 2)
     let jsonBaseUri =
         Tests.Json.String ""
-        |> ActionEncoding.Success
+        |> ParseRequestResult.Success
         |> SampleSite.Json
         |> SiteletsTests
         |> ctx.Link
-    let jsonBaseUri =
-        match jsonBaseUri.LastIndexOf '/' with
-        | -1 -> jsonBaseUri
-        | n -> jsonBaseUri.[..n]
+    let apiBaseUri =
+        Tests.Api.Action.GetPerson 1
+        |> SampleSite.Api
+        |> SiteletsTests
+        |> ctx.Link
+    let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
+    let apiBaseUri = apiBaseUri.[..apiBaseUri.LastIndexOf '/']
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = (
@@ -87,6 +94,8 @@ let TestsPage (ctx: Context<FullAction>) =
                 WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl
                 ClientSide <@ Client.ClientSideTupleTest t12 @>
                 ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
+                ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
+                ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri @> 
                 ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri true @>
             ] : list<Web.Control>
         )
@@ -104,4 +113,6 @@ let Main =
         Sitelet.Shift "csharp-tests" <|
             Sitelet.EmbedInUnion <@ FullAction.CSharpSiteletsTests @>
                 WebSharper.CSharp.Sitelets.Tests.SiteletTest.Main
+        Sitelet.Shift "perf-tests" <|
+            Sitelet.EmbedInUnion <@ FullAction.PerformanceTests @> PerformanceTests.Site
     ]

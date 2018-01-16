@@ -149,6 +149,7 @@ type ClassInfo =
         Fields : IDictionary<string, CompiledField * bool * Type>
         StaticConstructor : option<Address * Expression>
         Methods : IDictionary<Method, CompiledMember * Optimizations * Expression>
+        QuotedArgMethods : IDictionary<Method, int[]>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
         HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
         Macros : list<TypeDefinition * option<ParameterObject>>
@@ -162,6 +163,7 @@ type ClassInfo =
             Fields = dict []
             StaticConstructor = None
             Methods = dict []
+            QuotedArgMethods = dict []
             Implementations = dict []
             HasWSPrototype = false
             Macros = []
@@ -278,6 +280,7 @@ type Info =
         CustomTypes : IDictionary<TypeDefinition, CustomTypeInfo>
         EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
+        Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
         ResourceHashes : IDictionary<string, int>
     }
 
@@ -290,6 +293,7 @@ type Info =
             CustomTypes = Map.empty
             EntryPoint = None
             MacroEntries = Map.empty
+            Quotations = Map.empty
             ResourceHashes = Map.empty
         }
 
@@ -320,6 +324,7 @@ type Info =
                     Implementations = Dict.union [a.Implementations; b.Implementations]
                     Macros = List.concat [a.Macros; b.Macros]
                     Methods = Dict.union [a.Methods; b.Methods]
+                    QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
                     StaticConstructor = combine a.StaticConstructor b.StaticConstructor
                 }
             else
@@ -351,6 +356,7 @@ type Info =
                 | [| ep |] -> Some ep
                 | _ -> failwith "Multiple entry points found."
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
+            Quotations = Dict.union (metas |> Seq.map (fun m -> m.Quotations))
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
         }
 
@@ -431,10 +437,33 @@ module internal Utilities =
                 | _ -> ()
         remotes :> RemoteMethods            
 
+let UnionCaseConstructMethod (td: TypeDefinition) (uc: FSharpUnionCaseInfo) =
+    Method {
+        MethodName = 
+            match uc.Kind with 
+            | NormalFSharpUnionCase (_ :: _) -> "New" + uc.Name
+            | _ -> "get_" + uc.Name
+        Parameters =
+            match uc.Kind with 
+            | NormalFSharpUnionCase cs -> cs |> List.map (fun c -> c.UnionFieldType)
+            | _ -> []
+        ReturnType = DefaultGenericType td
+        Generics = 0       
+    }
+
+let RecordFieldGetter (f: FSharpRecordFieldInfo) =
+    Method {
+        MethodName = "get_" + f.Name
+        Parameters = []
+        ReturnType = f.RecordFieldType
+        Generics = 0       
+    }
+
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
     abstract GetClassInfo : TypeDefinition -> option<IClassInfo>
+    abstract GetQuotation : SourcePos -> option<TypeDefinition * Method * list<string>>
     abstract GetTypeAttributes : TypeDefinition -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetFieldAttributes : TypeDefinition * string -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetMethodAttributes : TypeDefinition * Method -> option<list<TypeDefinition * ParameterObject[]>>
@@ -460,7 +489,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.0"
+    let CurrentVersion = "4.1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

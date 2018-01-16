@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using WebSharper.Testing;
 using static WebSharper.JavaScript.Pervasives;
 using static WebSharper.JavaScript.Interop;
+using SiteletTest = WebSharper.CSharp.Sitelets.Tests.SiteletTest;
 
 namespace WebSharper.CSharp.Tests
 {
@@ -163,6 +164,17 @@ namespace WebSharper.CSharp.Tests
             Equal(x, x, "Self-equal: " + As<string>(x));
         }
 
+        [Test]
+        public void RandomPropertyTest()
+        {
+            foreach (var awrr in RandomValues.ArrayOf(RandomValues.Int))
+                Equal(awrr, awrr);
+            foreach (var arr in new RandomValues.Sample<int[]>(RandomValues.ArrayOf(RandomValues.Int)))
+                Equal(arr, arr);
+            foreach (var arr in new RandomValues.Sample<int[]>())
+                Equal(arr, arr);
+        }
+
         [Inline("$a + $b")]
         public static object InlinedAdd(object a, object b) => X<object>();
 
@@ -267,6 +279,24 @@ namespace WebSharper.CSharp.Tests
             }
             foreach (var adder in adders) adder();
             Equal(res, 15, "break inside loop");
+        }
+
+        [Remote]
+        public static Task<string[]> SiteletTestLinks()
+        {
+            var sitelet = SiteletTest.Main;
+            return Task.FromResult(new[] {
+                sitelet.Router.Link("/").Value.OriginalString,
+                sitelet.Router.Link(SiteletTest.JohnDoe).Value.OriginalString,
+            }); 
+        }
+
+        [Test("SiteletBuilder correctness")]
+        public async Task SiteletBuilderTest()
+        {
+            var siteletTestLinks = await SiteletTestLinks();
+            Equal(siteletTestLinks[0], "/");
+            Equal(siteletTestLinks[1], "/person/John/Doe/30");
         }
     }
 }

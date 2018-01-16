@@ -23,7 +23,7 @@ module WebSharper.Tests.Array
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-module R = WebSharper.Testing.Random
+module R = WebSharper.Testing.RandomValues
 
 [<JavaScript>]
 let Tests =
@@ -71,6 +71,17 @@ let Tests =
             equal (Array.allPairs arr1 arr2) [|(1,'a');(1,'b');(2,'a');(2,'b');(3,'a');(3,'b')|]
             equal arr1 [| 1; 2; 3 |]
             equal arr2 [| 'a'; 'b'|]
+        }
+
+        Test "One is one" {
+            equal 1 1 
+            forEach { 1 .. 3 } (fun x -> 
+                Do {
+                    equal x x
+                }
+            )
+            let! one = async { return 1 }
+            equal one 1
         }
 
         Test "Array.append" {

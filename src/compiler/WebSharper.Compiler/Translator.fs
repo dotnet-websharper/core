@@ -244,8 +244,9 @@ type GenericInlineResolver (generics) =
             args |> List.map this.TransformExpression
         )
 
-    override this.TransformTraitCall(typs, meth, args) =
+    override this.TransformTraitCall(thisObj, typs, meth, args) =
         TraitCall (
+            thisObj |> Option.map this.TransformExpression, 
             typs |> List.map subs,
             Generic meth.Entity (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
@@ -819,8 +820,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.NotCompiledInline ->
             let ge =
                 if not (List.isEmpty typ.Generics && List.isEmpty meth.Generics) then
-                    try GenericInlineResolver(typ.Generics @ meth.Generics).TransformExpression expr
-                    with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
+                    GenericInlineResolver(typ.Generics @ meth.Generics).TransformExpression expr
                 else expr
             Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(ge)
             |> this.TransformExpression
@@ -962,37 +962,51 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
 
-    override this.TransformTraitCall(typs, meth, args) =
+    override this.TransformTraitCall(thisObj, typs, meth, args) =
         let mutable err = None
-        let hasErr e =
-            err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
-            None
-        let mName = meth.Entity.Value.MethodName
+        let delay e =
+            if currentIsInline then
+                hasDelayedTransform <- true
+                TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
+            else 
+                err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
+                None
+        let trmv = meth.Entity.Value
+        let mName = trmv.MethodName
+        let pLength = trmv.Parameters.Length
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
-                    let ms =                    
-                        comp.GetMethods ct.Entity |> Seq.choose (fun m ->
-                            // TODO: check compatility with signature better
-                            if m.Value.MethodName = mName then Some m else None
+                    let methods = comp.GetMethods ct.Entity
+                    let getMethods pars ret =
+                        methods |> Seq.choose (fun m ->
+                            let mv = m.Value
+                            if mv.MethodName = mName 
+                                && mv.Parameters.Length = pLength 
+                                && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) mv.Parameters pars 
+                                && Type.IsGenericCompatible(mv.ReturnType, ret) then 
+                                    Some m 
+                            else None
                         ) 
                         |> List.ofSeq
+                    let ms =                        
+                        match getMethods trmv.Parameters trmv.ReturnType with
+                        | [] -> []
+                        | [_] as ms -> ms
+                        | _ ->
+                            let gen = ct.Generics @ meth.Generics |> Array.ofList
+                            let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
+                            let ret = trmv.ReturnType.SubstituteGenerics gen
+                            getMethods pars ret
                     match ms with
                     | [ m ] ->
-                        match args with
-                        | t :: h ->
-                            this.TransformCall(Some t, ct, Generic m meth.Generics, h) |> Some
-                        | _ ->
-                            failwith "Impossible: trait call without arguments"
-                    | [] -> hasErr (sprintf "Could not find method for trait call: %s" mName) // (methods |> Seq.map (fun m -> m.Value.MethodName) |> String.concat ", "))
-                    | _ -> hasErr (sprintf "Ambiguity at translating trait call: %s" mName)
+                        this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
+                    | [] -> 
+                        delay (sprintf "Could not find method for trait call: %s" mName)
+                    | _ -> delay (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
-                    if currentIsInline then
-                        hasDelayedTransform <- true
-                        TraitCall(typs, meth, args |> List.map this.TransformExpression) |> Some
-                    else 
-                        hasErr("Using a trait call requires the Inline attribute")
+                    delay "Using a trait call requires the Inline attribute"
             )
         match res with
         | Some ok -> ok
@@ -1054,8 +1068,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.NotCompiledInline -> 
             let ge =
                 if not (List.isEmpty typ.Generics) then
-                    try GenericInlineResolver(typ.Generics).TransformExpression expr
-                    with e -> this.Error(sprintf "Failed to resolve generics: %s" e.Message)
+                    GenericInlineResolver(typ.Generics).TransformExpression expr
                 else expr
             Substitution(trArgs()).TransformExpression(ge)
             |> this.TransformExpression

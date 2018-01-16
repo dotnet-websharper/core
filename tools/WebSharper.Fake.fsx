@@ -90,6 +90,11 @@ let git cmd =
         Git.CommandHelper.directRunGitCommandAndFail "." s
     ) cmd
 
+let gitSilentNoFail cmd =
+    Printf.kprintf (fun s ->
+        Git.CommandHelper.directRunGitCommand "." s
+    ) cmd
+
 let hg cmd = shell "hg" cmd
 let hg' cmd = shellOut "hg" cmd
 
@@ -257,9 +262,9 @@ let MakeTargets (args: Args) =
     Target "WS-Update" <| fun () ->
         let needsUpdate =
             mainGroup.Packages
-            |> Seq.exists (fun { Name = Paket.Domain.PackageName(pkg, _) } ->
-                pkg.Contains "WebSharper" || pkg.Contains "Zafir")
-        if needsUpdate then shell ".paket/paket.exe" "update"
+            |> Seq.exists (fun { Name = pkg } ->
+                pkg.Name.Contains "WebSharper" || pkg.Name.Contains "Zafir")
+        if needsUpdate then shell ".paket/paket.exe" "update -g %s" mainGroup.Name.Name
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
@@ -305,12 +310,17 @@ let MakeTargets (args: Args) =
         | Some branch ->
             if VC.isGit then
                 try git "checkout -f %s" branch
-                    git "pull -ff"
                 with e ->
                     try git "checkout -f -b %s" branch
                     with _ -> raise e
                 if args.MergeMaster then
-                    git "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef
+                    if not <| gitSilentNoFail "merge -Xtheirs --no-ff --no-commit %s" args.BaseRef then
+                        for st, f in Git.FileStatus.getAllFiles "." do
+                            match st with
+                            | Git.FileStatus.Deleted -> git "rm %s" f
+                            | Git.FileStatus.Renamed -> try git "rm %s" f with _ -> File.Delete f
+                            | Git.FileStatus.Added -> try git "checkout %s -- %s" args.BaseRef f with _ -> File.Delete f
+                            | _ -> git "checkout %s -- %s" args.BaseRef f
             else
                 if Hg.branchExists branch
                 then hg "update -C %s" branch

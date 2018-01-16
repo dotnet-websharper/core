@@ -73,6 +73,10 @@ module Server =
             | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
             | _ -> false
         
+            testWithMatch <@ Optimizations.TupledArgWithLocalAlias() @> <| function
+            | Function (_, Return (Application (GlobalAccess _, [ Function ([ _; _], _) ], _, _))) -> true
+            | _ -> false
+        
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
             | Function (_, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _, _))) -> true
             | _ -> false
@@ -98,6 +102,16 @@ module Server =
             | _ -> false
         
         |]
+
+    let funcWithJSAttr ([<JavaScript>] x : Quotations.Expr<unit>) = ()
+
+    let moduleVal = 1
+
+    let callFuncWithJSAttr =
+        let x = 2
+        if IsClient then
+            funcWithJSAttr <@ JavaScript.Console.Log("Hello from callFuncWithJSAttr") @>
+            funcWithJSAttr <@ JavaScript.Console.Log("Hello from callFuncWithJSAttr with arg", x) @>
 
 [<JavaScript>]
 let Tests =

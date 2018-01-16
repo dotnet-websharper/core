@@ -43,6 +43,10 @@ module Api =
         /// DELETE /person?id=123
         | [<EndPoint "DELETE /person"; Query "id">]
             DeletePerson of id: int
+        // alternative update for testing untyped JSON body, and without DateTimeFormat
+        /// POST /person (with untyped JSON body)
+        | [<EndPoint "POST /update-person"; Query "id">]
+            UpdatePerson of id: option<int>
 
     /// Data about a person. Used both for storage and JSON parsing/writing.
     and PersonData =
@@ -52,6 +56,11 @@ module Api =
           [<DateTimeFormat "yyyy-MM-dd">] born: System.DateTime
           /// Since this is an option, this field is only present in JSON for Some value.
           [<DateTimeFormat "yyyy-MM-dd">] died: option<System.DateTime> }
+
+    and PersonDataNoDates =
+        { firstName: string
+          lastName: string
+        }
 
     /// Type used for all JSON responses to indicate success or failure.
     [<NamedUnionCases "result">]
@@ -109,6 +118,17 @@ module Api =
             Content.Json (ApplicationLogic.putPerson id personData)
         | DeletePerson id ->
             Content.Json (ApplicationLogic.deletePerson id)
+        | UpdatePerson id ->
+            let data = (new System.IO.StreamReader(ctx.Request.Body)).ReadToEnd()
+            let p = Json.Deserialize<PersonDataNoDates> data
+            let personData =
+                { 
+                    firstName = p.firstName
+                    lastName = p.lastName
+                    born = System.DateTime()
+                    died = None
+                }
+            Content.Json (ApplicationLogic.putPerson (defaultArg id 1) personData)
 
     let Sitelet = Sitelet.Infer ApiContent
 

@@ -5,6 +5,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Extensions.fs" />
     <Compile Include="UserSession.fs" />
     <Compile Include="Context.fs" />
     <Compile Include="ClientSideJson.fs" />

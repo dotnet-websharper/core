@@ -130,7 +130,9 @@ module Json =
         | [<Json "x">] List of x: list<int>
         | [<Json "x">] Set of x: Set<int>
         | [<Json "x">] Map of x: Map<string, int>
+        | [<Json "x">] ComplexMap of x: Map<Types.Id, int>
         | [<Json "x">] Dictionary of x: System.Collections.Generic.Dictionary<string, int>
+        | [<Json "x">] ComplexDictionary of x: System.Collections.Generic.Dictionary<Types.Id, int>
         | [<Json "x">] SimpleRecord of x: Types.SimpleRecord
         | [<Json "x">] SimpleRecordArray of x: Types.SimpleRecord[]
         | [<Json "x">] RecordOptions of x: Types.RecordWithOptions
@@ -141,6 +143,10 @@ module Json =
         | [<Json "x">] GenericUnionRecord of x: Types.GenericUnion<Types.Rec>
         | [<Json "x">] UnionConstants of x: Types.UnionWithConstants
         | [<Json "x">] DateTime of x: System.DateTime
+        | [<Json "x">] ResizeArray of x: ResizeArray<int>
+        | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
+        | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
+        | [<Json "x">] LinkedList of x: System.Collections.Generic.LinkedList<int>
 
     let Content = function
         | Int x -> Content.Json x
@@ -152,7 +158,9 @@ module Json =
         | List x -> Content.Json x
         | Set x -> Content.Json x
         | Map x -> Content.Json x
+        | ComplexMap x -> Content.Json x
         | Dictionary x -> Content.Json x
+        | ComplexDictionary x -> Content.Json x
         | SimpleRecord x -> Content.Json x
         | SimpleRecordArray x -> Content.Json x
         | RecordOptions x -> Content.Json x
@@ -163,3 +171,7 @@ module Json =
         | GenericUnionRecord x -> Content.Json x
         | UnionConstants x -> Content.Json x
         | DateTime x -> Content.Json x
+        | ResizeArray x -> Content.Json x
+        | Queue x -> Content.Json x
+        | Stack x -> Content.Json x
+        | LinkedList x -> Content.Json x

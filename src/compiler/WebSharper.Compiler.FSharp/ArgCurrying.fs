@@ -36,7 +36,7 @@ type Member =
 /// Examines applications of function typed arguments.
 /// If always used with a certain number of fixed arguments, 
 /// curried functions can be optimized to flat function in translation.
-type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
+type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, isInstance) =
     inherit Visitor()
 
     let cargs =
@@ -67,6 +67,9 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list) =
         match e with
         | Var v ->
             if cargs.Contains v then Some iargs.[v] else None
+        | Hole 0 when isInstance -> None
+        | Hole i when isInstance ->
+            if cargs.Contains margs.[i - 1] then Some (i - 1) else None
         | Hole i ->
             if cargs.Contains margs.[i] then Some i else None
         | Call(None, typ, meth, [ a ]) 
@@ -261,9 +264,8 @@ type ResolveFuncArgs(comp: Compilation) =
     member this.ResolveMember(mem) =
         if resolved.Add(mem) then
             match members.TryGetValue mem with
-            | true, (nr, args, _) -> 
-                let nr, args, _ = members.[mem] 
-                let cv = FuncArgVisitor(nr.FuncArgs.Value, args)
+            | true, (nr, args, isInstance) -> 
+                let cv = FuncArgVisitor(nr.FuncArgs.Value, args, isInstance)
                 cv.VisitExpression(nr.Body)
                 for i, (c, calls) in cv.Results |> Seq.indexed do
                     match c with

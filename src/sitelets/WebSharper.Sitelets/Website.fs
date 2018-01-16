@@ -71,7 +71,7 @@ module private Utils =
                         | Some app, (:? IHostedWebsite<'T> as mk) -> mk.Build(app)
                         | _, (:? IWebsite<'T> as website) -> website
                         | _ -> failwith "Invalid type: IWebsite not implemented."
-                    (Sitelet.Upcast website.Sitelet, List.map box website.Actions)
+                    (Sitelet.Box website.Sitelet, List.map box website.Actions)
         }
 #else
         S.Specialize {

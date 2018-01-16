@@ -37,8 +37,15 @@ type InheritWIG() =
 type StubTestBaseClass internal () =
     member this.GetY() = X<int>
 
-[<Name "StubTest.Class"; Stub>]
+[<Stub>]
 type StubTestClass =
+    inherit StubTestBaseClass
+    new () = {}
+    member this.GetX() = X<int>
+    static member Static() = X<int>
+
+[<Name "StubTest.Class"; Stub>]
+type StubTestClassNamed =
     inherit StubTestBaseClass
     new () = {}
     member this.GetX() = X<int>
@@ -236,5 +243,12 @@ let Tests =
             equal (s.GetX()) 3
             equal (s.GetY()) 3
             equal (StubTestClass.Static()) 4
+        }
+
+        Test "Stub class with Name" { 
+            let s = StubTestClassNamed()
+            equal (s.GetX()) 3
+            equal (s.GetY()) 3
+            equal (StubTestClassNamed.Static()) 4
         }
     }

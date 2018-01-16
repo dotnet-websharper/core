@@ -116,3 +116,5 @@ var StubTest = {
 };
 
 StubTest.Class.Static = function () { return 4; };
+
+var StubTestClass = StubTest.Class;

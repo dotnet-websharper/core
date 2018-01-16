@@ -318,6 +318,7 @@ let varEvalOrder (vars : Id list) expr =
                     fail()
                 else 
                     eval b
+                    stop()
             | ItemSet(a, b, c) ->
                 eval a
                 eval b
@@ -342,6 +343,7 @@ let varEvalOrder (vars : Id list) expr =
             | New(a, b) ->
                 eval a
                 List.iter eval b
+                stop()
             | Call(a, _, _, b) ->
                 Option.iter eval a
                 List.iter eval b
@@ -677,6 +679,30 @@ module Definitions =
             ReturnType = NonGenericType String
             Generics = 0
         }
+
+let rec (|IsClientCall|_|) (e: Expression) =
+    match e with
+    | I.Call (None, td, m, []) ->
+        if td.Entity.Value.FullName = "WebSharper.Pervasives" then
+            let mName = m.Entity.Value.MethodName 
+            if mName = "IsClient" || mName = "get_IsClient" then
+                Some true
+            else None
+        else None
+    | I.Call (None, td, m, [ a ]) ->
+        let tName = td.Entity.Value.FullName
+        if tName = "Microsoft.FSharp.Core.Operators" && m.Entity.Value.MethodName = "Not" 
+            || tName = "System.Boolean" && m.Entity.Value.MethodName = "op_LogicalNot"
+        then
+            match a with 
+            | IsClientCall c -> Some (not c)
+            | _ -> None
+        else None
+    | I.Unary(UnaryOperator.Not, a ) ->
+        match a with 
+        | IsClientCall c -> Some (not c)
+        | _ -> None
+    | _ -> None
     
 let ignoreSystemObject td =
     if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
@@ -1175,7 +1201,7 @@ let (|AlwaysTupleGet|_|) tupledArg length expr =
 
 let (|TupledLambda|_|) expr =
     match expr with
-    | Lambda ([tupledArg], b, isReturn) ->
+    | Lambda ([tupledArg], b, isReturn) when tupledArg.IsTuple ->
         // when the tuple itself is bound to a name, there will be an extra let expression
         let tupledArg, b =
             match b with
