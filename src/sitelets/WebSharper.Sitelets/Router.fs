@@ -64,6 +64,137 @@ module ActionEncoding =
     let MissingQueryParameter (endpoint, queryParam) = ParseRequestResult.MissingQueryParameter(endpoint, queryParam)
     let MissingFormData (endpoint, formFieldName) = ParseRequestResult.MissingFormData(endpoint, formFieldName)
 
+module StringEncoding =
+
+    [<JavaScript>]
+    let isUnreserved isLast c =
+        match c with
+        | '-' | '_' -> true
+        | '.' -> not isLast
+        | c when c >= 'A' && c <= 'Z' -> true
+        | c when c >= 'a' && c <= 'z' -> true
+        | c when c >= '0' && c <= '9' -> true
+        | _ -> false
+    
+    let writeEscaped (w: System.Text.StringBuilder) isLast c =
+        let k = int c
+        if isUnreserved isLast c then w.Append c
+        elif k < 256 then w.AppendFormat("~{0:x2}", k)
+        else w.AppendFormat("~u{0:x4}", k)
+        |> ignore
+
+    [<JavaScript>]
+    let writeEscapedAsString isLast c =
+        let k = int c
+        if isUnreserved isLast c then string c
+        elif k < 256 then "~" + k.JS.ToString(16).PadLeft(2, '0')
+        else "~u" + k.JS.ToString(16).PadLeft(4, '0')
+
+    [<JavaScript>]
+    let write (s: string) = 
+        if IsClient then
+            s |> Seq.mapi (fun i c ->
+                writeEscapedAsString (i + 1 = s.Length) c
+            )
+            |> String.concat ""
+        else
+            let b = System.Text.StringBuilder()
+            s |> Seq.iteri (fun i c ->
+                writeEscaped b (i + 1 = s.Length) c)
+            string b
+
+    [<JavaScript>]
+    let inline ( ++ ) (a: int) (b: int) = (a <<< 4) + b
+
+    [<Literal>]
+    let EOF = -1
+
+    [<Literal>]
+    let ERROR = -2
+
+    let readEscaped (r: System.IO.TextReader) =
+        let hex x =
+            match x with
+            | x when x >= int '0' && x <= int '9' -> x - int '0'
+            | x when x >= int 'a' && x <= int 'f' -> x - int 'a' + 10
+            | x when x >= int 'A' && x <= int 'F' -> x - int 'A' + 10
+            | _ -> ERROR
+        match r.Read() with
+        | x when x = int '~' ->
+            match r.Read() with
+            | x when x = int 'u' ->
+                let a = r.Read()
+                let b = r.Read()
+                let c = r.Read()
+                let d = r.Read()
+                if a >= 0 && b >= 0 && c >= 0 && d >= 0 then
+                    hex a ++ hex b ++ hex c ++ hex d
+                else ERROR
+            | x ->
+                let y = r.Read()
+                if x >= 0 && y >= 0 then
+                    hex x ++ hex y
+                else ERROR
+        | x ->
+            x
+
+    [<JavaScript>]
+    let readEscapedFromChars (chars: int list) =
+        let mutable chars = chars
+        let read() =
+            match chars with
+            | [] -> -1
+            | h :: t ->
+                chars <- t
+                h
+        let hex x =
+            match x with
+            | x when x >= int '0' && x <= int '9' -> x - int '0'
+            | x when x >= int 'a' && x <= int 'f' -> x - int 'a' + 10
+            | x when x >= int 'A' && x <= int 'F' -> x - int 'A' + 10
+            | _ -> ERROR
+        match read() with
+        | x when x = int '~' ->
+            match read() with
+            | x when x = int 'u' ->
+                let a = read()
+                let b = read()
+                let c = read()
+                let d = read()
+                if a >= 0 && b >= 0 && c >= 0 && d >= 0 then
+                    hex a ++ hex b ++ hex c ++ hex d
+                else ERROR
+            | x ->
+                let y = read()
+                if x >= 0 && y >= 0 then
+                    hex x ++ hex y
+                else ERROR
+        | x ->
+            x
+        , chars
+
+    [<JavaScript>]
+    let read (s: string) = 
+        if IsClient then
+            let buf = ResizeArray()
+            let rec loop chars =
+                match readEscapedFromChars chars with
+                | ERROR, _ -> None
+                | EOF, _ -> Some (buf |> String.concat "")
+                | x, chars -> 
+                    buf.Add(string (char x))
+                    loop chars
+            s |> Seq.map int |> List.ofSeq |> loop
+        else
+            let buf = System.Text.StringBuilder()
+            use i = new System.IO.StringReader(s)
+            let rec loop () =
+                match readEscaped i with
+                | ERROR -> None
+                | EOF -> Some (string buf)
+                | x -> buf.Append(char x) |> ignore; loop ()
+            loop ()
+
 type internal PathUtil =
     static member WriteQuery q =
         let sb = StringBuilder 128
@@ -577,7 +708,6 @@ module Router =
                 settings.Error <- fun _ _ msg -> err (exn msg)
                 // todo: cancellation
                 let url = path.ToLink()
-                //Console.Log("ajax call", endpoint, path, url, settings)
                 JQuery.Ajax(url, settings) |> ignore
             )
         | _ -> 
@@ -957,7 +1087,7 @@ module IRouter =
     let private path (uri: Uri) =
         if uri.IsAbsoluteUri
         then uri.AbsolutePath
-        else Uri.UnescapeDataString(uri.OriginalString) |> joinWithSlash "/"
+        else uri.OriginalString |> joinWithSlash "/"
         
     let private trimFinalSlash (s: string) =
         match s.TrimEnd('/') with
@@ -1004,24 +1134,19 @@ module RouterOperators =
     /// Parse/write a specific string.
     let r name : Router = Router.FromString name
 
-    [<Inline "encodeURIComponent($x)">]
-    let inline internal encodeURIComponent (x: string) =
-        System.Uri.EscapeDataString(x) 
-
-    [<Inline "decodeURIComponent($x)">]
-    let inline internal decodeURIComponent (x: string) =
-        System.Uri.UnescapeDataString(x) 
-
     /// Parse/write a string using URL encode/decode.
     let rString : Router<string> =
         {
             Parse = fun path ->
                 match path.Segments with
                 | h :: t -> 
-                    Seq.singleton ({ path with Segments = t }, decodeURIComponent h)
+                    match StringEncoding.read h with
+                    | Some s ->
+                        Seq.singleton ({ path with Segments = t }, s)
+                    | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Route.Segment (if isNull value then "null" else encodeURIComponent value)))
+                Some (Seq.singleton (Route.Segment (if isNull value then "null" else StringEncoding.write value)))
         }
 
     /// Parse/write a char.
@@ -1029,11 +1154,14 @@ module RouterOperators =
         {
             Parse = fun path ->
                 match path.Segments with
-                | h :: t when h.Length = 1 -> 
-                    Seq.singleton ({ path with Segments = t }, char (decodeURIComponent h))
+                | h :: t -> 
+                    match StringEncoding.read h with
+                    | Some c when c.Length = 1 ->
+                        Seq.singleton ({ path with Segments = t }, char c)
+                    | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                Some (Seq.singleton (Route.Segment (encodeURIComponent (string value))))
+                Some (Seq.singleton (Route.Segment (string value)))
         }
 
     [<Inline>]

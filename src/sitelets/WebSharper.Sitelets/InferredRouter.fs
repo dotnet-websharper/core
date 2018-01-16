@@ -183,26 +183,32 @@ module internal ServerInferredOperators =
             IParse = fun path ->
                 match path.Segments with
                 | h :: t -> 
-                    path.Segments <- t
-                    Some (decodeURIComponent h |> box)
+                    match StringEncoding.read h with
+                    | Some s ->
+                        path.Segments <- t
+                        Some (box s)
+                    | _ -> None
                 | _ -> None
             IWrite = fun (w, value) ->
                 if isNull value then 
                     w.NextSegment().Append("null") |> ignore
                 else
-                    w.NextSegment().Append(encodeURIComponent (unbox value)) |> ignore
+                    w.NextSegment().Append(StringEncoding.write (unbox value)) |> ignore
         }
 
     let internal iChar : InferredRouter =
         {
             IParse = fun path ->
                 match path.Segments with
-                | h :: t when h.Length = 1 -> 
-                    path.Segments <- t
-                    Some (char (decodeURIComponent h) |> box)
+                | h :: t -> 
+                    match StringEncoding.read h with
+                    | Some c when c.Length = 1 ->
+                        path.Segments <- t
+                        Some (char c |> box)
+                    | _ -> None
                 | _ -> None
             IWrite = fun (w, value) ->
-                w.NextSegment().Append(encodeURIComponent (string value)) |> ignore
+                w.NextSegment().Append(StringEncoding.write (string value)) |> ignore
         }
 
     let inline iTryParse< ^T when ^T: (static member TryParse: string * byref< ^T> -> bool) and ^T: equality>() =

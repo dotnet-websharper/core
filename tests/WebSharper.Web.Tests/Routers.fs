@@ -60,6 +60,7 @@ module PerformanceTests =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/">] USubAction of SubAction
         | [<EndPoint ("/string", "/stringtoo")>] UString of string
+        | [<EndPoint "/query"; Query "s">] UQuery of s: string
         | [<EndPoint "/tuple">] UTuple of p: int * string * bool
         | [<EndPoint "/tuple-with-queries"; Query("a", "b")>] UTupleQ of p: int * a: string * b: bool
         | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
@@ -92,6 +93,9 @@ module PerformanceTests =
             USubAction Sub1
             USubAction (Sub2 "x")
             UString "hello"
+            UString """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
+            UQuery "hello"
+            UQuery """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UTuple (1, "hi", true)
             UTupleQ (1, "hi", true)
             UNullable (System.Nullable())
@@ -111,6 +115,7 @@ module PerformanceTests =
             UJsonInput { A = "hello"; B = 123; C = false }
             UJsonInt 4
             UFormData "hello"
+            UFormData """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UMultiFormData { Text = "hello"; Id = None; Flag = true }
             UMultiFormData { Text = "hello"; Id = Some 2; Flag = false }
             UMultiple
