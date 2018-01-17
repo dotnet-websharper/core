@@ -6,13 +6,14 @@ redirects: on
 framework: net46, net461, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
+storage: none
 
 nuget Microsoft.CSharp ~> 4.4.0
 nuget Microsoft.NETCore.App ~> 2.0.0 framework: netstandard2.0
 nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget Microsoft.NETCore.Targets ~> 2.0.0
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
-nuget Mono.Cecil ~> 0.10-beta6
+nuget Mono.Cecil ~> 0.10-beta
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 2.6.0
@@ -23,7 +24,7 @@ nuget System.Net.Http ~> 4.3.0
 nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0 copy_local: true
-nuget FSharp.Compiler.Service ~> 14.0.2
+nuget FSharp.Compiler.Service ~> 17.0.1
 
 group build
     framework: net45
@@ -31,3 +32,10 @@ group build
     nuget Paket.Core 5.122.3
     nuget FAKE
     nuget AjaxMin
+    nuget FSharp.Core ~> 4.2.0
+
+group includes
+    references: strict
+    framework: netstandard2.0
+    source https://api.nuget.org/v3/index.json
+    nuget NETStandard.Library 

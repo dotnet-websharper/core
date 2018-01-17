@@ -1,14 +1,15 @@
 REFERENCES: STRICT
 REDIRECTS: ON
+STORAGE: NONE
 STRATEGY: MIN
 RESTRICTION: || (== net46) (== net461) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (14.0.2)
+    FSharp.Compiler.Service (17.0.1)
       FSharp.Core (>= 4.1.18) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
       NETStandard.Library (>= 1.6.1) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
-      System.Collections.Immutable (>= 1.2) - restriction: || (== net46) (== net461) (&& (== netstandard2.0) (>= net45))
       System.Collections.Immutable (>= 1.3) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
+      System.Collections.Immutable (>= 1.3.1) - restriction: || (== net46) (== net461) (&& (== netstandard2.0) (>= net45))
       System.Diagnostics.Process (>= 4.1) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
       System.Diagnostics.TraceSource (>= 4.0) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
       System.Reflection.Emit (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard1.6)) (&& (== net461) (< net45) (>= netstandard1.6)) (== netstandard2.0)
@@ -165,7 +166,7 @@ NUGET
       System.Runtime.Extensions (>= 4.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       System.Runtime.Handles (>= 4.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       System.Runtime.InteropServices (>= 4.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
-    Mono.Cecil (0.10.0-beta6)
+    Mono.Cecil (0.10.0-beta7)
       System.Collections (>= 4.0.11) - restriction: || (&& (== net46) (< net35)) (&& (== net461) (< net35)) (== netstandard2.0)
       System.IO.FileSystem (>= 4.0.1) - restriction: || (&& (== net46) (< net35)) (&& (== net461) (< net35)) (== netstandard2.0)
       System.IO.FileSystem.Primitives (>= 4.0.1) - restriction: || (&& (== net46) (< net35)) (&& (== net461) (< net35)) (== netstandard2.0)
@@ -859,7 +860,7 @@ NUGET
     AjaxMin (5.14.5506.26202)
     Chessie (0.6)
       FSharp.Core
-    FAKE (4.64.3)
+    FAKE (4.64.4)
     FSharp.Compiler.Tools (4.1.29)
     FSharp.Core (4.2.3)
     Mono.Cecil (0.10.0-beta7)
@@ -870,3 +871,12 @@ NUGET
       FSharp.Core
       Mono.Cecil (>= 0.10.0-beta6)
       Newtonsoft.Json
+
+GROUP includes
+REFERENCES: STRICT
+RESTRICTION: == netstandard2.0
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Microsoft.NETCore.Platforms (2.0.1)
+    NETStandard.Library (2.0.1)
+      Microsoft.NETCore.Platforms (>= 1.1)
