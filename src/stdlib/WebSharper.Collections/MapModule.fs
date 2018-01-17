@@ -36,7 +36,7 @@ module internal MapModule =
         (As<FSharpMap<'K,'V>> m).Tree
 
     [<Inline>]
-    let private OfTree (t: Optional<T.Tree<_>>) : Map<'K,'V> =
+    let private OfTree (t: T.Tree<_>) : Map<'K,'V> =
         As (new FSharpMap<'K,'V>(t))
 
     [<Inline>]

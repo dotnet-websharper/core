@@ -34,13 +34,15 @@ let Tests =
         }
 
         Test "Map.remove" {
-            let map2 = Map.ofSeq [(1,2); (3,4)]
-            let map1 = Map.remove 1 map2 // remove existing element 
-            equal map1.Count 1
-            let map1 = Map.remove 100 map1 // remove non-existing element
-            equal map1.Count 1
-            let map0 = Map.remove 3 map1 // remove existing element
-            equal map0.Count 0
+            let map1 = Map.ofSeq [(1,"a"); (2,"b"); (3,"c"); (4,"d")]
+            let map2 = Map.remove 1 map1 // remove existing element 
+            equal map2.Count 3
+            let map3 = Map.remove 100 map2 // remove non-existing element
+            equal map3.Count 3
+            let map4 = Map.remove 3 map3 // remove existing element
+            equal map4.Count 2
+            let map5 = Map.remove 2 (Map.remove 4 map4) // remove all elements
+            equal map5.Count 0
         }
 
         Test "Map.empty" {

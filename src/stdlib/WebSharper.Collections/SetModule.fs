@@ -36,7 +36,7 @@ module internal SetModule =
         (As<FSharpSet<'T>> s).Tree
 
     [<Inline>]
-    let private OfTree (t: Optional<T.Tree<'T>>) =
+    let private OfTree (t: T.Tree<'T>) =
         As<Set<'T>> (new FSharpSet<'T>(t))
 
     [<Inline>]

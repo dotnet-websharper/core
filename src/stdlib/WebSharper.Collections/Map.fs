@@ -43,14 +43,14 @@ module private MapUtil =
 [<Proxy(typeof<Map<_,_>>)>]
 type internal FSharpMap<'K,'V when 'K : comparison>
 
-    (tree: Optional<T.Tree<Pair<'K,'V>>>) =
+    (tree: T.Tree<Pair<'K,'V>>) =
 
         new (s: seq<_>) = new FSharpMap<_,_>(fromSeq s)
 
         member this.Tree = tree
 
         member this.Add(k: 'K, v: 'V) : Map<'K,'V> =
-            As (FSharpMap<'K,'V>(Defined (tree |> T.Add {Key=k; Value=v})))
+            As (FSharpMap<'K,'V>(tree |> T.Add {Key=k; Value=v}))
 
         member this.ContainsKey k = 
             tree |> T.Contains {Key=k; Value = JS.Undefined}
