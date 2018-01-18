@@ -159,6 +159,10 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let getEmptyMap() =
+        async.Return Map.empty<Record, int>
+
+    [<Remote>]
     let add2ToSet s =
         s |> Set.add 2
         |> async.Return
@@ -167,6 +171,10 @@ module Server =
     let add2_aToSet s =
         s |> Set.add { a = 2; b = "a" }
         |> async.Return
+
+    [<Remote>]
+    let getEmptySet() =
+        async.Return Set.empty<Record>
 
     type T1 =
         | A of int
@@ -552,6 +560,10 @@ module Remoting =
                 equal r.b "xyz_"
             }
 
+            Test "Empty Map" {
+                equalAsync (Server.getEmptyMap()) Map.empty
+            }
+
             Test "Map<int,int> -> Map<int,int>" {
                 equalAsync (Server.add2_2ToMap Map.empty) (Map.ofArray [| 2, 2 |])
                 equalAsync (Server.add2_2ToMap (Map.ofArray [| 1, 1 |])) (Map.ofArray [| 1, 1; 2, 2 |])
@@ -560,6 +572,10 @@ module Remoting =
             Test "Map with non-trivial key type" {
                 equalAsync (Server.add2_a_2ToMap Map.empty) (Map.ofArray [| { a = 2; b = "a" }, 2 |])
                 equalAsync (Server.add2_a_2ToMap (Map.ofArray [| { a = 2; b = "b" }, 1 |])) (Map.ofArray [| { a = 2; b = "b" }, 1; { a = 2; b = "a" }, 2 |])
+            }
+
+            Test "Empty Set" {
+                equalAsync (Server.getEmptySet()) Set.empty
             }
 
             Test "Set<int> -> Set<int>" {
