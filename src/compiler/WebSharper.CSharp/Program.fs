@@ -278,7 +278,7 @@ let rec compileMain (argv: string[]) =
             PrintGlobalError msg
             1    
         | _ -> 
-            PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
+            PrintGlobalError (sprintf "Global error %O" e)
             1
 
 [<EntryPoint>]

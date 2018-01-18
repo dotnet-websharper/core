@@ -8,10 +8,6 @@
     <Compile Include="WebSharperTask.fs" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="Microsoft.Build.Framework" />
-    <Reference Include="Microsoft.Build.Utilities.v4.0" />
-  </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
