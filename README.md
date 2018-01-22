@@ -6,7 +6,7 @@ WebSharper is an [F#][fsharp]-based web programming platform including a compile
 
 ## Installing
 
-The easiest way to get started is from an application template. You can install the various WebSharper [project templates](http://websharper.com/docs/templates) by following the instructions below for:
+The easiest way to get started is from an application template. You can install the various WebSharper [project templates](https://developers.websharper.com/docs/v4.1/fs) by following the instructions below for:
 
  * [Visual Studio](http://websharper.com/docs/install)
  * [Xamarin Studio/MonoDevelop](http://websharper.com/docs/install-xs)
