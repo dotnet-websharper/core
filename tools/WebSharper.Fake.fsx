@@ -310,10 +310,14 @@ let MakeTargets (args: Args) =
                         let pkg = m.Groups.[2].Value
                         let prefixLen = int m.Groups.[3].Value
                         let v = g.GetPackage(Paket.Domain.PackageName pkg).Resolved.Version
+                        let pre =
+                            match v.PreRelease with
+                            | None -> ""
+                            | Some x -> "-" + x.Name
                         match prefixLen with
-                        | 1 -> sprintf "%s %i" init v.Major
-                        | 2 -> sprintf "%s %i.%i" init v.Major v.Minor
-                        | 3 -> sprintf "%s %i.%i.%i" init v.Major v.Minor v.Patch
+                        | 1 -> sprintf "%s %i%s" init v.Major pre
+                        | 2 -> sprintf "%s %i.%i%s" init v.Major v.Minor pre
+                        | 3 -> sprintf "%s %i.%i.%i%s" init v.Major v.Minor v.Patch pre
                         | _ -> failwith "Impossible"))
             let outName = f.[..f.Length-4]
             printfn "Writing %s" outName
