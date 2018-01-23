@@ -298,6 +298,26 @@ let MakeTargets (args: Args) =
         build BuildMode.Release
 
     Target "WS-Package" <| fun () ->
+        let re = Regex(@"^(\s*(\S+)\s*~>)\s*LOCKEDVERSION/([1-3])")
+        let lock = Paket.LockFile.LoadFrom "paket.lock"
+        let g = lock.Groups.[Paket.Domain.GroupName "main"]
+        for f in Directory.EnumerateFiles("nuget", "*.paket.template.in") do
+            let s =
+                File.ReadAllLines(f)
+                |> Array.map (fun l ->
+                    re.Replace(l, fun m ->
+                        let init = m.Groups.[1].Value
+                        let pkg = m.Groups.[2].Value
+                        let prefixLen = int m.Groups.[3].Value
+                        let v = g.GetPackage(Paket.Domain.PackageName pkg).Resolved.Version
+                        match prefixLen with
+                        | 1 -> sprintf "%s %i" init v.Major
+                        | 2 -> sprintf "%s %i.%i" init v.Major v.Minor
+                        | 3 -> sprintf "%s %i.%i.%i" init v.Major v.Minor v.Patch
+                        | _ -> failwith "Impossible"))
+            let outName = f.[..f.Length-4]
+            printfn "Writing %s:\n%A" outName s
+            File.WriteAllLines(outName, s)
         Paket.Pack <| fun p ->
             { p with
                 OutputPath = "build"
