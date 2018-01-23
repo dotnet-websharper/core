@@ -316,7 +316,7 @@ let MakeTargets (args: Args) =
                         | 3 -> sprintf "%s %i.%i.%i" init v.Major v.Minor v.Patch
                         | _ -> failwith "Impossible"))
             let outName = f.[..f.Length-4]
-            printfn "Writing %s:\n%A" outName s
+            printfn "Writing %s" outName
             File.WriteAllLines(outName, s)
         Paket.Pack <| fun p ->
             { p with
