@@ -13,7 +13,11 @@ if not "%BuildBranch%"=="" (
   set /p BuildFromRef=<build\buildFromRef
 )
 
-.paket\paket.exe restore --touch-affected-refs
+if "%NOT_DOTNET%"=="" (
+  dotnet restore
+) else (
+  .paket\paket.exe restore --touch-affected-refs
+)
 if errorlevel 1 (
   exit /b %errorlevel%
 )

@@ -15,7 +15,11 @@ if [ "$BuildBranch" != "" ]; then
     export BuildFromRef=$(<build/buildFromRef)
 fi
 
-paket restore --touch-affected-refs
+if [ "$NOT_DOTNET" = "" ]; then
+    dotnet restore
+else
+    paket restore --touch-affected-refs
+fi
 
 if [ "$VisualStudioVersion" == ""  ]; then
     export VisualStudioVersion=15.0
