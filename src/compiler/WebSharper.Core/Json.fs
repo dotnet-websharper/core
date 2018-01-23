@@ -1181,30 +1181,29 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         fun (x: Value) ->
             match i.DecodeDateTime ta x with
             | Some d -> box d
-            | None -> raise (DecoderException(x, typeof<System.DateTime>))
+            | None -> 
+                // try to decode from serialized form of a DateTimeOffset too
+                match x with
+                | Object [ "d", d; "o", Number _ ] ->
+                    match i.DecodeDateTime ta d with
+                    | Some d -> box d 
+                    | _ -> raise (DecoderException(x, typeof<System.DateTime>))
+                | _ -> raise (DecoderException(x, typeof<System.DateTime>))
     elif t = typeof<System.DateTimeOffset> then
         fun (x: Value) ->
             match x with
             | Object [ "d", d; "o", Number o ] ->
-                ////testing
-                //let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
-                //let x = 1317826080000.
-                //let d = epoch + System.TimeSpan.FromMilliseconds (float x)
-                //let offset = System.TimeSpan.FromMinutes -300.
-                //let dto = System.DateTimeOffset(d.Add(offset).Ticks, offset)
-                ////let dto = System.DateTimeOffset(d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second, d.Millisecond, offset)
-                //let y = (dto.UtcDateTime.ToUniversalTime() - epoch).TotalMilliseconds
-                //x - y
-                //dto.Hour
-                //dto.ToUniversalTime().Hour
-                //dto.UtcDateTime.Hour
-
                 match i.DecodeDateTime ta d, System.Int32.TryParse o with
                 | Some d, (true, o) -> 
                     let offset = System.TimeSpan.FromMinutes (float o)
                     box (new System.DateTimeOffset(d.Add(offset).Ticks, offset))
                 | _ -> raise (DecoderException(x, typeof<System.DateTimeOffset>))
-            | _ -> raise (DecoderException(x, typeof<System.DateTimeOffset>))
+            | _ -> 
+                // try to decode from an ISO string too
+                match i.DecodeDateTime ta x with
+                | Some d -> 
+                    box (new System.DateTimeOffset(d.Ticks, System.TimeSpan.Zero))
+                | None -> raise (DecoderException(x, typeof<System.DateTimeOffset>))
     elif t = typeof<unit> then
         function
         | Null -> box ()

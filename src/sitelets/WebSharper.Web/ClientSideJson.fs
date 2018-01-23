@@ -174,12 +174,18 @@ module Provider =
     let DecodeDateTime() =
         ()
         fun () (x: obj) ->
-            Date(x :?> string).Self
+            if JS.HasOwnProperty x "d" then
+                Date(x?d: string).Self
+            else 
+                Date(x :?> string).Self
 
     let DecodeDateTimeOffset() =
         ()
         fun () (x: obj) ->
-            System.DateTimeOffset(Date(x?d: string).Self, System.TimeSpan.FromMinutes x?o)
+            if JS.HasOwnProperty x "d" then
+                System.DateTimeOffset(Date(x?d: string).Self, System.TimeSpan.FromMinutes x?o)
+            else 
+                System.DateTimeOffset(Date(x :?> string).Self, System.TimeSpan.Zero)
 
     let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
         ()

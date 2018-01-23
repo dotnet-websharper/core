@@ -143,6 +143,7 @@ module Json =
         | [<Json "x">] GenericUnionRecord of x: Types.GenericUnion<Types.Rec>
         | [<Json "x">] UnionConstants of x: Types.UnionWithConstants
         | [<Json "x">] DateTime of x: System.DateTime
+        | [<Json "x">] DateTimeOffset of x: System.DateTimeOffset
         | [<Json "x">] ResizeArray of x: ResizeArray<int>
         | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
         | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
@@ -171,6 +172,7 @@ module Json =
         | GenericUnionRecord x -> Content.Json x
         | UnionConstants x -> Content.Json x
         | DateTime x -> Content.Json x
+        | DateTimeOffset x -> Content.Json x
         | ResizeArray x -> Content.Json x
         | Queue x -> Content.Json x
         | Stack x -> Content.Json x
