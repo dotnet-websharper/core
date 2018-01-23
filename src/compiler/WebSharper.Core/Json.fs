@@ -1106,6 +1106,15 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
             match x with
             | :? System.DateTime as t -> i.EncodeDateTime ta t
             | _ -> raise EncoderException
+    elif t = typeof<System.DateTimeOffset> then
+        fun (x: obj) ->
+            match x with
+            | :? System.DateTimeOffset as t -> 
+                EncodedObject [
+                    "d", i.EncodeDateTime ta t.UtcDateTime
+                    "o", EncodedNumber (string t.Offset.TotalMinutes)
+                ]
+            | _ -> raise EncoderException
     elif t = typeof<unit> then
         fun _ -> EncodedNull
     elif i.ConciseRepresentation &&
@@ -1173,6 +1182,29 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             match i.DecodeDateTime ta x with
             | Some d -> box d
             | None -> raise (DecoderException(x, typeof<System.DateTime>))
+    elif t = typeof<System.DateTimeOffset> then
+        fun (x: Value) ->
+            match x with
+            | Object [ "d", d; "o", Number o ] ->
+                ////testing
+                //let epoch = System.DateTime(1970, 1, 1, 0, 0, 0, System.DateTimeKind.Utc)
+                //let x = 1317826080000.
+                //let d = epoch + System.TimeSpan.FromMilliseconds (float x)
+                //let offset = System.TimeSpan.FromMinutes -300.
+                //let dto = System.DateTimeOffset(d.Add(offset).Ticks, offset)
+                ////let dto = System.DateTimeOffset(d.Year, d.Month, d.Day, d.Hour, d.Minute, d.Second, d.Millisecond, offset)
+                //let y = (dto.UtcDateTime.ToUniversalTime() - epoch).TotalMilliseconds
+                //x - y
+                //dto.Hour
+                //dto.ToUniversalTime().Hour
+                //dto.UtcDateTime.Hour
+
+                match i.DecodeDateTime ta d, System.Int32.TryParse o with
+                | Some d, (true, o) -> 
+                    let offset = System.TimeSpan.FromMinutes (float o)
+                    box (new System.DateTimeOffset(d.Add(offset).Ticks, offset))
+                | _ -> raise (DecoderException(x, typeof<System.DateTimeOffset>))
+            | _ -> raise (DecoderException(x, typeof<System.DateTimeOffset>))
     elif t = typeof<unit> then
         function
         | Null -> box ()

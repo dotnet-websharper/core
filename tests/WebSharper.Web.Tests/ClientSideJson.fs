@@ -394,6 +394,24 @@ module ClientSideJson =
                 equal (strAndDeser now.JS) now
             }
 
+            let nowO = System.DateTimeOffset(now, System.TimeSpan.FromHours 1.)
+            let dO = System.DateTimeOffset(d.Self, System.TimeSpan.FromHours -1.)
+
+            Test "serialize System.DateTimeOffset" {
+                let serAndParse (d: System.DateTimeOffset) : Date * int =
+                    let r = Json.Parse(Json.Serialize d)
+                    new Date(Date.Parse(r?d: string)), r?o
+                equal (serAndParse dO) (d, -60)
+                equal (serAndParse nowO) (now.JS, 60)
+            }
+
+            Test "deserialize System.DateTimeOffset" {
+                let serAndDeser (d: System.DateTimeOffset) : System.DateTimeOffset =
+                    Json.Deserialize (Json.Serialize d)
+                equal (serAndDeser dO) dO
+                equal (serAndDeser nowO) nowO
+            }
+
             Test "serialize enum" {
                 equal (Json.Serialize Enum.Case1) "1"
                 equal (Json.Serialize Enum.Case2) "2"

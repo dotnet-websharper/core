@@ -53,6 +53,11 @@ module Provider =
         fun () (x: System.DateTime) ->
             box (x.JS.ToISOString())
 
+    let EncodeDateTimeOffset () =
+        ()
+        fun () (x: System.DateTimeOffset) ->
+            box (New [ "d" => x.DateTime.JS.ToISOString(); "o" => x?o ])
+
     let EncodeList (encEl: unit -> 'T -> obj) : (unit -> list<'T> -> obj) =
         ()
         fun () (l: list<'T>) ->
@@ -170,6 +175,11 @@ module Provider =
         ()
         fun () (x: obj) ->
             Date(x :?> string).Self
+
+    let DecodeDateTimeOffset() =
+        ()
+        fun () (x: obj) ->
+            System.DateTimeOffset(Date(x?d: string).Self, System.TimeSpan.FromMinutes x?o)
 
     let DecodeList (decEl: (unit -> obj -> 'T)) : (unit -> obj -> list<'T>) =
         ()
@@ -418,6 +428,8 @@ module Macro =
                     <| []
                 | C (T "System.DateTime", []) ->
                     ok (call "DateTime" [])
+                | C (T "System.DateTimeOffset", []) ->
+                    ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
                     let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
