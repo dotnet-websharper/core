@@ -14,7 +14,7 @@ if not "%BuildBranch%"=="" (
 )
 
 if "%NOT_DOTNET%"=="" (
-  dotnet restore
+  dotnet restore %DOTNETSOLUTION%
 ) else (
   .paket\paket.exe restore --touch-affected-refs
 )

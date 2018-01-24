@@ -16,7 +16,7 @@ if [ "$BuildBranch" != "" ]; then
 fi
 
 if [ "$NOT_DOTNET" = "" ]; then
-    dotnet restore
+    dotnet restore $DOTNETSOLUTION
 else
     paket restore --touch-affected-refs
 fi

@@ -1,7 +1,5 @@
 @echo off
 setlocal
 
-dotnet restore WebSharper.sln
-if errorlevel 1 exit /b %errorlevel%
-
+set DOTNETSOLUTION="WebSharper.sln"
 call tools\WebSharper.Fake.cmd %*
