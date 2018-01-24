@@ -53,8 +53,7 @@ let private TryLoadSiteB (assembly: Assembly) =
                     let sitelet = p.GetGetMethod().Invoke(null, [||])
                     let upcastSitelet =
                         sitelet.GetType()
-                            .GetProperty("Upcast", BF.Instance ||| BF.NonPublic)
-                            .GetGetMethod(nonPublic = true)
+                            .GetMethod("Box", BF.Instance ||| BF.Public)
                             .Invoke(sitelet, [||])
                             :?> Sitelet<obj>
                     Some (upcastSitelet, [])

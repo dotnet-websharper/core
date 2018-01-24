@@ -81,7 +81,7 @@ module private Utils =
                         match website with
                         | :? IWebsite<'T> as website -> website
                         | _ -> failwith "Invalid type: IWebsite not implemented."
-                    (Sitelet.Upcast website.Sitelet, List.map box website.Actions)
+                    (Sitelet.Box website.Sitelet, List.map box website.Actions)
         }
 #endif
 
