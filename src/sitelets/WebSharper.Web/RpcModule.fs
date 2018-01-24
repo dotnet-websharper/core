@@ -232,7 +232,10 @@ type RpcHandler() =
         use rng = new RNGCryptoServiceProvider()
         let bytes = Array.zeroCreate 32
         rng.GetBytes(bytes)
-        Convert.ToBase64String bytes
+        Convert.ToBase64String(bytes)
+            // Avoid issues with HTTP special characters; see https://tools.ietf.org/html/rfc4648#section-5
+            .Replace('+', '-')
+            .Replace('/', '_')
 
 #if NET461 // ASP.NET: RPC HttpModule
     static member SetCsrfCookie (resp: HttpResponseBase) =
