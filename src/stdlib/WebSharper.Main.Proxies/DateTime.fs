@@ -22,6 +22,7 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 open System.Runtime.InteropServices
+open System
 
 type private D = System.DateTime
 type private K = System.DateTimeKind
@@ -112,6 +113,7 @@ type private DateTimeProxy =
     [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
     
+    [<Warn "Use UtcNow on the client side, or DateTimeOffset.UtcNow">]
     static member Now
         with [<Inline "Date.now()">] get() = X<D>
 
@@ -253,24 +255,127 @@ type private DateTimeProxy =
     static member op_LessThanOrEqual (a: D, b: D) = X<bool>
 
 [<Proxy(typeof<System.DateTimeOffset>)>]
+[<Prototype false>]
 [<Name "DateTimeOffset">]
-type private DateTimeOffsetProxy(d: int, o: int) =
+// "d" contains UTC epoch time
+// "o" contains time zone offset in minutes
+type private DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: D, o: int) =
 
     [<Inline>]
-    new (d: D) = DateTimeOffsetProxy(As<int> d, 0) 
+    new (d: D, o: TS) = DateTimeOffsetProxy(d, int o.TotalMinutes) 
 
     [<Inline>]
-    member this.DateTime = d |> As<D>
+    new (d: D) = DateTimeOffsetProxy(d, 0) 
 
-//    static member Now = X<D>
+    [<Warn "On client side, DateTime returns UTC value too, use UtcDateTime instead">]
+    member this.DateTime = d
 
-//    static member UtcNow = DateTimeOffsetProxy(DateTime, o: int)
+    [<Inline "$this.o * 60000">]
+    member this.Offset = X<TS>
+
+    [<Direct "var d = new Date(); return { d: d.getTime(), o: -d.getTimezoneOffset() } ">]
+    static member Now = X<DO>
+
+    [<Inline "{ d: Date.now(), o: 0 }">]
+    static member UtcNow = X<DO>
         
+    [<Inline>]
     member this.ToLocalTime() =
-        DateTimeOffsetProxy(d, As<int>(Date().GetTimezoneOffset())) |> As<DO>   
+        DO(d, As<TS>(Date().GetTimezoneOffset()))
         
+    [<Inline>]
     member this.ToUniversalTime() =
-        DateTimeOffsetProxy(d, 0) |> As<DO>
+        DO(d, TS.Zero)
 
     [<Inline>]
-    member this.UtcDateTime = this.ToUniversalTime().DateTime
+    member this.UtcDateTime = d
+
+    [<Inline>]
+    member this.TimeOfDay = d.TimeOfDay
+
+    [<Inline>]
+    member this.Year = d.Year
+
+    [<Inline>]
+    member this.Month = d.Month
+
+    [<Inline>]
+    member this.Day = d.Day
+
+    [<Inline>]
+    member this.Hour = d.Hour
+                                                  
+    [<Inline>]
+    member this.Minute = d.Minute
+    
+    [<Inline>]
+    member this.Second = d.Second
+
+    [<Inline>]
+    member this.Millisecond = d.Millisecond
+    
+    [<Inline>]
+    member this.DayOfWeek = d.DayOfWeek
+
+    [<Inline>]
+    member this.Ticks = d.Ticks
+
+    [<Inline>]
+    member this.Add(t: TS) = DateTimeOffsetProxy(d.Add(t), o)
+                            
+    [<Inline>]
+    member this.Subtract(t: TS) = DateTimeOffsetProxy(d.Subtract(t), o)
+
+    [<Inline>]
+    member this.Subtract(o: DO) = d.Subtract(o?d: D)
+
+    [<Inline>]
+    member this.AddYears(years: int) = DateTimeOffsetProxy(d.AddYears(years), o)
+
+    [<Inline>]
+    member this.AddMonths(months: int) = DateTimeOffsetProxy(d.AddMonths(months), o)
+
+    [<Inline>]
+    member this.AddDays(days: float) = DateTimeOffsetProxy(d.AddDays(days), o)
+
+    [<Inline>]
+    member this.AddHours(hours: float) = DateTimeOffsetProxy(d.AddHours(hours), o)
+
+    [<Inline>]
+    member this.AddMinutes(minutes: float) = DateTimeOffsetProxy(d.AddMinutes(minutes), o)
+
+    [<Inline>]
+    member this.AddSeconds(seconds: float) = DateTimeOffsetProxy(d.AddSeconds(seconds), o)
+
+    [<Inline>]
+    member this.AddMilliseconds(msec: float) = DateTimeOffsetProxy(d.AddMilliseconds(msec), o)
+
+    [<Inline>]
+    member this.AddTicks(ticks: int64) = DateTimeOffsetProxy(d.AddTicks(ticks), o)
+
+    [<Inline>]
+    static member (+) (a: DO, b: TS) = a.Add(b)
+
+    [<Inline>]
+    static member (-) (a: DO, b: TS) = a.Subtract(b)
+
+    [<Inline>]
+    static member (-) (a: DO, b: DO) = a.Subtract(b)
+
+    [<Inline "$a.d == $b.d">]
+    static member op_Equality (a: DO, b: DO) = X<bool>
+
+    [<Inline "$a.d != $b.d">]
+    static member op_Inequality (a: DO, b: DO) = X<bool>
+
+    [<Inline "$a.d > $b.d">]
+    static member op_GreaterThan (a: DO, b: DO) = X<bool>
+
+    [<Inline "$a.d < $b.d">]
+    static member op_LessThan (a: DO, b: DO) = X<bool>
+
+    [<Inline "$a.d >= $b.d">]
+    static member op_GreaterThanOrEqual (a: D, b: D) = X<bool>
+
+    [<Inline "$a.d <= $b.d">]
+    static member op_LessThanOrEqual (a: D, b: D) = X<bool>

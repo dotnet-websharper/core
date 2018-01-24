@@ -27,6 +27,7 @@ open WebSharper
 open WebSharper.JavaScript
 
 module Server =
+    open System
 
     let counter1 = ref 123
     let counter2 = ref 176
@@ -135,8 +136,30 @@ module Server =
 
     [<Remote>]
     let f10 (x: System.DateTime) =
-        x.AddDays 1.0
-        |> async.Return
+        if System.DateTime.UtcNow - x < TimeSpan.FromMinutes 1. then
+            x.AddDays 1.0
+            |> async.Return
+        else 
+            failwith "DateTime remoting not getting current UTC time from client correctly"
+
+    [<Remote>]
+    let f26 (x: System.DateTimeOffset) days =
+        if System.DateTimeOffset.UtcNow - x < TimeSpan.FromMinutes 1. then
+            x.AddDays days
+            |> async.Return
+        else 
+            failwith "DateTimeOffset remoting not getting current UTC time from client correctly"
+
+    [<Remote>]
+    let sendDTO (o: System.DateTimeOffset) =
+        async.Return (o.UtcDateTime.Hour, o.Hour, o.Offset.Hours)  
+
+    [<Remote>]
+    let getDTO () =        
+        let d = System.DateTime(2011, 9, 5, 14, 48, 0, System.DateTimeKind.Utc)
+        let offset = System.TimeSpan.FromHours -5.
+        let o = System.DateTimeOffset(d.Add(offset).Ticks, offset)
+        async.Return o
 
     [<Remote>]
     let f11 (x: int) =
@@ -465,6 +488,32 @@ module Remoting =
             Test "DateTime -> Async<DateTime>" {
                 let dt = System.DateTime.UtcNow
                 let! x = Server.f10 dt
+                equal x (dt.AddDays 1.0)
+            }
+
+            Test "DateTimeOffset -> Async<int * int>" {
+                let d = Date(Date.UTC(2011, 9, 5, 14, 48, 0)).Self
+                let o = System.DateTimeOffset(d, System.TimeSpan.FromHours -5.)
+                let! utchour, hour, offset = Server.sendDTO o
+                equal utchour 14
+                equal hour 9 
+                equal offset -5
+            }
+
+            Test "unit -> Async<DateTimeOffset>" {
+                let! x = Server.getDTO()
+                equal (x.DateTime.JS.GetUTCHours()) 14
+                equal x.Offset.Hours -5
+            }
+
+            Test "DateTimeOffset -> Async<DateTimeOffset>" {
+                let dt =  System.DateTimeOffset.UtcNow
+                let! x = Server.f26 dt 0.0
+                equal x dt
+                let dtl = System.DateTimeOffset.Now
+                let! x = Server.f26 dtl 0.0
+                equal x dtl
+                let! x = Server.f26 dt 1.0
                 equal x (dt.AddDays 1.0)
             }
 

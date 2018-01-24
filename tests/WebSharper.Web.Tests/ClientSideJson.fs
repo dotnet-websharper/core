@@ -394,6 +394,38 @@ module ClientSideJson =
                 equal (strAndDeser now.JS) now
             }
 
+            let nowO = System.DateTimeOffset(now, System.TimeSpan.FromHours 1.)
+            let dO = System.DateTimeOffset(d.Self, System.TimeSpan.FromHours -1.)
+
+            Test "serialize System.DateTimeOffset" {
+                let serAndParse (d: System.DateTimeOffset) : Date * int =
+                    let r = Json.Parse(Json.Serialize d)
+                    new Date(Date.Parse(r?d: string)), r?o
+                equal (serAndParse dO) (d, -60)
+                equal (serAndParse nowO) (now.JS, 60)
+            }
+
+            Test "deserialize System.DateTimeOffset" {
+                let serAndDeser (d: System.DateTimeOffset) : System.DateTimeOffset =
+                    Json.Deserialize (Json.Serialize d)
+                equal (serAndDeser dO) dO
+                equal (serAndDeser nowO) nowO
+            }
+
+            Test "deserialize System.DateTimeOffset from ISO string" {
+                let serAndDeser (d: System.DateTimeOffset) : System.DateTimeOffset =
+                    Json.Deserialize (Json.Serialize d.DateTime)
+                equal (serAndDeser dO).DateTime d.Self
+                equal (serAndDeser nowO).DateTime now
+            }
+
+            Test "deserialize System.DateTime from a System.DateTimeOffset" {
+                let serAndDeser (d: System.DateTimeOffset) : System.DateTime =
+                    Json.Deserialize (Json.Serialize d.DateTime)
+                equal (serAndDeser dO) d.Self
+                equal (serAndDeser nowO) now
+            }
+
             Test "serialize enum" {
                 equal (Json.Serialize Enum.Case1) "1"
                 equal (Json.Serialize Enum.Case2) "2"
@@ -630,6 +662,16 @@ module ClientSideJson =
                     echo "DateTime" (Json.Serialize r) Json.Decode<System.DateTime>
                 equalAsync (f d.Self) d.Self
                 equalAsync (f now) now
+            }
+
+            let nowO = System.DateTimeOffset(now, System.TimeSpan.FromHours 1.)
+            let dO = System.DateTimeOffset(d.Self, System.TimeSpan.FromHours -1.)
+
+            Test "System.DateTimeOffset" {
+                let f (r: System.DateTimeOffset) =
+                    echo "DateTimeOffset" (Json.Serialize r) Json.Decode<System.DateTimeOffset>
+                equalAsync (f dO) dO
+                equalAsync (f nowO) nowO
             }
 
             Test "Queue" {

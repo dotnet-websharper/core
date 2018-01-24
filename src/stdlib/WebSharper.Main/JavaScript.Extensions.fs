@@ -158,6 +158,13 @@ module Extensions =
         [<Inline "new Date($0)">]
         member this.JS = X<Date>
 
+    type System.DateTimeOffset with
+        [<Inline "new Date($0.d)">]
+        [<System.Obsolete "Deprecated. Use JS property instead.">]
+        member this.ToEcma() = X<Date>
+        [<Inline "new Date($0.d)">]
+        member this.JS = X<Date>
+
     type Function with
         [<Inline "$0">]
         [<System.Obsolete "Unsafe.">]
