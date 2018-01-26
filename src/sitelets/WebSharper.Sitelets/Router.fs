@@ -261,7 +261,7 @@ type Route =
         QueryArgs : Map<string, string>
         FormData : Map<string, string>
         Method : option<string> 
-        Body : option<string>
+        Body : Lazy<string>
     }
 
     static member Empty =
@@ -270,7 +270,7 @@ type Route =
             QueryArgs = Map.empty
             FormData = Map.empty
             Method = None
-            Body = None
+            Body = Lazy.CreateFromValue null
         }
     
     static member Segment s =
@@ -296,7 +296,7 @@ type Route =
         | 0 -> Route.Empty
         | _ ->
         let mutable method = None
-        let mutable body = None
+        let mutable body = null
         let segments = System.Collections.Generic.Queue()
         let mutable queryArgs = Map.empty
         let mutable formData = Map.empty
@@ -308,10 +308,10 @@ type Route =
             | Some _ as m ->
                 method <- m
             | _ -> ()
-            match p.Body with
-            | Some _ as b ->
+            match p.Body.Value with
+            | null -> ()
+            | b ->
                 body <- b
-            | _ -> ()
             queryArgs <- p.QueryArgs |> Map.foldBack Map.add queryArgs 
             formData <- p.FormData |> Map.foldBack Map.add formData 
             p.Segments |> List.iter segments.Enqueue
@@ -321,7 +321,7 @@ type Route =
             QueryArgs = queryArgs
             FormData = formData
             Method = method
-            Body = body
+            Body = Lazy.CreateFromValue body
         }
 
     static member ParseQuery(q: string) =
@@ -369,22 +369,7 @@ type Route =
             QueryArgs = r.Get.ToList() |> Map.ofList
             FormData = r.Post.ToList() |> Map.ofList
             Method = Some (r.Method.ToString())
-            Body =
-                let i = r.Body 
-                if not (isNull i) then 
-                    // We need to copy the stream because else StreamReader would close it.
-                    use m =
-                        if i.CanSeek then
-                            new System.IO.MemoryStream(int i.Length)
-                        else
-                            new System.IO.MemoryStream()
-                    i.CopyTo m
-                    if i.CanSeek then
-                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    use reader = new System.IO.StreamReader(m)
-                    Some (reader.ReadToEnd())
-                else None
+            Body = lazy r.BodyText
         }
 
     static member FromHash(path: string, ?strict: bool) =
@@ -648,11 +633,14 @@ module Router =
     let Body (deserialize: string -> option<'A>) (serialize: 'A -> string) : Router<'A> =
         {
             Parse = fun path ->
-                match path.Body |> Option.bind deserialize with
-                | Some b -> Seq.singleton ({ path with Body = None}, b)
-                | _ -> Seq.empty
+                match path.Body.Value with
+                | null -> Seq.empty
+                | x ->
+                    match deserialize x with
+                    | Some b -> Seq.singleton ({ path with Body = Lazy.CreateFromValue null}, b)
+                    | _ -> Seq.empty
             Write = fun value ->
-                Some <| Seq.singleton { Route.Empty with Body = Some (serialize value) }
+                Some <| Seq.singleton { Route.Empty with Body = Lazy.CreateFromValue (serialize value) }
         }
 
     let FormData (item: Router<'A>) : Router<'A> =
@@ -689,19 +677,19 @@ module Router =
             match path.Method with
             | Some m -> settings.Type <- As m
             | _ -> ()
-            match path.Body with
-            | Some b ->
-                settings.ContentType <- Union2Of2 "application/json"
-                settings.Data <- b
-                settings.ProcessData <- false
-                if Option.isNone path.Method then settings.Type <- RequestType.POST 
-            | _ ->
+            match path.Body.Value with
+            | null ->
                 if not (Map.isEmpty path.FormData) then
                     let fd = JavaScript.FormData()
                     path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
                     settings.ContentType <- Union1Of2 false
                     settings.Data <- fd
                     settings.ProcessData <- false
+                if Option.isNone path.Method then settings.Type <- RequestType.POST 
+            | b ->
+                settings.ContentType <- Union2Of2 "application/json"
+                settings.Data <- b
+                settings.ProcessData <- false
                 if Option.isNone path.Method then settings.Type <- RequestType.POST 
             Async.FromContinuations (fun (ok, err, cc) ->
                 settings.Success <- fun res _ _ -> ok (As<string> res) 
@@ -1104,7 +1092,7 @@ module IRouter =
                 let builder = UriBuilder req.Uri
                 if builder.Path.StartsWith prefix then
                     builder.Path <- builder.Path.Substring prefix.Length
-                    router.Route {req with Uri = builder.Uri}
+                    router.Route (req.WithUri(builder.Uri))
                 else
                     None
             member this.Link e = router.Link e |> Option.map shift

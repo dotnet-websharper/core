@@ -24,6 +24,7 @@ namespace WebSharper.Sitelets
 
 open System
 open System.Collections.Generic
+open System.Collections.Specialized
 open System.Configuration
 open System.Diagnostics
 open System.IO
@@ -107,38 +108,69 @@ module private WebUtils =
             else
                 req.Url
 
-    /// Converts ASP.NET requests to Sitelet requests.
-    let convertRequest (ctx: HttpContextBase) : Http.Request =
+    type AspNetRequest(ctx: HttpContextBase) =
+        inherit Http.Request()
+
         let req = ctx.Request
+        let method = Http.Method.OfString req.HttpMethod
+        let uri = getUri req
         let headers =
             seq {
                 for key in req.Headers.AllKeys do
                     yield Http.Header.Custom key req.Headers.[key]
             }
-        {
-            Method = Http.Method.OfString ctx.Request.HttpMethod
-            Uri = getUri req
-            Headers = headers
-            Body = req.InputStream
-            Post = new Http.ParameterCollection(req.Form)
-            Get  = new Http.ParameterCollection(req.QueryString)
-            ServerVariables = new Http.ParameterCollection(req.ServerVariables)
-            Files =
-                let fs = req.Files
-                seq {
-                    for i = 0 to fs.Count - 1 do
-                        let f = req.Files.[i]
-                        let k = fs.GetKey(i)
-                        yield { new Http.IPostedFile with
-                            member this.Key = k
-                            member this.ContentLength = f.ContentLength
-                            member this.ContentType = f.ContentType
-                            member this.FileName = f.FileName
-                            member this.InputStream = f.InputStream
-                            member this.SaveAs(n) = f.SaveAs(n)
-                        }
-                }
-        }
+        let mutable post = null
+        let mutable get = null
+        let mutable serverVars = null
+        let mutable cookies = null
+
+        override this.Method = method
+        override this.Uri = uri                                     
+        override this.Headers = headers
+        override this.Body = req.InputStream
+        override this.Post = 
+            if isNull post then
+                post <- Http.ParametersFromNameValues(req.Form)
+            post
+        override this.Get = 
+            if isNull get then
+                get <- Http.ParametersFromNameValues(req.QueryString)
+            get
+        override this.ServerVariables = 
+            if isNull serverVars then
+                serverVars <- Http.ParametersFromNameValues(req.ServerVariables)
+            serverVars
+        override this.Files =
+            let fs = req.Files
+            seq {
+                for i = 0 to fs.Count - 1 do
+                    let f = fs.[i]
+                    let k = fs.GetKey(i)
+                    yield { new Http.IPostedFile with
+                        member this.Key = k
+                        member this.ContentLength = f.ContentLength
+                        member this.ContentType = f.ContentType
+                        member this.FileName = f.FileName
+                        member this.InputStream = f.InputStream
+                        member this.SaveAs(n) = f.SaveAs(n)
+                    }
+            }
+        override this.Cookies =
+            if isNull cookies then
+                let d = NameValueCollection()
+                match headers |> Seq.tryFind (fun h -> h.Name = "Cookie") with
+                | None -> ()
+                | Some h ->
+                    for s in h.Value.Split([|"; "|], StringSplitOptions.None) do
+                        match s.IndexOf '=' with
+                        | -1 -> failwith "Cookie header syntax invalid"
+                        | i -> d.Add(s.[..i-1], s.[i+1..])
+                cookies <- Http.ParametersFromNameValues d
+            cookies
+
+    /// Converts ASP.NET requests to Sitelet requests.
+    let convertRequest (ctx: HttpContextBase) : Http.Request =
+        AspNetRequest ctx :> _
 
     /// Constructs the sitelet context object.
     let getContext (site: Sitelet<obj>) (ctx: HttpContextBase) resCtx appPath rootFolder (request: Http.Request) =

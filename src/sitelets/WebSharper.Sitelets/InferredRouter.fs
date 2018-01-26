@@ -28,8 +28,6 @@ open System.Text
 
 module internal ServerInferredOperators =
 
-    let emptyParams = Http.ParameterCollection(Seq.empty)
-
     type ParseResult =
         | StrictMode
         | NoErrors
@@ -44,25 +42,25 @@ module internal ServerInferredOperators =
             QueryArgs : Http.ParameterCollection
             FormData : Http.ParameterCollection
             Method : option<string> 
-            Body : option<string>
+            Body : Lazy<string>
             mutable Result: ParseResult 
         }
     
         static member Empty =
             {
                 Segments = []
-                QueryArgs = emptyParams
-                FormData = emptyParams
+                QueryArgs = Http.EmptyParameters
+                FormData = Http.EmptyParameters
                 Method = None
-                Body = None
+                Body = Lazy.CreateFromValue null
                 Result = StrictMode
             }
 
         static member OfPath(path: Route) =
             {
                 Segments = path.Segments
-                QueryArgs = Http.ParameterCollection(path.QueryArgs |> Map.toSeq)
-                FormData = emptyParams
+                QueryArgs = Http.ParametersFromMap(path.QueryArgs)
+                FormData = Http.EmptyParameters
                 Method = path.Method
                 Body = path.Body
                 Result = StrictMode
@@ -92,22 +90,7 @@ module internal ServerInferredOperators =
                 QueryArgs = r.Get
                 FormData = r.Post
                 Method = Some (r.Method.ToString())
-                Body =
-                    let i = r.Body 
-                    if not (isNull i) then 
-                        // We need to copy the stream because else StreamReader would close it.
-                        use m =
-                            if i.CanSeek then
-                                new System.IO.MemoryStream(int i.Length)
-                            else
-                                new System.IO.MemoryStream()
-                        i.CopyTo m
-                        if i.CanSeek then
-                            i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                        m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                        use reader = new System.IO.StreamReader(m)
-                        Some (reader.ReadToEnd())
-                    else None
+                Body = lazy r.BodyText
                 Result = StrictMode
             }
 
@@ -143,7 +126,7 @@ module internal ServerInferredOperators =
                     if isNull q then Map.empty else Route.ParseQuery (q.ToString())
                 FormData = Map.empty
                 Method = None
-                Body = None
+                Body = Lazy.CreateFromValue null
             }
 
         member this.ToLink() =
@@ -485,9 +468,11 @@ module internal ServerInferredOperators =
     let IJson<'T when 'T: equality> : InferredRouter =
         {
             IParse = fun path ->                
-                match path.Body |> Option.bind (fun s -> try Some (Json.Deserialize<'T> s |> box) with _ -> None) with
-                | None -> error InvalidJson path
-                | Some v -> Some v
+                match path.Body.Value with
+                | null -> error InvalidJson path
+                | b ->
+                    try Some (Json.Deserialize<'T> b |> box)
+                    with _ -> error InvalidJson path
             IWrite = ignore
         }
 

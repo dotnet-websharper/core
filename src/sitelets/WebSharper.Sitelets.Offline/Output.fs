@@ -281,19 +281,6 @@ let resourceContext (st: State) (level: int) : R.Context =
         ResourceDependencyCache = System.Collections.Concurrent.ConcurrentDictionary()
     }
 
-/// Creates a dummy request.
-let emptyRequest (uri: string) : Http.Request =
-    {
-        Method = Http.Method.Get
-        Uri = Uri(uri, UriKind.Relative)
-        Headers = Seq.empty
-        Post = Http.ParameterCollection(Seq.empty)
-        Get = Http.ParameterCollection(Seq.empty)
-        ServerVariables = Http.ParameterCollection(Seq.empty)
-        Body = Stream.Null
-        Files = Seq.empty
-    }
-
 /// Represents an action that was partially resolved to some content.
 type ResolvedContent =
     {
@@ -329,7 +316,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
                 Metadata = st.Metadata,
                 Dependencies = st.Dependencies,
                 ResourceContext = resContext,
-                Request = emptyRequest locationString,
+                Request = Http.Request.Empty locationString,
                 RootFolder = projectFolder,
                 UserSession = IUserSession.NotAvailable,
                 Environment = Map []
@@ -427,7 +414,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Metadata = st.Metadata,
                     Dependencies = st.Dependencies,
                     ResourceContext = rC.ResourceContext,
-                    Request = emptyRequest (P.ShowPath rC.Path),
+                    Request = Http.Request.Empty (P.ShowPath rC.Path),
                     RootFolder = projectFolder,
                     UserSession = IUserSession.NotAvailable,
                     Environment = Map []

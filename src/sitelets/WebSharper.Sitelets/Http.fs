@@ -103,29 +103,35 @@ module Http =
             { name = n; value = v }
 
     /// Represents parameter collections.
-    [<Sealed>]
-    type ParameterCollection(nameValues: NameValueCollection) =
+    [<AllowNullLiteral>]
+    type ParameterCollection =
+        abstract Item: string -> option<string> 
+        abstract ToList: unit -> list<string * string> 
 
-        /// Creates a new parameter collection from s sequence of name and value pairs.
-        new (nvs) =
-            let nv = NameValueCollection()
-            nvs
-            |> Seq.iter (fun (n, v) -> nv.Add(n,v))
-            ParameterCollection(nv)
+    let EmptyParameters =
+        { new ParameterCollection with
+            member this.Item _ = None
+            member this.ToList() = []
+        }
+    
+    let ParametersFromNameValues (nv: NameValueCollection) =
+        { new ParameterCollection with
+            member this.Item(name:string) =
+                Option.ofObj nv.[name]
+            member this.ToList() =
+                [
+                    for k in nv do
+                        yield (k, nv.[k])
+                ]    
+        }
 
-        /// Get the entry with the specified key.
-        // If the no entry is found the value none is returned.
-        member pc.Item(name:string) =
-            if nameValues.[name] = null then None else
-                Some nameValues.[name]
-
-        /// Transforms the parameter list into a list of
-        /// name and value pairs.
-        member pc.ToList() =
-            [
-                for k in nameValues.Keys do
-                   yield (k, nameValues.[k])
-            ]
+    let ParametersFromMap (m: Map<string, string>) =
+        { new ParameterCollection with
+            member this.Item(name:string) =
+                m |> Map.tryFind name
+            member this.ToList() =
+                Map.toList m
+        }
 
     type IPostedFile =
         abstract Key : string
@@ -136,28 +142,73 @@ module Http =
         abstract SaveAs : filename: string -> unit
 
     /// Represents HTTP requests.
-    type Request =
-        {
-            Method : Method
-            Uri : System.Uri
-            Headers : seq<Header>
-            Post : ParameterCollection
-            Get : ParameterCollection
-            ServerVariables : ParameterCollection
-            Body : Stream
-            Files : seq<IPostedFile>
-        }
+    [<AbstractClass>]
+    type Request() =
+        let mutable bodyText = null
 
-        member this.Cookies =
-            let d = NameValueCollection()
-            match this.Headers |> Seq.tryFind (fun h -> h.Name = "Cookie") with
-            | None -> ()
-            | Some h ->
-                for s in h.Value.Split([|"; "|], StringSplitOptions.None) do
-                    match s.IndexOf '=' with
-                    | -1 -> failwith "Cookie header syntax invalid"
-                    | i -> d.Add(s.[..i-1], s.[i+1..])
-            ParameterCollection(d)
+        abstract Method : Method 
+        abstract Uri : System.Uri 
+        abstract Headers : seq<Header> 
+        abstract Post : ParameterCollection 
+        abstract Get : ParameterCollection 
+        abstract ServerVariables : ParameterCollection 
+        abstract Body : Stream
+        abstract Files : seq<IPostedFile>
+        abstract Cookies : ParameterCollection
+        
+        member this.BodyText =
+            if isNull bodyText then
+                let i = this.Body
+                if isNull i then
+                    bodyText <- ""    
+                else
+                    // We need to copy the stream because else StreamReader would close it.
+                    use m =
+                        if i.CanSeek then
+                            new System.IO.MemoryStream(int i.Length)
+                        else
+                            new System.IO.MemoryStream()
+                    i.CopyTo m
+                    if i.CanSeek then
+                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+                    use reader = new System.IO.StreamReader(m)
+                    bodyText <- reader.ReadToEnd()
+            bodyText
+
+        member this.WithUri(uri) =
+            match this with
+            | :? RequestWithUri as req ->
+                RequestWithUri(req.Original, uri) :> Request   
+            | _ ->
+                RequestWithUri(this, uri) :> Request   
+
+        static member Empty (uri) =
+            { new Request() with
+                override x.Method = Method.Get
+                override x.Uri = Uri(uri, UriKind.Relative)
+                override x.Headers = Seq.empty
+                override x.Post = EmptyParameters
+                override x.Get = EmptyParameters
+                override x.ServerVariables = EmptyParameters
+                override x.Body = Stream.Null
+                override x.Files = Seq.empty
+                override x.Cookies = EmptyParameters
+            }
+
+    // optimized wrapper around Request, used for IRouter.Shift
+    and private RequestWithUri(req, uri: System.Uri) =
+        inherit Request()
+        member this.Original = req
+        override x.Method = req.Method
+        override x.Uri = uri
+        override x.Headers = req.Headers
+        override x.Post = req.Post
+        override x.Get = req.Get
+        override x.ServerVariables = req.ServerVariables
+        override x.Body = req.Body
+        override x.Files = req.Files
+        override x.Cookies = req.Cookies
 
     /// Represents the status of HTTP responses.
     /// TODO
