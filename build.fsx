@@ -1,4 +1,4 @@
-#load "tools/WebSharper.Fake.fsx"
+#load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 #r "packages/build/AjaxMin/lib/net40/AjaxMin.dll"
 
 open System.IO

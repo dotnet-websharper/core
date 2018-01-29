@@ -880,3 +880,9 @@ NUGET
     Microsoft.NETCore.Platforms (2.0.1)
     NETStandard.Library (2.0.1)
       Microsoft.NETCore.Platforms (>= 1.1)
+
+GROUP wsbuild
+
+GIT
+  remote: https://github.com/dotnet-websharper/build-script
+     (0ffbf6a797788d426225eda88d461940cb95be1d)
