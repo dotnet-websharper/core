@@ -220,7 +220,7 @@ type BuildAction =
 
 type Args =
     {
-        Version : Paket.SemVerInfo
+        GetVersion : unit ->Paket.SemVerInfo
         BuildAction : BuildAction
         Attributes : seq<Attribute>
         StrongName : bool
@@ -235,12 +235,11 @@ type WSTargets =
         BuildDebug : string
         Publish : string
         CommitPublish : string
-        ComputedVersion : Paket.SemVerInfo
     }
 
     member this.AddPrebuild s =
-        "WS-Clean" ?=> s ==> "WS-BuildDebug"
-        "WS-Update" ?=> s ==> "WS-BuildRelease"
+        "WS-GenAssemblyInfo" ?=> s ==> "WS-BuildDebug"
+        "WS-GenAssemblyInfo" ?=> s ==> "WS-BuildRelease"
         ()
 
 let verbose = getEnvironmentVarAsBoolOrDefault "verbose" false
@@ -256,6 +255,8 @@ let MakeTargets (args: Args) =
         ++ "/**/obj/Release"
         ++ "build"
 
+    let mutable version = Paket.SemVer.Zero
+
     Target "WS-Clean" <| fun () ->
         DeleteDirs dirtyDirs
 
@@ -266,10 +267,20 @@ let MakeTargets (args: Args) =
                 pkg.Name.Contains "WebSharper" || pkg.Name.Contains "Zafir")
         if needsUpdate then shell ".paket/paket.exe" "update -g %s" mainGroup.Name.Name
 
+    Target "WS-ComputeVersion" <| fun () ->
+        version <- args.GetVersion()    
+        let addVersionSuffix = getEnvironmentVarAsBoolOrDefault "AddVersionSuffix" false
+        if addVersionSuffix then
+            version <-
+                match args.WorkBranch, version.PreRelease with
+                | None, _ -> version
+                | Some b, Some p when b = p.Origin -> version
+                | Some b, _ -> Paket.SemVer.Parse (version.AsString + "-" + b)
+
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
-                yield Attribute.Version (sprintf "%i.%i.0.0" args.Version.Major args.Version.Minor)
-                yield Attribute.FileVersion (sprintf "%i.%i.%i.%s" args.Version.Major args.Version.Minor args.Version.Patch args.Version.Build)
+                yield Attribute.Version (sprintf "%i.%i.0.0" version.Major version.Minor)
+                yield Attribute.FileVersion (sprintf "%i.%i.%i.%s" version.Major version.Minor version.Patch version.Build)
                 yield! args.Attributes
                 match environVarOrNone "INTELLIFACTORY" with
                 | None -> ()
@@ -326,7 +337,7 @@ let MakeTargets (args: Args) =
         Paket.Pack <| fun p ->
             { p with
                 OutputPath = "build"
-                Version = args.Version.AsString
+                Version = version.AsString
             }
 
     Target "WS-Checkout" <| fun () ->
@@ -356,7 +367,7 @@ let MakeTargets (args: Args) =
             File.WriteAllText("build/buildFromRef", args.BaseRef)
 
     Target "WS-Commit" <| fun () ->
-        let tag = "v" + args.Version.AsString
+        let tag = "v" + version.AsString
         if VC.isGit then
             git "add ."
             git "commit --allow-empty -m \"[CI] %s\"" tag
@@ -384,11 +395,13 @@ let MakeTargets (args: Args) =
     Target "WS-CommitPublish" DoNothing
 
     "WS-Clean"
+        ==> "WS-ComputeVersion"
         ==> "WS-GenAssemblyInfo"
         ?=> "WS-BuildDebug"
 
     "WS-Clean"
         ==> "WS-Update"
+        ==> "WS-ComputeVersion"
         ==> "WS-GenAssemblyInfo"
         ==> "WS-BuildRelease"
         ==> "WS-Package"
@@ -409,26 +422,18 @@ let MakeTargets (args: Args) =
         BuildDebug = "WS-BuildDebug"
         Publish = "WS-Publish"
         CommitPublish = "WS-CommitPublish"
-        ComputedVersion = args.Version
     }
 
 type WSTargets with
 
-    static member Default (version: Paket.SemVerInfo) =
+    static member Default getVersion =
         let buildBranch = environVarOrNone "BuildBranch"
         let baseRef =
             match environVarOrNone "BuildFromRef" with
             | Some r -> r
             | None -> VC.getCurrentCommitId()
-        let addVersionSuffix = getEnvironmentVarAsBoolOrDefault "AddVersionSuffix" false
-        let version =
-            if not addVersionSuffix then version else
-            match buildBranch, version.PreRelease with
-            | None, _ -> version
-            | Some b, Some p when b = p.Origin -> version
-            | Some b, _ -> Paket.SemVer.Parse (version.AsString + "-" + b)
         {
-            Version = version
+            GetVersion = getVersion
             BuildAction = BuildAction.Solution "*.sln"
             Attributes = Seq.empty
             StrongName = false
@@ -441,4 +446,4 @@ type WSTargets with
         }
 
     static member Default () =
-        WSTargets.Default (ComputeVersion None)
+        WSTargets.Default (fun () -> ComputeVersion None)

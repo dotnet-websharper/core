@@ -5,15 +5,15 @@ open System.IO
 open Fake
 open WebSharper.Fake
 
-let version = "4.2-beta"
-let pre = None
+let version = "4.2"
+let pre = Some "beta"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
 let targets = MakeTargets {
-    WSTargets.Default (ComputeVersion (Some baseVersion)) with
+    WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
         BuildAction = BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
 }
 
@@ -35,18 +35,8 @@ let Minify () =
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
-let SetVersion () =
-    let v = targets.ComputedVersion
-    ["msbuild/AssemblyInfo.fs"]
-    |> List.map (fun f -> File.Copy(f + ".in", f, true); f)
-    |> processTemplates [
-        "{version}", sprintf "%i.%i.%i.%s" v.Major v.Minor v.Patch v.Build
-        "{assemblyversion}", sprintf "%i.%i.0.0" v.Major v.Minor
-    ]
-
 Target "Prepare" <| fun () ->
     Minify()
-    SetVersion()
 targets.AddPrebuild "Prepare"
 
 Target "Build" DoNothing
