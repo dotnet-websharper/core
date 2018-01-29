@@ -42,12 +42,10 @@ open System.Text.RegularExpressions
 open Fake
 open Fake.AssemblyInfoFile
 
-let private depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies"
-let private lockFile = Paket.LockFile.LoadFrom "./paket.lock"
 let private mainGroupName = Paket.Domain.GroupName "Main"
-let private mainGroup = depsFile.GetGroup mainGroupName
 
 let GetSemVerOf pkgName =
+    let lockFile = Paket.LockFile.LoadFrom "./paket.lock"
     lockFile
         .GetGroup(mainGroupName)
         .GetPackage(Paket.Domain.PackageName pkgName)
@@ -201,7 +199,7 @@ let ComputeVersion (baseVersion: option<Paket.SemVerInfo>) =
         Paket.SemVer.Parse v
     ) "%i.%i.%i.%s%s" baseVersion.Major baseVersion.Minor patch build
         (match baseVersion.PreRelease with Some r -> "-" + r.Origin | None -> "")
-
+ 
 type BuildMode =
     | Debug
     | Release
@@ -220,7 +218,7 @@ type BuildAction =
 
 type Args =
     {
-        GetVersion : unit ->Paket.SemVerInfo
+        GetVersion : unit -> Paket.SemVerInfo
         BuildAction : BuildAction
         Attributes : seq<Attribute>
         StrongName : bool
@@ -261,6 +259,8 @@ let MakeTargets (args: Args) =
         DeleteDirs dirtyDirs
 
     Target "WS-Update" <| fun () ->
+        let depsFile = Paket.DependenciesFile.ReadFromFile "./paket.dependencies"
+        let mainGroup = depsFile.GetGroup mainGroupName
         let needsUpdate =
             mainGroup.Packages
             |> Seq.exists (fun { Name = pkg } ->
@@ -276,6 +276,7 @@ let MakeTargets (args: Args) =
                 | None, _ -> version
                 | Some b, Some p when b = p.Origin -> version
                 | Some b, _ -> Paket.SemVer.Parse (version.AsString + "-" + b)
+        printfn "Computed version: %s" version.AsString
 
     Target "WS-GenAssemblyInfo" <| fun () ->
         CreateFSharpAssemblyInfo ("build" </> "AssemblyInfo.fs") [
