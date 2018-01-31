@@ -40,14 +40,16 @@ let Compile config =
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
-    if not (File.Exists config.AssemblyFile) then 
+    let isBundleOnly = config.ProjectType = Some BundleOnly
+    
+    if not (isBundleOnly || File.Exists config.AssemblyFile) then 
         ()
     else
 
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
+            if not isBundleOnly then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -124,23 +126,28 @@ let Compile config =
         argError "" // exits without printing more errors
     else
 
-    let assem = loader.LoadFile config.AssemblyFile
+    let currentMeta, sources =
+        if isBundleOnly then
+            TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+        else
+            let assem = loader.LoadFile config.AssemblyFile
 
-    let js, currentMeta, sources =
-        ModifyAssembly (Some comp) refMeta
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+            let js, currentMeta, sources =
+                ModifyAssembly (Some comp) refMeta
+                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
             
-    PrintWebSharperErrors config.WarnOnly comp
+            PrintWebSharperErrors config.WarnOnly comp
 
-    if config.PrintJS then
-        match js with 
-        | Some js ->
-            printfn "%s" js
-        | _ -> ()
+            if config.PrintJS then
+                match js with 
+                | Some js ->
+                    printfn "%s" js
+                | _ -> ()
 
-    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-    TimedStage "Writing resources into assembly"
+            TimedStage "Writing resources into assembly"
+            currentMeta, sources
 
     match config.ProjectType with
     | Some Bundle ->
@@ -194,6 +201,7 @@ let compileMain argv =
         | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
         | "--wig" -> setProjectType WIG
         | "--bundle" -> setProjectType Bundle
+        | "--bundleonly" -> setProjectType BundleOnly
         | "--html" -> setProjectType Html
         | "--site" -> setProjectType Website
         | "--wswarnonly" ->
@@ -203,6 +211,7 @@ let compileMain argv =
             match wsProjectType.ToLower() with
             | "ignore" -> ()
             | "bundle" -> setProjectType Bundle
+            | "bundleonly" -> setProjectType BundleOnly
             | "extension" | "interfacegenerator" -> setProjectType WIG
             | "html" -> setProjectType Html
             | "library" -> ()

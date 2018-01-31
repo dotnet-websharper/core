@@ -58,23 +58,31 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
 
-    let errors, exitCode = checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
+    let isBundleOnly = config.ProjectType = Some BundleOnly
     
-    PrintFSharpErrors warnSettings errors
+    let exitCode = 
+        if isBundleOnly then 0 else
+            let errors, exitCode = 
+                checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
     
+            PrintFSharpErrors warnSettings errors
+    
+            if exitCode = 0 then 
+                if not (File.Exists config.AssemblyFile) then
+                    argError "Output assembly not found"
+
+                TimedStage "F# compilation"
+
+            exitCode
+            
     if exitCode <> 0 then 
         exitCode
     else
 
-    if not (File.Exists config.AssemblyFile) then
-        argError "Output assembly not found"
-
-    TimedStage "F# compilation"
-            
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
+            if not isBundleOnly then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -165,26 +173,32 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         1
     else
             
-    let assem = loader.LoadFile config.AssemblyFile
+    let currentMeta, sources =
+        if isBundleOnly then
+            TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+        else
+            let assem = loader.LoadFile config.AssemblyFile
     
-    let js, currentMeta, sources =
-        ModifyAssembly (Some comp) (match refMeta.Result with Some (_, m) -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+            let js, currentMeta, sources =
+                ModifyAssembly (Some comp) (match refMeta.Result with Some (_, m) -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
 
-    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
+            PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
-    if config.PrintJS then
-        match js with 
-        | Some js ->
-            printfn "%s" js
-        | _ -> ()
+            if config.PrintJS then
+                match js with 
+                | Some js ->
+                    printfn "%s" js
+                | _ -> ()
 
-    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-    TimedStage "Writing resources into assembly"
+            TimedStage "Writing resources into assembly"
+            currentMeta, sources
 
     match config.ProjectType with
-    | Some Bundle ->
+    | Some Bundle 
+    | Some BundleOnly ->
         // comp.Graph does not have graph of dependencies and we need full graph here for bundling
         let metas =
             match refMeta.Result with
@@ -246,6 +260,7 @@ let compileMain argv =
             | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
             | "--wig" -> setProjectType WIG
             | "--bundle" -> setProjectType Bundle
+            | "--bundleonly" -> setProjectType BundleOnly
             | "--html" -> setProjectType Html
             | "--site" -> setProjectType Website
             | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
@@ -254,6 +269,7 @@ let compileMain argv =
                 match wsProjectType.ToLower() with
                 | "ignore" -> ()
                 | "bundle" -> setProjectType Bundle
+                | "bundleonly" -> setProjectType BundleOnly
                 | "extension" | "interfacegenerator" -> setProjectType WIG
                 | "html" -> setProjectType Html
                 | "library" -> ()
