@@ -33,6 +33,7 @@ group build
     nuget FAKE
     nuget AjaxMin
     nuget FSharp.Core ~> 4.2.0
+    nuget Mono.Cecil prerelease
 
 group wsbuild
     git https://github.com/dotnet-websharper/build-script

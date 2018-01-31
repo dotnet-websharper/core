@@ -244,12 +244,23 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
-    let netstandard = AssemblyConventions.NetStandardAssembly
+    let netstandard =
+        let dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+        let p =
+            let p1 = Path.Combine(dir, "netstandard.dll.ref")
+            if File.Exists p1 then p1 else
+            let p2 = Path.Combine(dir, "netstandard.dll")
+            if File.Exists p2 then p2 else
+            match AppDomain.CurrentDomain.GetAssemblies()
+                |> Array.tryFind (fun a -> a.GetName().Name = "netstandard") with
+            | Some a -> a.Location
+            | None -> failwith "Could not find netstandard.dll"
+        AssemblyDefinition.ReadAssembly p
     do  assemblies.["netstandard"] <- netstandard
 
     let correctType (t: TypeReference) =
         if AssemblyConventions.IsNetStandardType t.FullName then
-            t.Scope <- AssemblyConventions.NetStandardAssembly.Name
+            t.Scope <- netstandard.Name
 
     let rec correctMethod (m: MethodReference) =
         correctType m.ReturnType

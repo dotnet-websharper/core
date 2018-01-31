@@ -5,7 +5,7 @@
 *.user
 *.vsix
 *~
-IntelliFactory.WebSharper.JQuery/*.js
+/src/compiler/WebSharper.Core/netstandardtypes.txt
 **/Scripts/WebSharper/
 **/Content/WebSharper/
 /tests/WebSharper.SPA.Tests/Content/

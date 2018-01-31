@@ -4,6 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="netstandardtypes.txt" />
     <Compile Include="FastInvoke.fsi" />
     <Compile Include="FastInvoke.fs" />
     <Compile Include="PathConventions.fsi" />

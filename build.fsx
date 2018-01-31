@@ -1,5 +1,8 @@
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
-#r "packages/build/AjaxMin/lib/net40/AjaxMin.dll"
+#I "packages/build/AjaxMin/lib/net40"
+#r "AjaxMin.dll"
+#I "packages/build/Mono.Cecil/lib/net40"
+#r "Mono.Cecil.dll"
 
 open System.IO
 open Fake
@@ -35,8 +38,23 @@ let Minify () =
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
+let MakeNetStandardTypesList() =
+    let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
+    if not f.Exists then
+        let asm =
+            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
+            |> Mono.Cecil.AssemblyDefinition.ReadAssembly
+        use s = f.OpenWrite()
+        use w = new StreamWriter(s)
+        w.WriteLine(asm.FullName)
+        let rec writeType (t: Mono.Cecil.TypeDefinition) =
+            w.WriteLine(t.FullName.Replace('/', '+'))
+            Seq.iter writeType t.NestedTypes
+        Seq.iter writeType asm.MainModule.Types
+
 Target "Prepare" <| fun () ->
     Minify()
+    MakeNetStandardTypesList()
 targets.AddPrebuild "Prepare"
 
 Target "Build" DoNothing

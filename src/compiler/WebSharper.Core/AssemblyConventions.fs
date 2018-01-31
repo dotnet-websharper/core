@@ -27,34 +27,20 @@ open System.Reflection
 
 let NetStandardName = "netstandard"
 
-let NetStandardAssembly =
-    let dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let p =
-        let p1 = Path.Combine(dir, "netstandard.dll.ref")
-        if File.Exists p1 then p1 else
-        let p2 = Path.Combine(dir, "netstandard.dll")
-        if File.Exists p2 then p2 else
-        match AppDomain.CurrentDomain.GetAssemblies()
-            |> Array.tryFind (fun a -> a.GetName().Name = "netstandard") with
-        | Some a -> a.Location
-        | None -> failwith "Could not find netstandard.dll"
-    Mono.Cecil.AssemblyDefinition.ReadAssembly p
+let NetStandardFullName, nsTypes =
+    let types = HashSet<string>()
+    let thisAsm = Assembly.GetExecutingAssembly()
+    let s = thisAsm.GetManifestResourceStream("WebSharper.Core.netstandardtypes.txt")
+    use r = new StreamReader(s)
+    let fullName = r.ReadLine()
+    let rec read() =
+        match r.ReadLine() with
+        | null -> ()
+        | s -> types.Add s |> ignore; read()
+    read()
+    fullName, types
 
-let NetStandardFullName = NetStandardAssembly.FullName
-
-let IsDefinedInOrForwardedFrom (asm: Mono.Cecil.AssemblyDefinition) =
-    let exported = HashSet()
-    for e in asm.MainModule.ExportedTypes do
-        exported.Add(e.FullName) |> ignore
-    fun (fullName: string) ->
-        let n = fullName.Replace('+', '/')
-        exported.Contains(n)
-        ||
-        match asm.MainModule.GetType(n) with
-        | null -> false
-        | _ -> true
-
-let isInNS = IsDefinedInOrForwardedFrom NetStandardAssembly
+let isInNS t = nsTypes.Contains t
 
 let IsNetStandardType (fullName: string) =
     isInNS fullName
