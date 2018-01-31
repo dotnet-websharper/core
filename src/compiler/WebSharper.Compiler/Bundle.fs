@@ -50,18 +50,13 @@ module Bundling =
     open WebSharper.Compile.CommandTools
     open ExecuteCommands
 
-    let Bundle (config: WebSharper.Compile.CommandTools.WsConfig) (refMetas: M.Info list) currentMeta sources (refAssemblies: Assembly list) =
+    let Bundle (config: WebSharper.Compile.CommandTools.WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
         let outputDir = BundleOutputDir config (GetWebRoot config)
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
         let appConfig = None
-
-        let meta = 
-            refMetas |> Seq.map refreshAllIds
-            |> Seq.append (Seq.singleton currentMeta)
-            |> M.Info.UnionWithoutDependencies 
         
         let graph =
             refMetas |> Seq.map (fun m -> m.Dependencies)
@@ -79,7 +74,28 @@ module Bundling =
                 |> Array.ofSeq 
             else [||]
 
-        let htmlHeadersContext getSetting : Res.Context =
+        let mutable map = None
+        let mutable minmap = None
+
+        let getSetting =
+            match appConfig with
+            | None -> fun _ -> None
+            | Some p ->
+                let conf =
+                    ConfigurationManager.OpenMappedExeConfiguration(
+                        ExeConfigurationFileMap(ExeConfigFilename = p),
+                        ConfigurationUserLevel.None)
+                fun name ->
+                    match conf.AppSettings.Settings.[name] with
+                    | null -> None
+                    | x -> Some x.Value
+
+        // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
+        let concatScripts = not dce && not sourceMap
+        if concatScripts then
+            printfn "Using pre-compiled JavaScript for bundling"
+
+        let htmlHeadersContext : Res.Context =
             {
                 DebuggingEnabled = false
                 DefaultToHttp = false
@@ -91,114 +107,133 @@ module Bundling =
                 ResourceDependencyCache = null
             }
 
-        let mutable map = None
-        let mutable minmap = None
+        let nodes = graph.GetDependencies [ M.EntryPointNode ]        
+        let pkg =   
+            if concatScripts then
+                WebSharper.Core.AST.Undefined
+            else
+                let meta = 
+                    refMetas |> Seq.map refreshAllIds
+                    |> Seq.append (Seq.singleton currentMeta)
+                    |> M.Info.UnionWithoutDependencies 
+                let current = 
+                    if dce then trimMetadata meta nodes 
+                    else meta
+                Packager.packageAssembly current current true
+        let resources = graph.GetResourcesOf nodes
+
+        let noHtmlWriter = new HtmlTextWriter(TextWriter.Null)
+
+        let assemblyLookup =
+            lazy 
+            refAssemblies |> Seq.map (fun a -> a.Name, a) |> Map
 
         let render (mode: BundleMode) (writer: StringWriter) =
-            use htmlHeadersWriter =
-                match mode with
-                | BundleMode.HtmlHeaders -> new HtmlTextWriter(writer)
-                | _ -> new HtmlTextWriter(TextWriter.Null)
-            let debug =
-                match mode with
-                | BundleMode.MinifiedJavaScript -> false
-                | _ -> true
-            let renderWebResource cType (c: string) =
-                match cType, mode with
-                | CT.JavaScript, BundleMode.JavaScript
-                | CT.JavaScript, BundleMode.MinifiedJavaScript ->
-                    writer.Write(c)
-                    writer.WriteLine(";")
-                | CT.Css, BundleMode.CSS ->
-                    writer.WriteLine(c)
-                | _ -> ()
-            let getSetting =
-                match appConfig with
-                | None -> fun _ -> None
-                | Some p ->
-                    let conf =
-                        ConfigurationManager.OpenMappedExeConfiguration(
-                            ExeConfigurationFileMap(ExeConfigFilename = p),
-                            ConfigurationUserLevel.None)
-                    fun name ->
-                        match conf.AppSettings.Settings.[name] with
-                        | null -> None
-                        | x -> Some x.Value
-            let ctx : Res.Context =
-                {
-                    DebuggingEnabled = debug
-                    DefaultToHttp = false // TODO make configurable
-                    GetAssemblyRendering = fun _ -> Res.Skip
-                    GetSetting = getSetting
-                    GetWebResourceRendering = fun ty name ->
-                        let (c, cT) = Utility.ReadWebResource ty name
-                        renderWebResource cT c
-                        Res.Skip
-                    WebRoot = "/"
-                    RenderingCache = null
-                    ResourceDependencyCache = null
-                }
-            use htmlWriter = new HtmlTextWriter(TextWriter.Null)
-            let htmlHeadersContext = htmlHeadersContext getSetting
-        
-            let nodes = graph.GetDependencies [ M.EntryPointNode ]        
-            let current = 
-                if dce then trimMetadata meta nodes 
-                else meta
-
-            for d in graph.GetResourcesOf nodes do
-                match mode with
-                | BundleMode.HtmlHeaders -> d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
-                | _ -> d.Render ctx (fun _ -> htmlWriter)
-
             match mode with
-            | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
+            | BundleMode.HtmlHeaders -> 
+                use htmlHeadersWriter =
+                    match mode with
+                    | BundleMode.HtmlHeaders -> new HtmlTextWriter(writer)
+                    | _ -> new HtmlTextWriter(TextWriter.Null)
+                for d in resources do
+                    d.Render htmlHeadersContext (fun _ -> htmlHeadersWriter)
+
+            | _ -> 
+                let debug =
+                    match mode with
+                    | BundleMode.MinifiedJavaScript -> false
+                    | _ -> true
+                let renderWebResource cType (c: string) =
+                    match cType, mode with
+                    | CT.JavaScript, BundleMode.JavaScript
+                    | CT.JavaScript, BundleMode.MinifiedJavaScript ->
+                        writer.Write(c)
+                        writer.WriteLine(";")
+                    | CT.Css, BundleMode.CSS ->
+                        writer.WriteLine(c)
+                    | _ -> ()
+                let ctx : Res.Context =
+                    {
+                        DebuggingEnabled = debug
+                        DefaultToHttp = false // TODO make configurable
+                        GetAssemblyRendering = 
+                            match concatScripts, mode with
+                            | true, BundleMode.JavaScript -> 
+                                fun name ->
+                                    assemblyLookup.Value |> Map.tryFind name
+                                    |> Option.bind (fun a -> a.ReadableJavaScript)
+                                    |> Option.iter (fun t -> writer.WriteLine(t))
+                                    Res.Skip
+                            | true, BundleMode.MinifiedJavaScript -> 
+                                fun name ->
+                                    assemblyLookup.Value |> Map.tryFind name
+                                    |> Option.bind (fun a -> a.CompressedJavaScript)
+                                    |> Option.iter (fun t -> writer.WriteLine(t))
+                                    Res.Skip
+                            | _ ->
+                                fun _ -> Res.Skip
+                        GetSetting = getSetting
+                        GetWebResourceRendering = fun ty name ->
+                            let (c, cT) = Utility.ReadWebResource ty name
+                            renderWebResource cT c
+                            Res.Skip
+                        WebRoot = "/"
+                        RenderingCache = null
+                        ResourceDependencyCache = null
+                    }
+                for d in resources do
+                    d.Render ctx (fun _ -> noHtmlWriter)
+
+            if concatScripts then 
+                match mode with
+                | BundleMode.JavaScript -> 
+                    currentJS.Value |> Option.iter (fun (t, _) -> writer.WriteLine(t))
+                | BundleMode.MinifiedJavaScript ->
+                    currentJS.Value |> Option.iter (fun (_, t) -> writer.WriteLine(t))
+                | _ -> ()
+            else
+                match mode with
+                | BundleMode.JavaScript | BundleMode.MinifiedJavaScript ->
             
-                let pkg =   
-                    Packager.packageAssembly current current true
+                    let pref =
+                        if mode = BundleMode.JavaScript then 
+                            WebSharper.Core.JavaScript.Readable
+                        else 
+                            WebSharper.Core.JavaScript.Compact
 
-                let pref =
-                    if mode = BundleMode.JavaScript then 
-                        WebSharper.Core.JavaScript.Readable
-                    else 
-                        WebSharper.Core.JavaScript.Compact
+                    let getCodeWriter() =
+                        if sourceMap then
+                            WebSharper.Core.JavaScript.Writer.CodeWriter(
+                                sources = mapFileSources,
+                                offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
+                            )
+                        else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                let getCodeWriter() =
+                    let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref getCodeWriter
                     if sourceMap then
-                        WebSharper.Core.JavaScript.Writer.CodeWriter(
-                            sources = mapFileSources,
-                            offset = (writer.ToString() |> Seq.sumBy (function '\n' -> 1 | _ -> 0))
-                        )
-                    else WebSharper.Core.JavaScript.Writer.CodeWriter()    
+                        if mode = BundleMode.JavaScript then
+                            map <- m
+                        else
+                            minmap <- m
 
-                let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref getCodeWriter
-                if sourceMap then
-                    if mode = BundleMode.JavaScript then
-                        map <- m
-                    else
-                        minmap <- m
+                    writer.WriteLine js
 
-                writer.WriteLine js
+                    Utility.WriteStartCode false writer
+                | _ -> ()
 
-                Utility.WriteStartCode false writer
-            | _ -> ()
-
-        let content (prefix: option<string>) mode =
+        let content mode =
             let t =
                 lazy
                 use w = new StringWriter()
-                match prefix with
-                | None -> ()
-                | Some prefix -> w.WriteLine(prefix)
                 render mode w
                 w.ToString()
             Content.Create(t)
 
-        let css = content None BundleMode.CSS
-        let htmlHeaders = content None BundleMode.HtmlHeaders
+        let css = content BundleMode.CSS
+        let htmlHeaders = content BundleMode.HtmlHeaders
+        let javaScript = content BundleMode.JavaScript
+        let minifiedJavaScript = content BundleMode.MinifiedJavaScript
         let javaScriptHeaders = htmlHeaders.Map(DocWrite)
-        let javaScript = content None BundleMode.JavaScript
-        let minifiedJavaScript = content None BundleMode.MinifiedJavaScript
 
         let mapping =
             if sourceMap then 
@@ -231,6 +266,7 @@ module Bundling =
                     [| "//# sourceMappingURL=" + fileName + mapExt |]
                 )
             )
+        
         write css ".css"
         write htmlHeaders ".head.html"
         write javaScriptHeaders ".head.js"

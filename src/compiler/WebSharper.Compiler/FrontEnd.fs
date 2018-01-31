@@ -113,6 +113,24 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     else
         removeSourcePositionFromMetadata current, [||]
 
+let CreateBundleJSOutput refMeta current =
+
+    let pkg = 
+        Packager.packageAssembly refMeta current true
+
+    if pkg = AST.Undefined then None else
+
+        let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
+
+        let pu = P.PathUtility.VirtualPaths("/")
+        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+        let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+        TimedStage "Writing .js"
+        let minJs, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+        TimedStage "Writing .min.js"
+
+        Some (js, minJs)
+
 let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
@@ -195,7 +213,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
         addMeta()
-        Some js, currentPosFixed, sources, res.ToArray()
+        Some (js, minJs), currentPosFixed, sources, res.ToArray()
     else
         // set current AssemblyNode to have no js
         current.Dependencies.Nodes |> Array.tryFindIndex (function

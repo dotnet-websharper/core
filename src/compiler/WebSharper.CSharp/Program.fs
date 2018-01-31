@@ -126,9 +126,10 @@ let Compile config =
         argError "" // exits without printing more errors
     else
 
-    let currentMeta, sources =
+    let js, currentMeta, sources =
         if isBundleOnly then
-            TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            None, currentMeta, sources
         else
             let assem = loader.LoadFile config.AssemblyFile
 
@@ -140,18 +141,22 @@ let Compile config =
 
             if config.PrintJS then
                 match js with 
-                | Some js ->
+                | Some (js, _) ->
                     printfn "%s" js
                 | _ -> ()
 
             assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
-            currentMeta, sources
+            js, currentMeta, sources
 
     match config.ProjectType with
-    | Some Bundle ->
-        Bundling.Bundle config metas currentMeta sources refs
+    | Some (Bundle | BundleOnly) ->
+        let currentJS =
+            if isBundleOnly then
+                lazy CreateBundleJSOutput refMeta currentMeta
+            else lazy js
+        Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore

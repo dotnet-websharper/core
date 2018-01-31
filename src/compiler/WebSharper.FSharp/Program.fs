@@ -172,39 +172,48 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
         1
     else
-            
-    let currentMeta, sources =
+    
+    let getRefMeta() =
+        match refMeta.Result with 
+        | Some (_, m) -> m 
+        | _ -> WebSharper.Core.Metadata.Info.Empty
+
+    let js, currentMeta, sources =
         if isBundleOnly then
-            TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            None, currentMeta, sources
         else
             let assem = loader.LoadFile config.AssemblyFile
     
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) (match refMeta.Result with Some (_, m) -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+                ModifyAssembly (Some comp) (getRefMeta()) 
                     (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
 
             PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
             if config.PrintJS then
                 match js with 
-                | Some js ->
+                | Some (js, _) ->
                     printfn "%s" js
                 | _ -> ()
 
             assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
-            currentMeta, sources
+            js, currentMeta, sources
 
     match config.ProjectType with
-    | Some Bundle 
-    | Some BundleOnly ->
+    | Some (Bundle | BundleOnly) ->
         // comp.Graph does not have graph of dependencies and we need full graph here for bundling
         let metas =
             match refMeta.Result with
             | Some (metas, _) -> metas
             | _ -> []
-        Bundling.Bundle config metas currentMeta sources refs
+        let currentJS =
+            if isBundleOnly then
+                lazy CreateBundleJSOutput (getRefMeta()) currentMeta
+            else lazy js
+        Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
