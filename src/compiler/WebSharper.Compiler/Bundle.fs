@@ -188,8 +188,10 @@ module Bundling =
                 match mode with
                 | BundleMode.JavaScript -> 
                     currentJS.Value |> Option.iter (fun (t, _) -> writer.WriteLine(t))
+                    Utility.WriteStartCode false writer
                 | BundleMode.MinifiedJavaScript ->
                     currentJS.Value |> Option.iter (fun (_, t) -> writer.WriteLine(t))
+                    Utility.WriteStartCode false writer
                 | _ -> ()
             else
                 match mode with
