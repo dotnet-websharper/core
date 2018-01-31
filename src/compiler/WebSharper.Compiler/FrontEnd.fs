@@ -122,12 +122,10 @@ let CreateBundleJSOutput refMeta current =
 
         let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-        let pu = P.PathUtility.VirtualPaths("/")
-        let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        TimedStage "Writing .js"
+        TimedStage "Writing .js for bundle"
         let minJs, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        TimedStage "Writing .min.js"
+        TimedStage "Writing .min.js for bundle"
 
         Some (js, minJs)
 

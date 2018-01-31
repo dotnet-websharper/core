@@ -210,9 +210,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             | Some (metas, _) -> metas
             | _ -> []
         let currentJS =
-            if isBundleOnly then
-                lazy CreateBundleJSOutput (getRefMeta()) currentMeta
-            else lazy js
+            lazy CreateBundleJSOutput (getRefMeta()) currentMeta
         Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
