@@ -106,13 +106,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     None
             )
             if refError then None
-            elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
+            elif List.isEmpty metas then Some ([], WebSharper.Core.Metadata.Info.Empty) 
             else
                 try
-                    Some { 
-                        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-                    }
+                    Some (
+                        metas,
+                        { 
+                            WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                                Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+                        }
+                    )
                 with e ->
                     refError <- true
                     PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
@@ -157,7 +160,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         1
     | Some comp ->
 
-    
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
         1
@@ -165,8 +167,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             
     let assem = loader.LoadFile config.AssemblyFile
     
-    let js =
-        ModifyAssembly (Some comp) (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
+    let js, currentMeta, sources =
+        ModifyAssembly (Some comp) (match refMeta.Result with Some (_, m) -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
 
     PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
@@ -183,7 +185,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     match config.ProjectType with
     | Some Bundle ->
-        ExecuteCommands.Bundle config |> ignore
+        // comp.Graph does not have graph of dependencies and we need full graph here for bundling
+        let metas =
+            match refMeta.Result with
+            | Some (metas, _) -> metas
+            | _ -> []
+        Bundling.Bundle config metas currentMeta sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -201,7 +208,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 let compileMain argv =
 
     match List.ofArray argv |> List.tail with
-    | Cmd BundleCommand.Instance r -> r
     | Cmd HtmlCommand.Instance r -> r
     | Cmd UnpackCommand.Instance r -> r
     | _ ->

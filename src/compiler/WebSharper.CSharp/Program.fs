@@ -55,17 +55,17 @@ let Compile config =
     
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    let mutable refError = false
+    let metas = refs |> List.choose (fun r -> 
+        match TryReadFromAssembly FullMetadata r with
+        | None -> None
+        | Some (Ok m) -> Some m
+        | Some (Error e) ->
+            refError <- true
+            PrintGlobalError e
+            None
+    )
     let refMeta =
-        let mutable refError = false
-        let metas = refs |> List.choose (fun r -> 
-            match TryReadFromAssembly FullMetadata r with
-            | None -> None
-            | Some (Ok m) -> Some m
-            | Some (Error e) ->
-                refError <- true
-                PrintGlobalError e
-                None
-        )
         if refError then None
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
         else 
@@ -126,7 +126,7 @@ let Compile config =
 
     let assem = loader.LoadFile config.AssemblyFile
 
-    let js =
+    let js, currentMeta, sources =
         ModifyAssembly (Some comp) refMeta
             (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
             
@@ -144,7 +144,7 @@ let Compile config =
 
     match config.ProjectType with
     | Some Bundle ->
-        ExecuteCommands.Bundle config |> ignore
+        Bundling.Bundle config metas currentMeta sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -160,7 +160,6 @@ let Compile config =
 let compileMain argv =
 
     match List.ofArray argv with
-    | Cmd BundleCommand.Instance r -> r 
     | Cmd HtmlCommand.Instance r -> r
     | Cmd UnpackCommand.Instance r -> r
     | _ ->
