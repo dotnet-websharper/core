@@ -35,6 +35,12 @@ exception ArgumentError of msg: string with
     override this.Message = this.msg
 let argError msg = raise (ArgumentError msg)
 
+/// In BundleOnly mode, output a dummy DLL to please MSBuild
+let MakeDummyDll (path: string) (assemblyName: string) =
+    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, Version())
+    let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
+    asm.Write(path)
+
 open Microsoft.FSharp.Compiler.SourceCodeServices
 let Compile (config : WsConfig) (warnSettings: WarnSettings) =    
     StartTimer()
@@ -62,7 +68,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
     let exitCode = 
-        if isBundleOnly then 0 else
+        if isBundleOnly then
+            MakeDummyDll config.AssemblyFile thisName
+            0
+        else
             let errors, exitCode = 
                 checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
     
