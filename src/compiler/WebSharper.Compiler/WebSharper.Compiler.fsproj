@@ -45,17 +45,14 @@
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
     <Compile Include="WIGCompile.fs" />
-    <Compile Include="bundling/Bundle.fsi" />
-    <Compile Include="bundling/Bundle.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
-    <Compile Include="commands/BundleCommand.fsi" />
-    <Compile Include="commands/BundleCommand.fs" />
     <Compile Include="commands/HtmlCommand.fsi" />
     <Compile Include="commands/HtmlCommand.fs" />
     <Compile Include="commands/UnpackCommand.fsi" />
     <Compile Include="commands/UnpackCommand.fs" />
     <Compile Include="CommandTools.fs" />
+    <Compile Include="Bundle.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">

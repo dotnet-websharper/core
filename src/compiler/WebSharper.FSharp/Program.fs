@@ -59,24 +59,32 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
 
-    let errors, exitCode = checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
+    let isBundleOnly = config.ProjectType = Some BundleOnly
     
-    PrintFSharpErrors warnSettings errors
+    let exitCode = 
+        if isBundleOnly then 0 else
+            let errors, exitCode = 
+                checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
     
+            PrintFSharpErrors warnSettings errors
+    
+            if exitCode = 0 then 
+                if not (File.Exists config.AssemblyFile) then
+                    argError "Output assembly not found"
+
+                TimedStage "F# compilation"
+
+            exitCode
+            
     if exitCode <> 0 then 
         exitCode
     else
-
-    if not (File.Exists config.AssemblyFile) then
-        argError "Output assembly not found"
-
-    TimedStage "F# compilation"
 
     let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
+            if not isBundleOnly then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -109,13 +117,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     None
             )
             if refError then None
-            elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
+            elif List.isEmpty metas then Some ([], WebSharper.Core.Metadata.Info.Empty) 
             else
                 try
-                    Some { 
-                        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-                    }
+                    Some (
+                        metas,
+                        { 
+                            WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
+                                Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+                        }
+                    )
                 with e ->
                     refError <- true
                     PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
@@ -160,33 +171,50 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         1
     | Some comp ->
 
-    
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
         1
     else
-            
-    let assem = loader.LoadFile config.AssemblyFile
     
-    let js =
-        ModifyAssembly (Some comp) (match refMeta.Result with Some m -> m | _ -> WebSharper.Core.Metadata.Info.Empty) 
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+    let getRefMeta() =
+        match refMeta.Result with 
+        | Some (_, m) -> m 
+        | _ -> WebSharper.Core.Metadata.Info.Empty
 
-    PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
+    let js, currentMeta, sources =
+        if isBundleOnly then
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            None, currentMeta, sources
+        else
+            let assem = loader.LoadFile config.AssemblyFile
+    
+            let js, currentMeta, sources =
+                ModifyAssembly (Some comp) (getRefMeta()) 
+                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+
+            PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
-    if config.PrintJS then
-        match js with 
-        | Some js ->
-            printfn "%s" js
-        | _ -> ()
+            if config.PrintJS then
+                match js with 
+                | Some (js, _) ->
+                    printfn "%s" js
+                | _ -> ()
 
-    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-    TimedStage "Writing resources into assembly"
+            TimedStage "Writing resources into assembly"
+            js, currentMeta, sources
 
     match config.ProjectType with
-    | Some Bundle ->
-        ExecuteCommands.Bundle config |> ignore
+    | Some (Bundle | BundleOnly) ->
+        // comp.Graph does not have graph of dependencies and we need full graph here for bundling
+        let metas =
+            match refMeta.Result with
+            | Some (metas, _) -> metas
+            | _ -> []
+        let currentJS =
+            lazy CreateBundleJSOutput (getRefMeta()) currentMeta
+        Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -204,7 +232,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 let compileMain argv =
 
     match List.ofArray argv |> List.tail with
-    | Cmd BundleCommand.Instance r -> r
     | Cmd HtmlCommand.Instance r -> r
     | Cmd UnpackCommand.Instance r -> r
     | _ ->
@@ -243,6 +270,7 @@ let compileMain argv =
             | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
             | "--wig" -> setProjectType WIG
             | "--bundle" -> setProjectType Bundle
+            | "--bundleonly" -> setProjectType BundleOnly
             | "--html" -> setProjectType Html
             | "--site" -> setProjectType Website
             | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
@@ -251,6 +279,7 @@ let compileMain argv =
                 match wsProjectType.ToLower() with
                 | "ignore" -> ()
                 | "bundle" -> setProjectType Bundle
+                | "bundleonly" -> setProjectType BundleOnly
                 | "extension" | "interfacegenerator" -> setProjectType WIG
                 | "html" -> setProjectType Html
                 | "library" -> ()

@@ -28,6 +28,7 @@ open WebSharper.Compiler
 
 type ProjectType =
     | Bundle
+    | BundleOnly
     | Website
     | Html
     | WIG
@@ -113,7 +114,6 @@ module ExecuteCommands =
             | None -> failwith "WebSharperBundleOutputDir property is required"
         | Some dir -> dir
 
-
     let SendResult result =
         match result with
         | Compiler.Commands.Ok -> true
@@ -121,22 +121,6 @@ module ExecuteCommands =
             for e in errors do
                 eprintf "%s" e
             true
-
-    let Bundle settings =
-        let outputDir = BundleOutputDir settings (GetWebRoot settings)
-        let fileName = Path.GetFileNameWithoutExtension settings.AssemblyFile
-        let cfg =
-            {
-                Compiler.BundleCommand.Config.Create() with
-                    AssemblyPaths = settings.AssemblyFile :: List.ofArray settings.References
-                    FileName = fileName
-                    OutputDirectory = outputDir
-                    SourceMap = settings.SourceMap
-                    DeadCodeElimination = settings.DeadCodeElimination
-            }
-        let env = Compiler.Commands.Environment.Create()
-        Compiler.BundleCommand.Instance.Execute(env, cfg)
-        |> SendResult
 
     let Unpack settings =
         let webRoot = GetWebRoot settings |> Option.get

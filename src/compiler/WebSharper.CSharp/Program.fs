@@ -40,14 +40,16 @@ let Compile config =
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
-    if not (File.Exists config.AssemblyFile) then 
+    let isBundleOnly = config.ProjectType = Some BundleOnly
+    
+    if not (isBundleOnly || File.Exists config.AssemblyFile) then 
         ()
     else
 
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
+            if not isBundleOnly then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -55,17 +57,17 @@ let Compile config =
     
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
+    let mutable refError = false
+    let metas = refs |> List.choose (fun r -> 
+        match TryReadFromAssembly FullMetadata r with
+        | None -> None
+        | Some (Ok m) -> Some m
+        | Some (Error e) ->
+            refError <- true
+            PrintGlobalError e
+            None
+    )
     let refMeta =
-        let mutable refError = false
-        let metas = refs |> List.choose (fun r -> 
-            match TryReadFromAssembly FullMetadata r with
-            | None -> None
-            | Some (Ok m) -> Some m
-            | Some (Error e) ->
-                refError <- true
-                PrintGlobalError e
-                None
-        )
         if refError then None
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
         else 
@@ -124,27 +126,35 @@ let Compile config =
         argError "" // exits without printing more errors
     else
 
-    let assem = loader.LoadFile config.AssemblyFile
+    let js, currentMeta, sources =
+        if isBundleOnly then
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
+            None, currentMeta, sources
+        else
+            let assem = loader.LoadFile config.AssemblyFile
 
-    let js =
-        ModifyAssembly (Some comp) refMeta
-            (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+            let js, currentMeta, sources =
+                ModifyAssembly (Some comp) refMeta
+                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
             
-    PrintWebSharperErrors config.WarnOnly comp
+            PrintWebSharperErrors config.WarnOnly comp
 
-    if config.PrintJS then
-        match js with 
-        | Some js ->
-            printfn "%s" js
-        | _ -> ()
+            if config.PrintJS then
+                match js with 
+                | Some (js, _) ->
+                    printfn "%s" js
+                | _ -> ()
 
-    assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
-    TimedStage "Writing resources into assembly"
+            TimedStage "Writing resources into assembly"
+            js, currentMeta, sources
 
     match config.ProjectType with
-    | Some Bundle ->
-        ExecuteCommands.Bundle config |> ignore
+    | Some (Bundle | BundleOnly) ->
+        let currentJS =
+            lazy CreateBundleJSOutput refMeta currentMeta
+        Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -164,7 +174,6 @@ let rec compileMain (argv: string[]) =
         f.[1..]
         |> File.ReadAllLines
         |> compileMain
-    | Cmd BundleCommand.Instance r -> r 
     | Cmd HtmlCommand.Instance r -> r
     | Cmd UnpackCommand.Instance r -> r
     | _ ->
@@ -199,6 +208,7 @@ let rec compileMain (argv: string[]) =
         | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
         | "--wig" -> setProjectType WIG
         | "--bundle" -> setProjectType Bundle
+        | "--bundleonly" -> setProjectType BundleOnly
         | "--html" -> setProjectType Html
         | "--site" -> setProjectType Website
         | "--wswarnonly" ->
@@ -208,6 +218,7 @@ let rec compileMain (argv: string[]) =
             match wsProjectType.ToLower() with
             | "ignore" -> ()
             | "bundle" -> setProjectType Bundle
+            | "bundleonly" -> setProjectType BundleOnly
             | "extension" | "interfacegenerator" -> setProjectType WIG
             | "html" -> setProjectType Html
             | "library" -> ()
