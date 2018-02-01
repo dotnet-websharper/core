@@ -5,7 +5,7 @@
     <ProjectTypeGuids>{349c5851-65df-11da-9384-00065b846f21};{F2A71F9B-5D33-465A-A702-920D77279786}</ProjectTypeGuids>
     <OutputType>Library</OutputType>
     <Name>WebSharper.SPA.Tests</Name>
-    <WebSharperProject>Bundle</WebSharperProject>
+    <WebSharperProject>BundleOnly</WebSharperProject>
     <FSharp40>True</FSharp40>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <Tests>True</Tests>
