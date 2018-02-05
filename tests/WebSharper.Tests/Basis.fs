@@ -161,6 +161,13 @@ let RunTwice f =
 let testFunc (x:int) = X<obj>
 
 [<JavaScript>]
+module ModuleValues =
+    let a, b = 1, 2
+
+[<JavaScript>]
+let mA, mB = 1, 2
+
+[<JavaScript>]
 let Tests =
     TestCategory "Basis" {
 
@@ -486,5 +493,12 @@ let Tests =
         Test "IsClient" {
             equal (if IsClient then 1 else serverOnlyZero()) 1
             equal (if not IsClient then serverOnlyZero() else 1) 1
+        }
+
+        Test "Module level let pattern match" {
+            equal ModuleValues.a 1
+            equal ModuleValues.b 2
+            equal mA 1
+            equal mB 2            
         }
     }

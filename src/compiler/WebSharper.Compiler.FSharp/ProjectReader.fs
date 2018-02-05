@@ -140,7 +140,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) members =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -316,7 +316,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> ()
 
     let fsharpSpecific = 
-        cls.IsFSharpModule || cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
+        cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
+
+    let fsharpModule = cls.IsFSharpModule
 
     let clsTparams =
         lazy 
@@ -339,12 +341,21 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         )
         |> HashSet
 
-    for m in members do
+    for i = 0 to members.Count - 1 do
+        let m = members.[i]
         match m with
         | SourceMember (meth, args, expr) ->        
             if meth.IsProperty || (fsharpSpecific && meth.IsCompilerGenerated) then () else
 
-            let mAnnot = getAnnot meth
+            let mAnnot, isModulePattern = 
+                if fsharpModule && meth.IsCompilerGenerated && i < members.Count then
+                    // in module compiler-generated members created for pattern matching on let, look for the next member
+                    match members.[i + 1] with
+                    | SourceMember (nmeth, _, _) ->  
+                        getAnnot nmeth, true        
+                    | _ -> getAnnot meth, false
+                else
+                    getAnnot meth, false
             
             let getArgsAndThis() =
                 let a, t =
@@ -463,7 +474,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | _ -> b
                             let b = FixThisScope().Fix(b)      
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
-                                if isInline then
+                                if isModulePattern then
+                                    let scDef, (scContent, scFields) = sc.Value   
+                                    let var = Id.New(mut = false)
+                                    scContent.Add (VarDeclaration (var, TailCalls.optimize None inlinesOfClass b))
+                                    Var var
+                                elif isInline then
                                     b
                                 else
                                     let scDef, (scContent, scFields) = sc.Value   
@@ -539,7 +555,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ -> failwith "impossible"
                     
                     let addModuleValueProp kind body =
-                        if List.isEmpty args && (CodeReader.getEnclosingEntity meth).IsFSharpModule then
+                        if List.isEmpty args && fsharpModule then
                             let iBody = Call(None, NonGeneric def, Generic mdef (List.init mdef.Value.Generics TypeParameter), [])
                             // TODO : check proxy targets for module values
                             addMethod None mAnnot (Method { mdef.Value with MethodName = "get_" + mdef.Value.MethodName }) N.Inline false None iBody    
@@ -568,9 +584,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let addM = addMethod (Some (meth, memdef)) mAnnot mdef
 
                     let jsMethod isInline =
-                        let kind = if isInline then N.Inline else getKind()
-                        let ca, body = getBody isInline                        
-                        if addModuleValueProp kind body then
+                        let kind = if isInline || isModulePattern then N.Inline else getKind()
+                        let ca, body = getBody isInline        
+                        if isModulePattern || addModuleValueProp kind body then
                             addMethod None mAnnot mdef kind false ca body  
                         else addM kind false ca body
 
@@ -696,13 +712,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
-        elif cls.IsFSharpModule then NotResolvedClassKind.Static
+        elif fsharpModule then NotResolvedClassKind.Static
         elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
     let baseCls =
-        if fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if fsharpSpecific || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)

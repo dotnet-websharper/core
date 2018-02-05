@@ -816,7 +816,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let trThisArg = trThisObj() |> Option.toList
             Application(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length)
         | M.Inline ->
-            Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
+            match expr with 
+            | Var _ -> 
+                // used for patternInput values 
+                expr 
+            | _ ->
+                Substitution(trArgs(), ?thisObj = trThisObj()).TransformExpression(expr)
         | M.NotCompiledInline ->
             let ge =
                 if not (List.isEmpty typ.Generics && List.isEmpty meth.Generics) then
