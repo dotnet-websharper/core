@@ -268,7 +268,6 @@ module Sitelet =
             }
         }
 
-    [<Obsolete>]
     let InferWithCustomErrors<'T when 'T : equality> (handle : Context<'T> -> ParseRequestResult<'T> -> Async<Content<'T>>) =
         {
             Router = Router.IInferWithCustomErrors<'T>()

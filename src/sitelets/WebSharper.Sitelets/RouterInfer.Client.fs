@@ -460,9 +460,8 @@ module InferRouter =
         /// Creates a router based on type shape and WebSharper attributes,
         /// that catches wrong method, query and request body errors.
         let InferWithCustomErrors<'T when 'T: equality>() =
-            let t = typeof<'T>
-            S.getRouter t 
-            |> ServerInferredOperators.IWithCustomErrors t 
+            S.getRouter typeof<'T>
+            |> ServerInferredOperators.IWithCustomErrors typeof<ParseRequestResult<'T>>
             |> ServerInferredOperators.Unbox<ParseRequestResult<'T>>
 
         /// Optimized version of Infer to use straight in a Sitelet
@@ -472,7 +471,6 @@ module InferRouter =
 
         /// Optimized version of InferWithCustomErrors to use straight in a Sitelet
         let internal IInferWithCustomErrors<'T when 'T: equality>() =
-            let t = typeof<'T>
-            S.getRouter t 
-            |> ServerInferredOperators.IWithCustomErrors t 
-            |> ServerInferredOperators.Unbox<ParseRequestResult<'T>>
+            S.getRouter typeof<'T> 
+            |> ServerInferredOperators.IWithCustomErrors typeof<ParseRequestResult<'T>>
+            |> ServerInferredOperators.IUnbox<ParseRequestResult<'T>>
