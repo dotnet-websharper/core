@@ -1141,57 +1141,62 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
     let rec scan (expr: FSharpExpr) =
         let default'() =
             List.iter scan expr.ImmediateSubExpressions
-        match expr with
-        | P.Let ((id, (P.Quote value)), body) ->
-            // I'd rather pass around a Map than do this dictionary mutation,
-            // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
-            vars.[id] <- value
-            scan body
-            vars.Remove(id) |> ignore
-        | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-            let typ = env.SymbolReader.ReadTypeDefinition(meth.EnclosingEntity.Value)
-            match env.SymbolReader.ReadMember(meth) with
-            | Member.Method(_, m) ->
-                match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
-                | Some x ->
-                    x |> Array.iter (fun i ->
-                        let arg = arguments.[i]
-                        match arg with
-                        | P.Quote e -> Some e
-                        | P.Value v ->
-                            match vars.TryGetValue v with
-                            | true, e -> Some e
-                            | false, _ -> None
-                        | _ -> None
-                        |> Option.iter (fun e ->
-                            let pos = e.Range.AsSourcePos
-                            let e = transformExpression env e
-                            let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
-                            let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
-                            let qm =
-                                Hashed {
-                                    MethodInfo.Generics = 0
-                                    MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
-                                    MethodInfo.Parameters = argTypes
-                                    MethodInfo.ReturnType = retTy
-                                }
-                            let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
-                            let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
-                            // emptying FreeVars so that env can be reused for reading multiple quotation arguments
-                            env.FreeVars.Clear()
-                            // if the quotation is a single static call, the runtime fallback will be able to 
-                            // handle it without introducing a pre-compiled function for it
-                            let isTrivial =
-                                match e with 
-                                | I.Call(None, _, _, args) ->
-                                    args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
-                                | _ -> false
-                            if not isTrivial then
-                                quotations.Add(pos, qm, argNames, f) 
+        try
+            match expr with
+            | P.Let ((id, (P.Quote value)), body) ->
+                // I'd rather pass around a Map than do this dictionary mutation,
+                // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
+                vars.[id] <- value
+                scan body
+                vars.Remove(id) |> ignore
+            | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
+                let typ = env.SymbolReader.ReadTypeDefinition(meth.EnclosingEntity.Value)
+                match env.SymbolReader.ReadMember(meth) with
+                | Member.Method(_, m) ->
+                    match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
+                    | Some x ->
+                        x |> Array.iter (fun i ->
+                            let arg = arguments.[i]
+                            match arg with
+                            | P.Quote e -> Some e
+                            | P.Value v ->
+                                match vars.TryGetValue v with
+                                | true, e -> Some e
+                                | false, _ -> None
+                            | _ -> None
+                            |> Option.iter (fun e ->
+                                let pos = e.Range.AsSourcePos
+                                let e = transformExpression env e
+                                let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                                let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
+                                let qm =
+                                    Hashed {
+                                        MethodInfo.Generics = 0
+                                        MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
+                                        MethodInfo.Parameters = argTypes
+                                        MethodInfo.ReturnType = retTy
+                                    }
+                                let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
+                                let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
+                                // emptying FreeVars so that env can be reused for reading multiple quotation arguments
+                                env.FreeVars.Clear()
+                                // if the quotation is a single static call, the runtime fallback will be able to 
+                                // handle it without introducing a pre-compiled function for it
+                                let isTrivial =
+                                    match e with 
+                                    | I.Call(None, _, _, args) ->
+                                        args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
+                                    | _ -> false
+                                if not isTrivial then
+                                    quotations.Add(pos, qm, argNames, f) 
+                            )
                         )
-                    )
+                    | _ -> default'()
                 | _ -> default'()
             | _ -> default'()
-        | _ -> default'()
+        with _ -> 
+            // some TP-s can create code that FCS fails to expose, ignore that
+            // see https://github.com/dotnet-websharper/core/issues/904
+            ()
     scan expr
     quotations :> _ seq
