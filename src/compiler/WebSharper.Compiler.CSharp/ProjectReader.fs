@@ -30,6 +30,7 @@ open WebSharper.Core.Metadata
 
 open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
+open WebSharper.Compiler.CommandTools
 
 module A = WebSharper.Compiler.AttributeReader
 module R = CodeReader
@@ -759,13 +760,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         }
     )
 
-let transformAssembly (comp : Compilation) (rcomp: CSharpCompilation) =   
+let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpCompilation) =   
     let assembly = rcomp.Assembly
 
     let sr = CodeReader.SymbolReader(comp)
 
     let asmAnnot = 
         sr.AttributeReader.GetAssemblyAnnot(assembly.GetAttributes())
+
+    let asmAnnot =
+        match config.JavaScriptScope with
+        | JSDefault -> asmAnnot
+        | JSAssembly -> { asmAnnot with IsJavaScript = true }
+        | JSFilesOrTypes a -> { asmAnnot with JavaScriptTypesAndFiles = asmAnnot.JavaScriptTypesAndFiles @ List.ofArray a }
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 

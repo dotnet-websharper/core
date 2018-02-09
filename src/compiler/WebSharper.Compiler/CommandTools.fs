@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Compile.CommandTools
+module WebSharper.Compiler.CommandTools
 
 open System
 open System.IO
@@ -45,6 +45,11 @@ type ProjectType =
         | "site" | "web" | "website" | "export" -> Some Website
         | _ -> failwithf "Invalid project type: %s" wsProjectType
 
+type JavaScriptScope =
+    | JSDefault
+    | JSAssembly
+    | JSFilesOrTypes of string[]
+
 type WsConfig =
     {
         SourceMap   : bool
@@ -65,6 +70,9 @@ type WsConfig =
         DeadCodeElimination : bool
         DownloadResources : bool
         AnalyzeClosures : bool option
+        JavaScriptScope : JavaScriptScope
+        JSOutputPath : string option
+        MinJSOutputPath : string option
     }
 
     member this.ProjectDir =
@@ -92,6 +100,9 @@ type WsConfig =
              DeadCodeElimination = true
              DownloadResources = false       
              AnalyzeClosures = None
+             JavaScriptScope = JSDefault
+             JSOutputPath = None
+             MinJSOutputPath = None
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -148,6 +159,23 @@ type WsConfig =
                     | Json.String s -> WsConfig.ParseAnalyzeClosures s
                     | _ -> failwith "Invalid value for AnalyzeClosures, value must be true, false or \"movetotop\"."    
                 res <- { res with AnalyzeClosures = a }
+            | "javascript" ->
+                let j =
+                    match v with
+                    | Json.True -> JSAssembly
+                    | Json.False -> JSDefault
+                    | Json.Array a ->
+                        a |> Seq.map (
+                            function
+                            | Json.String s -> s
+                            | _ -> failwith "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings."
+                        ) |> Array.ofSeq |> JSFilesOrTypes
+                    | _ -> failwith "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
+                res <- { res with JavaScriptScope = j }
+            | "jsoutput" ->
+                res <- { res with JSOutputPath = Some (getString k v) }
+            | "minjsoutput" ->
+                res <- { res with MinJSOutputPath = Some (getString k v) }
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res
 
@@ -158,7 +186,7 @@ module ExecuteCommands =
     let TryGetOutputDir settings = 
         settings.OutputDir |> Option.map (fun o ->
             Path.Combine(Path.GetDirectoryName settings.ProjectFile, o)
-        )
+        )                                                        
 
     let GetWebRoot settings =
         match TryGetOutputDir settings with

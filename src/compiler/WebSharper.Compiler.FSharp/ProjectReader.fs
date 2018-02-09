@@ -28,6 +28,7 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
+open WebSharper.Compiler.CommandTools
 
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader
@@ -961,11 +962,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
 open WebSharper.Compiler.FrontEnd
 
-let transformAssembly (comp : Compilation) assemblyName (checkResults: FSharpCheckProjectResults) =   
+let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
     comp.AssemblyName <- assemblyName
     let sr = CodeReader.SymbolReader(comp)    
     
     let asmAnnot = sr.AttributeReader.GetAssemblyAnnot(checkResults.AssemblySignature.Attributes)
+
+    let asmAnnot =
+        match config.JavaScriptScope with
+        | JSDefault -> asmAnnot
+        | JSAssembly -> { asmAnnot with IsJavaScript = true }
+        | JSFilesOrTypes a -> { asmAnnot with JavaScriptTypesAndFiles = asmAnnot.JavaScriptTypesAndFiles @ List.ofArray a }
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 

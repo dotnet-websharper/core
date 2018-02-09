@@ -26,6 +26,7 @@ open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp  
 open WebSharper.Compiler.ErrorPrinting
 open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler.CommandTools
 
 module M = WebSharper.Core.Metadata
         
@@ -35,7 +36,10 @@ type WebSharperCSharpCompiler(logger) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (refMeta, argv: seq<string>, path: string) =
+    member this.Compile (refMeta, config: WsConfig) =
+
+        let argv = config.CompilerArgs 
+        let path = config.ProjectFile
 
         let parsedArgs =
             CSharpCommandLineParser.Default.Parse(
@@ -84,6 +88,7 @@ type WebSharperCSharpCompiler(logger) =
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta))
+                config
                 compilation
 
         TimedStage "Parsing with Roslyn"
@@ -107,6 +112,7 @@ type WebSharperCSharpCompiler(logger) =
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
+                WsConfig.Empty
                 compilation
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp

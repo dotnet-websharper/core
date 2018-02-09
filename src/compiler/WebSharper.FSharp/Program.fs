@@ -26,7 +26,7 @@ open System.Reflection
 open WebSharper
 open WebSharper.Compiler
 
-open WebSharper.Compile.CommandTools
+open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
 open System.Diagnostics
 open ErrorPrinting
@@ -173,7 +173,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             config.CompilerArgs    
     
     let comp =
-        compiler.Compile(refMeta, compilerArgs, config.ProjectFile, thisName)
+        compiler.Compile(refMeta, compilerArgs, config, thisName)
 
     match comp with
     | None ->
@@ -213,6 +213,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources
+
+    match config.JSOutputPath, js with
+    | Some path, Some (js, _) ->
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
+        TimedStage ("Writing " + path)
+    | _ -> ()
+
+    match config.MinJSOutputPath, js with
+    | Some path, Some (_, minjs) ->
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
+        TimedStage ("Writing " + path)
+    | _ -> ()
 
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->

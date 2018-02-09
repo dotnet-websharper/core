@@ -22,6 +22,7 @@ namespace WebSharper.Compiler.FSharp
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler.CommandTools
 
 open System.IO
 
@@ -39,8 +40,9 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<_ * M.Info>>, argv, path, assemblyName) = 
-
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<_ * M.Info>>, argv, config: WsConfig, assemblyName) = 
+        let path = config.ProjectFile
+        
         let projectOptionsOpt =
             try
                 checker.GetProjectOptionsFromCommandLineArgs(path, argv) |> Some
@@ -57,7 +59,6 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             |> Async.RunSynchronously
 
         TimedStage "Checking project"
-
 
         try
             prevMeta.Wait()
@@ -81,6 +82,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs))
                 assemblyName
+                config
                 checkProjectResults
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
@@ -102,6 +104,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 assemblyName
+                WsConfig.Empty
                 checkProjectResults
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp

@@ -47,10 +47,10 @@ module BundleUtility =
 
 module Bundling =
     
-    open WebSharper.Compile.CommandTools
+    open WebSharper.Compiler.CommandTools
     open ExecuteCommands
 
-    let Bundle (config: WebSharper.Compile.CommandTools.WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
         let outputDir = BundleOutputDir config (GetWebRoot config)
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile

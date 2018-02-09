@@ -129,6 +129,7 @@ type System.Int32 with
         | true, i -> Some i
         | _ -> None
 
+// JavaScript scope set by assembly-level attribute
 type TestOptionals() =
     member this.Optionals([<Optional; DefaultParameterValue 1>] x : int, [<Optional; DefaultParameterValue 2>] y: int, [<Optional>] z: int) =
         x + y + z
@@ -136,7 +137,7 @@ type TestOptionals() =
     member this.TestOptionals() =
         this.Optionals(4)
 
-[<JavaScript>]
+// JavaScript scope set by wsconfig.json
 type SameName() =
     member this.X() = 3
     
