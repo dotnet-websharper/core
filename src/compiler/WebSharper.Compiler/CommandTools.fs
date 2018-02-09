@@ -120,9 +120,11 @@ type WsConfig =
             match json with
             | Json.Object values -> values
             | _ ->  failwith "Failed to parse wsconfig.json, not a json object."
-        let getString k v = 
+        let projectDir = Path.GetDirectoryName this.ProjectFile
+        let getPath k v = 
             match v with
-            | Json.String s -> s
+            | Json.String s -> 
+                Path.Combine(projectDir, s)
             | _ ->
                 failwithf "Invalid value in wsconfig.json for %s, expecting a string." k
         let getBool k v = 
@@ -140,9 +142,9 @@ type WsConfig =
         for k, v in settings do
             match k.ToLower() with
             | "project" ->
-                res <- { res with ProjectType = ProjectType.Parse (getString k v) }
+                res <- { res with ProjectType = ProjectType.Parse (getPath k v) }
             | "outputdir" ->
-                res <- { res with OutputDir = Some (getString k v) }
+                res <- { res with OutputDir = Some (getPath k v) }
             | "dce" ->
                 res <- { res with DeadCodeElimination = getBool k v }
             | "sourcemap" ->
@@ -173,9 +175,9 @@ type WsConfig =
                     | _ -> failwith "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
                 res <- { res with JavaScriptScope = j }
             | "jsoutput" ->
-                res <- { res with JSOutputPath = Some (getString k v) }
+                res <- { res with JSOutputPath = Some (getPath k v) }
             | "minjsoutput" ->
-                res <- { res with MinJSOutputPath = Some (getString k v) }
+                res <- { res with MinJSOutputPath = Some (getPath k v) }
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res
 
