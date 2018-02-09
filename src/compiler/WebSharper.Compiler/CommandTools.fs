@@ -25,6 +25,7 @@ open System.IO
 open System.Reflection
 open WebSharper
 open WebSharper.Compiler
+open WebSharper.Core
 
 type ProjectType =
     | Bundle
@@ -32,6 +33,17 @@ type ProjectType =
     | Website
     | Html
     | WIG
+
+    static member Parse(wsProjectType: string) =
+        match wsProjectType.ToLower() with
+        | "ignore" -> None
+        | "bundle" -> Some Bundle
+        | "bundleonly" -> Some BundleOnly
+        | "extension" | "interfacegenerator" -> Some WIG
+        | "html" -> Some Html
+        | "library" -> None
+        | "site" | "web" | "website" | "export" -> Some Website
+        | _ -> failwithf "Invalid project type: %s" wsProjectType
 
 type WsConfig =
     {
@@ -81,6 +93,63 @@ type WsConfig =
              DownloadResources = false       
              AnalyzeClosures = None
         }
+
+    static member ParseAnalyzeClosures(c: string) =
+        match c.ToLower() with
+        | "true" -> Some false
+        | "movetotop" -> Some true
+        | _ ->
+            failwith "Invalid value for AnalyzeClosures, value must be true or movetotop."
+    
+    member this.AddJson(jsonString) =
+        let json =
+            try Json.Parse jsonString 
+            with _ -> failwith "Failed to parse wsconfig.json, not a valid json."
+        let settings = 
+            match json with
+            | Json.Object values -> values
+            | _ ->  failwith "Failed to parse wsconfig.json, not a json object."
+        let getString k v = 
+            match v with
+            | Json.String s -> s
+            | _ ->
+                failwithf "Invalid value in wsconfig.json for %s, expecting a string." k
+        let getBool k v = 
+            match v with
+            | Json.True -> true
+            | Json.False -> false
+            | Json.String s ->
+                match bool.TryParse s with
+                | true, b -> b
+                | _ ->
+                    failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
+            | _ ->
+                failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
+        let mutable res = this
+        for k, v in settings do
+            match k.ToLower() with
+            | "project" ->
+                res <- { res with ProjectType = ProjectType.Parse (getString k v) }
+            | "outputdir" ->
+                res <- { res with OutputDir = Some (getString k v) }
+            | "dce" ->
+                res <- { res with DeadCodeElimination = getBool k v }
+            | "sourcemap" ->
+                res <- { res with SourceMap = getBool k v }
+            | "warnonly" ->
+                res <- { res with WarnOnly = getBool k v }
+            | "downloadresources" ->
+                res <- { res with DownloadResources = getBool k v }
+            | "analyzeclosures" ->
+                let a =
+                    match v with
+                    | Json.True -> Some false
+                    | Json.False -> None
+                    | Json.String s -> WsConfig.ParseAnalyzeClosures s
+                    | _ -> failwith "Invalid value for AnalyzeClosures, value must be true, false or \"movetotop\"."    
+                res <- { res with AnalyzeClosures = a }
+            | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
+        res
 
 let readStrongNameKeyPair p = StrongNameKeyPair(File.ReadAllBytes(p))
     

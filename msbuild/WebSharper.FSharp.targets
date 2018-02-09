@@ -21,8 +21,9 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-    <OtherFlags>$(OtherFlags) --ws:"$(WebSharperProject)" --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
+  <PropertyGroup>
+    <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
     <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory.TrimEnd('\'))"</OtherFlags>

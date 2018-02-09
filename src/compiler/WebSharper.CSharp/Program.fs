@@ -273,6 +273,10 @@ let rec compileMain (argv: string[]) =
             VSStyleErrors = true
         }
 
+    let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
+    if File.Exists wsconfig then
+        wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
+
     try
         Compile !wsArgs
         0

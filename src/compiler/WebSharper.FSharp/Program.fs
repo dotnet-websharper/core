@@ -359,6 +359,10 @@ let compileMain argv =
             CompilerArgs = fscArgs.ToArray() 
         }
 
+    let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
+    if File.Exists wsconfig then
+        wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
+
     let clearOutput() =
         try
             let intermediaryOutput = (!wsArgs).AssemblyFile

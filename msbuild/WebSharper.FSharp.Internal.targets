@@ -31,8 +31,9 @@
     <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
     <FscToolExe>wsfsc.exe</FscToolExe>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' " >
-    <OtherFlags>$(OtherFlags) --ws:$(WebSharperProject) --project:"$(MSBuildProjectFullPath)"</OtherFlags>
+  <PropertyGroup>
+    <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
     <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir)"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir)"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory)"</OtherFlags>

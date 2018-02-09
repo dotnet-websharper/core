@@ -4,8 +4,6 @@
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <WebSharperProject>Library</WebSharperProject>
-    <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
