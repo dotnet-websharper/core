@@ -227,7 +227,7 @@ let rec compileMain (argv: string[]) =
             wsArgs := { !wsArgs with WarnOnly = true } 
         | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
         | StartsWith "--ws:" wsProjectType ->
-            setProjectType <| ProjectType.Parse(wsProjectType)
+            wsArgs := { !wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
         | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
         | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
         | "--vserrors" ->

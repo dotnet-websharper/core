@@ -108,8 +108,7 @@ type WsConfig =
         match c.ToLower() with
         | "true" -> Some false
         | "movetotop" -> Some true
-        | _ ->
-            failwith "Invalid value for AnalyzeClosures, value must be true or movetotop."
+        | _ -> failwith "Invalid value for AnalyzeClosures, value must be true or movetotop."
     
     member this.AddJson(jsonString) =
         let json =
@@ -118,14 +117,14 @@ type WsConfig =
         let settings = 
             match json with
             | Json.Object values -> values
-            | _ ->  failwith "Failed to parse wsconfig.json, not a json object."
-        let projectDir = Path.GetDirectoryName this.ProjectFile
-        let getPath k v = 
+            | _ -> failwith "Failed to parse wsconfig.json, not a json object."
+        let getString k v =
             match v with
-            | Json.String s -> 
-                Path.Combine(projectDir, s)
-            | _ ->
-                failwithf "Invalid value in wsconfig.json for %s, expecting a string." k
+            | Json.String s -> s
+            | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting a string." k
+        let projectDir = Path.GetDirectoryName this.ProjectFile
+        let getPath k v =
+            Path.Combine(projectDir, getString k v)
         let getBool k v = 
             match v with
             | Json.True -> true
@@ -133,15 +132,13 @@ type WsConfig =
             | Json.String s ->
                 match bool.TryParse s with
                 | true, b -> b
-                | _ ->
-                    failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
-            | _ ->
-                failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
+                | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
+            | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
         let mutable res = this
         for k, v in settings do
             match k.ToLower() with
             | "project" ->
-                res <- { res with ProjectType = ProjectType.Parse (getPath k v) }
+                res <- { res with ProjectType = ProjectType.Parse (getString k v) }
             | "outputdir" ->
                 res <- { res with OutputDir = Some (getPath k v) }
             | "dce" ->
