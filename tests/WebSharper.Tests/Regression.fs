@@ -364,6 +364,11 @@ module TupledArgOpt =
         member this.G f = g2 this f
        
 [<JavaScript>]
+module Bug906 =
+    type Alias<'T> = 'T
+    type Record<'T> = { x : Alias<'T> }
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 

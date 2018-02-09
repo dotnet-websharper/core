@@ -349,6 +349,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         |> fun x -> TypeDefinition x |> comp.FindProxied
 
     member this.ReadTypeSt markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
+        let t = getOrigType t
         if t.IsGenericParameter then
             match tparams.TryFind t.GenericParameter.Name with
             | Some i -> 
@@ -356,7 +357,6 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             | _ ->
                 LocalTypeParameter
         else
-        let t = getOrigType t
         let getFunc() =
             match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
             | [a; r] -> FSharpFuncType(a, r)
