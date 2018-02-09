@@ -297,15 +297,7 @@ let compileMain argv =
             | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
             | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
             | StartsWith "--ws:" wsProjectType ->
-                match wsProjectType.ToLower() with
-                | "ignore" -> ()
-                | "bundle" -> setProjectType Bundle
-                | "bundleonly" -> setProjectType BundleOnly
-                | "extension" | "interfacegenerator" -> setProjectType WIG
-                | "html" -> setProjectType Html
-                | "library" -> ()
-                | "site" | "web" | "website" | "export" -> setProjectType Website
-                | _ -> invalidArg "type" ("Invalid project type: " + wsProjectType)
+                setProjectType <| ProjectType.Parse(wsProjectType)
             | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
             | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
             | "--vserrors" ->

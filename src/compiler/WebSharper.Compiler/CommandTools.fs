@@ -36,12 +36,11 @@ type ProjectType =
 
     static member Parse(wsProjectType: string) =
         match wsProjectType.ToLower() with
-        | "ignore" -> None
+        | "" | "ignore" | "library" -> None
         | "bundle" -> Some Bundle
         | "bundleonly" -> Some BundleOnly
         | "extension" | "interfacegenerator" -> Some WIG
         | "html" -> Some Html
-        | "library" -> None
         | "site" | "web" | "website" | "export" -> Some Website
         | _ -> failwithf "Invalid project type: %s" wsProjectType
 
