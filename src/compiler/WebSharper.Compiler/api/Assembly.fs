@@ -126,15 +126,14 @@ type Assembly =
 
     member this.Write(kP: option<StrongNameKeyPair>)(path: string) =
         let par = this.OutputParameters kP
-        //// TODO: Fix pdb output
-        // match this.Debug with
-        // | Some (Mdb _) ->
-        //     par.WriteSymbols <- true
-        //     par.SymbolWriterProvider <- Mono.Cecil.Mdb.MdbWriterProvider()
-        // | Some (Pdb _) ->
-        //     par.WriteSymbols <- true
-        //     par.SymbolWriterProvider <- Mono.Cecil.Pdb.PdbWriterProvider()
-        // | None -> ()
+        match this.Debug with
+        | Some (Mdb _) ->
+            par.WriteSymbols <- true
+            par.SymbolWriterProvider <- Mono.Cecil.Mdb.MdbWriterProvider()
+        | Some (Pdb _) ->
+            par.WriteSymbols <- true
+            par.SymbolWriterProvider <- Mono.Cecil.Pdb.PdbWriterProvider()
+        | None -> ()
         this.Definition.Write(path, par)
 
     member this.ReadableJavaScript =
