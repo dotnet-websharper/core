@@ -18,8 +18,7 @@
 //
 // $end{copyright}
 
-[<CompiledName "TypedJson">]
-module WebSharper.Json
+module internal WebSharper.ClientSideJson
 
 open System.Collections.Generic
 open WebSharper
@@ -342,7 +341,7 @@ module Macro =
 
         let providerType = 
             TypeDefinition {
-                FullName = "WebSharper.Json+Provider"
+                FullName = "WebSharper.ClientSideJson+Provider"
                 Assembly = "WebSharper.Web"
             }
         let invoke (comp: M.ICompilation) isEnc n args = 
@@ -805,45 +804,3 @@ module Macro =
             if param.Dependencies.Count > 0 then
                 WebSharper.Core.MacroDependencies (List.ofSeq param.Dependencies, resWithWarnings)
             else resWithWarnings    
-open Macro
-
-/// Encodes an object in such a way that JSON stringification
-/// results in the same readable format as Sitelets.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let Encode<'T> (x: 'T) = X<obj>
-
-/// Serializes an object to JSON using the same readable format as Sitelets.
-/// For plain JSON stringification, see Json.Stringify.
-[<Macro(typeof<SerializeMacro>)>]
-let Serialize<'T> (x: 'T) =
-    ServerSideProvider.GetEncoder<'T>().Encode x
-    |> ServerSideProvider.Pack
-    |> Core.Json.Stringify
-
-/// Decodes an object parsed from the same readable JSON format as Sitelets.
-/// Client-side only.
-[<Macro(typeof<SerializeMacro>)>]
-let Decode<'T> (x: obj) = X<'T>
-
-/// Deserializes a JSON string using the same readable format as Sitelets.
-/// For plain JSON parsing, see Json.Parse.
-[<Macro(typeof<SerializeMacro>)>]
-let Deserialize<'T> (x: string) =
-    Core.Json.Parse x
-    |> ServerSideProvider.GetDecoder<'T>().Decode
-
-/// Test the shape of a JSON encoded value.
-/// Client-side only.
-let (|Object|Array|Number|String|Boolean|Undefined|) (o: WebSharper.Core.Json.Encoded) =
-    match JS.TypeOf o with
-    | JS.Kind.Boolean -> Boolean (As<bool> o)
-    | JS.Kind.Number -> Number (As<float> o)
-    | JS.Kind.String -> String (As<string> o)
-    | JS.Kind.Undefined -> Undefined o
-    | JS.Kind.Function -> failwith ""
-    | JS.Kind.Object ->
-        if JS.InstanceOf o JS.Window?Array then
-            Array (As<WebSharper.JavaScript.Array<WebSharper.Core.Json.Encoded>> o)
-        else
-            Object (As<WebSharper.JavaScript.Object<WebSharper.Core.Json.Encoded>> o)
