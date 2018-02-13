@@ -28,6 +28,7 @@ files
     ../build/Release/CSharp/net461/Microsoft.CodeAnalysis.CSharp.dll ==> tools
     ../build/Release/CSharp/net461/System.Collections.dll ==> tools
     ../build/Release/CSharp/net461/System.Collections.Immutable.dll ==> tools
+    ../build/Release/FSharp/net461/System.Console.dll ==> tools
     ../build/Release/CSharp/net461/System.Globalization.dll ==> tools
     ../build/Release/CSharp/net461/System.IO.dll ==> tools
     ../build/Release/CSharp/net461/System.IO.FileSystem.dll ==> tools
