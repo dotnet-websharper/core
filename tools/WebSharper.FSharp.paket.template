@@ -27,27 +27,29 @@ files
     ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools
-    ../build/Release/CSharp/net461/System.Collections.dll ==> tools
-    ../build/Release/CSharp/net461/System.Collections.Immutable.dll ==> tools
+    ../build/Release/FSharp/net461/System.Collections.dll ==> tools
+    ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools
     ../build/Release/FSharp/net461/System.Console.dll ==> tools
-    ../build/Release/CSharp/net461/System.Globalization.dll ==> tools
-    ../build/Release/CSharp/net461/System.IO.dll ==> tools
-    ../build/Release/CSharp/net461/System.IO.FileSystem.dll ==> tools
-    ../build/Release/CSharp/net461/System.Linq.dll ==> tools
-    ../build/Release/CSharp/net461/System.Reflection.dll ==> tools
-    ../build/Release/CSharp/net461/System.Reflection.Metadata.dll ==> tools
-    ../build/Release/CSharp/net461/System.Reflection.Primitives.dll ==> tools
-    ../build/Release/CSharp/net461/System.Resources.ResourceManager.dll ==> tools
-    ../build/Release/CSharp/net461/System.Runtime.dll ==> tools
-    ../build/Release/CSharp/net461/System.Runtime.Extensions.dll ==> tools
-    ../build/Release/CSharp/net461/System.Runtime.InteropServices.dll ==> tools
-    ../build/Release/CSharp/net461/System.Runtime.Numerics.dll ==> tools
-    ../build/Release/CSharp/net461/System.Security.Cryptography.Algorithms.dll ==> tools
-    ../build/Release/CSharp/net461/System.Security.Cryptography.Primitives.dll ==> tools
-    ../build/Release/CSharp/net461/System.Text.Encoding.dll ==> tools
-    ../build/Release/CSharp/net461/System.Text.Encoding.Extensions.dll ==> tools
-    ../build/Release/CSharp/net461/System.Threading.dll ==> tools
-    ../build/Release/CSharp/net461/System.Threading.Tasks.dll ==> tools
-    ../build/Release/CSharp/net461/System.ValueTuple.dll ==> tools
-    ../build/Release/CSharp/net461/System.Xml.XDocument.dll ==> tools
+    ../build/Release/FSharp/net461/System.Globalization.dll ==> tools
+    ../build/Release/FSharp/net461/System.IO.dll ==> tools
+    ../build/Release/FSharp/net461/System.IO.FileSystem.dll ==> tools
+    ../build/Release/FSharp/net461/System.Linq.dll ==> tools
+    ../build/Release/FSharp/net461/System.Reflection.dll ==> tools
+    ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools
+    ../build/Release/FSharp/net461/System.Reflection.Primitives.dll ==> tools
+    ../build/Release/FSharp/net461/System.Resources.ResourceManager.dll ==> tools
+    ../build/Release/FSharp/net461/System.Runtime.dll ==> tools
+    ../build/Release/FSharp/net461/System.Runtime.Extensions.dll ==> tools
+    ../build/Release/FSharp/net461/System.Runtime.InteropServices.dll ==> tools
+    ../build/Release/FSharp/net461/System.Runtime.Numerics.dll ==> tools
+    ../build/Release/FSharp/net461/System.Security.Cryptography.Algorithms.dll ==> tools
+    ../build/Release/FSharp/net461/System.Security.Cryptography.Primitives.dll ==> tools
+    ../build/Release/FSharp/net461/System.Text.Encoding.dll ==> tools
+    ../build/Release/FSharp/net461/System.Text.Encoding.Extensions.dll ==> tools
+    ../build/Release/FSharp/net461/System.Threading.dll ==> tools
+    ../build/Release/FSharp/net461/System.Threading.Tasks.dll ==> tools
+    ../build/Release/FSharp/net461/System.ValueTuple.dll ==> tools
+    ../build/Release/FSharp/net461/System.Xml.XDocument.dll ==> tools
+    ../build/Release/FSharp/net461/netstandard.dll ==> tools
+    ../build/Release/FSharp/net461/netstandard.dll.ref ==> tools
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools
