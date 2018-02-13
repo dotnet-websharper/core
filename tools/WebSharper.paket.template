@@ -65,5 +65,3 @@ files
     ../src/htmllib/tags.csv ==> tools
 
     !../tools/*
-dependencies
-    Mono.Cecil ~> 0.10.0-beta6
