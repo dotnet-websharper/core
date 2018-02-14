@@ -26,6 +26,7 @@ files
     ../build/Release/CSharp/net461/Mono.Cecil.Pdb.dll ==> tools
     ../build/Release/CSharp/net461/Microsoft.CodeAnalysis.dll ==> tools
     ../build/Release/CSharp/net461/Microsoft.CodeAnalysis.CSharp.dll ==> tools
+    ../build/Release/CSharp/net461/netstandard.dll ==> tools
     ../build/Release/CSharp/net461/System.Collections.dll ==> tools
     ../build/Release/CSharp/net461/System.Collections.Immutable.dll ==> tools
     ../build/Release/CSharp/net461/System.Console.dll ==> tools
