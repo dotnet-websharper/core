@@ -20,6 +20,7 @@
 
 namespace WebSharper.Sitelets.Tests
 
+open System
 open WebSharper
 open WebSharper.Sitelets
 open WebSharper.CSharp.Sitelets.Tests
@@ -86,6 +87,8 @@ module PerformanceTests =
         | [<EndPoint "/wildcard-list"; Wildcard>] UWildcardList of int list
         | [<EndPoint "/two-unions">] UTwoUnions of MultipleTest * MultipleTest
         | [<EndPoint "/csharp">] UCSharp of CSharpEndPointRoot
+        | [<EndPoint "/type-tests">] TypeTests of 
+            Guid * single * double * sbyte * byte * int16 * uint16 * uint32 * int64 * uint64  
 
     let TestValues =
         [
@@ -129,6 +132,7 @@ module PerformanceTests =
             UTwoUnions (A1 1, A1 1)
             UCSharp (new CSharpEndPointRoot())
             UCSharp (new CSharpEndPointRoot.Sub1(X = 42))
+            TypeTests (Guid.NewGuid(), 1.3f, 1.4, 15y, 16uy, 64s, 65us, 66u, 67L, 68UL) 
         ]
 
     let ExtraTestValues =

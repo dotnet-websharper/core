@@ -403,6 +403,11 @@ type NumericMacro() =
             translateCompareTo c.Compilation (ConcreteType c.DefiningType) c.This.Value c.Arguments.Head
         | _ -> MacroFallback
 
+    override this.TranslateCtor(c) =
+        match c.Arguments with
+        | [] -> MacroOk (Value (Int 0))
+        | _ -> MacroError "numericMacro error: contructor with arguments"
+
 let charTy, charParse =
     let t = typeof<System.Char>
     Reflection.ReadTypeDefinition t,
