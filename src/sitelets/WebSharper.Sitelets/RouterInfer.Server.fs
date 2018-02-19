@@ -259,22 +259,22 @@ module internal ServerRouting =
             match t.Namespace with
             | "System" ->
                 match t.Name with
-                | "Object" ->
-                    IEmpty
-                | "String" ->
-                    iString 
-                | "Char" ->
-                    iChar 
-                | "Guid" ->
-                    iGuid 
-                | "Boolean" ->
-                    iBool 
-                | "Int32" ->
-                    iInt
-                | "Double" ->
-                    iDouble 
-                | "DateTime" ->
-                    iDateTime None
+                | "Object" -> IEmpty
+                | "String" -> iString 
+                | "Char" -> iChar 
+                | "Guid" -> iGuid 
+                | "Boolean" -> iBool 
+                | "Int32" -> iInt
+                | "Double" -> iDouble 
+                | "DateTime" -> iDateTime None
+                | "SByte" -> iSByte 
+                | "Byte" -> iByte 
+                | "Int16" -> iInt16 
+                | "UInt16" -> iUInt16
+                | "UInt32" -> iUInt 
+                | "Int64" -> iInt64 
+                | "UInt64" -> iUInt64
+                | "Single" -> iSingle
                 | "Nullable`1" ->
                     let item = t.GetGenericArguments().[0]
                     INullable (getRouter item)

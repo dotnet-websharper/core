@@ -86,6 +86,14 @@ module private ClientRoutingInternals =
     let rIntOp = getMethod <@ RouterOperators.rInt @>
     let rDoubleOp = getMethod <@ RouterOperators.rDouble @>
     let rDateTimeOp = getMethod <@ RouterOperators.rDateTime @>
+    let rSByteOp = getMethod <@ RouterOperators.rSByte @>
+    let rByteOp = getMethod <@ RouterOperators.rByte @>
+    let rInt16Op = getMethod <@ RouterOperators.rInt16 @>
+    let rUInt16Op = getMethod <@ RouterOperators.rUInt16 @>
+    let rUInt32Op = getMethod <@ RouterOperators.rUInt @>
+    let rInt64Op = getMethod <@ RouterOperators.rInt64 @>
+    let rUInt64Op = getMethod <@ RouterOperators.rUInt64 @>
+    let rSingleOp = getMethod <@ RouterOperators.rSingle @>
     let TupleOp = getMethod <@ RouterOperators.JSTuple [||] @>
     let ArrayOp = getMethod <@ RouterOperators.JSArray RouterOperators.rInt @>
     let ListOp = getMethod <@ RouterOperators.JSList RouterOperators.rInt @>
@@ -228,6 +236,22 @@ type RoutingMacro() =
                     true, Call(None, NonGeneric routerOpsModule, NonGeneric rDoubleOp, []) 
                 | C (T "System.DateTime", []) ->
                     true, Call(None, NonGeneric routerOpsModule, NonGeneric rDateTimeOp, []) 
+                | C (T "System.SByte", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rSByteOp, []) 
+                | C (T "System.Byte", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rByteOp, []) 
+                | C (T "System.Int16", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rInt16Op, []) 
+                | C (T "System.UInt16", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rUInt16Op, []) 
+                | C (T "System.UInt32", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rUInt32Op, []) 
+                | C (T "System.Int64", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rInt64Op, []) 
+                | C (T "System.UInt64", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rUInt64Op, []) 
+                | C (T "System.Single", []) ->
+                    true, Call(None, NonGeneric routerOpsModule, NonGeneric rSingleOp, []) 
                 | TupleType (ts, _) ->
                     let fields = NewArray (ts |> List.map getRouter)
                     true, Call(None, NonGeneric routerOpsModule, NonGeneric TupleOp, [ fields ])    
