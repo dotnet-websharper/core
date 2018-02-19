@@ -157,14 +157,14 @@ module HtmlCommand =
 
     let Usage =
         [
-            "Usage: WebSharper.exe sitelets [OPTIONS] [INPUTS]"
+            "Usage: WebSharper.exe html [OPTIONS] [INPUTS]"
             "-mode <mode>    Either Debug([-].*)? or Release([-].*)? (defaults to Debug)."
             "-ref <file>     Path to a reference assembly."
             "-out <dir>      Path to the output directory. Short form: -o"
             "-project <dir>  Path to the project directory."
             "-site <file>    Path to the assembly containing the web site. Short form: -s"
             "-sm             Unpack source maps and source files"
-            "-dts            Unpack TypeScript declaration files"
+            //"-dts            Unpack TypeScript declaration files"
         ]
         |> String.concat System.Environment.NewLine
 

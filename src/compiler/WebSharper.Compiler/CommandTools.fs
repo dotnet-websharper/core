@@ -27,6 +27,10 @@ open WebSharper
 open WebSharper.Compiler
 open WebSharper.Core
 
+exception ArgumentError of msg: string with
+    override this.Message = this.msg
+let argError msg = raise (ArgumentError msg)
+
 type ProjectType =
     | Bundle
     | BundleOnly
@@ -42,7 +46,7 @@ type ProjectType =
         | "extension" | "interfacegenerator" -> Some WIG
         | "html" -> Some Html
         | "site" | "web" | "website" | "export" -> Some Website
-        | _ -> failwithf "Invalid project type: %s" wsProjectType
+        | _ -> argError ("Invalid project type: " + wsProjectType)
 
 type JavaScriptScope =
     | JSDefault
@@ -108,20 +112,20 @@ type WsConfig =
         match c.ToLower() with
         | "true" -> Some false
         | "movetotop" -> Some true
-        | _ -> failwith "Invalid value for AnalyzeClosures, value must be true or movetotop."
+        | _ -> argError "Invalid value for AnalyzeClosures, value must be true or movetotop."
     
     member this.AddJson(jsonString) =
         let json =
             try Json.Parse jsonString 
-            with _ -> failwith "Failed to parse wsconfig.json, not a valid json."
+            with _ -> argError "Failed to parse wsconfig.json, not a valid json."
         let settings = 
             match json with
             | Json.Object values -> values
-            | _ -> failwith "Failed to parse wsconfig.json, not a json object."
+            | _ -> argError "Failed to parse wsconfig.json, not a json object."
         let getString k v =
             match v with
             | Json.String s -> s
-            | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting a string." k
+            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting a string." k)
         let projectDir = Path.GetDirectoryName this.ProjectFile
         let getPath k v =
             Path.Combine(projectDir, getString k v)
@@ -132,8 +136,8 @@ type WsConfig =
             | Json.String s ->
                 match bool.TryParse s with
                 | true, b -> b
-                | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
-            | _ -> failwithf "Invalid value in wsconfig.json for %s, expecting true or false." k
+                | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
+            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
         let mutable res = this
         for k, v in settings do
             match k.ToLower() with
@@ -155,7 +159,7 @@ type WsConfig =
                     | Json.True -> Some false
                     | Json.False -> None
                     | Json.String s -> WsConfig.ParseAnalyzeClosures s
-                    | _ -> failwith "Invalid value for AnalyzeClosures, value must be true, false or \"movetotop\"."    
+                    | _ -> argError "Invalid value for AnalyzeClosures, value must be true, false or \"movetotop\"."    
                 res <- { res with AnalyzeClosures = a }
             | "javascript" ->
                 let j =
@@ -166,9 +170,9 @@ type WsConfig =
                         a |> Seq.map (
                             function
                             | Json.String s -> s
-                            | _ -> failwith "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings."
+                            | _ -> argError "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings."
                         ) |> Array.ofSeq |> JSFilesOrTypes
-                    | _ -> failwith "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
+                    | _ -> argError "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
                 res <- { res with JavaScriptScope = j }
             | "jsoutput" ->
                 res <- { res with JSOutputPath = Some (getPath k v) }
@@ -323,3 +327,96 @@ let (|Cmd|_|) (cmd: Commands.ICommand) argv =
         stderr.WriteLine()
         stderr.WriteLine(cmd.Usage)
         Some 1
+
+type private HelpKind =
+    | NoHelp
+    | WSHelp
+    | UnpackHelp
+    | HtmlHelp
+
+let HandleDefaultArgsAndCommands argv isFSharp =
+
+    let printInfo helpKind = 
+        let lang = if isFSharp then "F#" else "C#"
+        let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
+        let compiler = if isFSharp then "fsc.exe" else "csc.exe"
+        printfn "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        match helpKind with
+        | NoHelp ->
+            printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
+            printfn "WebSharper options help: %s --help" exe
+            printfn "Unpack command help: %s unpack --help" exe
+            printfn "Html command help: %s html --help" exe
+        | WSHelp ->
+            printfn "WebSharper options:"
+            printfn "--jsmap         Enable source mapping"
+            printfn "--ws:type       Set WebSharper project type"
+            printfn "--wig           InterfaceGenerator project, same as --ws:extension"
+            printfn "--library       Library project, same as --ws:library"
+            printfn "--bundle        Single-page application project, same as --ws:bundle"
+            printfn "--bundleonly    SPA project with .js/.css outputs only same as --ws:bundleonly"
+            printfn "--html          Static site generator project, same as --ws:html"
+            printfn "--site          Client-server application project, same as --ws:site"
+            printfn "--wswarnonly    Print WebSharper-specific errors as warnings"
+            printfn "--dce-          Turn off dead code elimination for SPA projects"
+            printfn "--dlres         Download remote js/css resources"
+            printfn "--printjs       Print .js output"
+            printfn "--wsoutput:dir  Specify output directory for WebSharper-generated files"
+            printfn "--project:path  Location of project file"
+            printfn "--closures:xx   Set to true or movetotop to enable JS closure analysis/optimization"
+        | UnpackHelp ->
+            printfn "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+        | HtmlHelp ->
+            printfn "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+        Some 0
+    
+    match List.ofArray argv with
+    | [] -> printInfo NoHelp
+    | [ "--help" ] -> printInfo WSHelp
+    | [ "unpack"; "--help" ] -> printInfo UnpackHelp
+    | [ "html"; "--help" ] -> printInfo HtmlHelp
+    | Cmd HtmlCommand.Instance r -> Some r
+    | Cmd UnpackCommand.Instance r -> Some r
+    | _ -> None
+
+let RecognizeWebSharperArg a wsArgs =
+    match a with
+    | "--jsmap" -> Some { wsArgs with SourceMap = true } 
+    //| "--dts" -> Some { wsArgs with TypeScript = true } 
+    | "--wig" -> Some { wsArgs with ProjectType = Some WIG }
+    | "--bundle" -> Some { wsArgs with ProjectType =  Some Bundle }
+    | "--bundleonly" -> Some { wsArgs with ProjectType = Some BundleOnly }
+    | "--html" -> Some { wsArgs with ProjectType = Some Html }
+    | "--site" -> Some { wsArgs with ProjectType = Some Website }
+    | "--wswarnonly" -> Some { wsArgs with WarnOnly = true } 
+    | "--dce-" -> Some { wsArgs with DeadCodeElimination = false } 
+    | StartsWith "--ws:" wsProjectType ->
+        Some { wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
+    | "--dlres" -> Some { wsArgs with DownloadResources = true }
+    | "--printjs" -> Some { wsArgs with PrintJS = true }
+    | StartsWith "--wsoutput:" o ->
+        Some { wsArgs with OutputDir = Some o }
+    | StartsWith "--project:" p ->
+        Some { wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
+    | StartsWith "--closures:" c ->
+        match c.ToLower() with
+        | "true" ->
+            Some { wsArgs with AnalyzeClosures = Some false }
+        | "movetotop" ->
+            Some { wsArgs with AnalyzeClosures = Some true }
+        | _ ->
+            printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
+            Some wsArgs
+    | _ -> 
+        None
+
+let SetDefaultProjectFile wsArgs isFSharp =
+    let ext = if isFSharp then ".fsproj" else ".csproj"
+    match wsArgs.ProjectFile with
+    | null ->
+        let projFiles = Directory.GetFiles(Directory.GetCurrentDirectory(), "*" + ext)
+        match projFiles with
+        | [| p |] -> { wsArgs with ProjectFile = p }
+        | [| |] -> argError "Cannot find project file, specify argument --project"
+        | _ -> argError "Multiple project files in folder, specify argument --project"
+    | _ -> wsArgs

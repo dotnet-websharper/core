@@ -31,9 +31,6 @@ open WebSharper.Compiler.FrontEnd
 
 open ErrorPrinting
 
-exception ArgumentError of string
-let argError msg = raise (ArgumentError msg)
-
 let Compile config =
     StartTimer()
 
@@ -181,13 +178,8 @@ let Compile config =
 
 let rec compileMain (argv: string[]) =
 
-    match List.ofArray argv with
-    | [ f ] when f.StartsWith "@" ->
-        f.[1..]
-        |> File.ReadAllLines
-        |> compileMain
-    | Cmd HtmlCommand.Instance r -> r
-    | Cmd UnpackCommand.Instance r -> r
+    match HandleDefaultArgsAndCommands argv false with
+    | Some r -> r
     | _ ->
 
     let wsArgs = ref WsConfig.Empty
@@ -211,32 +203,10 @@ let rec compileMain (argv: string[]) =
         |]
 
     for a in cArgv do
-        let setProjectType t =
-            match (!wsArgs).ProjectType with
-            | None -> wsArgs := { !wsArgs with ProjectType = Some t }
-            | _ -> argError "Conflicting WebSharper project types set."
+        match RecognizeWebSharperArg a !wsArgs with
+        | Some na -> wsArgs := na
+        | _ ->
         match a with
-        | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
-        | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
-        | "--wig" -> setProjectType WIG
-        | "--bundle" -> setProjectType Bundle
-        | "--bundleonly" -> setProjectType BundleOnly
-        | "--html" -> setProjectType Html
-        | "--site" -> setProjectType Website
-        | "--wswarnonly" ->
-            wsArgs := { !wsArgs with WarnOnly = true } 
-        | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
-        | StartsWith "--ws:" wsProjectType ->
-            wsArgs := { !wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
-        | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
-        | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
-        | "--vserrors" ->
-            wsArgs := { !wsArgs with VSStyleErrors = true }
-            cscArgs.Add a
-        | StartsWith "--wsoutput:" o ->
-            wsArgs := { !wsArgs with OutputDir = Some o }
-        | StartsWith "--project:" p ->
-            wsArgs := { !wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
         | "/debug" | "/debug+" | "/debug:full" ->
             wsArgs := { !wsArgs with IsDebug = true }
             cscArgs.Add a
@@ -255,18 +225,10 @@ let rec compileMain (argv: string[]) =
             match r.Split(',') with 
             | [| res |] -> resources.Add (res, None)
             | [| res; fullName |] -> resources.Add (res, Some fullName)
-            | _ -> failwithf "Unexpected value /resource:%s" r
+            | _ -> argError ("Unexpected value /resource:" + r)
             cscArgs.Add a
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
-        | StartsWith "--closures:" c ->
-            match c.ToLower() with
-            | "true" ->
-                wsArgs := { !wsArgs with AnalyzeClosures = Some false }
-            | "movetotop" ->
-                wsArgs := { !wsArgs with AnalyzeClosures = Some true }
-                | _ ->
-                    printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
         | _ -> 
             cscArgs.Add a  
     wsArgs := 
@@ -276,6 +238,7 @@ let rec compileMain (argv: string[]) =
             CompilerArgs = cscArgs.ToArray() 
             VSStyleErrors = true
         }
+    wsArgs := SetDefaultProjectFile !wsArgs false
 
     let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
     if File.Exists wsconfig then
@@ -284,23 +247,30 @@ let rec compileMain (argv: string[]) =
     try
         Compile !wsArgs
         0
-    with e ->
+    with _ ->
         let intermediaryOutput = (!wsArgs).AssemblyFile
         if File.Exists intermediaryOutput then 
             let failedOutput = intermediaryOutput + ".failed"
             if File.Exists failedOutput then File.Delete failedOutput
             File.Move (intermediaryOutput, failedOutput)
-        match e with
-        | ArgumentError "" -> 
-            1    
-        | ArgumentError msg -> 
-            PrintGlobalError msg
-            1    
-        | _ -> 
-            PrintGlobalError (sprintf "Global error %O" e)
-            1
+        reraise()
+
+let formatArgv (argv: string[]) =
+    match argv with
+    | [| a |] when a.StartsWith "@" -> File.ReadAllLines a.[1..]
+    | _ -> argv
 
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    compileMain argv
+    try
+        compileMain (formatArgv argv)
+    with
+    | ArgumentError "" -> 
+        1    
+    | ArgumentError msg -> 
+        PrintGlobalError msg
+        1    
+    | e -> 
+        PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
+        1

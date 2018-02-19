@@ -69,10 +69,13 @@ module Commands =
             d.Create()
 
     let IsFile (s: string) =
-        FileInfo(s).Exists
+        try FileInfo(s).Exists
+        with _ -> false
 
     let NoFile (s: string) =
-        FileInfo(s).Exists |> not
+        try FileInfo(s).Exists |> not
+        with _ -> false
 
     let NoDir (s: string) =
-        DirectoryInfo(s).Exists |> not
+        try DirectoryInfo(s).Exists |> not
+        with _ -> false

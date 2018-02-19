@@ -31,10 +31,6 @@ open WebSharper.Compiler.FrontEnd
 open System.Diagnostics
 open ErrorPrinting
 
-exception ArgumentError of msg: string with
-    override this.Message = this.msg
-let argError msg = raise (ArgumentError msg)
-
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
 let MakeDummyDll (path: string) (assemblyName: string) =
     let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, Version())
@@ -252,9 +248,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
 let compileMain argv =
 
-    match List.ofArray argv |> List.tail with
-    | Cmd HtmlCommand.Instance r -> r
-    | Cmd UnpackCommand.Instance r -> r
+    match HandleDefaultArgsAndCommands argv true with
+    | Some r -> r
     | _ ->
 
     let wsArgs = ref WsConfig.Empty
@@ -262,6 +257,7 @@ let compileMain argv =
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
+    fscArgs.Add "fsc.exe"
 
     let cArgv =
         [|
@@ -281,80 +277,51 @@ let compileMain argv =
     let parseIntSet (s: string) = s.Split(',') |> Seq.map int |> Set
     
     for a in cArgv do
-        let setProjectType t =
-            match (!wsArgs).ProjectType with
-            | None -> wsArgs := { !wsArgs with ProjectType = Some t }
-            | _ -> argError "Conflicting WebSharper project types set."
-        try
-            match a with
-            | "--jsmap" -> wsArgs := { !wsArgs with SourceMap = true } 
-            | "--dts" -> wsArgs := { !wsArgs with TypeScript = true } 
-            | "--wig" -> setProjectType WIG
-            | "--bundle" -> setProjectType Bundle
-            | "--bundleonly" -> setProjectType BundleOnly
-            | "--html" -> setProjectType Html
-            | "--site" -> setProjectType Website
-            | "--wswarnonly" -> wsArgs := { !wsArgs with WarnOnly = true } 
-            | "--dce-" -> wsArgs := { !wsArgs with DeadCodeElimination = false } 
-            | StartsWith "--ws:" wsProjectType ->
-                 wsArgs := { !wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
-            | "--dlres" -> wsArgs := { !wsArgs with DownloadResources = true }
-            | "--printjs" -> wsArgs := { !wsArgs with PrintJS = true }
-            | "--vserrors" ->
-                wsArgs := { !wsArgs with VSStyleErrors = true }
-                fscArgs.Add a
-            | StartsWith "--wsoutput:" o ->
-                wsArgs := { !wsArgs with OutputDir = Some o }
-            | StartsWith "--project:" p ->
-                wsArgs := { !wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
-            | StartsWith "--doc:" d ->
-                wsArgs := { !wsArgs with Documentation = Some d }
-                fscArgs.Add a
-            | StartsWith "-o:" o | StartsWith "--out:" o ->
-                wsArgs := { !wsArgs with AssemblyFile = o }
-                fscArgs.Add a
-            | StartsWith "-r:" r | StartsWith "--reference:" r ->
-                refs.Add r
-                fscArgs.Add a
-            | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
-                wsArgs := { !wsArgs with IsDebug = true }
-                fscArgs.Add a
-            | StartsWith "--resource:" r ->
-                match r.Split(',') with 
-                | [| res |] -> resources.Add (res, None)
-                | [| res; fullName |] -> resources.Add (res, Some fullName)
-                | _ -> failwithf "Unexpected value --resource:%s" r
-                fscArgs.Add a
-            | StartsWith "--keyfile:" k ->
-                wsArgs := { !wsArgs with KeyFile = Some k }
-            | StartsWith "--nowarn:" w ->
-                warn := { !warn with NoWarn = (!warn).NoWarn + parseIntSet w }
-            | StartsWith "--warn:" l ->
-                warn := { !warn with WarnLevel = int l }
-            | StartsWith "--warnon:" w ->
-                warn := { !warn with NoWarn = (!warn).NoWarn - parseIntSet w }
-            | "--warnaserror+" ->
-                warn := { !warn with AllWarnAsError = true }
-            | "--warnaserror-" ->
-                warn := { !warn with AllWarnAsError = false }
-            | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
-                warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
-            | StartsWith "--warnaserror-:" w ->
-                warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
-            | StartsWith "--closures:" c ->
-                match c.ToLower() with
-                | "true" ->
-                    wsArgs := { !wsArgs with AnalyzeClosures = Some false }
-                | "movetotop" ->
-                    wsArgs := { !wsArgs with AnalyzeClosures = Some true }
-                | _ ->
-                    printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
-            | StartsWith "--preferreduilang:" _ ->
-                () // not handled by FSC 16.0.2
-            | _ -> 
-                fscArgs.Add a  
-        with e ->
-            failwithf "Parsing argument failed: '%s' - %s" a e.Message
+        match RecognizeWebSharperArg a !wsArgs with
+        | Some na -> wsArgs := na
+        | _ ->
+        match a with
+        | "--vserrors" ->
+            wsArgs := { !wsArgs with VSStyleErrors = true }
+            fscArgs.Add a
+        | StartsWith "--doc:" d ->
+            wsArgs := { !wsArgs with Documentation = Some d }
+            fscArgs.Add a
+        | StartsWith "-o:" o | StartsWith "--out:" o ->
+            wsArgs := { !wsArgs with AssemblyFile = o }
+            fscArgs.Add a
+        | StartsWith "-r:" r | StartsWith "--reference:" r ->
+            refs.Add r
+            fscArgs.Add a
+        | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
+            wsArgs := { !wsArgs with IsDebug = true }
+            fscArgs.Add a
+        | StartsWith "--resource:" r ->
+            match r.Split(',') with 
+            | [| res |] -> resources.Add (res, None)
+            | [| res; fullName |] -> resources.Add (res, Some fullName)
+            | _ -> argError ("Unexpected value --resource:" + r)
+            fscArgs.Add a
+        | StartsWith "--keyfile:" k ->
+            wsArgs := { !wsArgs with KeyFile = Some k }
+        | StartsWith "--nowarn:" w ->
+            warn := { !warn with NoWarn = (!warn).NoWarn + parseIntSet w }
+        | StartsWith "--warn:" l ->
+            warn := { !warn with WarnLevel = int l }
+        | StartsWith "--warnon:" w ->
+            warn := { !warn with NoWarn = (!warn).NoWarn - parseIntSet w }
+        | "--warnaserror+" ->
+            warn := { !warn with AllWarnAsError = true }
+        | "--warnaserror-" ->
+            warn := { !warn with AllWarnAsError = false }
+        | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
+            warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
+        | StartsWith "--warnaserror-:" w ->
+            warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
+        | StartsWith "--preferreduilang:" _ ->
+            () // not handled by FSC 16.0.2
+        | _ -> 
+            fscArgs.Add a  
     fscArgs.Add "--define:FSHARP41"
     wsArgs := 
         { !wsArgs with 
@@ -362,6 +329,7 @@ let compileMain argv =
             Resources = resources.ToArray()
             CompilerArgs = fscArgs.ToArray() 
         }
+    wsArgs := SetDefaultProjectFile !wsArgs true
 
     let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
     if File.Exists wsconfig then
@@ -389,7 +357,6 @@ let formatArgv (argv: string[]) =
     match argv with
     | [| a |] when a.StartsWith "@" -> File.ReadAllLines a.[1..]
     | _ -> argv
-    |> Array.append [| "fsc.exe" |]
 
 [<EntryPoint>]
 let main(argv) =

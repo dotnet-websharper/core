@@ -172,7 +172,7 @@ module UnpackCommand =
             "Usage: WebSharper.exe unpack [OPTIONS] assembly.dll ..."
             "-root <dir>    Path to web project root directory"
             "-sm            Unpack source maps and source files"
-            "-dts           Unpack TypeScript declaration files"
+            //"-dts           Unpack TypeScript declaration files"
         ]
         |> String.concat System.Environment.NewLine
 
