@@ -262,7 +262,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\..\.nuget\packages\fsharp.core\4.2.1\lib\net45\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\..\..\..\Users\jenkins.WIN-DRS439ROKOT\.nuget\packages\fsharp.core\4.2.1\lib\net45\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -271,7 +271,7 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\..\..\.nuget\packages\fsharp.core\4.2.1\lib\netstandard1.6\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\..\..\..\Users\jenkins.WIN-DRS439ROKOT\.nuget\packages\fsharp.core\4.2.1\lib\netstandard1.6\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
