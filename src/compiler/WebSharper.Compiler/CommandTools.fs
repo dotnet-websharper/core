@@ -178,6 +178,7 @@ type WsConfig =
                 res <- { res with JSOutputPath = Some (getPath k v) }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
+            | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res
 
