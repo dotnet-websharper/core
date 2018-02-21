@@ -365,8 +365,20 @@ module TupledArgOpt =
        
 [<JavaScript>]
 module Bug906 =
+    // bug #906, this was throwing a compile-time error 'not a named type'
     type Alias<'T> = 'T
     type Record<'T> = { x : Alias<'T> }
+
+[<Struct>]
+type Normal<'T, 'U> = Ok of 'T | Error
+
+[<JavaScript>]
+module Bug914 =
+    type Alias<'T> = Normal<'T, string>
+    let f i =
+        match Ok i : Alias<int> with
+        | Ok x -> string x
+        | Error -> "error"
 
 [<JavaScript>]
 let Tests =
@@ -839,6 +851,10 @@ let Tests =
                 f "abc", f "123"
             equal r1 "ac"
             equal r2 "13"
+        }
+
+        Test "#914 generic struct type alias" {
+            equal (Bug914.f 42) "42"
         }
 
         //Test "Recursive module value" {
