@@ -45,6 +45,7 @@ let rec getOrigType (t: FSharpType) =
     if t.IsAbbreviation then getOrigType t.AbbreviatedType else t
 
 let isUnit (t: FSharpType) =
+    let t = getOrigType t
     if t.IsGenericParameter then
         false
     else
@@ -74,10 +75,10 @@ let rec isSeq (t: FSharpType) =
     )
 
 let isByRef (t: FSharpType) =
+    let t = getOrigType t
     if t.IsGenericParameter then
         false
     else
-    let t = getOrigType t
     if t.IsTupleType || t.IsFunctionType then false else
     t.HasTypeDefinition && t.TypeDefinition.IsByRef
 
@@ -217,7 +218,7 @@ module Definitions =
 
 let newId() = Id.New(mut = false)
 let namedId (i: FSharpMemberOrFunctionOrValue) =
-    let isTuple = i.FullType.IsTupleType
+    let isTuple = (getOrigType i.FullType).IsTupleType
     if i.IsCompilerGenerated then
         let n = i.DisplayName.TrimStart('(', ' ', '_', '@')
         if n.Length > 0 then
@@ -263,7 +264,7 @@ type InlineMatchValueTransformer(cases : (Id list * Expression) list) =
         body |> List.foldBack (fun (c, r) body -> Let (c, r, body)) (List.zip captures results)
 
 let removeListOfArray (argType: FSharpType) (expr: Expression) =
-    if isSeq argType then
+    if isSeq (getOrigType argType) then
         match IgnoreExprSourcePos expr with
         | Call (None, td, meth, [ NewArray _ as arr ]) 
             when td.Entity = Definitions.ListModule && meth.Entity = Definitions.ListOfArray  ->
@@ -559,7 +560,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | LocalVar -> Var v  
                 | FuncArg -> Var v
                 | ByRefArg -> 
-                    let t = expr.Type
+                    let t = getOrigType expr.Type
                     if t.HasTypeDefinition && t.TypeDefinition.IsByRef then Var v else GetRef (Var v)
                 | ThisArg -> This
         | P.Lambda _ ->
@@ -824,7 +825,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | _ -> parsefailf "Expected a union type"
             UnionCaseTag(tr expr, t)
         | P.NewRecord (typ, items) ->
-            let td = typ.TypeDefinition 
+            let td = (getOrigType typ).TypeDefinition 
             let t =
                 match sr.ReadType env.TParams typ with
                 | ConcreteType ct -> ct
@@ -958,7 +959,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             FieldSet(thisOpt |> Option.map tr, t, field, tr value)
         | P.AddressOf expr ->
             let isStructUnionOrTupleGet =
-                let t = expr.Type
+                let t = getOrigType expr.Type
                 t.IsStructTupleType || (
                     t.HasTypeDefinition && (
                         let td = t.TypeDefinition
