@@ -342,9 +342,15 @@ let HandleDefaultArgsAndCommands argv isFSharp =
         let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
         let compiler = if isFSharp then "fsc.exe" else "csc.exe"
         printfn "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        if isFSharp then
+            printfn "(F# Compiler Service version %s)" AssemblyVersionInformation.FcsVersion
+        else
+            printfn "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
+        printfn ""
         match helpKind with
         | NoHelp ->
             printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
+            printfn ""
             printfn "WebSharper options help: %s --help" exe
             printfn "Unpack command help: %s unpack --help" exe
             printfn "Html command help: %s html --help" exe

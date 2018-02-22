@@ -52,9 +52,26 @@ let MakeNetStandardTypesList() =
             Seq.iter writeType t.NestedTypes
         Seq.iter writeType asm.MainModule.Types
 
+let AddToolVersions() =
+    let lockFile =
+        Paket.LockFile.LoadFrom(__SOURCE_DIRECTORY__ </> "paket.lock")
+            .GetGroup(Paket.Domain.GroupName "main")
+    let t =
+        [
+            "FcsVersion", "FSharp.Compiler.Service"
+            "RoslynVersion", "Microsoft.CodeAnalysis.CSharp"
+        ]
+        |> List.map (fun (name, value) ->
+            let version = lockFile.GetPackage(Paket.Domain.PackageName value).Version.AsString
+            sprintf "    let [<Literal>] %s = \"%s\"" name version
+        )
+        |> String.concat "\n"
+    File.AppendAllText("build/AssemblyInfo.fs", t)
+
 Target "Prepare" <| fun () ->
     Minify()
     MakeNetStandardTypesList()
+    AddToolVersions()
 targets.AddPrebuild "Prepare"
 
 Target "Build" DoNothing
