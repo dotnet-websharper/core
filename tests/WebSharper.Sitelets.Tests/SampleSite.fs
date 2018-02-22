@@ -30,24 +30,34 @@ module Client =
     type Node =
         | Elt of string * Node[]
         | Text of string
+        | Attr of string * string
 
         member this.ToNode() =
             match this with
-            | Text t -> JS.Document.CreateTextNode(t) :> Dom.Node
+            | Text t -> Choice1Of2 (JS.Document.CreateTextNode(t) :> Dom.Node)
             | Elt (n, ch) ->
                 let e = JS.Document.CreateElement(n)
-                for ch in ch do e.AppendChild(ch.ToNode()) |> ignore
-                e :> Dom.Node
+                for ch in ch do
+                    match ch.ToNode() with
+                    | Choice1Of2 n -> e.AppendChild(n) |> ignore
+                    | Choice2Of2 a -> e.SetAttributeNode(a) |> ignore
+                Choice1Of2 (e :> Dom.Node)
+            | Attr (n, v) -> Choice2Of2 (JS.Document.CreateAttribute(n, Value = v))
 
         interface IControlBody with
             member this.ReplaceInDom x =
-                x.ParentNode.ReplaceChild(this.ToNode(), x) |> ignore
+                match this.ToNode() with
+                | Choice1Of2 n -> x.ParentNode.ReplaceChild(n, x) |> ignore
+                | Choice2Of2 _ -> x.ParentNode.RemoveChild(x) |> ignore
 
     [<JavaScript>]
     let Elt n ([<ParamArray>] ch) = Node.Elt(n, ch)
 
     [<JavaScript>]
     let Text t = Node.Text(t)
+
+    [<JavaScript>]
+    let Attr n v = Node.Attr(n, v)
 
     [<Sealed>]
     type SignupSequenceControl() =
@@ -63,7 +73,14 @@ module Client =
 
         [<JavaScript>]
         override this.Body =
-            Elt "div" [|Text ("LOGIN: " + link)|] :> _
+            Elt "form" [|
+                Attr "method" "post"
+                Attr "action" link
+                Elt "div" [|Text ("LOGIN: " + link)|]
+                Elt "input" [| Attr "name" "login"; Attr "placeholder" "Username" |]
+                Elt "input" [| Attr "name" "password"; Attr "placeholder" "Password" |]
+                Elt "input" [| Attr "type" "submit"; Attr "value" "Log in" |]
+            |] :> _
 
     [<JavaScript>]
     let Widget () =
@@ -122,7 +139,8 @@ module SampleSite =
         | Home
         | Contact
         | Protected
-        | Login of option<Action>
+        | Login
+        | [<FormData("login", "password")>] DoLogin of login: string * password: string
         | [<Query("firstName", "lastName", "message")>] FormResultGet of firstName: string * lastName: string * message: string
         | [<FormData("firstName", "lastName", "message")>] FormResultPost of firstName: string * lastName: string * message: string
         | Logout
@@ -155,7 +173,7 @@ module SampleSite =
                             "Log Out (" + email + ")" =>
                                 (RandomizeUrl <| ctx.Link Action.Logout)
                         | None ->
-                            "Login" => (ctx.Link <| Action.Login None)
+                            "Login" => (ctx.Link Action.Login)
                     )
                 ]
             }
@@ -265,13 +283,9 @@ module SampleSite =
                 ]
        
         /// A simple login page.
-        let LoginPage (redirectAction: option<Action>) =
+        let LoginPage =
             Template "Login" <| fun ctx ->
-                let redirectLink =
-                    match redirectAction with
-                    | Some action -> action
-                    | None -> Action.Home
-                    |> ctx.Link
+                let redirectLink = ctx.Link (Action.DoLogin ("", ""))
                 [
                     Elt("h1", Text "Login")
                     Elt("p",
@@ -303,8 +317,17 @@ module SampleSite =
                     Pages.ContactPage ctx
                 | Action.Echo param ->
                     Pages.EchoPage param ctx
-                | Action.Login action->
-                    Pages.LoginPage action ctx
+                | Action.Login ->
+                    Pages.LoginPage ctx
+                | Action.DoLogin (user, pass) ->
+                    async {
+                        if pass = "password" then
+                            do! ctx.UserSession.LoginUser user
+                            return! Content.RedirectTemporary Action.Home
+                        else
+                            return! Content.Text "Invalid password"
+                                |> Content.SetStatus Http.Status.Forbidden
+                    }
                 | Action.Logout ->
                     // Logout user and redirect to home
                     async {
@@ -337,7 +360,7 @@ module SampleSite =
             let filter : Sitelet.Filter<Action> =
                 {
                     VerifyUser = fun _ -> true
-                    LoginRedirect = Some >> Action.Login
+                    LoginRedirect = fun _ -> Action.Login
                 }
 
             Sitelet.Protect filter <|

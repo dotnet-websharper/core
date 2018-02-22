@@ -82,11 +82,8 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
 
         member this.Logout() =
             async {
-                match ctx.Response.Cookies.[FormsAuthentication.FormsCookieName] with
-                | null -> return ()
-                | cookie ->
-                    cookie.Expires <- DateTime.Now.AddDays(-1.)
-                    return refresh null
+                FormsAuthentication.SignOut()
+                return refresh null
             }
 #endif
 

@@ -65,6 +65,7 @@ module HtmlContentExtensions =
         static member SingleNode (node: Dom.Node) =
             new SingleNode(node) :> IControlBody
 
+[<JavaScript>]
 module Activator =
 
     /// The identifier of the meta tag holding the controls.
@@ -74,7 +75,8 @@ module Activator =
     [<Direct "typeof document !== 'undefined' && typeof jQuery !== 'undefined'">]
     let private hasDocumentAndJQuery () = false
 
-    [<JavaScript>]
+    let mutable Instances : obj = null
+
     let private Activate() =
         if hasDocumentAndJQuery () then
             let meta = JS.Document.GetElementById(META_ID)
@@ -91,5 +93,6 @@ module Activator =
                             p.ReplaceInDom old
                         | _ -> ()
                     )
+                    Instances <- obj
                 ).Ignore
 
