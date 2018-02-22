@@ -312,6 +312,16 @@ let (|StartsWith|_|) start (input: string) =
         Some input.[start.Length ..]
     else None 
 
+let (|Flag|_|) name (input: string) =
+    if input = name
+        || input = name + "+"
+        || input = name + ":true"
+    then Some true
+    elif input = name + "-"
+        || input = name + ":false"
+    then Some false
+    else None
+
 let (|Cmd|_|) (cmd: Commands.ICommand) argv =
     match cmd.Parse argv with
     | Commands.NotRecognized -> None
@@ -347,36 +357,48 @@ let HandleDefaultArgsAndCommands argv isFSharp =
         else
             printfn "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
         printfn ""
+        printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
+        printfn ""
         match helpKind with
         | NoHelp ->
-            printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
-            printfn ""
             printfn "WebSharper options help: %s --help" exe
             printfn "Unpack command help: %s unpack --help" exe
             printfn "Html command help: %s html --help" exe
         | WSHelp ->
-            printfn "WebSharper options:"
-            printfn "--jsmap         Enable source mapping"
-            printfn "--ws:type       Set WebSharper project type"
-            printfn "--wig           InterfaceGenerator project, same as --ws:extension"
-            printfn "--library       Library project, same as --ws:library"
-            printfn "--bundle        Single-page application project, same as --ws:bundle"
-            printfn "--bundleonly    SPA project with .js/.css outputs only same as --ws:bundleonly"
-            printfn "--html          Static site generator project, same as --ws:html"
-            printfn "--site          Client-server application project, same as --ws:site"
-            printfn "--wswarnonly    Print WebSharper-specific errors as warnings"
-            printfn "--dce-          Turn off dead code elimination for SPA projects"
-            printfn "--dlres         Download remote js/css resources"
-            printfn "--printjs       Print .js output"
-            printfn "--wsoutput:dir  Specify output directory for WebSharper-generated files"
-            printfn "--project:path  Location of project file"
-            printfn "--closures:xx   Set to true or movetotop to enable JS closure analysis/optimization"
+            printfn """WebSharper options:
+  --ws:<type>           Set WebSharper project type; one of:
+                          library, site, bundle, bundleonly, html, extension
+  --wig                 InterfaceGenerator project
+                          same as --ws:extension
+  --library             Library project
+                          same as --ws:library
+  --bundle              Single-page application project
+                          same as --ws:bundle
+  --bundleonly          SPA project with .js/.css outputs only
+                          same as --ws:bundleonly
+  --html                Static site generator project
+                          same as --ws:html
+  --site                Client-server application project
+                          same as --ws:site
+  --jsmap[+|-]          Enable source mapping
+                          available for --ws:site,bundle,bundleonly
+  --wswarnonly[+|-]     Print WebSharper-specific errors as warnings
+  --dce[+|-]            Turn off dead code elimination for SPA projects
+                          available for --ws:bundle,bundleonly
+  --dlres[+|-]          Download remote js/css resources
+                          available for --ws:site
+  --printjs[+|-]        Print .js output
+  --wsoutput:<dir>      Specify output directory for WebSharper-generated files
+                          available for --ws:html,bundle,bundleOnly
+  --project:<path>      Location of project file
+  --closures[+|-]       Enable JS closure analysis
+  --closures:movetotop  Enable JS closure optimization"""
         | UnpackHelp ->
             printfn "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
         | HtmlHelp ->
             printfn "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
         Some 0
-    
+
     match List.ofArray argv with
     | [] -> printInfo NoHelp
     | [ "--help" ] -> printInfo WSHelp
@@ -388,31 +410,31 @@ let HandleDefaultArgsAndCommands argv isFSharp =
 
 let RecognizeWebSharperArg a wsArgs =
     match a with
-    | "--jsmap" -> Some { wsArgs with SourceMap = true } 
+    | Flag "--jsmap" v -> Some { wsArgs with SourceMap = v }
     //| "--dts" -> Some { wsArgs with TypeScript = true } 
     | "--wig" -> Some { wsArgs with ProjectType = Some WIG }
     | "--bundle" -> Some { wsArgs with ProjectType =  Some Bundle }
     | "--bundleonly" -> Some { wsArgs with ProjectType = Some BundleOnly }
     | "--html" -> Some { wsArgs with ProjectType = Some Html }
     | "--site" -> Some { wsArgs with ProjectType = Some Website }
-    | "--wswarnonly" -> Some { wsArgs with WarnOnly = true } 
-    | "--dce-" -> Some { wsArgs with DeadCodeElimination = false } 
+    | Flag "--wswarnonly" v -> Some { wsArgs with WarnOnly = v }
+    | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = v }
     | StartsWith "--ws:" wsProjectType ->
         Some { wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
-    | "--dlres" -> Some { wsArgs with DownloadResources = true }
-    | "--printjs" -> Some { wsArgs with PrintJS = true }
+    | Flag "--dlres" v -> Some { wsArgs with DownloadResources = v }
+    | Flag "--printjs" v -> Some { wsArgs with PrintJS = v }
     | StartsWith "--wsoutput:" o ->
         Some { wsArgs with OutputDir = Some o }
     | StartsWith "--project:" p ->
         Some { wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
+    | Flag "--closures" v ->
+        Some { wsArgs with AnalyzeClosures = Some v }
     | StartsWith "--closures:" c ->
         match c.ToLower() with
-        | "true" ->
-            Some { wsArgs with AnalyzeClosures = Some false }
         | "movetotop" ->
             Some { wsArgs with AnalyzeClosures = Some true }
         | _ ->
-            printfn "--closures:%s argument unrecognized, value must be true or movetotop" c
+            printfn "--closures:%s argument unrecognized, must be one of: true, false, movetotop" c
             Some wsArgs
     | _ -> 
         None
