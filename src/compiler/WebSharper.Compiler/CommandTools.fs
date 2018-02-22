@@ -382,16 +382,22 @@ let HandleDefaultArgsAndCommands argv isFSharp =
                           same as --ws:site
   --jsmap[+|-]          Enable source mapping
                           available for --ws:site,bundle,bundleonly
+                          default: false
   --wswarnonly[+|-]     Print WebSharper-specific errors as warnings
+                          default: false
   --dce[+|-]            Turn off dead code elimination for SPA projects
                           available for --ws:bundle,bundleonly
+                          default: true
   --dlres[+|-]          Download remote js/css resources
                           available for --ws:site
+                          default: false
   --printjs[+|-]        Print .js output
+                          default: false
   --wsoutput:<dir>      Specify output directory for WebSharper-generated files
                           available for --ws:html,bundle,bundleOnly
   --project:<path>      Location of project file
   --closures[+|-]       Enable JS closure analysis
+                          default: false
   --closures:movetotop  Enable JS closure optimization"""
         | UnpackHelp ->
             printfn "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
