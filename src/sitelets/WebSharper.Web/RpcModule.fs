@@ -79,8 +79,13 @@ type AspNetFormsUserSession(ctx: HttpContextBase) =
 
         member this.Logout() =
             async {
-                FormsAuthentication.SignOut()
-                return refresh null
+                match ctx.Response.Cookies.[FormsAuthentication.FormsCookieName] with
+                | null -> return ()
+                | cookie ->
+                    cookie.Expires <- DateTime.Now.AddYears(-1)
+                    cookie.Domain <- FormsAuthentication.CookieDomain
+                    ctx.Response.SetCookie(cookie)
+                    return refresh null
             }
 
 module private RpcUtil =
