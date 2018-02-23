@@ -9,7 +9,7 @@ open Fake
 open WebSharper.Fake
 
 let version = "4.2"
-let pre = Some "beta"
+let pre = None
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
