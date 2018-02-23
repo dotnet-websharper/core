@@ -134,8 +134,8 @@ let getSourcePos (x: FSharpExpr) =
 let withSourcePos (x: FSharpExpr) (expr: Expression) =
     ExprSourcePos (getSourcePos x, IgnoreExprSourcePos expr)
 
-let getEnclosingEntity (x : FSharpMemberOrFunctionOrValue) =
-    match x.EnclosingEntity with
+let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
+    match x.DeclaringEntity with
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
@@ -429,8 +429,10 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
         if name = ".cctor" then Member.StaticConstructor else
 
+        let declEnt = getDeclaringEntity x
+
         let tparams = 
-            Seq.append (getEnclosingEntity x).GenericParameters x.GenericParameters
+            Seq.append declEnt.GenericParameters x.GenericParameters
             |> Seq.distinctBy (fun p -> p.Name)
             |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
@@ -438,8 +440,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let ps =  
                 x.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> this.ReadType tparams p.Type) |> List.ofSeq |> removeUnitParam  
             if x.IsInstanceMember && not x.IsInstanceMemberInCompiledCode then
-                GenericType (this.ReadTypeDefinition x.LogicalEnclosingEntity) 
-                    (List.init x.LogicalEnclosingEntity.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
+                let extOn = x.ApparentEnclosingEntity
+                GenericType (this.ReadTypeDefinition extOn) 
+                    (List.init extOn.GenericParameters.Count (fun i -> TypeParameter i)) :: ps
             else ps
 
         if name = ".ctor" || name = "CtorProxy" then
@@ -474,7 +477,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                         MethodName = name
                         Parameters = getPars()
                         ReturnType = this.ReadType tparams x.ReturnParameter.Type
-                        Generics   = tparams.Count - (getEnclosingEntity x).GenericParameters.Count
+                        Generics   = tparams.Count - (getDeclaringEntity x).GenericParameters.Count
                     } 
                 )
 
@@ -666,7 +669,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 tr body
             )
         | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity meth)
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity meth)
             if td.Value.FullName = "Microsoft.FSharp.Core.Operators" && meth.CompiledName = "Reraise" then
                 IgnoredStatementExpr (Throw (Var env.Exception.Value))    
             else
@@ -727,7 +730,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | _ ->
                 Conditional(trCond, tr then_, tr else_)    
         | P.NewObject (ctor, typeGenerics, arguments) -> 
-            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity ctor)
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity ctor)
             let t = Generic td (typeGenerics |> List.map (sr.ReadType env.TParams))
             let args = List.map tr arguments
             let args, before =
@@ -763,7 +766,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | P.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
-                let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getEnclosingEntity var)
+                let td = sr.ReadAndRegisterTypeDefinition env.Compilation (getDeclaringEntity var)
                 match sr.ReadMember var with
                 | Member.Method (_, m) ->
                     let me = m.Value
@@ -1151,7 +1154,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 scan body
                 vars.Remove(id) |> ignore
             | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
-                let typ = env.SymbolReader.ReadTypeDefinition(meth.EnclosingEntity.Value)
+                let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
                 match env.SymbolReader.ReadMember(meth) with
                 | Member.Method(_, m) ->
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with

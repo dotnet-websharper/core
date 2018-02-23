@@ -1130,7 +1130,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
                     else
                         b |> List.iter (getTypesWithMembers parentMembers)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
-                types.[CodeReader.getEnclosingEntity a].Add(SourceMember(a, b, c))
+                types.[CodeReader.getDeclaringEntity a].Add(SourceMember(a, b, c))
             | FSIFD.InitAction a ->
                 parentMembers.Add (InitAction a)
 

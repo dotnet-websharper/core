@@ -1,4 +1,4 @@
-version 5.122.3
+version 5.142.0
 
 references: strict
 redirects: on
@@ -24,12 +24,12 @@ nuget System.Net.Http ~> 4.3.0
 nuget System.Threading.Timer ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0 copy_local: true
-nuget FSharp.Compiler.Service ~> 17.0.1
+nuget FSharp.Compiler.Service ~> 20.0.1
 
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.122.3
+    nuget Paket.Core 5.141.0
     nuget FAKE
     nuget AjaxMin
     nuget FSharp.Core ~> 4.2.0
