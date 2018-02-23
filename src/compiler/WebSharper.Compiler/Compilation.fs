@@ -1008,7 +1008,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 match m with 
                                 | M.Method (mdef, _) ->
                                     printerrf "Interface or implementation cannot be explicity named: %s.%s" typ.Value.FullName mdef.Value.MethodName 
-                                | _ -> failwith "impossible: constructor cannot be override or implementation"
+                                | _ -> failwith "impossible: constructor cannot be overridden or implementation"
                                 None, None, true
                             else 
                                 None, Some false, false
@@ -1019,8 +1019,11 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Quotation (pos, argNames) -> 
                             match m with 
                             | M.Method (mdef, _) ->
-                                quotations.Add(pos, (typ, mdef, argNames))
-                            | _ -> failwith "quoted javascript code must be inside a method"
+                                try quotations.Add(pos, (typ, mdef, argNames))
+                                with e ->
+                                    printerrf "Cannot have two instances of quoted JavaScript code at the same location of files with the same name: %s (%i, %i - %i, %i)"
+                                        pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
+                            | _ -> failwith "Quoted javascript code must be inside a method"
                             sn, Some true, false 
                         | N.Remote _
                         | N.Inline
