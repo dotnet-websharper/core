@@ -140,6 +140,21 @@ let delegateTy, delRemove =
 let TextSpans = R.textSpans
 let SaveTextSpans() = R.saveTextSpans <- true
 
+let baseCtor thisExpr (t: Concrete<TypeDefinition>) c a =
+    if t.Entity = Definitions.Obj then thisExpr
+    elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
+        match a with
+        | [] -> Undefined
+        | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
+        | [msg; inner] -> 
+            Sequential [
+                ItemSet(thisExpr, Value (String "message"), msg)
+                ItemSet(thisExpr, Value (String "inner"), inner)
+            ]
+        | _ -> failwith "Too many arguments for Error"
+    else
+        BaseCtor(thisExpr, t, c, a) 
+
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     if cls.TypeKind <> TypeKind.Class && not isStruct then None else
@@ -413,12 +428,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
                                     CombineStatements [
-                                        ExprStatement (BaseCtor(This, bTyp, bCtor, args) |> reorder)
+                                        ExprStatement (baseCtor This bTyp bCtor args |> reorder)
                                         c.Body
                                     ]
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
                                     CombineStatements [
-                                        ExprStatement (BaseCtor(This, NonGeneric def, bCtor, args) |> reorder)
+                                        ExprStatement (baseCtor This (NonGeneric def) bCtor args |> reorder)
                                         c.Body
                                     ]
                                 | None -> c.Body
@@ -514,7 +529,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
                                     Empty
                                 | b ->
-                                    ExprStatement (BaseCtor(This, b, ConstructorInfo.Default(), []))
+                                    ExprStatement (baseCtor This b (ConstructorInfo.Default()) [])
                             let init =
                                 if hasInit then 
                                     ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
