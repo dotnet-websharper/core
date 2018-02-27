@@ -207,7 +207,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
     if isBundle then
         match current.EntryPoint with
         | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
-        | _ -> failwith "Missing entry point. Add an SPAEntryPoint attribute to a static method without arguments."
+        | _ -> failwith "Missing entry point. Add SPAEntryPoint and JavaScript attributes to a static method without arguments."
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 

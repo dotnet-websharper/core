@@ -119,7 +119,10 @@ module Bundling =
                 let current = 
                     if dce then trimMetadata meta nodes 
                     else meta
-                Packager.packageAssembly current current true
+                try
+                    Packager.packageAssembly current current true
+                with e -> 
+                    CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
 
         let noHtmlWriter = new HtmlTextWriter(TextWriter.Null)
