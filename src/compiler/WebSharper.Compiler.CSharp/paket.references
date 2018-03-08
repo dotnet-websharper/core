@@ -1,5 +1,2 @@
 FSharp.Core
 Microsoft.CodeAnalysis.CSharp
-Microsoft.CodeAnalysis.Common
-System.Collections.Immutable
-System.Reflection.Metadata

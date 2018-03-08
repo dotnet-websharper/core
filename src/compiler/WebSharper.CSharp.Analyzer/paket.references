@@ -2,6 +2,3 @@
     exclude Mono.Cecil.Rocks.dll
 FSharp.Core
 Microsoft.CodeAnalysis.CSharp
-Microsoft.CodeAnalysis.Common
-System.Collections.Immutable
-System.Reflection.Metadata

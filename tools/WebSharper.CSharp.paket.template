@@ -52,6 +52,9 @@ files
     ../build/Release/CSharp/net461/System.Xml.XDocument.dll ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools
+    ../build/Release/CSharp/net461/netstandard.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/Microsoft.Extensions.DependencyModel.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/Microsoft.DotNet.PlatformAbstractions.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
