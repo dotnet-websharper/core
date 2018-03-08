@@ -99,6 +99,10 @@ module private DateTimeHelpers =
     [<Direct "(new Date($d)).toLocaleTimeString({}, {hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false})">]
     let LongTime (d: obj) = X<string>
                 
+// DateTime is represented as an UTC epoch for remoting purposes.
+// Properties for getting sub-dates/times like Day or Hour convert it to local time on the client for easier display purposes.
+// This is inconsistent, but covers most common uses.
+// If you need UTC time details, use .JS and its UTC methods.
 [<Proxy(typeof<System.DateTime>)>]
 type private DateTimeProxy =
     [<Inline "0">]
@@ -113,7 +117,6 @@ type private DateTimeProxy =
     [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
     
-    [<Warn "Use UtcNow on the client side, or DateTimeOffset.UtcNow">]
     static member Now
         with [<Inline "Date.now()">] get() = X<D>
 
@@ -267,7 +270,6 @@ type private DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: D, o: int) =
     [<Inline>]
     new (d: D) = DateTimeOffsetProxy(d, 0) 
 
-    [<Warn "On client side, DateTime returns UTC value too, use UtcDateTime instead">]
     member this.DateTime = d
 
     [<Inline "$this.o * 60000">]
