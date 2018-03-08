@@ -52,14 +52,13 @@ files
     ../build/Release/CSharp/net461/System.Xml.XDocument.dll ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools
-    ../build/Release/CSharp/net461/FSharp.Core.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/System.ValueTuple.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/Mono.Cecil.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.Core.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/net461/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/netstandard2.0/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs
