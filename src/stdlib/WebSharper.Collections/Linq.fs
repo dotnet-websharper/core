@@ -295,7 +295,7 @@ type private LinqProxy =
 
     [<Inline>]
     static member ElementAt<'T>(this: seq<'T>, index: int): 'T =
-        Seq.nth index this
+        Seq.item index this
 
     [<Inline>]
     static member ElementAtOrDefault<'T>(this: seq<'T>, index: int) =
@@ -303,7 +303,7 @@ type private LinqProxy =
 
     [<Name "ElementAtOrDefault">]
     static member JSElementAtOrDefault<'T>(this: seq<'T>, index: int, defaultValue: 'T) : 'T =
-        try Seq.nth index this
+        try Seq.item index this
         with _ -> defaultValue
 
     [<Inline>]

@@ -15,6 +15,7 @@
     <Compile Include="ResizeArray.fs" />
     <Compile Include="LinkedList.fs" />
     <Compile Include="Linq.fs" />
+    <Compile Include="Query.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

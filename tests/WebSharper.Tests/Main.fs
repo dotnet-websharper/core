@@ -60,6 +60,7 @@ let RunTests() =
         Optimizations.Tests
         Proxy.Tests
         Queue.Tests
+        Query.Tests
         Random.Tests
         Ref.Tests
         Reflected.Tests
