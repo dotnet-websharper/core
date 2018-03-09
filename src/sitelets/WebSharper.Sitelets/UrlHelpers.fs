@@ -144,8 +144,8 @@ module UrlHelpers =
     let (|ALPHA_NUM|_|) s =
         "[a-zA-Z0-9]+" |> Internals.MatchToken s (fun res -> res |> Some)
 
-    let (|REGEX|_|) r s =
-        r |> Internals.MatchToken s
+    let (|REGEX|_|) regexp input =
+        regexp |> Internals.MatchToken input
             (fun (n, rest) -> Some rest)
 
     let (|SPLIT_BY|_|) (c: char) (uri: Uri) =

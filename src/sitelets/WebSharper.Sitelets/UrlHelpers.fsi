@@ -79,7 +79,7 @@ module UrlHelpers =
     val (|ALPHA_NUM|_|) : string -> (string * string) option
 
     /// Skip the substring matching a regexp at the beginning of a string.
-    val (|REGEX|_|) : regexp: string -> string -> string option
+    val (|REGEX|_|) : regexp: string -> input: string -> string option
 
     /// Split the Path component of a URL by a given character.
     val (|SPLIT_BY|_|) : char -> Uri -> string list option

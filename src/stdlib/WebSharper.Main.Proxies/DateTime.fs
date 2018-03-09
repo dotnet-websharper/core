@@ -377,7 +377,7 @@ type private DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: D, o: int) =
     static member op_LessThan (a: DO, b: DO) = X<bool>
 
     [<Inline "$a.d >= $b.d">]
-    static member op_GreaterThanOrEqual (a: D, b: D) = X<bool>
+    static member op_GreaterThanOrEqual (a: DO, b: DO) = X<bool>
 
     [<Inline "$a.d <= $b.d">]
-    static member op_LessThanOrEqual (a: D, b: D) = X<bool>
+    static member op_LessThanOrEqual (a: DO, b: DO) = X<bool>

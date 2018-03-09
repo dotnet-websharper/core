@@ -25,9 +25,9 @@ open WebSharper
 module CT = WebSharper.Core.ContentTypes
 
 [<CompiledName "FSharpContent">]
-type Content<'Action> =
-    | CustomContent of (Context<'Action> -> Http.Response)
-    | CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
+type Content<'Endpoint> =
+    | CustomContent of (Context<'Endpoint> -> Http.Response)
+    | CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
@@ -279,13 +279,13 @@ module Content =
             }
 
     /// Emits a 301 Moved Permanently response to a given action.
-    let Redirect<'T> (action: 'T) =
+    let Redirect<'T> (endpoint: 'T) =
         CustomContentAsync <| fun ctx ->
-            let resp = RedirectToUrl (ctx.Link action)
+            let resp = RedirectToUrl (ctx.Link endpoint)
             ToResponse resp ctx
 
     let RedirectPermanentToUrl url = RedirectToUrl url |> async.Return
-    let RedirectPermanent url = Redirect url |> async.Return
+    let RedirectPermanent endpoint = Redirect endpoint |> async.Return
 
     /// Emits a 307 Redirect Temporary response to a given url.
     let RedirectTemporaryToUrl<'T> (url: string) : Async<Content<'T>> =
@@ -298,9 +298,9 @@ module Content =
         |> async.Return
 
     /// Emits a 307 Redirect Temporary response to a given url.
-    let RedirectTemporary<'T> (action: 'T) : Async<Content<'T>> =
+    let RedirectTemporary<'T> (endpoint: 'T) : Async<Content<'T>> =
         CustomContentAsync <| fun ctx -> async {
-            let! content = RedirectTemporaryToUrl (ctx.Link action)
+            let! content = RedirectTemporaryToUrl (ctx.Link endpoint)
             return! ToResponse content ctx
         }
         |> async.Return
@@ -340,20 +340,20 @@ module Content =
 type ContextExtensions =
 
     [<System.Runtime.CompilerServices.Extension>]
-    static member GetSeparateResourcesAndScripts(ctx, controls) =
-        Content.getSeparateResourcesAndScripts ctx controls
+    static member GetSeparateResourcesAndScripts(this, controls) =
+        Content.getSeparateResourcesAndScripts this controls
 
     [<System.Runtime.CompilerServices.Extension>]
-    static member GetResourcesAndScripts(ctx, controls) =
-        Content.getResourcesAndScripts ctx controls
+    static member GetResourcesAndScripts(this, controls) =
+        Content.getResourcesAndScripts this controls
 
-type Content<'Action> with
+type Content<'Endpoint> with
 
-    static member Custom (response: Http.Response) : Async<Content<'Action>> =
+    static member Custom (response: Http.Response) : Async<Content<'Endpoint>> =
         Content.CustomContent <| fun _ -> response
         |> async.Return
 
-    static member Custom (?Status: Http.Status, ?Headers: seq<Http.Header>, ?WriteBody: System.IO.Stream -> unit) : Async<Content<'Action>> =
+    static member Custom (?Status: Http.Status, ?Headers: seq<Http.Header>, ?WriteBody: System.IO.Stream -> unit) : Async<Content<'Endpoint>> =
         ({
             Status = defaultArg Status Http.Status.Ok
             Headers = defaultArg Headers Seq.empty
@@ -361,11 +361,11 @@ type Content<'Action> with
         } : Http.Response)
         |> Content.Custom
 
-    static member Json x : Async<Content<'Action>> =
+    static member Json x : Async<Content<'Endpoint>> =
         Content.JsonContent <| fun _ -> x
         |> async.Return
 
-    static member Page (?Body: #seq<#WebSharper.Web.INode>, ?Head:#seq<#WebSharper.Web.INode>, ?Title: string, ?Doctype: string) : Async<Content<'Action>> =
+    static member Page (?Body: #seq<#WebSharper.Web.INode>, ?Head:#seq<#WebSharper.Web.INode>, ?Title: string, ?Doctype: string) : Async<Content<'Endpoint>> =
         Content.Page {
             Doctype = Some (match Doctype with Some d -> d | None -> "<!DOCTYPE html>")
             Title = Title
@@ -374,11 +374,11 @@ type Content<'Action> with
             Renderer = Page.Default.Renderer
         }
 
-    static member Page (page: Page) : Async<Content<'Action>> =
+    static member Page (page: Page) : Async<Content<'Endpoint>> =
         Content.CustomContentAsync (Content.toCustomContentAsync (fun _ -> async { return page }))
         |> async.Return
 
-    static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Action>> =
+    static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Endpoint>> =
         let encoding = defaultArg encoding System.Text.Encoding.UTF8
         Content.Custom(
             WriteBody = fun s ->
@@ -386,7 +386,7 @@ type Content<'Action> with
                 w.Write(text)
         )
 
-    static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Action>> =
+    static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Endpoint>> =
         let allowOutsideRootFolder = defaultArg AllowOutsideRootFolder false
         Content.CustomContent <| fun ctx ->
             if Path.IsPathRooted path && not allowOutsideRootFolder then
@@ -470,8 +470,8 @@ type CSharpContent =
         Content.Page(page)
         |> CSharpContent.ToContent
 
-    static member Text (text: string, [<Optional>] encoding: System.Text.Encoding) =
-        Content.Text(text, ?encoding = CSharpContent.Opt encoding)
+    static member Text (text: string, [<Optional>] Encoding: System.Text.Encoding) =
+        Content.Text(text, ?encoding = CSharpContent.Opt Encoding)
         |> CSharpContent.ToContent
 
     static member File (path: string, [<Optional>] AllowOutsideRootFolder: bool, [<Optional>] ContentType: string) =

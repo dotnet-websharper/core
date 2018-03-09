@@ -26,14 +26,14 @@ open WebSharper
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
 [<CompiledName "FSharpContent">]
-type Content<'Action> =
+type Content<'Endpoint> =
     | [<Obsolete "Use Content.Custom">]
-      CustomContent of (Context<'Action> -> Http.Response)
+      CustomContent of (Context<'Endpoint> -> Http.Response)
     | [<Obsolete "Use Content.Custom">]
-      CustomContentAsync of (Context<'Action> -> Async<Http.Response>)
+      CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
 
     /// Creates a JSON content from the given object.
-    static member Json : 'U -> Async<Content<'Action>>
+    static member Json : 'U -> Async<Content<'Endpoint>>
 
     /// Creates an HTML content.
     static member Page
@@ -41,26 +41,26 @@ type Content<'Action> =
         * ?Head: #seq<#Web.INode>
         * ?Title: string
         * ?Doctype: string
-        -> Async<Content<'Action>>
+        -> Async<Content<'Endpoint>>
 
     /// Creates an HTML content.
-    static member Page : Page -> Async<Content<'Action>>
+    static member Page : Page -> Async<Content<'Endpoint>>
 
     /// Creates a plain text content.
-    static member Text : string * ?encoding: System.Text.Encoding -> Async<Content<'Action>>
+    static member Text : string * ?encoding: System.Text.Encoding -> Async<Content<'Endpoint>>
 
     /// Creates a content that serves a file from disk.
-    static member File : path: string * ?AllowOutsideRootFolder: bool * ?ContentType: string -> Async<Content<'Action>>
+    static member File : path: string * ?AllowOutsideRootFolder: bool * ?ContentType: string -> Async<Content<'Endpoint>>
 
     /// Creates a custom content.
-    static member Custom : Http.Response -> Async<Content<'Action>>
+    static member Custom : Http.Response -> Async<Content<'Endpoint>>
 
     /// Creates a custom content.
     static member Custom
         : ?Status: Http.Status
         * ?Headers: seq<Http.Header>
         * ?WriteBody: (System.IO.Stream -> unit)
-        -> Async<Content<'Action>>
+        -> Async<Content<'Endpoint>>
 
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -119,13 +119,13 @@ module Content =
     val SetBody<'T> : writeBody: (System.IO.Stream -> unit) -> Async<Content<'T>> -> Async<Content<'T>>
 
     /// Redirects permanently (301 Moved Permanently) to a given action.
-    val RedirectPermanent<'T> : action: 'T -> Async<Content<'T>>
+    val RedirectPermanent<'T> : endpoint: 'T -> Async<Content<'T>>
 
     /// Redirects permanently (301 Moved Permanently) to a given URL.
     val RedirectPermanentToUrl : url: string -> Async<Content<'T>>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given action.
-    val RedirectTemporary<'T> : action: 'T -> Async<Content<'T>>
+    val RedirectTemporary<'T> : endpoint: 'T -> Async<Content<'T>>
 
     /// Redirects temporarily (307 Redirect Temporary) to a given URL.
     val RedirectTemporaryToUrl : url: string -> Async<Content<'T>>
@@ -206,7 +206,7 @@ type CSharpContent =
 
     /// Creates a plain text content.
     static member Text
-        : string
+        : text: string
         * [<Optional>] Encoding: System.Text.Encoding
         -> Task<CSharpContent>
 
