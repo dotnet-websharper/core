@@ -240,27 +240,28 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, fsCoreFullName: string) =
+type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, netStandardPath: string option) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
-    let netstandard =
-        let dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-        let p =
-            let p1 = Path.Combine(dir, "netstandard.dll.ref")
-            if File.Exists p1 then p1 else
-            let p2 = Path.Combine(dir, "netstandard.dll")
-            if File.Exists p2 then p2 else
-            match AppDomain.CurrentDomain.GetAssemblies()
-                |> Array.tryFind (fun a -> a.GetName().Name = "netstandard") with
-            | Some a -> a.Location
-            | None -> failwith "Could not find netstandard.dll"
-        AssemblyDefinition.ReadAssembly p
-    do  assemblies.["netstandard"] <- netstandard
+    
+    let corelib, syscore, isNetStandard =
+        match netStandardPath with
+        | Some p ->
+            let netstandard = AssemblyDefinition.ReadAssembly p
+            assemblies.["netstandard"] <- netstandard
+            netstandard, null, true
+        | _ ->
+            let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
+            let mscorlib = resolve(typeof<int>.Assembly.FullName)
+            assemblies.["mscorlib"] <- mscorlib
+            let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
+            assemblies.["System.Core"] <- syscore
+            mscorlib, syscore, false
 
     let correctType (t: TypeReference) =
-        if AssemblyConventions.IsNetStandardType t.FullName then
-            t.Scope <- netstandard.Name
+        if isNetStandard && AssemblyConventions.IsNetStandardType t.FullName then
+            t.Scope <- corelib.Name
 
     let rec correctMethod (m: MethodReference) =
         correctType m.ReturnType
@@ -293,7 +294,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         | true, x -> x
         | false, _ ->
             let asm =
-                if AssemblyConventions.IsNetStandardType typeName then netstandard else
+                if isNetStandard && AssemblyConventions.IsNetStandardType typeName then corelib else
                 aR.Resolve(AssemblyNameReference.Parse(asmName))
             assemblies.[asmName] <- asm
             asm
@@ -373,10 +374,10 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.CorrectMethod m = correctMethod m; m
 
-    member b.SystemAssembly = netstandard
+    member b.SystemAssembly = corelib
 
     member b.Action ts =
-        commonType netstandard "System.Action" ts
+        commonType corelib "System.Action" ts
 
     member b.Converter d r =
         genericInstance converterType [d; r]
@@ -390,9 +391,9 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Tuple(ts: seq<TypeReference>) =
         let rec createTuple (ta: _[]) =
             if ta.Length < 8 then
-                commonType netstandard "System.Tuple" ta
+                commonType corelib "System.Tuple" ta
             else
-                commonType netstandard "System.Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
+                commonType corelib "System.Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
         createTuple (Array.ofSeq ts)
 
     member b.Choice(ts: seq<TypeReference>) =
@@ -429,7 +430,8 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.Delegate args res =
         let tn = if Option.isSome res then "System.Func" else "System.Action"
-        commonType netstandard tn (args @ Option.toList res)
+        let fromLib = if isNetStandard || List.length args <= 8 then corelib else syscore
+        commonType fromLib tn (args @ Option.toList res)
 
     member b.InteropDelegate this args pars res =
         let tn =
@@ -1383,15 +1385,6 @@ type Compiler() =
             (buildNested interf)
         types, genTypes
 
-    let findFSharpCoreFullName options =
-        let fsCorePath =
-            options.ReferencePaths
-            |> Seq.tryFind (fun p -> p.ToLower().EndsWith("fsharp.core.dll"))
-        match fsCorePath with
-        | None -> typedefof<list<_>>.Assembly.FullName
-        | Some p ->
-            AssemblyName.GetAssemblyName(p).FullName
-
     let buildAssembly resolver options (assembly: Code.Assembly) =
         if box assembly = null then
             failwithf "buildAssembly: assembly cannot be null"
@@ -1403,11 +1396,16 @@ type Compiler() =
             | LibraryKind -> ModuleKind.Dll
             | WindowsKind -> ModuleKind.Windows
         mp.AssemblyResolver <- resolver
-        mp.Runtime <- TargetRuntime.Net_4_0 // TODO: make a parameter
+        mp.Runtime <- TargetRuntime.Net_4_0
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def, findFSharpCoreFullName options)
+        let netStandardPath = 
+            options.ReferencePaths 
+            |> Seq.tryPick (fun p ->
+                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
+            )
+        let tB = TypeBuilder(resolver, def, netStandardPath)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])

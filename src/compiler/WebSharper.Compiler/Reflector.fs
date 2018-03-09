@@ -29,25 +29,25 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
-let fixAssemblyName isTSasm x =
-    if isTSasm && x = "mscorlib" then "netstandard" else x
-
-let getTypeDefinition isTSasm (tR: Mono.Cecil.TypeReference) =
+let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
+    let fullName = tR.FullName.Split('<').[0].Replace('/', '+')
     Hashed {
         Assembly =
-            match tR.Scope.MetadataScopeType with
-            | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
-                let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
-                anr.FullName.Split(',').[0]
-            | _ -> tR.Module.Assembly.FullName.Split(',').[0]
-            |> fixAssemblyName isTSasm
-        FullName = tR.FullName.Split('<').[0].Replace('/', '+')
+            if AssemblyConventions.IsNetStandardType fullName then
+                "netstandard"
+            else
+                match tR.Scope.MetadataScopeType with
+                | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
+                    let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
+                    anr.FullName.Split(',').[0]
+                | _ -> tR.Module.Assembly.FullName.Split(',').[0]
+        FullName = fullName
     }
 
-let rec getType isTSasm tgen (tR: Mono.Cecil.TypeReference) =
+let rec getType tgen (tR: Mono.Cecil.TypeReference) =
     if tR.IsArray then
         let tR = tR :?> Mono.Cecil.ArrayType
-        ArrayType(getType isTSasm tgen tR.ElementType, tR.Rank)
+        ArrayType(getType tgen tR.ElementType, tR.Rank)
     elif tR.IsGenericParameter then
         let tR = tR :?> Mono.Cecil.GenericParameter
         if tR.Owner.GenericParameterType = Mono.Cecil.GenericParameterType.Method then
@@ -63,13 +63,13 @@ let rec getType isTSasm tgen (tR: Mono.Cecil.TypeReference) =
                     let rest = ts.[7] :?> Mono.Cecil.GenericInstanceType
                     Array.append ts.[.. 6] (collect rest.GenericArguments) 
                 else ts
-            let tts = collect tR.GenericArguments |> Seq.map (getType isTSasm tgen) |> List.ofSeq
+            let tts = collect tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq
             TupleType (tts, isStruct)
         if name = "System.Void" || name = "Microsoft.FSharp.Core.Unit" then
             VoidType
         elif name = "Microsoft.FSharp.Core.FSharpFunc`2" then
             let tR = tR :?> Mono.Cecil.GenericInstanceType
-            match tR.GenericArguments |> Seq.map (getType isTSasm tgen) |> List.ofSeq with
+            match tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq with
             | [a; r] -> FSharpFuncType(a, r)    
             | _ -> failwith "FSharpFunc type must have two type arguments"
         elif name.StartsWith "System.Tuple" then
@@ -78,11 +78,11 @@ let rec getType isTSasm tgen (tR: Mono.Cecil.TypeReference) =
             getTupleType true
         else
             GenericType
-                (getTypeDefinition isTSasm tR) 
+                (getTypeDefinition tR) 
                 (
                     if tR.IsGenericInstance then
                         let tR = tR :?> Mono.Cecil.GenericInstanceType
-                        tR.GenericArguments |> Seq.map (getType isTSasm tgen) |> List.ofSeq 
+                        tR.GenericArguments |> Seq.map (getType tgen) |> List.ofSeq 
                     else []
                 )
 
@@ -94,27 +94,27 @@ let getName attrs =
         else None
     )
 
-let getRequires isTSasm attrs =
+let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
         a.AttributeType.FullName = "WebSharper.RequireAttribute" 
     )
     |> Seq.map (fun a ->
         let cargs = a.ConstructorArguments 
-        cargs.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition isTSasm
+        cargs.[0].Value :?> Mono.Cecil.TypeReference |> getTypeDefinition
         ,
         if cargs.Count = 1 then None else (cargs.[1].Value |> ParameterObject.OfObj |> Some)
     )
     |> List.ofSeq
 
-let getMacros isTSasm attrs =
+let getMacros attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
         a.AttributeType.FullName = "WebSharper.MacroAttribute" 
     )
     |> Seq.map (fun a ->
         let ar = a.ConstructorArguments
-        getTypeDefinition isTSasm (ar.[0].Value :?> _)
+        getTypeDefinition (ar.[0].Value :?> _)
         ,
         if ar.Count > 1 then
             // Todo : System.Type parameter objects
@@ -150,7 +150,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     let graph = Graph.Empty
     
     let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (asmName, false))
-    for req in getRequires isTSasm assembly.CustomAttributes do
+    for req in getRequires assembly.CustomAttributes do
         graph.AddEdge(asmNodeIndex, ResourceNode req)
 
     let interfaces = Dictionary()
@@ -159,24 +159,24 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
         if not (intfAsClass || typ.IsClass) then () else
 
-        let def = getTypeDefinition isTSasm typ
+        let def = getTypeDefinition typ
 
         if isResourceType typ then
             let thisRes = graph.AddOrLookupNode(ResourceNode (def, None))
-            for req in getRequires isTSasm typ.CustomAttributes do
+            for req in getRequires typ.CustomAttributes do
                 graph.AddEdge(thisRes, ResourceNode req)
             ()
         else
 
         let clsNodeIndex = graph.AddOrLookupNode(TypeNode def)
         graph.AddEdge(clsNodeIndex, asmNodeIndex)
-        for req in getRequires isTSasm typ.CustomAttributes do
+        for req in getRequires typ.CustomAttributes do
             graph.AddEdge(clsNodeIndex, ResourceNode req)
 
         let baseDef =
             let b = typ.BaseType
             if isNull b then None else
-                getTypeDefinition isTSasm b
+                getTypeDefinition b
                 |> ignoreSystemObject
 
         match baseDef with 
@@ -189,7 +189,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
-            let macros = getMacros isTSasm meth.CustomAttributes
+            let macros = getMacros meth.CustomAttributes
             let inlAttr = getInline meth.CustomAttributes 
             let name = getName meth.CustomAttributes 
 
@@ -236,11 +236,11 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 if meth.IsConstructor then 
                     let cdef =
                         Hashed {
-                            CtorParameters = meth.Parameters |> Seq.map (fun p -> getType isTSasm tgen p.ParameterType) |> List.ofSeq
+                            CtorParameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
                         }
                     let cNode = graph.AddOrLookupNode(ConstructorNode (def, cdef))
                     graph.AddEdge(cNode, clsNodeIndex)
-                    for req in getRequires isTSasm meth.CustomAttributes do
+                    for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
@@ -252,13 +252,13 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     let mdef =
                         Hashed {
                             MethodName = meth.Name
-                            Parameters = meth.Parameters |> Seq.map (fun p -> getType isTSasm tgen p.ParameterType) |> List.ofSeq
-                            ReturnType = getType isTSasm tgen meth.ReturnType
+                            Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
+                            ReturnType = getType tgen meth.ReturnType
                             Generics   = meth.GenericParameters |> Seq.length
                         }
                     let mNode = graph.AddOrLookupNode(MethodNode (def, mdef))
                     graph.AddEdge(mNode, clsNodeIndex)
-                    for req in getRequires isTSasm meth.CustomAttributes do
+                    for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
@@ -291,12 +291,12 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             typ.Methods 
             |> Seq.exists (fun meth -> 
                 Option.isSome (getInline meth.CustomAttributes)
-                || not (List.isEmpty (getMacros isTSasm meth.CustomAttributes))
+                || not (List.isEmpty (getMacros meth.CustomAttributes))
             )
         if intfAsClass then transformClass true typ else   
-        let def = getTypeDefinition isTSasm typ 
+        let def = getTypeDefinition typ 
 
-        let reqs = typ.CustomAttributes |> getRequires isTSasm
+        let reqs = typ.CustomAttributes |> getRequires
         if not reqs.IsEmpty then
             let i = graph.AddOrLookupNode(TypeNode def)
             for r in reqs do
@@ -304,7 +304,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         interfaces.Add(def,
             {
-                Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition isTSasm ii.InterfaceType) |> List.ofSeq
+                Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition ii.InterfaceType) |> List.ofSeq
                 Methods = 
                     dict [
                         for meth in typ.Methods do
@@ -312,8 +312,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                             let mdef =
                                 Hashed {
                                     MethodName = meth.Name
-                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType isTSasm tgen p.ParameterType) |> List.ofSeq
-                                    ReturnType = getType isTSasm tgen meth.ReturnType
+                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
+                                    ReturnType = getType tgen meth.ReturnType
                                     Generics   = meth.GenericParameters |> Seq.length
                                 }
                             let name =
