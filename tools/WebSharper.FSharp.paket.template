@@ -26,7 +26,6 @@ files
     ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools
     ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools
-    ../build/Release/FSharp/net461/netstandard.dll.ref ==> tools
     ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools
     ../build/Release/FSharp/net461/System.IO.dll ==> tools
     ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools

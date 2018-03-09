@@ -149,9 +149,8 @@ NUGET
       System.Diagnostics.Debug (>= 4.0.11) - restriction: || (&& (== net46) (< net451)) (&& (== net461) (< net451)) (== netstandard2.0)
       System.Dynamic.Runtime (>= 4.0.11) - restriction: || (&& (== net46) (< net451)) (&& (== net461) (< net451)) (== netstandard2.0)
       System.Linq (>= 4.1) - restriction: || (&& (== net46) (< net451)) (&& (== net461) (< net451)) (== netstandard2.0)
-    Microsoft.NETCore.App (2.0.5) - restriction: == netstandard2.0
-    Microsoft.NETCore.Platforms (2.0)
-    Microsoft.NETCore.Targets (2.0)
+    Microsoft.NETCore.Platforms (1.1) - restriction: || (&& (== net46) (>= dnxcore50)) (&& (== net46) (< net45)) (&& (== net461) (>= dnxcore50)) (&& (== net461) (< net45)) (== netstandard2.0)
+    Microsoft.NETCore.Targets (1.1) - restriction: || (&& (== net46) (>= dnxcore50)) (&& (== net46) (< net45)) (&& (== net461) (>= dnxcore50)) (&& (== net461) (< net45)) (== netstandard2.0)
     Microsoft.Win32.Primitives (4.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       Microsoft.NETCore.Platforms (>= 1.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
       Microsoft.NETCore.Targets (>= 1.0.1) - restriction: || (&& (== net461) (< net46)) (== netstandard2.0)
@@ -880,7 +879,7 @@ NUGET
     AjaxMin (5.14.5506.26202)
     Chessie (0.6)
       FSharp.Core
-    FAKE (4.64.10)
+    FAKE (4.64.11)
     FSharp.Compiler.Tools (10.0.1)
     FSharp.Core (4.2.3)
     Mono.Cecil (0.10.0-beta7)

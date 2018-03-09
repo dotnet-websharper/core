@@ -22,7 +22,7 @@
   </ItemGroup>
   <Target Name="CopyToOutput" AfterTargets="Build;Publish">
     <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
-          DestinationFiles="..\..\..\build\$(Configuration)\CSharp\net461\netstandard.dll.ref" />
+          DestinationFiles="..\..\..\build\$(Configuration)\CSharp\net461\netstandard.dll" />
   </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj" />
