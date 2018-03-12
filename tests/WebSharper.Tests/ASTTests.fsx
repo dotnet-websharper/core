@@ -1,8 +1,8 @@
 ﻿#I __SOURCE_DIRECTORY__
-#r "../../packages/fcs/FSharp.Compiler.Service/lib/net45/FSharp.Compiler.Service.dll"
-#r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.dll"
-#r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.Mdb.dll"
-#r "../../packages/Mono.Cecil/lib/net40/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net461/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net461/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -12,16 +12,17 @@
 #r "System.Web.dll"
 #r "System.Xml.dll"
 #r "System.Xml.Linq.dll"
-#r "../../build/Release/WebSharper.Core.JavaScript.dll"
-#r "../../build/Release/WebSharper.Core.dll"
-#r "../../build/Release/WebSharper.JavaScript.dll"
-#r "../../build/Release/WebSharper.JQuery.dll"
-#r "../../build/Release/WebSharper.Main.dll"
-//#r "../../build/Release/WebSharper.Collections.dll"
-//#r "../../build/Release/WebSharper.Control.dll"
-//#r "../../build/Release/WebSharper.Web.dll"
-#r "../../build/Release/FSharp/WebSharper.Compiler.dll"
-#r "../../build/Release/FSharp/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/net461/WebSharper.Core.JavaScript.dll"
+#r "../../build/Release/net461/WebSharper.Core.dll"
+#r "../../build/Release/net461/WebSharper.JavaScript.dll"
+#r "../../build/Release/net461/WebSharper.JQuery.dll"
+#r "../../build/Release/net461/WebSharper.Main.dll"
+#r "../../build/Release/net461/WebSharper.Collections.dll"
+#r "../../build/Release/net461/WebSharper.Control.dll"
+#r "../../build/Release/net461/WebSharper.Web.dll"
+#r "../../build/Release/net461/WebSharper.Sitelets.dll"
+#r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
+#r "../../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll"
 
 fsi.ShowDeclarationValues = false
 
@@ -43,7 +44,7 @@ module Utils =
         | BasicPatterns.Application(f,tyargs,args) -> quote low (printExpr 10 f + printTyargs tyargs + " " + printCurriedArgs args)
         | BasicPatterns.BaseValue(_) -> "base"
         | BasicPatterns.Call(Some obj,v,tyargs1,tyargs2,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL
-        | BasicPatterns.Call(None,v,tyargs1,tyargs2,argsL) -> v.EnclosingEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
+        | BasicPatterns.Call(None,v,tyargs1,tyargs2,argsL) -> v.DeclaringEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
         | BasicPatterns.Coerce(ty1,e1) -> quote low (printExpr 10 e1 + " :> " + printTy ty1)
         | BasicPatterns.DefaultValue(ty1) -> "dflt"
         | BasicPatterns.FastIntegerForLoop _ -> "for-loop"
@@ -56,7 +57,7 @@ module Utils =
         | BasicPatterns.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
         | BasicPatterns.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
         | BasicPatterns.NewDelegate(ty,es) -> "new-delegate" 
-        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.EnclosingEntity.Value.CompiledName + printTupledArgs args 
+        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.DeclaringEntity.Value.CompiledName + printTupledArgs args 
         | BasicPatterns.NewRecord(v,args) -> 
             let fields = v.TypeDefinition.FSharpFields
             "{" + ((fields, args) ||> Seq.map2 (fun f a -> f.Name + " = " + printExpr 0 a) |> String.concat "; ") + "}" 
@@ -259,17 +260,17 @@ module Utils =
 
 let wsRefs =
     let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release", x + ".dll")
+        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net461", x + ".dll")
     List.map wsLib [
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
         "WebSharper.JavaScript"
         "WebSharper.JQuery"
         "WebSharper.Main"
-        //"WebSharper.Collections"
-        //"WebSharper.Control"
-        //"WebSharper.Web"
-        //"WebSharper.Sitelets"
+        "WebSharper.Collections"
+        "WebSharper.Control"
+        "WebSharper.Web"
+        "WebSharper.Sitelets"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
     ]
@@ -317,6 +318,7 @@ let metadata =
 metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
 open System.IO
+
 let translate source = 
 
     let fileName1 = Path.ChangeExtension(Path.GetTempFileName(), ".fs")
@@ -339,6 +341,7 @@ let translate source =
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
             "TestProject"
+            WebSharper.Compiler.CommandTools.WsConfig.Empty
             wholeProjectResults
 
     let expressions =
@@ -385,11 +388,19 @@ module M
 
 open WebSharper
 
+module Bug923 =
+    type V2<[<Measure>] 'u> =
+        struct
+            val x : float<'u>
+            val y : float<'u>
+            new (x, y) = {x=x; y=y}
+        end
 
+        static member (+) (a : V2<_>, b : V2<_>) = 
+            V2 (a.x + b.x, a.y + b.y)
 
-[<JavaScript>]
-let Test() = 
-    if IsClient then 1 else 0
+    [<JavaScript>]
+    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
 
     """
 

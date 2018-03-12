@@ -352,11 +352,11 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     member this.ReadTypeSt markStaticTP (tparams: Map<string, int>) (t: FSharpType) =
         let t = getOrigType t
         if t.IsGenericParameter then
-            match tparams.TryFind t.GenericParameter.Name with
-            | Some i -> 
-                if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
-            | _ ->
-                LocalTypeParameter
+                match tparams.TryFind t.GenericParameter.Name with
+                | Some i -> 
+                    if markStaticTP && t.GenericParameter.IsSolveAtCompileTime then StaticTypeParameter i else TypeParameter i
+                | _ ->
+                    LocalTypeParameter
         else
         let getFunc() =
             match t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq with
@@ -372,6 +372,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         elif t.IsFunctionType then
             getFunc()
         else
+        // measure type parameters do not have a TypeDefinition
+        // reusing LocalTypeParameter case as it is also fully erased
+        if not t.HasTypeDefinition then LocalTypeParameter else
         let td = t.TypeDefinition
         if td.IsArrayType then
             ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.ArrayRank)

@@ -380,6 +380,20 @@ module Bug914 =
         | Ok x -> string x
         | Error -> "error"
 
+module Bug923 =
+    type V2<[<Measure>] 'u> =
+        struct
+            val x : float<'u>
+            val y : float<'u>
+            new (x, y) = {x=x; y=y}
+        end
+
+        static member (+) (a : V2<_>, b : V2<_>) = 
+            V2 (a.x + b.x, a.y + b.y)
+
+    [<JavaScript>]
+    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
