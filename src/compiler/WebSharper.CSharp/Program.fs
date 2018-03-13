@@ -55,15 +55,16 @@ let Compile config =
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let mutable refError = false
-    let metas = refs |> List.choose (fun r -> 
-        match TryReadFromAssembly FullMetadata r with
-        | None -> None
-        | Some (Ok m) -> Some m
-        | Some (Error e) ->
-            refError <- true
-            PrintGlobalError e
-            None
-    )
+    let wsRefs, metas = 
+        refs |> List.choose (fun r -> 
+            match TryReadFromAssembly FullMetadata r with
+            | None -> None
+            | Some (Ok m) -> Some (r, m)
+            | Some (Error e) ->
+                refError <- true
+                PrintGlobalError e
+                None
+        ) |> List.unzip
     let refMeta =
         if refError then None
         elif List.isEmpty metas then Some WebSharper.Core.Metadata.Info.Empty 
@@ -133,7 +134,9 @@ let Compile config =
             let js, currentMeta, sources =
                 ModifyAssembly (Some comp) refMeta
                     (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
-            
+
+            AddExtraAssemblyReferences wsRefs assem
+
             PrintWebSharperErrors config.WarnOnly comp
 
             if config.PrintJS then

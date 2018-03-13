@@ -235,6 +235,18 @@ let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M
 let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
     ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
 
+let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
+    let a = assembly.Raw
+    let currentRefs =
+        a.MainModule.AssemblyReferences |> Seq.map (fun r -> r.Name)   
+        |> System.Collections.Generic.HashSet
+    wsrefs 
+    |> Seq.iter (fun r -> 
+        let n = r.Raw.Name
+        if not (currentRefs.Contains n.Name) then
+            a.MainModule.AssemblyReferences.Add n
+    )
+
 /// Represents a resource content file.
 type ResourceContent =
     {

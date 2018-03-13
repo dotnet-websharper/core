@@ -109,24 +109,25 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     else    
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
-    let refMeta =
+    let wsRefsMeta =
         System.Threading.Tasks.Task.Run(fun () ->
             let mutable refError = false
-            let metas = refs |> List.choose (fun r -> 
-                match TryReadFromAssembly FullMetadata r with
-                | None -> None
-                | Some (Ok m) -> Some m
-                | Some (Error e) ->
-                    refError <- true
-                    PrintGlobalError e
-                    None
-            )
+            let wsRefs, metas = 
+                refs |> List.choose (fun r -> 
+                    match TryReadFromAssembly FullMetadata r with
+                    | None -> None
+                    | Some (Ok m) -> Some (r, m)
+                    | Some (Error e) ->
+                        refError <- true
+                        PrintGlobalError e
+                        None
+                ) |> List.unzip
             if refError then None
-            elif List.isEmpty metas then Some ([], WebSharper.Core.Metadata.Info.Empty) 
+            elif List.isEmpty metas then Some ([], [], WebSharper.Core.Metadata.Info.Empty) 
             else
                 try
                     Some (
-                        metas,
+                        wsRefs, metas,
                         { 
                             WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
                                 Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
@@ -168,6 +169,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         else
             config.CompilerArgs    
     
+    let refMeta = 
+        wsRefsMeta.ContinueWith(fun (t: System.Threading.Tasks.Task<_>) -> 
+            match t.Result with 
+            | Some (_, _, m) -> Some m 
+            | _ -> None
+        )
     let comp =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 
@@ -182,8 +189,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     else
     
     let getRefMeta() =
-        match refMeta.Result with 
-        | Some (_, m) -> m 
+        match wsRefsMeta.Result with 
+        | Some (_, _, m) -> m 
         | _ -> WebSharper.Core.Metadata.Info.Empty
 
     let js, currentMeta, sources =
@@ -196,6 +203,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             let js, currentMeta, sources =
                 ModifyAssembly (Some comp) (getRefMeta()) 
                     (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+
+            let wsRefs =
+                match wsRefsMeta.Result with 
+                | Some (r, _, m) -> r 
+                | _ -> []
+            AddExtraAssemblyReferences wsRefs assem
 
             PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
@@ -226,8 +239,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     | Some (Bundle | BundleOnly) ->
         // comp.Graph does not have graph of dependencies and we need full graph here for bundling
         let metas =
-            match refMeta.Result with
-            | Some (metas, _) -> metas
+            match wsRefsMeta.Result with
+            | Some (_, metas, _) -> metas
             | _ -> []
         let currentJS =
             lazy CreateBundleJSOutput (getRefMeta()) currentMeta

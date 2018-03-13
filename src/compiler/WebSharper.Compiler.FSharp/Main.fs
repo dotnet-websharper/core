@@ -40,7 +40,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<_ * M.Info>>, argv, config: WsConfig, assemblyName) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, config: WsConfig, assemblyName) = 
         let path = config.ProjectFile
         
         let projectOptionsOpt =
@@ -70,7 +70,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             |> failwith
         |> function
         | None -> None
-        | Some (_, refMeta) ->
+        | Some refMeta ->
 
         TimedStage "Waiting on merged metadata"
 
