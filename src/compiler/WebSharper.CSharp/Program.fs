@@ -135,7 +135,10 @@ let Compile config =
                 ModifyAssembly (Some comp) refMeta
                     (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
 
-            AddExtraAssemblyReferences wsRefs assem
+            match config.ProjectType with
+            | Some (Bundle | Website) ->
+                AddExtraAssemblyReferences wsRefs assem
+            | _ -> ()
 
             PrintWebSharperErrors config.WarnOnly comp
 

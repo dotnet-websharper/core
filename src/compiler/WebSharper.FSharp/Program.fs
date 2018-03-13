@@ -204,11 +204,14 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                 ModifyAssembly (Some comp) (getRefMeta()) 
                     (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
 
-            let wsRefs =
-                match wsRefsMeta.Result with 
-                | Some (r, _, m) -> r 
-                | _ -> []
-            AddExtraAssemblyReferences wsRefs assem
+            match config.ProjectType with
+            | Some (Bundle | Website) ->
+                let wsRefs =
+                    match wsRefsMeta.Result with 
+                    | Some (r, _, m) -> r 
+                    | _ -> []
+                AddExtraAssemblyReferences wsRefs assem
+            | _ -> ()
 
             PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             
