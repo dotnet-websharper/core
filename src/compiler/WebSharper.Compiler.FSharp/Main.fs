@@ -93,7 +93,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
         Some comp
 
-    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs) =
+    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig) =
         let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
@@ -104,7 +104,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 assemblyName
-                WsConfig.Empty
+                (defaultArg config WsConfig.Empty)
                 checkProjectResults
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
