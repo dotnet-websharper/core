@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Api.fs" />
     <Compile Include="ApiTests.fs" />
+    <Compile Include="DateTimeFormatInfer.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="SampleSite.fs" />
     <None Include="paket.references" />

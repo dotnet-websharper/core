@@ -63,6 +63,18 @@ module ApiTests =
                 )
                 |> ignore
 
+        let testDateTime date =
+            Async.FromContinuations <| fun (ok, ko, _) ->
+                JQuery.Ajax(
+                    JQuery.AjaxSettings(
+                        Url = apiBaseUri + "test-datetime-format/" + date,
+                        Type = JQuery.RequestType.GET,
+                        Success = (fun _ reply _ -> ok reply),
+                        Error = (fun jqXHR _ _ -> ko (exn jqXHR.ResponseText))
+                    )
+                )
+                |> ignore
+
         TestCategory "Sitelets JSON API" {
             Test "Equality" {
                 isTrue (1 = 1)
@@ -77,6 +89,10 @@ module ApiTests =
                 do! updatePerson 1 { person1 with firstName = "Updated" }
                 let! person1again = getPerson 1
                 equal person1again.firstName "Updated"
+            }
+            Test "DateTimeFormat" {
+                let! res = testDateTime "2018-03-14-08-15-35"
+                isFalse (System.String.IsNullOrEmpty res)
             }
         }
 

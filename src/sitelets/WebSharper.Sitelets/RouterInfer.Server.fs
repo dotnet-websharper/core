@@ -40,9 +40,13 @@ module internal ServerRouting =
         override this.GetCtorArgOpt attr = attr.ConstructorArguments |> Seq.tryHead |> Option.map (fun a -> unbox<string> a.Value)
         override this.GetCtorParamArgs attr =
             match attr.ConstructorArguments |> Array.ofSeq with
+            | [||] -> [||]
+            | [| a |] when a.ArgumentType = typeof<string> ->
+                [| unbox<string> a.Value |]
+            | [| a; b |] ->
+                [| unbox<string> a.Value; unbox<string> b.Value |]
             | [| a |] ->
                 a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.map (fun a -> unbox<string> a.Value) |> Array.ofSeq
-            | [||] -> [||]
             | _ -> failwithf "Unrecognized %s attribute constructor" attr.Constructor.DeclaringType.Name 
         override this.GetCtorParamArgsOrPair attr =
             match attr.ConstructorArguments |> Array.ofSeq with
@@ -133,7 +137,7 @@ module internal ServerRouting =
     and getDateTimeRouter name fmt (t: Type) =
         if t.FullName = "System.DateTime" then
             iDateTime (Some fmt)
-        else failwithf "Expecting a DateTime field: %s" name
+        else failwithf "Expecting a DateTime field: %s, type %s" name t.FullName
     
     and queryRouter (t: Type) name r =
         let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
@@ -225,9 +229,9 @@ module internal ServerRouting =
                                 let r() = 
                                     match cAnnot.DateTimeFormat with
                                     | Some (Choice1Of2 fmt) ->
-                                        getDateTimeRouter fName fmt t   
+                                        getDateTimeRouter fName fmt fTyp  
                                     | Some (Choice2Of2 m) when m.ContainsKey fName ->
-                                        getDateTimeRouter fName m.[fName] t    
+                                        getDateTimeRouter fName m.[fName] fTyp    
                                     | _ ->
                                         getRouter fTyp
                                 if queryFields.Contains fName then 

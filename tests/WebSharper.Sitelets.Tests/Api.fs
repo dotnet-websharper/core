@@ -47,6 +47,8 @@ module Api =
         /// POST /person (with untyped JSON body)
         | [<EndPoint "POST /update-person"; Query "id">]
             UpdatePerson of id: option<int>
+        | [<EndPoint "/test-datetime-format"; DateTimeFormat("date", "yyyy-MM-dd-HH-mm-ss")>]
+            TestDateTimeFormat of date: DateTime
 
     /// Data about a person. Used both for storage and JSON parsing/writing.
     and PersonData =
@@ -129,6 +131,8 @@ module Api =
                     died = None
                 }
             Content.Json (ApplicationLogic.putPerson (defaultArg id 1) personData)
+        | TestDateTimeFormat date ->
+            Content.Text (string date)
 
     let Sitelet = Sitelet.Infer ApiContent
 

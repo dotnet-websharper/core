@@ -44,6 +44,8 @@ module private ClientRoutingInternals =
             (snd attr) |> Array.tryHead |> Option.map (M.ParameterObject.ToObj >> unbox<string>) 
         override this.GetCtorParamArgs attr = 
             match attr with
+            | _, [| M.ParameterObject.String a |] -> [| a |]
+            | _, [| M.ParameterObject.String a; M.ParameterObject.String b |] -> [| a; b |]
             | _, [| M.ParameterObject.Array a |] -> a |> Array.map (M.ParameterObject.ToObj >> unbox<string>)
             | _ -> [||]
         override this.GetCtorParamArgsOrPair attr =

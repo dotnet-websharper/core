@@ -28,6 +28,7 @@ open WebSharper.Core.Json
 
 module PerformanceTests = WebSharper.Sitelets.Tests.PerformanceTests
 module SampleSite = WebSharper.Sitelets.Tests.SampleSite
+module DateTimeFormatInfer = WebSharper.Sitelets.Tests.DateTimeFormatInfer
 
 [<NoComparison>]
 type FullAction =
@@ -35,6 +36,7 @@ type FullAction =
     | SiteletsTests of SampleSite.Action
     | CSharpSiteletsTests of obj
     | PerformanceTests of PerformanceTests.Action
+    | DateTimeFormatTest of DateTimeFormatInfer.EndPoint
 
 let HomePage (ctx: Context<_>) =
     Content.Page(
@@ -115,4 +117,6 @@ let Main =
                 WebSharper.CSharp.Sitelets.Tests.SiteletTest.Main
         Sitelet.Shift "perf-tests" <|
             Sitelet.EmbedInUnion <@ FullAction.PerformanceTests @> PerformanceTests.Site
+        Sitelet.Shift "datetimeformat-test" <|
+            Sitelet.EmbedInUnion <@ FullAction.DateTimeFormatTest @> DateTimeFormatInfer.Site
     ]
