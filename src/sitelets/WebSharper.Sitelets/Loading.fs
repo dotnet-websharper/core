@@ -63,31 +63,27 @@ let private TryLoadSiteB (assembly: Assembly) =
         )
     )
 
-let private TryLoadSite (assembly: Assembly) =
-    match TryLoadSiteA assembly with
-    | Some _ as res -> res
-    | _ -> TryLoadSiteB assembly
-
-let private LoadFromAssemblies (assemblies: seq<Assembly>) =
-    Timed "Initialized sitelets" <| fun () ->
-        let sitelets, actions = 
-            Seq.choose TryLoadSite assemblies 
-            |> List.ofSeq |> List.unzip
-        (Sitelet.Sum sitelets, Seq.concat actions)
+/// Speed up Sitelet value discovery by not looking at System and non-WS assemblies.
+let private HasWSMetadata (a: Assembly) =
+    if a.FullName.StartsWith "System" then false else
+        a.GetManifestResourceNames() |> Array.contains "WebSharper.meta"
 
 /// Try to find a sitelet defined in one of these assemblies.
 let DiscoverSitelet(assemblies: seq<Assembly>) =
-    let assemblies = Seq.cache assemblies
+    let assemblies = 
+        Seq.cache (assemblies |> Seq.filter HasWSMetadata)
     match Seq.tryPick TryLoadSiteA assemblies with
     | Some (s, _) -> Some s
     | _ ->
         Seq.tryPick TryLoadSiteB assemblies
-        |> Option.map fst
+        |> Option.map fst       
 
 #if NET461 // ASP.NET: Sitelets HttpModule
 /// Load a sitelet from the current ASP.NET application.
-let LoadFromApplicationAssemblies () =
-    System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-    |> Seq.cast<Assembly>
-    |> LoadFromAssemblies
+let SiteletDefinition =
+    Timed "Initialized sitelets" <| fun () ->
+        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
+        |> Seq.cast<Assembly>
+        |> DiscoverSitelet
+        |> Option.defaultValue Sitelet.Empty
 #endif

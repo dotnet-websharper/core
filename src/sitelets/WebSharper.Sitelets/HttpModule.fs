@@ -35,63 +35,6 @@ open System.Web.Hosting
 open WebSharper.Web
 module R = WebSharper.Core.Remoting
 
-module internal SiteLoading =
-
-    type private BF = BindingFlags
-
-    /// Looks up assembly-wide Website attribute and runs it if present
-    let TryLoadSiteA (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        match Attribute.GetCustomAttribute(assembly, aT) with
-        | :? WebsiteAttribute as attr ->
-            attr.Run () |> Some
-        | _ -> None
-    
-    /// Searches for static property with Website attribute and loads it if found
-    let TryLoadSiteB (assembly: Assembly) =
-        let aT = typeof<WebsiteAttribute>
-        assembly.GetModules(false)
-        |> Seq.collect (fun m ->
-            try m.GetTypes() |> Seq.ofArray
-            with
-            | :? ReflectionTypeLoadException as e ->
-                e.Types |> Seq.filter (fun t -> not (obj.ReferenceEquals(t, null)))
-            | _ -> Seq.empty
-        )
-        |> Seq.tryPick (fun ty ->
-            ty.GetProperties(BF.Static ||| BF.Public ||| BF.NonPublic)
-            |> Array.tryPick (fun p ->
-                match Attribute.GetCustomAttribute(p, aT) with
-                | :? WebsiteAttribute ->
-                    try
-                        let sitelet = p.GetGetMethod().Invoke(null, [||])
-                        let upcastSitelet =
-                            sitelet.GetType()
-                                .GetMethod("Box", BF.Instance ||| BF.Public)
-                                .Invoke(sitelet, [||])
-                                :?> Sitelet<obj>
-                        Some (upcastSitelet, [])
-                    with e ->
-                        raise <| exn("Failed to initialize sitelet definition: " + ty.FullName + "." + p.Name, e)  
-                | _ -> None
-            )
-        )
-
-    let TryLoadSite (assembly: Assembly) =
-        match TryLoadSiteA assembly with
-        | Some _ as res -> res
-        | _ -> TryLoadSiteB assembly
-
-    let LoadFromAssemblies (app: HttpApplication) =
-        Timed "Initialized sitelets" <| fun () ->
-            let assemblies =
-                BuildManager.GetReferencedAssemblies()
-                |> Seq.cast<Assembly>
-            let sitelets, actions = 
-                Seq.choose TryLoadSite assemblies 
-                |> List.ofSeq |> List.unzip
-            (Sitelet.Sum sitelets, Seq.concat actions)
-
 module private WebUtils =
 
     let [<Literal>] HttpContextKey = "HttpContext"
@@ -253,7 +196,7 @@ type HttpModule() =
         member this.Init app =
             let appPath = HttpRuntime.AppDomainAppVirtualPath
             runtime <- Some (
-                Loading.LoadFromApplicationAssemblies() |> fst,
+                Loading.SiteletDefinition,
                 ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath
