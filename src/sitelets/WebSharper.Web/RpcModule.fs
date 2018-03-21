@@ -256,6 +256,12 @@ type RpcModule() =
 
     let handler = RpcHandler()
 
+    let remap (ctx: HttpContext) (h: RpcHandler) =
+        if HttpRuntime.UsingIntegratedPipeline then
+            ctx.RemapHandler(h)
+        else
+            ctx.Handler <- h
+
     interface IHttpModule with
         member this.Init(app: HttpApplication) =
             let handler =
@@ -268,12 +274,17 @@ type RpcModule() =
                         | null -> None
                         | v -> Some v
                     if R.IsRemotingRequest getHeader then
-                        if HttpRuntime.UsingIntegratedPipeline then
-                            ctx.RemapHandler(handler)
-                        else
-                            ctx.Handler <- handler)
+                        ctx.Items.["WebSharper.RemotingHandler"] <- handler
+                        remap ctx handler)
             if HttpRuntime.UsingIntegratedPipeline then
                 app.add_PostAuthorizeRequest(handler)
+                // This is needed to override ASP.NET MVC:
+                app.add_PostResolveRequestCache(new EventHandler(fun x _ ->
+                    let ctx = (x :?> HttpApplication).Context
+                    match ctx.Items.["WebSharper.RemotingHandler"] with
+                    | null -> ()
+                    | h -> remap ctx (unbox h)
+                ))
             else
                 app.add_PostMapRequestHandler(handler)
         member this.Dispose() = ()

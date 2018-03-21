@@ -187,10 +187,20 @@ type HttpModule() =
             |> Option.map (fun action ->
                 HttpHandler(request, action, site, resCtx, appPath, rootFolder)))
 
+    let remap (ctx: HttpContextBase) (h: HttpHandler) =
+        if HttpRuntime.UsingIntegratedPipeline then
+            ctx.RemapHandler(h)
+        else
+            ctx.Handler <- h
+
     do  Context.IsDebug <- fun () -> HttpContext.Current.IsDebuggingEnabled
         Context.GetSetting <- fun s ->
             ConfigurationManager.AppSettings.[s]
             |> Option.ofObj
+
+    /// If true, Sitelets take priority over certain other handlers such as ASP.NET MVC if their URL space overlaps.
+    /// Default: true.
+    static member val OverrideHandler = true with get, set
 
     interface IHttpModule with
         member this.Init app =
@@ -203,17 +213,23 @@ type HttpModule() =
             )
             let handler =
                 new EventHandler(fun x _ ->
-                    let app = (x :?> HttpApplication)
-                    let ctx = HttpContextWrapper(app.Context)
+                    let ctx = HttpContextWrapper((x :?> HttpApplication).Context)
                     if not (RpcHandler.IsRemotingRequest(ctx.Request)) then
                         tryGetHandler ctx |> Option.iter (fun h ->
-                            if HttpRuntime.UsingIntegratedPipeline then
-                                ctx.RemapHandler(h)
-                            else
-                                ctx.Handler <- h))
-            if HttpRuntime.UsingIntegratedPipeline
-            then app.add_PostAuthorizeRequest(handler)
-            else app.add_PostMapRequestHandler(handler)
+                            ctx.Items.["WebSharper.SiteletHandler"] <- h
+                            remap ctx h))
+            if HttpRuntime.UsingIntegratedPipeline then
+                app.add_PostAuthorizeRequest(handler)
+                // This is needed to override ASP.NET MVC:
+                if HttpModule.OverrideHandler then
+                    app.add_PostResolveRequestCache(new EventHandler(fun x _ ->
+                        let ctx = (x :?> HttpApplication).Context
+                        match ctx.Items.["WebSharper.SiteletHandler"] with
+                        | null -> ()
+                        | h -> remap (HttpContextWrapper ctx) (unbox h)
+                    ))
+            else 
+                app.add_PostMapRequestHandler(handler)
 
         member this.Dispose() = ()
 
