@@ -494,6 +494,23 @@ module ClientSideJson =
                 equal l.First null
             }
 
+            Test "serialize obj" {
+                equalMsg (Json.Serialize<obj> (box ())) "null" "null"
+                equalMsg (Json.Serialize<obj> (box 123)) "123" "int"
+                equalMsg (Json.Serialize<obj> (box 123.456)) "123.456" "float"
+                equalMsg (Json.Serialize<obj> (box "test")) "\"test\"" "string"
+                equalMsg (Json.Serialize<obj> (box [| box 1; box "a" |])) """[1,"a"]""" "array"
+                equalMsg (Json.Serialize<obj> (New ["a" => 1; "b" => 2] : obj)) """{"a":1,"b":2}""" "plain object"
+            }
+
+            Test "deserialize obj" {
+                equalMsg (Json.Deserialize<obj> "null") (box ()) "null"
+                equalMsg (Json.Deserialize<obj> "123") (box 123) "int"
+                equalMsg (Json.Deserialize<obj> "123.456") (box 123.456) "float"
+                equalMsg (Json.Deserialize<obj> "\"test\"") (box "test") "string"
+                equalMsg (Json.Deserialize<obj> """{"a":1,"b":2}""") (New ["a" => 1; "b" => 2] : obj) "plain object"
+            }
+
             Test "#735 optional union field on object" {
                 let l = [Bug735.test_class_o(Some (Bug735.Test_class_i "foo"))]
                 let o = Json.Encode<Bug735.test_class_o list> l
