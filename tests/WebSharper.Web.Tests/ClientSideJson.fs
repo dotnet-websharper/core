@@ -494,15 +494,6 @@ module ClientSideJson =
                 equal l.First null
             }
 
-            Test "serialize obj" {
-                equalMsg (Json.Serialize<obj> (box ())) "null" "null"
-                equalMsg (Json.Serialize<obj> (box 123)) "123" "int"
-                equalMsg (Json.Serialize<obj> (box 123.456)) "123.456" "float"
-                equalMsg (Json.Serialize<obj> (box "test")) "\"test\"" "string"
-                equalMsg (Json.Serialize<obj> (box [| box 1; box "a" |])) """[1,"a"]""" "array"
-                equalMsg (Json.Serialize<obj> (New ["a" => 1; "b" => 2] : obj)) """{"a":1,"b":2}""" "plain object"
-            }
-
             Test "deserialize obj" {
                 equalMsg (Json.Deserialize<obj> "null") (box ()) "null"
                 equalMsg (Json.Deserialize<obj> "123") (box 123) "int"
