@@ -521,7 +521,7 @@ module ClientSideJson =
             }
         }
 
-    let echo (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
+    let baseEcho (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
         Async.FromContinuations <| fun (ok, ko, _) ->
             JQuery.Ajax(
                 JQuery.AjaxSettings(
@@ -536,9 +536,12 @@ module ClientSideJson =
             )
             |> ignore
 
+    let echoObj jsonBaseUri (r: 'T) : Async<'T> =
+        baseEcho (jsonBaseUri + "Object") (Json.Stringify r) (Json.Decode<obj> >> unbox)
+
     let SiteletRoundTripTests jsonBaseUri =
         let echo url serializedArg decode =
-            echo (jsonBaseUri + url) serializedArg decode
+            baseEcho (jsonBaseUri + url) serializedArg decode
         TestCategory "Client to Sitelet JSON round-trip" {
 
             Property "int" (fun (x: int) -> Do {
@@ -712,5 +715,17 @@ module ClientSideJson =
                 equal (List.ofSeq res) []
                 let! res2 = f (LinkedList [34; 5; 58])
                 equal (List.ofSeq res2) [34; 5; 58]
+            }
+
+            Test "obj" {
+                equalMsgAsync (echoObj jsonBaseUri null) null "null"
+                property (fun (x: int) -> Do { equalMsgAsync (echoObj jsonBaseUri x) x "int" })
+                property (fun (x: float) -> Do { approxEqualMsgAsync (echoObj jsonBaseUri x) x "float" })
+                property (fun (x: string) -> Do { equalMsgAsync (echoObj jsonBaseUri x) x "string" })
+                property (fun (x: int[]) -> Do { equalMsgAsync (echoObj jsonBaseUri x) x "array" })
+                property (fun (x: (string * int)[]) -> Do {
+                    let x : obj = New (As x)
+                    equalMsgAsync (echoObj jsonBaseUri x) x "object"
+                })
             }
         }

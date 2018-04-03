@@ -1175,6 +1175,26 @@ let makeArrayDictionary<'K, 'V when 'K : equality> (dK: Value -> obj) (dV: Value
         box d
     | x -> raise (DecoderException(x, typeof<Dictionary<'K,'V>>))
 
+let rec decodeObj value =
+    match value with
+    | Null -> null
+    | True -> box true
+    | False -> box false
+    | Number x ->
+        match System.Int32.TryParse x with
+        | true, n -> box n
+        | false, _ ->
+            match System.Double.TryParse x with
+            | true, f -> box f
+            | false, _ -> raise (DecoderException(value, typeof<obj>))
+    | String s -> box s
+    | Array xs ->
+        box [| for x in xs -> decodeObj x |]
+    | Object xs ->
+        let d = Dictionary()
+        for k, v in xs do d.Add(k, decodeObj v)
+        box d
+
 let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     if t = typeof<System.DateTime> then
@@ -1217,6 +1237,8 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             callGeneric <@ makeFlatDictionary @> dD ta ga.[1]
         else
             callGeneric2 <@ makeArrayDictionary @> dD ta ga.[0] ga.[1]
+    elif t = typeof<obj> then
+        decodeObj
     elif not t.IsSerializable then
         raise (NoEncodingException t)
     elif t.IsValueType then

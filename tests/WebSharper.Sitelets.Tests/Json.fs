@@ -148,6 +148,7 @@ module Json =
         | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
         | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
         | [<Json "x">] LinkedList of x: System.Collections.Generic.LinkedList<int>
+        | [<Json "x">] Object of x: obj
 
     let Content = function
         | Int x -> Content.Json x
@@ -177,3 +178,19 @@ module Json =
         | Queue x -> Content.Json x
         | Stack x -> Content.Json x
         | LinkedList x -> Content.Json x
+        | Object x ->
+            // We don't handle encoding obj in general, to avoid accidental upcasts
+            // so we need to specialize based on the forms that the decoder may return.
+            let rec transform (x: obj) =
+                match x with
+                | null -> Core.Json.Null
+                | :? bool as x -> if x then Core.Json.True else Core.Json.False
+                | :? int as x -> Core.Json.Number (string x)
+                | :? float as x -> Core.Json.Number (string x)
+                | :? string as x -> Core.Json.String x
+                | :? System.Collections.Generic.Dictionary<string, obj> as x ->
+                    Core.Json.Object [ for KeyValue(k, v) in x -> k, transform v ]
+                | :? array<obj> as x ->
+                    Core.Json.Array [ for v in x -> transform v ]
+                | x -> failwithf "Invalid JSON decoding: %A" x
+            Content.Json (Core.Json.Encoded.Lift (transform x))
