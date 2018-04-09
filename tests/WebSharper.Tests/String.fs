@@ -193,13 +193,9 @@ let Tests =
             equal (String.FromCharCode(72, 69, 76, 76, 79)) "HELLO" 
         }
 
-        #if FSHARP40
-
         Test "String.filter" {
             equal (String.filter (fun _ -> true) "") ""
             equal (String.filter ((=) 'a') "abba") "aa"
         }
-
-        #endif
 
     }

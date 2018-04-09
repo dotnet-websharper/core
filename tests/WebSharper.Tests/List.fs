@@ -525,8 +525,6 @@ let Tests =
             equal fibonacci [2; 3; 5; 8; 13]
         }
 
-        #if FSHARP40
-
         Test "List.contains" {
             isTrue (List.contains 0 [ 0 .. 4 ])
         }
@@ -716,7 +714,5 @@ let Tests =
             equal [ 0 .. 4].[0 ..] [ 0 .. 4 ]
             equal [ 0 .. 4].[.. 2] [ 0 .. 2 ]
         }
-
-        #endif
 
     }

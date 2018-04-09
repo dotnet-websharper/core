@@ -142,11 +142,14 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
     Enumerable.Of <| fun () ->
         let o = Enumerator.Get s
-        Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
-            if o.MoveNext() then
+        Enumerator.NewDisposing true (fun _ -> o.Dispose()) <| fun e ->
+            if e.State && o.MoveNext() then
                 let res = [|o.Current|]
-                while res.Length < size && o.MoveNext() do 
-                    res.JS.Push o.Current |> ignore
+                while e.State && res.Length < size do
+                    if o.MoveNext() then
+                        res.JS.Push o.Current |> ignore
+                    else 
+                        e.State <- false
                 e.Current <- res
                 true
             else false

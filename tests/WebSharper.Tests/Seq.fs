@@ -619,8 +619,6 @@ let Tests =
             equal (filterWithSeqConstraint f [ 1; 2; 3; 10; 4; 5; 6; 7 ] |> Seq.toArray) [| 1 .. 5 |]        
         }       
 
-    #if FSHARP40
-
         Test "Seq.contains" {
             isTrue (Seq.contains 0 { 0 .. 4 })
             isFalse (Seq.contains 5 { 0 .. 4 })
@@ -630,6 +628,12 @@ let Tests =
             equal (Seq.chunkBySize 4 { 1 .. 8 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |] |] 
             equal (Seq.chunkBySize 4 { 1 .. 10 } |> Array.ofSeq) [| [| 1 .. 4 |]; [| 5 .. 8 |]; [| 9; 10 |] |]
             raises (Seq.chunkBySize 0 { 1 .. 2 })
+
+            let s = seq { 
+                yield! { 1 .. 2 }
+                yield 3
+            }
+            equal (Seq.chunkBySize 10 s |> Array.ofSeq) [| [| 1 .. 3 |] |] 
         }
 
         Test "Seq.splitInto" {
@@ -787,7 +791,5 @@ let Tests =
                 isTrueMsg (s |> Seq.pairwise |> Seq.forall (fun (x, y) -> cmp x y <= 0)) "Result is sorted"
             })
         }
-
-        #endif
     
     }

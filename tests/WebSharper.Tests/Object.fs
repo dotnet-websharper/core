@@ -357,14 +357,10 @@ let Tests =
             equal Object.Prototype.Constructor.Length 1
         }
 
-        #if FSHARP40
-
         Test "isNull" {
             isTrue (isNull null)
             isFalse (isNull (obj()))
         }
-
-        #endif
 
         Test "Stub property" {
             let o = RN(Value = 1)

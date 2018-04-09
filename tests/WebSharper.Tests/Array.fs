@@ -642,8 +642,6 @@ let Tests =
             equal x 2 
         }
 
-        #if FSHARP40
-
         Test "Array.contains" {
             isTrue (Array.contains 0 [| 0 .. 4 |])
         }
@@ -858,7 +856,5 @@ let Tests =
             raises (Array.tail Array.empty)
             equal (Array.tail [| 1 .. 3|]) [| 2; 3 |]
         }
-
-        #endif
 
     }
