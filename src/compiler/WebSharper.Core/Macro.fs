@@ -23,6 +23,7 @@
 namespace WebSharper.Core
 
 open WebSharper.Core.AST
+open System.Collections.Generic
 
 /// Input for a TranslateCall method on a macro
 type MacroCall =
@@ -34,6 +35,7 @@ type MacroCall =
          Parameter: option<obj>
          IsInline: bool
          Compilation: Metadata.ICompilation
+         BoundVars: IReadOnlyDictionary<Id, Expression>
     }
 
 /// Input for a TranslateCtor method on a macro
@@ -45,6 +47,7 @@ type MacroCtor =
          Parameter: option<obj>
          IsInline: bool
          Compilation: Metadata.ICompilation
+         BoundVars: IReadOnlyDictionary<Id, Expression>
     }
 
 /// The return type of macro methods 
@@ -63,6 +66,9 @@ type MacroResult =
     /// Report that the macro needs concrete type information.
     /// Delays compilation of inlined calls until type resolution. 
     | MacroNeedsResolvedTypeArg of Type
+    /// Report that the macro has made use of the expression of an outside let binding
+    /// which now can be removed
+    | MacroUsedBoundVar of Id * MacroResult
 
     static member Map f m =
         match m with
