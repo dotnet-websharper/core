@@ -249,18 +249,23 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             lazy CreateBundleJSOutput (getRefMeta()) currentMeta
         Bundling.Bundle config metas currentMeta currentJS sources refs
         TimedStage "Bundling"
+        0
     | Some Html ->
         ExecuteCommands.Html config |> ignore
         TimedStage "Writing offline sitelets"
-    | Some Website ->
-        ExecuteCommands.Unpack config |> ignore
-        TimedStage "Unpacking"
+        0
+    | Some Website
     | _ when Option.isSome config.OutputDir ->
-        ExecuteCommands.Unpack config |> ignore
-        TimedStage "Unpacking"
-    | _ -> ()
-
-    0
+        match ExecuteCommands.GetWebRoot config with
+        | Some webRoot ->
+            ExecuteCommands.Unpack webRoot config |> ignore
+            TimedStage "Unpacking"
+            0
+        | None ->
+            PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
+            1
+    | _ ->
+        0
 
 let compileMain argv =
 

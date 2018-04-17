@@ -222,8 +222,7 @@ module ExecuteCommands =
                 eprintf "%s" e
             true
 
-    let Unpack settings =
-        let webRoot = GetWebRoot settings |> Option.get
+    let Unpack webRoot settings =
         printfn "unpacking into %s" webRoot
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))

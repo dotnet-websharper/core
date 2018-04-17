@@ -174,12 +174,14 @@ let Compile config =
     | Some Html ->
         ExecuteCommands.Html config |> ignore
         TimedStage "Writing offline sitelets"
-    | Some Website ->
-        ExecuteCommands.Unpack config |> ignore
-        TimedStage "Unpacking"
+    | Some Website
     | _ when Option.isSome config.OutputDir ->
-        ExecuteCommands.Unpack config |> ignore
-        TimedStage "Unpacking"
+        match ExecuteCommands.GetWebRoot config with
+        | Some webRoot ->
+            ExecuteCommands.Unpack webRoot config |> ignore
+            TimedStage "Unpacking"
+        | None ->
+            PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
     | _ -> ()
 
 let rec compileMain (argv: string[]) =
