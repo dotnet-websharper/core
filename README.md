@@ -103,14 +103,14 @@ module YourApp
 
 open WebSharper
 open WebSharper.Sitelets
-open WebSharper.UI.Next.Html
-open WebSharper.UI.Next.Server
+open WebSharper.UI.Html
+open WebSharper.UI.Server
 
 [<Website>]
 let Main =
     Application.SinglePage (fun ctx ->
         Content.Page(
-            h1 [text "Hello World!"]
+            h1 [] [text "Hello World!"]
         )
     )
 ```
@@ -136,7 +136,7 @@ Pages are a special type of content responses, and you can easily finetune them 
     )
 ```
 
-You can construct HTML via the (soon legacy) WebSharper 3.x markup combinators in `WebSharper.Html.Server` and `WebSharper.Html.Client` (for client-side markup, see the section below), or using the next generation reactive HTML language from UI.Next (as above and in the examples on this page). A quick syntax guide to the HTML constructors in UI.Next:
+You can construct HTML via the (soon legacy) WebSharper 3.x markup combinators in `WebSharper.Html.Server` and `WebSharper.Html.Client` (for client-side markup, see the section below), or using the next generation reactive HTML language from WebSharper UI (as above and in the examples on this page; formerly called UI.Next). A quick syntax guide to the HTML constructors in WebSharper UI:
 
 (TBA)
 
@@ -184,9 +184,9 @@ module YourApp
 
 open WebSharper
 open WebSharper.Sitelets
-open WebSharper.UI.Next
-open WebSharper.UI.Next.Html
-open WebSharper.UI.Next.Server
+open WebSharper.UI
+open WebSharper.UI.Html
+open WebSharper.UI.Server
 
 type Endpoints =
     | [<EndPoint "GET /">] Home
@@ -195,19 +195,19 @@ type Endpoints =
 [<Website>]
 let Main =
     Application.MultiPage (fun ctx endpoint ->
-        let (=>) label endpoint = aAttr [attr.href (ctx.Link endpoint)] [text label]
+        let (=>) label endpoint = a [attr.href (ctx.Link endpoint)] [text label]
         match endpoint with
         | Endpoints.Home ->
             Content.Page(
                 Body = [
-                    h1 [text "Hello world!"]
+                    h1 [] [text "Hello world!"]
                     "About" => Endpoints.About
                 ]
             )
         | Endpoints.About ->
             Content.Page(
                 Body = [
-                    p [text "This is a simple app"]
+                    p [] [text "This is a simple app"]
                     "Home" => Endpoints.Home
                 ]
             )
@@ -227,9 +227,9 @@ module YourApp
 
 open WebSharper
 open WebSharper.Sitelets
-open WebSharper.UI.Next
-open WebSharper.UI.Next.Html
-open WebSharper.UI.Next.Client
+open WebSharper.UI
+open WebSharper.UI.Html
+open WebSharper.UI.Client
 
 module Server =
     [<Rpc>]
@@ -243,11 +243,11 @@ module Client =
     open WebSharper.JavaScript
 
     let Main () =
-        let input = inputAttr [attr.value ""] []
-        let output = h1 []
+        let input = input [attr.value ""] []
+        let output = h1 [] []
         div [
             input
-            buttonAttr [
+            button [
                 on.click (fun _ _ ->
                     async {
                         let! data = Server.DoWork input.Value
@@ -256,20 +256,20 @@ module Client =
                     |> Async.Start
                 )
             ] [text "Send"]
-            hr []
-            h4Attr [attr.``class`` "text-muted"] [text "The server responded:"]
-            divAttr [attr.``class`` "jumbotron"] [output]
+            hr [] []
+            h4A [attr.``class`` "text-muted"] [text "The server responded:"]
+            div [attr.``class`` "jumbotron"] [output]
         ]
 
-open WebSharper.UI.Next.Server
+open WebSharper.UI.Server
 
 [<Website>]
 let MySite =
     Application.SinglePage (fun ctx ->
         Content.Page(
             Body = [
-                h1 [text "Say Hi to the server"]
-                div [client <@ Client.Main() @>]
+                h1 [] [text "Say Hi to the server"]
+                div [] [client <@ Client.Main() @>]
             ]
         )
     )
@@ -287,13 +287,13 @@ module YourApp
 
 open WebSharper
 open WebSharper.Sitelets
-open WebSharper.UI.Next
-open WebSharper.UI.Next.Html
+open WebSharper.UI
+open WebSharper.UI.Html
 
 [<JavaScript>]
 module Client =
     open WebSharper.JavaScript
-    open WebSharper.UI.Next.Client
+    open WebSharper.UI.Client
     open WebSharper.Charting
 
     let RadarChart () =
@@ -317,15 +317,15 @@ module Client =
             ]
         Renderers.ChartJs.Render(ch, Size = Size(400, 400))
 
-open WebSharper.UI.Next.Server
+open WebSharper.UI.Server
 
 [<Website>]
 let MySite =
     Application.SinglePage (fun ctx ->
         Content.Page(
             Body = [
-                h1 [text "Charts are easy with WebSharper Warp!"]
-                div [client <@ Client.RadarChart() @>]
+                h1 [] [text "Charts are easy with WebSharper Warp!"]
+                div [] [client <@ Client.RadarChart() @>]
             ])
     )
 ```
