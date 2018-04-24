@@ -22,27 +22,12 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <AssemblyName Condition="'$(Name)' != ''">$(Name)</AssemblyName>
-    <RootNamespace Condition="'$(Name)' != ''">$(Name)</RootNamespace>
     <WebSharperSourceMap Condition="'$(WebSharperSourceMap)' == ''">True</WebSharperSourceMap>
   </PropertyGroup>
   <Import Project="FSharp.targets" />
+  <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup>
-    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
-    <FscToolExe>wsfsc.exe</FscToolExe>
-  </PropertyGroup>
-  <PropertyGroup>
-    <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --webroot:"$(WebProjectOutputDir)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\</FscToolPath>
   </PropertyGroup>
 </Project>

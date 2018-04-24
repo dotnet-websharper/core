@@ -74,6 +74,20 @@ Target "Prepare" <| fun () ->
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 
+Target "NetcorePublish" <| fun () ->
+    DotNetCli.Publish <| fun p ->
+        { p with
+            Project = "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj"
+            Framework = "netcoreapp2.0"
+            Output = __SOURCE_DIRECTORY__ </> "build/deploy/FSharp" }
+    DotNetCli.Publish <| fun p ->
+        { p with
+            Project = "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj"
+            Framework = "netcoreapp2.0"
+            Output = __SOURCE_DIRECTORY__ </> "build/deploy/CSharp" }
+
+"NetcorePublish" ==> "WS-Package"
+
 Target "Build" DoNothing
 targets.BuildDebug ==> "Build"
 

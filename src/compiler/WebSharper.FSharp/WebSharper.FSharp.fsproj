@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net461</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
@@ -20,11 +20,6 @@
     <Content Include="app.config" />
   </ItemGroup>
   <Target Name="CopyToOutput" AfterTargets="Build;Publish">
-    <ItemGroup>
-      <FSharpCoreExtraFiles Include="..\..\..\packages\build\FSharp.Core\lib\net45\FSharp.Core.sigdata" />
-      <FSharpCoreExtraFiles Include="..\..\..\packages\build\FSharp.Core\lib\net45\FSharp.Core.optdata" />
-    </ItemGroup>
-    <Copy SourceFiles="@(FSharpCoreExtraFiles)" DestinationFolder="..\..\..\build\$(Configuration)\FSharp\net461" />
     <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\netstandard.dll" />
   </Target>
   <ItemGroup>

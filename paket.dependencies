@@ -3,7 +3,7 @@ version 5.142.0
 references: strict
 redirects: on
 
-framework: net46, net461, netstandard2.0
+framework: net46, net461, netstandard2.0, netcoreapp2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none

@@ -33,7 +33,22 @@
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
-    <FscToolPath>$(MSBuildThisFileDirectory)/../tools</FscToolPath>
-    <FscToolExe>wsfsc.exe</FscToolExe>
+    <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
+    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR '$(TargetFrameworkVersion)' != '' )">True</_WebSharperUseNetFxCompiler>
   </PropertyGroup>
+  <Choose>
+    <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
+      <PropertyGroup>
+        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
+        <FscToolExe>wsfsc.exe</FscToolExe>
+      </PropertyGroup>
+    </When>
+    <Otherwise>
+      <PropertyGroup>
+        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netstandard2.0</FscToolPath>
+        <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.cmd</FscToolExe>
+        <FscToolExe Condition="'$(OS)' != 'Windows_NT'">wsfsc.sh</FscToolExe>
+      </PropertyGroup>
+    </Otherwise>
+  </Choose>
 </Project>
