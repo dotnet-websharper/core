@@ -583,7 +583,7 @@ module internal ServerInferredOperators =
         IArray itemType item |> IMap converter.OfArray converter.ToArray
 
     let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[])[]) : InferredRouter =
-        let lookupCases =
+        let lookupCasesByMethod =
             cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields)) -> 
                 let fieldList = List.ofArray fields
                 let l = fields.Length
@@ -646,9 +646,24 @@ module internal ServerInferredOperators =
                 )
             ) 
             // group by method
-            |> Seq.groupBy fst |> Seq.map (fun (m, mcases) ->
+            |> Seq.groupBy fst |> Array.ofSeq
+        let casesWithoutExplicitMethod =
+            lookupCasesByMethod 
+            |> Array.tryFind (fst >> Option.isNone) 
+            |> Option.map (snd >> Seq.map snd)
+            |> Option.defaultValue Seq.empty
+        let lookupCases =
+            lookupCasesByMethod
+            |> Seq.map (fun (m, mcases) ->
                 m,
-                mcases |> Seq.map snd |> Seq.groupBy fst
+                mcases |> Seq.map snd 
+                |> Seq.append (
+                    // include looking up cases with non-specified methods
+                    match m with
+                    | None -> Seq.empty
+                    | _ -> casesWithoutExplicitMethod
+                )
+                |> Seq.groupBy fst
                 |> Seq.map (fun (h, hcases) ->
                     h, 
                     match hcases |> Seq.map snd |> List.ofSeq with
@@ -662,6 +677,7 @@ module internal ServerInferredOperators =
                 |> dict 
             )
             |> dict
+
         let writeCases =
             cases |> Array.map (fun (eps, fields) -> 
                 String.concat "/" (snd eps.[0]), fields
