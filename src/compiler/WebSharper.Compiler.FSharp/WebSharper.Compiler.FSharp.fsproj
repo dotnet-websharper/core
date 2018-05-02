@@ -5,6 +5,7 @@
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="CodeReader.fs" />

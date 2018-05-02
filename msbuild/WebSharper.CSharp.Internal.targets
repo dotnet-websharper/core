@@ -30,6 +30,7 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
     <Root>$(MSBuildThisFileDirectory)..\</Root>
     <WebSharperTaskAssembly>$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition="!Exists('$(WebSharperTaskAssembly)')">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)build\$(Configuration)\CSharp\</OutputPath>
@@ -37,6 +38,8 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests\</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)build\$(Configuration)\</OutputPath>
     <ZafirCsFullPath>$(Root)build\$(Configuration)\CSharp\net461\ZafirCs.exe</ZafirCsFullPath>
+    <ZafirCsFullPath Condition="!Exists('$(ZafirCsFullPath)') AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.cmd</ZafirCsFullPath>
+    <ZafirCsFullPath Condition="!Exists('$(ZafirCsFullPath)') AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.sh</ZafirCsFullPath>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>

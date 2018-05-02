@@ -6,7 +6,6 @@
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
-#r "System.Data.Linq.dll"
 #r "System.dll"
 #r "System.Numerics.dll"
 #r "System.Web.dll"

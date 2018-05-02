@@ -7,7 +7,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D54C3-23BE-4087-9DAC-119986649CC4}"
 	ProjectSection(SolutionItems) = preProject
-		build\AssemblyInfo.fs = build\AssemblyInfo.fs
+		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
 		msbuild\FSharp.targets = msbuild\FSharp.targets
 		msbuild\Mono.Cecil.targets = msbuild\Mono.Cecil.targets
 		msbuild\Temp.proj = msbuild\Temp.proj

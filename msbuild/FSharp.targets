@@ -40,7 +40,7 @@
     <ItemGroup>
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />
-      <Compile Include="$(MSBuildThisFileDirectory)/../build/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/../build/AssemblyInfo.fs')" />
+      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.fs')" />
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>

@@ -15,9 +15,14 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
+let specificFw = environVarOrNone "WS_TARGET_FW"
+
 let targets = MakeTargets {
     WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
-        BuildAction = BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
+        BuildAction =
+            match specificFw with
+            | None -> BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
+            | Some d -> BuildAction.Projects [ d </> "WebSharper.Compiler.sln"; d </> "WebSharper.sln" ]
 }
 
 let NeedsBuilding input output =
@@ -66,13 +71,15 @@ let AddToolVersions() =
             sprintf "    let [<Literal>] %s = \"%s\"" name version
         )
         |> String.concat "\n"
-    File.AppendAllText("build/AssemblyInfo.fs", t)
+    File.AppendAllText("msbuild/AssemblyInfo.fs", t)
 
 Target "Prepare" <| fun () ->
+    File.Copy("build/AssemblyInfo.fs", "msbuild/AssemblyInfo.fs", true)
     Minify()
     MakeNetStandardTypesList()
     AddToolVersions()
 targets.AddPrebuild "Prepare"
+"WS-GenAssemblyInfo" ==> "Prepare"
 
 Target "NetcorePublish" <| fun () ->
     DotNetCli.Publish <| fun p ->

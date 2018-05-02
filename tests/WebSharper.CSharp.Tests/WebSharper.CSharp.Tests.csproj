@@ -4,8 +4,10 @@
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="**/*.cs" />
     <None Include="paket.references" />
     <None Include="WebSharper.CSharp.Tests.ruleset" />
   </ItemGroup>
