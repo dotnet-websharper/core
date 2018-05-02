@@ -249,7 +249,7 @@ type TestGenerator() =
                     match m.Member with
                     | GeneratedMethod (typ, _) ->
                         try (WebSharper.Core.AST.Reflection.LoadTypeDefinition typ).Assembly
-                        with _ -> failwith "Could not load containing type."
+                        with e -> failwithf "Could not load containing type %A:\n%O" typ e
                     | _ -> failwith "TestGenerator must be used on a non-implementation method."
                 | Some (:? string as n) ->
                     try Reflection.Assembly.Load(n)

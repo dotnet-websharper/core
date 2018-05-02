@@ -294,9 +294,16 @@ namespace WebSharper.CSharp.Tests
         [Test("SiteletBuilder correctness")]
         public async Task SiteletBuilderTest()
         {
-            var siteletTestLinks = await SiteletTestLinks();
-            Equal(siteletTestLinks[0], "/");
-            Equal(siteletTestLinks[1], "/person/John/Doe/30");
+            if (Remoting.ShouldRun)
+            {
+                var siteletTestLinks = await SiteletTestLinks();
+                Equal(siteletTestLinks[0], "/");
+                Equal(siteletTestLinks[1], "/person/John/Doe/30");
+            }
+            else
+            {
+                Expect(0);
+            }
         }
     }
 }
