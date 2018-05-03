@@ -116,6 +116,7 @@ module UnpackCommand =
                 emit text path
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
+        let errors = ResizeArray()
         for p in cmd.Assemblies do
             match (try loader.LoadFile p |> Some with _ -> None) with 
             | None -> () 
@@ -149,20 +150,23 @@ module UnpackCommand =
                         try
                             System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension p)
                         with e ->
-                            eprintfn "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
+                            errors.Add <| sprintf "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
                             null
                     if not (isNull asm) then
                         for t in asm.GetTypes() do
-                            if t.GetInterfaces() |> Array.contains localResTyp then
+                            if t.GetConstructor([||]) |> isNull |> not && t.GetInterfaces() |> Array.contains localResTyp then
                                 try
                                     let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
                                     res.Unpack(cmd.RootDirectory)
                                 with e ->
-                                    eprintfn "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
+                                    errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
                 with e ->
-                    eprintfn "Failed to unpack local resources: %s" (printError e)     
+                    errors.Add <| sprintf "Failed to unpack local resources: %s" (printError e)     
 
-        C.Ok
+        if errors.Count = 0 then
+            C.Ok
+        else
+            C.Errors (List.ofSeq errors)
 
     let Description =
         "unpacks resources from WebSharper assemblies"

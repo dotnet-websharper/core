@@ -28,7 +28,7 @@ open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
-open System.Diagnostics
+module C = WebSharper.Compiler.Commands
 open ErrorPrinting
 
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
@@ -258,9 +258,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config |> ignore
+            let res =
+                match ExecuteCommands.Unpack webRoot config with
+                | C.Ok -> 0
+                | C.Errors errors ->
+                    if config.WarnOnly || config.DownloadResources = Some false then
+                        errors |> List.iter PrintGlobalWarning
+                        0
+                    else
+                        errors |> List.iter PrintGlobalError
+                        1
             TimedStage "Unpacking"
-            0
+            res
         | None ->
             PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
             1
