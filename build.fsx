@@ -101,6 +101,15 @@ targets.BuildDebug ==> "Build"
 Target "CI-Release" DoNothing
 targets.CommitPublish ==> "CI-Release"
 
+let rm_rf x =
+    if Directory.Exists(x) then Directory.Delete(x, true)
+    elif File.Exists(x) then File.Delete(x)
+
+Target "Clean" <| fun () ->
+    rm_rf "netcore"
+    rm_rf "netfx"
+"WS-Clean" ==> "Clean"
+
 Target "Run" <| fun () ->
     shellExec {
         defaultParams with
