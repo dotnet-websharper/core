@@ -23,92 +23,9 @@ namespace WebSharper.Compiler
 [<AutoOpen>]
 module LoaderUtility =
 
-#if !NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
-    open System
-    open System.Collections.Generic
-    open Microsoft.Extensions.DependencyModel
-    open Mono.Cecil
-
-    // Taken from https://github.com/jbevain/cecil/issues/306#issuecomment-263157799
-    type private DotNetCoreAssemblyResolver() as this =
-        let libraries = Dictionary<string, Lazy<AssemblyDefinition>>()
-
-        do match DependencyContext.Default with
-            | null -> ()
-            | d ->
-            for library in d.CompileLibraries do
-                let paths = [|
-                    for p in library.ResolveReferencePaths() do
-                        if not (String.IsNullOrEmpty p) then yield p
-                |]
-                if not (Array.isEmpty paths) then
-                    libraries.Add(library.Name,
-                        lazy
-                        paths |> Array.pick (fun p ->
-                            try AssemblyDefinition.ReadAssembly(p, ReaderParameters(AssemblyResolver = this)) |> Some
-                            with e -> None)
-                    )
-
-        member this.Resolve(fullName: AssemblyNameReference) =
-            this.Resolve(fullName, ReaderParameters())
-
-        member this.Resolve(fullName: AssemblyNameReference, parameters: ReaderParameters) =
-            match fullName with
-            | null -> nullArg "name"
-            | fullName ->
-                match libraries.TryGetValue(fullName.Name) with
-                | true, x -> x.Value
-                | false, _ ->
-                    let assemblies =
-                        Array.append
-                            (AppDomain.CurrentDomain.GetAssemblies())
-                            (AppDomain.CurrentDomain.ReflectionOnlyGetAssemblies())
-                    for asm in assemblies do
-                        let name = asm.GetName().Name
-                        if not (libraries.ContainsKey name || isNull asm.Location) then
-                            libraries.Add(name,
-                                lazy AssemblyDefinition.ReadAssembly(asm.Location,
-                                        ReaderParameters(AssemblyResolver = this)))
-
-                    match DependencyContext.Default with
-                    | null -> ()
-                    | d ->
-                        for library in d.RuntimeLibraries do
-                            match library.ResourceAssemblies |> Seq.tryHead with
-                            | Some r when not (String.IsNullOrEmpty r.Path) ->
-                                libraries.Add(library.Name,
-                                    lazy AssemblyDefinition.ReadAssembly(r.Path,
-                                            ReaderParameters(AssemblyResolver = this)))
-                            | _ -> ()
-
-                    match libraries.TryGetValue(fullName.Name) with
-                    | true, x -> x.Value
-                    | false, _ ->
-                        raise (AssemblyResolutionException fullName)
-
-        member this.Dispose(disposing: bool) =
-            if disposing then
-                for l in libraries.Values do
-                    if l.IsValueCreated then
-                        l.Value.Dispose()
-
-        interface IDisposable with
-            member this.Dispose() =
-                this.Dispose(true)
-                GC.SuppressFinalize(this)
-
-        interface IAssemblyResolver with
-            member this.Resolve(n) = this.Resolve(n)
-            member this.Resolve(n, p) = this.Resolve(n, p)
-#endif
-
     [<Sealed>]
     type Resolver(aR: AssemblyResolver) =
-#if NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
         let def = new Mono.Cecil.DefaultAssemblyResolver()
-#else
-        let def = new DotNetCoreAssemblyResolver()
-#endif
         let defResolve (name: Mono.Cecil.AssemblyNameReference) = def.Resolve name
 
         let resolve (ref: string) (par: option<Mono.Cecil.ReaderParameters>) =
@@ -148,11 +65,7 @@ module LoaderUtility =
                 x.Resolve(ref)
 
             member x.Dispose() =
-#if NET461 // TODO dotnet: Mono.Cecil.DefaultAssemblyResolver
                 def.Dispose()
-#else
-                ()
-#endif
 
 [<Sealed>]
 type Loader(aR: AssemblyResolver, log: string -> unit) =

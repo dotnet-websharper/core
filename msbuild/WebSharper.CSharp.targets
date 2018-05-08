@@ -24,8 +24,11 @@
   <PropertyGroup>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR '$(TargetFrameworkVersion)' != '' )">True</_WebSharperUseNetFxCompiler>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/ZafirCs.exe</ZafirToolPath>
+    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.cmd</ZafirToolPath>
+    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.sh</ZafirToolPath>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
@@ -53,12 +56,12 @@
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
-      ZafirToolPath="$(MSBuildThisFileDirectory)/../tools/ZafirCs.exe"
+      ZafirToolPath="$(ZafirToolPath)"
       TargetType="$(OutputType)"
       NoConfig="true"
       DebugType="$(DebugType)"
       SubsystemVersion="$(SubsystemVersion)"
-	  LangVersion="$(LangVersion)"
+      LangVersion="$(LangVersion)"
   />
   </Target>
 </Project>

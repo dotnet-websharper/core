@@ -102,7 +102,12 @@ Target "CI-Release" DoNothing
 targets.CommitPublish ==> "CI-Release"
 
 let rm_rf x =
-    if Directory.Exists(x) then Directory.Delete(x, true)
+    if Directory.Exists(x) then
+        // Fix access denied issue deleting a read-only *.idx file in .git
+        for git in Directory.EnumerateDirectories(x, ".git", SearchOption.AllDirectories) do
+            for f in Directory.EnumerateFiles(git, "*.*", SearchOption.AllDirectories) do
+                File.SetAttributes(f, FileAttributes.Normal)
+        Directory.Delete(x, true)
     elif File.Exists(x) then File.Delete(x)
 
 Target "Clean" <| fun () ->

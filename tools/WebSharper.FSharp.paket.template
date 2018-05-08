@@ -32,6 +32,7 @@ files
     ../build/deploy/FSharp/wsfsc.dll.config ==> tools/netstandard2.0
     ../build/deploy/FSharp/wsfsc.cmd ==> tools/netstandard2.0
     ../build/deploy/FSharp/wsfsc.sh ==> tools/netstandard2.0
+    ../build/deploy/FSharp/wsfsc.runtimeconfig.json ==> tools/netstandard2.0
     ../build/deploy/FSharp/WebSharper.Compiler.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/WebSharper.Compiler.FSharp.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
@@ -43,6 +44,9 @@ files
     ../build/deploy/FSharp/Mono.Cecil.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
+    ../build/deploy/FSharp/Mono.Cecil.Rocks.dll ==> tools/netstandard2.0
+    ../build/deploy/FSharp/Newtonsoft.Json.dll ==> tools/netstandard2.0
+    ../build/deploy/FSharp/System.CodeDom.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/System.Configuration.ConfigurationManager.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/System.Security.Cryptography.ProtectedData.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/Microsoft.DotNet.PlatformAbstractions.dll ==> tools/netstandard2.0

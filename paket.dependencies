@@ -19,7 +19,7 @@ nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core ~> 4.2.0 copy_local: true
-nuget FSharp.Compiler.Service ~> 20.0.1
+nuget FSharp.Compiler.Service ~> 22.0.1
 
 // fixed for analyzer to work
 nuget System.Collections.Immutable 1.3.1

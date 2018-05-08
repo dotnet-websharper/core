@@ -34,7 +34,7 @@
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
-    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR '$(TargetFrameworkVersion)' != '' )">True</_WebSharperUseNetFxCompiler>
+    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
