@@ -2,10 +2,12 @@
 
 set -e
 
-if [ "$OS" = "Windows_NT" ]; then
-    .paket/paket.exe update -g wsbuild
-else
-    mono .paket/paket.exe update -g wsbuild
+if [ "$WsNoUpdate" == "" ]; then
+    if [ "$OS" = "Windows_NT" ]; then
+        .paket/paket.exe update -g wsbuild
+    else
+        mono .paket/paket.exe update -g wsbuild
+    fi
 fi
 
 export DOTNETSOLUTION=WebSharper.sln

@@ -5,6 +5,7 @@
     <LangVersion>latest</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="**/*.cs" />

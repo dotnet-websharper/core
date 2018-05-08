@@ -441,7 +441,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
             if funcName.Length = 0 then
                 let declType, meth, reqs = snd bodyAndReqs
                 let fail() =
-                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include Zafir.CSharp.targets" 
+                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include WebSharper.CSharp.targets" 
                         declType.Value.FullName meth.Value.MethodName
                 match meta.Classes.TryFind declType with
                 | None -> fail()

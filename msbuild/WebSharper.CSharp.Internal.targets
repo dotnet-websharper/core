@@ -22,21 +22,11 @@
 -->
 
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildThisFileDirectory)CSharp.targets" />
   <PropertyGroup>
-    <AssemblyName Condition="'$(Name)' != ''">$(Name)</AssemblyName>
-    <RootNamespace Condition="'$(Name)' != ''">$(Name)</RootNamespace>
-    <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' != '' ">$(INTELLIFACTORY)/keys/IntelliFactory.snk</KeyOriginatorFile>
-    <KeyOriginatorFile Condition=" '$(INTELLIFACTORY)' == '' ">$(MSBuildThisFileDirectory)/../tools/WebSharper.snk</KeyOriginatorFile>
-    <Configuration Condition=" '$(Configuration)' == '' ">Release</Configuration>
-    <Root>$(MSBuildThisFileDirectory)..\</Root>
+    <WebSharperSourceMap>True</WebSharperSourceMap>
     <WebSharperTaskAssembly>$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperTaskAssembly Condition="!Exists('$(WebSharperTaskAssembly)')">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <WebSharperSourceMap>True</WebSharperSourceMap>
-    <OutputPath Condition=" '$(OutputPath)' == '' And '$(CSharpTool)' == 'True' ">$(Root)build\$(Configuration)\CSharp\</OutputPath>
-    <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)build\$(Configuration)\FSharp\</OutputPath>
-    <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests\</OutputPath>
-    <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)build\$(Configuration)\</OutputPath>
     <ZafirCsFullPath>$(Root)build\$(Configuration)\CSharp\net461\ZafirCs.exe</ZafirCsFullPath>
     <ZafirCsFullPath Condition="!Exists('$(ZafirCsFullPath)') AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.cmd</ZafirCsFullPath>
     <ZafirCsFullPath Condition="!Exists('$(ZafirCsFullPath)') AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.sh</ZafirCsFullPath>
