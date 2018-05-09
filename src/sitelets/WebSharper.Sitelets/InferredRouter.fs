@@ -136,6 +136,7 @@ module internal ServerInferredOperators =
                 p.Append('?').Append(q.ToString()) |> ignore
             p.ToString()
 
+    [<ReferenceEquality>]
     type InferredRouter =
         {
             IParse : MRoute -> obj option
@@ -582,9 +583,42 @@ module internal ServerInferredOperators =
             :?> Router.IListArrayConverter
         IArray itemType item |> IMap converter.OfArray converter.ToArray
 
-    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[])[]) : InferredRouter =
+    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[] * bool)[]) : InferredRouter =
+
+        // heuristics for Wildcard cases having exact non-Wildcard equivalent
+        // if Wildcard part is emtpy, revert to non-Wildcard case
+        let wildcardCaseMap =
+            cases |> Seq.indexed |> Seq.choose (fun (i, (eps, fields, hasWildCard)) ->
+                if hasWildCard && fields.Length > 0 then
+                    let fieldsWithoutWildcard = fields.[0 .. fields.Length - 2]
+                    let nonWildcardEquivalent =
+                        cases |> Seq.tryFindIndex (fun (e, f, w) ->
+                            not w && eps = e && fieldsWithoutWildcard = f
+                        )
+                    nonWildcardEquivalent |> Option.map (fun j -> i, j)
+                else None     
+            ) |> dict
+        let createCase =
+            if wildcardCaseMap.Count = 0 then
+                fun i arr -> caseCtors.[i] arr
+            else
+                fun i (arr: obj[]) ->
+                    match wildcardCaseMap.TryGetValue(i) with
+                    | false, _ ->
+                        caseCtors.[i] arr
+                    | true, j ->
+                        let isEmptyWildcardPart =
+                            match Array.last arr with
+                            | :? string as s when s = "" -> true
+                            | :? System.Collections.IEnumerable as s when s |> Seq.cast<obj> |> Seq.isEmpty -> true
+                            | _ -> false
+                        if isEmptyWildcardPart then
+                            caseCtors.[j] (arr.[0 .. arr.Length - 2])
+                        else
+                            caseCtors.[i] arr
+
         let lookupCasesByMethod =
-            cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields)) -> 
+            cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields, _)) -> 
                 let fieldList = List.ofArray fields
                 let l = fields.Length
                 let parseFields p path =
@@ -593,7 +627,7 @@ module internal ServerInferredOperators =
                     let rec collect j f =
                         match f with 
                         | [] -> 
-                            Some (caseCtors.[i] arr)
+                            Some (createCase i arr)
                         | h :: t -> 
                             match h.IParse path with
                             | Some a -> 
@@ -604,6 +638,8 @@ module internal ServerInferredOperators =
                                 None
                     path.Segments <- p
                     collect 0 fieldList
+                // a heuristic is used for performance:
+                // inferred parsing is forward only, cases with more segments are checked first
                 eps |> Seq.map (fun (m, s) ->
                     let s = List.ofArray s
                     m,
@@ -679,7 +715,7 @@ module internal ServerInferredOperators =
             |> dict
 
         let writeCases =
-            cases |> Array.map (fun (eps, fields) -> 
+            cases |> Array.map (fun (eps, fields, _) -> 
                 String.concat "/" (snd eps.[0]), fields
             )
         let parseWithLookup (lookup: IDictionary<_,_>) path =
@@ -695,6 +731,7 @@ module internal ServerInferredOperators =
                     match lookup.TryGetValue("") with
                     | true, parse -> parse path.Segments path
                     | _ -> None 
+
         let parse =
             match lookupCases.TryGetValue(None) with
             | true, lookup when lookupCases.Count = 1 -> 
@@ -737,6 +774,7 @@ module internal ServerInferredOperators =
                     // not found with explicit method, fall back to cases ignoring method
                     let res = parseWithLookup ignoreMethodLookup path
                     if Option.isNone res then notFound() else res
+        
         {
             IParse = parse
             IWrite = fun (w, value) ->
