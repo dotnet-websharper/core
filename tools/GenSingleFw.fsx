@@ -51,7 +51,6 @@ let copyFileIfExistsAndIsDifferent (srcFile: string) (dstFile: string) =
             File.WriteAllBytes(dstFile, content)
         else
             ()
-            // printfn "  Not copying %s to %s -- existing file is identical" fileName dstDir
 
 let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetFrameworks: string -> TargetFramework[] -> option<TargetFramework>) =
     for f in Directory.GetFiles(srcDir, "*.*proj", SearchOption.AllDirectories) do
@@ -67,7 +66,21 @@ let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetF
 
         // Fix target framework
         match doc.XPathSelectElement("/Project/PropertyGroup/TargetFrameworks") with
-        | null -> ()
+        | null ->
+            // Fix old-style references
+            doc.XPathSelectElements("//Reference/HintPath")
+            |> Seq.iter (fun e ->
+                let v = e.Value
+                if v.StartsWith "." then
+                    e.Value <- @"..\" + v
+            )
+
+            doc.XPathSelectElements("/Project/PropertyGroup/WebProjectOutputDir")
+            |> Seq.iter (fun e -> e.Value <- origFullDir)
+
+            doc.XPathSelectElements("/Project/PropertyGroup/OutputPath")
+            |> Seq.iter (fun e -> e.Value <- Path.Combine(origFullDir, "bin"))
+
         | tfe ->
             match tfe.Value |> parseTargetFrameworks |> transformTargetFrameworks fn with
             | None -> ()

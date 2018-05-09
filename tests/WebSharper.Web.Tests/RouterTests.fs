@@ -129,7 +129,7 @@ module ClientServerTests =
                 equal testValuesAndServerLinks testValuesAndClientLinks
             }
 
-            Test "#940 'GET /' union case" {
+            TestIf runServerTests "#940 'GET /' union case" {
                 let! errOpt = Bug940.Test()
                 equal errOpt None
             }
