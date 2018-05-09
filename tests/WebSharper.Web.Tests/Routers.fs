@@ -223,3 +223,18 @@ module CombinatorTests =
         TestValues |> Seq.map (fun v ->
             v, constructed.Link v
         ) |> Array.ofSeq |> async.Return
+
+module Bug940 =
+    type Fails =
+        | [<EndPoint "/">] Home
+        | [<EndPoint "/about">] About
+
+    [<Remote>]
+    let Test() =
+        let r = Router.Infer<Fails>()
+        let l = { Route.Segment "about" with Method = Some "GET" }
+        match l |> Router.Parse r with
+        | Some About -> None
+        | Some _ -> Some "Failed to parse /about correctly"
+        | None -> Some "Failed to parse /about"
+        |> async.Return

@@ -52,7 +52,7 @@ type JavaScriptScope =
     | JSDefault
     | JSAssembly
     | JSFilesOrTypes of string[]
-
+ 
 type WsConfig =
     {
         SourceMap   : bool
@@ -71,7 +71,7 @@ type WsConfig =
         PrintJS : bool
         WarnOnly : bool
         DeadCodeElimination : bool
-        DownloadResources : bool
+        DownloadResources : bool option
         AnalyzeClosures : bool option
         JavaScriptScope : JavaScriptScope
         JSOutputPath : string option
@@ -101,7 +101,7 @@ type WsConfig =
              PrintJS  = false
              WarnOnly = false
              DeadCodeElimination = true
-             DownloadResources = false       
+             DownloadResources = None       
              AnalyzeClosures = None
              JavaScriptScope = JSDefault
              JSOutputPath = None
@@ -138,6 +138,18 @@ type WsConfig =
                 | true, b -> b
                 | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
             | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
+        let getDlRes k v = 
+            match v with
+            | Json.True -> Some true
+            | Json.False -> None
+            | Json.String s ->
+                match bool.TryParse s with
+                | true, b -> if b then Some true else None
+                | _ ->
+                    match s.ToLower() with
+                    | "warnonly" -> Some false
+                    | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false or 'warnonly'." k)   
+            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false or 'warnonly'." k)
         let mutable res = this
         for k, v in settings do
             match k.ToLower() with
@@ -152,7 +164,7 @@ type WsConfig =
             | "warnonly" ->
                 res <- { res with WarnOnly = getBool k v }
             | "downloadresources" ->
-                res <- { res with DownloadResources = getBool k v }
+                res <- { res with DownloadResources = getDlRes k v }
             | "analyzeclosures" ->
                 let a =
                     match v with
@@ -221,7 +233,7 @@ module ExecuteCommands =
             for e in errors do
                 eprintf "%s" e
             true
-
+    
     let Unpack webRoot settings =
         printfn "unpacking into %s" webRoot
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
@@ -247,11 +259,10 @@ module ExecuteCommands =
                     RootDirectory = webRoot
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
-                    DownloadResources = settings.DownloadResources
+                    DownloadResources = Option.isSome settings.DownloadResources
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.UnpackCommand.Instance.Execute(env, cfg)
-        |> SendResult
 
     let HtmlOutputDirectory settings =
         match TryGetOutputDir settings with
@@ -426,7 +437,7 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = v }
     | StartsWith "--ws:" wsProjectType ->
         Some { wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
-    | Flag "--dlres" v -> Some { wsArgs with DownloadResources = v }
+    | Flag "--dlres" v -> Some { wsArgs with DownloadResources = if v then Some true else None }
     | Flag "--printjs" v -> Some { wsArgs with PrintJS = v }
     | StartsWith "--wsoutput:" o ->
         Some { wsArgs with OutputDir = Some o }

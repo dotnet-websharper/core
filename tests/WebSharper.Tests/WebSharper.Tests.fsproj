@@ -2,6 +2,8 @@
   <PropertyGroup>
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
+    <!-- Test #645: accept string nowarn arguments -->
+    <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AddressOf.fs" />

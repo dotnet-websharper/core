@@ -28,7 +28,7 @@ open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
-open System.Diagnostics
+module C = WebSharper.Compiler.Commands
 open ErrorPrinting
 
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
@@ -267,9 +267,18 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config |> ignore
+            let res =
+                match ExecuteCommands.Unpack webRoot config with
+                | C.Ok -> 0
+                | C.Errors errors ->
+                    if config.WarnOnly || config.DownloadResources = Some false then
+                        errors |> List.iter PrintGlobalWarning
+                        0
+                    else
+                        errors |> List.iter PrintGlobalError
+                        1
             TimedStage "Unpacking"
-            0
+            res
         | None ->
             PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
             1
@@ -304,7 +313,18 @@ let compileMain argv =
                         yield a
         |]
 
-    let parseIntSet (s: string) = s.Split(',') |> Seq.map int |> Set
+    let fsCodeRE = System.Text.RegularExpressions.Regex(@"^(?:FS)?([0-9]+)$")
+
+    let parseWarnCodeSet (s: string) =
+        s.Split(',')
+        |> Seq.choose (fun s ->
+            let m = fsCodeRE.Match(s)
+            if m.Success then
+                Some (int m.Groups.[1].Value)
+            else
+                None
+        )
+        |> Set
     
     for a in cArgv do
         match RecognizeWebSharperArg a !wsArgs with
@@ -335,19 +355,19 @@ let compileMain argv =
         | StartsWith "--keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
         | StartsWith "--nowarn:" w ->
-            warn := { !warn with NoWarn = (!warn).NoWarn + parseIntSet w }
+            warn := { !warn with NoWarn = (!warn).NoWarn + parseWarnCodeSet w }
         | StartsWith "--warn:" l ->
             warn := { !warn with WarnLevel = int l }
         | StartsWith "--warnon:" w ->
-            warn := { !warn with NoWarn = (!warn).NoWarn - parseIntSet w }
+            warn := { !warn with NoWarn = (!warn).NoWarn - parseWarnCodeSet w }
         | "--warnaserror+" ->
             warn := { !warn with AllWarnAsError = true }
         | "--warnaserror-" ->
             warn := { !warn with AllWarnAsError = false }
         | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
-            warn := { !warn with WarnAsError = (!warn).WarnAsError + parseIntSet w }
+            warn := { !warn with WarnAsError = (!warn).WarnAsError + parseWarnCodeSet w }
         | StartsWith "--warnaserror-:" w ->
-            warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseIntSet w }
+            warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
         | StartsWith "--preferreduilang:" _ ->
             () // not handled by FSC 16.0.2
         | _ -> 

@@ -27,6 +27,9 @@ open WebSharper.Compiler.ErrorPrinting
 let PrintGlobalError err =
     eprintfn "WebSharper error: %s" (NormalizeErrorString err)
 
+let PrintGlobalWarning err =
+    eprintfn "WebSharper warning: %s" (NormalizeErrorString err)
+
 let PrintWebSharperErrors warnOnly (comp: Compilation) =
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
         let severity = if isError && not warnOnly then "error" else "warning"

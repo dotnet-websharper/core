@@ -407,33 +407,36 @@ type BaseResource(kind: Kind) as this =
 
     interface IDownloadableResource with
         member this.Unpack path =
-            use wc = new System.Net.WebClient()    
-            let localName = this.GetLocalName()
-            let cssDir = Path.Combine (path, "Content", "WebSharper", localName)
-            let jsDir = Path.Combine (path, "Scripts", "WebSharper", localName)
-            let download (url: string) =
-                match tryGetUriFileName url with
-                | Some f ->
-                    let localDir = if url.EndsWith ".css" then cssDir else jsDir
-                    let localPath = Path.Combine(localDir, f)
-                    if not (Directory.Exists localDir) then
-                        Directory.CreateDirectory localDir |> ignore
-                    let url = if url.StartsWith("//") then "http:" + url else url
-                    printfn "Downloading %A to %s" url localPath
-                    let tempLocalPath = localPath + ".download"
-                    wc.DownloadFile(url, tempLocalPath)
-                    if File.Exists tempLocalPath then
-                        if File.Exists localPath then
-                            File.Delete localPath
-                        File.Move(tempLocalPath, localPath)
-                | _ ->
-                    ()
+            let download (paths: string list) =
+                let urls =
+                    paths |> List.choose (fun p ->
+                        match Uri.TryCreate(p, UriKind.Absolute) with
+                        | true, uri when not uri.IsFile -> 
+                            tryGetUriFileName p |> Option.map (fun f -> uri, f)
+                        | _ -> None
+                    )
+                if List.isEmpty urls |> not then
+                    use wc = new System.Net.WebClient()    
+                    let localName = this.GetLocalName()
+                    let cssDir = Path.Combine (path, "Content", "WebSharper", localName)
+                    let jsDir = Path.Combine (path, "Scripts", "WebSharper", localName)
+                    for url, f in urls do
+                        let localDir = if f.EndsWith ".css" then cssDir else jsDir
+                        let localPath = Path.Combine(localDir, f)
+                        if not (Directory.Exists localDir) then
+                            Directory.CreateDirectory localDir |> ignore
+                        printfn "Downloading %A to %s" url localPath
+                        let tempLocalPath = localPath + ".download"
+                        wc.DownloadFile(url, tempLocalPath)
+                        if File.Exists tempLocalPath then
+                            if File.Exists localPath then
+                                File.Delete localPath
+                            File.Move(tempLocalPath, localPath)
             match kind with
             | Basic spec ->
-                download spec
+                download [ spec ]
             | Complex (b, xs) ->
-                for x in xs do
-                    download (b.TrimEnd('/') + "/" + x.TrimStart('/'))
+                download (xs |> List.map (fun x -> b.TrimEnd('/') + "/" + x.TrimStart('/')))
 
 [<Sealed>]
 type Runtime() =

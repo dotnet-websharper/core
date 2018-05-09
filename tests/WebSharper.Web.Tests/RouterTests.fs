@@ -117,7 +117,7 @@ module ClientServerTests =
                 equal (parseHash rUnit "#") (Some ())
                 equal (parseHash rUnit "#/") (Some ())
                 equal (Router.HashLink rInt 2) "#/2"
-                equal (parseHash rInt "#/2") (Some 2)                
+                equal (parseHash rInt "#/2") (Some 2)     
             }
 
             TestIf runServerTests "Router combinator" {
@@ -127,6 +127,11 @@ module ClientServerTests =
                         testValue, CombinatorTests.constructed.Link testValue    
                     )
                 equal testValuesAndServerLinks testValuesAndClientLinks
+            }
+
+            Test "#940 'GET /' union case" {
+                let! errOpt = Bug940.Test()
+                equal errOpt None
             }
         }
 

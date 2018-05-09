@@ -28,6 +28,9 @@ open WebSharper.Compiler.ErrorPrinting
 let PrintGlobalError err =
     eprintfn "WebSharper error FS9001: %s" (NormalizeErrorString err)
 
+let PrintGlobalWarning err =
+    eprintfn "WebSharper warning FS9001: %s" (NormalizeErrorString err)
+
 type WarnSettings =
     {
         NoWarn : int Set
