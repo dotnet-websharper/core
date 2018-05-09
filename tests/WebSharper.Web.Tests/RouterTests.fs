@@ -32,7 +32,7 @@ module ClientServerTests =
     let ShiftedRouter = 
         Router.Shift "perf-tests" <| Router.Infer<Action>()
 
-    let Tests apiBaseUri =
+    let Tests apiBaseUri runServerTests =
         let parse router p =
             Route.FromUrl(p) |> Router.Parse router    
         let parseHash router p =
@@ -56,7 +56,7 @@ module ClientServerTests =
             | _ -> false
 
         TestCategory "Sitelets Client-server routing" {
-            Test "compatibility tests" {
+            TestIf runServerTests "compatibility tests" {
                 let! serverResults = GetTestValues()
                 let! extraServerResults = GetExtraTestValues()
                 let testValues = serverResults |> Array.map (fun (testValue, _, _) -> testValue)
@@ -81,7 +81,7 @@ module ClientServerTests =
                 )
             }
 
-            Test "Router.Ajax" {
+            TestIf runServerTests "Router.Ajax" {
                 let! serverResults = GetTestValues()
                 let! ajaxResults =
                     async {
@@ -120,7 +120,7 @@ module ClientServerTests =
                 equal (parseHash rInt "#/2") (Some 2)                
             }
 
-            Test "Router combinator" {
+            TestIf runServerTests "Router combinator" {
                 let! testValuesAndServerLinks = CombinatorTests.GetTestValues()
                 let testValuesAndClientLinks =
                     testValuesAndServerLinks |> Array.map (fun (testValue, _) ->
@@ -130,8 +130,8 @@ module ClientServerTests =
             }
         }
 
-    let RunTests apiBaseUri =
+    let RunTests apiBaseUri runServerTests =
         Runner.RunTests [|
-            Tests apiBaseUri
+            Tests apiBaseUri runServerTests
         |]
 

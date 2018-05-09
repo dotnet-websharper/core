@@ -21,10 +21,11 @@
 // $end{copyright}
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="FSharp.targets" />
   <PropertyGroup>
     <WebSharperSourceMap Condition="'$(WebSharperSourceMap)' == ''">True</WebSharperSourceMap>
+    <WebSharperHtmlDirectory Condition="'$(WebSharperProject)' == 'Html'">$(Root)\build\$(Configuration)\$(TargetFramework)\html</WebSharperHtmlDirectory>
   </PropertyGroup>
-  <Import Project="FSharp.targets" />
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup>
     <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>

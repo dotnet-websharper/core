@@ -9,7 +9,7 @@ namespace WebSharper.CSharp.Tests
 {
     public class InlineControlTest
     {
-        public static Web.Control RunTestsControl =>
-            new InlineControl(() => Tests.RunTests());
+        public static Web.Control RunTestsControl(bool runServerTests) =>
+            new InlineControl(() => Tests.RunTests(runServerTests));
     }
 }

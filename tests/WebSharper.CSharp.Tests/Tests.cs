@@ -17,6 +17,12 @@ namespace WebSharper.CSharp.Tests
         [Generated(typeof(TestGenerator))]
         public static IControlBody RunTests() { return null; }
 
+        public static IControlBody RunTests(bool runServerTests)
+        {
+            Remoting.ShouldRun = runServerTests;
+            return RunTests();
+        }
+
         public string GetHelloWorld() { return "Hello " + "world!"; }
         public string HelloWorldProp => "Hello " + "world!";
 

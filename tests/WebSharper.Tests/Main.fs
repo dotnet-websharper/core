@@ -27,7 +27,7 @@ open WebSharper.Testing
 do()
 
 [<JavaScript>]
-let RunTests() =
+let RunTests runServerSide =
     Test "non-categorized test" {
         equal 1 1
     }
@@ -76,6 +76,6 @@ let RunTests() =
         WIG.Tests
         Cookies.Tests
 #if NET461
-        Compiler.Tests
+        (if runServerSide then Compiler.Tests else TestCategory "Compiler" { do () })
 #endif
     |]
