@@ -36,6 +36,12 @@ module internal ServerInferredOperators =
         | MissingQueryParameter of string
         | MissingFormData of string
 
+    let (|ParseOk|_|) x =
+        match x with 
+        | StrictMode
+        | NoErrors -> Some ()
+        | _ -> None
+
     type MRoute =
         {
             mutable Segments : list<string>
@@ -585,154 +591,123 @@ module internal ServerInferredOperators =
 
     let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[] * bool)[]) : InferredRouter =
 
-        // heuristics for Wildcard cases having exact non-Wildcard equivalent
-        // if Wildcard part is emtpy, revert to non-Wildcard case
-        let wildcardCaseMap =
-            cases |> Seq.indexed |> Seq.choose (fun (i, (eps, fields, hasWildCard)) ->
-                if hasWildCard && fields.Length > 0 then
-                    let fieldsWithoutWildcard = fields.[0 .. fields.Length - 2]
-                    let nonWildcardEquivalent =
-                        cases |> Seq.tryFindIndex (fun (e, f, w) ->
-                            not w && eps = e && fieldsWithoutWildcard = f
-                        )
-                    nonWildcardEquivalent |> Option.map (fun j -> i, j)
-                else None     
-            ) |> dict
-        let createCase =
-            if wildcardCaseMap.Count = 0 then
-                fun i arr -> caseCtors.[i] arr
-            else
-                fun i (arr: obj[]) ->
-                    match wildcardCaseMap.TryGetValue(i) with
-                    | false, _ ->
-                        caseCtors.[i] arr
-                    | true, j ->
-                        let isEmptyWildcardPart =
-                            match Array.last arr with
-                            | :? string as s when s = "" -> true
-                            | :? System.Collections.IEnumerable as s when s |> Seq.cast<obj> |> Seq.isEmpty -> true
-                            | _ -> false
-                        if isEmptyWildcardPart then
-                            caseCtors.[j] (arr.[0 .. arr.Length - 2])
-                        else
-                            caseCtors.[i] arr
+        let parseWithOrWithoutWildcards useWildcards =
 
-        let lookupCasesByMethod =
-            cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields, _)) -> 
-                let fieldList = List.ofArray fields
-                let l = fields.Length
-                let parseFields p path =
-                    let arr = Array.zeroCreate l
-                    let origSegments = path.Segments
-                    let rec collect j f =
-                        match f with 
+            let lookupCasesByMethod =
+                cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields, hasWildCard)) -> 
+                    if hasWildCard && not useWildcards then Seq.empty else
+                    let fieldList = List.ofArray fields
+                    let l = fields.Length
+                    let parseFields p path =
+                        let arr = Array.zeroCreate l
+                        let origSegments = path.Segments
+                        let rec collect j f =
+                            match f with 
+                            | [] -> 
+                                Some (caseCtors.[i] arr)
+                            | h :: t -> 
+                                match h.IParse path with
+                                | Some a -> 
+                                    arr.[j] <- a
+                                    collect (j + 1) t
+                                | None -> 
+                                    path.Segments <- origSegments
+                                    None
+                        path.Segments <- p
+                        collect 0 fieldList
+                    // a heuristic is used for performance:
+                    // inferred parsing is forward only, cases with more segments are checked first
+                    eps |> Seq.map (fun (m, s) ->
+                        let s = List.ofArray s
+                        m,
+                        match s with
                         | [] -> 
-                            Some (createCase i arr)
-                        | h :: t -> 
-                            match h.IParse path with
-                            | Some a -> 
-                                arr.[j] <- a
-                                collect (j + 1) t
-                            | None -> 
-                                path.Segments <- origSegments
-                                None
-                    path.Segments <- p
-                    collect 0 fieldList
-                // a heuristic is used for performance:
-                // inferred parsing is forward only, cases with more segments are checked first
-                eps |> Seq.map (fun (m, s) ->
-                    let s = List.ofArray s
+                            "",
+                            match fieldList with
+                            | [] ->
+                                let c = caseCtors.[i] [||]
+                                -1,
+                                fun p path -> Some c
+                            | _ ->
+                                fieldList.Length - 1, parseFields
+                        | [ h ] ->
+                            h, 
+                            match fieldList with
+                            | [] ->
+                                let c = caseCtors.[i] [||]
+                                0,
+                                fun p path -> 
+                                    path.Segments <- p
+                                    Some c
+                            | _ ->
+                                fieldList.Length, parseFields
+                        | h :: t ->
+                            h, 
+                            match fieldList with
+                            | [] ->
+                                let c = caseCtors.[i] [||]
+                                t.Length,
+                                fun p path -> 
+                                    match p |> List.startsWith t with
+                                    | Some p ->
+                                        path.Segments <- p
+                                        Some c
+                                    | None -> None
+                            | _ ->
+                                t.Length + fieldList.Length,
+                                fun p path ->
+                                    match p |> List.startsWith t with
+                                    | Some p -> parseFields p path
+                                    | None -> None
+                    )
+                ) 
+                // group by method
+                |> Seq.groupBy fst |> Array.ofSeq
+            let casesWithoutExplicitMethod =
+                lookupCasesByMethod 
+                |> Array.tryFind (fst >> Option.isNone) 
+                |> Option.map (snd >> Seq.map snd)
+                |> Option.defaultValue Seq.empty
+            let lookupCases =
+                lookupCasesByMethod
+                |> Seq.map (fun (m, mcases) ->
                     m,
-                    match s with
-                    | [] -> 
-                        "",
-                        match fieldList with
-                        | [] ->
-                            let c = caseCtors.[i] [||]
-                            -1,
-                            fun p path -> Some c
-                        | _ ->
-                            fieldList.Length - 1, parseFields
-                    | [ h ] ->
+                    mcases |> Seq.map snd 
+                    |> Seq.append (
+                        // include looking up cases with non-specified methods
+                        match m with
+                        | None -> Seq.empty
+                        | _ -> casesWithoutExplicitMethod
+                    )
+                    |> Seq.groupBy fst
+                    |> Seq.map (fun (h, hcases) ->
                         h, 
-                        match fieldList with
-                        | [] ->
-                            let c = caseCtors.[i] [||]
-                            0,
-                            fun p path -> 
-                                path.Segments <- p
-                                Some c
-                        | _ ->
-                            fieldList.Length, parseFields
-                    | h :: t ->
-                        h, 
-                        match fieldList with
-                        | [] ->
-                            let c = caseCtors.[i] [||]
-                            t.Length,
-                            fun p path -> 
-                                path.Segments <- p
-                                Some c
-                        | _ ->
-                            t.Length + fieldList.Length,
+                        match hcases |> Seq.map snd |> List.ofSeq with
+                        | [ _, parse ] -> parse
+                        | parsers ->
+                            // this is just an approximation, start with longer parsers
+                            let parsers = parsers |> Seq.sortByDescending fst |> Seq.map snd |> Array.ofSeq 
                             fun p path ->
-                                match p |> List.startsWith t with
-                                | Some p -> parseFields p path
-                                | None -> None
+                                parsers |> Array.tryPick (fun parse -> parse p path)                        
+                    )
+                    |> dict 
                 )
-            ) 
-            // group by method
-            |> Seq.groupBy fst |> Array.ofSeq
-        let casesWithoutExplicitMethod =
-            lookupCasesByMethod 
-            |> Array.tryFind (fst >> Option.isNone) 
-            |> Option.map (snd >> Seq.map snd)
-            |> Option.defaultValue Seq.empty
-        let lookupCases =
-            lookupCasesByMethod
-            |> Seq.map (fun (m, mcases) ->
-                m,
-                mcases |> Seq.map snd 
-                |> Seq.append (
-                    // include looking up cases with non-specified methods
-                    match m with
-                    | None -> Seq.empty
-                    | _ -> casesWithoutExplicitMethod
-                )
-                |> Seq.groupBy fst
-                |> Seq.map (fun (h, hcases) ->
-                    h, 
-                    match hcases |> Seq.map snd |> List.ofSeq with
-                    | [ _, parse ] -> parse
-                    | parsers ->
-                        // this is just an approximation, start with longer parsers
-                        let parsers = parsers |> Seq.sortByDescending fst |> Seq.map snd |> Array.ofSeq 
-                        fun p path ->
-                            parsers |> Array.tryPick (fun parse -> parse p path)                        
-                )
-                |> dict 
-            )
-            |> dict
+                |> dict
 
-        let writeCases =
-            cases |> Array.map (fun (eps, fields, _) -> 
-                String.concat "/" (snd eps.[0]), fields
-            )
-        let parseWithLookup (lookup: IDictionary<_,_>) path =
-            match path.Segments with
-            | [] -> 
-                match lookup.TryGetValue("") with
-                | true, parse -> parse [] path
-                | _ -> None
-            | h :: t ->
-                match lookup.TryGetValue(h) with
-                | true, parse -> parse t path
-                | _ ->
+            let parseWithLookup (lookup: IDictionary<_,_>) path =
+                match path.Segments with
+                | [] -> 
                     match lookup.TryGetValue("") with
-                    | true, parse -> parse path.Segments path
-                    | _ -> None 
+                    | true, parse -> parse [] path
+                    | _ -> None
+                | h :: t ->
+                    match lookup.TryGetValue(h) with
+                    | true, parse -> parse t path
+                    | _ ->
+                        match lookup.TryGetValue("") with
+                        | true, parse -> parse path.Segments path
+                        | _ -> None 
 
-        let parse =
             match lookupCases.TryGetValue(None) with
             | true, lookup when lookupCases.Count = 1 -> 
                 // no union case specifies a method
@@ -775,6 +750,38 @@ module internal ServerInferredOperators =
                     let res = parseWithLookup ignoreMethodLookup path
                     if Option.isNone res then notFound() else res
         
+        let hasWildcardCase =
+            cases |> Seq.exists (fun (_, _, hasWildCard) -> hasWildCard) 
+        
+        let parse =
+            if hasWildcardCase then
+                let parseWithoutWildcards = parseWithOrWithoutWildcards false
+                let parseWithWildcards = parseWithOrWithoutWildcards true
+
+                fun (path: MRoute) ->
+                    let origSegments = path.Segments
+                    let origResult = path.Result
+                    match parseWithoutWildcards path with
+                    | None ->
+                        path.Segments <- origSegments
+                        parseWithWildcards path
+                    | res ->
+                        match path.Segments, path.Result with
+                        | [], ParseOk -> 
+                            // if parsed fully without Wildcard, use that
+                            res
+                        | _ ->
+                            // otherwise restore path state and use full parsing
+                            path.Segments <- origSegments
+                            path.Result <- origResult
+                            parseWithWildcards path
+            else
+                parseWithOrWithoutWildcards false
+        
+        let writeCases =
+            cases |> Array.map (fun (eps, fields, _) -> 
+                String.concat "/" (snd eps.[0]), fields
+            )
         {
             IParse = parse
             IWrite = fun (w, value) ->
