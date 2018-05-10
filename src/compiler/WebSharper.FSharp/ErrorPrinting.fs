@@ -42,15 +42,15 @@ type WarnSettings =
 
     static member Default =
         {
-            // see https://github.com/fsharp/FSharp.Compiler.Service/blob/b95f6fa386405ffba0cae9e3d6d60302dcaf2a2c/src/fsharp/CompileOps.fs#L407
-            NoWarn = Set [ 1182; 3180 ] 
+            // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L403
+            NoWarn = Set [ 1182; 3218; 3180 ] 
             WarnLevel = 3 
             WarnAsError = Set []
             AllWarnAsError = false
             DontWarnAsError = Set []
         }    
 
-// see https://github.com/fsharp/FSharp.Compiler.Service/blob/b95f6fa386405ffba0cae9e3d6d60302dcaf2a2c/src/fsharp/CompileOps.fs#L384
+// see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L380
 let private Level5Warnings =
     System.Collections.Generic.HashSet [
         21   // RecursiveUseCheckedAtRuntime
