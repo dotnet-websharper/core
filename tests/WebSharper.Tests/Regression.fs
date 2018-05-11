@@ -395,6 +395,20 @@ module Bug923 =
     let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
 
 [<JavaScript>]
+module Bug948 =
+    type MyType =
+        | [<Constant(null)>] NullCase
+        | NonNullCase
+    
+    let f (x: Union<Dom.Node, MyType>) =
+        match x with
+        | Union1Of2 _ -> "it's not my type"
+        | Union2Of2 _ -> "it's my type"
+    
+    let test() =
+        f (Union2Of2 NullCase)
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -867,6 +881,10 @@ let Tests =
 
         Test "#914 generic struct type alias" {
             equal (Bug914.f 42) "42"
+        }
+
+        Test "#948 Erased union pattern matching fails on a union with a [<Constant null>] case" {
+            equal (Bug948.test()) "it's my type"
         }
 
         //Test "Recursive module value" {

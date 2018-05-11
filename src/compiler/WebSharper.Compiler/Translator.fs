@@ -277,7 +277,7 @@ type TypeCheckKind =
     | TypeOf of string
     | InstanceOf of Address
     | IsNull
-    | PlainObject
+    | PlainObject of bool
     | OtherTypeCheck
 
 let tryGetTypeCheck kind expr =
@@ -1197,20 +1197,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             try
                 let t = typ.Generics.[i]
                 match this.GetTypeCheckKind t with
-                | PlainObject ->
+                | PlainObject hasNull ->
                     let prevCases =
                         List.init i (fun j ->
                             this.GetTypeCheckKind (typ.Generics.[j]) 
                         )
                     let prevCasesTranslating =
                         prevCases |> List.forall (function 
-                            | TypeOf _ | InstanceOf _ | IsNull -> true 
+                            | TypeOf _ | InstanceOf _ -> true 
+                            | IsNull -> not hasNull  
                             | _ -> false
                         )
                     if prevCasesTranslating then 
-                        (this.TransformExpression expr |> getItem "constructor") ^=== (Global ["Object"])
+                        if hasNull then
+                            let v = Id.New(mut = false)
+                            Let (v, this.TransformExpression expr,
+                                (Var v ^== Value Null) ^|| (Var v |> getItem "constructor") ^=== (Global ["Object"])    
+                            )
+                        else
+                            (this.TransformExpression expr |> getItem "constructor") ^=== (Global ["Object"])
                     else
-                        this.Error (sprintf "Translating erased union test failed, case: %s, more than one plain object type found" case)
+                        this.Error (sprintf "Translating erased union test failed, case: %s, more than one plain object or null type found" case)
                 | _ -> 
                     this.TransformTypeCheck(expr, t)
             with e ->
@@ -1227,10 +1234,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 if u.HasNull then
                     let v = Id.New(mut = false)
                     Let (v, this.TransformExpression expr, 
-                        (Var v ^!= Value Null) ^&& (ItemGet(Var v, Value (String "$"), Pure) ^== Value (Int i)) 
+                        (Var v ^!= Value Null) ^&& ((Var v |> getItem "$") ^== Value (Int i)) 
                     )
                 else
-                    ItemGet(this.TransformExpression expr, Value (String "$"), Pure) ^== Value (Int i)    
+                    (this.TransformExpression expr |> getItem "$") ^== Value (Int i)    
         | _ -> this.Error("Failed to translate union case test.")
     
     override this.TransformUnionCaseGet(expr, typ, case, field) =
@@ -1573,16 +1580,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Choice1Of2 (Some a) ->
                     InstanceOf a
                 | Choice1Of2 None ->
-                    PlainObject
+                    PlainObject true
                 | Choice2Of2 ct -> 
                     match ct with
                     | M.DelegateInfo _ ->
                         TypeOf "function"
                     | M.FSharpRecordInfo _
-                    | M.FSharpUnionInfo _
-                    | M.FSharpUnionCaseInfo _
                     | M.StructInfo _ ->
-                        PlainObject
+                        PlainObject false
+                    | M.FSharpUnionInfo ui ->
+                        PlainObject ui.HasNull
+                    | M.FSharpUnionCaseInfo uci ->
+                        PlainObject (uci.Kind = M.ConstantFSharpUnionCase Null)
                     | _ ->
                         OtherTypeCheck
         | _ ->
