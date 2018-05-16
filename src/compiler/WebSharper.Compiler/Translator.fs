@@ -1654,13 +1654,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | Some ii ->
                             warnIgnoringGenerics()
                             let shortestName = ii.Methods.Values |> Seq.minBy String.length
-                            Binary(
-                                (tryGetTypeCheck (TypeOf "object") trExpr).Value,
-                                BinaryOperator.``&&``,
+                            let i = Id.New(mut = false)
+                            Let(i, trExpr,
                                 Binary(
-                                    Value (String shortestName),
-                                    BinaryOperator.``in``,
-                                    trExpr
+                                    (tryGetTypeCheck (TypeOf "object") (Var i)).Value,
+                                    BinaryOperator.``&&``,
+                                    Binary(
+                                        Value (String shortestName),
+                                        BinaryOperator.``in``,
+                                        (Var i)
+                                    )
                                 )
                             )
                         | _ ->
