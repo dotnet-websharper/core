@@ -1655,9 +1655,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             warnIgnoringGenerics()
                             let shortestName = ii.Methods.Values |> Seq.minBy String.length
                             Binary(
-                                Value (String shortestName),
-                                BinaryOperator.``in``,
-                                trExpr
+                                (tryGetTypeCheck (TypeOf "object") trExpr).Value,
+                                BinaryOperator.``&&``,
+                                Binary(
+                                    Value (String shortestName),
+                                    BinaryOperator.``in``,
+                                    trExpr
+                                )
                             )
                         | _ ->
                             this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
