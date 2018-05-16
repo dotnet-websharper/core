@@ -404,6 +404,10 @@ module Bug944 =
         | :? IFoo as f -> Some f
         | _ -> None
 
+    let CheckNonPure m =
+        let r = ref 0
+        if (incr r; box m) :? IFoo then Some !r else None
+
 [<JavaScript>]
 module Bug948 =
     type MyType =
@@ -895,6 +899,8 @@ let Tests =
 
         Test "#944 Interface type test on non-object value" {
             equal (Bug944.AsFoo 42) None
+            let x = { new Bug944.IFoo with member __.Fooey _ = () }
+            equal (Bug944.CheckNonPure x) (Some 1)
         }
 
         Test "#948 Erased union pattern matching fails on a union with a [<Constant null>] case" {
