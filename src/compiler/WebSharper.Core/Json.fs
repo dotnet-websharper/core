@@ -601,6 +601,21 @@ let serializers =
             | _ -> raise (DecoderException(String g, typeof<System.Guid>))
         | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
+    let encDecimal (d: decimal) =
+        let b = System.Decimal.GetBits(d)
+        EncodedInstance (
+            AST.Address [ "Decimal"; "WebSharper" ], 
+            [
+                "bits", EncodedArray (b |> Seq.map (string >> EncodedNumber) |> List.ofSeq)
+            ]
+        )
+    let decDecimal = function
+        | Object [ "mathjs", String "BigNumber"; "value", String d ] as x ->
+            match System.Decimal.TryParse d with
+            | true, d -> d
+            | _ -> raise (DecoderException(x, typeof<decimal>)) 
+        | x -> raise (DecoderException(x, typeof<decimal>))
+    add encDecimal decDecimal d   
     d
 
 let tupleEncoder dE (i: FormatSettings) (ta: TAttrs) =
