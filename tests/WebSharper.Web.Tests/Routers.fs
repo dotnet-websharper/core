@@ -82,6 +82,8 @@ module PerformanceTests =
         | [<EndPoint "/multiple" >] UMultiple
         | [<EndPoint "/multiple" >] UMultiple2 of int
         | [<EndPoint "/multiple" >] UMultiple3 of int * int
+        | [<EndPoint "/wildcard-string">] UWildcardStringEmpty
+        | [<EndPoint "/wildcard-string/special-case">] UWildcardStringSpecialCase
         | [<EndPoint "/wildcard-string"; Wildcard>] UWildcardString of string
         | [<EndPoint "/wildcard-array"; Wildcard>] UWildcardArray of int[]
         | [<EndPoint "/wildcard-list"; Wildcard>] UWildcardList of int list
@@ -124,6 +126,8 @@ module PerformanceTests =
             UMultiple
             UMultiple2 1
             UMultiple3 (1, 2)
+            UWildcardStringEmpty
+            UWildcardStringSpecialCase
             UWildcardString "1/2/3/hi"
             UWildcardArray [| 1; 2; 3 |]
             UWildcardList [ 1; 2; 3 ]

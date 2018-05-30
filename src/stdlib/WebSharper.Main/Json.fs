@@ -82,6 +82,10 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
         | _ ->
             x
 
+type SpecialTypes =
+    | List = 1
+    | Decimal = 2
+
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
 let Activate<'T> (json: obj) : 'T =
@@ -91,7 +95,11 @@ let Activate<'T> (json: obj) : 'T =
             json
         else
             for i = 0 to types.Length - 1 do
-                types.[i] <- lookup (As types.[i])
+                types.[i] <- 
+                    match As<string[]> types.[i] with
+                    | [| "WebSharper"; "List"; "T" |] -> box SpecialTypes.List
+                    | [| "WebSharper"; "Decimal" |] -> box SpecialTypes.Decimal
+                    | t -> lookup t
             json?("$DATA")
     let rec decode (x: obj) : obj =
         if x = null then x else
@@ -104,8 +112,10 @@ let Activate<'T> (json: obj) : 'T =
                     let ti = x?("$T")
                     if ti ===. JS.Undefined then o else
                         let t = types.[ti]
-                        if t ===. JS.Global?WebSharper?List?T then
+                        if t ===. SpecialTypes.List then
                             box (List.ofArray (As<obj[]> o))
+                        elif t ===. SpecialTypes.Decimal then
+                            JS.Global?WebSharper?MathJS?Extensions?Extensions?CreateDecimalBits(o?bits)   
                         else
                             let r = JS.New types.[ti]
                             JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)

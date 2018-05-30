@@ -256,7 +256,7 @@ module internal ServerRouting =
                         if formDataFields.Count > 0 then 
                             failwithf "FormData field not found: %s" (Seq.head formDataFields)
                         // todo: more error reports
-                        endpoints, f
+                        endpoints, f, cAnnot.IsWildcard
                     ))
                 
         else

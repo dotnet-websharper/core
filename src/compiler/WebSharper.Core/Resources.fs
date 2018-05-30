@@ -410,6 +410,7 @@ type BaseResource(kind: Kind) as this =
             let download (paths: string list) =
                 let urls =
                     paths |> List.choose (fun p ->
+                        let p = if p.StartsWith "//" then "http:" + p else p
                         match Uri.TryCreate(p, UriKind.Absolute) with
                         | true, uri when not uri.IsFile -> 
                             tryGetUriFileName p |> Option.map (fun f -> uri, f)

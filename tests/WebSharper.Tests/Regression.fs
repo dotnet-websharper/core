@@ -395,6 +395,34 @@ module Bug923 =
     let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
 
 [<JavaScript>]
+module Bug944 =
+    type IFoo = 
+        abstract member Fooey : string -> unit
+
+    let AsFoo m = 
+        match box m with
+        | :? IFoo as f -> Some f
+        | _ -> None
+
+    let CheckNonPure m =
+        let r = ref 0
+        if (incr r; box m) :? IFoo then Some !r else None
+
+[<JavaScript>]
+module Bug948 =
+    type MyType =
+        | [<Constant(null)>] NullCase
+        | NonNullCase
+    
+    let f (x: Union<Dom.Node, MyType>) =
+        match x with
+        | Union1Of2 _ -> "it's not my type"
+        | Union2Of2 _ -> "it's my type"
+    
+    let test() =
+        f (Union2Of2 NullCase)
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -867,6 +895,16 @@ let Tests =
 
         Test "#914 generic struct type alias" {
             equal (Bug914.f 42) "42"
+        }
+
+        Test "#944 Interface type test on non-object value" {
+            equal (Bug944.AsFoo 42) None
+            let x = { new Bug944.IFoo with member __.Fooey _ = () }
+            equal (Bug944.CheckNonPure x) (Some 1)
+        }
+
+        Test "#948 Erased union pattern matching fails on a union with a [<Constant null>] case" {
+            equal (Bug948.test()) "it's my type"
         }
 
         //Test "Recursive module value" {
