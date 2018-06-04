@@ -471,7 +471,7 @@ type Compilation(meta: Info, ?hasGraph) =
             cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
         | _ -> false
 
-    member this.LookupMethodInfo(typ, meth) = 
+    member private this.LookupMethodInfoInternal(typ, meth) = 
         let typ = this.FindProxied typ
         match interfaces.TryFind typ with
         | Some intf -> 
@@ -549,6 +549,51 @@ type Compilation(meta: Info, ?hasGraph) =
             match this.GetCustomType typ with
             | NotCustomType -> LookupMemberError (TypeNotFound typ)
             | i -> CustomTypeMember i
+
+    member this.LookupMethodInfo(typ, meth: Concrete<Method>) = 
+        let m = meth.Entity.Value
+
+        let otherType() = 
+            match m.Parameters, m.ReturnType with
+            | [ ConcreteType pt ], ConcreteType rt when ct.Generics = [] && pt.Generics = [] ->
+                if pt = typ then
+                    Some rt
+                elif rt = typ then
+                    Some pt
+                else None
+            | _ -> None
+
+        let res = LookupMethodInfoInternal(typ, meth)
+        if m.MethodName = "op_Explicit" then
+            match LookupMethodInfoInternal(typ, meth) with
+            match res with
+            | LookupMemberError _ ->
+                match otherType() with
+                | Some ot ->
+                    match LookupMethodInfoInternal(ot, meth) with
+                    | LookupMemberError _ -> 
+                        let implicitMeth = Generic (Method { method.Entity.Value with MethodName = "op_Implicit" }) meth.Generics
+                        match LookupMethodInfoInternal(typ, implicitMeth) with
+                        | LookupMemberError _ -> 
+                            match LookupMethodInfoInternal(ot, implicitMeth) with
+                            | LookupMemberError _ -> res
+                            | sres -> sres
+                        | sres -> sres
+                    | sres -> sres
+                | _ -> res
+            | res -> res
+        elif m.MethodName = "op_Implicit" then
+            match res with
+            | LookupMemberError _ ->
+                match otherType() with
+                | Some ot ->
+                    match LookupMethodInfoInternal(ot, meth) with
+                    | LookupMemberError _ -> res
+                    | sres -> sres
+                | _ -> res
+            | res -> res
+        else
+            res
 
     member this.LookupFieldInfo(typ, field) =
         let typ = this.FindProxied typ

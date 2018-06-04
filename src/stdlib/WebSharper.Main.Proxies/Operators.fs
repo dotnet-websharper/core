@@ -151,7 +151,7 @@ let ( ~- ) (x: 'T) = X<'T>
 [<Inline "~ $x">]
 let ( ~~~ ) (x: 'T) = X<'T>
 
-[<Inline "Math.abs($x)">]
+[<Macro(typeof<M.Abs>)>]
 let Abs (x: 'T) = X<'T>
 
 [<Inline "Math.acos($x)">]
@@ -195,6 +195,9 @@ let DefaultArg x d =
 
 [<Inline "$x">]
 let Enum<'T when 'T : enum<int>> (x: 'T) = X<'T>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToDecimal (x: 'T) = X<decimal>
 
 [<Macro(typeof<M.Conversion>)>]
 let ToDouble (x: 'T) = X<double>
