@@ -121,43 +121,45 @@ type internal Dictionary<'K,'V when 'K : equality>
         let get k =
             let h = hash k
             let d = data.[h]
-            if As<bool> d then
+            if d ==. null then
+                notPresent()
+            else
                 d.Self |> Array.pick (fun (KeyValue(dk, v)) -> 
                     if equals.Call(dk, k) then Some v else None
                 ) 
-            else
-                notPresent()
 
         let set k v =
             let h = hash k
             let d = data.[h]
-            if As<bool> d then
+            if d ==.null then
+                count <- count + 1
+                data.[h] <- Array(KVP(k, v))
+            else
                 match d.Self |> Array.tryFindIndex (fun (KeyValue(dk, _)) -> equals.Call(dk, k)) with
                 | Some i ->
                     d.[i] <- KVP(k, v) 
                 | None ->
                     count <- count + 1
                     d.Push(KVP(k, v)) |> ignore
-            else
-                count <- count + 1
-                data.[h] <- Array(KVP(k, v))
                     
         let add k v =
             let h = hash k
             let d = data.[h]
-            if As<bool> d then
+            if d ==. null then
+                count <- count + 1
+                data.[h] <- Array(KVP(k, v))
+            else
                 if d.Self |> Array.exists (fun (KeyValue(dk, _)) -> equals.Call(dk, k)) then
                     alreadyAdded()                    
                 count <- count + 1
                 d.Push(KVP(k, v)) |> ignore
-            else
-                count <- count + 1
-                data.[h] <- Array(KVP(k, v))
                     
         let remove k =
             let h = hash k 
             let d = data.[h]
-            if As<bool> d then
+            if d ==. null then
+                false
+            else
                 let r = d.Self |> Array.filter (fun (KeyValue(dk, _)) -> not (equals.Call(dk, k)))
                 if r.Length < d.Length then                  
                     count <- count - 1
@@ -165,8 +167,6 @@ type internal Dictionary<'K,'V when 'K : equality>
                     true
                 else
                     false
-            else
-                false
 
         do for x in init do
             set x.Key x.Value
@@ -201,12 +201,12 @@ type internal Dictionary<'K,'V when 'K : equality>
         member this.ContainsKey(k: 'K) =
             let h = hash k
             let d = data.[h]
-            if As<bool> d then
+            if d ==. null then
+                false
+            else
                 d.Self |> Array.exists (fun (KeyValue(dk, _)) -> 
                     equals.Call(dk, k)
                 ) 
-            else
-                false
 
         member this.Count with [<Inline>] get () = count
 
@@ -230,7 +230,9 @@ type internal Dictionary<'K,'V when 'K : equality>
         member this.TryGetValue(k: 'K, [<Out>] res : byref<'V>) =
             let h = hash k
             let d = data.[h]
-            if As<bool> d then
+            if d ==. null then
+                false
+            else
                 let v =
                     d.Self |> Array.tryPick (fun (KeyValue(dk, v)) -> 
                         if equals.Call(dk, k) then Some v else None
@@ -240,8 +242,6 @@ type internal Dictionary<'K,'V when 'K : equality>
                     res <- v
                     true
                 | _ -> false
-            else
-                false
 
         member this.Values =
             As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
