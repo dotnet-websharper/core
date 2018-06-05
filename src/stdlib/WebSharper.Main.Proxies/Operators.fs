@@ -152,7 +152,7 @@ let ( ~- ) (x: 'T) = X<'T>
 let ( ~~~ ) (x: 'T) = X<'T>
 
 [<Macro(typeof<M.Abs>)>]
-[<Inline "Math.abs($value)">]
+[<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>
 
 [<Inline "Math.acos($x)">]

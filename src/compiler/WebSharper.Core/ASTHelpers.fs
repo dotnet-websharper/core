@@ -320,14 +320,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | StringType, DecimalType
         -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
     | _ ->
-        let opExplicit =
-            Method {
-                MethodName = "op_Explicit"
-                Parameters = [NonGenericType fromTyp]
-                ReturnType = NonGenericType toTyp
-                Generics = 0      
-            }
-        Call(None, NonGeneric fromTyp, NonGeneric opExplicit, [expr])
+        expr
 
 /// Change every occurence of one Id to another
 type ReplaceId(fromId, toId) =

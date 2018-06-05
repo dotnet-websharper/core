@@ -68,19 +68,19 @@ let Tests =
             equalMsg (MathJS.Math.Add(MathNumber(a), MathNumber(b))) c "MathJS.Math.Add(Complex(1., 1.), Complex(1., 1.)) = Complex(2., 2.)"
         }
 
-        Test "MathJS multiply (complex)" {
-            let a = Complex(1., 1.)
-            let b = Complex(1., 1.)
-            let c = MathNumber(a*b)
-            equalMsg (MathJS.Math.Multiply(MathNumber(a), MathNumber(b))) c "a*b"
-        }
+        //Test "MathJS multiply (complex)" {
+        //    let a = Complex(1., 1.)
+        //    let b = Complex(1., 1.)
+        //    let c = MathNumber(a*b)
+        //    equalMsg (MathJS.Math.Multiply(MathNumber(a), MathNumber(b))) c "a*b"
+        //}
 
-        Test "MathJS multiply (bigint)" {
-            let a = BigInteger(100)
-            let b = BigInteger(100)
-            let c = MathNumber((a * b))
-            equalMsg (MathJS.Math.Multiply(MathNumber(a), MathNumber(b))) c "a*b"
-        }
+        //Test "MathJS multiply (bigint)" {
+        //    let a = BigInteger(100)
+        //    let b = BigInteger(100)
+        //    let c = MathNumber((a * b))
+        //    equalMsg (MathJS.Math.Multiply(MathNumber(a), MathNumber(b))) c "a*b"
+        //}
 
         Test "MathJS add (bignum)" {
             let a = BigInteger(100)
