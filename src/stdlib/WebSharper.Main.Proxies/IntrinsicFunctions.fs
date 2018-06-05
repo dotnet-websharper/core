@@ -146,3 +146,6 @@ let CheckThis (this: 'T) =
     if this = null then
         invalidOp "The initialization of an object or value resulted in an object or value being accessed recursively before it was fully initialized."
     else this
+
+[<Inline>]
+let MakeDecimal lo med hi isNegative scale = System.Decimal(lo,med,hi,isNegative,scale)

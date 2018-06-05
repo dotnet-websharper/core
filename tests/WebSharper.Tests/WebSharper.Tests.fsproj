@@ -25,6 +25,7 @@
     <Compile Include="List.fs" />
     <Compile Include="Macro.fs" />
     <Compile Include="Math.fs" />
+    <Compile Include="MathJS.fs" />
     <Compile Include="Nullable.fs" />
     <Compile Include="Object.fs" />
     <Compile Include="ObjExpr.fs" />
