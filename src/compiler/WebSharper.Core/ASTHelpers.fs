@@ -253,7 +253,16 @@ let comparableTypes =
         "System.Char"
     ]
 
-let private (|SmallIntegralType|BigIntegralType|ScalarType|DecimalType|CharType|StringType|NonNumericType|) n =
+type private NumericTypeKind =
+    | SmallIntegralType
+    | BigIntegralType
+    | ScalarType
+    | DecimalType
+    | CharType
+    | StringType
+    | NonNumericType
+
+let private getNumericTypeKind n =
     if smallIntegralTypes.Contains n then SmallIntegralType
     elif bigIntegralTypes.Contains n then BigIntegralType
     elif scalarTypes.Contains n then ScalarType
@@ -280,7 +289,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
     let charCode expr =
         Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
-    match fromTyp.Value.FullName, toTyp.Value.FullName with
+    match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
     | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
     | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
     | ScalarType, ScalarType

@@ -507,17 +507,22 @@ type Abs() =
         let t = m.Generics.Head
         if t.IsParameter then
             MacroNeedsResolvedTypeArg t
-        elif scalarTypes.Contains t then
-            Unary(UnaryOperator.``-``, x) |> MacroOk
         else
-            let absMeth =
-                {
-                    MethodName = "Abs"
-                    Parameters = [t]
-                    ReturnType = t
-                    Generics = 0      
-                }
-            Call(None, t.TypeDefinition, absMeth, [x])
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    Unary(UnaryOperator.``-``, x) |> MacroOk
+                else
+                    let absMeth =
+                        Method {
+                            MethodName = "Abs"
+                            Parameters = [t]
+                            ReturnType = t
+                            Generics = 0      
+                        }
+                    Call(None, ct, NonGeneric absMeth, [x]) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Abs macro error, type not supported: %O" t)
 
 [<Sealed>]
 type String() =

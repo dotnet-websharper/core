@@ -550,32 +550,31 @@ type Compilation(meta: Info, ?hasGraph) =
             | NotCustomType -> LookupMemberError (TypeNotFound typ)
             | i -> CustomTypeMember i
 
-    member this.LookupMethodInfo(typ, meth: Concrete<Method>) = 
-        let m = meth.Entity.Value
+    member this.LookupMethodInfo(typ, meth: Method) = 
+        let m = meth.Value
 
         let otherType() = 
             match m.Parameters, m.ReturnType with
-            | [ ConcreteType pt ], ConcreteType rt when ct.Generics = [] && pt.Generics = [] ->
-                if pt = typ then
-                    Some rt
-                elif rt = typ then
-                    Some pt
+            | [ ConcreteType pt ], ConcreteType rt when pt.Generics = [] && rt.Generics = [] ->
+                if pt.Entity = typ then
+                    Some rt.Entity
+                elif rt.Entity = typ then
+                    Some pt.Entity
                 else None
             | _ -> None
 
-        let res = LookupMethodInfoInternal(typ, meth)
+        let res = this.LookupMethodInfoInternal(typ, meth)
         if m.MethodName = "op_Explicit" then
-            match LookupMethodInfoInternal(typ, meth) with
             match res with
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth) with
                     | LookupMemberError _ -> 
-                        let implicitMeth = Generic (Method { method.Entity.Value with MethodName = "op_Implicit" }) meth.Generics
-                        match LookupMethodInfoInternal(typ, implicitMeth) with
+                        let implicitMeth = Method { m with MethodName = "op_Implicit" }
+                        match this.LookupMethodInfoInternal(typ, implicitMeth) with
                         | LookupMemberError _ -> 
-                            match LookupMethodInfoInternal(ot, implicitMeth) with
+                            match this.LookupMethodInfoInternal(ot, implicitMeth) with
                             | LookupMemberError _ -> res
                             | sres -> sres
                         | sres -> sres
@@ -587,7 +586,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth) with
                     | LookupMemberError _ -> res
                     | sres -> sres
                 | _ -> res
