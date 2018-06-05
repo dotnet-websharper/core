@@ -152,6 +152,7 @@ let ( ~- ) (x: 'T) = X<'T>
 let ( ~~~ ) (x: 'T) = X<'T>
 
 [<Macro(typeof<M.Abs>)>]
+[<Inline "Math.abs($value)">]
 let Abs (x: 'T) = X<'T>
 
 [<Inline "Math.acos($x)">]
@@ -301,6 +302,7 @@ let Round (x: 'T) = X<'T>
 [<Inline "$x">]
 let CreateSequence (x: seq<'T>) = X<seq<'T>>
 
+[<Macro(typeof<M.Sign>); JavaScript>]
 let Sign<'T> (x: 'T) =
     match As<int> x with
     | 0            -> 0

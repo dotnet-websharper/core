@@ -511,7 +511,7 @@ type Abs() =
             match t with
             | ConcreteType ct ->
                 if scalarTypes.Contains ct.Entity.Value.FullName then
-                    Unary(UnaryOperator.``-``, x) |> MacroOk
+                    MacroFallback
                 else
                     let absMeth =
                         Method {
@@ -521,6 +521,32 @@ type Abs() =
                             Generics = 0      
                         }
                     Call(None, ct, NonGeneric absMeth, [x]) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Abs macro error, type not supported: %O" t)
+
+[<Sealed>]
+type Sign() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let signMeth =
+                        Method {
+                            MethodName = "get_Sign"
+                            Parameters = []
+                            ReturnType = NonGenericType Definitions.Int
+                            Generics = 0      
+                        }
+                    Call(Some x, ct, NonGeneric signMeth, []) |> MacroOk
             | _ ->
                 MacroError (sprintf "Abs macro error, type not supported: %O" t)
 

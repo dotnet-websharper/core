@@ -289,10 +289,13 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
     let charCode expr =
         Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
+    let fromCharCode expr =
+        Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
     match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
     | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
     | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
     | ScalarType, ScalarType
+    | DecimalType, DecimalType
     | CharType, (CharType | StringType)
     | StringType, StringType
         -> expr
@@ -301,19 +304,21 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | ScalarType, BigIntegralType
         -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
     | (SmallIntegralType | BigIntegralType | ScalarType), CharType
-        -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+        -> fromCharCode expr
     | DecimalType, CharType
-        -> Application(Global ["String"; "fromCharCode"], [toNumber expr], Pure, Some 1)
+        -> fromCharCode (toNumber expr)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
         -> charCode expr
     | CharType, DecimalType
-        -> charCode expr |> toDecimal
+        -> toDecimal (charCode expr)
     | (SmallIntegralType | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
     | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
         -> toNumber expr
-    | StringType, DecimalType ->
-        Call(None, NonGeneric toTyp, parseDecimal, [expr])
+    | (SmallIntegralType | BigIntegralType | ScalarType), DecimalType
+        -> toDecimal expr
+    | StringType, DecimalType
+        -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
     | _ ->
         let opExplicit =
             Method {
