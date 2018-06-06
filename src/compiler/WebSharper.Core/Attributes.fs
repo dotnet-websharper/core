@@ -210,6 +210,15 @@ type DateTimeFormatAttribute =
 type SPAEntryPointAttribute() = 
     inherit A()
 
+/// Marks methods, properties and constructors for always including it in JavaScript output.
+/// Includes the effect of JavaSctipt attribute.
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter)>]
+type JavaScriptExportAttribute() = 
+    inherit A()
+    
+    /// Specify a type full name or file name (without path) to export in JavaScript.
+    new (typeOrFile : string) = JavaScriptExportAttribute()
+
 /// Marks a type to be translated to have a prototype if it would not have one otherwise.
 /// This is needed if you want to do type checks in client code against it.
 [<Sealed; U(T.Class|||T.Struct)>]

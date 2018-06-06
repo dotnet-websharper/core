@@ -190,6 +190,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             p
         | _ -> thisDef
 
+    if annot.IsJavaScriptExport then
+        comp.AddJavaScriptExport (ExportNode (TypeNode def))
+
     let members = cls.GetMembers()
 
     let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
@@ -210,11 +213,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Warn = mAnnot.Warn
         }
 
-    let addMethod mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
+    let addMethod (mAnnot: A.MemberAnnotation) mdef kind compiled expr =
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (MethodNode (def, mdef)))
+        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled expr)))
         
-    let addConstructor mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
+    let addConstructor (mAnnot: A.MemberAnnotation) cdef kind compiled expr =
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (ConstructorNode (def, cdef)))
+        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled expr)))
 
     let inits = ResizeArray()                                               
     let staticInits = ResizeArray()                                               
@@ -794,6 +801,11 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     comp.AssemblyName <- assembly.Name
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
+
+    if asmAnnot.IsJavaScriptExport then
+        comp.AddJavaScriptExport ExportCurrentAssembly
+    for s in asmAnnot.JavaScriptExportTypesFilesAndAssemblies do
+        comp.AddJavaScriptExport (ExportByName s)
 
     comp.CustomTypesReflector <- A.reflectCustomType
 

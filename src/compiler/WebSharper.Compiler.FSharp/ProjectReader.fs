@@ -168,6 +168,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             p, Some proxied
         | _ -> thisDef, None
 
+    if annot.IsJavaScriptExport then
+        comp.AddJavaScriptExport (ExportNode (TypeNode def))
+
     let clsMembers = ResizeArray()
     
     let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled curriedArgs expr = 
@@ -197,12 +200,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> ()
         nr
 
-    let addMethod (mem: option<FSMFV * Member>) mAnnot (def: Method) kind compiled curriedArgs expr =
+    let addMethod (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) (mdef: Method) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
             if not <| ms.Contains memdef then
                 let candidates =
-                    let n = def.Value.MethodName
+                    let n = mdef.Value.MethodName
                     match memdef with
                     | Member.Method (i, _) ->
                         ms |> Seq.choose (fun m ->
@@ -234,20 +237,24 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let msg = sprintf "Proxy member do not match any member signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (MethodNode (def, mdef)))
+        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled curriedArgs expr)))
         
-    let addConstructor (mem: option<FSMFV * Member>) mAnnot (def: Constructor) kind compiled curriedArgs expr =
+    let addConstructor (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) (cdef: Constructor) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
-            if def.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
+            if cdef.Value.CtorParameters.Length > 0 && not (ms.Contains memdef) then
                 let candidates = 
                     ms |> Seq.choose (function Member.Constructor c -> Some c | _ -> None)
                     |> Seq.map (fun m -> string m.Value) |> List.ofSeq
                 if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
-                    let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    let msg = sprintf "Proxy constructor do not match any constructor signatures of target class. Current: %s, candidates: %s" (string cdef.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled curriedArgs expr)))
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (ConstructorNode (def, cdef)))
+        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled curriedArgs expr)))
 
     let annotations = Dictionary ()
         
@@ -978,6 +985,11 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
 
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
+
+    if asmAnnot.IsJavaScriptExport then
+        comp.AddJavaScriptExport ExportCurrentAssembly
+    for s in asmAnnot.JavaScriptExportTypesFilesAndAssemblies do
+        comp.AddJavaScriptExport (ExportByName s)
 
     comp.CustomTypesReflector <- A.reflectCustomType
     

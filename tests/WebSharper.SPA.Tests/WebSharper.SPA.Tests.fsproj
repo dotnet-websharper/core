@@ -3,6 +3,8 @@
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="File1.fs" />
+    <Compile Include="File2.fs" />
     <Compile Include="Main.fs" />
     <Content Include="Web.config" />
     <None Include="paket.references" />

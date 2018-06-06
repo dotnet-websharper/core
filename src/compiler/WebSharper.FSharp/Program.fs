@@ -178,6 +178,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let comp =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 
+    for jsExport in config.JavaScriptExport do
+
     match comp with
     | None ->
         1
@@ -247,7 +249,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             | _ -> []
         let currentJS =
             lazy CreateBundleJSOutput (getRefMeta()) currentMeta
-        Bundling.Bundle config metas currentMeta currentJS sources refs
+        Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
         TimedStage "Bundling"
         0
     | Some Html ->

@@ -58,6 +58,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let warnings = ResizeArray() 
 
     let mutable entryPoint = None
+    let jsExports = ResizeArray() 
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
     let generators = System.Collections.Generic.Dictionary<TypeDefinition, Generator option>()
@@ -111,6 +112,11 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.EntryPoint
         with get () = entryPoint
         and set ep = entryPoint <- ep 
+
+    member this.JavaScriptExports = List.ofSeq jsExports
+
+    member this.AddJavaScriptExport (jsExport: JsExport) =
+        jsExports.Add jsExport
 
     member this.Warnings = List.ofSeq warnings
 
