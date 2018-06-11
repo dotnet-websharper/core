@@ -260,7 +260,7 @@ type private NumericTypeKind =
     | DecimalType
     | CharType
     | StringType
-    | NonNumericType
+    | NonNumericType        
 
 let private getNumericTypeKind n =
     if smallIntegralTypes.Contains n then SmallIntegralType
@@ -268,7 +268,7 @@ let private getNumericTypeKind n =
     elif scalarTypes.Contains n then ScalarType
     elif n = "System.Char" then CharType
     elif n = "System.String" then StringType
-    elif n = "System.Decimal" then StringType
+    elif n = "System.Decimal" then DecimalType
     else NonNumericType
 
 let private floatCtor =
@@ -313,7 +313,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         -> toDecimal (charCode expr)
     | (SmallIntegralType | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
-    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
+    | (StringType | DecimalType), (SmallIntegralType | BigIntegralType | ScalarType)
         -> toNumber expr
     | (SmallIntegralType | BigIntegralType | ScalarType), DecimalType
         -> toDecimal expr

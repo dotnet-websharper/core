@@ -59,6 +59,8 @@ module Decimals =
         else
             invalidArg "bits" "The length of the bits array is not 4"
 
+open Decimals
+
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 [<Proxy(typeof<System.Decimal>)>]
 [<Prototype(false)>]
@@ -125,7 +127,7 @@ type DecimalProxy =
     member this.CompareTo(n : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) n
 
     [<Inline>]
-    member this.CompareTo(n : obj) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) n
+    member this.CompareTo(n : obj) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) (n |> As<decimal>)
 
     [<Inline>]
     static member Divide(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Divide n1 n2
@@ -182,7 +184,7 @@ type DecimalProxy =
     static member Subtract(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Subtract n1 n2
     
     [<Inline>]
-    member this.Sign = float (DecimalProxy.un WSDecimalMath.Sign n) |> As<int>
+    member this.Sign = float (DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>)) |> As<int>
         
     (*
     [<Inline>]

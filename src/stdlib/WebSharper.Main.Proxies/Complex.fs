@@ -20,12 +20,13 @@
 
 namespace WebSharper
 
+open System.Numerics
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.MathJS
 
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
-[<Proxy(typeof<System.Numerics.Complex>)>]
+[<Proxy(typeof<Complex>)>]
 type ComplexProxy =
 
     [<Inline "math.complex($r, $i)">]
