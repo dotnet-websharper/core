@@ -262,10 +262,28 @@ let Tests =
                 (createInt32ArrayCtorDesc [| 0xF0000; 0xF0000; 0xF0000; 0xF0000 |] 18133887298.441562272235520m)
         }
 
+        Test "Decimal conversions" {
+            equal (float 5.6m) 5.6
+            equal (int 5.6m) 5
+            equal (int -5.6m) -5
+            equal (decimal 5) 5m
+            equal (decimal 5.7) 5.7m
+            equal (string 4.5m) "4.5"
+            equal (decimal "4.5") 4.5m
+        }
+
+        Test "Decimal functions" {
+            equal (abs 5m) 5m
+            equal (abs -6m) 6m
+            equal (System.Math.Abs -7m) 7m
+            equal (sign 3m) 1
+            equal (sign -3m) -1
+        }
+
         Test "Decimal remoting"  {
             let x = 18133887298.441562272235520m
             let! res = Add1ToDecimal x 
             equal res (x + 1m) 
         }
-
+                                  
     }

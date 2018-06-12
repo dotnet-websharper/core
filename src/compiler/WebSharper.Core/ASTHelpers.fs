@@ -307,6 +307,10 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         -> fromCharCode expr
     | DecimalType, CharType
         -> fromCharCode (toNumber expr)
+    | DecimalType, BigIntegralType
+        -> toNumber expr
+    | DecimalType, SmallIntegralType
+        -> toNumber expr ^>> !~(Int 0)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
         -> charCode expr
     | CharType, DecimalType

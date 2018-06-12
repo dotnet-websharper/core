@@ -603,11 +603,9 @@ let serializers =
     add encGuid decGuid d   
     let encDecimal (d: decimal) =
         let b = System.Decimal.GetBits(d)
-        EncodedInstance (
+        EncodedArrayInstance (
             AST.Address [ "Decimal"; "WebSharper" ], 
-            [
-                "bits", EncodedArray (b |> Seq.map (string >> EncodedNumber) |> List.ofSeq)
-            ]
+            b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
         )
     let decDecimal = function
         | Object [ "mathjs", String "BigNumber"; "value", String d ] as x ->

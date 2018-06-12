@@ -46,9 +46,6 @@ type private MathProxy =
     [<Inline "Math.abs($value)">]
     static member Abs(value: double) = X<double>
 
-    [<Macro(typeof<M.Abs>)>]
-    static member Abs(value: decimal) = X<decimal>
-
     [<Inline "Math.acos($d)">]
     static member Acos(d: double) = X<double>
 
@@ -175,9 +172,6 @@ type private MathProxy =
 
     [<Inline>]
     static member Sign(value: double) = sign value
-
-    [<Macro(typeof<M.Abs>)>]
-    static member Abs(value: decimal) = X<int>
 
     [<Inline "Math.sin($a)">]
     static member Sin(a: double) = X<double>

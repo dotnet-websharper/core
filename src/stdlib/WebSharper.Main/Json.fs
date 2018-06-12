@@ -115,7 +115,7 @@ let Activate<'T> (json: obj) : 'T =
                         if t ===. SpecialTypes.List then
                             box (List.ofArray (As<obj[]> o))
                         elif t ===. SpecialTypes.Decimal then
-                            box (System.Decimal(o?bits : int[]))
+                            box (JS.Global?WebSharper?Decimal?CreateDecimalBits(o))
                         else
                             let r = JS.New types.[ti]
                             JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)

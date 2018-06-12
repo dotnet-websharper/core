@@ -85,6 +85,14 @@
       <Project>{730ae40a-001c-4137-972d-898dc7c2bf0a}</Project>
       <Name>WebSharper.JQuery</Name>
     </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj">
+      <Project>{e4b66fc3-0227-481a-9fa0-eb7a0bf66bac}</Project>
+      <Name>WebSharper.MathJS.Extensions</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS\WebSharper.MathJS.fsproj">
+      <Project>{927a30b7-9316-4374-8526-a011234638b9}</Project>
+      <Name>WebSharper.MathJS</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj">
       <Project>{a7f7a74b-d0ee-4918-8a54-280fc7d2a30c}</Project>
       <Name>WebSharper.Testing</Name>

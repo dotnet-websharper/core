@@ -25,7 +25,7 @@ open WebSharper.JavaScript
 open WebSharper.MathJS
 
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
-module Decimals =
+module internal Decimal =
     [<JavaScript>]
     let WSDecimalMath: MathJS.MathInstance =
         MathJS.Math.Create(Config(Number = "BigNumber", Precision = 29., Predictable = true))
@@ -59,7 +59,7 @@ module Decimals =
         else
             invalidArg "bits" "The length of the bits array is not 4"
 
-open Decimals
+open Decimal
 
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 [<Proxy(typeof<System.Decimal>)>]
@@ -184,7 +184,7 @@ type DecimalProxy =
     static member Subtract(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Subtract n1 n2
     
     [<Inline>]
-    member this.Sign = float (DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>)) |> As<int>
+    member this.Sign = float (DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>)) |> int
         
     (*
     [<Inline>]
@@ -229,7 +229,17 @@ type DecimalProxy =
     static member op_UnaryPlus(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.UnaryPlus n
 
 [<Proxy "Microsoft.FSharp.Core.LanguagePrimitives+IntrinsicFunctions, FSharp.Core">]
-module internal WebSharper.IntrinsicFunctionProxy =
+module internal IntrinsicFunctionProxy =
 
     [<Inline>]
     let MakeDecimal lo med hi isNegative scale = System.Decimal(lo,med,hi,isNegative,scale)
+
+[<Proxy(typeof<System.Math>)>]
+[<Name "Decimal">]
+type private MathProxyForDecimals =
+
+    [<Inline>]
+    static member Abs(value: decimal) = abs value
+
+    [<Inline>]
+    static member Sign(value: decimal) = sign value

@@ -1562,6 +1562,24 @@ type Compilation(meta: Info, ?hasGraph) =
 
             graph.AddEdge(controlIndex, activate)
 
+        // Add graph edge needed for decimal remoting
+        if hasGraph && this.AssemblyName = "WebSharper.MathJS.Extensions" then
+            let createDecimalBits =
+                MethodNode(
+                    TypeDefinition {
+                        Assembly = "WebSharper.MathJS.Extensions"
+                        FullName = "WebSharper.Decimal"
+                    },
+                    Method {
+                        MethodName = "CreateDecimalBits"
+                        Parameters = [ArrayType(NonGenericType Definitions.Int, 1)]
+                        ReturnType = NonGenericType Definitions.Decimal
+                        Generics = 0
+                    } 
+                )
+            
+            graph.AddEdge(TypeNode Definitions.Decimal, createDecimalBits)
+
     member this.VerifyRPCs () =
         let rec isWebControl (cls: ClassInfo) =
             match cls.BaseClass with
