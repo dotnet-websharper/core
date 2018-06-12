@@ -416,6 +416,12 @@ module Definitions =
             Assembly = "FSharp.Core"
             FullName = "Microsoft.FSharp.Core.FSharpChoice`" + string arity
         }
+    
+    let Decimal =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Decimal"
+        }
 
 /// Stores a definition and type parameter information
 type Concrete<'T> =

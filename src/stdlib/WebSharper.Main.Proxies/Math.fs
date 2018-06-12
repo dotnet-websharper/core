@@ -22,6 +22,8 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
+module M = WebSharper.Core.Macros
+
 [<Name "Math">]
 [<Proxy(typeof<System.Math>)>]
 type private MathProxy =

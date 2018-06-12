@@ -151,6 +151,7 @@ let ( ~- ) (x: 'T) = X<'T>
 [<Inline "~ $x">]
 let ( ~~~ ) (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Abs>)>]
 [<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>
 
@@ -195,6 +196,9 @@ let DefaultArg x d =
 
 [<Inline "$x">]
 let Enum<'T when 'T : enum<int>> (x: 'T) = X<'T>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToDecimal (x: 'T) = X<decimal>
 
 [<Macro(typeof<M.Conversion>)>]
 let ToDouble (x: 'T) = X<double>
@@ -298,6 +302,7 @@ let Round (x: 'T) = X<'T>
 [<Inline "$x">]
 let CreateSequence (x: seq<'T>) = X<seq<'T>>
 
+[<Macro(typeof<M.Sign>); JavaScript>]
 let Sign<'T> (x: 'T) =
     match As<int> x with
     | 0            -> 0
