@@ -285,9 +285,11 @@ type AttributeReader<'A>() =
                 | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Macro (m, p) -> macros.Add (m, p)
                 | A.JavaScript j -> js <- Some j
-                | A.SPAEntryPoint 
+                | A.SPAEntryPoint ->
+                    js <- Some true
+                    attrArr.Add A.SPAEntryPoint
                 | A.JavaScriptExport None -> 
-                    if Option.isNone js then js <- Some true
+                    js <- Some true
                     jse <- true
                 | A.Stub -> stub <- true
                 | A.Proxy t -> proxy <- Some t

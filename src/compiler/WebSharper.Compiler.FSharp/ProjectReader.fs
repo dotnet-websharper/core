@@ -973,16 +973,20 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
     comp.AssemblyName <- assemblyName
     let sr = CodeReader.SymbolReader(comp)    
     
-    let asmAnnot = sr.AttributeReader.GetAssemblyAnnot(checkResults.AssemblySignature.Attributes)
+    let mutable asmAnnot =
+        sr.AttributeReader.GetAssemblyAnnot(checkResults.AssemblySignature.Attributes)
 
-    let asmAnnot =
-        match config.JavaScriptScope with
-        | JSDefault -> asmAnnot
-        | JSAssembly -> { asmAnnot with IsJavaScript = true }
-        | JSFilesOrTypes a -> { asmAnnot with JavaScriptTypesAndFiles = asmAnnot.JavaScriptTypesAndFiles @ List.ofArray a }
+    match config.JavaScriptScope with
+    | JSDefault -> ()
+    | JSAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+    | JSFilesOrTypes a -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = List.ofArray a @ asmAnnot.JavaScriptTypesAndFiles }
 
     for jsExport in config.JavaScriptExport do
         comp.AddJavaScriptExport jsExport
+        match jsExport with
+        | ExportCurrentAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+        | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
+        | _ -> ()
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
