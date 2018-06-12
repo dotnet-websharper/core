@@ -981,6 +981,9 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
         | JSAssembly -> { asmAnnot with IsJavaScript = true }
         | JSFilesOrTypes a -> { asmAnnot with JavaScriptTypesAndFiles = asmAnnot.JavaScriptTypesAndFiles @ List.ofArray a }
 
+    for jsExport in config.JavaScriptExport do
+        comp.AddJavaScriptExport jsExport
+
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyRequires <- asmAnnot.Requires

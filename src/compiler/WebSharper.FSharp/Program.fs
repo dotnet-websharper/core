@@ -178,8 +178,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let comp =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 
-    for jsExport in config.JavaScriptExport do
-
     match comp with
     | None ->
         1

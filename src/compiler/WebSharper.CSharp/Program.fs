@@ -120,8 +120,6 @@ let Compile config =
     let comp =
         compiler.Compile(refMeta, config)
     
-    for jsExport in config.JavaScriptExport do
-
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors config.WarnOnly comp
         argError "" // exits without printing more errors

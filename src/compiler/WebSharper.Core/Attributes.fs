@@ -75,7 +75,7 @@ type WarnAttribute(warning: string) =
     inherit A()
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter, AllowMultiple = true)>]
 type JavaScriptAttribute() =
     inherit A()
 
@@ -212,7 +212,7 @@ type SPAEntryPointAttribute() =
 
 /// Marks methods, properties and constructors for always including it in JavaScript output.
 /// Includes the effect of JavaSctipt attribute.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter, AllowMultiple = true)>]
 type JavaScriptExportAttribute() = 
     inherit A()
     
