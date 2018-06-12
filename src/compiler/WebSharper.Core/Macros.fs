@@ -503,10 +503,6 @@ type Abs() =
     inherit Macro()
     override this.TranslateCall(c) =
         let m = c.Method
-        if List.isEmpty c.Arguments then
-            failwith "Abs arguments empty"
-        if List.isEmpty m.Generics then
-            failwith "Abs generics empty"
         let x = c.Arguments.Head
         let t = m.Generics.Head
         if t.IsParameter then
@@ -552,7 +548,7 @@ type Sign() =
                         }
                     Call(Some x, ct, NonGeneric signMeth, []) |> MacroOk
             | _ ->
-                MacroError (sprintf "Abs macro error, type not supported: %O" t)
+                MacroError (sprintf "Sign macro error, type not supported: %O" t)
 
 [<Sealed>]
 type String() =

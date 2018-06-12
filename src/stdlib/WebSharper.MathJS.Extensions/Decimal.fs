@@ -24,6 +24,8 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.MathJS
 
+module M = WebSharper.Core.Macros
+
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 module internal Decimal =
     [<JavaScript>]
@@ -81,20 +83,20 @@ type DecimalProxy =
     static member private mathn (v: decimal): MathNumber = As<MathNumber> v
 
     [<Inline>]
-    static member private un<'T> (op: MathNumber -> MathNumber) (v: decimal): 'T = 
+    static member private un (op: MathNumber -> MathNumber) (v: decimal) = 
         DecimalProxy.mathn v
         |> op
-        |> As<'T>
+        |> As<decimal>
 
     [<Inline>]
-    static member private bin (op: (MathNumber * MathNumber) -> MathNumber) (v1: decimal) (v2: decimal): 'T = 
+    static member private bin (op: (MathNumber * MathNumber) -> MathNumber) (v1: decimal) (v2: decimal) = 
         op (DecimalProxy.mathn v1, DecimalProxy.mathn v2)
-        |> As<'T>
+        |> As<decimal>
 
     [<Inline>]
-    static member private mul (op: (MathNumber * MathNumber * MathNumber []) -> MathNumber) (v1: decimal) (v2: decimal): 'T = 
+    static member private mul (op: (MathNumber * MathNumber * MathNumber []) -> MathNumber) (v1: decimal) (v2: decimal) = 
         op (DecimalProxy.mathn v1, DecimalProxy.mathn v2, [||])
-        |> As<'T>
+        |> As<decimal>
 
     [<Inline>]
     static member CtorProxy(v : double) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
@@ -121,22 +123,22 @@ type DecimalProxy =
     static member Add(n1 : decimal, n2 : decimal) : decimal = DecimalProxy.mul WSDecimalMath.Add n1 n2
 
     [<Inline>]
-    static member Compare(n1 : decimal, n2 : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare n1 n2
+    static member Compare(n1 : decimal, n2 : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare n1 n2 |> float |> As<int>
 
     [<Inline>]
-    member this.CompareTo(n : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) n
+    member this.CompareTo(n : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) n |> float |> As<int>
 
     [<Inline>]
-    member this.CompareTo(n : obj) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) (n |> As<decimal>)
+    member this.CompareTo(n : obj) : int = DecimalProxy.bin WSDecimalMath.Compare (this |> As<decimal>) (n |> As<decimal>) |> float |> As<int>
 
     [<Inline>]
     static member Divide(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Divide n1 n2
 
     [<Inline>]
-    member this.Equals(n : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal (this |> As<decimal>) n
+    member this.Equals(n : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal (this |> As<decimal>) n |> As<bool>
 
     [<Inline>]
-    static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b
+    static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b |> As<bool>
 
     [<Inline>]
     static member GreatestCommonDivisor(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Gcd n1 n2
@@ -184,7 +186,7 @@ type DecimalProxy =
     static member Subtract(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Subtract n1 n2
     
     [<Inline>]
-    member this.Sign = float (DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>)) |> int
+    member this.Sign = DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>) |> float |> As<int>
         
     (*
     [<Inline>]
@@ -235,11 +237,10 @@ module internal IntrinsicFunctionProxy =
     let MakeDecimal lo med hi isNegative scale = System.Decimal(lo,med,hi,isNegative,scale)
 
 [<Proxy(typeof<System.Math>)>]
-[<Name "Decimal">]
 type private MathProxyForDecimals =
 
     [<Inline>]
-    static member Abs(value: decimal) = abs value
+    static member Abs(value: decimal) = DecimalProxy.Abs value
 
     [<Inline>]
-    static member Sign(value: decimal) = sign value
+    static member Sign(value: decimal) = (As<DecimalProxy> value).Sign
