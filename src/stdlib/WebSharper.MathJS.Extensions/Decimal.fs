@@ -227,3 +227,9 @@ type DecimalProxy =
 
     [<Inline>]
     static member op_UnaryPlus(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.UnaryPlus n
+
+[<Proxy "Microsoft.FSharp.Core.LanguagePrimitives+IntrinsicFunctions, FSharp.Core">]
+module internal WebSharper.IntrinsicFunctionProxy =
+
+    [<Inline>]
+    let MakeDecimal lo med hi isNegative scale = System.Decimal(lo,med,hi,isNegative,scale)

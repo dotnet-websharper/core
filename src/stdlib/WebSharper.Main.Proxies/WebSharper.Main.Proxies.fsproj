@@ -107,17 +107,11 @@
     <Compile Include="../WebSharper.Main.Proxies/AsyncBuilder.fs">
       <Link>AsyncBuilder.fs</Link>
     </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/BigInteger.fs">
-      <Link>BigInteger.fs</Link>
-    </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Char.fs">
       <Link>Char.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Choice.fs">
       <Link>Choice.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/Complex.fs">
-      <Link>Complex.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Console.fs">
       <Link>Console.fs</Link>
@@ -127,9 +121,6 @@
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/DateTime.fs">
       <Link>DateTime.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main.Proxies/Decimal.fs">
-      <Link>Decimal.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Delegate.fs">
       <Link>Delegate.fs</Link>
