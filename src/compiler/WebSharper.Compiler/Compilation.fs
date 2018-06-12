@@ -1584,7 +1584,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     } 
                 )
             
-            graph.AddEdge(TypeNode Definitions.Decimal, createDecimalBits)
+            let createDecimalBitsIndex = graph.Lookup.[createDecimalBits]
+
+            graph.AddEdge(TypeNode Definitions.Decimal, createDecimalBitsIndex)
 
     member this.VerifyRPCs () =
         let rec isWebControl (cls: ClassInfo) =
