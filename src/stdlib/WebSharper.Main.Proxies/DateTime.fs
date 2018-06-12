@@ -257,6 +257,12 @@ type private DateTimeProxy =
     [<Inline "$a <= $b">]
     static member op_LessThanOrEqual (a: D, b: D) = X<bool>
 
+    [<Inline "new Date($y, $mo, 0).getDate()">]
+    static member DaysInMonth (y: int, mo: int) = X<int>
+
+    [<Inline "new Date($y, 1, 29).getDate() == 29">]
+    static member IsLeapYear (y: int) = X<bool>
+
 [<Proxy(typeof<System.DateTimeOffset>)>]
 [<Prototype false>]
 [<Name "DateTimeOffset">]

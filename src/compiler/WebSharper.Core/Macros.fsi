@@ -49,6 +49,16 @@ type Conversion =
     inherit Macro
 
 [<Sealed>]
+type Abs =
+    new : unit -> Abs
+    inherit Macro
+
+[<Sealed>]
+type Sign =
+    new : unit -> Sign
+    inherit Macro
+
+[<Sealed>]
 type String =
     new : unit -> String
     inherit Macro

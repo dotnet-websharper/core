@@ -253,19 +253,49 @@ let comparableTypes =
         "System.Char"
     ]
 
-let private (|SmallIntegralType|BigIntegralType|ScalarType|CharType|StringType|NonNumericType|) n =
+type private NumericTypeKind =
+    | SmallIntegralType
+    | BigIntegralType
+    | ScalarType
+    | DecimalType
+    | CharType
+    | StringType
+    | NonNumericType        
+
+let private getNumericTypeKind n =
     if smallIntegralTypes.Contains n then SmallIntegralType
     elif bigIntegralTypes.Contains n then BigIntegralType
     elif scalarTypes.Contains n then ScalarType
     elif n = "System.Char" then CharType
     elif n = "System.String" then StringType
+    elif n = "System.Decimal" then DecimalType
     else NonNumericType
 
+let private floatCtor =
+    Constructor { CtorParameters = [ NonGenericType Definitions.Float ] }
+
+let private parseDecimal =
+    Method {
+        MethodName = "Parse"
+        Parameters = [ NonGenericType Definitions.String ]
+        ReturnType = NonGenericType Definitions.Decimal
+        Generics = 0      
+    } |> NonGeneric
+
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
-    match fromTyp.Value.FullName, toTyp.Value.FullName with
+    let toNumber expr =
+        Application(Global ["Number"], [expr], Pure, Some 1)
+    let toDecimal expr =
+        Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
+    let charCode expr =
+        Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
+    let fromCharCode expr =
+        Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+    match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
     | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
     | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
     | ScalarType, ScalarType
+    | DecimalType, DecimalType
     | CharType, (CharType | StringType)
     | StringType, StringType
         -> expr
@@ -274,14 +304,27 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | ScalarType, BigIntegralType
         -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
     | (SmallIntegralType | BigIntegralType | ScalarType), CharType
-        -> Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+        -> fromCharCode expr
+    | DecimalType, CharType
+        -> fromCharCode (toNumber expr)
+    | DecimalType, BigIntegralType
+        -> toNumber expr
+    | DecimalType, SmallIntegralType
+        -> toNumber expr ^>> !~(Int 0)
     | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
-        -> Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None) 
-    | (SmallIntegralType | BigIntegralType | ScalarType | NonNumericType), StringType
+        -> charCode expr
+    | CharType, DecimalType
+        -> toDecimal (charCode expr)
+    | (SmallIntegralType | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
-    | StringType, (SmallIntegralType | BigIntegralType | ScalarType)
-        -> Application(Global ["Number"], [expr], Pure, Some 1)
-    | _ -> expr
+    | (StringType | DecimalType), (SmallIntegralType | BigIntegralType | ScalarType)
+        -> toNumber expr
+    | (SmallIntegralType | BigIntegralType | ScalarType), DecimalType
+        -> toDecimal expr
+    | StringType, DecimalType
+        -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
+    | _ ->
+        expr
 
 /// Change every occurence of one Id to another
 type ReplaceId(fromId, toId) =

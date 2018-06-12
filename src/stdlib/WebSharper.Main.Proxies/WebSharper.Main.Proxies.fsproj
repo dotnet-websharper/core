@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
@@ -245,6 +245,7 @@
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
+    <ProjectReference Include="..\WebSharper.MathJS\WebSharper.MathJS.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

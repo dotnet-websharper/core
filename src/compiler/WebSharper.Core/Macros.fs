@@ -487,7 +487,7 @@ type Conversion() =
         | TypeParameter _, OptNbleTypeDef tt ->
             let tn = tt.Value.FullName
             let warnAboutChar res =
-                MacroWarning ("Unsafe generic conversion for client-side, make sure input cannot be a char", MacroOk res)
+                MacroWarning ("Unsafe generic conversion for client-side, make sure input cannot be a char or decimal", MacroOk res)
             if integralTypes.Contains tn then
                 parseInt a |> withNbleSupport |> warnAboutChar
             elif scalarTypes.Contains tn then
@@ -497,6 +497,62 @@ type Conversion() =
             else
                 MacroError ("Conversion macro error: generic to " + tn)
         | f, t -> MacroError (sprintf "Conversion macro error: %O to %O" f t)
+
+[<Sealed>]
+type Abs() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        if List.isEmpty c.Arguments then
+            failwith "Abs arguments empty"
+        if List.isEmpty m.Generics then
+            failwith "Abs generics empty"
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let absMeth =
+                        Method {
+                            MethodName = "Abs"
+                            Parameters = [t]
+                            ReturnType = t
+                            Generics = 0      
+                        }
+                    Call(None, ct, NonGeneric absMeth, [x]) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Abs macro error, type not supported: %O" t)
+
+[<Sealed>]
+type Sign() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let signMeth =
+                        Method {
+                            MethodName = "get_Sign"
+                            Parameters = []
+                            ReturnType = NonGenericType Definitions.Int
+                            Generics = 0      
+                        }
+                    Call(Some x, ct, NonGeneric signMeth, []) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Abs macro error, type not supported: %O" t)
 
 [<Sealed>]
 type String() =
