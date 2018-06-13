@@ -124,7 +124,7 @@ module Bundling =
                             | M.TypeNode td
                             | M.MethodNode (td, _)
                             | M.ConstructorNode (td, _) 
-                                -> e.Contains td.Value.FullName
+                                -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
                             | _ -> false
                         )
                 yield!  
