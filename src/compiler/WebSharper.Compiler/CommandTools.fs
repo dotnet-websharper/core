@@ -238,9 +238,9 @@ module ExecuteCommands =
                 let di = DirectoryInfo(d)
                 if not di.Exists then
                     di.Create()
-                d
-            | None -> failwith "WebSharperBundleOutputDir property is required"
-        | Some dir -> dir
+                Some d
+            | None -> None
+        | Some out -> Some out
 
     let SendResult result =
         match result with

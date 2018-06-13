@@ -52,7 +52,6 @@ module Bundling =
 
     let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
-        let outputDir = BundleOutputDir config (GetWebRoot config)
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -295,22 +294,53 @@ module Bundling =
                 Some (Content.Create(t))
             else None
 
-        System.IO.Directory.CreateDirectory outputDir |> ignore
-        let write (c: Content) (ext: string) =
-            c.WriteFile(Path.Combine(outputDir, fileName + ext))
-        let writeMapped (c: Content) m (ext: string) =
-            write c ext
-            m |> Option.iter (fun mc ->
-                let mapExt = ext.Replace(".js", ".map")
-                write mc mapExt
-                File.AppendAllLines(
-                    Path.Combine(outputDir, fileName + ext),
-                    [| "//# sourceMappingURL=" + fileName + mapExt |]
+        let mutable hasOutput = false
+
+        match BundleOutputDir config (GetWebRoot config) with
+        | Some outputDir ->
+            hasOutput <- true
+            System.IO.Directory.CreateDirectory outputDir |> ignore
+            let write (c: Content) (ext: string) =
+                c.WriteFile(Path.Combine(outputDir, fileName + ext))
+            let writeMapped (c: Content) m (ext: string) =
+                write c ext
+                m |> Option.iter (fun mc ->
+                    let mapExt = ext.Replace(".js", ".map")
+                    write mc mapExt
+                    File.AppendAllLines(
+                        Path.Combine(outputDir, fileName + ext),
+                        [| "//# sourceMappingURL=" + fileName + mapExt |]
+                    )
                 )
-            )
+
+            write css ".css"
+            write htmlHeaders ".head.html"
+            write javaScriptHeaders ".head.js"
+            writeMapped javaScript mapping ".js"
+            writeMapped minifiedJavaScript minifiedMapping ".min.js"
+        | None -> ()
+
+        match config.ProjectType, config.JSOutputPath with
+        | Some BundleOnly, Some path ->
+            hasOutput <- true
+            let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
+            javaScript.WriteFile(fullPath)
+        | _ -> ()
+
+        match config.ProjectType, config.MinJSOutputPath with
+        | Some BundleOnly, Some path ->
+            hasOutput <- true
+            let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
+            minifiedJavaScript.WriteFile(fullPath)
+        | _ -> ()
+
+        if not hasOutput then  
+            match config.ProjectType with
+            | Some Bundle ->
+                failwith "WebSharperBundleOutputDir property (or \"outputDir\" in wsconfig.json) is required for Bundle projects"
+            | Some BundleOnly ->
+                failwith "WebSharperBundleOutputDir property (or \"outputDir\", \"jsOutput\" or \"minJsOutput\" in wsconfig.json) is required for BundleOnly projects"
+            | p ->
+                failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
+
         
-        write css ".css"
-        write htmlHeaders ".head.html"
-        write javaScriptHeaders ".head.js"
-        writeMapped javaScript mapping ".js"
-        writeMapped minifiedJavaScript minifiedMapping ".min.js"
