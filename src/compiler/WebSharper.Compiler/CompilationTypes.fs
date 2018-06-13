@@ -459,3 +459,8 @@ type CompilationWarning =
         match this with
         | SourceWarning msg -> msg 
         | PublicProxy typ -> sprintf "Proxy type should not be public: %s" typ.Value.FullName
+
+type JsExport =
+    | ExportCurrentAssembly
+    | ExportByName of string
+    | ExportNode of Node

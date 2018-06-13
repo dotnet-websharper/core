@@ -74,6 +74,7 @@ type WsConfig =
         DownloadResources : bool option
         AnalyzeClosures : bool option
         JavaScriptScope : JavaScriptScope
+        JavaScriptExport : JsExport[]
         JSOutputPath : string option
         MinJSOutputPath : string option
     }
@@ -104,6 +105,7 @@ type WsConfig =
              DownloadResources = None       
              AnalyzeClosures = None
              JavaScriptScope = JSDefault
+             JavaScriptExport = [||]
              JSOutputPath = None
              MinJSOutputPath = None
         }
@@ -186,6 +188,20 @@ type WsConfig =
                         ) |> Array.ofSeq |> JSFilesOrTypes
                     | _ -> argError "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
                 res <- { res with JavaScriptScope = j }
+            | "javascriptexport" ->
+                let j =
+                    match v with
+                    | Json.True -> [| ExportCurrentAssembly |]
+                    | Json.False -> [||]
+                    | Json.Array a ->
+                        a |> Seq.map (
+                            function
+                            | Json.True -> ExportCurrentAssembly
+                            | Json.String s -> ExportByName s
+                            | _ -> argError "Invalid value in wsconfig.json for JavaScriptExport, expecting true or false or an array of strings."
+                        ) |> Array.ofSeq
+                    | _ -> argError "Invalid value in wsconfig.json for JavaScriptExport, expecting true or false or an array of strings." 
+                res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
             | "jsoutput" ->
                 res <- { res with JSOutputPath = Some (getPath k v) }
             | "minjsoutput" ->

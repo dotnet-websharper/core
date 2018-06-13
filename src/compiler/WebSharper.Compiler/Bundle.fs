@@ -50,7 +50,7 @@ module Bundling =
     open WebSharper.Compiler.CommandTools
     open ExecuteCommands
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
         let outputDir = BundleOutputDir config (GetWebRoot config)
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile
@@ -107,7 +107,42 @@ module Bundling =
                 ResourceDependencyCache = null
             }
 
-        let nodes = graph.GetDependencies [ M.EntryPointNode ]        
+        let nodes = 
+            let jsExportNames =
+                jsExport |> List.choose (function 
+                    | ExportByName n -> Some n
+                    | _ -> None
+                )
+            seq {
+                yield M.EntryPointNode 
+                match jsExportNames with
+                | [] -> ()
+                | _ ->
+                    let e = System.Collections.Generic.HashSet jsExportNames
+                    yield! 
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode (a, _) -> e.Contains a
+                            | M.TypeNode td
+                            | M.MethodNode (td, _)
+                            | M.ConstructorNode (td, _) 
+                                -> e.Contains td.Value.FullName
+                            | _ -> false
+                        )
+                yield!  
+                    jsExport |> Seq.choose (function 
+                        | ExportNode n -> Some n
+                        | _ -> None
+                    )
+                if jsExport |> Seq.contains ExportCurrentAssembly then
+                    yield 
+                        // assembly nodes are ordered, current is always last
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode _ -> true
+                            | _ -> false
+                        )
+                        |> Seq.last
+            }
+            |> graph.GetDependencies
         let pkg =   
             if concatScripts then
                 WebSharper.Core.AST.Undefined
@@ -119,8 +154,10 @@ module Bundling =
                 let current = 
                     if dce then trimMetadata meta nodes 
                     else meta
+                let forceEntryPoint =
+                    List.isEmpty jsExport
                 try
-                    Packager.packageAssembly current current true
+                    Packager.packageAssembly current current forceEntryPoint
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes

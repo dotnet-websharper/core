@@ -170,7 +170,7 @@ let Compile config =
     | Some (Bundle | BundleOnly) ->
         let currentJS =
             lazy CreateBundleJSOutput refMeta currentMeta
-        Bundling.Bundle config metas currentMeta currentJS sources refs
+        Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
