@@ -72,6 +72,7 @@ type TypeAnnotation =
         Macros : list<TypeDefinition * option<obj>>
         RemotingProvider : option<TypeDefinition * option<obj>>
         JavaScriptTypesAndFiles : list<string>
+        JavaScriptExportTypesAndFiles : list<string>
     }
 
     static member Empty =
@@ -89,6 +90,7 @@ type TypeAnnotation =
             Macros = []
             RemotingProvider = None
             JavaScriptTypesAndFiles = []
+            JavaScriptExportTypesAndFiles = []
         }
 
 type MemberKind = 
@@ -171,6 +173,7 @@ type AssemblyAnnotation =
             IsJavaScript = this.IsJavaScript
             IsJavaScriptExport = this.IsJavaScriptExport
             JavaScriptTypesAndFiles = this.JavaScriptTypesAndFiles
+            JavaScriptExportTypesAndFiles = this.JavaScriptExportTypesFilesAndAssemblies
         }
 
 /// Base class for reading WebSharper-specific attributes.
@@ -316,14 +319,16 @@ type AttributeReader<'A>() =
                 | (None | Some false), true -> false, true
                 | Some true, _ -> true, false
                 | _ -> false, false
-        if parent.IsJavaScriptExport then
+        if js = Some false then
+            jse <- false
+        elif parent.IsJavaScriptExport then
             jse <- true
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
         attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, js = Some false, jse, prot, isStub, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, isJavaScript, isJavaScriptExport, isForcedNotJavaScript, prot, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, isJavaScript, isForcedNotJavaScript, isJavaScriptExport, prot, isStub, reqs = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             IsJavaScript = isJavaScript
@@ -342,10 +347,13 @@ type AttributeReader<'A>() =
             JavaScriptTypesAndFiles =
                 (attrArr |> Seq.choose (function A.JavaScriptTypeOrFile s -> Some s | _ -> None) |> List.ofSeq) 
                 @ parent.JavaScriptTypesAndFiles
+            JavaScriptExportTypesAndFiles =
+                (attrArr |> Seq.choose (function A.JavaScriptExport e -> e | _ -> None) |> List.ofSeq) 
+                @ parent.JavaScriptExportTypesAndFiles
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, isJavaScript, isJavaScriptExport, _, _, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, isJavaScript, _, isJavaScriptExport, _, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -379,7 +387,7 @@ type AttributeReader<'A>() =
             Name = name
             Requires = reqs
             IsEntryPoint = isEp
-            IsJavaScriptExport = isJavaScriptExport
+            IsJavaScriptExport = isJavaScriptExport || parent.IsJavaScriptExport
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
             Pure = isPure
             Warn = warning

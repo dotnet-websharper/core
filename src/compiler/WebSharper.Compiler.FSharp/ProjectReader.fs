@@ -47,10 +47,13 @@ type private SourceMemberOrEntity =
     | InitAction of FSharpExpr
 
 let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    let mutable annot = annot
     if annot.JavaScriptTypesAndFiles |> List.contains name then
-        if annot.IsForcedNotJavaScript then annot else
-            { annot with IsJavaScript = true }
-    else annot
+        if not annot.IsForcedNotJavaScript then 
+            annot <- { annot with IsJavaScript = true }
+    if annot.JavaScriptExportTypesAndFiles |> List.contains name then
+        annot <- { annot with IsJavaScriptExport = true }
+    annot
 
 // fixes annotation for property setters, we don't want name coflicts
 let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSMFV) (a: A.MemberAnnotation) =

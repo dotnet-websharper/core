@@ -41,10 +41,13 @@ type TypeWithAnnotation =
     | TypeWithAnnotation of INamedTypeSymbol * A.TypeAnnotation
 
 let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    let mutable annot = annot
     if annot.JavaScriptTypesAndFiles |> List.contains name then
-        if annot.IsForcedNotJavaScript then annot else
-            { annot with IsJavaScript = true }
-    else annot
+        if not annot.IsForcedNotJavaScript then 
+            annot <- { annot with IsJavaScript = true }
+    if annot.JavaScriptExportTypesAndFiles |> List.contains name then
+        annot <- { annot with IsJavaScriptExport = true }
+    annot
     
 let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceSymbol) =
     let rec withNested a (t: INamedTypeSymbol) =
