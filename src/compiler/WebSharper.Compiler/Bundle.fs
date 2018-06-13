@@ -121,8 +121,11 @@ module Bundling =
                     let e = System.Collections.Generic.HashSet jsExportNames
                     yield! 
                         graph.Nodes |> Seq.filter (function
-                            | M.TypeNode td -> e.Contains td.Value.FullName
                             | M.AssemblyNode (a, _) -> e.Contains a
+                            | M.TypeNode td
+                            | M.MethodNode (td, _)
+                            | M.ConstructorNode (td, _) 
+                                -> e.Contains td.Value.FullName
                             | _ -> false
                         )
                 yield!  

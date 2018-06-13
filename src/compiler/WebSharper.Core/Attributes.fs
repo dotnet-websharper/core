@@ -83,7 +83,12 @@ type JavaScriptAttribute() =
     new (enabled: bool) = JavaScriptAttribute()
     
     /// Specify a type full name or file name (without path) to include in JavaScript compilation.
+    /// Use on assembly level.
     new (typeOrFile : string) = JavaScriptAttribute()
+
+    /// Specify a type to include in JavaScript compilation.
+    /// Use on assembly level.
+    new (clientType : Type) = JavaScriptAttribute()
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.
@@ -217,7 +222,12 @@ type JavaScriptExportAttribute() =
     inherit A()
     
     /// Specify a type full name or file name (without path) to export in JavaScript.
+    /// Use on assembly level.
     new (typeOrFile : string) = JavaScriptExportAttribute()
+
+    /// Specify a type to export in JavaScript.
+    /// Use on assembly level.
+    new (exportType : Type) = JavaScriptExportAttribute()
 
 /// Marks a type to be translated to have a prototype if it would not have one otherwise.
 /// This is needed if you want to do type checks in client code against it.

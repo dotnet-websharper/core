@@ -40,5 +40,6 @@ let Main() =
 
 [<assembly: JavaScript>]
 [<assembly: JavaScriptExport("File1.fs")>]
-[<assembly: JavaScriptExport("WebSharper.SPA.Tests.JavaScriptExportTest2+IncludedFromAssemblyLevel")>]
+[<assembly: JavaScriptExport("WebSharper.SPA.Tests.JavaScriptExportTest2+IncludedFromAssemblyLevel1")>]
+[<assembly: JavaScriptExport(typeof<JavaScriptExportTest2.IncludedFromAssemblyLevel2>)>]
 do ()

@@ -246,8 +246,10 @@ type AttributeReader<'A>() =
             match Seq.tryHead (this.GetCtorArgs(attr)) with
             | None -> A.JavaScript true
             | Some (:? bool as enabled) -> A.JavaScript enabled
-            | Some (:? string as typeOrFile) -> A.JavaScriptTypeOrFile typeOrFile
-            | Some x -> failwithf "Unrecognized constructor parameter type for JavaScript attribute: %s" (x.GetType().FullName)        
+            | Some (:? string as typeOrFile) -> A.JavaScriptTypeOrFile (typeOrFile.Split(',').[0])
+            | Some _ ->
+                let t, _ = this.ReadTypeArg attr
+                A.JavaScriptTypeOrFile t.Value.FullName
         | "OptionalFieldAttribute" ->
             A.OptionalField
         | "RemotingProviderAttribute" ->
@@ -264,7 +266,12 @@ type AttributeReader<'A>() =
         | "SPAEntryPointAttribute" ->
             A.SPAEntryPoint
         | "JavaScriptExportAttribute" ->
-            A.JavaScriptExport (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
+            match Seq.tryHead (this.GetCtorArgs(attr)) with
+            | None -> A.JavaScriptExport None
+            | Some (:? string as typeOrFile) -> A.JavaScriptExport (Some typeOrFile)
+            | _ ->
+                let t, _ = this.ReadTypeArg attr
+                A.JavaScriptExport (Some t.Value.FullName)
         | "PrototypeAttribute" ->
             A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
         | n -> 
@@ -387,7 +394,7 @@ type AttributeReader<'A>() =
             Name = name
             Requires = reqs
             IsEntryPoint = isEp
-            IsJavaScriptExport = isJavaScriptExport || parent.IsJavaScriptExport
+            IsJavaScriptExport = isJavaScriptExport
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
             Pure = isPure
             Warn = warning

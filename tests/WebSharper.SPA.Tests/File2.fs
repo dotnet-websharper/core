@@ -22,9 +22,13 @@ module WebSharper.SPA.Tests.JavaScriptExportTest2
 open WebSharper
 open WebSharper.JavaScript
 
-type IncludedFromAssemblyLevel() =
+type IncludedFromAssemblyLevel1() =
     member this.Helo() =
-        Console.Log "Hello from JavaScriptExportTest2.IncludedFromAssemblyLevel"
+        Console.Log "Hello from JavaScriptExportTest2.IncludedFromAssemblyLevel1"
+
+type IncludedFromAssemblyLevel2() =
+    member this.Helo() =
+        Console.Log "Hello from JavaScriptExportTest2.IncludedFromAssemblyLevel2"
 
 [<JavaScriptExport>]
 let testThatThisIsIncluded2 () =
