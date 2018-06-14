@@ -712,10 +712,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Remote _ 
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
-                    let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
-                    if comp.HasGraph then
-                        comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
-                    comp.SetEntryPoint(ep)
+                    match memdef with
+                    | Member.Method (false, mdef) when List.isEmpty mdef.Value.Parameters ->
+                        let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
+                        if comp.HasGraph then
+                            comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
+                        comp.SetEntryPoint(ep)
+                    | _ ->
+                        error "The SPAEntryPoint must be a static method with no arguments"
                 match implicitImplementations.TryFind meth with
                 | Some impls ->
                     for intf, imeth in impls do

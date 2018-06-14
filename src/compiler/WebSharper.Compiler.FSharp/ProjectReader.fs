@@ -655,10 +655,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Remote _ 
                     | A.MemberKind.Stub -> failwith "should be handled previously"
                     if mAnnot.IsEntryPoint then
-                        let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
-                        if comp.HasGraph then
-                            comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
-                        comp.SetEntryPoint(ep)
+                        match memdef with
+                        | Member.Method (false, mdef) when List.isEmpty mdef.Value.Parameters ->
+                            let ep = ExprStatement <| Call(None, NonGeneric def, NonGeneric mdef, [])
+                            if comp.HasGraph then
+                                comp.Graph.AddEdge(EntryPointNode, MethodNode (def, mdef))
+                            comp.SetEntryPoint(ep)
+                        | _ ->
+                            error "The SPAEntryPoint must be a static method with no arguments"
                 | Member.Constructor cdef ->
                     let addC = addConstructor (Some (meth, memdef)) mAnnot cdef
                     let jsCtor isInline =   
