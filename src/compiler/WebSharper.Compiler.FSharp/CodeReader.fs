@@ -483,6 +483,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                         Generics   = tparams.Count - (getDeclaringEntity x).GenericParameters.Count
                     } 
                 )
+        |> comp.ResolveProxySignature
 
     member this.ReadAndRegisterTypeDefinition (comp: Compilation) (td: FSharpEntity) =
         let res = this.ReadTypeDefinition td

@@ -33,6 +33,9 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdl
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
+	ProjectSection(ProjectDependencies) = postProject
+		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {615AEA64-16EC-49BC-AFB4-36211F6354CC}
+	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
 EndProject
@@ -130,6 +133,9 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
+	ProjectSection(ProjectDependencies) = postProject
+		{46D8C7C3-43CA-465C-9714-20B22CF3E459} = {46D8C7C3-43CA-465C-9714-20B22CF3E459}
+	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
 EndProject

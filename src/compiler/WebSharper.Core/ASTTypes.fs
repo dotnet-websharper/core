@@ -595,6 +595,22 @@ and Type =
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
 
+    member this.MapTypeDefinitions(mapping) =
+        match this with 
+        | ConcreteType t -> 
+            ConcreteType { 
+                Generics = t.Generics |> List.map (fun p -> p.MapTypeDefinitions mapping)
+                Entity = mapping t.Entity 
+            }
+        | TypeParameter i
+        | StaticTypeParameter i -> this
+        | ArrayType (t, i) -> ArrayType (t.MapTypeDefinitions mapping, i)
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.MapTypeDefinitions mapping), v) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.MapTypeDefinitions mapping, r.MapTypeDefinitions mapping)
+        | ByRefType t -> ByRefType (t.MapTypeDefinitions mapping)
+        | VoidType -> this
+        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
+
     static member IsGenericCompatible(t1, t2) =
         match t1, t2 with
         | (StaticTypeParameter _ | LocalTypeParameter | TypeParameter _), _

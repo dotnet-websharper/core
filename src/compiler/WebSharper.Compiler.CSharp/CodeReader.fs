@@ -290,6 +290,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             ReturnType = x.ReturnType |> this.ReadType
             Generics = x.Arity
         }
+        |> comp.ResolveProxySignature
 
     member this.ReadGenericMethod (x: IMethodSymbol) =
         let ma = x.TypeArguments |> Seq.map this.ReadType |> List.ofSeq
@@ -300,6 +301,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         Hashed {
             CtorParameters = this.ReadParameterTypes x
         }
+        |> comp.ResolveProxySignature
 
     member this.ReadMember (x: IMethodSymbol) =
         let name = x.Name
@@ -329,6 +331,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             else
                 let o = x.OriginalDefinition
                 Member.Method (not o.IsStatic, getMeth o)
+        |> comp.ResolveProxySignature
 
     member this.ReadParameter (x: IParameterSymbol) : CSharpParameter =
         let typ = this.ReadType x.Type

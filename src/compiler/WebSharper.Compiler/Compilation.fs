@@ -344,6 +344,37 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
 
+    member this.ResolveProxySignature (meth: Method) =        
+        let m = meth.Value
+        AST.Method { 
+            m with
+                Parameters = m.Parameters |> List.map (fun t -> t.MapTypeDefinitions this.FindProxied)
+                ReturnType = m.ReturnType.MapTypeDefinitions this.FindProxied
+        }
+
+    member this.ResolveProxySignature (ctor: Constructor) =        
+        let c = ctor.Value
+        AST.Constructor {
+            CtorParameters = c.CtorParameters |> List.map (fun t -> t.MapTypeDefinitions this.FindProxied)
+        }
+
+    member this.ResolveProxySignature (mem: Member) =        
+        let resolveConstructor (c: ConstructorInfo) =
+            AST.Constructor {
+                CtorParameters = c.CtorParameters |> List.map (fun t -> t.MapTypeDefinitions this.FindProxied)
+            }
+        match mem with
+        | Member.Method (i, m) ->
+            Member.Method (i, this.ResolveProxySignature m)
+        | Member.Implementation (i, m) ->
+            Member.Implementation (this.FindProxied i, this.ResolveProxySignature m)
+        | Member.Override (t, m) ->
+            Member.Override (this.FindProxied t, this.ResolveProxySignature m)
+        | Member.Constructor c ->
+            Member.Constructor (this.ResolveProxySignature c)
+        | Member.StaticConstructor ->
+            Member.StaticConstructor
+
     member this.AddQuotedArgMethod(typ, m, a) =
         compilingQuotedArgMethods.Add((typ, m), a)
 
