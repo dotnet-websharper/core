@@ -52,6 +52,7 @@ let RunTests runServerSide =
         List.Tests
         Macro.Tests
         Math.Tests
+        MathJS.Tests
         Nullable.Tests
         Object.Tests
         ObjExpr.Tests

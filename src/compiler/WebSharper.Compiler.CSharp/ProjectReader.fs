@@ -41,10 +41,13 @@ type TypeWithAnnotation =
     | TypeWithAnnotation of INamedTypeSymbol * A.TypeAnnotation
 
 let annotForTypeOrFile name (annot: A.TypeAnnotation) =
+    let mutable annot = annot
     if annot.JavaScriptTypesAndFiles |> List.contains name then
-        if annot.IsForcedNotJavaScript then annot else
-            { annot with IsJavaScript = true }
-    else annot
+        if not annot.IsForcedNotJavaScript then 
+            annot <- { annot with IsJavaScript = true }
+    if annot.JavaScriptExportTypesAndFiles |> List.contains name then
+        annot <- { annot with IsJavaScriptExport = true }
+    annot
     
 let rec private getAllTypeMembers (sr: R.SymbolReader) rootAnnot (n: INamespaceSymbol) =
     let rec withNested a (t: INamedTypeSymbol) =
@@ -190,6 +193,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             p
         | _ -> thisDef
 
+    if annot.IsJavaScriptExport then
+        comp.AddJavaScriptExport (ExportNode (TypeNode def))
+
     let members = cls.GetMembers()
 
     let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
@@ -210,11 +216,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Warn = mAnnot.Warn
         }
 
-    let addMethod mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Method (def, (getUnresolved mAnnot kind compiled expr)))
+    let addMethod (mAnnot: A.MemberAnnotation) mdef kind compiled expr =
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (MethodNode (def, mdef)))
+        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled expr)))
         
-    let addConstructor mAnnot def kind compiled expr =
-        clsMembers.Add (NotResolvedMember.Constructor (def, (getUnresolved mAnnot kind compiled expr)))
+    let addConstructor (mAnnot: A.MemberAnnotation) cdef kind compiled expr =
+        if mAnnot.IsJavaScriptExport then
+            comp.AddJavaScriptExport (ExportNode (ConstructorNode (def, cdef)))
+        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled expr)))
 
     let inits = ResizeArray()                                               
     let staticInits = ResizeArray()                                               
@@ -780,20 +790,31 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
 
     let sr = CodeReader.SymbolReader(comp)
 
-    let asmAnnot = 
+    let mutable asmAnnot = 
         sr.AttributeReader.GetAssemblyAnnot(assembly.GetAttributes())
 
-    let asmAnnot =
-        match config.JavaScriptScope with
-        | JSDefault -> asmAnnot
-        | JSAssembly -> { asmAnnot with IsJavaScript = true }
-        | JSFilesOrTypes a -> { asmAnnot with JavaScriptTypesAndFiles = asmAnnot.JavaScriptTypesAndFiles @ List.ofArray a }
+    match config.JavaScriptScope with
+    | JSDefault -> ()
+    | JSAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+    | JSFilesOrTypes a -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = List.ofArray a @ asmAnnot.JavaScriptTypesAndFiles }
+
+    for jsExport in config.JavaScriptExport do
+        comp.AddJavaScriptExport jsExport
+        match jsExport with
+        | ExportCurrentAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+        | ExportByName n -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = n :: asmAnnot.JavaScriptTypesAndFiles }
+        | _ -> ()
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyName <- assembly.Name
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
+
+    if asmAnnot.IsJavaScriptExport then
+        comp.AddJavaScriptExport ExportCurrentAssembly
+    for s in asmAnnot.JavaScriptExportTypesFilesAndAssemblies do
+        comp.AddJavaScriptExport (ExportByName s)
 
     comp.CustomTypesReflector <- A.reflectCustomType
 

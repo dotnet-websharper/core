@@ -177,4 +177,10 @@ let Tests =
             isFalse (d.ContainsKey b2)
         }
 
+        Test "Bug #953" {
+            let d = Dictionary<string, string>()
+            d.Add("", "")
+            isTrue (d.ContainsKey "x" = false)
+        }
+
     }

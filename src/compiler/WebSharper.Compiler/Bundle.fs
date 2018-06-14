@@ -50,9 +50,8 @@ module Bundling =
     open WebSharper.Compiler.CommandTools
     open ExecuteCommands
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
-        let outputDir = BundleOutputDir config (GetWebRoot config)
         let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -107,7 +106,42 @@ module Bundling =
                 ResourceDependencyCache = null
             }
 
-        let nodes = graph.GetDependencies [ M.EntryPointNode ]        
+        let nodes = 
+            let jsExportNames =
+                jsExport |> List.choose (function 
+                    | ExportByName n -> Some n
+                    | _ -> None
+                )
+            seq {
+                yield M.EntryPointNode 
+                match jsExportNames with
+                | [] -> ()
+                | _ ->
+                    let e = System.Collections.Generic.HashSet jsExportNames
+                    yield! 
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode (a, _) -> e.Contains a
+                            | M.TypeNode td
+                            | M.MethodNode (td, _)
+                            | M.ConstructorNode (td, _) 
+                                -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
+                            | _ -> false
+                        )
+                yield!  
+                    jsExport |> Seq.choose (function 
+                        | ExportNode n -> Some n
+                        | _ -> None
+                    )
+                if jsExport |> Seq.contains ExportCurrentAssembly then
+                    yield 
+                        // assembly nodes are ordered, current is always last
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode _ -> true
+                            | _ -> false
+                        )
+                        |> Seq.last
+            }
+            |> graph.GetDependencies
         let pkg =   
             if concatScripts then
                 WebSharper.Core.AST.Undefined
@@ -119,8 +153,10 @@ module Bundling =
                 let current = 
                     if dce then trimMetadata meta nodes 
                     else meta
+                let forceEntryPoint =
+                    List.isEmpty jsExport
                 try
-                    Packager.packageAssembly current current true
+                    Packager.packageAssembly current current forceEntryPoint
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -258,22 +294,53 @@ module Bundling =
                 Some (Content.Create(t))
             else None
 
-        System.IO.Directory.CreateDirectory outputDir |> ignore
-        let write (c: Content) (ext: string) =
-            c.WriteFile(Path.Combine(outputDir, fileName + ext))
-        let writeMapped (c: Content) m (ext: string) =
-            write c ext
-            m |> Option.iter (fun mc ->
-                let mapExt = ext.Replace(".js", ".map")
-                write mc mapExt
-                File.AppendAllLines(
-                    Path.Combine(outputDir, fileName + ext),
-                    [| "//# sourceMappingURL=" + fileName + mapExt |]
+        let mutable hasOutput = false
+
+        match BundleOutputDir config (GetWebRoot config) with
+        | Some outputDir ->
+            hasOutput <- true
+            System.IO.Directory.CreateDirectory outputDir |> ignore
+            let write (c: Content) (ext: string) =
+                c.WriteFile(Path.Combine(outputDir, fileName + ext))
+            let writeMapped (c: Content) m (ext: string) =
+                write c ext
+                m |> Option.iter (fun mc ->
+                    let mapExt = ext.Replace(".js", ".map")
+                    write mc mapExt
+                    File.AppendAllLines(
+                        Path.Combine(outputDir, fileName + ext),
+                        [| "//# sourceMappingURL=" + fileName + mapExt |]
+                    )
                 )
-            )
+
+            write css ".css"
+            write htmlHeaders ".head.html"
+            write javaScriptHeaders ".head.js"
+            writeMapped javaScript mapping ".js"
+            writeMapped minifiedJavaScript minifiedMapping ".min.js"
+        | None -> ()
+
+        match config.ProjectType, config.JSOutputPath with
+        | Some BundleOnly, Some path ->
+            hasOutput <- true
+            let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
+            javaScript.WriteFile(fullPath)
+        | _ -> ()
+
+        match config.ProjectType, config.MinJSOutputPath with
+        | Some BundleOnly, Some path ->
+            hasOutput <- true
+            let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
+            minifiedJavaScript.WriteFile(fullPath)
+        | _ -> ()
+
+        if not hasOutput then  
+            match config.ProjectType with
+            | Some Bundle ->
+                failwith "WebSharperBundleOutputDir property (or \"outputDir\" in wsconfig.json) is required for Bundle projects"
+            | Some BundleOnly ->
+                failwith "WebSharperBundleOutputDir property (or \"outputDir\", \"jsOutput\" or \"minJsOutput\" in wsconfig.json) is required for BundleOnly projects"
+            | p ->
+                failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
+
         
-        write css ".css"
-        write htmlHeaders ".head.html"
-        write javaScriptHeaders ".head.js"
-        writeMapped javaScript mapping ".js"
-        writeMapped minifiedJavaScript minifiedMapping ".min.js"

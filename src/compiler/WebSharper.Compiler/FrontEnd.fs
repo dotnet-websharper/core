@@ -116,7 +116,7 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
 let CreateBundleJSOutput refMeta current =
 
     let pkg = 
-        Packager.packageAssembly refMeta current true
+        Packager.packageAssembly refMeta current false
 
     if pkg = AST.Undefined then None else
 

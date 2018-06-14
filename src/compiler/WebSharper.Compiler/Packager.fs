@@ -28,7 +28,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
+let packageAssembly (refMeta: M.Info) (current: M.Info) forceEntryPoint =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -204,10 +204,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) isBundle =
         classes.Remove t |> ignore
         packageClass c t.Value.FullName
 
-    if isBundle then
-        match current.EntryPoint with
-        | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
-        | _ -> failwith "Missing entry point. Add SPAEntryPoint and JavaScript attributes to a static method without arguments."
+    match current.EntryPoint with
+    | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
+    | _ -> 
+        if forceEntryPoint then
+            failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 

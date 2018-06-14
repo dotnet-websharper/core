@@ -197,6 +197,18 @@ let Tests =
             equal (DateTime.TryParse("not a date") |> fst) false
             equal (DateTime.TryParse("Thu, 08 Apr 2010 13:05:39 GMT")) (true, d)
         }
+
+        Test "DaysInMonth" {
+            equal (DateTime.DaysInMonth(2018, 6)) 30
+            equal (DateTime.DaysInMonth(2018, 2)) 28
+            equal (DateTime.DaysInMonth(2020, 2)) 29
+        }
+
+        Test "IsLeapYear" {
+            isFalse (DateTime.IsLeapYear 2018)
+            isTrue (DateTime.IsLeapYear 2020)
+            isFalse (DateTime.IsLeapYear 2100)
+        }
     }
 
 [<JavaScript>]

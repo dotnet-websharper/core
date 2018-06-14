@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
@@ -28,6 +28,7 @@
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
     <ProjectReference Include="..\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj" />
+    <ProjectReference Include="..\WebSharper.MathJS\WebSharper.MathJS.fsproj" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <Reference Include="System.Web" />
