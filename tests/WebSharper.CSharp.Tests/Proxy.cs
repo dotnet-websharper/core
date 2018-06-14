@@ -15,6 +15,7 @@ namespace WebSharper.CSharp.Tests
     {
         private List<string> b = new List<string>();
 
+        [Name("append")]
         public StringBuilderProxy Append(string s)
         {
             b.Add(s);

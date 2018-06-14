@@ -84,6 +84,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.MutableExternals = mutableExternals
 
     member this.FindProxied typ =
+        if proxies.Count = 0 then typ else
         match proxies.TryFind typ with
         | Some p -> p 
         | _ -> typ
@@ -345,6 +346,7 @@ type Compilation(meta: Info, ?hasGraph) =
         proxies.Add(tProxy, tTarget)  
 
     member this.ResolveProxySignature (meth: Method) =        
+        if proxies.Count = 0 then meth else
         let m = meth.Value
         AST.Method { 
             m with
@@ -353,16 +355,14 @@ type Compilation(meta: Info, ?hasGraph) =
         }
 
     member this.ResolveProxySignature (ctor: Constructor) =        
+        if proxies.Count = 0 then ctor else
         let c = ctor.Value
         AST.Constructor {
             CtorParameters = c.CtorParameters |> List.map (fun t -> t.MapTypeDefinitions this.FindProxied)
         }
 
     member this.ResolveProxySignature (mem: Member) =        
-        let resolveConstructor (c: ConstructorInfo) =
-            AST.Constructor {
-                CtorParameters = c.CtorParameters |> List.map (fun t -> t.MapTypeDefinitions this.FindProxied)
-            }
+        if proxies.Count = 0 then mem else
         match mem with
         | Member.Method (i, m) ->
             Member.Method (i, this.ResolveProxySignature m)
