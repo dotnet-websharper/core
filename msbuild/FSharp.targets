@@ -32,6 +32,7 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
     <OtherFlags>$(OtherFlags) --nowarn:3186</OtherFlags>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>

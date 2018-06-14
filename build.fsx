@@ -86,12 +86,14 @@ Target "NetcorePublish" <| fun () ->
         { p with
             Project = "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj"
             Framework = "netcoreapp2.0"
-            Output = __SOURCE_DIRECTORY__ </> "build/deploy/FSharp" }
+            Output = __SOURCE_DIRECTORY__ </> "build/deploy/FSharp"
+            AdditionalArgs = ["--no-dependencies"; "--no-restore"] }
     DotNetCli.Publish <| fun p ->
         { p with
             Project = "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj"
             Framework = "netcoreapp2.0"
-            Output = __SOURCE_DIRECTORY__ </> "build/deploy/CSharp" }
+            Output = __SOURCE_DIRECTORY__ </> "build/deploy/CSharp"
+            AdditionalArgs = ["--no-dependencies"; "--no-restore"] }
 
 "NetcorePublish" ==> "WS-Package"
 
