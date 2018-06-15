@@ -785,13 +785,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.Resolve () =
         
+        let printerrf x = Printf.kprintf (fun s -> this.AddError (None, SourceError s)) x
+
         let add k v (d: IDictionary<_,_>) =
             try 
                 d.Add(k, v)
             with _ ->
-                failwithf "Key already added: %A" k
-
-        let printerrf x = Printf.kprintf (fun s -> this.AddError (None, SourceError s)) x
+                printerrf "Unexpected error in name resolver, key already added: %A" k
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             let allMembers = HashSet()
@@ -867,6 +867,9 @@ type Compilation(meta: Info, ?hasGraph) =
         if hasGraph then
             for req in this.AssemblyRequires do
                 graph.AddEdge(asmNodeIndex, resNode req)
+
+        let objectMethods =
+            HashSet [ "toString"; "Equals"; "GetHashCode" ]
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -968,6 +971,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         addTypeDeps f.FieldType
                     | _ -> ()
 
+        Resolve.addInherits r classes.Current
+
         if hasGraph then
             for KeyValue(ct, cti) in Seq.append customTypes notAnnotatedCustomTypes do
                 let clsNodeIndex = lazy graph.AddOrLookupNode(TypeNode ct)
@@ -1065,6 +1070,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match expr with
                 | Function (args, body) ->
                     Function(args, CombineStatements [ ExprStatement (Cctor typ); body ])
+                | Undefined -> Undefined
                 // inlines
                 | _ -> Sequential [ Cctor typ; expr ]
             else expr
@@ -1081,7 +1087,46 @@ type Compilation(meta: Info, ?hasGraph) =
             
             let cc = classes.[typ]
 
-            for m in cls.Members do
+            // merging abstract and default entries for methods
+            let members =
+                let abstractAndOverrideMethods, otherMembers =
+                    cls.Members
+                    |> List.partition (function 
+                        | M.Method (_, { Kind = N.Abstract | N.Override _ }) -> true 
+                        | _ -> false
+                    )
+                
+                let mergeVirtual mdef (abs: NotResolvedMethod) (ovr: NotResolvedMethod) =
+                    let m =
+                        { ovr with
+                            Kind = N.Abstract
+                            StrongName = abs.StrongName |> Option.orElse ovr.StrongName
+                        }
+                    M.Method (mdef, m)
+                           
+                let mergedMethods =
+                    abstractAndOverrideMethods
+                    |> List.groupBy (function
+                        | M.Method (mdef, _) -> mdef
+                        | _ -> failwith "impossible, must be a method"
+                    )
+                    |> Seq.map (fun (mdef, ms) ->
+                        match ms with
+                        | [ m ] -> m
+                        | [ M.Method (_, ({ Kind = N.Abstract } as a)); 
+                            M.Method (_, ({ Kind = N.Override _ } as b)) ]
+                             -> mergeVirtual mdef a b
+                        | [ M.Method (_, ({ Kind = N.Override _ } as a)); 
+                            M.Method (_, ({ Kind = N.Abstract } as b)) ]
+                                -> mergeVirtual mdef b a
+                        | _ -> 
+                            printerrf "Unexpected definitions found for a method in type %s: %A - %A" typ.Value.FullName mdef ms
+                            ms.Head
+                    )
+
+                Seq.append mergedMethods otherMembers
+
+            for m in members do
                 
                 let strongName, isStatic, isError =  
                     match m with
@@ -1316,14 +1361,12 @@ type Compilation(meta: Info, ?hasGraph) =
                 if not (r.ExactStaticAddress addr) then
                     this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
                 nameStaticMember typ (Address addr) m
-           
-        // TODO: check nothing is hiding (exclude overrides and implementations)
+        
         for KeyValue(typ, ms) in namedInstanceMembers do
             let pr = r.LookupPrototype typ
             for m, n in ms do
-                pr.Add n |> ignore
-//                if not (pr.Add n) then
-//                    failwith "instance member name collision"
+                if not (Resolve.addToPrototype pr n || objectMethods.Contains n) then
+                    printerrf "Instance member name conflict on type %s name %s" typ.Value.FullName n
                 nameInstanceMember typ n m      
 
         let simplifyFieldName (f: string) =
@@ -1350,7 +1393,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let resolved = HashSet()
         
-        // TODO: add abstract/interface methods even if there are no implementations
         let rec resolveRemainingInstanceMembers typ (cls: ClassInfo) ms =
             if resolved.Add typ then
                 let pr = r.LookupPrototype typ
@@ -1366,8 +1408,6 @@ type Compilation(meta: Info, ?hasGraph) =
                             | _ -> []  
                         resolveRemainingInstanceMembers bTyp bCls bMs
                     | _ -> ()
-                    pr.UnionWith(r.LookupPrototype bTyp) 
-                
                 let ms =
                     let nonOverrides, overrides = 
                         ms |> List.partition (fun m ->
@@ -1375,14 +1415,14 @@ type Compilation(meta: Info, ?hasGraph) =
                             | M.Method (_, { Kind = N.Override _ }) -> false
                             | _ -> true 
                         )
-                    Seq.append nonOverrides overrides
+                    Seq.append overrides nonOverrides
 
                 for m in ms do
                     let name = 
                         match m with
-                        | M.Field (fName, _) -> Resolve.getRenamed (simplifyFieldName fName) pr |> Some
+                        | M.Field (fName, _) -> Resolve.getRenamedForPrototype (simplifyFieldName fName) pr |> Some
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
-                            Resolve.getRenamed mDef.Value.MethodName pr |> Some
+                            Resolve.getRenamedForPrototype mDef.Value.MethodName pr |> Some
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
                             | Some tCls -> 

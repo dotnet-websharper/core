@@ -423,6 +423,38 @@ module Bug948 =
         f (Union2Of2 NullCase)
 
 [<JavaScript>]
+module Bug951 =
+    // this was previously failing to compile
+    type Foo() =
+        static let hey = 43
+        abstract member clone: unit -> Foo
+        default __.clone() = new Foo()
+
+    // this was previously not renaming "Value" abstract name to not collide
+    // with fixed name in subtype
+    [<AbstractClass>]
+    type A() =
+        abstract Value: int
+
+    type B() =
+        inherit A()
+        [<Name "get_Value">]
+        member this.ValueB = 2
+        override this.Value = 1 
+
+    // this should cause a compile-time error:
+    //[<AbstractClass>]
+    //type A() =
+    //    [<Name "Value">]
+    //    abstract Value: int
+
+    //type B() =
+    //    inherit A()
+    //    [<Name "Value">]
+    //    member this.ValueB = 2
+    //    override this.Value = 1 
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -905,6 +937,12 @@ let Tests =
 
         Test "#948 Erased union pattern matching fails on a union with a [<Constant null>] case" {
             equal (Bug948.test()) "it's my type"
+        }
+
+        Test "#951 abstract method key collisions and renaming fixes" {
+            equal (Bug951.B().Value) 1
+            equal (Bug951.B().ValueB) 2
+            equal (Bug951.B()?get_Value()) 2
         }
 
         //Test "Recursive module value" {

@@ -707,8 +707,9 @@ let rec (|IsClientCall|_|) (e: Expression) =
 let ignoreSystemObject td =
     if td = Definitions.Obj || td = Definitions.ValueType then None else Some td
 
+open WebSharper.Core.Metadata 
+
 module Resolve =
-    open System.Collections.Generic
 
     let newName (name: string) =
         match name.LastIndexOf '$' with
@@ -723,9 +724,20 @@ module Resolve =
         | Class
         | Member
     
+    type Prototype = 
+        | Prototype of HashSet<string> * ResizeArray<Prototype>
+
+    let rec addToPrototype (Prototype (names, subTypes)) name =
+        [
+            yield names.Add name 
+            for s in subTypes do
+                yield addToPrototype s name
+        ]
+        |> List.forall id
+    
     type Resolver() =
         let statics = Dictionary<Address, ResolveNode>()
-        let prototypes = Dictionary<TypeDefinition, HashSet<string>>()
+        let prototypes = Dictionary<TypeDefinition, Prototype>()
 
         let rec getSubAddress (root: list<string>) (name: string) node =
             let tryAddr = Address (name :: root)
@@ -761,13 +773,23 @@ module Resolve =
             | h :: r -> 
                 getExactFullAddress r Module && getExactSubAddress r h node
 
-        member this.LookupPrototype typ =
-            match prototypes.TryFind typ with
-            | Some p -> p
-            | _ ->
-                let p = HashSet()
+        member this.AddPrototype (typ, bTyp) =
+            let p = Prototype (HashSet(), ResizeArray())
+            match bTyp with
+            | Some bTyp ->
+                match prototypes.[bTyp] with
+                | Prototype (_, subTypes) -> subTypes.Add p
+            | None -> ()
+            try
                 prototypes.Add(typ, p)
-                p
+            with _ ->
+                failwithf "Failed to add prototype for %A" typ
+
+        member this.HasPrototype typ =
+            prototypes.ContainsKey typ
+        
+        member this.LookupPrototype typ =
+            prototypes.[typ]
 
         member this.ExactClassAddress(addr: list<string>, hasPrototype) =
             getExactFullAddress addr (if hasPrototype then Class else Module)
@@ -787,18 +809,48 @@ module Resolve =
                      
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
- 
-open WebSharper.Core.Metadata 
-open System.Collections.Generic
+
+    let rec getRenamedForPrototype name p =
+        let rec isNameOk (Prototype (s, subTypes)) =
+            seq {
+                yield not (s.Contains name)
+                for p in subTypes do 
+                    yield isNameOk p
+            }
+            |> Seq.forall id
+        if isNameOk p then
+            addToPrototype p name |> ignore
+            name
+        else
+            getRenamedForPrototype (newName name) p
+       
+    let addInherits (r: Resolver) (classes: IDictionary<TypeDefinition, ClassInfo>) =
+        let rec inheritMembers typ (cls: ClassInfo) =
+            if not (r.HasPrototype typ) then
+                match cls.BaseClass with
+                | None ->
+                    r.AddPrototype(typ, None)    
+                | Some b ->
+                    // assembly containing base class may not be referenced
+                    match classes.TryFind b with
+                    | None ->
+                        r.AddPrototype(typ, None)
+                    | Some bCls ->
+                        inheritMembers b bCls  
+                        r.AddPrototype(typ, Some b)
+        for KeyValue(typ, cls) in classes do
+            inheritMembers typ cls        
 
 let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
+    Resolve.addInherits r meta.Classes
+    // add members
     for KeyValue(typ, cls) in meta.Classes do
         if typ.Value.FullName.StartsWith "Generated$" then () else
         let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
+            | Instance n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
             | Static a 
             | Constructor a -> r.ExactStaticAddress a.Value |> ignore
             | Macro (_, _, Some m) -> addMember m
@@ -807,7 +859,7 @@ let getAllAddresses (meta: Info) =
         for f, _, _ in cls.Fields.Values do
             match f with
             | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> p.Add n |> ignore)
+            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
             | StaticField a -> r.ExactStaticAddress a.Value |> ignore
             | IndexedField _ -> ()
         for m, _ in cls.Implementations.Values do addMember m
@@ -815,21 +867,6 @@ let getAllAddresses (meta: Info) =
         match cls.StaticConstructor with
         | Some (a, _) -> r.ExactStaticAddress a.Value |> ignore  
         | _ -> ()
-    // inheritance 
-    let inheriting = HashSet()
-    let rec inheritMembers typ (cls: ClassInfo) =
-        if inheriting.Add typ then
-            match cls.BaseClass with
-            | None -> ()
-            | Some b ->
-                // assembly containing base class may not be referenced
-                match meta.Classes.TryFind b with
-                | None -> ()
-                | Some bCls ->
-                    inheritMembers b bCls              
-                    (r.LookupPrototype typ).UnionWith(r.LookupPrototype b) 
-    for KeyValue(typ, cls) in meta.Classes do
-        inheritMembers typ cls        
     r
 
 type Refresher() =
