@@ -8,8 +8,8 @@ open System.IO
 open Fake
 open WebSharper.Fake
 
-let version = "4.2"
-let pre = None
+let version = "4.3"
+let pre = Some "alpha"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
