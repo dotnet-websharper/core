@@ -176,6 +176,12 @@ let Ceiling (x: 'T) = X<'T>
 [<Macro(typeof<M.Char>)>]
 let ToChar (x: 'T) = X<char>
 
+[<Macro(typeof<M.Conversion>)>]
+let ToByte (x: 'T) = X<byte>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToSByte (x: 'T) = X<sbyte>
+
 [<Inline>]
 let Compare<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
@@ -240,6 +246,9 @@ let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentExceptio
 let ToInt (x: 'T) = X<int>
 
 [<Macro(typeof<M.Conversion>)>]
+let ToInt16 (x: 'T) = X<int16>
+
+[<Macro(typeof<M.Conversion>)>]
 let ToSingle (x: 'T) = X<single>
 
 [<Macro(typeof<M.Conversion>)>]
@@ -250,6 +259,15 @@ let ToEnum<'T> (x: int) = X<'T>
 
 [<Macro(typeof<M.Conversion>)>]
 let ToInt64 (x: 'T) = X<int64>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToUInt16 (x: 'T) = X<uint16>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToUInt32 (x: 'T) = X<uint32>
+
+[<Macro(typeof<M.Conversion>)>]
+let ToUInt64 (x: 'T) = X<uint64>
 
 [<Inline "Math.log($x)">]
 let Log (x: 'T) = X<'T>

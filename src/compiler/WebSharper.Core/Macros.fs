@@ -424,7 +424,9 @@ type Char() =
                 let fromNum() = 
                     Application(Global ["String"; "fromCharCode"], [x], Pure, Some 1)
                     |> MacroOk
-                if isIn integralTypes t then fromNum() else
+                if isIn integralTypes t then 
+                    NumericConversion t.TypeDefinition Definitions.Char x |> MacroOk
+                else
                     match t with
                     | ConcreteType d ->
                         match d.Entity.Value.FullName with

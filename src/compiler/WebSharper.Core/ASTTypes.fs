@@ -336,6 +336,12 @@ module Definitions =
             FullName = "System.Boolean"
         }
 
+    let Char =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Char"
+        }
+
     let UInt8 =
         TypeDefinition {
             Assembly = "netstandard"

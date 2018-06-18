@@ -219,6 +219,16 @@ let erasedUnions =
         }
     )
 
+let smallIntegralTypeRanges =
+    Map [
+        "System.Byte", (0L, int64 System.Byte.MaxValue)
+        "System.SByte", (int64 System.SByte.MinValue, int64 System.SByte.MaxValue)
+        "System.Int16", (int64 System.Int16.MinValue, int64 System.Int16.MaxValue)
+        "System.Int32", (int64 System.Int32.MinValue, int64 System.Int32.MaxValue)
+        "System.UInt16", (0L, int64 System.UInt16.MaxValue)
+        "System.UInt32", (0L, int64 System.UInt32.MaxValue)
+    ]
+
 let smallIntegralTypes =
     Set [
         "System.Byte"
@@ -254,7 +264,7 @@ let comparableTypes =
     ]
 
 type private NumericTypeKind =
-    | SmallIntegralType
+    | SmallIntegralType of int64 * int64
     | BigIntegralType
     | ScalarType
     | DecimalType
@@ -263,8 +273,10 @@ type private NumericTypeKind =
     | NonNumericType        
 
 let private getNumericTypeKind n =
-    if smallIntegralTypes.Contains n then SmallIntegralType
-    elif bigIntegralTypes.Contains n then BigIntegralType
+    match smallIntegralTypeRanges |> Map.tryFind n with
+    | Some range -> SmallIntegralType range
+    | _ ->
+    if bigIntegralTypes.Contains n then BigIntegralType
     elif scalarTypes.Contains n then ScalarType
     elif n = "System.Char" then CharType
     elif n = "System.String" then StringType
@@ -291,35 +303,40 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
         Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
+    let toIntegral (minValue: int64) (maxValue: int64) expr =
+        if minValue = 0L then
+            expr ^& !~(Int64 maxValue)   
+        else
+            ((expr ^+ !~(Int64 -minValue)) ^& !~(Int64 maxValue) ^- !~(Int64 -minValue)) 
     match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
-    | SmallIntegralType, (SmallIntegralType | BigIntegralType | ScalarType)
-    | (BigIntegralType | NonNumericType), (SmallIntegralType | BigIntegralType | ScalarType)
+    | SmallIntegralType _, (BigIntegralType | ScalarType)
+    | BigIntegralType, (BigIntegralType | ScalarType)
     | ScalarType, ScalarType
     | DecimalType, DecimalType
     | CharType, (CharType | StringType)
     | StringType, StringType
         -> expr
-    | ScalarType, SmallIntegralType
-        -> expr ^>> !~(Int 0)
+    | (SmallIntegralType _ | BigIntegralType | ScalarType), SmallIntegralType (toMin, toMax)
+        -> expr |> toIntegral toMin toMax
     | ScalarType, BigIntegralType
         -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
-    | (SmallIntegralType | BigIntegralType | ScalarType), CharType
+    | (SmallIntegralType _ | BigIntegralType | ScalarType), CharType
         -> fromCharCode expr
     | DecimalType, CharType
         -> fromCharCode (toNumber expr)
-    | DecimalType, BigIntegralType
-        -> toNumber expr
-    | DecimalType, SmallIntegralType
-        -> toNumber expr ^>> !~(Int 0)
-    | CharType, (SmallIntegralType | BigIntegralType | ScalarType)
+    | CharType, (BigIntegralType | ScalarType)
         -> charCode expr
+    | CharType, SmallIntegralType (toMin, toMax)
+        -> charCode expr |> toIntegral toMin toMax
     | CharType, DecimalType
-        -> toDecimal (charCode expr)
-    | (SmallIntegralType | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
+        -> charCode expr |> toDecimal
+    | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
-    | (StringType | DecimalType), (SmallIntegralType | BigIntegralType | ScalarType)
+    | (StringType | DecimalType | NonNumericType), (BigIntegralType | ScalarType)
         -> toNumber expr
-    | (SmallIntegralType | BigIntegralType | ScalarType), DecimalType
+    | (StringType | DecimalType | NonNumericType), SmallIntegralType (toMin, toMax)
+        -> toNumber expr |> toIntegral toMin toMax
+    | (SmallIntegralType _ | BigIntegralType | ScalarType), DecimalType
         -> toDecimal expr
     | StringType, DecimalType
         -> Call(None, NonGeneric toTyp, parseDecimal, [expr])
