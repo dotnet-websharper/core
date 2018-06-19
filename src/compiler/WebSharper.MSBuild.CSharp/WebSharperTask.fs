@@ -61,7 +61,7 @@ type WebSharperTask() =
     member val SubsystemVersion = "" with get, set 
     member val LangVersion = "" with get, set 
 
-    override this.ToolName = "ZafirCs.exe"
+    override this.ToolName = Path.GetFileName(this.ZafirToolPath)
 
     override this.GenerateFullPathToTool() = this.ZafirToolPath
 

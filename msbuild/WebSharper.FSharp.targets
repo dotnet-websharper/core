@@ -51,4 +51,7 @@
       </PropertyGroup>
     </Otherwise>
   </Choose>
+  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition="'$(OS)' != 'Windows_NT'">
+    <Exec Command="chmod u+x '$(FscToolPath)/$(FscToolExe)'" />
+  </Target>
 </Project>

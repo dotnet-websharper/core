@@ -32,6 +32,7 @@
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
   <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+    <Exec Command="chmod u+x '$(ZafirToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"

@@ -19,10 +19,17 @@ let specificFw = environVarOrNone "WS_TARGET_FW"
 
 let targets = MakeTargets {
     WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
-        BuildAction =
+        BuildAction = BuildAction.Custom <| fun mode ->
             match specificFw with
-            | None -> BuildAction.Projects [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
-            | Some d -> BuildAction.Projects [ d </> "WebSharper.Compiler.sln"; d </> "WebSharper.sln" ]
+            | None -> [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
+            | Some d -> [ d </> "WebSharper.Compiler.sln"; d </> "WebSharper.sln" ]
+            |> List.iter (fun proj ->
+                DotNetCli.Build <| fun p ->
+                    { p with
+                        Project = proj
+                        Configuration = mode.ToString()
+                    }
+            )
 }
 
 let NeedsBuilding input output =
