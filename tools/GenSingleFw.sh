@@ -8,6 +8,10 @@ if ! [ -d "packages" ]; then
 fi
 
 if [ "$OS" = "Windows_NT" ]; then
+    NO_MONO=true
+fi
+
+if [ "$NO_MONO" != "" ]; then
     ./packages/build/FAKE/tools/FAKE.exe tools/GenSingleFw.fsx
 else
     mono ./packages/build/FAKE/tools/FAKE.exe tools/GenSingleFw.fsx
