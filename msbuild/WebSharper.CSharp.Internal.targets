@@ -24,9 +24,11 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildThisFileDirectory)CSharp.targets" />
   <PropertyGroup>
+    <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
+    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR '$(TargetFrameworkVersion)' != '' )">True</_WebSharperUseNetFxCompiler>
     <WebSharperSourceMap>True</WebSharperSourceMap>
-    <WebSharperTaskAssembly>$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <WebSharperTaskAssembly Condition="!Exists('$(WebSharperTaskAssembly)')">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirCsFullPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build\$(Configuration)\CSharp\net461\ZafirCs.exe</ZafirCsFullPath>
     <ZafirCsFullPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.cmd</ZafirCsFullPath>
     <ZafirCsFullPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\zafircs-netcore.sh</ZafirCsFullPath>
