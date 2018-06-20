@@ -50,8 +50,6 @@ let targets = MakeTargets {
                 BuildAction.Custom <| fun mode ->
                     publishExe mode "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
                     publishExe mode "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
-                    dest mode "FSharp" </> "netstandard2.0/WebSharper.Sitelets.Offline.dll"
-                    |> CopyFile (dest mode "FSharp" </> "deploy")
                 buildSln "WebSharper.sln"
             ]
 }
