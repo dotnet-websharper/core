@@ -254,6 +254,13 @@ let ToSingle (x: 'T) = X<single>
 [<Macro(typeof<M.Conversion>)>]
 let ToInt32 (x: 'T) = X<int32>
 
+let toUInt (x: float) : int =
+    (if x < 0. then Math.Ceil(x) else Math.Floor(x)) >>>. 0 |> As<int>
+
+let toInt (x: float) : int =
+    let u = toUInt x
+    if u >= As<int> 2147483648L then u - As<int> 4294967296L else u
+
 [<Inline "$x">]
 let ToEnum<'T> (x: int) = X<'T>
 

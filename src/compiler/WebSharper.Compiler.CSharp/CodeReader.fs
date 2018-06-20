@@ -646,7 +646,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.MakeRefExpression                 _ -> NotSupported "__makeref"
                 | ExpressionData.RefTypeExpression                 _ -> NotSupported "__reftype"
                 | ExpressionData.RefValueExpression                _ -> NotSupported "__refvalue"
-                | ExpressionData.CheckedExpression                 _ -> NotSupported "checked"
+                | ExpressionData.CheckedExpression                 x -> this.TransformCheckedExpression x
                 | ExpressionData.DefaultExpression                 x -> this.TransformDefaultExpression x
                 | ExpressionData.TypeOfExpression                  _ -> NotSupported "typeof"
                 | ExpressionData.SizeOfExpression                  _ -> NotSupported "sizeof"
@@ -816,7 +816,7 @@ type RoslynTransformer(env: Environment) =
             | StatementData.ForStatement              x -> this.TransformForStatement x
             | StatementData.UsingStatement            x -> this.TransformUsingStatement x
             | StatementData.FixedStatement            _ -> NotSupported "fixed"
-            | StatementData.CheckedStatement          _ -> NotSupported "checked"
+            | StatementData.CheckedStatement          x -> this.TransformCheckedStatement x
             | StatementData.UnsafeStatement           _ -> NotSupported "unsafe"
             | StatementData.LockStatement             _ -> NotSupported "lock"
             | StatementData.IfStatement               x -> this.TransformIfStatement x
@@ -2237,3 +2237,9 @@ type RoslynTransformer(env: Environment) =
             | _ -> 
                 let f = "{0" + Option.defaultValue "" align +  Option.defaultValue "" format + "}" 
                 Call(None, NonGeneric Definitions.String, NonGeneric Definitions.StringFormat1, [ Value (String f); expr ])
+
+    member this.TransformCheckedStatement (x: CheckedStatementData) : _ =
+        this.TransformBlock x.Block
+
+    member this.TransformCheckedExpression (x: CheckedExpressionData) : _ =
+        this.TransformExpression x.Expression

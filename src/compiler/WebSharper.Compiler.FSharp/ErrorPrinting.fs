@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.FSharp.ErrorPrinting
+module WebSharper.Compiler.FSharp.ErrorPrinting
 
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Core

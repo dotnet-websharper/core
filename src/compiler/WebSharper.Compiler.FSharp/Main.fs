@@ -23,6 +23,7 @@ namespace WebSharper.Compiler.FSharp
 open Microsoft.FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FrontEnd
 open WebSharper.Compiler.CommandTools
+open ErrorPrinting
 
 open System.IO
 
@@ -39,6 +40,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
+    member val WarnSettings = WarnSettings.Default with get, set
 
     member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, config: WsConfig, assemblyName) = 
         let path = config.ProjectFile
@@ -75,6 +77,8 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         TimedStage "Waiting on merged metadata"
 
         if checkProjectResults.HasCriticalErrors then
+            if assemblyName = "WebSharper.Main" then
+                PrintFSharpErrors this.WarnSettings checkProjectResults.Errors
             None
         else
         

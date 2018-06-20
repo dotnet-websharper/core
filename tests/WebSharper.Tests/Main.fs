@@ -38,6 +38,7 @@ let RunTests() =
         Async.Tests
         Basis.Tests
         Char.Tests
+        Conversions.Tests
         DateTime.Tests
         DateTime.NativeTests
         Delegate.Tests

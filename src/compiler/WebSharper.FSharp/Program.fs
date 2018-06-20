@@ -29,7 +29,7 @@ open WebSharper.Compiler
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
-open ErrorPrinting
+open WebSharper.Compiler.FSharp.ErrorPrinting
 
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
 let MakeDummyDll (path: string) (assemblyName: string) =
@@ -60,6 +60,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
+    compiler.WarnSettings = warnSettings
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
@@ -179,7 +180,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 
     match comp with
-    | None ->
+    | None ->        
         1
     | Some comp ->
 

@@ -426,50 +426,35 @@ namespace WebSharper.CSharp.Tests
             );
         }
 
-        class MyNumber
-        {
-            public double val;
-            public MyNumber(double d) { val = d; }
-
-            public double Value => val;
-
-            public static implicit operator double(MyNumber d)
-            {
-                return d.val;
-            }
-            public static implicit operator MyNumber(double d)
-            {
-                return new MyNumber(d);
-            }
-            public static MyNumber operator +(MyNumber a, MyNumber b)
-            {
-                return a.Value + b.Value;
-            }
-        }
-
         [Test]
         public void Conversions()
         {
-            Console.WriteLine("Running Conversions test..");
-
             int intFromChar = 'a';
-            Equal(intFromChar, 97, "char to int implicit");
-            Equal((int)'a', 97, "char to int explicit");
+            StrictEqual(intFromChar, 97, "char to int implicit");
+            StrictEqual((int)'a', 97, "char to int explicit");
 
-            Equal((char)97, 'a', "int to char explicit");
+            StrictEqual((char)97, 'a', "int to char explicit");
 
             double intFromFloat = 3.2;
-            Equal((int)intFromFloat, 3, "float to int explicit");
+            StrictEqual((int)intFromFloat, 3, "float to int explicit");
 
             MyNumber custom = 12 + 1;
-            Equal(custom.Value, 13.0, "Custom implicit conversion in");
+            StrictEqual(custom.Value, 13.0, "Custom implicit conversion in");
             double val = custom;
-            Equal(val, 13.0, "Custom implicit conversion out");
-            Equal((double)custom, 13.0, "Custom explicit conversion out");
+            StrictEqual(val, 13.0, "Custom implicit conversion out");
+            StrictEqual((double)custom, 13.0, "Custom explicit conversion out");
             MyNumber addTest = custom + 1;
-            Equal(addTest.Value, 14.0, "Operator overloading");
+            StrictEqual(addTest.Value, 14.0, "Operator overloading");
 
-            JavaScript.Console.Log("Conversions test", "finished");
+            unchecked
+            {
+                StrictEqual((byte)-55, 201, "byte truncates, unchecked C#");
+                StrictEqual((sbyte)1000, -24, "sbyte truncates, unchecked C#");
+                StrictEqual((Int16)100000, -31072, "Int16 truncates, unchecked C#");
+                StrictEqual((UInt16)100000, 34464, "UInt16 truncates, unchecked C#");
+                StrictEqual((int)1000000000000, -727379968, "int truncates, unchecked C#");
+                StrictEqual((uint)1000000000000, 3567587328, "uint truncates, unchecked C#");
+            }
         }
 
         [Test]
@@ -521,6 +506,32 @@ namespace WebSharper.CSharp.Tests
             IsTrue(d1.HasFlag(Days.Sat));
             IsTrue(d1.GetHashCode() == d1.GetHashCode());
             IsTrue(d1.GetHashCode() != d2.GetHashCode());
+        }
+    }
+
+    [JavaScript]
+    public class MyNumber
+    {
+        public double val;
+        public MyNumber(double d) { val = d; }
+
+        public double Value => val;
+
+        public static implicit operator double(MyNumber d)
+        {
+            return d.val;
+        }
+        public static implicit operator MyNumber(double d)
+        {
+            return new MyNumber(d);
+        }
+        public static MyNumber operator +(MyNumber a, MyNumber b)
+        {
+            return a.Value + b.Value;
+        }
+        public override string ToString()
+        {
+            return val.ToString();
         }
     }
 

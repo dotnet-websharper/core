@@ -219,25 +219,19 @@ let erasedUnions =
         }
     )
 
-let smallIntegralTypeRanges =
+let smallIntegralTypeSizes =
     Map [
-        "System.Byte", (0L, int64 System.Byte.MaxValue)
-        "System.SByte", (int64 System.SByte.MinValue, int64 System.SByte.MaxValue)
-        "System.Int16", (int64 System.Int16.MinValue, int64 System.Int16.MaxValue)
-        "System.Int32", (int64 System.Int32.MinValue, int64 System.Int32.MaxValue)
-        "System.UInt16", (0L, int64 System.UInt16.MaxValue)
-        "System.UInt32", (0L, int64 System.UInt32.MaxValue)
+        "System.Byte", (0L, 255L)
+        "System.SByte", (128L, 255L)
+        "System.UInt16", (0L, 65535L)
+        "System.Int16", (32768L, 65535L)
+        "System.UInt32", (0L, 4294967295L)
+        "System.Int32", (2147483648L, 4294967295L)
     ]
 
 let smallIntegralTypes =
-    Set [
-        "System.Byte"
-        "System.SByte"
-        "System.Int16"
-        "System.Int32"
-        "System.UInt16"
-        "System.UInt32"
-    ]
+    smallIntegralTypeSizes
+    |> Map.toSeq |> Seq.map fst |> Set
 
 let bigIntegralTypes =
     Set [
@@ -273,7 +267,7 @@ type private NumericTypeKind =
     | NonNumericType        
 
 let private getNumericTypeKind n =
-    match smallIntegralTypeRanges |> Map.tryFind n with
+    match smallIntegralTypeSizes |> Map.tryFind n with
     | Some range -> SmallIntegralType range
     | _ ->
     if bigIntegralTypes.Contains n then BigIntegralType
@@ -294,6 +288,28 @@ let private parseDecimal =
         Generics = 0      
     } |> NonGeneric
 
+let private opModule =
+    TypeDefinition {
+        Assembly = "FSharp.Core"
+        FullName = "Microsoft.FSharp.Core.Operators"
+    } |> NonGeneric
+
+let private toIntMeth =
+    Method {
+        MethodName = "toInt"
+        Parameters = [ NonGenericType Definitions.Float ]
+        ReturnType = NonGenericType Definitions.Int
+        Generics = 0      
+    } |> NonGeneric
+
+let private toUIntMeth =
+    Method {
+        MethodName = "toUInt"
+        Parameters = [ NonGenericType Definitions.Float ]
+        ReturnType = NonGenericType Definitions.Int
+        Generics = 0      
+    } |> NonGeneric
+
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     let toNumber expr =
         Application(Global ["Number"], [expr], Pure, Some 1)
@@ -303,11 +319,16 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         Application(ItemGet(expr, Value (String "charCodeAt"), Pure), [], Pure, None)
     let fromCharCode expr =
         Application(Global ["String"; "fromCharCode"], [expr], Pure, Some 1)
-    let toIntegral (minValue: int64) (maxValue: int64) expr =
-        if minValue = 0L then
-            expr ^& !~(Int64 maxValue)   
+    let toIntegral (neg: int64) (mask: int64) expr =
+        if mask = 4294967295L then
+            if neg = 0L then
+                Call(None, opModule, toUIntMeth, [expr])
+            else
+                Call(None, opModule, toIntMeth, [expr])
+        elif neg = 0L then
+            expr ^& !~(Int64 mask)   
         else
-            ((expr ^+ !~(Int64 -minValue)) ^& !~(Int64 maxValue) ^- !~(Int64 -minValue)) 
+            ((expr ^+ !~(Int64 neg)) ^& !~(Int64 mask)) ^- !~(Int64 neg) 
     match getNumericTypeKind fromTyp.Value.FullName, getNumericTypeKind toTyp.Value.FullName with
     | SmallIntegralType _, (BigIntegralType | ScalarType)
     | BigIntegralType, (BigIntegralType | ScalarType)
@@ -316,8 +337,8 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | CharType, (CharType | StringType)
     | StringType, StringType
         -> expr
-    | (SmallIntegralType _ | BigIntegralType | ScalarType), SmallIntegralType (toMin, toMax)
-        -> expr |> toIntegral toMin toMax
+    | (SmallIntegralType _ | BigIntegralType | ScalarType), SmallIntegralType (neg, mask)
+        -> expr |> toIntegral neg mask
     | ScalarType, BigIntegralType
         -> Application(Global ["Math"; "trunc"], [expr], Pure, Some 1)
     | (SmallIntegralType _ | BigIntegralType | ScalarType), CharType
@@ -326,16 +347,19 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
         -> fromCharCode (toNumber expr)
     | CharType, (BigIntegralType | ScalarType)
         -> charCode expr
-    | CharType, SmallIntegralType (toMin, toMax)
-        -> charCode expr |> toIntegral toMin toMax
+    | CharType, SmallIntegralType (neg, mask) -> 
+        if mask >= int64 System.Int32.MaxValue then
+            charCode expr
+        else
+            charCode expr |> toIntegral neg mask
     | CharType, DecimalType
         -> charCode expr |> toDecimal
     | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
         -> Application(Global ["String"], [expr], Pure, Some 1)
     | (StringType | DecimalType | NonNumericType), (BigIntegralType | ScalarType)
         -> toNumber expr
-    | (StringType | DecimalType | NonNumericType), SmallIntegralType (toMin, toMax)
-        -> toNumber expr |> toIntegral toMin toMax
+    | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
+        -> toNumber expr |> toIntegral neg mask
     | (SmallIntegralType _ | BigIntegralType | ScalarType), DecimalType
         -> toDecimal expr
     | StringType, DecimalType

@@ -8,7 +8,6 @@
     <FSharpTool>True</FSharpTool>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Program.fs" />
     <Content Include="wsfsc.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
