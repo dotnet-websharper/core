@@ -52,6 +52,7 @@ files
     ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/Microsoft.CodeAnalysis.dll ==> tools/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/Microsoft.CodeAnalysis.CSharp.dll ==> tools/netstandard2.0
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools/net461
     ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools/net461

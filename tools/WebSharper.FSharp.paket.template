@@ -51,4 +51,5 @@ files
     ../build/deploy/FSharp/System.Security.Cryptography.ProtectedData.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/Microsoft.DotNet.PlatformAbstractions.dll ==> tools/netstandard2.0
     ../build/deploy/FSharp/Microsoft.Extensions.DependencyModel.dll ==> tools/netstandard2.0
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

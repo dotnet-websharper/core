@@ -20,6 +20,9 @@
     </Content>
     <None Include="paket.references" />
     <Content Include="app.config" />
+    <Content Include="default.win32manifest">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />
