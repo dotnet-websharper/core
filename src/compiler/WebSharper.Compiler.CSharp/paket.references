@@ -1,2 +1,3 @@
-FSharp.Core
 Microsoft.CodeAnalysis.CSharp
+group latest
+   FSharp.Core

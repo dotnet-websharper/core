@@ -798,6 +798,12 @@ NUGET
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
 
+GROUP latest
+RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    FSharp.Core (4.5) - copy_local: true
+
 GROUP wsbuild
 
 GIT

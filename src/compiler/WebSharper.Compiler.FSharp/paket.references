@@ -1,4 +1,5 @@
-FSharp.Core
 FSharp.Compiler.Service
 System.Collections.Immutable
 System.Reflection.Metadata
+group latest
+   FSharp.Core

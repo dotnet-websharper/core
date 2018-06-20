@@ -2,4 +2,5 @@ Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
 System.Configuration.ConfigurationManager
 Microsoft.Extensions.DependencyModel
-FSharp.Core
+group latest
+   FSharp.Core
