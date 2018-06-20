@@ -79,6 +79,11 @@ type private AsyncProxy =
         As (C.StartChild (As a, timeOut))
 
     [<Inline>]
+    static member StartChildAsTask(a: Async<'T>, ?opt :System.Threading.Tasks.TaskCreationOptions) 
+        : Async<System.Threading.Tasks.Task<'T>> =
+        As (C.StartChildAsTask (As a))
+
+    [<Inline>]
     static member Parallel(cs: seq<Async<'T>>) : Async<'T []> =
         As (C.Parallel (As cs))
 
@@ -90,6 +95,11 @@ type private AsyncProxy =
     static member StartAsTask (a: Async<'T>, ?opt :System.Threading.Tasks.TaskCreationOptions, ?t: CT) 
         : System.Threading.Tasks.Task<'T> =
         C.StartAsTask(As a, As t)        
+
+    [<Inline>]
+    static member StartImmediateAsTask (a: Async<'T>, ?t: CT) 
+        : System.Threading.Tasks.Task<'T> =
+        C.StartImmediateAsTask(As a, As t)        
 
     [<Inline>]
     static member DefaultCancellationToken : CT =

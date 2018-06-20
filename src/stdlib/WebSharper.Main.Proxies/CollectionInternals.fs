@@ -244,3 +244,20 @@ let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> 
 [<Name "WebSharper.Seq.nonNegative">]
 let InputMustBeNonNegative() =
     failwith "The input must be non-negative."
+
+[<Name "WebSharper.Arrays.transposeArray">]
+let ArrayTranspose (array:'T[][]) : 'T[][] =
+    let len = array.Length
+    if len = 0 then [||] else
+    let lenInner = array.[0].Length
+
+    for j in 1..len-1 do
+        if lenInner <> array.[j].Length then
+            failwith "The arrays have different lengths."
+
+    let result = Array lenInner
+    for i in 0..lenInner-1 do
+        result.[i] <- Array len
+        for j in 0..len-1 do
+            result.[i].[j] <- array.[j].[i]
+    As result

@@ -303,6 +303,14 @@ let AwaitTask1 (t: System.Threading.Tasks.Task<'T>) : C<'T> =
 [<JavaScript>]
 let StartAsTask (c: C<'T>, ctOpt) =
     let tcs = System.Threading.Tasks.TaskCompletionSource<'T>()
+    fork (fun () ->
+        StartWithContinuations (c, tcs.SetResult, tcs.SetException, (fun _ -> tcs.SetCanceled()), ctOpt)
+    )
+    tcs.Task
+
+[<JavaScript>]
+let StartImmediateAsTask (c: C<'T>, ctOpt) =
+    let tcs = System.Threading.Tasks.TaskCompletionSource<'T>()
     StartWithContinuations (c, tcs.SetResult, tcs.SetException, (fun _ -> tcs.SetCanceled()), ctOpt)
     tcs.Task
 
@@ -379,6 +387,18 @@ let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =
                 | None      -> queue.Enqueue c2.k
             else c2.k (No (System.TimeoutException()))
         c.k (Ok r2)
+
+[<JavaScript>]
+let StartChildAsTask (r : C<'T>) =
+    ()
+    fun c ->
+        let ch = StartChild(r, None)
+        ch {
+            k = function
+                | Ok r2 -> c.k (Ok (StartImmediateAsTask(r2, Some c.ct)))
+                | _ -> ()
+            ct = c.ct
+        }
 
 [<JavaScript; Pure>]
 let OnCancel (action: unit -> unit) : C<System.IDisposable> =

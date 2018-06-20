@@ -623,6 +623,12 @@ let ToArray (s: seq<'T>) =
 [<Inline>]
 let ToList (s: seq<'T>) = List.ofSeq s
 
+[<Name "transpose">]
+let Transpose (x: seq<#seq<'T>>) : seq<seq<'T>> =
+    Seq.delay (fun () ->
+        ArrayTranspose (Array.ofSeq (x |> Seq.map Array.ofSeq)) |> As
+    )
+
 [<Name "truncate">]
 let Truncate (n: int) (s: seq<'T>) : seq<'T> =
     seq {

@@ -197,16 +197,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let def, proxied =
         match annot.ProxyOf with
         | Some p -> 
+            let warn msg =
+                comp.AddWarning(Some (CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences.[0]), SourceWarning msg)
             if cls.DeclaredAccessibility = Accessibility.Public then
-                comp.AddWarning(Some (CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences.[0]), SourceWarning "Proxy type should not be public")
+                warn "Proxy type should not be public"
             let proxied =
-                let t = Reflection.LoadTypeDefinition p
-                t.GetMembers(Reflection.AllPublicMethodsFlags) |> Seq.choose Reflection.ReadMember
-                |> Seq.collect (fun m ->
-                    match m with
-                    | Member.Override (_, me) -> [ Member.Method (true, me); m ]
-                    | _ -> [ m ]
-                ) |> HashSet
+                try
+                    let t = Reflection.LoadTypeDefinition p
+                    t.GetMembers(Reflection.AllPublicMethodsFlags) |> Seq.choose Reflection.ReadMember
+                    |> Seq.collect (fun m ->
+                        match m with
+                        | Member.Override (_, me) -> [ Member.Method (true, me); m ]
+                        | _ -> [ m ]
+                    ) |> HashSet
+                with _ ->
+                    warn ("Proxy target type could not be loaded for signature verification: " + p.Value.FullName)
+                    HashSet()
             p, Some proxied
         | _ -> thisDef, None
 
