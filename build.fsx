@@ -20,21 +20,40 @@ let specificFw = environVarOrNone "WS_TARGET_FW"
 let targets = MakeTargets {
     WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
         BuildAction =
-            let projects =
-                match specificFw with
-                | None -> [ "WebSharper.Compiler.sln"; "WebSharper.sln" ]
-                | Some d -> [ d </> "WebSharper.Compiler.sln"; d </> "WebSharper.sln" ]
-            match environVarOrNone "OS" with
-            | Some "Windows_NT" ->
-                BuildAction.Projects projects
-            | _ ->
-                BuildAction.Custom <| fun mode ->
-                    for proj in projects do
+            let buildSln sln =
+                let sln =
+                    match specificFw with
+                    | None -> sln
+                    | Some d -> d </> sln
+                match environVarOrNone "OS" with
+                | Some "Windows_NT" ->
+                    BuildAction.Projects [sln]
+                | _ ->
+                    BuildAction.Custom <| fun mode ->
                         DotNetCli.Build <| fun p ->
                             { p with
-                                Project = proj
+                                Project = sln
                                 Configuration = mode.ToString()
                             }
+            let dest mode lang =
+                __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
+            let publishExe (mode: BuildMode) input output =
+                DotNetCli.Publish <| fun p ->
+                    { p with
+                        Project = input
+                        Framework = "netcoreapp2.0"
+                        Output = dest mode output </> "deploy"
+                        AdditionalArgs = ["--no-dependencies"; "--no-restore"]
+                        Configuration = mode.ToString() }
+            BuildAction.Multiple [
+                buildSln "WebSharper.Compiler.sln"
+                BuildAction.Custom <| fun mode ->
+                    publishExe mode "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+                    publishExe mode "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+                    dest mode "FSharp" </> "netstandard2.0/WebSharper.Sitelets.Offline.dll"
+                    |> CopyFile (dest mode "FSharp" </> "deploy")
+                buildSln "WebSharper.sln"
+            ]
 }
 
 let NeedsBuilding input output =
@@ -92,22 +111,6 @@ Target "Prepare" <| fun () ->
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 "WS-GenAssemblyInfo" ==> "Prepare"
-
-Target "NetcorePublish" <| fun () ->
-    DotNetCli.Publish <| fun p ->
-        { p with
-            Project = "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj"
-            Framework = "netcoreapp2.0"
-            Output = __SOURCE_DIRECTORY__ </> "build/deploy/FSharp"
-            AdditionalArgs = ["--no-dependencies"; "--no-restore"] }
-    DotNetCli.Publish <| fun p ->
-        { p with
-            Project = "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj"
-            Framework = "netcoreapp2.0"
-            Output = __SOURCE_DIRECTORY__ </> "build/deploy/CSharp"
-            AdditionalArgs = ["--no-dependencies"; "--no-restore"] }
-
-"NetcorePublish" ==> "WS-Package"
 
 Target "Build" DoNothing
 targets.BuildDebug ==> "Build"
