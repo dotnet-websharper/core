@@ -270,7 +270,7 @@ type EndPointAttribute =
 /// Indicates that a union case in an action type must only be mapped
 /// for requests that use the given HTTP method(s).
 /// Example: type Action = | [<Method "POST">] MyPostAction
-[<Sealed; U(T.Property, AllowMultiple = true)>]
+[<Sealed; U(T.Class ||| T.Property, AllowMultiple = true)>]
 type MethodAttribute([<ParamArray>] methodName: string[]) =
     inherit A()
 
