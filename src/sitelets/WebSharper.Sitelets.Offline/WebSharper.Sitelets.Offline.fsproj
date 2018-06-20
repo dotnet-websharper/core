@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461</TargetFrameworks>
-    <WebSharperProject>Library</WebSharperProject>
+    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <FSharpTool>true</FSharpTool>
   </PropertyGroup>
@@ -26,6 +26,9 @@
     <ProjectReference Include="..\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Target Name="_CopyToNetCoreApp" AfterTargets="Build" Condition="'$(TargetFramework)' == 'netstandard2.0'">
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\netcoreapp2.0" />
+  </Target>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

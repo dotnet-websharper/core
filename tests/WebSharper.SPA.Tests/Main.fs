@@ -31,7 +31,7 @@ let private addOne (c: IControlBody) =
 let Main() =
     WebSharper.CSharp.Tests.Remoting.ShouldRun <- false
     Seq.iter addOne [
-        WebSharper.Tests.Main.RunTests()
+        WebSharper.Tests.Main.RunTests false
         WebSharper.Collections.Tests.Main.RunTests()
         WebSharper.CSharp.Tests.Tests.RunTests()
         WebSharper.Html5.Tests.Main.RunTests()

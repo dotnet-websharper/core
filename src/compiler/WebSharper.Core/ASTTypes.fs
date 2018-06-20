@@ -804,11 +804,11 @@ module Reflection =
 
     let LoadType (t: Type) =
         try System.Type.GetType(t.AssemblyQualifiedName, true)  
-        with _ -> failwithf "Failed to load type %s" t.AssemblyQualifiedName
+        with e -> failwithf "Failed to load type %s: %O" t.AssemblyQualifiedName e
 
     let LoadTypeDefinition (td: TypeDefinition) =
         try System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
-        with _ -> failwithf "Failed to load type %s from assembly %s" td.Value.FullName td.Value.Assembly
+        with e -> failwithf "Failed to load type %s from assembly %s: %O" td.Value.FullName td.Value.Assembly e
 
     let [<Literal>] AllMethodsFlags = 
         System.Reflection.BindingFlags.Instance

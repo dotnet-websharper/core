@@ -1214,11 +1214,11 @@ type SubtestBuilder () =
                 })
 
 [<JavaScript>]
-type TestBuilder (name: string) =
+type TestBuilder (name: string, doRun: bool) =
     inherit SubtestBuilder ()
 
     member this.Run(e) =
-        QUnit.Test name (fun asserter ->
+        if doRun then QUnit.Test name (fun asserter ->
             try
                 match e asserter with
                 | Choice1Of2 _ -> ()
@@ -1240,7 +1240,10 @@ type TestBuilder (name: string) =
         )
 
 [<JavaScript>]
-let Test name = new TestBuilder(name)
+let Test name = new TestBuilder(name, true)
+
+[<JavaScript>]
+let TestIf bool name = new TestBuilder(name, bool)
 
 [<JavaScript>]
 let Do = new SubtestBuilder()

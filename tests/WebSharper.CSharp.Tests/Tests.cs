@@ -17,6 +17,12 @@ namespace WebSharper.CSharp.Tests
         [Generated(typeof(TestGenerator))]
         public static IControlBody RunTests() { return null; }
 
+        public static IControlBody RunTests(bool runServerTests)
+        {
+            Remoting.ShouldRun = runServerTests;
+            return RunTests();
+        }
+
         public string GetHelloWorld() { return "Hello " + "world!"; }
         public string HelloWorldProp => "Hello " + "world!";
 
@@ -294,9 +300,16 @@ namespace WebSharper.CSharp.Tests
         [Test("SiteletBuilder correctness")]
         public async Task SiteletBuilderTest()
         {
-            var siteletTestLinks = await SiteletTestLinks();
-            Equal(siteletTestLinks[0], "/");
-            Equal(siteletTestLinks[1], "/person/John/Doe/30");
+            if (Remoting.ShouldRun)
+            {
+                var siteletTestLinks = await SiteletTestLinks();
+                Equal(siteletTestLinks[0], "/");
+                Equal(siteletTestLinks[1], "/person/John/Doe/30");
+            }
+            else
+            {
+                Expect(0);
+            }
         }
     }
 }

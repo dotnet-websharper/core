@@ -31,6 +31,8 @@
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(FSharpTool)' == 'True' ">$(Root)\build\$(Configuration)\FSharp</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' And '$(Tests)' == 'True' ">$(Root)\build\$(Configuration)\Tests</OutputPath>
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
+    <OtherFlags>$(OtherFlags) --nowarn:3186</OtherFlags>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
@@ -40,7 +42,7 @@
     <ItemGroup>
       <C Include="@(Compile)" />
       <Compile Remove="@(C)" />
-      <Compile Include="$(MSBuildThisFileDirectory)/../build/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/../build/AssemblyInfo.fs')" />
+      <Compile Include="$(MSBuildThisFileDirectory)/AssemblyInfo.fs" Condition="Exists('$(MSBuildThisFileDirectory)/AssemblyInfo.fs')" />
       <Compile Include="@(C)" />
     </ItemGroup>
   </Target>

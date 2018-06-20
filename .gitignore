@@ -18,6 +18,8 @@
 /.hg
 /.vs
 /msbuild.log
-/.fake
+.fake
 /.vscode/
 /tests/WebSharper.SPA.Tests/Content/*
+/netcore/
+/netfx/

@@ -33,12 +33,8 @@ module Implemetnation =
             |> isCompatible name)
 
     let loadInto (baseDir: string) (dom: AppDomain) (path: string) =
-        let f = FileInfo path
-        if f.DirectoryName = baseDir then
-            dom.Load(AssemblyName.GetAssemblyName path)
-        else
-            File.ReadAllBytes path
-            |> dom.Load
+        File.ReadAllBytes path
+        |> dom.Load
 
     type AssemblyResolution =
         {

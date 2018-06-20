@@ -1,8 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
-    <SkipCopyBuildProduct>true</SkipCopyBuildProduct>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WebSharper.Main/JavaScript.fs">

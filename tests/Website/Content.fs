@@ -72,7 +72,7 @@ let HomePage (ctx: Context<_>) =
         ]
     )
 
-let TestsPage (ctx: Context<FullAction>) =
+let TestsPage runServerTests (ctx: Context<FullAction>) =
     let t12 = (1, 2)
     let jsonBaseUri =
         Tests.Json.String ""
@@ -91,25 +91,26 @@ let TestsPage (ctx: Context<FullAction>) =
         Title = "WebSharper client-side tests",
         Body = (
             [
-                ClientSide <@ WebSharper.Tests.Main.RunTests() @>
-                ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @>
-                WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl
-                ClientSide <@ Client.ClientSideTupleTest t12 @>
-                ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @>
-                ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri @> 
-                ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> 
-                ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri true @>
+                yield ClientSide <@ WebSharper.Tests.Main.RunTests runServerTests @> :> Web.Control
+                yield ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @> :> Web.Control
+                yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
+                yield ClientSide <@ Client.ClientSideTupleTest t12 @> :> Web.Control
+                yield ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @> :> Web.Control
+                yield ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri runServerTests @> :> Web.Control
+                if runServerTests then
+                    yield ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> :> Web.Control
+                yield ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri runServerTests @> :> Web.Control
             ] : list<Web.Control>
         )
     )
 
-let MainSite ctx = function
+let MainSite runServerTests ctx = function
     | Actions.Home -> HomePage ctx
-    | Actions.Tests -> TestsPage ctx
+    | Actions.Tests -> TestsPage runServerTests ctx
 
-let Main =
+let Main runServerTests =
     Sitelet.Sum [
-        Sitelet.InferPartialInUnion <@ FullAction.Site @> MainSite
+        Sitelet.InferPartialInUnion <@ FullAction.Site @> (MainSite runServerTests)
         Sitelet.Shift "sitelet-tests" <|
             Sitelet.EmbedInUnion <@ FullAction.SiteletsTests @> SampleSite.EntireSite
         Sitelet.Shift "csharp-tests" <|

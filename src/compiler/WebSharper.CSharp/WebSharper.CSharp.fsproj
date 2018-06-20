@@ -1,10 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>ZafirCs</Name>
     <Signed>False</Signed>
     <CSharpTool>True</CSharpTool>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ErrorPrinting.fs" />
@@ -20,10 +23,6 @@
     </Content>
     <None Include="paket.references" />
   </ItemGroup>
-  <Target Name="CopyToOutput" AfterTargets="Build;Publish">
-    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll"
-          DestinationFiles="..\..\..\build\$(Configuration)\CSharp\net461\netstandard.dll" />
-  </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj" />
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
@@ -32,5 +31,8 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Target Name="CopyToOutput" AfterTargets="Build;Publish" Condition="$(TargetFramework.StartsWith('net4'))">
+    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="$(OutputPath)\netstandard.dll" />
+  </Target>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

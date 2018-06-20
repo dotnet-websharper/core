@@ -23,11 +23,16 @@ namespace WebSharper.Tests.Website
 open WebSharper
 open WebSharper.Sitelets
 
-[<Sealed>]
 type WebsiteEntryPoint() =
+    abstract Sitelet : Sitelet<Content.FullAction>
+    default this.Sitelet = Content.Main true
+
+    abstract Actions : list<Content.FullAction>
+    default this.Actions = [Content.Site Actions.Home; Content.Site Actions.Tests]
+
     interface IWebsite<Content.FullAction> with
-        member this.Sitelet = Content.Main
-        member this.Actions = [Content.Site Actions.Home; Content.Site Actions.Tests]
+        member this.Sitelet = this.Sitelet
+        member this.Actions = this.Actions
 
 [<assembly: Website(typeof<WebsiteEntryPoint>)>]
 [<assembly: Require(typeof<Dependencies.TwitterBootstrap>)>]

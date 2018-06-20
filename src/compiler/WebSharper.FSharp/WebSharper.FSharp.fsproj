@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.fs" />
@@ -17,15 +19,10 @@
     </Content>
     <None Include="paket.references" />
     <Content Include="app.config" />
+    <Content Include="default.win32manifest">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
-  <Target Name="CopyToOutput" AfterTargets="Build;Publish">
-    <ItemGroup>
-      <FSharpCoreExtraFiles Include="..\..\..\packages\build\FSharp.Core\lib\net45\FSharp.Core.sigdata" />
-      <FSharpCoreExtraFiles Include="..\..\..\packages\build\FSharp.Core\lib\net45\FSharp.Core.optdata" />
-    </ItemGroup>
-    <Copy SourceFiles="@(FSharpCoreExtraFiles)" DestinationFolder="..\..\..\build\$(Configuration)\FSharp\net461" />
-    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="..\..\..\build\$(Configuration)\FSharp\net461\netstandard.dll" />
-  </Target>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
@@ -34,5 +31,8 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Target Name="CopyToOutput" AfterTargets="Build;Publish" Condition="$(TargetFramework.StartsWith('net4'))">
+    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="$(OutputPath)\netstandard.dll" />
+  </Target>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

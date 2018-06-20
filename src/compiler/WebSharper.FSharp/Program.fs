@@ -52,8 +52,17 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let mainProxiesFile() =
         "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
 
-    if thisName = "WebSharper.Main.Proxies" then 
-        File.WriteAllLines(mainProxiesFile(), config.CompilerArgs)
+    if thisName = "WebSharper.Main.Proxies" then
+        let config =
+            { config with
+                References =
+                    config.References
+                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.Main.Proxies.dll"))
+            }
+        let mainProxiesFile = mainProxiesFile()
+        Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
+        File.WriteAllLines(mainProxiesFile, config.CompilerArgs)
+        MakeDummyDll config.AssemblyFile thisName
         printfn "Written Proxies.args"
         0 
     else

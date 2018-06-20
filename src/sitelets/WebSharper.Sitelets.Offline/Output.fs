@@ -291,7 +291,7 @@ type ResolvedContent =
     }
 
 /// Partially resolves the content.
-let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: System.Uri) (content: Content<obj>) =
+let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc: System.Uri) (link: obj -> string) (content: Content<obj>) =
     let locationString =
         let locStr = loc.ToString()
         if locStr.EndsWith("/") then
@@ -311,7 +311,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
         let! response =
             new Context<_>(
                 Json = st.Json,
-                Link = (fun _ -> ""),
+                Link = link,
                 ApplicationPath = ".",
                 Metadata = st.Metadata,
                 Dependencies = st.Dependencies,
@@ -380,7 +380,8 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                 match conf.Sitelet.Router.Link(action) with
                 | Some location ->
                     let content = conf.Sitelet.Controller.Handle(action)
-                    let! rC = resolveContent projectFolder rootFolder st location content
+                    let link action = conf.Sitelet.Router.Link(action).Value.ToString()
+                    let! rC = resolveContent projectFolder rootFolder st location link content
                     do actionTable.[action] <- rC.Path
                     do urlTable.[location] <- rC.Path
                     do res.Add(rC)
