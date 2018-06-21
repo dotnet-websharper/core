@@ -857,4 +857,8 @@ let Tests =
             equal (Array.tail [| 1 .. 3|]) [| 2; 3 |]
         }
 
+        Test "Array.transpose" {
+            raises (Array.transpose [|[|1|]; [| |]|])
+            equal (Array.transpose [|[|1; 2|]; [|3; 4|]|]) [|[|1; 3|]; [|2; 4|]|]
+        }
     }

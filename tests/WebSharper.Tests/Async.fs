@@ -210,6 +210,27 @@ let Tests =
             equal y 1
         }
 
+        Test "StartImmediateAsTask" {
+            let x, y, t =
+                let res = ref 0 
+                async {
+                    incr res 
+                }
+                |> Async.Start
+                let x = !res
+                let t =
+                    async {
+                        incr res 
+                        return 2
+                    }
+                    |> Async.StartImmediateAsTask
+                x, !res, t
+            equal x 0
+            equal y 1
+            isTrue t.IsCompleted
+            equal t.Result 2
+        }
+
         Test "StartWithContinuations" {
             let x =
                 let res = ref 0 
@@ -226,5 +247,12 @@ let Tests =
             let! b = Async.StartChild (async.Return 2)
             equalAsync a 1
             equalAsync b 2
+        }
+
+        Test "StartChildAsTask" { 
+            let! a = Async.StartChildAsTask (async.Return 1)
+            let! b = Async.StartChildAsTask (async.Return 2)
+            equalAsync (Async.AwaitTask a) 1
+            equalAsync (Async.AwaitTask b) 2
         }
     }

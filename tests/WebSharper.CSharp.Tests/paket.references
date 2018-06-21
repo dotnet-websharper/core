@@ -1,3 +1,4 @@
 Microsoft.CSharp
-group fsharp
-   Fsharp.Core
+group compilers
+  Fsharp.Core
+  Microsoft.Net.Compilers

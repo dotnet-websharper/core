@@ -1,4 +1,4 @@
 Microsoft.Build.Utilities.Core
-group fsharp
+group compilers
   Fsharp.Core
   Fsharp.Compiler.Tools

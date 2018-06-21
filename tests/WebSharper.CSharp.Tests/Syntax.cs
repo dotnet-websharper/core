@@ -238,19 +238,30 @@ namespace WebSharper.CSharp.Tests
             int x = 0;
             Increment(ref x);
             Equal(x, 1);
-#if CSHARP7
             int xr = InRefOut(x);
             Equal(xr, 1);
             OutOne(out var y);
             Equal(y, 1);
             OutOne(out int z);
             Equal(z, 1);
-#endif
             var a = new[] { 2 };
             Increment(ref a[0]);
             Equal(a[0], 3);
             Increment(ref f);
             Equal(f, 1);
+        }
+
+        [Test]
+        public void RefLocals()
+        {
+            int x = 0;
+            int y = 0;
+            ref var r = ref x;
+            r++;
+            Equal(x, 1);
+            r = ref y;
+            r--;
+            Equal(y, -1);
         }
 
         class Cat
@@ -318,14 +329,7 @@ namespace WebSharper.CSharp.Tests
         public int field = 4;
         public int fieldDefVal;
         public int Prop { get; set; } = 5;
-#if CSHARP7
         public int PropDupl { get => Prop; set => Prop = value; }
-#else
-        public int PropDupl {
-            get { return Prop; }
-            set { Prop = value; }
-        }
-#endif
         public int PropDefVal { get; set; }
         public int RenamedProp { [Name("RnProp")] get; [Name("setRnProp")] set; } = 6;
         [Name("RnProp2")]

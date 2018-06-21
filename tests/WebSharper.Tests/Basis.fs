@@ -502,4 +502,9 @@ let Tests =
             equal mA 1
             equal mB 2            
         }
+
+        Test "ValueOption" {
+            raises ValueNone.Value
+            equalMsg (ValueSome(1).Value) 1 "ValueOption.Value"
+        }
     }

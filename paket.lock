@@ -89,7 +89,7 @@ NUGET
       System.Xml.ReaderWriter (>= 4.0.11) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.0) (== netstandard2.0)
       System.Xml.XmlDocument (>= 4.0.1) - restriction: || (&& (== net461) (< net46)) (== netcoreapp2.0) (== netstandard2.0)
     Microsoft.CodeAnalysis.Analyzers (1.1)
-    Microsoft.CodeAnalysis.Common (2.6.1)
+    Microsoft.CodeAnalysis.Common (2.8.2)
       Microsoft.CodeAnalysis.Analyzers (>= 1.1)
       System.AppContext (>= 4.3)
       System.Collections (>= 4.3)
@@ -129,8 +129,8 @@ NUGET
       System.Xml.XDocument (>= 4.3)
       System.Xml.XmlDocument (>= 4.3)
       System.Xml.XPath.XDocument (>= 4.3)
-    Microsoft.CodeAnalysis.CSharp (2.6.1)
-      Microsoft.CodeAnalysis.Common (2.6.1)
+    Microsoft.CodeAnalysis.CSharp (2.8.2)
+      Microsoft.CodeAnalysis.Common (2.8.2)
     Microsoft.CSharp (4.4.1)
     Microsoft.DotNet.PlatformAbstractions (2.0.4)
       System.AppContext (>= 4.1) - restriction: || (&& (== net46) (< net45)) (&& (== net461) (< net45)) (== netcoreapp2.0) (== netstandard2.0)
@@ -789,12 +789,13 @@ NUGET
       Mono.Cecil (>= 0.10.0-beta6)
       Newtonsoft.Json
 
-GROUP fsharp
+GROUP compilers
 RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Compiler.Tools (10.0.2)
     FSharp.Core (4.5)
+    Microsoft.Net.Compilers (2.8.2)
 
 GROUP includes
 REFERENCES: STRICT

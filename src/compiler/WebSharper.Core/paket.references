@@ -1,5 +1,5 @@
 System.Reflection.Emit.Lightweight
 FSharp.Core
 System.ValueTuple
-group fsharp
+group compilers
   Fsharp.Compiler.Tools

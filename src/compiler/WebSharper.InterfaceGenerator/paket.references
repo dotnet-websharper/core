@@ -3,5 +3,5 @@ Mono.Cecil
 FSharp.Core
 System.ValueTuple
 System.CodeDom
-group fsharp
+group compilers
   FSharp.Compiler.Tools

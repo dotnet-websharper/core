@@ -23,9 +23,15 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<Proxy(typeof<voption<_>>)>]
-[<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
-[<DefaultAugmentation(false)>]
 [<RequireQualifiedAccess>]
 type private ValueOptionProxy<'T> =
     | ValueNone 
-    | ValueSome of Value: 'T
+    | ValueSome of 'T
+
+    member this.Value =
+        match this with 
+        | ValueNone -> invalidOp "ValueOption.Value"
+        | ValueSome x -> x 
+
+    static member Test =
+        (ValueSome 2).Value

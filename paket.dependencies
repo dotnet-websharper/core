@@ -13,7 +13,7 @@ nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.10-beta
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 2.6.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 2.8.0
 nuget System.CodeDom ~> 4.4.0
 nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
@@ -48,8 +48,9 @@ group includes
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
 
-group fsharp
+group compilers
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
     nuget FSharp.Compiler.Tools ~> 10.0.2
     nuget FSharp.Core ~> 4.5.0
+    nuget Microsoft.Net.Compilers ~> 2.8.2

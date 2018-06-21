@@ -55,6 +55,14 @@ type internal FSharpMap<'K,'V when 'K : comparison>
         member this.ContainsKey k = 
             tree |> T.Contains {Key=k; Value = JS.Undefined}
 
+        member this.TryGetValue (k: 'K, r: byref<'V>) = 
+            match this.TryFind k with
+            | Some v ->
+                r <- v
+                true
+            | _ ->
+                false
+
         member this.Count = T.Count tree
 
         member this.IsEmpty = T.IsEmpty tree
