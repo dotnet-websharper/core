@@ -1,4 +1,4 @@
-version 5.156.7
+version 5.173.1
 
 references: strict
 redirects: on
@@ -33,7 +33,7 @@ nuget System.Reflection.Metadata 1.4.2
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.156.7
+    nuget Paket.Core 5.173.1
     nuget FAKE ~> 4.0
     nuget AjaxMin
     nuget FSharp.Core ~> 4.2.0
@@ -48,7 +48,8 @@ group includes
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
 
-group latest
+group fsharp
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
-    nuget FSharp.Core copy_local: true
+    nuget FSharp.Compiler.Tools ~> 10.0.2
+    nuget FSharp.Core ~> 4.5.0

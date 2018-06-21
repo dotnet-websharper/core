@@ -1,3 +1,3 @@
 Microsoft.CSharp
-group latest
-    FSharp.Core
+group fsharp
+   Fsharp.Core

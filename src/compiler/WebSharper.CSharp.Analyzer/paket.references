@@ -1,5 +1,6 @@
 ﻿Mono.Cecil
     exclude Mono.Cecil.Rocks.dll
 Microsoft.CodeAnalysis.CSharp
-group latest
-   FSharp.Core
+group fsharp
+  Fsharp.Core
+  Fsharp.Compiler.Tools

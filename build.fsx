@@ -38,13 +38,21 @@ let targets = MakeTargets {
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
             let publishExe (mode: BuildMode) input output =
+                let outputPath = dest mode output </> "deploy"
                 DotNetCli.Publish <| fun p ->
                     { p with
                         Project = input
                         Framework = "netcoreapp2.0"
-                        Output = dest mode output </> "deploy"
+                        Output = outputPath
                         AdditionalArgs = ["--no-dependencies"; "--no-restore"]
                         Configuration = mode.ToString() }
+                let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/fsharp/FSharp.Core/lib/netstandard1.6"
+                [ 
+                    fsharpCoreLib </> "FSharp.Core.dll" 
+                    fsharpCoreLib </> "FSharp.Core.sigdata" 
+                    fsharpCoreLib </> "FSharp.Core.optdata" 
+                ] 
+                |> Copy outputPath                
             BuildAction.Multiple [
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->

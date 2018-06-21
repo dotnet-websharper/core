@@ -1,3 +1,4 @@
 Microsoft.CodeAnalysis.CSharp
-group latest
-   FSharp.Core
+group fsharp
+  Fsharp.Core
+  Fsharp.Compiler.Tools
