@@ -46,7 +46,7 @@ let targets = MakeTargets {
                         Output = outputPath
                         AdditionalArgs = ["--no-dependencies"; "--no-restore"]
                         Configuration = mode.ToString() }
-                let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/fsharp/FSharp.Core/lib/netstandard1.6"
+                let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/compilers/FSharp.Core/lib/netstandard1.6"
                 [ 
                     fsharpCoreLib </> "FSharp.Core.dll" 
                     fsharpCoreLib </> "FSharp.Core.sigdata" 
