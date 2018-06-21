@@ -15,6 +15,6 @@ if [ "$WsNoUpdate" == "" ]; then
     fi
 fi
 
-export DOTNETSOLUTION=WebSharper.sln
+export DOTNETSOLUTION=WebSharper.Compiler.sln;WebSharper.sln
 exec paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.sh "$@"
 

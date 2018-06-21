@@ -9,5 +9,5 @@ if "%WsNoUpdate%"=="" (
   if errorlevel 1 exit /b %errorlevel%
 )
 
-set DOTNETSOLUTION="WebSharper.sln"
+set DOTNETSOLUTION="WebSharper.Compiler.sln;WebSharper.sln"
 call paket-files\wsbuild\github.com\dotnet-websharper\build-script\WebSharper.Fake.cmd %*
