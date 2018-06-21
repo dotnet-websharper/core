@@ -79,15 +79,17 @@ with
         | SyntaxKind.ArgListKeyword -> ArgListKeyword
         | k -> failwithf "Unexpected ParameterIdentifier kind: %O" k
 
-type [<RequireQualifiedAccess>] ArgumentRefOrOutKeyword =
+type [<RequireQualifiedAccess>] ArgumentRefKindKeyword =
     | RefKeyword
     | OutKeyword
+    | InKeyword 
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
         | SyntaxKind.RefKeyword -> RefKeyword
         | SyntaxKind.OutKeyword -> OutKeyword
-        | k -> failwithf "Unexpected ArgumentRefOrOutKeyword kind: %O" k
+        | SyntaxKind.InKeyword -> InKeyword
+        | k -> failwithf "Unexpected ArgumentRefKindKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] OrderingKind =
     | AscendingOrdering 
@@ -191,15 +193,17 @@ with
         | SyntaxKind.StructKeyword -> StructKeyword
         | k -> failwithf "Unexpected ClassOrStructConstraintClassOrStructKeyword kind: %O" k
 
-type [<RequireQualifiedAccess>] CrefParameterRefOrOutKeyword =
+type [<RequireQualifiedAccess>] CrefParameterRefKindKeyword =
     | RefKeyword
     | OutKeyword
+    | InKeyword 
 with
     static member FromToken(t: SyntaxToken) =
         match t.Kind() with
         | SyntaxKind.RefKeyword -> RefKeyword
         | SyntaxKind.OutKeyword -> OutKeyword
-        | k -> failwithf "Unexpected CrefParameterRefOrOutKeyword kind: %O" k
+        | SyntaxKind.InKeyword -> InKeyword
+        | k -> failwithf "Unexpected CrefParameterRefKindKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] OperatorMemberCrefOperatorToken =
     | PlusToken                  
@@ -876,7 +880,7 @@ and NameColonData(node: NameColonSyntax) =
 and ArgumentData(node: ArgumentSyntax) =
     member this.Node = node
     member this.NameColon = node.NameColon |> Option.ofObj |> Option.map NameColonData.FromNode
-    member this.RefOrOutKeyword = node.RefOrOutKeyword |> optionalToken |> Option.map ArgumentRefOrOutKeyword.FromToken
+    member this.RefKindKeyword = node.RefKindKeyword |> optionalToken |> Option.map ArgumentRefKindKeyword.FromToken
     member this.Expression = node.Expression |> ExpressionData.FromNode
     static member FromNode(n: ArgumentSyntax) = ArgumentData(n)
 
@@ -1482,7 +1486,7 @@ with
 
 and CrefParameterData(node: CrefParameterSyntax) =
     member this.Node = node
-    member this.RefOrOutKeyword = node.RefOrOutKeyword |> optionalToken |> Option.map CrefParameterRefOrOutKeyword.FromToken
+    member this.RefKindKeyword = node.RefKindKeyword |> optionalToken |> Option.map CrefParameterRefKindKeyword.FromToken
     member this.Type = node.Type |> TypeData.FromNode
     static member FromNode(n: CrefParameterSyntax) = CrefParameterData(n)
 
@@ -2194,7 +2198,13 @@ and ImplicitArrayCreationExpressionData(node: ImplicitArrayCreationExpressionSyn
 and StackAllocArrayCreationExpressionData(node: StackAllocArrayCreationExpressionSyntax) =
     member this.Node = node
     member this.Type = node.Type |> TypeData.FromNode
+    member this.Initializer = node.Initializer |> Option.ofObj |> Option.map InitializerExpressionData.FromNode
     static member FromNode(n: StackAllocArrayCreationExpressionSyntax) = StackAllocArrayCreationExpressionData(n)
+
+and ImplicitStackAllocArrayCreationExpressionData(node: ImplicitStackAllocArrayCreationExpressionSyntax) =
+    member this.Node = node
+    member this.Initializer = node.Initializer |> InitializerExpressionData.FromNode
+    static member FromNode(n: ImplicitStackAllocArrayCreationExpressionSyntax) = ImplicitStackAllocArrayCreationExpressionData(n)
 
 and QueryExpressionData(node: QueryExpressionSyntax) =
     member this.Node = node
@@ -2224,46 +2234,47 @@ and ThrowExpressionData(node: ThrowExpressionSyntax) =
     static member FromNode(n: ThrowExpressionSyntax) = ThrowExpressionData(n)
 
 and [<RequireQualifiedAccess>] ExpressionData =
-    | Type                              of TypeData
-    | InstanceExpression                of InstanceExpressionData
-    | AnonymousFunctionExpression       of AnonymousFunctionExpressionData
-    | ParenthesizedExpression           of ParenthesizedExpressionData
-    | TupleExpression                   of TupleExpressionData
-    | PrefixUnaryExpression             of PrefixUnaryExpressionData
-    | AwaitExpression                   of AwaitExpressionData
-    | PostfixUnaryExpression            of PostfixUnaryExpressionData
-    | MemberAccessExpression            of MemberAccessExpressionData
-    | ConditionalAccessExpression       of ConditionalAccessExpressionData
-    | MemberBindingExpression           of MemberBindingExpressionData
-    | ElementBindingExpression          of ElementBindingExpressionData
-    | ImplicitElementAccess             of ImplicitElementAccessData
-    | BinaryExpression                  of BinaryExpressionData
-    | AssignmentExpression              of AssignmentExpressionData
-    | ConditionalExpression             of ConditionalExpressionData
-    | LiteralExpression                 of LiteralExpressionData
-    | MakeRefExpression                 of MakeRefExpressionData
-    | RefTypeExpression                 of RefTypeExpressionData
-    | RefValueExpression                of RefValueExpressionData
-    | CheckedExpression                 of CheckedExpressionData
-    | DefaultExpression                 of DefaultExpressionData
-    | TypeOfExpression                  of TypeOfExpressionData
-    | SizeOfExpression                  of SizeOfExpressionData
-    | InvocationExpression              of InvocationExpressionData
-    | ElementAccessExpression           of ElementAccessExpressionData
-    | DeclarationExpression             of DeclarationExpressionData
-    | CastExpression                    of CastExpressionData
-    | RefExpression                     of RefExpressionData
-    | InitializerExpression             of InitializerExpressionData
-    | ObjectCreationExpression          of ObjectCreationExpressionData
-    | AnonymousObjectCreationExpression of AnonymousObjectCreationExpressionData
-    | ArrayCreationExpression           of ArrayCreationExpressionData
-    | ImplicitArrayCreationExpression   of ImplicitArrayCreationExpressionData
-    | StackAllocArrayCreationExpression of StackAllocArrayCreationExpressionData
-    | QueryExpression                   of QueryExpressionData
-    | OmittedArraySizeExpression        of OmittedArraySizeExpressionData
-    | InterpolatedStringExpression      of InterpolatedStringExpressionData
-    | IsPatternExpression               of IsPatternExpressionData
-    | ThrowExpression                   of ThrowExpressionData
+    | Type                                      of TypeData
+    | InstanceExpression                        of InstanceExpressionData
+    | AnonymousFunctionExpression               of AnonymousFunctionExpressionData
+    | ParenthesizedExpression                   of ParenthesizedExpressionData
+    | TupleExpression                           of TupleExpressionData
+    | PrefixUnaryExpression                     of PrefixUnaryExpressionData
+    | AwaitExpression                           of AwaitExpressionData
+    | PostfixUnaryExpression                    of PostfixUnaryExpressionData
+    | MemberAccessExpression                    of MemberAccessExpressionData
+    | ConditionalAccessExpression               of ConditionalAccessExpressionData
+    | MemberBindingExpression                   of MemberBindingExpressionData
+    | ElementBindingExpression                  of ElementBindingExpressionData
+    | ImplicitElementAccess                     of ImplicitElementAccessData
+    | BinaryExpression                          of BinaryExpressionData
+    | AssignmentExpression                      of AssignmentExpressionData
+    | ConditionalExpression                     of ConditionalExpressionData
+    | LiteralExpression                         of LiteralExpressionData
+    | MakeRefExpression                         of MakeRefExpressionData
+    | RefTypeExpression                         of RefTypeExpressionData
+    | RefValueExpression                        of RefValueExpressionData
+    | CheckedExpression                         of CheckedExpressionData
+    | DefaultExpression                         of DefaultExpressionData
+    | TypeOfExpression                          of TypeOfExpressionData
+    | SizeOfExpression                          of SizeOfExpressionData
+    | InvocationExpression                      of InvocationExpressionData
+    | ElementAccessExpression                   of ElementAccessExpressionData
+    | DeclarationExpression                     of DeclarationExpressionData
+    | CastExpression                            of CastExpressionData
+    | RefExpression                             of RefExpressionData
+    | InitializerExpression                     of InitializerExpressionData
+    | ObjectCreationExpression                  of ObjectCreationExpressionData
+    | AnonymousObjectCreationExpression         of AnonymousObjectCreationExpressionData
+    | ArrayCreationExpression                   of ArrayCreationExpressionData
+    | ImplicitArrayCreationExpression           of ImplicitArrayCreationExpressionData
+    | StackAllocArrayCreationExpression         of StackAllocArrayCreationExpressionData
+    | ImplicitStackAllocArrayCreationExpression of ImplicitStackAllocArrayCreationExpressionData
+    | QueryExpression                           of QueryExpressionData
+    | OmittedArraySizeExpression                of OmittedArraySizeExpressionData
+    | InterpolatedStringExpression              of InterpolatedStringExpressionData
+    | IsPatternExpression                       of IsPatternExpressionData
+    | ThrowExpression                           of ThrowExpressionData
 with
     static member FromNode(n: ExpressionSyntax) =
         match n with
@@ -2302,6 +2313,7 @@ with
         | :? ArrayCreationExpressionSyntax as d -> ArrayCreationExpression (ArrayCreationExpressionData.FromNode(d))
         | :? ImplicitArrayCreationExpressionSyntax as d -> ImplicitArrayCreationExpression (ImplicitArrayCreationExpressionData.FromNode(d))
         | :? StackAllocArrayCreationExpressionSyntax as d -> StackAllocArrayCreationExpression (StackAllocArrayCreationExpressionData.FromNode(d))
+        | :? ImplicitStackAllocArrayCreationExpressionSyntax as d -> ImplicitStackAllocArrayCreationExpression (ImplicitStackAllocArrayCreationExpressionData.FromNode(d))
         | :? QueryExpressionSyntax as d -> QueryExpression (QueryExpressionData.FromNode(d))
         | :? OmittedArraySizeExpressionSyntax as d -> OmittedArraySizeExpression (OmittedArraySizeExpressionData.FromNode(d))
         | :? InterpolatedStringExpressionSyntax as d -> InterpolatedStringExpression (InterpolatedStringExpressionData.FromNode(d))
@@ -2345,6 +2357,7 @@ with
         | ArrayCreationExpression d -> d.Node :> ExpressionSyntax
         | ImplicitArrayCreationExpression d -> d.Node :> ExpressionSyntax
         | StackAllocArrayCreationExpression d -> d.Node :> ExpressionSyntax
+        | ImplicitStackAllocArrayCreationExpression d -> d.Node :> ExpressionSyntax
         | QueryExpression d -> d.Node :> ExpressionSyntax
         | OmittedArraySizeExpression d -> d.Node :> ExpressionSyntax
         | InterpolatedStringExpression d -> d.Node :> ExpressionSyntax

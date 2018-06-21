@@ -776,9 +776,10 @@ type RoslynTransformer(env: Environment) =
             )
         let expression = x.Expression |> this.TransformExpression
         let value =
-            match x.RefOrOutKeyword with
-            | Some ArgumentRefOrOutKeyword.RefKeyword 
-            | Some ArgumentRefOrOutKeyword.OutKeyword ->
+            match x.RefKindKeyword with
+            | Some ArgumentRefKindKeyword.RefKeyword 
+            | Some ArgumentRefKindKeyword.OutKeyword
+            | Some ArgumentRefKindKeyword.InKeyword ->
                 createRef expression
             | None ->
                 // TODO: copy struct values, if support for mutable structs on the client-side is added

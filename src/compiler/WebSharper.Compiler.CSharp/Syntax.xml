@@ -609,49 +609,49 @@
     </FactoryComment>
   </Node>
   <Node Name="AssignmentExpressionSyntax" Base="ExpressionSyntax">
-    <Kind Name="SimpleAssignmentExpression"/>
-    <Kind Name="AddAssignmentExpression"/>
-    <Kind Name="SubtractAssignmentExpression"/>
-    <Kind Name="MultiplyAssignmentExpression"/>
-    <Kind Name="DivideAssignmentExpression"/>
-    <Kind Name="ModuloAssignmentExpression"/>
-    <Kind Name="AndAssignmentExpression"/>
-    <Kind Name="ExclusiveOrAssignmentExpression"/>
-    <Kind Name="OrAssignmentExpression"/>
-    <Kind Name="LeftShiftAssignmentExpression"/>
-    <Kind Name="RightShiftAssignmentExpression"/>
-    <Field Name="Left" Type="ExpressionSyntax">
-      <PropertyComment>
-        <summary>ExpressionSyntax node representing the expression on the left of the assignment operator.</summary>
-      </PropertyComment>
-    </Field>
-    <Field Name="OperatorToken" Type="SyntaxToken">
-      <Kind Name="EqualsToken"/>
-      <Kind Name="PlusEqualsToken"/>
-      <Kind Name="MinusEqualsToken"/>
-      <Kind Name="AsteriskEqualsToken"/>
-      <Kind Name="SlashEqualsToken"/>
-      <Kind Name="PercentEqualsToken"/>
-      <Kind Name="AmpersandEqualsToken"/>
-      <Kind Name="CaretEqualsToken"/>
-      <Kind Name="BarEqualsToken"/>
-      <Kind Name="LessThanLessThanEqualsToken"/>
-      <Kind Name="GreaterThanGreaterThanEqualsToken"/>
-      <PropertyComment>
-        <summary>SyntaxToken representing the operator of the assignment expression.</summary>
-      </PropertyComment>
-    </Field>
-    <Field Name="Right" Type="ExpressionSyntax">
-      <PropertyComment>
-        <summary>ExpressionSyntax node representing the expression on the right of the assignment operator.</summary>
-      </PropertyComment>
-    </Field>
-    <TypeComment>
-      <summary>Class which represents an expression that has an assignment operator.</summary>
-    </TypeComment>
-    <FactoryComment>
-      <summary>Creates an AssignmentExpressionSyntax node.</summary>
-    </FactoryComment>
+      <Kind Name="SimpleAssignmentExpression"/>
+      <Kind Name="AddAssignmentExpression"/>
+      <Kind Name="SubtractAssignmentExpression"/>
+      <Kind Name="MultiplyAssignmentExpression"/>
+      <Kind Name="DivideAssignmentExpression"/>
+      <Kind Name="ModuloAssignmentExpression"/>
+      <Kind Name="AndAssignmentExpression"/>
+      <Kind Name="ExclusiveOrAssignmentExpression"/>
+      <Kind Name="OrAssignmentExpression"/>
+      <Kind Name="LeftShiftAssignmentExpression"/>
+      <Kind Name="RightShiftAssignmentExpression"/>
+      <Field Name="Left" Type="ExpressionSyntax">
+        <PropertyComment>
+          <summary>ExpressionSyntax node representing the expression on the left of the assignment operator.</summary>
+        </PropertyComment>
+      </Field>
+      <Field Name="OperatorToken" Type="SyntaxToken">
+        <Kind Name="EqualsToken"/>
+        <Kind Name="PlusEqualsToken"/>
+        <Kind Name="MinusEqualsToken"/>
+        <Kind Name="AsteriskEqualsToken"/>
+        <Kind Name="SlashEqualsToken"/>
+        <Kind Name="PercentEqualsToken"/>
+        <Kind Name="AmpersandEqualsToken"/>
+        <Kind Name="CaretEqualsToken"/>
+        <Kind Name="BarEqualsToken"/>
+        <Kind Name="LessThanLessThanEqualsToken"/>
+        <Kind Name="GreaterThanGreaterThanEqualsToken"/>
+        <PropertyComment>
+          <summary>SyntaxToken representing the operator of the assignment expression.</summary>
+        </PropertyComment>
+      </Field>
+      <Field Name="Right" Type="ExpressionSyntax">
+        <PropertyComment>
+          <summary>ExpressionSyntax node representing the expression on the right of the assignment operator.</summary>
+        </PropertyComment>
+      </Field>
+      <TypeComment>
+        <summary>Class which represents an expression that has an assignment operator.</summary>
+      </TypeComment>
+      <FactoryComment>
+        <summary>Creates an AssignmentExpressionSyntax node.</summary>
+      </FactoryComment>
   </Node>
   <Node Name="ConditionalExpressionSyntax" Base="ExpressionSyntax">
     <Kind Name="ConditionalExpression"/>
@@ -1097,9 +1097,10 @@
         <summary>NameColonSyntax node representing the optional name arguments.</summary>
       </PropertyComment>
     </Field>
-    <Field Name="RefOrOutKeyword" Type="SyntaxToken" Optional="true">
+    <Field Name="RefKindKeyword" Type="SyntaxToken" Optional="true">
       <Kind Name="RefKeyword"/>
       <Kind Name="OutKeyword"/>
+      <Kind Name="InKeyword"/>
       <PropertyComment>
         <summary>SyntaxToken representing the optional ref or out keyword.</summary>
       </PropertyComment>
@@ -1497,11 +1498,48 @@
         <summary>TypeSyntax node representing the type of the stackalloc array.</summary>
       </PropertyComment>
     </Field>
+    <Field Name="Initializer" Type="InitializerExpressionSyntax" Optional="true">
+      <PropertyComment>
+        <summary>InitializerExpressionSyntax node representing the initializer of the stackalloc array creation expression.</summary>
+      </PropertyComment>
+    </Field>
     <TypeComment>
       <summary>Class which represents the syntax node for stackalloc array creation expression.</summary>
     </TypeComment>
     <FactoryComment>
       <summary>Creates a StackAllocArrayCreationExpressionSyntax node.</summary>
+    </FactoryComment>
+  </Node>
+  <Node Name="ImplicitStackAllocArrayCreationExpressionSyntax" Base="ExpressionSyntax">
+    <Kind Name="ImplicitStackAllocArrayCreationExpression"/>
+    <Field Name="StackAllocKeyword" Type="SyntaxToken">
+      <Kind Name="StackAllocKeyword"/>
+      <PropertyComment>
+        <summary>SyntaxToken representing the stackalloc keyword.</summary>
+      </PropertyComment>
+    </Field>
+    <Field Name="OpenBracketToken" Type="SyntaxToken">
+      <Kind Name="OpenBracketToken"/>
+      <PropertyComment>
+        <summary>SyntaxToken representing the open bracket.</summary>
+      </PropertyComment>
+    </Field>
+    <Field Name="CloseBracketToken" Type="SyntaxToken">
+      <Kind Name="CloseBracketToken"/>
+      <PropertyComment>
+        <summary>SyntaxToken representing the close bracket.</summary>
+      </PropertyComment>
+    </Field>
+    <Field Name="Initializer" Type="InitializerExpressionSyntax">
+      <PropertyComment>
+        <summary>InitializerExpressionSyntax representing the initializer expression of the implicit stackalloc array creation expression.</summary>
+      </PropertyComment>
+    </Field>
+    <TypeComment>
+      <summary>Class which represents the syntax node for implicit stackalloc array creation expression.</summary>
+    </TypeComment>
+    <FactoryComment>
+      <summary>Creates an ImplicitStackAllocArrayCreationExpressionSyntax node.</summary>
     </FactoryComment>
   </Node>
   <AbstractNode Name="QueryClauseSyntax" Base="CSharpSyntaxNode">
@@ -1683,9 +1721,9 @@
   <Node Name="IsPatternExpressionSyntax" Base="ExpressionSyntax">
     <Kind Name="IsPatternExpression"/>
     <Field Name="Expression" Type="ExpressionSyntax">
-      <PropertyComment>
-        <summary>ExpressionSyntax node representing the expression on the left of the "is" operator.</summary>
-      </PropertyComment>
+    <PropertyComment>
+      <summary>ExpressionSyntax node representing the expression on the left of the "is" operator.</summary>
+    </PropertyComment>
     </Field>
     <Field Name="IsKeyword" Type="SyntaxToken">
       <Kind Name="IsKeyword"/>
@@ -2128,10 +2166,10 @@
     <Field Name="Variable" Type="ExpressionSyntax">
       <PropertyComment>
         <summary>
-          The variable(s) of the loop. In correct code this is a tuple
-          literal, declaration expression with a tuple designator, or
-          a wildcard syntax in the form of a simple identifier. In broken
-          code it could be something else.
+           The variable(s) of the loop. In correct code this is a tuple
+           literal, declaration expression with a tuple designator, or
+           a wildcard syntax in the form of a simple identifier. In broken
+           code it could be something else.
         </summary>
       </PropertyComment>
     </Field>
@@ -3844,9 +3882,10 @@
       </summary>
     </TypeComment>
     <Kind Name="CrefParameter"/>
-    <Field Name="RefOrOutKeyword" Type="SyntaxToken" Optional="true">
+    <Field Name="RefKindKeyword" Type="SyntaxToken" Optional="true">
       <Kind Name="RefKeyword"/>
       <Kind Name="OutKeyword"/>
+      <Kind Name="InKeyword"/>
     </Field>
     <Field Name="Type" Type="TypeSyntax"/>
   </Node>
