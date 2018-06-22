@@ -262,6 +262,10 @@ namespace WebSharper.CSharp.Tests
             r = ref y;
             r--;
             Equal(y, -1);
+            x = r = 2;
+            r += 2;
+            Equal(x, 2);
+            Equal(y, 4);
         }
 
         class Cat
@@ -510,6 +514,43 @@ namespace WebSharper.CSharp.Tests
             IsTrue(d1.HasFlag(Days.Sat));
             IsTrue(d1.GetHashCode() == d1.GetHashCode());
             IsTrue(d1.GetHashCode() != d2.GetHashCode());
+        }
+
+        public class ExprVarCtorB
+        {
+            public ExprVarCtorB(int i, out int j)
+            {
+                j = i;
+            }
+        }
+
+        public class ExprVarCtorD : ExprVarCtorB
+        {
+            public ExprVarCtorD(int i, out int k) : base(i, out var j)
+            {
+                k = j;
+            }
+        }
+
+        public int ExprVarField = int.TryParse("42", out var i) ? i : 0;
+
+        public int ExprVarProp { get; set; } = int.TryParse("42", out var i) ? i : 0; 
+
+        [Test]
+        public void ExpressionVariables()
+        {
+            var d = new ExprVarCtorD(5, out var x);
+            Equal(x, 5, "expression variable in constructor initializer");
+
+            var strings = new string[] { "5" };
+
+            Equal(ExprVarField, 42, "expression variable in field initializer");
+            Equal(ExprVarProp, 42, "expression variable in property initializer");
+
+            var r = from s in strings
+                    select int.TryParse(s, out var i) ? i : 0;
+
+            Equal(r.ToArray(), new[] { 5 }, "expression variable in query");
         }
     }
 
