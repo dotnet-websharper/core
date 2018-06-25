@@ -15,7 +15,7 @@ files
     ../build/Release/FSharp/net461/wsfsc.exe.config ==> tools/net461
     ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> tools/net461
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.Sitelets.Offline.dll ==> tools/net461
+    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.dll ==> tools/net461
     ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools/net461
     ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools/net461
     ../build/Release/FSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools/net461
@@ -35,7 +35,7 @@ files
     ../build/Release/FSharp/deploy/wsfsc.runtimeconfig.json ==> tools/netstandard2.0
     ../build/Release/FSharp/deploy/WebSharper.Compiler.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/deploy/WebSharper.Compiler.FSharp.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/deploy/WebSharper.Core.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/deploy/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/deploy/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0

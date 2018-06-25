@@ -180,4 +180,13 @@ let Tests =
             equal (Map.tryPick finder (Map.remove 5 m)) None
         }
 
+        Test "TryGetValue" {
+            let findList = [None; None; Some 4; None]
+            let m = Map.ofList [(1, 5); (2, 9); (3, 6); (4, 13); (5, 5); (6, 9)]
+            let wasFound, found = m.TryGetValue(2)
+            let notFound, _ = m.TryGetValue(8)
+            isTrue wasFound
+            equal found 9
+            isFalse notFound
+        }
     }

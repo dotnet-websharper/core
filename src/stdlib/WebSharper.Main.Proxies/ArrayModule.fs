@@ -474,6 +474,12 @@ let Sum (arr: 'T []) : 'T = X<'T>
 [<Name "sumBy">]
 let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
 
+[<Name "transpose">]
+let Transpose (x: 'T[] seq) : 'T[][] =
+    match x with
+    | :? System.Array -> ArrayTranspose (As<'T[][]> x)
+    | _ -> ArrayTranspose (Array.ofSeq x)
+
 [<Inline>]
 let ToList arr = List.ofArray arr
 

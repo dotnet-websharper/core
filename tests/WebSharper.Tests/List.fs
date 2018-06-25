@@ -715,4 +715,8 @@ let Tests =
             equal [ 0 .. 4].[.. 2] [ 0 .. 2 ]
         }
 
+        Test "List.transpose" {
+            raises (List.transpose [[1]; []])
+            equal (List.transpose [[1; 2]; [3; 4]]) [[1; 3]; [2; 4]]
+        }
     }

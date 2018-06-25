@@ -13,7 +13,6 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# Tuples")]
     public class Tuples : TestCategory
     {
-#if CSHARP7
         [Test]
         public void Construction()
         {
@@ -30,6 +29,13 @@ namespace WebSharper.CSharp.Tests
             var cvt = new ValueTuple<int, int>(2, 3);
             Equal(ct, (2, 3).ToTuple());
             Equal(cvt, (2, 3));
+        }
+
+        [Test]
+        public void Comparison()
+        {
+            IsTrue((0, "hello") == (0, "hello"));
+            IsTrue((0, "hello") != (0, "hi"));
         }
 
         [Test]
@@ -140,6 +146,5 @@ namespace WebSharper.CSharp.Tests
         //    IncrFst2(ref t);
         //    Equal(t.Item1, 5);
         //}
-#endif
     }
 }

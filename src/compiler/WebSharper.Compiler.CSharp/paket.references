@@ -1,2 +1,4 @@
-FSharp.Core
 Microsoft.CodeAnalysis.CSharp
+group compilers
+  Fsharp.Core
+  Fsharp.Compiler.Tools

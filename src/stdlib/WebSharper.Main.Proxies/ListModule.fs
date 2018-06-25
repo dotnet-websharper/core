@@ -545,6 +545,11 @@ let ToArray (l: list<_>) = Array.ofList l
 [<Inline "$x">]
 let ToSeq<'T> (x: list<'T>) : seq<'T> = x :> _
 
+[<Name "transpose">]
+let Transpose (x: seq<list<'T>>) : list<list<'T>> =
+    ArrayTranspose (Array.ofSeq (x |> Seq.map Array.ofList))
+    |> Seq.map List.ofArray |> List.ofSeq
+
 [<Inline>]
 let TryFind p (l: list<_>) = Seq.tryFind p l
 

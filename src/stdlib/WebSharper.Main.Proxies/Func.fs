@@ -20,6 +20,7 @@
 
 namespace WebSharper
 
+open System
 open WebSharper.JavaScript
 
 [<Proxy(typeof<FSharpFunc<_,_>>)>]
@@ -28,4 +29,39 @@ type private FuncProxy<'T,'TResult> =
     member this.Invoke (arg: 'T) = X<'TResult>     
 
     [<JavaScript; Inline "$f">]
-    static member FromConverter (f: System.Converter<'T, 'TResult>) = X<'T -> 'TResult>
+    static member FromConverter (f: Converter<'T, 'TResult>) = X<'T -> 'TResult>
+
+[<Proxy(typeof<FuncConvert>)>]
+type private FuncConvertProxy =
+    [<Inline>]
+    static member FromAction(del: Action) = del.Invoke            
+    [<Inline>]
+    static member FromAction(del: Action<_>) = del.Invoke            
+    [<Inline>]
+    static member FromAction(del: Action<_,_>) = fun a b -> del.Invoke(a, b)            
+    [<Inline>]
+    static member FromAction(del: Action<_,_,_>) = fun a b c -> del.Invoke(a, b, c)            
+    [<Inline>]
+    static member FromAction(del: Action<_,_,_,_>) = fun a b c d -> del.Invoke(a, b, c, d)            
+    [<Inline>]
+    static member FromAction(del: Action<_,_,_,_,_>) = fun a b c d e -> del.Invoke(a, b, c, d, e)            
+    [<Inline>]
+    static member FromFunc(del: Func<_>) = del.Invoke            
+    [<Inline>]
+    static member FromFunc(del: Func<_,_>) = del.Invoke            
+    [<Inline>]
+    static member FromFunc(del: Func<_,_,_>) = fun a b -> del.Invoke(a, b)            
+    [<Inline>]
+    static member FromFunc(del: Func<_,_,_,_>) = fun a b c -> del.Invoke(a, b, c)            
+    [<Inline>]
+    static member FromFunc(del: Func<_,_,_,_,_>) = fun a b c d -> del.Invoke(a, b, c, d)            
+    [<Inline>]
+    static member FromFunc(del: Func<_,_,_,_,_,_>) = fun a b c d e -> del.Invoke(a, b, c, d, e)            
+    [<Inline>]
+    static member FuncFromTupled(f) = fun a b -> f(a, b)            
+    [<Inline>]
+    static member FuncFromTupled(f) = fun a b c -> f(a, b, c)            
+    [<Inline>]
+    static member FuncFromTupled(f) = fun a b c d -> f(a, b, c, d)            
+    [<Inline>]
+    static member FuncFromTupled(f) = fun a b c d e -> f(a, b, c, d, e)            

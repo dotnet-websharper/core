@@ -594,7 +594,11 @@ type RoslynTransformer(env: Environment) =
             | _ -> This
             |> Some
         match symbol with
-        | :? ILocalSymbol as s -> Var env.Vars.[s]
+        | :? ILocalSymbol as s -> 
+            if s.IsRef then
+                GetRef (Var env.Vars.[s])     
+            else
+                Var env.Vars.[s]
         | :? IParameterSymbol as p -> 
             match env.Parameters.[p] with
             | v, false -> Var v
@@ -776,9 +780,10 @@ type RoslynTransformer(env: Environment) =
             )
         let expression = x.Expression |> this.TransformExpression
         let value =
-            match x.RefOrOutKeyword with
-            | Some ArgumentRefOrOutKeyword.RefKeyword 
-            | Some ArgumentRefOrOutKeyword.OutKeyword ->
+            match x.RefKindKeyword with
+            | Some ArgumentRefKindKeyword.RefKeyword 
+            | Some ArgumentRefKindKeyword.OutKeyword
+            | Some ArgumentRefKindKeyword.InKeyword ->
                 createRef expression
             | None ->
                 // TODO: copy struct values, if support for mutable structs on the client-side is added
@@ -1157,7 +1162,12 @@ type RoslynTransformer(env: Environment) =
             | FieldGet (obj, ty, f) -> FieldSet (obj, ty, f, right)
             | ItemGet(obj, i, _) -> ItemSet (obj, i, right)
             | Application(ItemGet (r, Value (String "get"), _), [], _, _) ->
-                withResultValue right <| SetRef r
+                // when right is also a ref, this is a ref local set
+                match r, right with
+                | Var id, Object [ "get", (Function ([], Return getVal)); "set", (Function ([_], ExprStatement _)) ] ->
+                    VarSet(id, right)
+                | _ ->
+                    withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
             | e -> 

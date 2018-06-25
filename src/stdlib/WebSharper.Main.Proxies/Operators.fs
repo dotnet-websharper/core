@@ -200,6 +200,12 @@ let DefaultArg x d =
     | Some x -> x
     | None   -> d
 
+[<Inline>]
+let DefaultValueArg x d =
+    match x with
+    | ValueSome x -> x
+    | ValueNone   -> d
+
 [<Inline "$x">]
 let Enum<'T when 'T : enum<int>> (x: 'T) = X<'T>
 

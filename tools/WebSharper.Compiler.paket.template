@@ -17,13 +17,13 @@ files
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.xml ==> lib/net461
     ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.dll ==> lib/net461
     ../build/Release/CSharp/net461/WebSharper.Compiler.CSharp.xml ==> lib/net461
-    ../build/Release/FSharp/net461/WebSharper.Sitelets.Offline.dll ==> lib/net461
-    ../build/Release/FSharp/net461/WebSharper.Sitelets.Offline.xml ==> lib/net461
+    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.dll ==> lib/net461
+    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.xml ==> lib/net461
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.xml ==> lib/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> lib/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.xml ==> lib/netstandard2.0
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0
