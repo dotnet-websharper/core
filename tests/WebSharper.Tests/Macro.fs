@@ -23,6 +23,7 @@ namespace WebSharper.Tests
 open WebSharper.Core
 open WebSharper.Core.AST
 module S = WebSharper.Core.JavaScript.Syntax
+module I = IgnoreSourcePos
 
 [<Sealed>]
 type HelloQuotationGenerator() =
@@ -74,6 +75,19 @@ type AddMacro() =
                 !~ (Int64 (int64 (ai + bi))) |> MacroOk
             | _ -> MacroFallback
         | _ -> MacroError "AddMacro error"
+
+[<Sealed>]
+type BoundVarTestMacro() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [I.Var a] ->
+            match c.BoundVars.TryGetValue(a) with
+            | true, I.Value (Int x) ->
+                MacroUsedBoundVar (a, 
+                    MacroOk (Value (Int (x + 1))))
+            | _ -> MacroError "BoundVarTestMacro error"
+        | _ -> MacroError "BoundVarTestMacro error"
             
 module Macro =
 
@@ -99,6 +113,9 @@ module Macro =
     [<Macro(typeof<AddMacro>); JavaScript>]
     let add a b = a + b
 
+    [<Macro(typeof<BoundVarTestMacro>)>]
+    let boundVarTest (a: int) = X<int>
+
     [<JavaScript>]
     let Tests =
         TestCategory "Metaprogramming" {
@@ -114,5 +131,6 @@ module Macro =
                 equal nameof<string> "System.String"
                 equal (add 1 2) 3
                 equal (add 1 (1 + 1)) 3
+                equal (let x = 1 in boundVarTest x) 2
             }
         }

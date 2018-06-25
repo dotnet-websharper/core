@@ -306,6 +306,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable currentFuncArgs = None
     let mutable cctorCalls = Set.empty
     let labelCctors = Dictionary()
+    let boundVars = Dictionary()
 
     let innerScope f = 
         let cc = cctorCalls
@@ -842,6 +843,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             Parameter = parameter |> Option.map M.ParameterObject.ToObj
                             IsInline = currentIsInline
                             Compilation = comp
+                            BoundVars = boundVars
                         }
                     with e -> MacroError (e.Message + " at " + e.StackTrace) 
                 | _ -> 
@@ -875,6 +877,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Call(trThisObj(), typ, meth, trArgs())
                     else 
                         this.HandleMacroNeedsResolvedTypeArg(t, macro.Value.FullName)
+                | MacroUsedBoundVar (v, mres) ->
+                    boundVars.Remove v |> ignore
+                    getExpr mres
             getExpr macroResult
         | M.Remote (kind, handle, rh) ->
             let name, mnode =
@@ -1083,12 +1088,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some m ->
                     try
                         m.TranslateCtor {
-                             DefiningType = typ
-                             Constructor = ctor
-                             Arguments = args
-                             Parameter = parameter |> Option.map M.ParameterObject.ToObj
-                             IsInline = currentIsInline
-                             Compilation = comp
+                            DefiningType = typ
+                            Constructor = ctor
+                            Arguments = args
+                            Parameter = parameter |> Option.map M.ParameterObject.ToObj
+                            IsInline = currentIsInline
+                            Compilation = comp
+                            BoundVars = boundVars
                         }
                     with e -> MacroError (e.Message + " at " + e.StackTrace)  
                 | _ -> MacroError "Macro type failed to load"
@@ -1115,6 +1121,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Ctor(typ, ctor, trArgs())
                     else 
                         this.HandleMacroNeedsResolvedTypeArg(t, macro.Value.FullName)
+                | MacroUsedBoundVar (v, mres) ->
+                    boundVars.Remove v |> ignore
+                    getExpr mres
             getExpr macroResult
         | _ -> this.Error("Invalid metadata for constructor.")
 
@@ -1455,6 +1464,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | selfName :: _ -> GlobalAccess self
             | _ -> this.Error ("Self address empty")
         | _ -> this.Error ("Self address missing")
+
+    override this.TransformLet (a, b, c) =
+        if CountVarOccurence(a).Get(c) = 1 then
+            boundVars.Add(a, b)
+            let trC = this.TransformExpression(c)
+            if boundVars.Remove a then
+                let trB = this.TransformExpression(b)
+                Let(a, trB, trC)
+            else trC
+        else
+            base.TransformLet(a, b, c)
 
     override this.TransformFieldGet (expr, typ, field) =
         if comp.HasGraph then
