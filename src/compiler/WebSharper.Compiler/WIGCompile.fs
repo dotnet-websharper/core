@@ -290,12 +290,12 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         correctAttributeArg a.Argument
 
     let resolveAsm (asmName: string) (typeName: string) =
-        match assemblies.TryGetValue(asmName) with
+        match assemblies.TryGetValue(AssemblyName(asmName).Name) with
         | true, x -> x
         | false, _ ->
             let asm =
                 if isNetStandard && AssemblyConventions.IsNetStandardType typeName then corelib else
-                aR.Resolve(AssemblyNameReference.Parse(asmName))
+                aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
 
@@ -342,7 +342,10 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         let tDef = resolveTypeName assembly name
         genericInstance tDef ts
 
-    let funcType = resolveType typedefof<_ -> _>
+    // First resolve FSharp.Core without explicit version,
+    // so that the resolver can pick up the version from the passed references.
+    let fsharpCore = resolveAsm "FSharp.Core" "Microsoft.FSharp.Core.FSharpFunc`2"
+    let funcType = resolveTypeName fsharpCore "Microsoft.FSharp.Core.FSharpFunc`2"
     let attributeType = resolveType typeof<System.Attribute>
     let converterType = resolveType typedefof<System.Converter<_, _>>
     let objectType = resolveType typeof<obj>

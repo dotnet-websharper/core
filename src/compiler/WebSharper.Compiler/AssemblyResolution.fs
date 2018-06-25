@@ -78,7 +78,7 @@ module Implemetnation =
                 seq {
                     for path in paths do
                         for ext in [".dll"; ".exe"] do
-                            if Path.GetFileName(path).ToLower() = (name.Name + ext).ToLower() then
+                            if String.Equals(Path.GetFileName(path), name.Name + ext, StringComparison.OrdinalIgnoreCase) then
                                 if isMatchingFile name path then
                                     yield path
                 }

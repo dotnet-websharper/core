@@ -103,8 +103,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         ]        
     let aR =
         AssemblyResolver.Create()
-            .SearchDirectories([compilerDir])
             .SearchPaths(paths)
+            .SearchDirectories([compilerDir])
 
     if config.ProjectType = Some WIG then  
         aR.Wrap <| fun () ->
