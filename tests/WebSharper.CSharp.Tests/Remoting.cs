@@ -31,6 +31,11 @@ namespace WebSharper.CSharp.Tests
         public int Y { get; set; }
     }
 
+    [JavaScript, Serializable]
+    public class TestClassSub : TestClass
+    {
+    }
+
     public static class Server
     {
         [Remote]
@@ -96,6 +101,14 @@ namespace WebSharper.CSharp.Tests
 
         [Remote]
         public static Task<TestClass> IncrementXY(TestClass o)
+        {
+            o.X++;
+            o.Y++;
+            return Task.FromResult(o);
+        }
+
+        [Remote]
+        public static Task<TestClassSub> IncrementXYSub(TestClassSub o)
         {
             o.X++;
             o.Y++;
@@ -226,6 +239,18 @@ namespace WebSharper.CSharp.Tests
             o.X = 1;
             o.Y = 1;
             o = await Server.IncrementXY(o);
+            Equal(o.X, 2);
+            Equal(o.Y, 2);
+        }
+
+        [Test]
+        public async Task CustomSubClass()
+        {
+            if (!ShouldRun) { Expect(0); return; }
+            var o = new TestClassSub();
+            o.X = 1;
+            o.Y = 1;
+            o = await Server.IncrementXYSub(o);
             Equal(o.X, 2);
             Equal(o.Y, 2);
         }

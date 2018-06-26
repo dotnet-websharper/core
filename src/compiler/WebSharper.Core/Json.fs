@@ -1085,6 +1085,10 @@ let fieldFlags =
     ||| System.Reflection.BindingFlags.Public
     ||| System.Reflection.BindingFlags.NonPublic
 
+let fieldFlagsDeclOnly =
+    fieldFlags
+    ||| System.Reflection.BindingFlags.DeclaredOnly
+
 exception NoEncodingException of System.Type with
     override this.Message =
         "No JSON encoding for " + string this.Data0
@@ -1092,13 +1096,23 @@ exception NoEncodingException of System.Type with
 type FS = System.Runtime.Serialization.FormatterServices
 
 let getObjectFields (t: System.Type) =
-    t.GetFields fieldFlags
-    |> Seq.filter (fun f ->
-        let nS =
-            f.Attributes &&&
-            System.Reflection.FieldAttributes.NotSerialized
-        f.DeclaringType.IsSerializable && int nS = 0)
-    |> Seq.toArray
+    // FlattenHierarchy flag is not enough to collect
+    // backing fields of auto-properties on base classes 
+    let getDecl (t: System.Type) = 
+        if t.IsSerializable then
+            t.GetFields fieldFlagsDeclOnly
+            |> Seq.filter (fun f ->
+                let nS =
+                    f.Attributes &&&
+                    System.Reflection.FieldAttributes.NotSerialized
+                int nS = 0
+            )
+        else Seq.empty
+    let rec getAll (t: System.Type) =
+        match t.BaseType with
+        | null -> Seq.empty // this is a System.Object
+        | b -> Seq.append (getAll b) (getDecl t)
+    getAll t |> Array.ofSeq
 
 let unmakeFlatDictionary<'T> (dE: obj -> Encoded) (x: obj) =
     EncodedObject [
