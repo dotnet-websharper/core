@@ -1268,17 +1268,31 @@ type RoslynTransformer(env: Environment) =
             let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).ConvertedType |> sr.ReadType
             Coalesce(left, leftType, right)
         | _ -> 
-            let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-            let typ, meth = getTypeAndMethod symbol
-            if List.isEmpty meth.Generics then
-                // add fake generics type information to resolve nullable operations
-                let leftType = env.SemanticModel.GetTypeInfo(x.Left.Node).Type |> sr.ReadType
-                let rightType = env.SemanticModel.GetTypeInfo(x.Right.Node).Type |> sr.ReadType
-                let meth =
-                    { meth with Generics = [leftType; rightType] }
-                Call(None, typ, meth, [left; right])
-            else
-                Call(None, typ, meth, [left; right])
+            let leftTypeSymbol = env.SemanticModel.GetTypeInfo(x.Left.Node).Type
+            let rightTypeSymbol = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
+            let tupleOp =
+                if leftTypeSymbol.IsTupleType && rightTypeSymbol.IsTupleType then
+                    match x.Kind with
+                    | BinaryExpressionKind.EqualsExpression ->
+                        Some (Macros.UncheckedEquals left right)   
+                    | BinaryExpressionKind.NotEqualsExpression ->
+                        Some (Unary(UnaryOperator.``!``, Macros.UncheckedEquals left right))                       
+                    | _ -> None
+                else None
+            match tupleOp with
+            | Some res -> res
+            | _ ->
+                let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+                let typ, meth = getTypeAndMethod symbol
+                if List.isEmpty meth.Generics then
+                    // add fake generics type information to resolve nullable operations
+                    let leftType = leftTypeSymbol |> sr.ReadType
+                    let rightType = rightTypeSymbol |> sr.ReadType
+                    let meth =
+                        { meth with Generics = [leftType; rightType] }
+                    Call(None, typ, meth, [left; right])
+                else
+                    Call(None, typ, meth, [left; right])
         |> withExprSourcePos x.Node
 
     member this.TransformConditionalExpression (x: ConditionalExpressionData) : Expression =

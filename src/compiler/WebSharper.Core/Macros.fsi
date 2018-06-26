@@ -159,3 +159,5 @@ type Tuple =
 type TupleExtensions =
     new : unit -> TupleExtensions
     inherit Macro
+
+val UncheckedEquals : AST.Expression -> AST.Expression -> AST.Expression

@@ -165,6 +165,9 @@ let opUncheckedTy, equalsMeth, compareMeth, hashMeth =
         Reflection.ReadMethod hmi
     | _ -> failwith "Expecting a Call pattern"
 
+let UncheckedEquals x y =
+    Call (None, NonGeneric opUncheckedTy, NonGeneric equalsMeth, [x; y]) 
+
 let makeComparison cmp x y =
     let eq x y = Call (None, NonGeneric opUncheckedTy, NonGeneric equalsMeth, [x; y]) 
     let c b i = Binary (Call(None, NonGeneric opUncheckedTy, NonGeneric compareMeth, [x; y]), b, Value(Int i))
