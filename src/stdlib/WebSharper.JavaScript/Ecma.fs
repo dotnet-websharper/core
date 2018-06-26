@@ -399,6 +399,24 @@ module Definition =
                 "stringify" => T<obj>?value * !?(Type.ArrayOf T<obj>)?replacer * !?(T<string> + T<int>)?space ^-> T<string>
             ]
 
+    let EcmaPromise =
+        Generic - fun (a: CodeModel.TypeParameter) ->
+        Class "Promise"
+        |+> Static [
+            Constructor ((a ^-> T<unit>) * (T<obj> ^-> T<unit>) ^-> T<unit>)?executor
+            "all" => !+TSelf.[a] ^-> TSelf.[Type.ArrayOf a]
+            "race" => !+TSelf.[a] ^-> TSelf.[a]
+            "reject" => T<obj>?reason ^-> TSelf.[a]
+            "resolve" => a?value ^-> TSelf.[a]
+            "resolve" => TSelf.[a] ^-> TSelf.[a]
+        ]
+        |+> Instance [
+            "catch" => (T<obj> ^-> T<unit>) ^-> TSelf.[a]
+            "finally" => (T<unit> ^-> T<unit>) ^-> TSelf.[a]
+            Generic - fun b -> "then" => (a ^-> b)?onFulfilled * !?(T<obj> ^-> T<unit>)?onRejected ^-> TSelf.[b]
+            Generic - fun b -> "then" => (a ^-> TSelf.[b])?onFulfilled * !?(T<obj> ^-> T<unit>)?onRejected ^-> TSelf.[b]
+        ]
+
     let Namespaces =
         [
             Namespace "WebSharper.JavaScript" [
@@ -414,5 +432,6 @@ module Definition =
                 EcmaDate
                 EcmaRegExp
                 EcmaJSON
+                EcmaPromise
             ]
         ]
