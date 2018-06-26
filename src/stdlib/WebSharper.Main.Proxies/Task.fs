@@ -147,10 +147,10 @@ type private TaskProxy(action: System.Action, token: CT, status, exc) =
             invalidOp "Task not in initial state"
         
     static member FromCanceled ct = 
-        As<Task> (TaskProxy(null, ct, TaskStatus.Canceled, null)) 
+        As<Task> (TaskProxy(null, ct, TaskStatus.Canceled, System.AggregateException(TaskCanceledException())))
 
     static member FromCanceled(ct: CT) = 
-        As<Task<_>> (TaskProxy<_>(null, ct, TaskStatus.Canceled, null, As null)) 
+        As<Task<_>> (TaskProxy<_>(null, ct, TaskStatus.Canceled, System.AggregateException(TaskCanceledException()), As null)) 
 
     static member FromException (exc: exn) =
         As<Task> (TaskProxy(null, CT.None, TaskStatus.Faulted, System.AggregateException(exc)))
@@ -288,7 +288,12 @@ and [<Proxy(typeof<Task<_>>); Name "Task1">] private TaskProxy<'T>(func: System.
 
     new (func: System.Func<obj, 'T>, obj: obj, ct: CT) = TaskProxy<'T>((fun () -> func.Invoke obj), ct, TaskStatus.Created, null, As<'T> JS.Undefined)
 
-    member this.Result = result
+    member this.Result = 
+        match this.Status with
+        | TaskStatus.RanToCompletion -> result
+        | TaskStatus.Faulted
+        | TaskStatus.Canceled -> raise this.Exception 
+        | _ -> invalidOp "Task has not been completed, has no Result"
 
     override this.Execute () =
         result <- func.Invoke()

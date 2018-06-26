@@ -82,5 +82,13 @@ namespace WebSharper.CSharp.Tests
             var one = await GetOneAsyncLocal();
             Equal(one, 1);
         }
+
+        [Test("Result")]
+        public void Result()
+        {
+            Equal(Task.FromResult<int>(1).Result, 1);
+            Raises(() => Task.FromException<int>(new Exception()).Result);
+            Raises(() => new Task<int>(() => 2).Result);
+        }
     }
 }

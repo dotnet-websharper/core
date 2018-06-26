@@ -154,3 +154,10 @@ type private OverflowException(message: string) =
     inherit exn(message)
 
     new () = OverflowException "Arithmetic operation resulted in an overflow."
+
+[<Proxy(typeof<System.Threading.Tasks.TaskCanceledException>)>]
+[<Name "TaskCanceledException">]
+type private TaskCanceledException(message: string) =
+    inherit exn(message)
+
+    new () = TaskCanceledException "A task was canceled."
