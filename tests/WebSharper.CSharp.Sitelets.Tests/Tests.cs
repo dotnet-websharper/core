@@ -48,6 +48,16 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                         Text("Go to John Doe's page"))),
                                 Elt("form",
                                     Attr("action", ctx.Link(EmptyQueryPerson)),
+                                    Attr("method", "get"),
+                                    Text("This form should work. "),
+                                    Elt("input", Attr("name", "first"), Attr("value", "Jane")),
+                                    Elt("input", Attr("name", "last"), Attr("value", "Smith")),
+                                    Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
+                                    Elt("input", Attr("type", "submit"))),
+                                Elt("form",
+                                    Attr("action", ctx.Link(EmptyQueryPerson)),
+                                    Attr("method", "post"),
+                                    Text("This form should lead to a 404 (method specified on the endpoint). "),
                                     Elt("input", Attr("name", "first"), Attr("value", "Jane")),
                                     Elt("input", Attr("name", "last"), Attr("value", "Smith")),
                                     Elt("input", Attr("name", "age"), Attr("type", "number"), Attr("value", "42")),
@@ -92,7 +102,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public string last;
         }
 
-        [EndPoint("qperson/{name}")]
+        [Method("GET"), EndPoint("qperson/{name}")]
         public class QueryPerson
         {
             public QueryName name;
