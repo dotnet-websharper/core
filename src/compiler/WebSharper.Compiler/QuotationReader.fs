@@ -88,8 +88,6 @@ exception ParseError of string
 let parsefailf x =
     Printf.kprintf (fun s -> raise <| ParseError s) x
 
-let errorPlaceholder = Value (String "$$ERROR$$")
-
 let rec transformExpression (env: Environment) (expr: Expr) =
     let inline tr x = transformExpression env x
     let call this (meth: System.Reflection.MethodInfo) args =
@@ -272,7 +270,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             | ParseError m -> m
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
         env.Compilation.AddError(getOptSourcePos expr, SourceError msg)
-        errorPlaceholder        
+        CompilationHelpers.errorPlaceholder        
 
 let readExpression (comp: Compilation) expr =
     transformExpression (Environment.New(comp)) expr

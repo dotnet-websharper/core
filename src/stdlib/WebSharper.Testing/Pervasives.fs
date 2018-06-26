@@ -937,7 +937,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> bool
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(value args)
+            asserter.StrictEqual(value args, true)
         )
 
     /// Checks that a boolean is true.
@@ -949,7 +949,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.Ok(value args, message)
+            asserter.StrictEqual(value args, true, message)
         )
 
     /// Checks that a boolean is true.
@@ -961,7 +961,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.Ok(value)
+            return asserter.StrictEqual(value, true)
         })
 
     /// Checks that a boolean is true.
@@ -974,7 +974,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.Ok(value, message)
+            return asserter.StrictEqual(value, true, message)
         })
 
     /// Checks that a boolean is false.
@@ -985,7 +985,7 @@ type SubtestBuilder () =
             [<ProjectionParameter>] value: 'A -> bool
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.NotOk(value args)
+            asserter.StrictEqual(value args, false)
         )
 
     /// Checks that a boolean is false.
@@ -997,7 +997,7 @@ type SubtestBuilder () =
             message: string
         ) : Runner<'A> =
         r |> Runner.AddTest (fun asserter args ->
-            asserter.NotOk(value args, message)
+            asserter.StrictEqual(value args, false, message)
         )
 
     /// Checks that a boolean is false.
@@ -1009,7 +1009,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.NotOk(value)
+            return asserter.StrictEqual(value, false)
         })
 
     /// Checks that a boolean is false.
@@ -1022,7 +1022,7 @@ type SubtestBuilder () =
         ) : Runner<'A> =
         r |> Runner.AddTestAsync (fun asserter args -> async {
             let! value = value args 
-            return asserter.NotOk(value, message)
+            return asserter.StrictEqual(value, false, message)
         })
 
     /// Runs a test for each element in a sequence.
