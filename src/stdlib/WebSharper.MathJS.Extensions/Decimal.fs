@@ -66,7 +66,7 @@ open Decimal
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 [<Proxy(typeof<System.Decimal>)>]
 [<Prototype(false)>]
-type DecimalProxy =
+type internal DecimalProxy =
 
     [<Inline>]
     static member CtorProxy(lo: int32, mid: int32, hi: int32, isNegative: bool, scale: byte) : decimal =
@@ -75,9 +75,6 @@ type DecimalProxy =
     [<Inline>]
     static member CtorProxy(bits: int32[]): decimal =
         CreateDecimalBits bits
-
-    [<Inline>]
-    static member CtorProxy(v : decimal) : decimal = v
 
     [<Inline>]
     static member private mathn (v: decimal): MathNumber = As<MathNumber> v
@@ -117,7 +114,7 @@ type DecimalProxy =
     static member CtorProxy(v : uint64) : decimal = WSDecimalMath.Bignumber(MathNumber(v)) |> As<decimal>
 
     [<Inline>]
-    static member Abs(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.Abs n
+    static member internal Abs(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.Abs n
 
     [<Inline>]
     static member Add(n1 : decimal, n2 : decimal) : decimal = DecimalProxy.mul WSDecimalMath.Add n1 n2
@@ -141,34 +138,18 @@ type DecimalProxy =
     static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b |> As<bool>
 
     [<Inline>]
-    static member GreatestCommonDivisor(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Gcd n1 n2
-
-    [<Inline>]
-    static member Log(n : decimal): decimal = DecimalProxy.un WSDecimalMath.Log n
-
-    [<Inline>]
-    static member Log(n : decimal, b : decimal): decimal = DecimalProxy.bin WSDecimalMath.Log n b
-
-    [<Inline>]
-    static member Log10(n : decimal): decimal = DecimalProxy.un WSDecimalMath.Log10 n
-
-    [<Inline>]
-    static member Max(n1 : decimal, n2 : decimal): decimal =
+    static member internal Max(n1 : decimal, n2 : decimal): decimal =
         if n1 >= n2 then
             n1
         else
             n2
 
     [<Inline>]
-    static member Min(n1 : decimal, n2 : decimal): decimal =
+    static member internal Min(n1 : decimal, n2 : decimal): decimal =
         if n1 <= n2 then
             n1
         else
             n2
-
-    [<Inline>]
-    static member ModPow(v : decimal, e : decimal, m : decimal): decimal =
-        JS.Inline ("$0.mod($0.pow($1, $2), $3)", WSDecimalMath, v, e, m)
 
     [<Inline>]
     static member Multiply(n1 : decimal, n2 : decimal): decimal = DecimalProxy.mul WSDecimalMath.Multiply n1 n2
@@ -177,40 +158,22 @@ type DecimalProxy =
     static member Parse(s : string) = WSDecimalMath.Bignumber(MathNumber(s)) |> As<decimal>
 
     [<Inline>]
-    static member Pow(n1 : decimal, n2 : int32): decimal = DecimalProxy.bin WSDecimalMath.Pow n1 (MathNumber(n2) |> As<decimal>)
-
-    [<Inline>]
     static member Remainder(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Mod n1 n2
 
     [<Inline>]
     static member Subtract(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Subtract n1 n2
-    
+
     [<Inline>]
-    member this.Sign = DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>) |> float |> As<int>
-        
-    (*
-    [<Inline>]
-    override this.ToString() =
-        let math = WSDecimalMath
-        JS.Inline ("$0.format($1)", math, this)
-    *)
+    member internal this.Sign = DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>) |> float |> As<int>
+
     [<Inline>]
     static member op_Addition(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Add (n1, n2)
-
-    [<Inline>]
-    static member op_BitwiseAnd(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.BitAnd n1 n2
-
-    [<Inline>]
-    static member op_BitwiseOr(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.BitOr n1 n2
 
     [<Inline>]
     static member op_Division(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Divide n1 n2
 
     [<Inline>]
     static member op_Equality(n1 : decimal, n2 : decimal): bool = DecimalProxy.Equals (n1,n2)
-
-    [<Inline>]
-    static member op_ExclusiveOr(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.BitXor n1 n2
 
     [<Inline>]
     static member op_Inequality(n1 : decimal, n2 : decimal): bool = not <| DecimalProxy.Equals (n1,n2)
@@ -244,3 +207,9 @@ type private MathProxyForDecimals =
 
     [<Inline>]
     static member Sign(value: decimal) = (As<DecimalProxy> value).Sign
+
+    [<Inline>]
+    static member Max(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Max(n1, n2)
+
+    [<Inline>]
+    static member Min(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Min(n1, n2)

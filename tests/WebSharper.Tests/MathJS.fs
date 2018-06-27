@@ -278,6 +278,10 @@ let Tests =
             equal (System.Math.Abs -7m) 7m
             equal (sign 3m) 1
             equal (sign -3m) -1
+            let x = 18133887298.441562272235520m
+            let y = x + 1m
+            equal (max x y) y
+            equal (min x y) x
         }
 
         Test "Decimal remoting"  {

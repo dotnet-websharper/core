@@ -27,16 +27,13 @@ open WebSharper.MathJS
 
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 [<Proxy(typeof<Complex>)>]
-type ComplexProxy =
+type internal ComplexProxy =
 
     [<Inline "math.complex($r, $i)">]
     new (r : float, i : float) = {}
 
     member this.Imaginary
         with [<Inline "$this.im">] get () = X<float>
-
-    //member this.Magnitude
-    //    with [<Inline>] get () = Math.Abs(this)
 
     member this.Magnitude
         with [<Inline "math.abs($this)">] get () = X<float>
@@ -75,7 +72,7 @@ type ComplexProxy =
     static member Divide(c1 : Complex, c2 : Complex) = X<Complex>
 
     [<Inline "$this.equals($c)">]
-    static member Equals(c : Complex) = X<bool>
+    member this.Equals(c : Complex) = X<bool>
 
     [<Inline "math.exp(c)">]
     static member Exp(c : Complex) = X<Complex>
@@ -123,7 +120,7 @@ type ComplexProxy =
     static member Tanh(c : Complex) = X<Complex>
 
     [<Inline "$this.toString()">]
-    static member ToString() = X<string>
+    override this.ToString() = X<string>
 
     [<Inline "$this.format($n)">]
     member x.ToString(n : string) = X<string>

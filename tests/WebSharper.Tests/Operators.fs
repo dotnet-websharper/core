@@ -29,8 +29,8 @@ type CustomNumber(x: int) =
     let inner = x
 
     member this.Inner = inner
-    static member op_Multiply(CN1: CustomNumber, CN2: CustomNumber) =
-        CN1.Inner * CN2.Inner
+    static member op_Multiply(cn1: CustomNumber, cn2: CustomNumber) =
+        cn1.Inner * cn2.Inner
 
 
 [<Proxy(typeof<CustomNumber>)>]
@@ -43,7 +43,7 @@ type CN =
     member this.Inner = X<int>
 
     [<Inline "55">]
-    static member op_Multiply(CN1: CustomNumber, CN2: CustomNumber) = X<int>
+    static member op_Multiply(cn1: CustomNumber, cn2: CustomNumber) = X<int>
 
 
 [<JavaScript>]
