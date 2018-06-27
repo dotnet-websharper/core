@@ -1438,6 +1438,48 @@ module General =
             "setProperty" => T<string>?propertyName * !? T<string>?value * !? T<string>?priority ^-> T<unit>
         ]
 
+    let URLSearchParams =
+        Class "URLSearchParams"
+        |+> Static [
+            Constructor T<string>
+            Constructor T<(string * string)[]>
+            Constructor T<string[]>
+            Constructor T<Ecma.Definition.EcmaObjectG.[T<string>]>
+        ]
+        |+> Instance [
+            "append" => T<string>?key * T<string>?value ^-> T<unit>
+            "delete" => T<string>?key ^-> T<unit>
+            "get" => T<string>?key ^-> T<string>
+            "getAll" => T<string>?key ^-> T<string[]>
+            "has" => T<string>?key ^-> T<bool>
+            "set" => T<string>?key * T<string>?value ^-> T<unit>
+            "sort" => T<unit> ^-> T<unit>
+        ]
+
+    let URL =
+        Class "URL"
+        |+> Static [
+            Constructor (T<string>?url * !?T<string>?``base``)
+        ]
+        |+> Instance [
+            "hash" =@ T<string>
+            "host" =@ T<string>
+            "hostname" =@ T<string>
+            "href" =@ T<string>
+            "origin" =? T<string>
+            "password" =@ T<string>
+            "pathname" =@ T<string>
+            "port" =@ T<string>
+            "protocol" =@ T<string>
+            "search" =@ T<string>
+            "searchParams" =? URLSearchParams
+            "username" =@ T<string>
+        ]
+        |+> Static [
+            "createObjectURL" => (File.Blob + File.File) ^-> T<string>
+            "revokeObjectURL" => T<string> ^-> T<unit>
+        ]
+
     let Window = 
         let f = Dom.Interfaces.Event ^-> T<unit>
         WindowProxyType
@@ -2288,6 +2330,8 @@ module Definition =
                 General.Window
                 General.CSSSD
                 General.MQL
+                General.URL
+                General.URLSearchParams
                 TypedArrays.DataView.Class
                 TypedArrays.ArrayBuffer
                 TypedArrays.ArrayBufferView
