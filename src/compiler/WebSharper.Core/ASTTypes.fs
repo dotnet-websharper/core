@@ -676,7 +676,7 @@ type Address = Hashed<list<string>>
 module private Instances =
     let GlobalId =
         {
-            IdName = Some "window"
+            IdName = Some "self"
             Id = -1L
             Mutable = false
             Tuple = false

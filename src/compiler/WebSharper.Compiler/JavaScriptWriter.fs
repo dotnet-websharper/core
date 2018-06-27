@@ -44,9 +44,9 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window" ]
+            ScopeNames = Set [ "window"; "self" ]
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "window" ] 
+            ScopeIds = Map [ Id.Global(), "self" ]
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = false

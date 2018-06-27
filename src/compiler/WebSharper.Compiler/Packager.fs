@@ -37,7 +37,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) forceEntryPoint =
     let glob = Var g
     declarations.Add <| VarDeclaration (g, Var (Id.Global()))
     addresses.Add(Address [], glob)
-    addresses.Add(Address [ "window" ], glob)
+    addresses.Add(Address [ "self" ], glob)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =

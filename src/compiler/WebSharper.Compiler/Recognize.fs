@@ -409,7 +409,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     | S.Var a ->
         match a with
         | "$global" -> glob
-        | "window" -> Global []
+        | "self" | "window" -> Global []
         | "$wsruntime" -> wsruntime
         | "arguments" -> Arguments
         | "undefined" -> Undefined

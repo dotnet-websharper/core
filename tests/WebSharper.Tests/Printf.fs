@@ -48,10 +48,10 @@ type Foo =
     | [<Constant "A">] A
     | [<Constant "B">] B
 
-//[<Direct "var orig = console.log; console.log = function (){window.lastLogged = arguments; orig.apply(console, arguments)}">]
+//[<Direct "var orig = console.log; console.log = function (){$global.lastLogged = arguments; orig.apply(console, arguments)}">]
 //let WatchConsole () = ()
 //
-//[<Inline "window.lastLogged">]
+//[<Inline "$global.lastLogged">]
 //let GetLastLogged() = X
 
 [<JavaScript>]
