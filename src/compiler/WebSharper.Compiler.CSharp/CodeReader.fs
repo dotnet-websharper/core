@@ -664,6 +664,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.AnonymousObjectCreationExpression x -> this.TransformAnonymousObjectCreationExpression x
                 | ExpressionData.ArrayCreationExpression           x -> this.TransformArrayCreationExpression x
                 | ExpressionData.ImplicitArrayCreationExpression   x -> this.TransformImplicitArrayCreationExpression x
+                | ExpressionData.ImplicitStackAllocArrayCreationExpression _
                 | ExpressionData.StackAllocArrayCreationExpression _ -> NotSupported "stackalloc"
                 | ExpressionData.QueryExpression                   x -> this.TransformQueryExpression x
                 | ExpressionData.OmittedArraySizeExpression        _ -> failwith "not a general expression: OmittedArraySizeExpression"
