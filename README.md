@@ -372,8 +372,8 @@ To contribute code, please check the guide on [working with the WebSharper core 
 
 * [Documentation][doc]
 * [Downloads][downloads]
-* [Examples](http://websharper.com/samples)
-* [Forums](http://websharper.com/questions)
+* [Examples](https://try.websharper.com)
+* [Forums](https://forums.websharper.com)
 * [License][license]
 * Community
   * [Source code on GitHub][gh]
@@ -390,5 +390,5 @@ To contribute code, please check the guide on [working with the WebSharper core 
 [gh]: http://github.com/dotnet-websharper/core
 [issues]: https://github.com/dotnet-websharper/core/issues
 [license]: http://github.com/dotnet-websharper/core/blob/master/LICENSE.md
-[doc]: http://websharper.com/docs
+[doc]: https://developers.websharper.com
 [nuget]: http://nuget.org
