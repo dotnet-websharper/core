@@ -69,7 +69,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
-    compiler.WarnSettings = warnSettings
+    compiler.WarnSettings <- warnSettings
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
