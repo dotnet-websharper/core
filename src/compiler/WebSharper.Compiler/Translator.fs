@@ -678,6 +678,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
+        for k in comp.CompilingExtraBundles.Keys |> Array.ofSeq do
+            let toJS = DotNetToJavaScript(comp)
+            comp.CompilingExtraBundles.[k] <- toJS.TransformExpression(comp.CompilingExtraBundles.[k])
+
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)

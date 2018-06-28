@@ -21,6 +21,7 @@
 namespace WebSharper.Compiler
 
 open System.Configuration
+open WebSharper.Core.AST
 
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax
@@ -50,9 +51,19 @@ module Bundling =
     open WebSharper.Compiler.CommandTools
     open ExecuteCommands
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    type Bundle =
+        {
+            Css: option<Content>
+            HeadHtml: option<Content>
+            HeadJs: option<Content>
+            Js: Content
+            JsMap: option<Content>
+            MinJs: Content
+            MinJsMap: option<Content>
+        }
 
-        let fileName = Path.GetFileNameWithoutExtension config.AssemblyFile
+    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
         let appConfig = None
@@ -294,44 +305,76 @@ module Bundling =
                 Some (Content.Create(t))
             else None
 
+        {
+            Css = Some css
+            HeadHtml = Some htmlHeaders
+            HeadJs = Some javaScriptHeaders
+            Js = javaScript
+            JsMap = mapping
+            MinJs = minifiedJavaScript
+            MinJsMap = minifiedMapping
+        }
+
+    let AddExtraBundles config refMetas (currentMeta: M.Info) sources refAssemblies (comp: Compilation) (assem: Assembly) =
+        let config = { config with SourceMap = false }
+        let pub = Mono.Cecil.ManifestResourceAttributes.Public
+        for KeyValue(bname, bexpr) in comp.CompilingExtraBundles do
+            let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
+            let bundle = CreateBundle config refMetas currentMeta [] (lazy None) sources refAssemblies
+            [
+                yield bname + ".js", bundle.Js
+                yield bname + ".min.js", bundle.MinJs
+                if bundle.JsMap.IsSome then
+                    yield bname + ".map", bundle.JsMap.Value
+                if bundle.MinJsMap.IsSome then
+                    yield bname + ".min.map", bundle.MinJsMap.Value
+            ]
+            |> List.iter (fun (name, contents) ->
+                let bytes = System.Text.Encoding.UTF8.GetBytes contents.Text
+                Mono.Cecil.EmbeddedResource(name, pub, bytes)
+                |> assem.Raw.MainModule.Resources.Add
+                currentMeta.ResourceHashes.Add(name, StableHash.data bytes)
+            )
+
+    let WriteBundle (config: WsConfig) fileName (bundle: Bundle) =
         let mutable hasOutput = false
 
         match BundleOutputDir config (GetWebRoot config) with
         | Some outputDir ->
             hasOutput <- true
             System.IO.Directory.CreateDirectory outputDir |> ignore
-            let write (c: Content) (ext: string) =
+            let write (ext: string) (c: Content) =
                 c.WriteFile(Path.Combine(outputDir, fileName + ext))
-            let writeMapped (c: Content) m (ext: string) =
-                write c ext
+            let writeMapped (ext: string) (c: Content) m =
+                write ext c
                 m |> Option.iter (fun mc ->
                     let mapExt = ext.Replace(".js", ".map")
-                    write mc mapExt
+                    write mapExt mc
                     File.AppendAllLines(
                         Path.Combine(outputDir, fileName + ext),
                         [| "//# sourceMappingURL=" + fileName + mapExt |]
                     )
                 )
 
-            write css ".css"
-            write htmlHeaders ".head.html"
-            write javaScriptHeaders ".head.js"
-            writeMapped javaScript mapping ".js"
-            writeMapped minifiedJavaScript minifiedMapping ".min.js"
+            Option.iter (write ".css") bundle.Css
+            Option.iter (write ".head.html") bundle.HeadHtml
+            Option.iter (write ".head.js") bundle.HeadJs
+            writeMapped ".js" bundle.Js bundle.JsMap
+            writeMapped ".min.js" bundle.MinJs bundle.MinJsMap
         | None -> ()
 
         match config.ProjectType, config.JSOutputPath with
         | Some BundleOnly, Some path ->
             hasOutput <- true
             let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
-            javaScript.WriteFile(fullPath)
+            bundle.Js.WriteFile(fullPath)
         | _ -> ()
 
         match config.ProjectType, config.MinJSOutputPath with
         | Some BundleOnly, Some path ->
             hasOutput <- true
             let fullPath = Path.Combine(Path.GetDirectoryName config.ProjectFile, path)
-            minifiedJavaScript.WriteFile(fullPath)
+            bundle.MinJs.WriteFile(fullPath)
         | _ -> ()
 
         if not hasOutput then  
@@ -343,4 +386,7 @@ module Bundling =
             | p ->
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
-        
+    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+        CreateBundle config refMetas currentMeta jsExport currentJS sources refAssemblies
+        |> WriteBundle config (Path.GetFileNameWithoutExtension config.AssemblyFile)
+

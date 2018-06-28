@@ -396,4 +396,42 @@ let Tests =
     }
 
 [<JavaScript>]
-let RunTests() = Runner.RunTests [| Tests; JSBindings.Tests |]
+let GlobalFunction(s: string) =
+    "[worker] " + s
+
+[<JavaScript>]
+let WebWorkerTests =
+    TestCategory "Web Workers" {
+
+        Test "BlobUri" {
+            let blob = Blob([|"onmessage = function(e) { postMessage('[worker] ' + e.data); }"|])
+            let blobUrl = URL.CreateObjectURL(blob)
+            let worker = new Worker(blobUrl)
+            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+        }
+
+        Test "Macro" {
+            let worker = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction(As<string> e.Data))
+            )
+            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+        }
+
+    }
+
+[<JavaScript>]
+let RunTests() =
+    Runner.RunTests [|
+        Tests
+        JSBindings.Tests
+        WebWorkerTests
+    |]

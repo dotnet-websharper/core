@@ -257,10 +257,14 @@ IntelliFactory = {
 
         OnLoad:
             function (f) {
-                if (!("load" in this)) {
-                    this.load = [];
+                if (self instanceof Window) {
+                    if (!("load" in this)) {
+                        this.load = [];
+                    }
+                    this.load.push(f);
+                } else {
+                    f();
                 }
-                this.load.push(f);
             },
 
         Start:

@@ -1405,3 +1405,22 @@ type TupleExtensions() =
             | [ x ] -> MacroOk x
             | _ -> MacroError "Expecting only a this argument for System.TupleExtensions.ToTuple/ToValueTuple"
         | n ->  MacroError ("Unrecognized method of System.TupleExtensions: " + n)
+
+[<Sealed>]
+type WebWorker() =
+    inherit Macro()
+
+    static let worker = NonGeneric <| Hashed { Assembly = "WebSharper.JavaScript"; FullName = "WebSharper.JavaScript.Worker" }
+    static let workerCtor = Hashed { CtorParameters = [NonGenericType stringTy] }
+
+    override __.TranslateCtor(c) =
+        let e =
+            match c.Arguments.[0] with
+            | Lambda([self], body) ->
+                Let(self, Global[], body)
+            | e ->
+                Application(e, [Global []], NonPure, Some 1)
+        // TODO: full path? .min?
+        let filename = c.Compilation.AddBundle("worker", e) + ".js"
+        Ctor(worker, workerCtor, [!~(Literal.String filename)])
+        |> MacroOk

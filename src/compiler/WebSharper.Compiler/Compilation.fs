@@ -49,6 +49,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
+    let compilingExtraBundles = Dictionary<string, Expression>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -226,6 +227,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddWarning(pos, msg) =
             this.AddWarning(pos, SourceWarning msg)
+
+        member this.AddBundle(name, entryPoint) =
+            this.AddBundle(name, entryPoint)
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -782,6 +786,25 @@ type Compilation(meta: Info, ?hasGraph) =
         compilingImplementations.Remove(typ, intf, meth) |> ignore
         let cls = classes.[typ]
         cls.Implementations.Add((intf, meth), (info, comp))
+
+    member this.CompilingExtraBundles = compilingExtraBundles
+
+    member this.AddBundle(name, entryPoint) =
+        let add name =
+            let doAdd = not <| compilingExtraBundles.ContainsKey(name)
+            if doAdd then
+                compilingExtraBundles.Add(name, entryPoint)
+            doAdd
+        if add name then
+            name
+        else
+            let rec tryAdd i =
+                let name = name + string i
+                if add name then
+                    name
+                else
+                    tryAdd (i + 1)
+            tryAdd 1
 
     member this.Resolve () =
         

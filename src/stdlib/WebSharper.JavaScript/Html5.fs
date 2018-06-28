@@ -550,7 +550,7 @@ module File =
         Class "Blob"
         |+> Static [
                 Constructor T<unit>
-                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + TSelf + T<string>) * !?BlobPropertyBag)
+                Constructor ((Type.ArrayOf TypedArrays.ArrayBuffer + Type.ArrayOf TypedArrays.ArrayBufferView + Type.ArrayOf TSelf + Type.ArrayOf T<string>) * !?BlobPropertyBag)
             ]
         |+> Instance [
                 "size" =? T<int>
@@ -1709,6 +1709,8 @@ module WebWorkers =
         |=> Implements [AbstractWorker]
         |+> Static [
             Constructor (T<string>?url * !?WorkerOptions)
+            Constructor (DedicatedWorkerGlobalScope ^-> T<unit>)
+            |> WithMacro typeof<WebSharper.Core.Macros.WebWorker>
         ]
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>
