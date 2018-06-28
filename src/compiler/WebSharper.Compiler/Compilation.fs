@@ -49,7 +49,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
-    let compilingExtraBundles = Dictionary<string, Expression>()
+    let compilingExtraBundles = Dictionary<string, Expression * Node>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -793,7 +793,8 @@ type Compilation(meta: Info, ?hasGraph) =
         let add name =
             let doAdd = not <| compilingExtraBundles.ContainsKey(name)
             if doAdd then
-                compilingExtraBundles.Add(name, entryPoint)
+                let node = AssemblyNode("$$$" + name, true)
+                compilingExtraBundles.Add(name, (entryPoint, node))
             doAdd
         if add name then
             name

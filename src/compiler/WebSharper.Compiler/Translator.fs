@@ -656,6 +656,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             comp.AddCompiledStaticConstructor(typ, addr, res)
 
+    member this.CompileEntryPoint(expr, node) =
+        try
+            currentNode <- node
+            this.TransformExpression(expr)
+        with e ->
+            this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+
     static member CompileFull(comp: Compilation) =
         while comp.CompilingConstructors.Count > 0 do
             let (KeyValue((t, c), (i, e))) = Seq.head comp.CompilingConstructors
@@ -680,7 +687,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
         for k in comp.CompilingExtraBundles.Keys |> Array.ofSeq do
             let toJS = DotNetToJavaScript(comp)
-            comp.CompilingExtraBundles.[k] <- toJS.TransformExpression(comp.CompilingExtraBundles.[k])
+            let entryPoint, node = comp.CompilingExtraBundles.[k]
+            let compiledEntryPoint = toJS.CompileEntryPoint(entryPoint, node)
+            comp.CompilingExtraBundles.[k] <- (compiledEntryPoint, node)
 
         let compileMethods() =
             while comp.CompilingMethods.Count > 0 do

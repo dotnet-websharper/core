@@ -141,6 +141,8 @@ let Compile config =
                 AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
 
+            Bundling.AddExtraBundles config [refMeta] currentMeta sources refs comp assem
+
             PrintWebSharperErrors config.WarnOnly comp
 
             if config.PrintJS then

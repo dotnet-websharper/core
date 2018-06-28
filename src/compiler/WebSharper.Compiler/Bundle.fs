@@ -62,7 +62,7 @@ module Bundling =
             MinJsMap: option<Content>
         }
 
-    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -117,42 +117,8 @@ module Bundling =
                 ResourceDependencyCache = null
             }
 
-        let nodes = 
-            let jsExportNames =
-                jsExport |> List.choose (function 
-                    | ExportByName n -> Some n
-                    | _ -> None
-                )
-            seq {
-                yield M.EntryPointNode 
-                match jsExportNames with
-                | [] -> ()
-                | _ ->
-                    let e = System.Collections.Generic.HashSet jsExportNames
-                    yield! 
-                        graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode (a, _) -> e.Contains a
-                            | M.TypeNode td
-                            | M.MethodNode (td, _)
-                            | M.ConstructorNode (td, _) 
-                                -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
-                            | _ -> false
-                        )
-                yield!  
-                    jsExport |> Seq.choose (function 
-                        | ExportNode n -> Some n
-                        | _ -> None
-                    )
-                if jsExport |> Seq.contains ExportCurrentAssembly then
-                    yield 
-                        // assembly nodes are ordered, current is always last
-                        graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode _ -> true
-                            | _ -> false
-                        )
-                        |> Seq.last
-            }
-            |> graph.GetDependencies
+        let nodes, forceEntryPoint = getAllDeps graph
+
         let pkg =   
             if concatScripts then
                 WebSharper.Core.AST.Undefined
@@ -164,8 +130,6 @@ module Bundling =
                 let current = 
                     if dce then trimMetadata meta nodes 
                     else meta
-                let forceEntryPoint =
-                    List.isEmpty jsExport
                 try
                     Packager.packageAssembly current current forceEntryPoint
                 with e -> 
@@ -315,12 +279,57 @@ module Bundling =
             MinJsMap = minifiedMapping
         }
 
+    let private getDeps (includeEntryPoint: bool) (jsExport: JsExport list) extraNodes (graph: Graph) =
+        let forceEntryPoint = includeEntryPoint && List.isEmpty jsExport
+        let jsExportNames =
+            jsExport |> List.choose (function 
+                | ExportByName n -> Some n
+                | _ -> None
+            )
+        let nodes =
+            seq {
+                yield M.EntryPointNode 
+                match jsExportNames with
+                | [] -> ()
+                | _ ->
+                    let e = System.Collections.Generic.HashSet jsExportNames
+                    yield! 
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode (a, _) -> e.Contains a
+                            | M.TypeNode td
+                            | M.MethodNode (td, _)
+                            | M.ConstructorNode (td, _) 
+                                -> e.Contains td.Value.FullName || e.Contains td.Value.Assembly
+                            | _ -> false
+                        )
+                yield!  
+                    jsExport |> Seq.choose (function 
+                        | ExportNode n -> Some n
+                        | _ -> None
+                    )
+                if jsExport |> Seq.contains ExportCurrentAssembly then
+                    yield 
+                        // assembly nodes are ordered, current is always last
+                        graph.Nodes |> Seq.filter (function
+                            | M.AssemblyNode _ -> true
+                            | _ -> false
+                        )
+                        |> Seq.last
+                yield! extraNodes
+            }
+            |> graph.GetDependencies
+        nodes, forceEntryPoint
+
     let AddExtraBundles config refMetas (currentMeta: M.Info) sources refAssemblies (comp: Compilation) (assem: Assembly) =
-        let config = { config with SourceMap = false }
+        let config =
+            { config with
+                SourceMap = false // TODO make SourceMap work with this
+                DeadCodeElimination = true
+            }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
-        for KeyValue(bname, bexpr) in comp.CompilingExtraBundles do
+        for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
             let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
-            let bundle = CreateBundle config refMetas currentMeta [] (lazy None) sources refAssemblies
+            let bundle = CreateBundle config refMetas currentMeta (getDeps false [] [bnode]) (lazy None) sources refAssemblies
             [
                 yield bname + ".js", bundle.Js
                 yield bname + ".min.js", bundle.MinJs
@@ -387,6 +396,6 @@ module Bundling =
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
     let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
-        CreateBundle config refMetas currentMeta jsExport currentJS sources refAssemblies
+        CreateBundle config refMetas currentMeta (getDeps true jsExport []) currentJS sources refAssemblies
         |> WriteBundle config (Path.GetFileNameWithoutExtension config.AssemblyFile)
 

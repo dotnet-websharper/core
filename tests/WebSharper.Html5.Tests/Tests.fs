@@ -400,6 +400,10 @@ let GlobalFunction(s: string) =
     "[worker] " + s
 
 [<JavaScript>]
+let GlobalFunction2(s: string) =
+    "[worker2] " + s
+
+[<JavaScript>]
 let WebWorkerTests =
     TestCategory "Web Workers" {
 
@@ -424,6 +428,16 @@ let WebWorkerTests =
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
             equal res "The worker replied: [worker] Hello world!"
+
+            let worker2 = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction2(As<string> e.Data))
+            )
+            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker2] Hello world!"
         }
 
     }
