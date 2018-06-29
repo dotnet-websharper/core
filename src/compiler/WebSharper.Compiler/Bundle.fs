@@ -319,13 +319,31 @@ module Bundling =
             |> graph.GetDependencies
         nodes
 
-    let AddExtraBundles config refMetas (currentMeta: M.Info) refAssemblies (comp: Compilation) (assem: Assembly) =
+    let private (==) s1 s2 =
+        System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
+
+    let AddExtraBundles config refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Assembly) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
                 DeadCodeElimination = true
             }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
+        let addWebResourceAttribute =
+            let strTy =
+                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard" || ar.Name == "mscorlib")
+                std.Raw.MainModule.GetType("System.String") |> assem.Raw.MainModule.ImportReference
+            let webResourceTy =
+                let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")
+                wsCoreJs.Raw.MainModule.GetType("WebSharper.WebResourceAttribute") |> assem.Raw.MainModule.ImportReference
+            let ctor = Mono.Cecil.MethodReference(".ctor", webResourceTy, webResourceTy) |> assem.Raw.MainModule.ImportReference
+            ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
+            ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
+            fun name ->
+                let attr = Mono.Cecil.CustomAttribute(ctor)
+                attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, name))
+                attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, "application/javascript"))
+                assem.Raw.CustomAttributes.Add(attr)
         for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
             let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
             let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
@@ -341,6 +359,7 @@ module Bundling =
                 let bytes = System.Text.Encoding.UTF8.GetBytes contents.Text
                 Mono.Cecil.EmbeddedResource(name, pub, bytes)
                 |> assem.Raw.MainModule.Resources.Add
+                addWebResourceAttribute name
                 currentMeta.ResourceHashes.Add(name, StableHash.data bytes)
             )
 
