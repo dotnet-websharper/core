@@ -209,10 +209,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             None, currentMeta, sources
         else
             let assem = loader.LoadFile config.AssemblyFile
+            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
+
+            Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp assem
     
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) (getRefMeta()) 
-                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -222,8 +224,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     | _ -> []
                 AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
-
-            Bundling.AddExtraBundles config [getRefMeta()] currentMeta sources refs comp assem
 
             PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
             

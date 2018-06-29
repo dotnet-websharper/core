@@ -62,7 +62,7 @@ module Bundling =
             MinJsMap: option<Content>
         }
 
-    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps entryPointStyle (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
 
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -117,7 +117,7 @@ module Bundling =
                 ResourceDependencyCache = null
             }
 
-        let nodes, forceEntryPoint = getAllDeps graph
+        let nodes = getAllDeps graph
 
         let pkg =   
             if concatScripts then
@@ -131,7 +131,7 @@ module Bundling =
                     if dce then trimMetadata meta nodes 
                     else meta
                 try
-                    Packager.packageAssembly current current forceEntryPoint
+                    Packager.packageAssembly current current entryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -279,8 +279,7 @@ module Bundling =
             MinJsMap = minifiedMapping
         }
 
-    let private getDeps (includeEntryPoint: bool) (jsExport: JsExport list) extraNodes (graph: Graph) =
-        let forceEntryPoint = includeEntryPoint && List.isEmpty jsExport
+    let private getDeps (jsExport: JsExport list) extraNodes (graph: Graph) =
         let jsExportNames =
             jsExport |> List.choose (function 
                 | ExportByName n -> Some n
@@ -318,9 +317,9 @@ module Bundling =
                 yield! extraNodes
             }
             |> graph.GetDependencies
-        nodes, forceEntryPoint
+        nodes
 
-    let AddExtraBundles config refMetas (currentMeta: M.Info) sources refAssemblies (comp: Compilation) (assem: Assembly) =
+    let AddExtraBundles config refMetas (currentMeta: M.Info) refAssemblies (comp: Compilation) (assem: Assembly) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
@@ -329,7 +328,7 @@ module Bundling =
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
         for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
             let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
-            let bundle = CreateBundle config refMetas currentMeta (getDeps false [] [bnode]) (lazy None) sources refAssemblies
+            let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
             [
                 yield bname + ".js", bundle.Js
                 yield bname + ".min.js", bundle.MinJs
@@ -396,6 +395,10 @@ module Bundling =
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
     let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
-        CreateBundle config refMetas currentMeta (getDeps true jsExport []) currentJS sources refAssemblies
+        let entryPointStyle =
+            if List.isEmpty jsExport
+            then Packager.EntryPointStyle.ForceOnLoad
+            else Packager.EntryPointStyle.OnLoadIfExists
+        CreateBundle config refMetas currentMeta (getDeps jsExport []) entryPointStyle currentJS sources refAssemblies
         |> WriteBundle config (Path.GetFileNameWithoutExtension config.AssemblyFile)
 

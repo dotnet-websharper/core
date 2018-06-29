@@ -131,17 +131,17 @@ let Compile config =
             None, currentMeta, sources
         else
             let assem = loader.LoadFile config.AssemblyFile
+            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
+
+            Bundling.AddExtraBundles config [refMeta] currentMeta refs comp assem
 
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) refMeta
-                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
                 AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
-
-            Bundling.AddExtraBundles config [refMeta] currentMeta sources refs comp assem
 
             PrintWebSharperErrors config.WarnOnly comp
 

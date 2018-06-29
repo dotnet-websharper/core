@@ -434,9 +434,9 @@ let WebWorkerTests =
                     self.PostMessage(GlobalFunction2(As<string> e.Data))
             )
             let! res = Async.FromContinuations <| fun (ok, _, _) ->
-                worker.Onmessage <- fun e ->
+                worker2.Onmessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
-                worker.PostMessage "Hello world!"
+                worker2.PostMessage "Hello world!"
             equal res "The worker replied: [worker2] Hello world!"
         }
 

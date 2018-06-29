@@ -28,7 +28,12 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) forceEntryPoint =
+type EntryPointStyle =
+    | OnLoadIfExists
+    | ForceOnLoad
+    | ForceImmediate
+
+let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -204,11 +209,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) forceEntryPoint =
         classes.Remove t |> ignore
         packageClass c t.Value.FullName
 
-    match current.EntryPoint with
-    | Some ep -> statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
-    | _ -> 
-        if forceEntryPoint then
-            failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
+    match entryPointStyle, current.EntryPoint with
+    | (OnLoadIfExists | ForceOnLoad), Some ep ->
+        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
+    | ForceImmediate, Some ep ->
+        statements.Add ep
+    | (ForceOnLoad | ForceImmediate), None ->
+        failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
+    | OnLoadIfExists, None -> ()
     
     let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
 
