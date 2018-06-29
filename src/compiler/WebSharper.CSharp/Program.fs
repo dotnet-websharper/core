@@ -136,7 +136,7 @@ let Compile config =
             Bundling.AddExtraBundles config [refMeta] currentMeta refs comp assem
 
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures config.ScriptBaseUrl assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -171,7 +171,7 @@ let Compile config =
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         let currentJS =
-            lazy CreateBundleJSOutput refMeta currentMeta
+            lazy CreateBundleJSOutput refMeta currentMeta config.ScriptBaseUrl
         Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
         TimedStage "Bundling"
     | Some Html ->
@@ -264,6 +264,8 @@ let rec compileMain (argv: string[]) =
     let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
     if File.Exists wsconfig then
         wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
+
+    wsArgs := SetScriptBaseUrl !wsArgs
 
     try
         Compile !wsArgs

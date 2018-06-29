@@ -60,6 +60,7 @@ type WsConfig =
         IsDebug : bool
         ProjectType : ProjectType option
         OutputDir  : string option
+        ScriptBaseUrl : string option
         AssemblyFile : string
         References  : string[] 
         Resources : (string * string option)[]
@@ -91,6 +92,7 @@ type WsConfig =
              IsDebug = false
              ProjectType = None
              OutputDir  = None
+             ScriptBaseUrl = None
              AssemblyFile = null
              References  = [||]
              Resources = [||]
@@ -159,6 +161,8 @@ type WsConfig =
                 res <- { res with ProjectType = ProjectType.Parse (getString k v) }
             | "outputdir" ->
                 res <- { res with OutputDir = Some (getPath k v) }
+            | "scriptbaseurl" ->
+                res <- { res with ScriptBaseUrl = Some (getString k v) }
             | "dce" ->
                 res <- { res with DeadCodeElimination = getBool k v }
             | "sourcemap" ->
@@ -468,6 +472,7 @@ let RecognizeWebSharperArg a wsArgs =
         | _ ->
             printfn "--closures:%s argument unrecognized, must be one of: true, false, movetotop" c
             Some wsArgs
+    | StartsWith "--scriptbaseurl" u -> Some { wsArgs with ScriptBaseUrl = Some u }
     | _ -> 
         None
 
@@ -480,4 +485,10 @@ let SetDefaultProjectFile wsArgs isFSharp =
         | [| p |] -> { wsArgs with ProjectFile = p }
         | [| |] -> argError "Cannot find project file, specify argument --project"
         | _ -> argError "Multiple project files in folder, specify argument --project"
+    | _ -> wsArgs
+
+let SetScriptBaseUrl wsArgs =
+    match wsArgs.ProjectType, wsArgs.ScriptBaseUrl with
+    | Some (Bundle | BundleOnly), None -> { wsArgs with ScriptBaseUrl = Some "/Content/" }
+    | Some Html, None -> { wsArgs with ScriptBaseUrl = Some "/Scripts/" }
     | _ -> wsArgs

@@ -272,6 +272,8 @@ let wsRuntimeFunctions =
         "Curried2"
         "Curried3"
         "UnionByType"
+        "ScriptBasePath"
+        "ScriptPath"
     ]
 
 let rec transformExpression (env: Environment) (expr: S.Expression) =

@@ -255,6 +255,12 @@ IntelliFactory = {
             }
         },
 
+        ScriptBasePath: "/Scripts/WebSharper/",
+
+        ScriptPath: function (a, f) {
+            return this.ScriptBasePath + a + "/" + f;
+        },
+
         OnLoad:
             function (f) {
                 if (!("load" in this)) {

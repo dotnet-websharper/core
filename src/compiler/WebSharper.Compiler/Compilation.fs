@@ -796,9 +796,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 let node = AssemblyNode("$$$" + name, true)
                 compilingExtraBundles.Add(name, (entryPoint, node))
             doAdd
-        if add name then
-            name
-        else
+        let name =
+            if add name then name else
             let rec tryAdd i =
                 let name = name + string i
                 if add name then
@@ -806,6 +805,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 else
                     tryAdd (i + 1)
             tryAdd 1
+        this.AssemblyName + "." + name
 
     member this.Resolve () =
         

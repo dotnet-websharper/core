@@ -131,7 +131,7 @@ module Bundling =
                     if dce then trimMetadata meta nodes 
                     else meta
                 try
-                    Packager.packageAssembly current current entryPointStyle
+                    Packager.packageAssembly current current entryPointStyle config.ScriptBaseUrl
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -332,10 +332,10 @@ module Bundling =
         let addWebResourceAttribute =
             let strTy =
                 let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard" || ar.Name == "mscorlib")
-                std.Raw.MainModule.GetType("System.String") |> assem.Raw.MainModule.ImportReference
+                Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let webResourceTy =
                 let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")
-                wsCoreJs.Raw.MainModule.GetType("WebSharper.WebResourceAttribute") |> assem.Raw.MainModule.ImportReference
+                Mono.Cecil.TypeReference("WebSharper", "WebResourceAttribute", wsCoreJs.Raw.MainModule, wsCoreJs.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let ctor = Mono.Cecil.MethodReference(".ctor", webResourceTy, webResourceTy) |> assem.Raw.MainModule.ImportReference
             ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
             ctor.Parameters.Add(Mono.Cecil.ParameterDefinition(strTy))
@@ -345,6 +345,7 @@ module Bundling =
                 attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, "application/javascript"))
                 assem.Raw.CustomAttributes.Add(attr)
         for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
+            let bname = assem.Name + "." + bname
             let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
             let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
             [

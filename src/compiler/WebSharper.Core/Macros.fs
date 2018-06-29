@@ -1422,5 +1422,10 @@ type WebWorker() =
                 Application(e, [Global []], NonPure, Some 1)
         // TODO: full path? .min?
         let filename = c.Compilation.AddBundle("worker", e) + ".js"
-        Ctor(worker, workerCtor, [!~(Literal.String filename)])
+        let path = 
+            Application(
+                Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
+                [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
+                NonPure, Some 2)
+        Ctor(worker, workerCtor, [path])
         |> MacroOk

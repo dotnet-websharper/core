@@ -113,10 +113,10 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     else
         removeSourcePositionFromMetadata current, [||]
 
-let CreateBundleJSOutput refMeta current =
+let CreateBundleJSOutput refMeta current scriptBaseUrl =
 
     let pkg = 
-        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists
+        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists scriptBaseUrl
 
     if pkg = AST.Undefined then None else
 
@@ -129,7 +129,7 @@ let CreateBundleJSOutput refMeta current =
 
         Some (js, minJs)
 
-let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -137,7 +137,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     TimedStage "Source position transformations"
 
     let pkg = 
-        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists
+        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists scriptBaseUrl
 
     TimedStage "Packaging assembly"
     
@@ -224,16 +224,16 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources comp refMeta current sourceMap closures a
+let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources comp refMeta current sourceMap closures scriptBaseUrl a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources
 
-let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
-    ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
+let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (assembly : Assembly) =
+    ModifyCecilAssembly comp refMeta current sourceMap closures scriptBaseUrl assembly.Raw
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw
