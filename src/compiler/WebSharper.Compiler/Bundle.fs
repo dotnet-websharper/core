@@ -327,6 +327,7 @@ module Bundling =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
                 DeadCodeElimination = true
+                ScriptBaseUrl = Some "../"
             }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
         let addWebResourceAttribute =

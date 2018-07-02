@@ -418,6 +418,20 @@ let InnerWorker(self: DedicatedWorkerGlobalScope) =
         innerWorker.PostMessage(e.Data)
 
 [<JavaScript>]
+let AsyncContinuationTimeout err f =
+    async {
+        try
+            let! x =
+                Async.StartChild(async {
+                    let! s = Async.FromContinuations(fun (ok, _, _) -> f ok)
+                    return s
+                }, 1000)
+            return! x
+        with exn ->
+            return failwith err
+    }
+
+[<JavaScript>]
 let WebWorkerTests =
     TestCategory "Web Workers" {
 
@@ -425,7 +439,7 @@ let WebWorkerTests =
             let blob = Blob([|"onmessage = function(e) { postMessage('[worker] ' + e.data); }"|])
             let blobUrl = URL.CreateObjectURL(blob)
             let worker = new Worker(blobUrl)
-            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker.Onmessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
@@ -437,7 +451,7 @@ let WebWorkerTests =
                 self.Onmessage <- fun e ->
                     self.PostMessage(GlobalFunction(As<string> e.Data))
             )
-            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker.Onmessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker.PostMessage "Hello world!"
@@ -447,21 +461,24 @@ let WebWorkerTests =
                 self.Onmessage <- fun e ->
                     self.PostMessage(GlobalFunction2(As<string> e.Data))
             )
-            let! res = Async.FromContinuations <| fun (ok, _, _) ->
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
                 worker2.Onmessage <- fun e ->
                     ok ("The worker replied: " + As<string> e.Data)
                 worker2.PostMessage "Hello world!"
             equal res "The worker replied: [worker2] Hello world!"
         }
 
-        // Test "Macro with nested worker" {
-        //     let worker = new Worker(InnerWorker)
-        //     let! res = Async.FromContinuations <| fun (ok, _, _) ->
-        //         worker.Onmessage <- fun e ->
-        //             ok ("The worker replied: " + As<string> e.Data)
-        //         worker.PostMessage "Hello world!"
-        //     equal res "The worker replied: [worker2] Hello world!"
-        // }
+        Test "Macro with nested worker" {
+            let! x1 = async.TryWith(async.Bind(Async.StartChild(async.Bind(Async.FromContinuations ignore, fun () -> async.Return 42), 1), id), fun exn -> async.Return 53)
+            equal x1 53
+            let worker = new Worker(InnerWorker)
+            let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
+            let! res = AsyncContinuationTimeout err <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker2] Hello world!"
+        }
 
     }
 
