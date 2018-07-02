@@ -404,6 +404,20 @@ let GlobalFunction2(s: string) =
     "[worker2] " + s
 
 [<JavaScript>]
+let InnerWorker(self: DedicatedWorkerGlobalScope) =
+    let innerWorker =
+        try
+            new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction2(As<string> e.Data))
+            )
+        with e -> Console.Log(e); Unchecked.defaultof<_>
+    innerWorker.Onmessage <- fun e ->
+        self.PostMessage(e.Data)
+    self.Onmessage <- fun e ->
+        innerWorker.PostMessage(e.Data)
+
+[<JavaScript>]
 let WebWorkerTests =
     TestCategory "Web Workers" {
 
@@ -439,6 +453,15 @@ let WebWorkerTests =
                 worker2.PostMessage "Hello world!"
             equal res "The worker replied: [worker2] Hello world!"
         }
+
+        // Test "Macro with nested worker" {
+        //     let worker = new Worker(InnerWorker)
+        //     let! res = Async.FromContinuations <| fun (ok, _, _) ->
+        //         worker.Onmessage <- fun e ->
+        //             ok ("The worker replied: " + As<string> e.Data)
+        //         worker.PostMessage "Hello world!"
+        //     equal res "The worker replied: [worker2] Hello world!"
+        // }
 
     }
 

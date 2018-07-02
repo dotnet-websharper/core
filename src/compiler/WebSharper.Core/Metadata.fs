@@ -248,7 +248,7 @@ type Node =
     | ResourceNode of TypeDefinition * option<ParameterObject>
     | AssemblyNode of string * bool
     | EntryPointNode 
-    | ExtraBundleEntryPointNode of string
+    | ExtraBundleEntryPointNode of string * string
 
 type GraphData =
     {

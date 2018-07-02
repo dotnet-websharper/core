@@ -349,7 +349,7 @@ module Bundling =
                 assem.Raw.CustomAttributes.Add(attr)
         let assemName = match assem with Choice1Of2 n -> n | Choice2Of2 a -> a.Name
         [
-            for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
+            for KeyValue(bname, (bexpr, bnode)) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
                 let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
                 let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies

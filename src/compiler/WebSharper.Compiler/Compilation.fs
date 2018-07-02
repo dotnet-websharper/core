@@ -50,6 +50,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, Expression * Node>()
+    let compiledExtraBundles = Dictionary<string, Expression * Node>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -84,12 +85,15 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CurrentExtraBundles =
         Set [|
-            for KeyValue(k, _) in compilingExtraBundles do
+            for KeyValue(k, _) in compiledExtraBundles do
                 yield { AssemblyName = this.AssemblyName; BundleName = k }
         |]
 
     member this.AllExtraBundles =
         meta.ExtraBundles + this.CurrentExtraBundles
+
+    member this.CompiledExtraBundles =
+        compiledExtraBundles
 
     member this.MutableExternals = mutableExternals
 
@@ -799,23 +803,25 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CompilingExtraBundles = compilingExtraBundles
 
-    member this.AddBundle(name, entryPoint) =
-        let add name =
-            let doAdd = not <| compilingExtraBundles.ContainsKey(name)
-            if doAdd then
-                let node = ExtraBundleEntryPointNode name
-                compilingExtraBundles.Add(name, (entryPoint, node))
-            doAdd
-        let name =
-            if add name then name else
-            let rec tryAdd i =
-                let name = name + string i
-                if add name then
-                    name
-                else
-                    tryAdd (i + 1)
-            tryAdd 1
-        { AssemblyName = this.AssemblyName; BundleName = name }
+    member this.AddCompiledExtraBundle(name, compiledEntryPoint, node) =
+        compilingExtraBundles.Remove(name) |> ignore
+        compiledExtraBundles.[name] <- (compiledEntryPoint, node)
+
+    member this.AddBundle(baseName, entryPoint) =
+        let shouldAdd name =
+            not <| compilingExtraBundles.ContainsKey(name)
+        let computedName =
+            Seq.append
+                (Seq.singleton baseName)
+                (Seq.initInfinite <| fun i -> baseName + string i)
+            |> Seq.find shouldAdd
+        let node = ExtraBundleEntryPointNode(this.AssemblyName, computedName)
+        compilingExtraBundles.Add(computedName, (entryPoint, node))
+        let location =
+            match entryPoint with
+            | Expression.ExprSourcePos(pos, _) -> Some pos
+            | _ -> None
+        { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.Resolve () =
         
