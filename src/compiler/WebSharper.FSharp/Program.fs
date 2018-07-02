@@ -203,15 +203,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         | Some (_, _, m) -> m 
         | _ -> WebSharper.Core.Metadata.Info.Empty
 
-    let js, currentMeta, sources =
+    let js, currentMeta, sources, extraBundles =
+        let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
-            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
-            None, currentMeta, sources
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
+            let extraBundles = Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
-            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
 
-            Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp assem
+            let extraBundles = Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
                 ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures config.ScriptBaseUrl assem
@@ -236,7 +237,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
-            js, currentMeta, sources
+            js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some (js, _) ->
@@ -260,7 +261,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
         let currentJS =
             lazy CreateBundleJSOutput (getRefMeta()) currentMeta config.ScriptBaseUrl
-        Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
+        Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
         0
     | Some Html ->

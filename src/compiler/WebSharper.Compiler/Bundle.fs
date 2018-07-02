@@ -322,7 +322,7 @@ module Bundling =
     let private (==) s1 s2 =
         System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
 
-    let AddExtraBundles config refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Assembly) =
+    let AddExtraBundles config refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
@@ -330,6 +330,9 @@ module Bundling =
             }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
         let addWebResourceAttribute =
+            match assem with
+            | Choice1Of2 _ -> ignore
+            | Choice2Of2 assem ->
             let strTy =
                 let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard" || ar.Name == "mscorlib")
                 Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
@@ -344,25 +347,34 @@ module Bundling =
                 attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, name))
                 attr.ConstructorArguments.Add(Mono.Cecil.CustomAttributeArgument(strTy, "application/javascript"))
                 assem.Raw.CustomAttributes.Add(attr)
-        for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
-            let bname = assem.Name + "." + bname
-            let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
-            let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
-            [
-                yield bname + ".js", bundle.Js
-                yield bname + ".min.js", bundle.MinJs
-                if bundle.JsMap.IsSome then
-                    yield bname + ".map", bundle.JsMap.Value
-                if bundle.MinJsMap.IsSome then
-                    yield bname + ".min.map", bundle.MinJsMap.Value
-            ]
-            |> List.iter (fun (name, contents) ->
-                let bytes = System.Text.Encoding.UTF8.GetBytes contents.Text
-                Mono.Cecil.EmbeddedResource(name, pub, bytes)
-                |> assem.Raw.MainModule.Resources.Add
-                addWebResourceAttribute name
-                currentMeta.ResourceHashes.Add(name, StableHash.data bytes)
-            )
+        let assemName = match assem with Choice1Of2 n -> n | Choice2Of2 a -> a.Name
+        [
+            for KeyValue(bname, (bexpr, bnode)) in comp.CompilingExtraBundles do
+                let bname = assemName + "." + bname
+                let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
+                let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
+                let bundleFiles =
+                    [
+                        yield bname + ".js", bundle.Js
+                        yield bname + ".min.js", bundle.MinJs
+                        if bundle.JsMap.IsSome then
+                            yield bname + ".map", bundle.JsMap.Value
+                        if bundle.MinJsMap.IsSome then
+                            yield bname + ".min.map", bundle.MinJsMap.Value
+                    ]
+                yield! bundleFiles
+                match assem with
+                | Choice1Of2 _ -> ()
+                | Choice2Of2 assem ->
+                    bundleFiles
+                    |> List.iter (fun (name, contents) ->
+                        let bytes = System.Text.Encoding.UTF8.GetBytes contents.Text
+                        Mono.Cecil.EmbeddedResource(name, pub, bytes)
+                        |> assem.Raw.MainModule.Resources.Add
+                        addWebResourceAttribute name
+                        currentMeta.ResourceHashes.Add(name, StableHash.data bytes)
+                    )
+        ]
 
     let WriteBundle (config: WsConfig) fileName (bundle: Bundle) =
         let mutable hasOutput = false
@@ -414,11 +426,32 @@ module Bundling =
             | p ->
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (jsExport: JsExport list) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
         let entryPointStyle =
-            if List.isEmpty jsExport
+            if List.isEmpty comp.JavaScriptExports
             then Packager.EntryPointStyle.ForceOnLoad
             else Packager.EntryPointStyle.OnLoadIfExists
-        CreateBundle config refMetas currentMeta (getDeps jsExport []) entryPointStyle currentJS sources refAssemblies
+        CreateBundle config refMetas currentMeta (getDeps comp.JavaScriptExports []) entryPointStyle currentJS sources refAssemblies
         |> WriteBundle config (Path.GetFileNameWithoutExtension config.AssemblyFile)
+        match BundleOutputDir config (GetWebRoot config) with
+        | Some outDir ->
+            let extraBundleFiles =
+                comp.AllExtraBundles
+                |> Seq.map (fun b ->
+                    if b.AssemblyName = comp.AssemblyName then
+                        b.AssemblyName, currentExtraBundles |> List.map (fun (name, content) -> name, content.Text)
+                    else
+                        let asm = refAssemblies |> List.find (fun asm -> asm.Name = b.AssemblyName)
+                        let scripts = asm.GetScripts()
+                        let findScript name = 
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
+                        asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
+                )
+            for asmName, bundle in extraBundleFiles do
+                let baseDir = Path.Combine(outDir, asmName)
+                System.IO.Directory.CreateDirectory(baseDir) |> ignore
+                for filename, content in bundle do
+                    let path = Path.Combine(baseDir, filename)
+                    System.IO.File.WriteAllText(path, content)
+        | None -> ()
 

@@ -248,6 +248,7 @@ type Node =
     | ResourceNode of TypeDefinition * option<ParameterObject>
     | AssemblyNode of string * bool
     | EntryPointNode 
+    | ExtraBundleEntryPointNode of string
 
 type GraphData =
     {
@@ -271,6 +272,18 @@ type MetadataEntry =
     | ConstructorEntry of Constructor
     | CompositeEntry of list<MetadataEntry>
 
+type ExtraBundle =
+    {
+        AssemblyName : string
+        BundleName : string
+    }
+
+    member this.FileName =
+        this.AssemblyName + "." + this.BundleName + ".js"
+
+    member this.MinifiedFileName =
+        this.AssemblyName + "." + this.BundleName + ".min.js"
+
 type Info =
     {
         SiteletDefinition: option<TypeDefinition>
@@ -282,6 +295,7 @@ type Info =
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
         Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
         ResourceHashes : IDictionary<string, int>
+        ExtraBundles : Set<ExtraBundle>
     }
 
     static member Empty =
@@ -295,6 +309,7 @@ type Info =
             MacroEntries = Map.empty
             Quotations = Map.empty
             ResourceHashes = Map.empty
+            ExtraBundles = Set.empty
         }
 
     static member UnionWithoutDependencies (metas: seq<Info>) = 
@@ -358,6 +373,7 @@ type Info =
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
             Quotations = Dict.union (metas |> Seq.map (fun m -> m.Quotations))
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
+            ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
         }
 
     member this.DiscardExpressions() =
@@ -478,7 +494,7 @@ type ICompilation =
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
-    abstract AddBundle : name: string * entryPoint: Expression -> string
+    abstract AddBundle : name: string * entryPoint: Expression -> ExtraBundle
 
 module IO =
     module B = Binary
@@ -490,7 +506,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.3"
+    let CurrentVersion = "4.4"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

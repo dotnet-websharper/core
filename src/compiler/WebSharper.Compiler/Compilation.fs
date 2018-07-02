@@ -82,6 +82,15 @@ type Compilation(meta: Info, ?hasGraph) =
     member val LookupMethodAttributes = fun _ _ -> None with get, set
     member val LookupConstructorAttributes = fun _ _ -> None with get, set
 
+    member this.CurrentExtraBundles =
+        Set [|
+            for KeyValue(k, _) in compilingExtraBundles do
+                yield { AssemblyName = this.AssemblyName; BundleName = k }
+        |]
+
+    member this.AllExtraBundles =
+        meta.ExtraBundles + this.CurrentExtraBundles
+
     member this.MutableExternals = mutableExternals
 
     member this.FindProxied typ =
@@ -344,6 +353,7 @@ type Compilation(meta: Info, ?hasGraph) =
             MacroEntries = macroEntries.Current
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
+            ExtraBundles = this.CurrentExtraBundles
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -793,7 +803,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let add name =
             let doAdd = not <| compilingExtraBundles.ContainsKey(name)
             if doAdd then
-                let node = AssemblyNode("$$$" + name, true)
+                let node = ExtraBundleEntryPointNode name
                 compilingExtraBundles.Add(name, (entryPoint, node))
             doAdd
         let name =
@@ -805,7 +815,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 else
                     tryAdd (i + 1)
             tryAdd 1
-        this.AssemblyName + "." + name
+        { AssemblyName = this.AssemblyName; BundleName = name }
 
     member this.Resolve () =
         
@@ -1713,6 +1723,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 MacroEntries = macroEntries
                 Quotations = quotations
                 ResourceHashes = Dictionary()
+                ExtraBundles = this.AllExtraBundles
             }    
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)

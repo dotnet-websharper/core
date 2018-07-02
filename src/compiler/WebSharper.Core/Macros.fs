@@ -1420,8 +1420,8 @@ type WebWorker() =
                 Let(self, Global[], body)
             | e ->
                 Application(e, [Global []], NonPure, Some 1)
-        // TODO: full path? .min?
-        let filename = c.Compilation.AddBundle("worker", e) + ".js"
+        // TODO: .min?
+        let filename = c.Compilation.AddBundle("worker", e).FileName
         let path = 
             Application(
                 Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
