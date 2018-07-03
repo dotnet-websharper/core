@@ -420,15 +420,21 @@ let InnerWorker(self: DedicatedWorkerGlobalScope) =
 [<JavaScript>]
 let AsyncContinuationTimeout err f =
     async {
-        try
-            let! x =
-                Async.StartChild(async {
-                    let! s = Async.FromContinuations(fun (ok, _, _) -> f ok)
-                    return s
-                }, 1000)
-            return! x
-        with exn ->
-            return failwith err
+        let! x = Async.Catch <| async {
+            let! job = Async.StartChild(
+                // This must remain wrapped in async {}, or StartChild's timeout won't catch it
+                // (that's not a proxy bug btw, .NET behavior is the same)
+                async {
+                    let! x = Async.FromContinuations(fun (ok, _, _) -> f ok)
+                    return x
+                },
+                1000
+            )
+            return! job
+        }
+        match x with
+        | Choice1Of2 res -> return res
+        | Choice2Of2 _exn -> return err
     }
 
 [<JavaScript>]
@@ -469,8 +475,6 @@ let WebWorkerTests =
         }
 
         Test "Macro with nested worker" {
-            let! x1 = async.TryWith(async.Bind(Async.StartChild(async.Bind(Async.FromContinuations ignore, fun () -> async.Return 42), 1), id), fun exn -> async.Return 53)
-            equal x1 53
             let worker = new Worker(InnerWorker)
             let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
             let! res = AsyncContinuationTimeout err <| fun ok ->
