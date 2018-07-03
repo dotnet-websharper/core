@@ -44,6 +44,8 @@ type HtmlTextWriter =
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
     static member IsSelfClosingTag : string -> bool
+    member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?useAssemblyDir: bool -> unit
+    static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?useAssemblyDir: bool -> unit
 
 val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 
@@ -80,6 +82,9 @@ and Context =
 
         ///// Gets local resource hash values.
         //GetResourceHash : string * string -> int
+
+        /// Get the base URL path for WebSharper scripts.
+        ScriptBaseUrl : option<string>
 
         /// Constructs URLs to JavaScript-compiled assemblies.
         /// Assembly names are short, such as FSharp.Core.

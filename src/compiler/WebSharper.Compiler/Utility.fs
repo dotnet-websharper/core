@@ -68,13 +68,3 @@ module internal Utility =
             (content, contentType)
         with e ->
             ("", CT.Text.Plain)
-
-    /// Writes WebSharper startup code to a text writer.
-    let WriteStartCode (withScript: bool) (writer: TextWriter) =
-        writer.WriteLine()
-        if withScript then
-            writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
-        writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        writer.WriteLine @"  IntelliFactory.Runtime.Start();"
-        if withScript then
-            writer.WriteLine("</script>")

@@ -215,7 +215,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             let extraBundles = Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures config.ScriptBaseUrl assem
+                ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -260,7 +260,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             | _ -> []
 
         let currentJS =
-            lazy CreateBundleJSOutput (getRefMeta()) currentMeta config.ScriptBaseUrl
+            lazy CreateBundleJSOutput (getRefMeta()) currentMeta
         Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
         0

@@ -62,7 +62,7 @@ module Bundling =
             MinJsMap: option<Content>
         }
 
-    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps entryPointStyle (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) =
+    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps entryPointStyle (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (scriptSkipAssemblyDir: bool) =
 
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -109,6 +109,7 @@ module Bundling =
             {
                 DebuggingEnabled = false
                 DefaultToHttp = false
+                ScriptBaseUrl = config.ScriptBaseUrl
                 GetSetting = getSetting
                 GetAssemblyRendering = fun _ -> Res.Skip
                 GetWebResourceRendering = fun _ _-> Res.Skip
@@ -131,7 +132,7 @@ module Bundling =
                     if dce then trimMetadata meta nodes 
                     else meta
                 try
-                    Packager.packageAssembly current current entryPointStyle config.ScriptBaseUrl
+                    Packager.packageAssembly current current entryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -170,6 +171,7 @@ module Bundling =
                     {
                         DebuggingEnabled = debug
                         DefaultToHttp = false // TODO make configurable
+                        ScriptBaseUrl = config.ScriptBaseUrl
                         GetAssemblyRendering = 
                             match concatScripts, mode with
                             | true, BundleMode.JavaScript -> 
@@ -202,10 +204,10 @@ module Bundling =
                 match mode with
                 | BundleMode.JavaScript -> 
                     currentJS.Value |> Option.iter (fun (t, _) -> writer.WriteLine(t))
-                    Utility.WriteStartCode false writer
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
                 | BundleMode.MinifiedJavaScript ->
                     currentJS.Value |> Option.iter (fun (_, t) -> writer.WriteLine(t))
-                    Utility.WriteStartCode false writer
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
                 | _ -> ()
             else
                 match mode with
@@ -234,7 +236,7 @@ module Bundling =
 
                     writer.WriteLine js
 
-                    Utility.WriteStartCode false writer
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
                 | _ -> ()
 
         let content mode =
@@ -327,7 +329,7 @@ module Bundling =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
                 DeadCodeElimination = true
-                ScriptBaseUrl = Some "../"
+                ScriptBaseUrl = None
             }
         let pub = Mono.Cecil.ManifestResourceAttributes.Public
         let addWebResourceAttribute =
@@ -353,7 +355,7 @@ module Bundling =
             for KeyValue(bname, (bexpr, bnode)) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
                 let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
-                let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies
+                let bundle = CreateBundle config refMetas currentMeta (getDeps [] [bnode]) Packager.EntryPointStyle.ForceImmediate (lazy None) [] refAssemblies true
                 let bundleFiles =
                     [
                         yield bname + ".js", bundle.Js
@@ -432,7 +434,7 @@ module Bundling =
             if List.isEmpty comp.JavaScriptExports
             then Packager.EntryPointStyle.ForceOnLoad
             else Packager.EntryPointStyle.OnLoadIfExists
-        CreateBundle config refMetas currentMeta (getDeps comp.JavaScriptExports []) entryPointStyle currentJS sources refAssemblies
+        CreateBundle config refMetas currentMeta (getDeps comp.JavaScriptExports []) entryPointStyle currentJS sources refAssemblies false
         |> WriteBundle config (Path.GetFileNameWithoutExtension config.AssemblyFile)
         match BundleOutputDir config (GetWebRoot config) with
         | Some outDir ->

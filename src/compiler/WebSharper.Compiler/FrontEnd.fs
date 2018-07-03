@@ -113,10 +113,10 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     else
         removeSourcePositionFromMetadata current, [||]
 
-let CreateBundleJSOutput refMeta current scriptBaseUrl =
+let CreateBundleJSOutput refMeta current =
 
     let pkg = 
-        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists scriptBaseUrl
+        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists
 
     if pkg = AST.Undefined then None else
 
@@ -129,7 +129,7 @@ let CreateBundleJSOutput refMeta current scriptBaseUrl =
 
         Some (js, minJs)
 
-let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -137,7 +137,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     TimedStage "Source position transformations"
 
     let pkg = 
-        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists scriptBaseUrl
+        Packager.packageAssembly refMeta current Packager.EntryPointStyle.OnLoadIfExists
 
     TimedStage "Packaging assembly"
     
@@ -224,16 +224,16 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources comp refMeta current sourceMap closures scriptBaseUrl a
+let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources comp refMeta current sourceMap closures a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources
 
-let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures scriptBaseUrl (assembly : Assembly) =
-    ModifyCecilAssembly comp refMeta current sourceMap closures scriptBaseUrl assembly.Raw
+let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
+    ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw
@@ -269,9 +269,12 @@ type ResourceContext =
 
         /// Decides how to render a resource.
         RenderResource : ResourceContent -> Resources.Rendering
+
+        /// Base URL path for WebSharper scripts.
+        ScriptBaseUrl : option<string>
     }
 
-let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf, selfJS, deps: Resources.IResource list, lookupAssemblyCode) =
+let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf, selfJS, deps: Resources.IResource list, lookupAssemblyCode, scriptBaseUrl) =
     let pU = WebSharper.PathConventions.PathUtility.VirtualPaths("/")
     let cache = Dictionary()
     let getRendering (content: ResourceContent) =
@@ -295,6 +298,7 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
         {
             DebuggingEnabled = ctx.DebuggingEnabled
             DefaultToHttp = ctx.DefaultToHttp
+            ScriptBaseUrl = ctx.ScriptBaseUrl
             GetAssemblyRendering = fun name ->
                 if name = nameOfSelf then
                     selfJS
@@ -317,4 +321,4 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
         }
     for d in deps do
         d.Render ctx (fun _ -> writer)
-    Utility.WriteStartCode true writer
+    Resources.HtmlTextWriter.WriteStartCode(writer, scriptBaseUrl)

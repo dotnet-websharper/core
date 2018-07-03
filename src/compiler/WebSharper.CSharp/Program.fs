@@ -137,7 +137,7 @@ let Compile config =
             let extraBundles = Bundling.AddExtraBundles config [refMeta] currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures config.ScriptBaseUrl assem
+                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -172,7 +172,7 @@ let Compile config =
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         let currentJS =
-            lazy CreateBundleJSOutput refMeta currentMeta config.ScriptBaseUrl
+            lazy CreateBundleJSOutput refMeta currentMeta
         Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
     | Some Html ->

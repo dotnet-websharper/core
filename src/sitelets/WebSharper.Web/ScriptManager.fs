@@ -91,10 +91,7 @@ type ScriptManager() =
                 WebSharper.Activator.META_ID, encode content)
             resources |> Seq.iter (fun r -> Re.Rendering.RenderCached(ctx, r, (fun _ -> writer)))
             writer.WriteLine()
-            writer.WriteLine("<script type='{0}'>", CT.Text.JavaScript.Text)
-            writer.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-            writer.WriteLine @"  IntelliFactory.Runtime.Start();"
-            writer.WriteLine("</script>")
+            writer.WriteStartCode(ctx.ScriptBaseUrl)
 
     /// Searches the page for a ScriptManager.
     static member private TryFind(page: System.Web.UI.Page) =

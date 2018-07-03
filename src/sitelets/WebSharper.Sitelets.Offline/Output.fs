@@ -254,8 +254,9 @@ let relPath level =
 /// Creates a context for resource HTML printing.
 let resourceContext (st: State) (level: int) : R.Context =
     let relPath = relPath level
+    let scriptsFolder = relPath + "Scripts/"
     let scriptsFile folder file =
-        let url = String.Format("{0}Scripts/{1}/{2}", relPath, folder, file)
+        let url = String.Format("{0}{1}/{2}", scriptsFolder, folder, file)
         R.RenderLink url
     {
         DebuggingEnabled =
@@ -264,6 +265,8 @@ let resourceContext (st: State) (level: int) : R.Context =
             | H.Release -> false
 
         DefaultToHttp = true
+
+        ScriptBaseUrl = Some scriptsFolder
 
         GetSetting = fun _ -> None
 

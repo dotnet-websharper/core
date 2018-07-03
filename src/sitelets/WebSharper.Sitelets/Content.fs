@@ -87,12 +87,6 @@ module Content =
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
         hasResources
 
-    let writeStartScript (tw: HtmlTextWriter) =
-        tw.WriteLine(@"<script type='{0}'>", CT.Text.JavaScript.Text)
-        tw.WriteLine @"if (typeof IntelliFactory !=='undefined')"
-        tw.WriteLine @"  IntelliFactory.Runtime.Start();"
-        tw.WriteLine @"</script>"
-
     type RenderedResources =
         {
             Scripts : string
@@ -121,7 +115,7 @@ module Content =
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
         if hasResources then
-            writeStartScript scriptsTw
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -132,7 +126,7 @@ module Content =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
         let hasResources = writeResources ctx controls (fun _ -> tw)
-        if hasResources then writeStartScript tw
+        if hasResources then tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
         w.ToString()
 
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -144,7 +138,7 @@ module Content =
                     let hasResources = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
-                    if hasResources then writeStartScript tw
+                    if hasResources then tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)

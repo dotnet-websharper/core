@@ -24,6 +24,8 @@ open System
 open System.IO
 open System.Reflection
 
+module CT = ContentTypes
+
 #if NET461 // ASP.NET: HtmlTextWriter
 
 type private HTW = System.Web.UI.HtmlTextWriter
@@ -129,7 +131,26 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
             "wbr"
         ]
 
-module CT = ContentTypes
+    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+        let includeScriptTag = defaultArg includeScriptTag true
+        let skipAssemblyDir = defaultArg skipAssemblyDir false
+        if includeScriptTag then
+            this.WriteLine("""<script type="{0}">""", CT.Text.JavaScript.Text)
+        this.WriteLine """if (typeof IntelliFactory !=='undefined') {"""
+        match scriptBaseUrl with
+        | Some url -> this.WriteLine("""  IntelliFactory.Runtime.ScriptBasePath = '{0}';""", url)
+        | None -> ()
+        if skipAssemblyDir then
+            this.WriteLine("""  IntelliFactory.Runtime.ScriptSkipAssemblyDir = true;""")
+        this.WriteLine """  IntelliFactory.Runtime.Start();"""
+        this.WriteLine """}"""
+        if includeScriptTag then
+            this.WriteLine("""</script>""")
+
+    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+        writer.WriteLine()
+        use w = new HtmlTextWriter(writer)
+        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir)
 
 type Rendering =
     | RenderInline of string
@@ -154,6 +175,7 @@ type Context =
     {
         DebuggingEnabled : bool
         DefaultToHttp : bool
+        ScriptBaseUrl : option<string>
         //GetResourceHash : string * string -> int
         GetAssemblyRendering : string -> Rendering
         GetSetting : string -> option<string>

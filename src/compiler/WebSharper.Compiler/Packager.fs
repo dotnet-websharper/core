@@ -33,7 +33,7 @@ type EntryPointStyle =
     | ForceOnLoad
     | ForceImmediate
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle scriptsBaseUrl =
+let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -208,12 +208,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle scriptsB
         let (KeyValue(t, c)) = classes |> Seq.head
         classes.Remove t |> ignore
         packageClass c t.Value.FullName
-
-    scriptsBaseUrl |> Option.iter (fun url ->
-        ItemSet(Global ["IntelliFactory"; "Runtime"], !~(String "ScriptBasePath"), !~(String url))
-        |> ExprStatement
-        |> statements.Add
-    )
 
     match entryPointStyle, current.EntryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->

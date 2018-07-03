@@ -255,10 +255,10 @@ IntelliFactory = {
             }
         },
 
-        ScriptBasePath: "/Scripts/WebSharper/",
+        ScriptBasePath: "./",
 
         ScriptPath: function (a, f) {
-            return this.ScriptBasePath + a + "/" + f;
+            return this.ScriptBasePath + (this.ScriptSkipAssemblyDir ? "" : a + "/") + f;
         },
 
         OnLoad:
