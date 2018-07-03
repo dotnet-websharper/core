@@ -122,11 +122,11 @@ let streamCopy (source: Stream) (target: Stream) =
 type EmbeddedResource =
     {
         Name : string
-        Type : Type
+        AssemblyName : AssemblyName
     }
 
-    static member Create(name, ty) =
-        { Name = name; Type = ty }
+    static member Create(name, asmName) =
+        { Name = name; AssemblyName = asmName }
 
 /// The mutable state of the processing.
 [<Sealed>]
@@ -176,8 +176,7 @@ let getSourceFilePath (conf: Config) (aN: string) (n: string) =
 
 /// Gets the physical path to the embedded resoure file.
 let getEmbeddedResourcePath (conf: Config) (res: EmbeddedResource) =
-    let x = res.Type.Assembly.GetName()
-    P.CreatePath ["Scripts"; x.Name; res.Name]
+    P.CreatePath ["Scripts"; res.AssemblyName.Name; res.Name]
 
 /// Opens a file for writing, taking care to create folders.
 let createFile (cfg: Config) (targetPath: P.Path) =
@@ -239,13 +238,23 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
             if typeScript then
                 let tp = getAssemblyTypeScriptPath st.Config aN
                 writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
+            st.Metadata.ExtraBundles
+            |> Set.filter (fun b -> b.AssemblyName = aN)
+            |> Set.iter (fun b ->
+                // TODO: this will have to use b.MinifiedFileName
+                // when we get to use .min.js for extra bundles.
+                let filename = b.FileName
+                let res = EmbeddedResource.Create(filename, AssemblyName(b.AssemblyName))
+                let path = getEmbeddedResourcePath st.Config res
+                writeEmbeddedResource st.Config aP filename path
+            )
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
         let erp = getEmbeddedResourcePath st.Config res
-        match aR.ResolvePath(AssemblyName res.Type.Assembly.FullName) with
+        match aR.ResolvePath(AssemblyName res.AssemblyName.FullName) with
         | Some aP -> writeEmbeddedResource st.Config aP res.Name erp
-        | None -> stderr.WriteLine("Could not resolve {0}", res.Type.Assembly.FullName)
+        | None -> stderr.WriteLine("Could not resolve {0}", res.AssemblyName.FullName)
 
 /// Generates a relative path prefix, such as "../../../" for level 3.
 let relPath level =
@@ -275,7 +284,7 @@ let resourceContext (st: State) (level: int) : R.Context =
             scriptsFile aN (getAssemblyFileName st.Config.Options.Mode aN)
 
         GetWebResourceRendering = fun ty name ->
-            st.UseResource(EmbeddedResource.Create(name, ty))
+            st.UseResource(EmbeddedResource.Create(name, ty.Assembly.GetName()))
             scriptsFile (ty.Assembly.GetName().Name) name
 
         WebRoot = relPath
