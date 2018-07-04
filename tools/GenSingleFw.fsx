@@ -60,8 +60,9 @@ let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetF
         let fn = Path.GetFileName(f)
         Directory.CreateDirectory(dstFullDir) |> ignore
         copyFileIfExistsAndIsDifferent (origFullDir +/ "paket.references") dstFullDir
-        if not (f.Contains("SPA")) then
-            copyFileIfExistsAndIsDifferent (origFullDir +/ "wsconfig.json") dstFullDir
+        copyFileIfExistsAndIsDifferent (origFullDir +/ "wsconfig.json") dstFullDir
+        copyFileIfExistsAndIsDifferent (origFullDir +/ "index.html") dstFullDir
+        copyFileIfExistsAndIsDifferent (origFullDir +/ "Web.config") dstFullDir
         let doc = XDocument.Load(f)
 
         // Fix target framework

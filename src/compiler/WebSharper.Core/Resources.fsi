@@ -121,6 +121,15 @@ type IDownloadableResource =
     /// Gets the WebSharper output root directory.
     abstract Unpack : string -> unit    
 
+/// An interface for resources whose JavaScript code, if any,
+/// is a sequence of external scripts with the given URLs.
+type IExternalScriptResource =
+    inherit IResource
+
+    /// Get the JavaScript script URL(s) for this resource.
+    /// Can return an empty array if this is not a JavaScript resource.
+    abstract member Urls : Context -> string[]
+
 /// A helper base class for resource-defining types.
 type BaseResource =
 
@@ -141,6 +150,7 @@ type BaseResource =
 
     interface IResource
     interface IDownloadableResource
+    interface IExternalScriptResource
 
 /// Represents the runtime library resource required by all WebSharper code.
 [<Sealed>]

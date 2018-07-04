@@ -421,15 +421,14 @@ let InnerWorker(self: DedicatedWorkerGlobalScope) =
 let AsyncContinuationTimeout err f =
     async {
         let! x = Async.Catch <| async {
-            let! job = Async.StartChild(
-                // This must remain wrapped in async {}, or StartChild's timeout won't catch it
-                // (that's not a proxy bug btw, .NET behavior is the same)
-                async {
-                    let! x = Async.FromContinuations(fun (ok, _, _) -> f ok)
-                    return x
-                },
-                1000
-            )
+            let! job =
+                Async.StartChild(
+                    // This must remain wrapped in async {}, or StartChild's timeout won't catch it
+                    // (that's not a proxy bug btw, .NET behavior is the same)
+                    async {
+                        let! x = Async.FromContinuations(fun (ok, _, _) -> f ok)
+                        return x
+                    }, 1000)
             return! job
         }
         match x with
@@ -483,6 +482,21 @@ let WebWorkerTests =
         //        worker.PostMessage "Hello world!"
         //    equal res "The worker replied: [worker2] Hello world!"
         //}
+
+        Test "With Dependencies" {
+            let worker = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    // Works:
+                    //self.PostMessage(MathJS.Math.Create().Abs(e.Data :?> int))
+
+                    // Fails:
+                    MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e -> ok <| string (e.Data :?> int)
+                worker.PostMessage(-123)
+            equal res "123"
+        }
 
     }
 

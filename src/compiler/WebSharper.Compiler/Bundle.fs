@@ -62,7 +62,7 @@ module Bundling =
             MinJsMap: option<Content>
         }
 
-    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps entryPointStyle (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (scriptSkipAssemblyDir: bool) =
+    let CreateBundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) getAllDeps entryPointStyle (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (isExtraBundle: bool) =
 
         let sourceMap = config.SourceMap
         let dce = config.DeadCodeElimination
@@ -199,15 +199,28 @@ module Bundling =
                     }
                 for d in resources do
                     d.Render ctx (fun _ -> noHtmlWriter)
+                    if isExtraBundle then
+                        match d with
+                        | :? Res.IExternalScriptResource as e ->
+                            match e.Urls ctx with
+                            | [||] -> ()
+                            | urls ->
+                                writer.WriteLine("importScripts([{0}])",
+                                    urls |> Seq.map (fun url ->
+                                        W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)
+                                    )
+                                    |> String.concat ","
+                                )
+                        | _ -> ()
 
             if concatScripts then 
                 match mode with
                 | BundleMode.JavaScript -> 
                     currentJS.Value |> Option.iter (fun (t, _) -> writer.WriteLine(t))
-                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, isExtraBundle)
                 | BundleMode.MinifiedJavaScript ->
                     currentJS.Value |> Option.iter (fun (_, t) -> writer.WriteLine(t))
-                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, isExtraBundle)
                 | _ -> ()
             else
                 match mode with
@@ -236,7 +249,7 @@ module Bundling =
 
                     writer.WriteLine js
 
-                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, scriptSkipAssemblyDir)
+                    Res.HtmlTextWriter.WriteStartCode(writer, config.ScriptBaseUrl, false, isExtraBundle)
                 | _ -> ()
 
         let content mode =

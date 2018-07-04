@@ -685,17 +685,22 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
-        let compileMethods() =
+        let rec compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
                 let (KeyValue((t, m), (i, e))) = Seq.head comp.CompilingMethods
                 toJS.CompileMethod(i, e, t, m)
 
-            for k in comp.CompilingExtraBundles.Keys |> Array.ofSeq do
+            while comp.CompilingExtraBundles.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
+                let (KeyValue(k, (entryPoint, node))) = Seq.head comp.CompilingExtraBundles
                 let entryPoint, node = comp.CompilingExtraBundles.[k]
                 let compiledEntryPoint = toJS.CompileEntryPoint(entryPoint, node)
                 comp.AddCompiledExtraBundle(k, compiledEntryPoint, node)
+
+            // both CompileMethod can add bundles and CompileEntryPoint can add methods,
+            // so we need to loop until both are exhausted.
+            if comp.CompilingMethods.Count > 0 then compileMethods()
 
         compileMethods()
         comp.CloseMacros()

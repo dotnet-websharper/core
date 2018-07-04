@@ -191,6 +191,10 @@ and IResource =
 type IDownloadableResource =
     abstract Unpack : string -> unit    
 
+type IExternalScriptResource =
+    inherit IResource
+    abstract member Urls : Context -> string[]
+
 let cleanLink dHttp (url: string) =
     if dHttp && url.StartsWith("//")
         then "http:" + url
@@ -377,6 +381,44 @@ type BaseResource(kind: Kind) as this =
 
     member this.GetLocalName() =
         name.Replace('+', '.').Split('`').[0]
+
+    interface IExternalScriptResource with
+        member this.Urls ctx =
+            let dHttp = ctx.DefaultToHttp
+            let isLocal = ctx.GetSetting "UseDownloadedResources" |> Option.exists (fun s -> s.ToLower() = "true")
+            let localFolder f =
+                ctx.WebRoot +  "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
+            match kind with
+            | Basic spec ->
+                if spec.EndsWith ".css" then [||] else
+                match ctx.GetSetting name with
+                | Some url -> [|url|]
+                | None ->
+                    match tryFindWebResource self spec with
+                    | Some _ -> [||]
+                    | None ->
+                        if isLocal then
+                            match tryGetUriFileName spec with
+                            | Some f -> [|localFolder f|]
+                            | _ -> [|spec|]
+                        else
+                            [|spec|]
+            | Complex (b, xs) ->
+                let b = defaultArg (ctx.GetSetting name) b
+                let urls =
+                    xs |> List.choose (fun x ->
+                        let url = b.TrimEnd('/') + "/" + x.TrimStart('/')
+                        if url.EndsWith ".css" then None else Some url
+                    )
+                let urls = 
+                    if isLocal then 
+                        urls |> List.map (fun u ->
+                            match tryGetUriFileName u with
+                            | Some f -> localFolder f
+                            | None -> u
+                        )
+                    else urls
+                urls |> Array.ofList
     
     interface IResource with
         member this.Render ctx =

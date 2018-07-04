@@ -817,10 +817,6 @@ type Compilation(meta: Info, ?hasGraph) =
             |> Seq.find shouldAdd
         let node = ExtraBundleEntryPointNode(this.AssemblyName, computedName)
         compilingExtraBundles.Add(computedName, (entryPoint, node))
-        let location =
-            match entryPoint with
-            | Expression.ExprSourcePos(pos, _) -> Some pos
-            | _ -> None
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.Resolve () =
