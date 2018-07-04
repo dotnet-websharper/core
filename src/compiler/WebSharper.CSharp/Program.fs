@@ -128,13 +128,13 @@ let Compile config =
     let js, currentMeta, sources, extraBundles =
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config [refMeta] currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
             let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
 
-            let extraBundles = Bundling.AddExtraBundles config [refMeta] currentMeta refs comp (Choice2Of2 assem)
+            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
                 ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem

@@ -203,16 +203,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         | Some (_, _, m) -> m 
         | _ -> WebSharper.Core.Metadata.Info.Empty
 
+    let getRefMetas() =
+        match wsRefsMeta.Result with 
+        | Some (_, m, _) -> m 
+        | _ -> []
+
     let js, currentMeta, sources, extraBundles =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            let extraBundles = Bundling.AddExtraBundles config (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
 
-            let extraBundles = Bundling.AddExtraBundles config [getRefMeta()] currentMeta refs comp (Choice2Of2 assem)
+            let extraBundles = Bundling.AddExtraBundles config (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
                 ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem

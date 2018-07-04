@@ -486,10 +486,6 @@ let WebWorkerTests =
         Test "With Dependencies" {
             let worker = new Worker(fun self ->
                 self.Onmessage <- fun e ->
-                    // Works:
-                    //self.PostMessage(MathJS.Math.Create().Abs(e.Data :?> int))
-
-                    // Fails:
                     MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
