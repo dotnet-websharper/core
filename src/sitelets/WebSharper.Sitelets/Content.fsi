@@ -186,6 +186,8 @@ type CSharpContent =
 
     member AsContent : Content<obj>
 
+    static member FromContent : Content<obj> -> CSharpContent
+
     /// Creates a JSON content from the given object.
     static member Json<'U>
         : 'U

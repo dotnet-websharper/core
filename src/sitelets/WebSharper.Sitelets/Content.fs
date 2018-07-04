@@ -446,6 +446,8 @@ type CSharpContent =
 
     member this.AsContent = this.c
 
+    static member FromContent(c: Content<obj>) = new CSharpContent(c)
+
     static member TaskAsContent (t: Task<CSharpContent>) =
         t.Map(fun c -> c.AsContent)
 
