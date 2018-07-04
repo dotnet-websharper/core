@@ -659,7 +659,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.CompileEntryPoint(expr, node) =
         try
             currentNode <- node
-            this.TransformExpression(expr)
+            this.TransformExpression(expr) |> breakExpr |> this.CheckResult
         with e ->
             this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
 
@@ -694,7 +694,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             while comp.CompilingExtraBundles.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
                 let (KeyValue(k, (entryPoint, node))) = Seq.head comp.CompilingExtraBundles
-                let entryPoint, node = comp.CompilingExtraBundles.[k]
                 let compiledEntryPoint = toJS.CompileEntryPoint(entryPoint, node)
                 comp.AddCompiledExtraBundle(k, compiledEntryPoint, node)
 
