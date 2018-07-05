@@ -154,6 +154,19 @@ module Sitelet =
                 }
         }
 
+    /// Maps over the served sitelet content.
+    let MapContent (f: Async<Content<'T>> -> Async<Content<'T>>) (sitelet: Sitelet<'T>) : Sitelet<'T> =
+        { sitelet with
+            Controller =
+                { Handle = fun ep ->
+                    ep
+                    |> sitelet.Controller.Handle
+                    |> async.Return
+                    |> f
+                    |> C.FromAsync
+                }
+        }
+
     /// Maps over the sitelet endpoint type. Requires a bijection.
     let TryMap (f: 'T1 -> 'T2 option) (g: 'T2 -> 'T1 option) (s: Sitelet<'T1>) : Sitelet<'T2> =
         {
@@ -339,10 +352,25 @@ type Sitelet<'T when 'T : equality> with
     member this.Shift (prefix: string) =
         Sitelet.Shift prefix this
 
-[<Extension>]
+[<Extension; Sealed>]
 type SiteletExtensions =
+    [<Extension>]
     static member Unbox<'T when 'T: equality>(sitelet: Sitelet<obj>) =
         Sitelet.Unbox<'T> sitelet
+
+    [<Extension>]
+    static member MapContent (sitelet: Sitelet<obj>, f: Func<Task<CSharpContent>, Task<CSharpContent>>) =
+        { sitelet with
+            Controller =
+                { Handle = fun ep ->
+                    (ep |> sitelet.Controller.Handle
+                        |> CSharpContent.FromContent
+                        |> Task.FromResult
+                        |> f.Invoke
+                        |> CSharpContent.FromTask
+                    ).AsContent
+                }
+        }
 
 type SiteletBuilder() =
 

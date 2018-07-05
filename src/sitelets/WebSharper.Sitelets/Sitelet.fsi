@@ -89,6 +89,10 @@ module Sitelet =
     val Map<'T1,'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1) -> Sitelet<'T1> -> Sitelet<'T2>
 
+    /// Maps over the served sitelet content.
+    val MapContent<'T when 'T : equality> :
+        (Async<Content<'T>> -> Async<Content<'T>>) -> Sitelet<'T> -> Sitelet<'T>
+
     /// Maps over the sitelet endpoint type with only an injection.
     val Embed<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         ('T1 -> 'T2) -> ('T2 -> 'T1 option) -> Sitelet<'T1> -> Sitelet<'T2>
@@ -173,6 +177,16 @@ type CSharpSitelet =
     /// Serves the sum of the given sitelets under a given prefix.
     /// This function is convenient for folder-like structures.
     static member Folder<'T when 'T: equality> : prefix: string * [<ParamArray>] sitelets: Sitelet<'T>[] -> Sitelet<'T>
+
+[<Extension; Sealed>]
+type SiteletExtensions =
+    /// Reverses the Box operation on the sitelet.
+    [<Extension>]
+    static member Unbox<'T when 'T: equality> : sitelet: Sitelet<obj> -> Sitelet<'T>
+
+    /// Maps over the served sitelet content.
+    [<Extension>]
+    static member MapContent : sitelet: Sitelet<obj> * f: Func<Task<CSharpContent>, Task<CSharpContent>> -> Sitelet<obj>
 
 /// Enables an iterative approach for defining Sitelets.
 /// Chain calls to the With method to add handlers for new paths or endpoint values inferred from the
