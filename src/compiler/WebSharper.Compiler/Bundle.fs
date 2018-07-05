@@ -71,6 +71,7 @@ module Bundling =
             GetAllDeps: Graph -> list<M.Node>
             CurrentJs: Lazy<option<string * string>>
             Sources: seq<string * string>
+            EntryPoint: option<Statement>
             EntryPointStyle: Packager.EntryPointStyle
             IsExtraBundle: bool
             AddError : option<SourcePos> -> string -> unit
@@ -148,7 +149,7 @@ module Bundling =
                     if dce then trimMetadata meta nodes 
                     else meta
                 try
-                    Packager.packageAssembly current current o.EntryPointStyle
+                    Packager.packageAssembly current current o.EntryPoint o.EntryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -384,12 +385,12 @@ module Bundling =
         [
             for KeyValue(bname, (bexpr, bnode)) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
-                let currentMeta = { currentMeta with EntryPoint = Some (ExprStatement bexpr) }
                 let bundle = CreateBundle {
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
                     GetAllDeps = getDeps [] [bnode]
+                    EntryPoint = Some (ExprStatement bexpr)
                     EntryPointStyle = Packager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
                     Sources = []
@@ -481,6 +482,7 @@ module Bundling =
             RefMetas = refMetas
             CurrentMeta = currentMeta
             GetAllDeps = getDeps comp.JavaScriptExports []
+            EntryPoint = comp.EntryPoint
             EntryPointStyle = entryPointStyle
             CurrentJs = currentJS
             Sources = sources

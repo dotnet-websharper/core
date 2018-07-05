@@ -334,7 +334,6 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         Interfaces = interfaces
         Classes = classes
         CustomTypes = Map.empty
-        EntryPoint = None
         MacroEntries = Map.empty
         Quotations = Map.empty
         ResourceHashes = Dictionary()

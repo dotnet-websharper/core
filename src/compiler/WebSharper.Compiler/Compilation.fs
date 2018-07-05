@@ -59,7 +59,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
-    let mutable entryPoint = None
+    let mutable entryPoint = None : option<Statement>
     let jsExports = ResizeArray() 
 
     let macros = System.Collections.Generic.Dictionary<TypeDefinition, Macro option>()
@@ -353,7 +353,6 @@ type Compilation(meta: Info, ?hasGraph) =
                 )
             CustomTypes = 
                 customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
-            EntryPoint = entryPoint
             MacroEntries = macroEntries.Current
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
@@ -1721,7 +1720,6 @@ type Compilation(meta: Info, ?hasGraph) =
                 Classes = classes        
                 CustomTypes = 
                     customTypes |> Dict.filter (fun _ v -> v <> NotCustomType)
-                EntryPoint = None
                 MacroEntries = macroEntries
                 Quotations = quotations
                 ResourceHashes = Dictionary()

@@ -33,7 +33,7 @@ type EntryPointStyle =
     | ForceOnLoad
     | ForceImmediate
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle =
+let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -209,7 +209,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPointStyle =
         classes.Remove t |> ignore
         packageClass c t.Value.FullName
 
-    match entryPointStyle, current.EntryPoint with
+    match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
         statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
     | ForceImmediate, Some ep ->
