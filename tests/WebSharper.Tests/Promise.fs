@@ -25,25 +25,112 @@ open WebSharper.JavaScript
 open WebSharper.Testing
 
 [<JavaScript>]
-module private Async =
-
-    exception NonStandardPromiseReject of obj
-
-    let AwaitPromise (p: Promise<'T>) : Async<'T> =
-        Async.FromContinuations <| fun (ok, ko, _) ->
-            p.Then(ok, function
-                | :? exn as e -> ko e
-                | e -> ko (NonStandardPromiseReject e)
-            )
+exception private MyCustomException of int
 
 [<JavaScript>]
 let Tests =
     TestCategory "Promise" {
 
-        Test "Then" {
-            let p = new Promise(fun (resolve, reject) -> resolve 42)
-            let! res = Async.AwaitPromise p
-            equal res 42
+        Test "AsAsync Resolve" {
+            let! res =
+                Promise(fun (resolve, _) ->
+                    resolve 42)
+                |> Promise.AsAsync
+            equalMsg res 42 "immediate"
+
+            let! res =
+                Promise(fun (resolve, _) ->
+                    JS.SetTimeout (fun () -> resolve 42) 1000 |> ignore)
+                |> Promise.AsAsync
+            equalMsg res 42 "delayed"
+        }
+
+        Test "AsAsync Reject" {
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        reject (MyCustomException 42))
+                    |> Promise.AsAsync
+                with MyCustomException e -> return e
+            }
+            equalMsg res 42 "immediate exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        reject 42)
+                    |> Promise.AsAsync
+                with :? NonStandardPromiseRejectionException as e -> return e.Reason :?> int
+            }
+            equalMsg res 42 "immediate non-exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        JS.SetTimeout (fun () -> reject (MyCustomException 42)) 1000 |> ignore)
+                    |> Promise.AsAsync
+                with MyCustomException e -> return e
+            }
+            equalMsg res 42 "delayed exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        JS.SetTimeout (fun () -> reject 42) 1000 |> ignore)
+                    |> Promise.AsAsync
+                with :? NonStandardPromiseRejectionException as e -> return e.Reason :?> int
+            }
+            equalMsg res 42 "delayed non-exn"
+        }
+
+        Test "AsTask Resolve" {
+            let! res =
+                Promise(fun (resolve, _) ->
+                    resolve 42)
+                |> Promise.AsTask
+                |> Async.AwaitTask
+            equalMsg res 42 "immediate"
+
+            let! res =
+                Promise(fun (resolve, _) ->
+                    JS.SetTimeout (fun () -> resolve 42) 1000 |> ignore)
+                |> Promise.AsTask
+                |> Async.AwaitTask
+            equalMsg res 42 "delayed"
+        }
+
+        Test "AsTask Reject" {
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        reject (MyCustomException 42))
+                    |> Promise.AsTask
+                    |> Async.AwaitTask
+                with MyCustomException e -> return e
+            }
+            equalMsg res 42 "immediate exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        reject 42)
+                    |> Promise.AsTask
+                    |> Async.AwaitTask
+                with :? NonStandardPromiseRejectionException as e -> return e.Reason :?> int
+            }
+            equalMsg res 42 "immediate non-exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        JS.SetTimeout (fun () -> reject (MyCustomException 42)) 1000 |> ignore)
+                    |> Promise.AsTask
+                    |> Async.AwaitTask
+                with MyCustomException e -> return e
+            }
+            equalMsg res 42 "delayed exn"
+
+            let! res = async {
+                try return! Promise(fun (_, reject) ->
+                        JS.SetTimeout (fun () -> reject 42) 1000 |> ignore)
+                    |> Promise.AsTask
+                    |> Async.AwaitTask
+                with :? NonStandardPromiseRejectionException as e -> return e.Reason :?> int
+            }
+            equalMsg res 42 "delayed non-exn"
         }
 
     }

@@ -22,6 +22,7 @@
     <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="Comparers.fs" />
+    <Compile Include="Promise.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

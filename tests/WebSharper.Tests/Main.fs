@@ -60,6 +60,7 @@ let RunTests runServerSide =
         Operators.Tests
         Option.Tests
         Optimizations.Tests
+        Promise.Tests
         Proxy.Tests
         Queue.Tests
         Query.Tests

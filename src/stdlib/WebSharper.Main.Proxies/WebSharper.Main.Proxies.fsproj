@@ -62,6 +62,9 @@
     <Compile Include="../WebSharper.Main/Comparers.fs">
       <Link>Comparers.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main/Promise.fs">
+      <Link>Promise.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Utils.fs">
       <Link>Utils.fs</Link>
     </Compile>

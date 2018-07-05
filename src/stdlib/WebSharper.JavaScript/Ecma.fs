@@ -401,6 +401,8 @@ module Definition =
 
     let EcmaPromise =
         Generic - fun (a: CodeModel.TypeParameter) ->
+        let resolveFn b = (a ^-> b) + (a ^-> TSelf.[b])
+        let rejectFn b = (T<obj> ^-> b) + (T<obj> ^-> TSelf.[b])
         Class "Promise"
         |+> Static [
             Constructor ((a ^-> T<unit>) * (T<obj> ^-> T<unit>) ^-> T<unit>)?executor
@@ -411,10 +413,9 @@ module Definition =
             "resolve" => TSelf.[a] ^-> TSelf.[a]
         ]
         |+> Instance [
-            "catch" => (T<obj> ^-> T<unit>) ^-> TSelf.[a]
+            Generic - fun b -> "catch" => (rejectFn b) ^-> TSelf.[b]
             "finally" => (T<unit> ^-> T<unit>) ^-> TSelf.[a]
-            Generic - fun b -> "then" => (a ^-> b)?onFulfilled * !?(T<obj> ^-> T<unit>)?onRejected ^-> TSelf.[b]
-            Generic - fun b -> "then" => (a ^-> TSelf.[b])?onFulfilled * !?(T<obj> ^-> T<unit>)?onRejected ^-> TSelf.[b]
+            Generic - fun b -> "then" => (resolveFn b)?onFulfilled * !?(rejectFn b)?onRejected ^-> TSelf.[b]
         ]
 
     let Namespaces =
