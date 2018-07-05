@@ -936,8 +936,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 classes.Add(td, cls)
                 cls    
         with _ ->
-            eprintfn "WebSharper error: Assembly needed for bundling but is not referenced: %s" td.Value.Assembly
-            ClassInfo.None
+            failwithf "Assembly needed for bundling but is not referenced: %s" td.Value.Assembly
     for n in nodes do
         match n with
         | MethodNode (td, m) -> 

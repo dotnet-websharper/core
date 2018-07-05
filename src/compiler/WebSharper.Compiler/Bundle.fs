@@ -145,10 +145,10 @@ module Bundling =
                     o.RefMetas |> Seq.map refreshAllIds
                     |> Seq.append (Seq.singleton o.CurrentMeta)
                     |> M.Info.UnionWithoutDependencies 
-                let current = 
-                    if dce then trimMetadata meta nodes 
-                    else meta
                 try
+                    let current = 
+                        if dce then trimMetadata meta nodes 
+                        else meta
                     Packager.packageAssembly current current o.EntryPoint o.EntryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
