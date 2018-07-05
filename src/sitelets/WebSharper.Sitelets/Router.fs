@@ -532,20 +532,28 @@ module Router =
             member this.Link e = link e
         }
 
-    /// Compatible with old UI.Next.RouteMap.Create.
-    let Create (ser: 'T -> list<string>) (des: list<string> -> 'T) =
+    /// Creates a router for parsing/writing a full route using URL segments.
+    let Create (ser: 'T -> list<string>) (des: list<string> -> option<'T>) =
         {
             Parse = fun path ->
-                Seq.singleton ({ path with Segments = [] }, des path.Segments)
+                match des path.Segments with
+                | Some ep ->
+                    Seq.singleton ({ path with Segments = [] }, ep)
+                | None ->
+                    Seq.empty
             Write = fun value ->
                 Some (Seq.singleton (Route.Segment(ser value)))
-        }
+        } : Router<'T>
 
-    /// Compatible with old UI.Next.RouteMap.CreateWithQuery.
-    let CreateWithQuery (ser: 'T -> list<string> * Map<string, string>) (des: list<string> * Map<string, string> -> 'T) =
+    /// Creates a router for parsing/writing a full route using URL segments and query parameters.
+    let CreateWithQuery (ser: 'T -> list<string> * Map<string, string>) (des: list<string> * Map<string, string> -> option<'T>) =
         {
             Parse = fun path ->
-                Seq.singleton ({ path with Segments = [];  }, des (path.Segments, path.QueryArgs))
+                match des (path.Segments, path.QueryArgs) with
+                | Some ep ->
+                    Seq.singleton ({ path with Segments = [] }, ep)
+                | None ->
+                    Seq.empty
             Write = fun value ->
                 let s, q = ser value
                 Some (Seq.singleton { Route.Empty with Segments = s; QueryArgs = q })
