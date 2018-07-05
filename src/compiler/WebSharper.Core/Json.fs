@@ -1099,15 +1099,13 @@ let getObjectFields (t: System.Type) =
     // FlattenHierarchy flag is not enough to collect
     // backing fields of auto-properties on base classes 
     let getDecl (t: System.Type) = 
-        if t.IsSerializable then
-            t.GetFields fieldFlagsDeclOnly
-            |> Seq.filter (fun f ->
-                let nS =
-                    f.Attributes &&&
-                    System.Reflection.FieldAttributes.NotSerialized
-                int nS = 0
-            )
-        else Seq.empty
+        t.GetFields fieldFlagsDeclOnly
+        |> Seq.filter (fun f ->
+            let nS =
+                f.Attributes &&&
+                System.Reflection.FieldAttributes.NotSerialized
+            int nS = 0
+        )
     let rec getAll (t: System.Type) =
         match t.BaseType with
         | null -> Seq.empty // this is a System.Object
@@ -1153,8 +1151,6 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
             callGeneric <@ unmakeFlatDictionary @> dE ta ga.[1]
         else
             callGeneric2 <@ unmakeArrayDictionary @> dE ta ga.[0] ga.[1]
-    elif not t.IsSerializable then
-        raise (NoEncodingException t)
     else
     let fs = getObjectFields t
     let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
