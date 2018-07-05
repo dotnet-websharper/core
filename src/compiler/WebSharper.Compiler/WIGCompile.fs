@@ -1047,7 +1047,11 @@ type MemberConverter
             | None -> ()
             | Some c -> comments.[tD] <- c
         for i in x.ImplementedInterfaces do
-            tD.Interfaces.Add(InterfaceImplementation(tC.TypeReference (i, x)))
+            let tr = tC.TypeReference (i, x)
+            if tr.Resolve().IsInterface then
+                tD.Interfaces.Add(InterfaceImplementation(tr))
+            else
+                failwithf "Class %s is trying to implement a non-interface type: %s" x.Name tr.FullName
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
@@ -1058,7 +1062,11 @@ type MemberConverter
 
     member private c.Interface(x: Code.Interface, tD: TypeDefinition) =
         for i in x.BaseInterfaces do
-            tD.Interfaces.Add(InterfaceImplementation(tC.TypeReference (i, x)))
+            let tr = tC.TypeReference (i, x)
+            if tr.Resolve().IsInterface then
+                tD.Interfaces.Add(InterfaceImplementation(tr))
+            else
+                failwithf "Interface %s is trying to inherit a non-interface type: %s" x.Name tr.FullName
         setObsoleteAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
