@@ -364,7 +364,13 @@ type Info =
             Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
             CustomTypes = Dict.unionDupl (metas |> Seq.map (fun m -> m.CustomTypes))
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
-            Quotations = Dict.union (metas |> Seq.map (fun m -> m.Quotations))
+            Quotations = 
+                try
+                    Dict.union (metas |> Seq.map (fun m -> m.Quotations))
+                with Dict.UnionError key ->
+                    let pos = key :?> SourcePos
+                    failwithf "Quoted expression found at the same position in two files with the same name: %s %d:%d-%d:%d"
+                        pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
         }

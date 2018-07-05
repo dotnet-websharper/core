@@ -118,13 +118,16 @@ module Dict =
             r.Add(k, mapping v)
         r 
 
+    exception UnionError of key: obj with
+        override this.Message = failwithf "Error merging dictionaries on key: %A" this.key 
+
     // Union of multiple IDictionary objects
     let union (dicts: seq<IDictionary<_,_>>) =
         let d = Dictionary() :> IDictionary<_,_>
         for s in dicts do
             for i in s do 
                 try d.Add(i)
-                with _ -> failwithf "Error merging dictionaries on key: %A" i.Key
+                with _ -> raise (UnionError i.Key)
         d
         
     // Union of multiple IDictionary objects, appending lists on key merges
@@ -139,6 +142,9 @@ module Dict =
                     d.Add(k, v)
         d
 
+    exception UnionDuplError of key: obj with
+        override this.Message = failwithf "Different values found for the same key: %A" this.key 
+
     /// IDictionary union, allowing exact duplicates
     let unionDupl (dicts: seq<IDictionary<_,_>>) =
         let d = Dictionary() :> IDictionary<_,_>
@@ -147,7 +153,7 @@ module Dict =
                 match d.TryGetValue k with
                 | true, ov ->
                     if v = ov then () else
-                        failwithf "Different values found for the same key: %A" k
+                        raise (UnionDuplError k)
                 | _ -> d.Add(i)
         d
   
