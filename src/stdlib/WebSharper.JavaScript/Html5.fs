@@ -1614,6 +1614,19 @@ module General =
             "onunload" =@ f
             "onvolumechange" =@ f
             "onwaiting" =@ f
+
+            "NaN" =? T<double> |> WithGetterInline "NaN"
+            "Infinity" =? T<double> |> WithGetterInline "Infinity"
+            "undefined" =? T<obj> |> WithGetterInline "undefined"
+            "eval" => T<string> ^-> T<obj> |> WithInline "eval($0)"
+            "parseInt" => T<string> * !?T<int>?radix ^-> T<int> |> WithInline "parseInt($0, $1)"
+            "parseFloat" => T<string->double> |> WithInline "parseFloat($0)"
+            "isNaN" => T<obj> ^-> T<bool> |> WithInline "isNaN($0)"
+            "isFinite" => (T<int> + T<float>) ^-> T<bool> |> WithInline "isFinite($0)"
+            "decodeURI" => T<string->string> |> WithInline "decodeURI($0)"
+            "decodeURIComponent" => T<string->string> |> WithInline "decodeURIComponent($0)"
+            "encodeURI" => T<string->string> |> WithInline "encodeURI($0)"
+            "encodeURIComponent" => T<string->string> |> WithInline "encodeURIComponent($0)"
         ]
 
 module WebWorkers =
