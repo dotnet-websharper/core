@@ -1414,18 +1414,24 @@ type WebWorker() =
     static let workerCtor = Hashed { CtorParameters = [NonGenericType stringTy] }
 
     override __.TranslateCtor(c) =
-        let e =
-            match c.Arguments.[0] with
-            | Lambda([self], body) ->
-                Let(self, Global[], body)
-            | e ->
-                Application(e, [Global []], NonPure, Some 1)
-        // TODO: .min?
-        let filename = c.Compilation.AddBundle("worker", e).FileName
-        let path = 
-            Application(
-                Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
-                [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
-                NonPure, Some 2)
-        Ctor(worker, workerCtor, [path])
-        |> MacroOk
+        let gen name expr =
+            let e =
+                match expr with
+                | Lambda([self], body) ->
+                    Let(self, Global[], body)
+                | e ->
+                    Application(e, [Global []], NonPure, Some 1)
+            // TODO: .min?
+            let filename = c.Compilation.AddBundle(name, e).FileName
+            let path = 
+                Application(
+                    Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
+                    [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
+                    NonPure, Some 2)
+            Ctor(worker, workerCtor, [path])
+            |> MacroOk
+        match c.Arguments with
+        | [expr] -> gen "worker" expr
+        | [I.Value (String name); expr] -> gen name expr
+        | [x; expr] -> MacroError (sprintf "You must use a string literal as the name of a web worker: %A" x)
+        | _ -> MacroError "Invalid use of WebWorker macro"

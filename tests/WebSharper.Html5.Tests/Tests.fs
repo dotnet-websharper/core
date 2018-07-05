@@ -473,6 +473,18 @@ let WebWorkerTests =
             equal res "The worker replied: [worker2] Hello world!"
         }
 
+        Test "Macro with custom name" {
+            let worker = new Worker("my-worker", fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction(As<string> e.Data))
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+        }
+
         //Test "Macro with nested worker" {
         //    let worker = new Worker(InnerWorker)
         //    let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
