@@ -221,7 +221,7 @@ module Bundling =
                             match e.Urls ctx with
                             | [||] -> ()
                             | urls ->
-                                writer.WriteLine("importScripts([{0}])",
+                                writer.WriteLine("importScripts([{0}]);",
                                     urls |> Seq.map (fun url ->
                                         let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)
                                         s.Trim()
