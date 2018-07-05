@@ -656,6 +656,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             comp.AddCompiledStaticConstructor(typ, addr, res)
 
+    member this.CompileEntryPoint(expr, node) =
+        try
+            currentNode <- node
+            this.TransformExpression(expr) |> breakExpr |> this.CheckResult
+        with e ->
+            this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+
     static member CompileFull(comp: Compilation) =
         while comp.CompilingConstructors.Count > 0 do
             let (KeyValue((t, c), (i, e))) = Seq.head comp.CompilingConstructors
@@ -678,11 +685,21 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             comp.EntryPoint <- Some (toJS.TransformStatement(ep))
         | _ -> ()
 
-        let compileMethods() =
+        let rec compileMethods() =
             while comp.CompilingMethods.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
                 let (KeyValue((t, m), (i, e))) = Seq.head comp.CompilingMethods
                 toJS.CompileMethod(i, e, t, m)
+
+            while comp.CompilingExtraBundles.Count > 0 do
+                let toJS = DotNetToJavaScript(comp)
+                let (KeyValue(k, (entryPoint, node))) = Seq.head comp.CompilingExtraBundles
+                let compiledEntryPoint = toJS.CompileEntryPoint(entryPoint, node)
+                comp.AddCompiledExtraBundle(k, compiledEntryPoint, node)
+
+            // both CompileMethod can add bundles and CompileEntryPoint can add methods,
+            // so we need to loop until both are exhausted.
+            if comp.CompilingMethods.Count > 0 then compileMethods()
 
         compileMethods()
         comp.CloseMacros()

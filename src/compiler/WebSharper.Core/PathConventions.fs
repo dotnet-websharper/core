@@ -85,6 +85,10 @@ module PathConventions =
         let content = root ++  "Content" ++ "WebSharper"
         let scripts = root ++ "Scripts" ++ "WebSharper"
 
+        member p.ContentBasePath = content
+
+        member p.ScriptBasePath = scripts
+
         member p.JavaScriptFileName(a) =
             a.ShortName + ".js"
 

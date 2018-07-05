@@ -21,6 +21,7 @@ module ResourceContext =
             {
                 DebuggingEnabled = isDebug
                 DefaultToHttp = false
+                ScriptBaseUrl = Some (pu.ScriptBasePath + "/")
                 GetSetting = Context.GetSetting
                 GetAssemblyRendering = fun name ->
                     let aid = P.AssemblyId.Create(name)

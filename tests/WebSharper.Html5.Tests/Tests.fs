@@ -396,4 +396,122 @@ let Tests =
     }
 
 [<JavaScript>]
-let RunTests() = Runner.RunTests [| Tests; JSBindings.Tests |]
+let GlobalFunction(s: string) =
+    "[worker] " + s
+
+[<JavaScript>]
+let GlobalFunction2(s: string) =
+    "[worker2] " + s
+
+[<JavaScript>]
+let InnerWorker(self: DedicatedWorkerGlobalScope) =
+    let innerWorker =
+        try
+            new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction2(As<string> e.Data))
+            )
+        with e -> Console.Log(e); Unchecked.defaultof<_>
+    innerWorker.Onmessage <- fun e ->
+        self.PostMessage(e.Data)
+    self.Onmessage <- fun e ->
+        innerWorker.PostMessage(e.Data)
+
+[<JavaScript>]
+let AsyncContinuationTimeout err f =
+    async {
+        let! x = Async.Catch <| async {
+            let! job =
+                Async.StartChild(
+                    // This must remain wrapped in async {}, or StartChild's timeout won't catch it
+                    // (that's not a proxy bug btw, .NET behavior is the same)
+                    async {
+                        let! x = Async.FromContinuations(fun (ok, _, _) -> f ok)
+                        return x
+                    }, 1000)
+            return! job
+        }
+        match x with
+        | Choice1Of2 res -> return res
+        | Choice2Of2 _exn -> return err
+    }
+
+[<JavaScript>]
+let WebWorkerTests =
+    TestCategory "Web Workers" {
+
+        Test "BlobUri" {
+            let blob = Blob([|"onmessage = function(e) { postMessage('[worker] ' + e.data); }"|])
+            let blobUrl = URL.CreateObjectURL(blob)
+            let worker = new Worker(blobUrl)
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+        }
+
+        Test "Macro" {
+            let worker = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction(As<string> e.Data))
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+
+            let worker2 = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction2(As<string> e.Data))
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker2.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker2.PostMessage "Hello world!"
+            equal res "The worker replied: [worker2] Hello world!"
+        }
+
+        Test "Macro with custom name" {
+            let worker = new Worker("my-worker", fun self ->
+                self.Onmessage <- fun e ->
+                    self.PostMessage(GlobalFunction(As<string> e.Data))
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker] Hello world!"
+        }
+
+        //Test "Macro with nested worker" {
+        //    let worker = new Worker(InnerWorker)
+        //    let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
+        //    let! res = AsyncContinuationTimeout err <| fun ok ->
+        //        worker.Onmessage <- fun e ->
+        //            ok ("The worker replied: " + As<string> e.Data)
+        //        worker.PostMessage "Hello world!"
+        //    equal res "The worker replied: [worker2] Hello world!"
+        //}
+
+        Test "With Dependencies" {
+            let worker = new Worker(fun self ->
+                self.Onmessage <- fun e ->
+                    MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e -> ok <| string (e.Data :?> int)
+                worker.PostMessage(-123)
+            equal res "123"
+        }
+
+    }
+
+[<JavaScript>]
+let RunTests() =
+    Runner.RunTests [|
+        Tests
+        JSBindings.Tests
+        WebWorkerTests
+    |]

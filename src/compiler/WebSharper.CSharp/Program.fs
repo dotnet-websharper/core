@@ -125,16 +125,19 @@ let Compile config =
         argError "" // exits without printing more errors
     else
 
-    let js, currentMeta, sources =
+    let js, currentMeta, sources, extraBundles =
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
-            None, currentMeta, sources
+            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
+            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
+
+            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) refMeta
-                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -152,7 +155,7 @@ let Compile config =
             assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
-            js, currentMeta, sources
+            js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some (js, _) ->
@@ -170,7 +173,7 @@ let Compile config =
     | Some (Bundle | BundleOnly) ->
         let currentJS =
             lazy CreateBundleJSOutput refMeta currentMeta
-        Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
+        Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -262,6 +265,8 @@ let rec compileMain (argv: string[]) =
     let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
     if File.Exists wsconfig then
         wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
+
+    wsArgs := SetScriptBaseUrl !wsArgs
 
     try
         Compile !wsArgs

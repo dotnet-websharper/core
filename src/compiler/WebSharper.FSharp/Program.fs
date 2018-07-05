@@ -203,16 +203,24 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         | Some (_, _, m) -> m 
         | _ -> WebSharper.Core.Metadata.Info.Empty
 
-    let js, currentMeta, sources =
+    let getRefMetas() =
+        match wsRefsMeta.Result with 
+        | Some (_, m, _) -> m 
+        | _ -> []
+
+    let js, currentMeta, sources, extraBundles =
+        let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
-            let currentMeta, sources = TransformMetaSources comp.AssemblyName (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap 
-            None, currentMeta, sources
+            let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
+            let extraBundles = Bundling.AddExtraBundles config (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
+
+            let extraBundles = Bundling.AddExtraBundles config (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) (getRefMeta()) 
-                    (comp.ToCurrentMetadata(config.WarnOnly)) config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -234,7 +242,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
-            js, currentMeta, sources
+            js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some (js, _) ->
@@ -255,9 +263,10 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             match wsRefsMeta.Result with
             | Some (_, metas, _) -> metas
             | _ -> []
+
         let currentJS =
             lazy CreateBundleJSOutput (getRefMeta()) currentMeta
-        Bundling.Bundle config metas currentMeta comp.JavaScriptExports currentJS sources refs
+        Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
         0
     | Some Html ->
@@ -385,6 +394,8 @@ let compileMain argv =
     let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
     if File.Exists wsconfig then
         wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
+
+    wsArgs := SetScriptBaseUrl !wsArgs
 
     let clearOutput() =
         try

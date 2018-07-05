@@ -49,6 +49,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
+    let compilingExtraBundles = Dictionary<string, Expression * Node>()
+    let compiledExtraBundles = Dictionary<string, Expression * Node>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -80,6 +82,18 @@ type Compilation(meta: Info, ?hasGraph) =
     member val LookupFieldAttributes = fun _ _ -> None with get, set
     member val LookupMethodAttributes = fun _ _ -> None with get, set
     member val LookupConstructorAttributes = fun _ _ -> None with get, set
+
+    member this.CurrentExtraBundles =
+        Set [|
+            for KeyValue(k, _) in compiledExtraBundles do
+                yield { AssemblyName = this.AssemblyName; BundleName = k }
+        |]
+
+    member this.AllExtraBundles =
+        meta.ExtraBundles + this.CurrentExtraBundles
+
+    member this.CompiledExtraBundles =
+        compiledExtraBundles
 
     member this.MutableExternals = mutableExternals
 
@@ -227,6 +241,9 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddWarning(pos, msg) =
             this.AddWarning(pos, SourceWarning msg)
 
+        member this.AddBundle(name, entryPoint) =
+            this.AddBundle(name, entryPoint)
+
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
         | Some res -> res
@@ -340,6 +357,7 @@ type Compilation(meta: Info, ?hasGraph) =
             MacroEntries = macroEntries.Current
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
+            ExtraBundles = this.CurrentExtraBundles
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -782,6 +800,24 @@ type Compilation(meta: Info, ?hasGraph) =
         compilingImplementations.Remove(typ, intf, meth) |> ignore
         let cls = classes.[typ]
         cls.Implementations.Add((intf, meth), (info, comp))
+
+    member this.CompilingExtraBundles = compilingExtraBundles
+
+    member this.AddCompiledExtraBundle(name, compiledEntryPoint, node) =
+        compilingExtraBundles.Remove(name) |> ignore
+        compiledExtraBundles.[name] <- (compiledEntryPoint, node)
+
+    member this.AddBundle(baseName, entryPoint) =
+        let shouldAdd name =
+            not <| compilingExtraBundles.ContainsKey(name)
+        let computedName =
+            Seq.append
+                (Seq.singleton baseName)
+                (Seq.initInfinite <| fun i -> baseName + string i)
+            |> Seq.find shouldAdd
+        let node = ExtraBundleEntryPointNode(this.AssemblyName, computedName)
+        compilingExtraBundles.Add(computedName, (entryPoint, node))
+        { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.Resolve () =
         
@@ -1689,6 +1725,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 MacroEntries = macroEntries
                 Quotations = quotations
                 ResourceHashes = Dictionary()
+                ExtraBundles = this.AllExtraBundles
             }    
         let jP = Json.Provider.CreateTyped(info)
         let st = Verifier.State(jP)

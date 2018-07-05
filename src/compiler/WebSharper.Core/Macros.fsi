@@ -160,4 +160,9 @@ type TupleExtensions =
     new : unit -> TupleExtensions
     inherit Macro
 
+[<Sealed>]
+type WebWorker =
+    new : unit -> WebWorker
+    inherit Macro
+
 val UncheckedEquals : AST.Expression -> AST.Expression -> AST.Expression
