@@ -1190,6 +1190,10 @@ type SubtestBuilder () =
                 | Choice2Of2 b -> return! b
             })
 
+    [<Inline>]
+    member this.Bind(a: Promise<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
+        this.Bind(Promise.AsAsync a, f)
+
     member this.Yield(x) = fun asserter -> Choice1Of2 x
 
     member this.Return(x) = fun asserter -> Choice1Of2 x

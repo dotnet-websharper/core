@@ -223,3 +223,7 @@ module Union =
         | Union6Of7 v -> Choice6Of7 v
         | Union7Of7 v -> Choice7Of7 v
 // }}
+
+/// The computation expression for JavaScript Promises.
+[<JavaScript>]
+let promise = Promise.Do

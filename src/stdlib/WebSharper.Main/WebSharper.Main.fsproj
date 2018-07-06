@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <Compile Include="Pervasives.fs" />
+    <Compile Include="Promise.fs" />
     <Compile Include="JavaScript.Pervasives.fs" />
     <EmbeddedResource Include="Json.js" />
     <EmbeddedResource Include="Json.min.js" />
@@ -22,7 +23,6 @@
     <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="Comparers.fs" />
-    <Compile Include="Promise.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

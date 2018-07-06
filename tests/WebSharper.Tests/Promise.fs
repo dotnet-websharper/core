@@ -20,6 +20,7 @@
 
 module WebSharper.Tests.Promise
 
+open System.Threading.Tasks
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -29,6 +30,7 @@ exception private MyCustomException of int
 
 [<JavaScript>]
 let Tests =
+    let mutable x = 0
     TestCategory "Promise" {
 
         Test "AsAsync Resolve" {
@@ -131,6 +133,79 @@ let Tests =
                 with :? NonStandardPromiseRejectionException as e -> return e.Reason :?> int
             }
             equalMsg res 42 "delayed non-exn"
+        }
+
+        Test "Computation Expression" {
+            let! res = promise {
+                return 42
+            }
+            equalMsg res 42 "return"
+
+            let! res = promise {
+                let! x = Promise.Resolve(42)
+                return x
+            }
+            equalMsg res 42 "bind promise"
+
+            let! res = promise {
+                let! x = async { return 42 }
+                return x
+            }
+            equalMsg res 42 "bind async"
+
+            let! res = promise {
+                let! x = Task.FromResult(42)
+                return x
+            }
+            equalMsg res 42 "bind task"
+
+            let! res = promise {
+                return! Promise.Resolve(42)
+            }
+            equalMsg res 42 "returnFrom promise"
+
+            let! res = promise {
+                return! async { return 42 }
+            }
+            equalMsg res 42 "returnFrom async"
+
+            let! res = promise {
+                return! Task.FromResult(42)
+            }
+            equalMsg res 42 "returnFrom task"
+
+            let! res = promise {
+                ()
+            }
+            equalMsg res () "zero"
+
+            let! res = promise {
+                try
+                    return! Promise.Reject(12)
+                with :? NonStandardPromiseRejectionException as e
+                        when e.Reason :?> int = 12 ->
+                    return 42
+            }
+            equalMsg res 42 "tryWith"
+
+            x <- 0
+            let! res = promise {
+                try
+                    return! Promise.Resolve(30)
+                finally
+                    x <- 12
+            }
+            equalMsg (res + x) 42 "tryFinally success"
+
+            x <- 0
+            let p = promise {
+                try
+                    return! Promise.Reject(30)
+                finally
+                    x <- 12
+            }
+            let! res = p.Catch(fun e -> e :?> int)
+            equalMsg (res + x) 42 "tryFinally failure"
         }
 
     }
