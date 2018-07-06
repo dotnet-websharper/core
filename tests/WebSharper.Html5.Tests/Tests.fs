@@ -473,12 +473,16 @@ let WebWorkerTests =
             equal res "The worker replied: [worker] Hello world!"
 
             let worker2 = new Worker(fun self ->
-                self.Onmessage <- fun e ->
-                    self.PostMessage(GlobalFunction2(As<string> e.Data))
+                self.AddEventListener("message", (fun (e: Dom.Event) ->
+                        let e = e :?> MessageEvent
+                        self.PostMessage(GlobalFunction2(As<string> e.Data))
+                    ), false)
             )
             let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker2.Onmessage <- fun e ->
-                    ok ("The worker replied: " + As<string> e.Data)
+                worker2.AddEventListener("message", (fun (e: Dom.Event) ->
+                        let e = e :?> MessageEvent
+                        ok ("The worker replied: " + As<string> e.Data)
+                    ), false)
                 worker2.PostMessage "Hello world!"
             equal res "The worker replied: [worker2] Hello world!"
         }
