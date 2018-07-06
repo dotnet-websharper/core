@@ -1323,8 +1323,8 @@ module General =
             "clearRedo" => T<unit> ^-> T<unit> 
         ]
 
-    let WindowProxyType = Class "Window"
-    let MessagePortType = Class "MessagePort"
+    let Window = Class "Window"
+    let MessagePort = Class "MessagePort"
 
     let ErrorEvent =
         Class "ErrorEvent"
@@ -1347,20 +1347,21 @@ module General =
             "data" =? T<obj>
             "origin" =? T<string>
             "lastEventId" =? T<string>
-            "source" =? WindowProxyType
-            "ports" =? Type.ArrayOf(MessagePortType)
-            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * WindowProxyType * Type.ArrayOf(MessagePortType) ^-> T<unit>
+            "source" =? Window
+            "ports" =? Type.ArrayOf(MessagePort)
+            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * Window * Type.ArrayOf(MessagePort) ^-> T<unit>
                 |> Obsolete
         ]
 
-    let MessagePort =
-        MessagePortType
+    do
+        MessagePort
         |+> Instance [
-            "postMessage" => T<obj> * Type.ArrayOf(MessagePortType) ^-> T<unit>
+            "postMessage" => T<obj> * Type.ArrayOf(MessagePort) ^-> T<unit>
             "start" => T<unit> ^-> T<unit>
             "close" => T<unit> ^-> T<unit>
             "onmessage" =@ MessageEvent ^-> T<unit>
         ]
+        |> ignore
 
     let Navigator =
         Class "Navigator" 
@@ -1447,12 +1448,12 @@ module General =
             "clearTimeout" => T<obj>?timeoutId ^-> T<unit>
         ]
 
-    let Window = 
+    do
         let f = Dom.Interfaces.Event ^-> T<unit>
-        WindowProxyType
+        Window
         |=> Inherits WindowOrWorkerGlobalScope
         |+> Static [
-            "self" =? WindowProxyType
+            "self" =? Window
             |> WithGetterInline "window"
             |> ObsoleteWithMessage "Use JS.Window instead."
         ]
@@ -1503,17 +1504,17 @@ module General =
             "focus" => T<unit> ^-> T<unit>
                 |> WithComment "Makes a request to bring the window to the front"
 
-            "frames" =? WindowProxyType
+            "frames" =? Window
             "length" =? T<int>
-            "top" =? WindowProxyType
-            "opener" =? WindowProxyType
-            "parent" =? WindowProxyType
+            "top" =? Window
+            "opener" =? Window
+            "parent" =? Window
             "frameElement" =? Dom.Interfaces.Element
-            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string> * T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string> * T<string>) ^->  WindowProxyType
-            "open" => (T<string>) ^->  WindowProxyType
-            "open" => (T<unit>) ^->  WindowProxyType
+            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  Window
+            "open" => (T<string> * T<string> * T<string>) ^->  Window
+            "open" => (T<string> * T<string>) ^->  Window
+            "open" => (T<string>) ^->  Window
+            "open" => (T<unit>) ^->  Window
             "close" => T<unit> ^-> T<unit>
 
             "navigator" =? Navigator
@@ -1618,16 +1619,17 @@ module General =
             "NaN" =? T<double> |> WithGetterInline "NaN"
             "Infinity" =? T<double> |> WithGetterInline "Infinity"
             "undefined" =? T<obj> |> WithGetterInline "undefined"
-            "eval" => T<string> ^-> T<obj> |> WithInline "eval($0)"
-            "parseInt" => T<string> * !?T<int>?radix ^-> T<int> |> WithInline "parseInt($0, $1)"
-            "parseFloat" => T<string->double> |> WithInline "parseFloat($0)"
-            "isNaN" => T<obj> ^-> T<bool> |> WithInline "isNaN($0)"
-            "isFinite" => (T<int> + T<float>) ^-> T<bool> |> WithInline "isFinite($0)"
-            "decodeURI" => T<string->string> |> WithInline "decodeURI($0)"
-            "decodeURIComponent" => T<string->string> |> WithInline "decodeURIComponent($0)"
-            "encodeURI" => T<string->string> |> WithInline "encodeURI($0)"
-            "encodeURIComponent" => T<string->string> |> WithInline "encodeURIComponent($0)"
+            "eval" => T<string>?expr ^-> T<obj> |> WithInline "eval($expr)"
+            "parseInt" => T<string>?str * !?T<int>?radix ^-> T<int> |> WithInline "parseInt($str, $radix)"
+            "parseFloat" => T<string>?str ^-> T<double> |> WithInline "parseFloat($str)"
+            "isNaN" => T<obj>?number ^-> T<bool> |> WithInline "isNaN($number)"
+            "isFinite" => (T<int> + T<float>)?number ^-> T<bool> |> WithInline "isFinite($number)"
+            "decodeURI" => T<string>?str ^-> T<string> |> WithInline "decodeURI($str)"
+            "decodeURIComponent" => T<string>?str ^-> T<string> |> WithInline "decodeURIComponent($str)"
+            "encodeURI" => T<string>?str ^-> T<string> |> WithInline "encodeURI($str)"
+            "encodeURIComponent" => T<string>?str ^-> T<string> |> WithInline "encodeURIComponent($str)"
         ]
+        |> ignore
 
 module WebWorkers =
 
