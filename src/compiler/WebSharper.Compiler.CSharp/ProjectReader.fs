@@ -380,6 +380,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         if staticInits.Count = 0 then None else
         ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
 
+    let baseCls =
+        if cls.IsValueType || cls.IsStatic then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
+        else
+            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
+    
     let mutable hasStubMember = false
 
     for meth in members.OfType<IMethodSymbol>() do
@@ -507,10 +515,31 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let b =
                                 match c.Initializer with
                                 | Some (CodeReader.BaseInitializer (bTyp, bCtor, args, reorder)) ->
-                                    CombineStatements [
-                                        ExprStatement (baseCtor This bTyp bCtor args |> reorder)
-                                        c.Body
-                                    ]
+                                    match baseCls with
+                                    | Some t when t.Value.FullName = "System.Exception" ->
+                                        let msg, inner =
+                                            match args with
+                                            | [] -> None, None
+                                            | [msg] -> Some msg, None
+                                            | [msg; inner] -> Some msg, Some inner 
+                                            | _ -> failwith "Too many arguments for Error constructor"
+                                        CombineStatements [
+                                            match msg with
+                                            | Some m ->
+                                                yield ExprStatement <| ItemSet(This, Value (String "message"), m)
+                                            | None -> ()
+                                            match inner with
+                                            | Some i ->
+                                                yield ExprStatement <| ItemSet(This, Value (String "inner"), i)
+                                            | None -> ()
+                                            yield ExprStatement <| CompilationHelpers.restorePrototype
+                                            c.Body
+                                        ]
+                                    | _ ->
+                                        CombineStatements [
+                                            ExprStatement (baseCtor This bTyp bCtor args |> reorder)
+                                            c.Body
+                                        ]
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
                                     CombineStatements [
                                         ExprStatement (baseCtor This (NonGeneric def) bCtor args |> reorder)
@@ -836,14 +865,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
-    let baseCls =
-        if cls.IsValueType || cls.IsStatic then
-            None
-        elif annot.Prototype = Some false then
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
-        else
-            cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
-    
     Some (
         def,
         {

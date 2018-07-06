@@ -97,4 +97,8 @@ let Tests =
             ) ("OOPS", 2)            
         }
 
+        Test "Inheritance" {
+            isTrue (box (System.ArgumentException()) :? exn)
+        }
+
     }

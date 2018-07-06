@@ -358,6 +358,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         )
         |> HashSet
 
+    let baseCls =
+        if fsharpSpecific || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+            None
+        elif annot.Prototype = Some false then
+            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
+        else 
+            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
+
     for i = 0 to members.Count - 1 do
         let m = members.[i]
         match m with
@@ -480,7 +488,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = 
                                 match memdef with
                                 | Member.Constructor _ -> 
-                                    try CodeReader.fixCtor b
+                                    try CodeReader.fixCtor def baseCls b
                                     with e ->
                                         let tryGetExprSourcePos expr =
                                             match expr with
@@ -738,14 +746,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
-    let baseCls =
-        if fsharpSpecific || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
-            None
-        elif annot.Prototype = Some false then
-            cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
-        else 
-            cls.BaseType |> Option.map (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition)
-
     let hasWSPrototype =                
         hasWSPrototype ckind baseCls clsMembers
 
@@ -976,7 +976,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
             ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
-            ForceAddress = hasSingletonCase
+            ForceAddress = hasSingletonCase || def.Value.FullName = "System.Exception" // needed for Error inheritance
         }
     )
 

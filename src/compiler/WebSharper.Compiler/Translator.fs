@@ -616,6 +616,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.FailedCompiledConstructor(typ, ctor)
             else
             currentIsInline <- isInline info
+            // for Error inheritance, using restorePrototype
+            selfAddress <- comp.TryLookupClassInfo(typ) |> Option.bind (fun cls -> cls.Address)
             match info with
             | NotCompiled (i, _, opts) -> 
                 currentFuncArgs <- opts.FuncArgs
@@ -1355,6 +1357,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, [Var v1])) when i1 = v1 ->
                 Application(func |> getItem "call", expr :: [a1], NonPure, None)
+            | Let (i1, a1, Let (i2, a2, New(func, [Var v1; Var v2]))) when i1 = v1 && i2 = v2 ->
+                Application(func |> getItem "call", expr :: [a1; a2], NonPure, None)
             | _ ->
                 comp.AddError (this.CurrentSourcePos, SourceError "Chained constructor is an Inline in a not supported form")
                 Application(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)

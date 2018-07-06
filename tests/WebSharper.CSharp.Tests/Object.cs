@@ -264,6 +264,8 @@ namespace WebSharper.CSharp.Tests
         public class MyException : Exception
         {
             public bool IsThisMyException => true;
+
+            public MyException() : base("This is my exception") { }
         }
 
         [Test]
@@ -277,7 +279,12 @@ namespace WebSharper.CSharp.Tests
             catch (MyException e)
             {
                 if (e.IsThisMyException)
-                    res = "ok";
+                {
+                    if (e.Message == "This is my exception")
+                        res = "ok";
+                    else
+                        res = "wrong message on exception";
+                }
                 else
                     res = "wrong method value on exception";
             }

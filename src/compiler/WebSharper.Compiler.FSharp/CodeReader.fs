@@ -133,10 +133,10 @@ let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
                                 
-type FixCtorTransformer(?thisExpr) =
+type FixCtorTransformer(typ, btyp, ?thisExpr) =
     inherit Transformer()
 
-    let mutable firstOcc = true
+    let mutable addedBaseCtor = false
 
     let thisExpr = defaultArg thisExpr This
 
@@ -157,24 +157,42 @@ type FixCtorTransformer(?thisExpr) =
     override this.TransformStatementExpr(a, b) = StatementExpr (a, b)
 
     override this.TransformCtor (t, c, a) =
-        if not firstOcc then Ctor (t, c, a) else
-        firstOcc <- false
-        if t.Entity = Definitions.Obj then thisExpr
-        elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
-            match a with
-            | [] -> Undefined
-            | [msg] -> ItemSet(thisExpr, Value (String "message"), msg)
-            | [msg; inner] -> 
+        if addedBaseCtor then Ctor (t, c, a) else
+        addedBaseCtor <- true
+        let isBase = t.Entity <> typ
+        let tn = typ.Value.FullName
+        if (not isBase || Option.isSome btyp) && not (tn = "System.Object" || tn = "System.Exception") then
+            if t.Entity.Value.FullName = "System.Exception" then 
+                let msg, inner =
+                    match a with
+                    | [] -> None, None
+                    | [msg] -> Some msg, None
+                    | [msg; inner] -> Some msg, Some inner 
+                    | _ -> failwith "Too many arguments for Error constructor"
                 Sequential [
-                    ItemSet(thisExpr, Value (String "message"), msg)
-                    ItemSet(thisExpr, Value (String "inner"), inner)
+                    match msg with
+                    | Some m ->
+                        yield ItemSet(thisExpr, Value (String "message"), m)
+                    | None -> ()
+                    match inner with
+                    | Some i ->
+                        yield ItemSet(thisExpr, Value (String "inner"), i)
+                    | None -> ()
+                    yield CompilationHelpers.restorePrototype
                 ]
-            | _ -> failwith "Too many arguments for Error"
-        else
-            BaseCtor(thisExpr, t, c, a) 
+            else
+                BaseCtor(thisExpr, t, c, a) 
+        else thisExpr
 
-let fixCtor expr =
-    FixCtorTransformer().TransformExpression(expr)
+    member this.Fix(expr) = 
+        let res = this.TransformExpression(expr)
+        match btyp with
+        | Some b when not addedBaseCtor -> 
+            Sequential [ BaseCtor(thisExpr, NonGeneric b, ConstructorInfo.Default(), []); res ]
+        | _ -> res
+
+let fixCtor thisTyp baseTyp expr =
+    FixCtorTransformer(thisTyp, baseTyp).Fix(expr)
 
 module Definitions =
     let List =
@@ -1048,9 +1066,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         yield Var o
                     ]
                 )
-            Let(r, CopyCtor(sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition, plainObj),
+            let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
+            let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> sr.ReadAndRegisterTypeDefinition env.Compilation t.TypeDefinition) 
+            Let(r, CopyCtor(td, plainObj),
                 Sequential [
-                    yield FixCtorTransformer(Var r).TransformExpression(tr expr)
+                    yield FixCtorTransformer(td, baseTyp, Var r).TransformExpression(tr expr)
                     yield Var r
                 ]
             )
