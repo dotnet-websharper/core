@@ -403,6 +403,16 @@ let GlobalFunction(s: string) =
 let GlobalFunction2(s: string) =
     "[worker2] " + s
 
+[<JavaScriptExport>]
+let ExportedFunction() =
+    "exported function"
+
+[<JavaScript>]
+let rec GlobalExists (o: obj) (fields: list<string>) =
+    match fields with
+    | [] -> true
+    | f :: fs -> JS.HasOwnProperty o f && GlobalExists (o?(f)) fs
+
 [<JavaScript>]
 let InnerWorker(self: DedicatedWorkerGlobalScope) =
     let innerWorker =
@@ -428,7 +438,7 @@ let AsyncContinuationTimeout err f =
                     async {
                         let! x = Async.FromContinuations(fun (ok, _, _) -> f ok)
                         return x
-                    }, 1000)
+                    }, 2000)
             return! job
         }
         match x with
@@ -504,6 +514,37 @@ let WebWorkerTests =
                 worker.Onmessage <- fun e -> ok <| string (e.Data :?> int)
                 worker.PostMessage(-123)
             equal res "123"
+        }
+
+        Test "JavaScriptExport inclusion" {
+            let worker = new Worker("withJsExport", true, fun self ->
+                self.Onmessage <- fun e ->
+                    JS.Global?WebSharper?Html5?Tests?Main?ExportedFunction() |> self.PostMessage
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e -> ok (e.Data :?> string)
+                worker.PostMessage(())
+            equalMsg res "exported function" "true includes js exports"
+
+            let worker = new Worker("withoutJsExport", false, fun self ->
+                self.Onmessage <- fun e ->
+                    GlobalExists JS.Global ["WebSharper"; "Html5"; "Tests"; "Main"; "ExportedFunction"]
+                    |> self.PostMessage
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.PostMessage(())
+            equalMsg res "false" "false doesn't include js exports"
+
+            let worker = new Worker("unspecifiedJsExport", fun self ->
+                self.Onmessage <- fun e ->
+                    GlobalExists JS.Global ["WebSharper"; "Html5"; "Tests"; "Main"; "ExportedFunction"]
+                    |> self.PostMessage
+            )
+            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
+                worker.Onmessage <- fun e -> ok <| string (e.Data :?> bool)
+                worker.PostMessage(())
+            equalMsg res "false" "default doesn't include js exports"
         }
 
     }

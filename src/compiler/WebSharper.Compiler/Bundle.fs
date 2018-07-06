@@ -383,14 +383,15 @@ module Bundling =
                 assem.Raw.CustomAttributes.Add(attr)
         let assemName = match assem with Choice1Of2 n -> n | Choice2Of2 a -> a.Name
         [
-            for KeyValue(bname, (bexpr, bnode)) in comp.CompiledExtraBundles do
+            for KeyValue(bname, bundle) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
+                let jsExports = if bundle.IncludeJsExports then comp.JavaScriptExports else []
                 let bundle = CreateBundle {
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
-                    GetAllDeps = getDeps [] [bnode]
-                    EntryPoint = Some (ExprStatement bexpr)
+                    GetAllDeps = getDeps jsExports [bundle.Node]
+                    EntryPoint = Some (ExprStatement bundle.EntryPoint)
                     EntryPointStyle = Packager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
                     Sources = []

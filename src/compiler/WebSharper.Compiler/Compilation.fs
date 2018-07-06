@@ -26,6 +26,13 @@ open WebSharper.Core.AST
 open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 open NotResolved
+
+type ExtraBundleData =
+    {
+        EntryPoint: Expression
+        Node: Node
+        IncludeJsExports: bool
+    }
     
 type Compilation(meta: Info, ?hasGraph) =    
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
@@ -49,8 +56,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
     let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
-    let compilingExtraBundles = Dictionary<string, Expression * Node>()
-    let compiledExtraBundles = Dictionary<string, Expression * Node>()
+    let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
+    let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
 
     let mutable generatedClass = None
     let mutable resolver = None : option<Resolve.Resolver>
@@ -241,8 +248,8 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddWarning(pos, msg) =
             this.AddWarning(pos, SourceWarning msg)
 
-        member this.AddBundle(name, entryPoint) =
-            this.AddBundle(name, entryPoint)
+        member this.AddBundle(name, entryPoint, includeJsExports) =
+            this.AddBundle(name, entryPoint, includeJsExports)
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -802,11 +809,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CompilingExtraBundles = compilingExtraBundles
 
-    member this.AddCompiledExtraBundle(name, compiledEntryPoint, node) =
+    member this.AddCompiledExtraBundle(name, compiledEntryPoint) =
+        let bundle = compilingExtraBundles.[name]
         compilingExtraBundles.Remove(name) |> ignore
-        compiledExtraBundles.[name] <- (compiledEntryPoint, node)
+        compiledExtraBundles.[name] <- { bundle with EntryPoint = compiledEntryPoint }
 
-    member this.AddBundle(baseName, entryPoint) =
+    member this.AddBundle(baseName, entryPoint, includeJsExports) =
         let shouldAdd name =
             not <| compilingExtraBundles.ContainsKey(name)
         let computedName =
@@ -815,7 +823,11 @@ type Compilation(meta: Info, ?hasGraph) =
                 (Seq.initInfinite <| fun i -> baseName + string i)
             |> Seq.find shouldAdd
         let node = ExtraBundleEntryPointNode(this.AssemblyName, computedName)
-        compilingExtraBundles.Add(computedName, (entryPoint, node))
+        compilingExtraBundles.Add(computedName, {
+            EntryPoint = entryPoint
+            Node = node
+            IncludeJsExports = includeJsExports
+        })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.Resolve () =

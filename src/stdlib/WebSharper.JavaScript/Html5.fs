@@ -1730,6 +1730,11 @@ module WebWorkers =
             |> WithMacro typeof<WebSharper.Core.Macros.WebWorker>
             |> WithComment "Create a Web Worker with the given expression as entry point. \
                 A bundled JavaScript file named <assemblyname>.<name>.js is automatically compiled for it."
+            Constructor (T<string>?name * T<bool>?includeJsExports * (DedicatedWorkerGlobalScope ^-> T<unit>))
+            |> WithMacro typeof<WebSharper.Core.Macros.WebWorker>
+            |> WithComment "Create a Web Worker with the given expression as entry point. \
+                A bundled JavaScript file named <assemblyname>.<name>.js is automatically compiled for it.
+                If includeJsExports is true, values marked [JavaScriptExport] are included in the bundle."
         ]
         |+> Instance [
             "onmessage" =@ General.MessageEvent ^-> T<unit>

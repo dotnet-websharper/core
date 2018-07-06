@@ -1414,7 +1414,7 @@ type WebWorker() =
     static let workerCtor = Hashed { CtorParameters = [NonGenericType stringTy] }
 
     override __.TranslateCtor(c) =
-        let gen name expr =
+        let gen name expr includeJsExports =
             let e =
                 match expr with
                 | Lambda([self], body) ->
@@ -1422,7 +1422,7 @@ type WebWorker() =
                 | e ->
                     Application(e, [Global []], NonPure, Some 1)
             // TODO: .min?
-            let filename = c.Compilation.AddBundle(name, e).FileName
+            let filename = c.Compilation.AddBundle(name, e, includeJsExports).FileName
             let path = 
                 Application(
                     Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
@@ -1431,7 +1431,8 @@ type WebWorker() =
             Ctor(worker, workerCtor, [path])
             |> MacroOk
         match c.Arguments with
-        | [expr] -> gen "worker" expr
-        | [I.Value (String name); expr] -> gen name expr
+        | [expr] -> gen "worker" expr false
+        | [I.Value (String name); expr] -> gen name expr false
+        | [I.Value (String name); I.Value (Bool includeJsExports); expr] -> gen name expr includeJsExports
         | [x; expr] -> MacroError (sprintf "You must use a string literal as the name of a web worker: %A" x)
         | _ -> MacroError "Invalid use of WebWorker macro"

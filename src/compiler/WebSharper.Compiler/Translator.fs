@@ -693,9 +693,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
             while comp.CompilingExtraBundles.Count > 0 do
                 let toJS = DotNetToJavaScript(comp)
-                let (KeyValue(k, (entryPoint, node))) = Seq.head comp.CompilingExtraBundles
-                let compiledEntryPoint = toJS.CompileEntryPoint(entryPoint, node)
-                comp.AddCompiledExtraBundle(k, compiledEntryPoint, node)
+                let (KeyValue(k, bundle)) = Seq.head comp.CompilingExtraBundles
+                let compiledEntryPoint = toJS.CompileEntryPoint(bundle.EntryPoint, bundle.Node)
+                comp.AddCompiledExtraBundle(k, compiledEntryPoint)
 
             // both CompileMethod can add bundles and CompileEntryPoint can add methods,
             // so we need to loop until both are exhausted.
