@@ -90,5 +90,31 @@ namespace WebSharper.CSharp.Tests
             Raises(() => Task.FromException<int>(new Exception()).Result);
             Raises(() => new Task<int>(() => 2).Result);
         }
+
+        public static string GlobalFunction(string s)
+        {
+            return "[worker] " + s;
+        }
+
+        [Test]
+        public async Task WebWorker()
+        {
+            var worker = new JavaScript.Worker(self =>
+            {
+                self.Onmessage = e =>
+                {
+                    self.PostMessage(GlobalFunction((string)e.Data));
+                };
+            });
+            var t = new TaskCompletionSource<string>();
+            worker.Onmessage = e =>
+            {
+                t.SetResult("The worker replied: " + (string)e.Data);
+            };
+            worker.PostMessage("Hello world!");
+            var res = await t.Task;
+            worker.Terminate();
+            Equal(res, "The worker replied: [worker] Hello world!");
+        }
     }
 }
