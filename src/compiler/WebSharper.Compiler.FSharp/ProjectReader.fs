@@ -489,8 +489,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let res =
                             let b = CodeReader.transformExpression env expr 
                             let b = 
-                                match memdef with
-                                | Member.Constructor _ -> 
+                                if meth.IsConstructor then
                                     try CodeReader.fixCtor def baseCls b
                                     with e ->
                                         let tryGetExprSourcePos expr =
@@ -499,7 +498,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             | _ -> None
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
                                         errorPlaceholder
-                                | _ -> b
+                                else b
                             let b = FixThisScope().Fix(b)      
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
