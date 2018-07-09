@@ -332,8 +332,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
+    let fsharpSpecificNonException =
+        cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsValueType
+
     let fsharpSpecific = 
-        cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration || cls.IsValueType
+        fsharpSpecificNonException || cls.IsFSharpExceptionDeclaration
 
     let fsharpModule = cls.IsFSharpModule
 
@@ -359,7 +362,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         |> HashSet
 
     let baseCls =
-        if fsharpSpecific || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)

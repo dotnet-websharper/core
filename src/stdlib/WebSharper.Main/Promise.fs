@@ -144,6 +144,7 @@ module Promise =
         member this.Delay(f: unit -> Promise<'T>) : Promise<'T> =
             Promise<'T>(fun (resolve, _) -> resolve (unbox<'T> (f())))
 
+    [<Inline>]
     let Do = Builder()
 
 [<Extension; JavaScript>]

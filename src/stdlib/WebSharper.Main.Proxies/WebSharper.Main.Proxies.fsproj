@@ -11,6 +11,9 @@
     <Compile Include="../WebSharper.Main/Pervasives.fs">
       <Link>Pervasives.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main/Promise.fs">
+      <Link>Promise.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main/JavaScript.Pervasives.fs">
       <Link>JavaScript.Pervasives.fs</Link>
     </Compile>
@@ -61,9 +64,6 @@
     </Compile>
     <Compile Include="../WebSharper.Main/Comparers.fs">
       <Link>Comparers.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/Promise.fs">
-      <Link>Promise.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Utils.fs">
       <Link>Utils.fs</Link>

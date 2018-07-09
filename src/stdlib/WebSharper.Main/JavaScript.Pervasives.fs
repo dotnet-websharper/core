@@ -225,5 +225,5 @@ module Union =
 // }}
 
 /// The computation expression for JavaScript Promises.
-[<JavaScript>]
-let promise = Promise.Do
+[<Inline>]
+let promise = Promise.Builder()
