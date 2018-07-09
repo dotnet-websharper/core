@@ -489,7 +489,7 @@ type ICompilation =
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
-    abstract AddBundle : name: string * entryPoint: Expression * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
+    abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
 
 module IO =
     module B = Binary

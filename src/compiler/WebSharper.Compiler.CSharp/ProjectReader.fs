@@ -533,7 +533,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                                 yield ExprStatement <| ItemSet(This, Value (String "inner"), i)
                                             | None -> ()
                                             yield ExprStatement <| CompilationHelpers.restorePrototype
-                                            c.Body
+                                            yield c.Body
                                         ]
                                     | _ ->
                                         CombineStatements [

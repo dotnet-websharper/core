@@ -391,7 +391,7 @@ module Bundling =
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
                     GetAllDeps = getDeps jsExports [bundle.Node]
-                    EntryPoint = Some (ExprStatement bundle.EntryPoint)
+                    EntryPoint = Some bundle.EntryPoint
                     EntryPointStyle = Packager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
                     Sources = []
@@ -418,7 +418,6 @@ module Bundling =
                         Mono.Cecil.EmbeddedResource(name, pub, bytes)
                         |> assem.Raw.MainModule.Resources.Add
                         addWebResourceAttribute name
-                        currentMeta.ResourceHashes.Add(name, StableHash.data bytes)
                     )
         ]
 

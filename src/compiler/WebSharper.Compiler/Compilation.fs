@@ -29,7 +29,7 @@ open NotResolved
 
 type ExtraBundleData =
     {
-        EntryPoint: Expression
+        EntryPoint: Statement
         Node: Node
         IncludeJsExports: bool
     }

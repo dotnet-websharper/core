@@ -1422,7 +1422,7 @@ type WebWorker() =
                 | e ->
                     Application(e, [Global []], NonPure, Some 1)
             // TODO: .min?
-            let filename = c.Compilation.AddBundle(name, e, includeJsExports).FileName
+            let filename = c.Compilation.AddBundle(name, ExprStatement e, includeJsExports).FileName
             let path = 
                 Application(
                     Global ["IntelliFactory"; "Runtime"; "ScriptPath"],

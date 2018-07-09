@@ -361,18 +361,31 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> breaker.TransformExpression
             |> runtimeCleanerForced.TransformExpression
             |> collectCurried isCtor
-    
+
+    let breakStatement e = 
+        e 
+        |> removeLetsTr.TransformStatement
+        |> runtimeCleaner.TransformStatement
+        |> breaker.TransformStatement
+        |> runtimeCleanerForced.TransformStatement
+        |> collectCurriedTr.TransformStatement
+
     let getCurrentName() =
         match currentNode with
         | M.MethodNode (td, m) -> td.Value.FullName + "." + m.Value.MethodName
         | M.ConstructorNode (td, c) -> td.Value.FullName + "..ctor"
         | M.ImplementationNode (td, i, m) -> td.Value.FullName + ":" + i.Value.FullName + "." + m.Value.MethodName
         | M.TypeNode td -> td.Value.FullName + "..cctor"
+        | M.ExtraBundleEntryPointNode(_, n) -> "worker \"" + n + "\""
         | _ -> "unknown"
 
     member this.CheckResult (res) =
         if hasDelayedTransform then res else
             CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformExpression res
+
+    member this.CheckResult (res) =
+        if hasDelayedTransform then res else
+            CheckNoInvalidJSForms(comp, currentIsInline, getCurrentName).TransformStatement res
      
     member this.Generate(g, p, m) =
         match comp.GetGeneratorInstance(g) with
@@ -658,12 +671,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             comp.AddCompiledStaticConstructor(typ, addr, res)
 
-    member this.CompileEntryPoint(expr, node) =
+    member this.CompileEntryPoint(stmt, node) =
         try
             currentNode <- node
-            this.TransformExpression(expr) |> breakExpr |> this.CheckResult
+            this.TransformStatement(stmt) |> breakStatement |> this.CheckResult
         with e ->
             this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            |> ExprStatement
 
     static member CompileFull(comp: Compilation) =
         while comp.CompilingConstructors.Count > 0 do

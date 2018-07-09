@@ -91,11 +91,6 @@ namespace WebSharper.CSharp.Tests
             Raises(() => new Task<int>(() => 2).Result);
         }
 
-        public static string GlobalFunction(string s)
-        {
-            return "[worker] " + s;
-        }
-
         [Test]
         public async Task WebWorker()
         {
@@ -103,7 +98,7 @@ namespace WebSharper.CSharp.Tests
             {
                 self.Onmessage = e =>
                 {
-                    self.PostMessage(GlobalFunction((string)e.Data));
+                    self.PostMessage(GlobalClass.GlobalFunction((string)e.Data));
                 };
             });
             var t = new TaskCompletionSource<string>();
@@ -116,5 +111,17 @@ namespace WebSharper.CSharp.Tests
             worker.Terminate();
             Equal(res, "The worker replied: [worker] Hello world!");
         }
+    }
+
+    // This needs to be a separate class, otherwise the web worker bundle
+    // will include QUnit as a dependency.
+    [JavaScript]
+    public static class GlobalClass
+    {
+        public static string GlobalFunction(string s)
+        {
+            return "[worker] " + s;
+        }
+
     }
 }
