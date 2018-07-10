@@ -114,7 +114,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Tests", "tests\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj", "{C78F4FFD-9C51-466B-8E35-99588A419D60}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.fsproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.csproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
 EndProject

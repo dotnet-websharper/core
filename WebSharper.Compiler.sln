@@ -18,13 +18,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{EC03CB1D-151F-4469-A6DD-D5854A340F1D}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{891CB1BD-128A-4455-8F02-A726B0B2EACF}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{891CB1BD-128A-4455-8F02-A726B0B2EACF}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312-2E8D-4332-8BA5-671F85D8E25E}"
 	ProjectSection(SolutionItems) = preProject
@@ -46,17 +46,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.Compiler.CSharp", "src\compiler\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj", "{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.CSharp", "src\compiler\WebSharper.Compiler.CSharp\WebSharper.Compiler.CSharp.fsproj", "{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.FSharp", "src\compiler\WebSharper.FSharp\WebSharper.FSharp.fsproj", "{615AEA64-16EC-49BC-AFB4-36211F6354CC}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp", "src\compiler\WebSharper.FSharp\WebSharper.FSharp.fsproj", "{615AEA64-16EC-49BC-AFB4-36211F6354CC}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.fsproj", "{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp.Analyzer", "src\compiler\WebSharper.CSharp.Analyzer\WebSharper.CSharp.Analyzer.fsproj", "{055CF3AD-BDAF-4441-989B-D764B80FBDEE}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp", "src\compiler\WebSharper.CSharp\WebSharper.CSharp.fsproj", "{46D8C7C3-43CA-465C-9714-20B22CF3E459}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "WebSharper.CSharp", "src\compiler\WebSharper.CSharp\WebSharper.CSharp.fsproj", "{46D8C7C3-43CA-465C-9714-20B22CF3E459}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.csproj", "{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -107,12 +107,6 @@ Global
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9}.Release|Any CPU.Build.0 = Release|Any CPU
 		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{055CF3AD-BDAF-4441-989B-D764B80FBDEE}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
@@ -125,6 +119,12 @@ Global
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459}.Release|Any CPU.Build.0 = Release|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -139,8 +139,11 @@ Global
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
-		{B5503FD3-638E-4E54-96FC-1AFFD780E9E9} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{055CF3AD-BDAF-4441-989B-D764B80FBDEE} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
+		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C545FE57-9605-4189-B026-940CF23071E1}
 	EndGlobalSection
 EndGlobal
