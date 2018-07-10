@@ -23,7 +23,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
-    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR '$(TargetFrameworkVersion)' != '' )">True</_WebSharperUseNetFxCompiler>
+    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/ZafirCs.exe</ZafirToolPath>
