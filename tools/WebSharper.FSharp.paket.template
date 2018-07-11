@@ -11,45 +11,45 @@ dependencies
     WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
-    ../build/Release/FSharp/net461/wsfsc.exe ==> tools/net461
-    ../build/Release/FSharp/net461/wsfsc.exe.config ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/wsfsc.exe ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/wsfsc.exe.config ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/WebSharper.Compiler.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/WebSharper.Compiler.FSharp.dll ==> tools/net461
     ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.dll ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.Core.dll ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.Core.JavaScript.dll ==> tools/net461
-    ../build/Release/FSharp/net461/WebSharper.InterfaceGenerator.dll ==> tools/net461
-    ../build/Release/FSharp/net461/FSharp.Compiler.Service.dll ==> tools/net461
-    ../build/Release/FSharp/net461/FSharp.Core.dll ==> tools/net461
-    ../build/Release/FSharp/net461/Mono.Cecil.dll ==> tools/net461
-    ../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll ==> tools/net461
-    ../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll ==> tools/net461
-    ../build/Release/FSharp/net461/System.Collections.Immutable.dll ==> tools/net461
-    ../build/Release/FSharp/net461/System.Reflection.Metadata.dll ==> tools/net461
-    ../build/Release/FSharp/net461/System.ValueTuple.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/WebSharper.Core.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/WebSharper.Core.JavaScript.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/WebSharper.InterfaceGenerator.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/FSharp.Compiler.Service.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/FSharp.Core.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/Mono.Cecil.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/Mono.Cecil.Mdb.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/Mono.Cecil.Pdb.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/System.Collections.Immutable.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/System.Reflection.Metadata.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
     ../build/Release/FSharp/net461/netstandard.dll ==> tools/net461
-    ../build/Release/FSharp/deploy/wsfsc.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/wsfsc.dll.config ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/wsfsc.cmd ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/wsfsc.sh ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/wsfsc.runtimeconfig.json ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/WebSharper.Compiler.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/WebSharper.Compiler.FSharp.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.dll.config ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.cmd ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.sh ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.runtimeconfig.json ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/WebSharper.Compiler.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/WebSharper.Compiler.FSharp.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/WebSharper.Core.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/FSharp.Compiler.Service.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/FSharp.Core.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Mono.Cecil.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Mono.Cecil.Rocks.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Newtonsoft.Json.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/System.CodeDom.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/System.Configuration.ConfigurationManager.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/System.Security.Cryptography.ProtectedData.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Microsoft.DotNet.PlatformAbstractions.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/deploy/Microsoft.Extensions.DependencyModel.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/WebSharper.Core.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/FSharp.Compiler.Service.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/FSharp.Core.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Mono.Cecil.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Mono.Cecil.Rocks.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Newtonsoft.Json.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/System.CodeDom.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/System.Configuration.ConfigurationManager.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/System.Security.Cryptography.ProtectedData.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Microsoft.DotNet.PlatformAbstractions.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/Microsoft.Extensions.DependencyModel.dll ==> tools/netstandard2.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

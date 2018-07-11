@@ -28,7 +28,7 @@
   </PropertyGroup>
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup>
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\</FscToolPath>
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\deploy\</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\deploy\</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\deploy\</FscToolPath>
   </PropertyGroup>
 </Project>
