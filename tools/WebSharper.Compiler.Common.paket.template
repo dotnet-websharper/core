@@ -10,7 +10,7 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
     Mono.Cecil >= LOCKEDVERSION
-    FSharp.Core >= LOCKEDVERSION-compilers
+    FSharp.Core >= LOCKEDVERSION
 files
     ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> lib/net461
     ../build/Release/FSharp/net461/WebSharper.Compiler.xml ==> lib/net461

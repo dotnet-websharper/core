@@ -25,13 +25,6 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
-    static do  
-        System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
-            if AssemblyName(e.Name).Name = "FSharp.Core" then
-                typeof<option<_>>.Assembly
-            else null
-        )
-
     let mutable compiling = false;
     let mutable lastRefPaths = [ "" ]
     let mutable cachedRefErrorsAndMeta = None

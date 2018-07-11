@@ -9,7 +9,8 @@ if($project.Object.SupportsPackageDependencyResolution)
     }
 }
 
-$analyzersPaths = Join-Path (Join-Path (Split-Path -Path $toolsPath -Parent) "analyzers") * -Resolve
+$packagePath = Split-Path (Split-Path -Path $toolsPath -Parent) -Parent
+$analyzersPaths = Join-Path (Join-Path $packagePath "analyzers") * -Resolve
 
 foreach($analyzersPath in $analyzersPaths)
 {

@@ -34,24 +34,24 @@ files
     ../build/Release/CSharp/net461/System.Security.Cryptography.Algorithms.dll ==> tools/net461
     ../build/Release/CSharp/net461/System.Security.Cryptography.Primitives.dll ==> tools/net461
     ../build/Release/CSharp/net461/System.ValueTuple.dll ==> tools/net461
-    ../build/Release/CSharp/netcoreapp2.0/ZafirCs.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netcoreapp2.0/ZafirCs.dll.config ==> tools/netstandard2.0
-    ../build/Release/CSharp/netcoreapp2.0/ZafirCs.runtimeconfig.json ==> tools/netstandard2.0
-    ../build/Release/CSharp/netcoreapp2.0/zafircs-netcore.cmd ==> tools/netstandard2.0
-    ../build/Release/CSharp/netcoreapp2.0/zafircs-netcore.sh ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/ZafirCs.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/ZafirCs.dll.config ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/ZafirCs.runtimeconfig.json ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/zafircs-netcore.cmd ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/zafircs-netcore.sh ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/WebSharper.Compiler.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/WebSharper.Compiler.CSharp.dll ==> tools/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/Microsoft.CodeAnalysis.dll ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/Microsoft.CodeAnalysis.CSharp.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/WebSharper.Core.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/WebSharper.Core.JavaScript.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/WebSharper.InterfaceGenerator.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/FSharp.Core.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/Mono.Cecil.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/Mono.Cecil.Mdb.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/Mono.Cecil.Pdb.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/Microsoft.CodeAnalysis.dll ==> tools/netstandard2.0
+    ../build/Release/CSharp/deploy/Microsoft.CodeAnalysis.CSharp.dll ==> tools/netstandard2.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools/net461
