@@ -46,6 +46,6 @@ type private RunnerControlBody(run) =
 let RunTests (tests: seq<TestCategory>) =
     new RunnerControlBody(fun () ->
         for t in tests do
-            Pervasives.QUnit.Module t.name
+            QUnit.Module t.name
             t.run()
     ) :> IControlBody

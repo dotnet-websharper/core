@@ -6,7 +6,4 @@ open WebSharper
 [<Sealed>]
 type QUnit() =
     inherit Resources.BaseResource("https://code.jquery.com/qunit/",
-        "qunit-1.18.0.js", "qunit-1.18.0.css")
-
-[<assembly: Require(typeof<QUnit>)>]
-do ()
+        "qunit-2.6.1.js", "qunit-2.6.1.css")

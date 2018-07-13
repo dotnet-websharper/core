@@ -121,7 +121,7 @@ namespace WebSharper.CSharp.Tests
             Equal(comb.GetInvocationList().Length, 2);
         }
 
-        [Test("Delegate with default value, known issue: https://github.com/intellifactory/websharper/issues/788")]
+        [Test("Delegate with default value, known issue: https://github.com/intellifactory/websharper/issues/788", TestKind.Skip)]
         public void DelegateWithOptional()
         {
             var f = new FuncWithOptional(x => x);

@@ -380,7 +380,7 @@ namespace WebSharper.CSharp.Tests
             Equal($"align:{"x", 2 + 3}", "align:    x");
         }
 
-        [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787")]
+        [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787", TestKind.Skip)]
         public void DateFormatting()
         {
             var d = new DateTime(2010, 4, 8, 15, 5, 39);
