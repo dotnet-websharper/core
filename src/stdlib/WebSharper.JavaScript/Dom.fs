@@ -200,22 +200,22 @@ module Interfaces =
                 "addEventListener" =>
                     T<string>?eventtype *
                     EventListener?listener *
-                    T<bool>?useCapture ^-> T<unit>
+                    !?T<bool>?useCapture ^-> T<unit>
                 "addEventListenerNS" =>
                     T<string>?namespaceURI *
                     T<string>?eventtype *
                     EventListener?listener *
-                    T<bool>?useCapture ^-> T<unit>
+                    !?T<bool>?useCapture ^-> T<unit>
                 "dispatchEvent" => Event ^-> T<bool>
                 "removeEventListener" =>
                     T<string>?eventtype *
                     EventListener?listener *
-                    T<bool>?useCapture ^-> T<unit>
+                    !?T<bool>?useCapture ^-> T<unit>
                 "removeEventListenerNS" =>
                     T<string>?namespaceURI *
                     T<string>?eventtype *
                     EventListener?listener *
-                    T<bool>?useCapture ^-> T<unit>
+                    !?T<bool>?useCapture ^-> T<unit>
             ]
 
     let QuerySelectorMixin =
