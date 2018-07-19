@@ -50,6 +50,13 @@ namespace WebSharper.CSharp.Tests
             return Task.FromResult(x + 1);
         }
 
+        [Remote]
+        public static Task<(int, int)> AddOnesAsync((int, int) t)
+        {
+            var (x, y) = t;
+            return Task.FromResult((x + 1, y + 1));
+        }
+
         private static Dictionary<int, int> values = new Dictionary<int, int>();
 
         [Remote]
@@ -179,6 +186,14 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var r = await Server.AddOneAsync(1783);
             Equal(r, 1784);
+        }
+
+        [Test]
+        public async Task WithValueTuple()
+        {
+            if (!ShouldRun) { Expect(0); return; }
+            var r = await Server.AddOnesAsync((1783, 456));
+            Equal(r, (1784, 457));
         }
 
         [Test]
