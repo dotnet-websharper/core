@@ -455,6 +455,26 @@ module Bug951 =
     //    override this.Value = 1 
 
 [<JavaScript>]
+module Bug991 =
+    type Foo = int
+
+    type IFooey = 
+        abstract member ToFoo: string -> Foo
+        abstract member FromFoo: Foo -> string
+
+    type FooBase() =
+        interface IFooey with
+            override __.ToFoo s = 42 
+            override __.FromFoo x = "meh"
+
+    type Footacular() =
+        inherit FooBase()
+
+        interface IFooey with
+            override __.ToFoo s = 42
+            override __.FromFoo x = "wee"
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -943,6 +963,11 @@ let Tests =
             equal (Bug951.B().Value) 1
             equal (Bug951.B().ValueB) 2
             equal (Bug951.B()?get_Value()) 2
+        }
+
+        Test "#991 Overriding interface implementations" {
+            equal ((Bug991.FooBase() :> Bug991.IFooey).FromFoo(0)) "meh"
+            equal ((Bug991.Footacular() :> Bug991.IFooey).FromFoo(0)) "wee"
         }
 
         //Test "Recursive module value" {

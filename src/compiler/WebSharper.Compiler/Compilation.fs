@@ -1409,10 +1409,15 @@ type Compilation(meta: Info, ?hasGraph) =
                     this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
                 nameStaticMember typ (Address addr) m
         
+        let isImplementation m =
+            match m with
+            | M.Method (_, { Kind = N.Implementation _ }) -> true
+            | _ -> false
+        
         for KeyValue(typ, ms) in namedInstanceMembers do
             let pr = r.LookupPrototype typ
             for m, n in ms do
-                if not (Resolve.addToPrototype pr n || objectMethods.Contains n) then
+                if not (Resolve.addToPrototype pr n || objectMethods.Contains n || isImplementation m) then
                     printerrf "Instance member name conflict on type %s name %s" typ.Value.FullName n
                 nameInstanceMember typ n m      
 
