@@ -29,11 +29,15 @@ files
     ../build/Release/CSharp/net461/netstandard.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Collections.Immutable.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Console.dll ==> tools/net461
+    ../build/Release/CSharp/net461/deploy/System.IO.Compression.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.IO.FileSystem.dll ==> tools/net461
+    ../build/Release/CSharp/net461/deploy/System.IO.FileSystem.Primitives.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Reflection.Metadata.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Security.Cryptography.Algorithms.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Security.Cryptography.Primitives.dll ==> tools/net461
+    ../build/Release/CSharp/net461/deploy/System.Text.Encoding.CodePages.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
+    ../build/Release/CSharp/net461/deploy/System.Xml.XPath.XDocument.dll ==> tools/net461
     ../build/Release/CSharp/netcoreapp2.0/deploy/ZafirCs.dll ==> tools/netstandard2.0
     ../build/Release/CSharp/netcoreapp2.0/deploy/ZafirCs.dll.config ==> tools/netstandard2.0
     ../build/Release/CSharp/netcoreapp2.0/deploy/ZafirCs.runtimeconfig.json ==> tools/netstandard2.0
@@ -55,7 +59,7 @@ files
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461
     ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools/net461
-    ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools/net461
+    ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools
     ../build/Release/CSharp/net461/netstandard.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Microsoft.Extensions.DependencyModel.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Microsoft.DotNet.PlatformAbstractions.dll ==> analyzers/dotnet/cs

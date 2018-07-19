@@ -25,6 +25,7 @@ files
     ../build/Release/FSharp/net461/deploy/Mono.Cecil.Mdb.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/Mono.Cecil.Pdb.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/System.Collections.Immutable.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/System.IO.Compression.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/System.Reflection.Metadata.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
     ../build/Release/FSharp/net461/netstandard.dll ==> tools/net461
