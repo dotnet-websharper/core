@@ -91,7 +91,8 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
         
-        comp.VerifyRPCs()
+        if this.UseVerifier then
+            comp.VerifyRPCs()
             
         TimedStage "WebSharper translation"
 

@@ -1755,7 +1755,11 @@ let getEncoding e wrap (fo: FormatSettings) (cache: ConcurrentDictionary<_,_>) =
                     | Some "System.Nullable`1" -> e.Nullable dD fo ta
                     | _ -> 
                         e.Object dD fo ta
-            with e -> fun _ -> raise (System.Exception("Error during RPC JSON conversion", e))
+            with
+            | NoEncodingException t ->
+                reraise()
+            | e ->
+                fun _ -> raise (System.Exception("Error during RPC JSON conversion", e))
         if ta.Type = null then raise (NoEncodingException ta.Type) else
             match serializers.TryGetValue ta.Type with
             | true, x when Option.isSome (e.Scalar x) ->
@@ -1800,7 +1804,6 @@ let inferUnionTag t =
         table |> List.tryPick (fun (name, tag) ->
             get name |> Option.map (fun _ -> tag))
     findInTable (inferredCasesTable t)
-        
 
 let defaultEncodeUnionTag _ (tag: int) =
     Some ("$", EncodedNumber (string tag))

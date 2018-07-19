@@ -87,7 +87,7 @@ let Compile config =
         argError "" // exits without printing more errors    
     | Some refMeta ->
 
-    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s", UseVerifier = false)
+    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s")
 
     let referencedAsmNames =
         paths
