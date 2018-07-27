@@ -2,12 +2,17 @@
 
 set -e
 
-if [ "$WsNoUpdate" == "" ]; then
+if [ "$OS" = "Windows_NT" ]; then
+    NO_MONO=true
+fi
 
-    if [ "$OS" = "Windows_NT" ]; then
-        NO_MONO=true
+if [ "$WsUpdate" == "" ]; then
+    if [ "$NO_MONO" != "" ]; then
+        .paket/paket.exe restore
+    else
+        mono .paket/paket.exe restore
     fi
-
+else
     if [ "$NO_MONO" != "" ]; then
         .paket/paket.exe update -g wsbuild
     else
@@ -15,6 +20,6 @@ if [ "$WsNoUpdate" == "" ]; then
     fi
 fi
 
-export DOTNETSOLUTION=WebSharper.Compiler.sln;WebSharper.sln
+export DOTNETSOLUTION="WebSharper.Compiler.sln;WebSharper.sln"
 exec paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.sh "$@"
 

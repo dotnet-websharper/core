@@ -1,11 +1,11 @@
 @echo off
 setlocal
 
-if "%WsNoUpdate%"=="" (
-  .paket\paket.exe update -g wsbuild
+if "%WsUpdate%"=="" (
+  .paket\paket.exe restore
   if errorlevel 1 exit /b %errorlevel%
 ) else (
-  .paket\paket.exe restore -g wsbuild
+  .paket\paket.exe update -g wsbuild
   if errorlevel 1 exit /b %errorlevel%
 )
 
