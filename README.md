@@ -365,7 +365,7 @@ WebSharper is an open-source project, and contributions are welcome!
 
 First, don't hesitate to [report issues on the tracker][issues].
 
-To contribute code, please check the guide on [working with the WebSharper core project](docs/WorkingOnWebSharper.md).
+To contribute code, please check the [contributing guide](CONTRIBUTING.md).
 
 <a name="links"></a>
 ## Links
