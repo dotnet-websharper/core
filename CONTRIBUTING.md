@@ -101,7 +101,7 @@ If you need to make a change to a project file itself, you should edit the origi
 
 WebSharper defines and uses its own test framework, WebSharper.Testing. It runs on the client side and is backed by [qUnit](https://qunitjs.com/). So running the WebSharper test suite consists in running a web application which looks like this:
 
-![Unit testing screenshot](qunit.png)
+![Unit testing screenshot](docs/qunit.png)
 
 The recommended way to run these tests is to run the `tests/Web` project. It is an ASP.NET application hosting the test suite, under the "Client-side test suite" on its home page.
 
