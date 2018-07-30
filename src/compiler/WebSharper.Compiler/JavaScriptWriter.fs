@@ -296,7 +296,24 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
             | _ -> 
                 res.Add(trS a)
         s |> List.iter add
-        List.ofSeq res    
+        let mutable skip = false
+        res |> Seq.filter (fun s ->
+            if skip then
+                match J.RemoveOuterStatementSourcePos s with
+                | J.Function _ | J.Vars _ -> 
+                    true
+                | J.Labelled _ ->
+                    skip <- false 
+                    true
+                | _ ->
+                    false
+            else
+                match J.RemoveOuterStatementSourcePos s with
+                | J.Return _ | J.Throw _ | J.Break _ | J.Continue _ -> 
+                    skip <- true
+                | _ -> ()
+                true
+        ) |> List.ofSeq
     let flattenS s =
         match IgnoreStatementSourcePos s with
         | Block s -> flatten s

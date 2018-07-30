@@ -343,15 +343,16 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var r = await AddOneAsyncSafe(1783);
             Equal(r, 1784);
+            r = 0;
             try
             {
                 await TestServerFailure();
-                IsTrue(false, "Expected server error");
             }
             catch (Exception)
             {
-                IsTrue(true, "Expected server error");
+                r = 1;
             }
+            Equal(r, 1);
         }
     }
 }

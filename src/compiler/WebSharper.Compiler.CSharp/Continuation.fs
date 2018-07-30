@@ -72,12 +72,9 @@ type AwaitTransformer() =
     override this.TransformAwait(a) =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
-        let isStarted = ItemGet(Var awaited, Value (String "status"), NoSideEffect)
-        let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
         let exc = ItemGet(Var awaited, Value (String "exc"), NoSideEffect)
         Sequential [
             NewVar(awaited, this.TransformExpression a)
-            Conditional (Unary(UnaryOperator.``!``, isStarted), start, Undefined)
             IgnoredStatementExpr <| Continuation(doneLabel, Var awaited)
             IgnoredStatementExpr <| Labeled(doneLabel, Empty)
             IgnoredStatementExpr <| If (exc, Throw exc, Empty)
@@ -278,6 +275,7 @@ type ContinuationTransformer(labels) =
     let stateVar = Id.New "$state"
     let topLabel = Id.New "$top"
     let localFunctions = ResizeArray()
+    let mutable tryScope = 0
 
 //    let mutable currentFinallyIndex = None
 //    let mutable hasFinally = false
@@ -301,6 +299,8 @@ type ContinuationTransformer(labels) =
     member this.StateVar = stateVar
     
     member this.LocalFunctions = localFunctions :> _ seq
+
+    member this.TryScope = tryScope
 
     override this.TransformGoto(a) =
         gotoIndex labelLookup.[a]
@@ -341,11 +341,17 @@ type ContinuationTransformer(labels) =
                     addStatements i 
             | Labeled(_, TryWith(body, e, catch)) ->
                 multScope <| fun () ->
+                    tryScope <- tryScope + 1
                     addStatements body
-                    currentScope.Add (Catch (e, this.TransformStatement catch))
+                    tryScope <- tryScope - 1
+                    currentScope.Add (Catch (e, CombineStatements [ this.TransformStatement catch; gotoIndex (nextIndex + 1) ] ))
+                newState()
+                currentScope.Add (SingleState lastState)
             | Labeled(_, TryFinally(body, final)) ->
                 multScope <| fun () ->
+                    tryScope <- tryScope + 1
                     addStatements body
+                    tryScope <- tryScope - 1
                     currentScope.Add (Finally (this.TransformStatement final))
             | Labeled (_, ls) ->
                 newState()
@@ -477,12 +483,11 @@ type AsyncTransformer(labels, returns) =
 
     let task = Id.New "$task"
     let run = Id.New "$run"
-    let mutable tryScope = 0
 
     override this.Yield(v) =
         Block [
             ExprStatement <| Call(Some v, NonGeneric Definitions.Task, TaskMethod.OnCompleted, [ Var run ])
-            Return (Value (Bool true))         
+            Return Undefined        
         ]
 
     override this.TransformReturn(a) =
@@ -491,24 +496,17 @@ type AsyncTransformer(labels, returns) =
                 yield ExprStatement <| ItemSet(Var task, Value (String "result"), a)
             yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.RanToCompletion)))
             yield ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
-            yield Return (Value (Bool false))         
+            yield Return Undefined   
         ]
 
-    override this.TransformTryWith(body, e, catch) =
-        tryScope <- tryScope + 1
-        let trBody = this.TransformStatement body
-        tryScope <- tryScope - 1
-        let trCatch = this.TransformStatement catch
-        TryWith(trBody, e, trCatch)      
-
     override this.TransformThrow(a) =
-        if tryScope = 0 then
+        if this.TryScope = 0 then
             Block [
                 if IgnoreExprSourcePos a <> Undefined then
                     yield ExprStatement <| ItemSet(Var task, Value (String "exc"), a)
                 yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.Faulted)))
                 yield ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
-                yield Return (Value (Bool false))         
+                yield Return Undefined
             ]
         else
             Throw(a)
