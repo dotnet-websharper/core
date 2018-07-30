@@ -262,3 +262,15 @@ type JS =
     [<Require(typeof<AnimationFrameResource>)>]
     [<Inline "cancelAnimationFrame($handle)">]
     static member CancelAnimationFrame (handle: JS.Handle) = X<unit>
+
+    /// Requests the given URL.
+    [<Inline>]
+    static member Fetch(url: string) = JS.Window.Fetch(url)
+
+    /// Requests the given URL with options.
+    [<Inline>]
+    static member Fetch(url: string, options: RequestOptions) = JS.Window.Fetch(url, options)
+
+    /// Performs the given request.
+    [<Inline>]
+    static member Fetch(request: Request) = JS.Window.Fetch(request)

@@ -22,6 +22,7 @@ namespace WebSharper.JavaScript.Html5
 
 open WebSharper.InterfaceGenerator
 open WebSharper.JavaScript
+open WebSharper.JavaScript.Ecma.Definition
 
 module Utils =
     let RenamedEnumStrings n f l =
@@ -564,7 +565,7 @@ module File =
         |=> Inherits Blob
         |+> Instance [
                 "name" =? T<string>
-                "lastModifiedDate" =? Ecma.Definition.EcmaDate |> Obsolete
+                "lastModifiedDate" =? EcmaDate |> Obsolete
                 "lastModifed" =? T<int>
                 "size" =? T<int>
             ]
@@ -1101,7 +1102,7 @@ module Elements =
             "defaultPlaybackRate" =@ T<float>
             "playbackRate" =@ T<float>
 
-            "startOffsetTime" =? Ecma.Definition.EcmaDate
+            "startOffsetTime" =? EcmaDate
             "played" =? TimeRanges
             "seekable" =? TimeRanges
             "ended" =? T<bool>
@@ -1179,7 +1180,7 @@ module Geolocation =
         Class "Position"
         |+> Instance [
             "coords" =? Coordinates
-            "timestamp" =? Ecma.Definition.EcmaDate
+            "timestamp" =? EcmaDate
         ]
 
     let PositionError = 
@@ -1256,6 +1257,325 @@ module AppCache =
             ///  Function oncached;
             ///  Function onobsolete;
         ]
+
+module Fetch =
+
+    let XMLHttpRequestResponseType =
+        Pattern.EnumStrings "XMLHttpRequestResponseType" [
+            "arraybuffer"
+            "blob"
+            "document"
+            "json"
+            "text"
+        ]
+        |+> Static [
+            "deafult" => T<string> 
+            |> WithInline ""
+            |> WithComment "The default value is text"
+        ]
+
+    let XMLHttpRequestEventTarget =
+        let EH = Dom.Interfaces.Event ^-> T<unit>
+        Class "XMLHttpRequestEventTarget"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Instance [
+            "onloadstart" =@ EH
+            "onprogress" =@ EH
+            "onabort" =@ EH
+            "onerror" =@ EH
+            "onload" =@ EH
+            "ontimeout" =@ EH
+            "onloadend" =@ EH
+        ]
+
+    let XMLHttpRequestUpload =
+        Class "XMLHttpRequestUpload"
+        |=> Inherits XMLHttpRequestEventTarget
+
+    let XMLHttpRequest =
+        let EH = Dom.Interfaces.Event ^-> T<unit>
+        Class "XMLHttpRequest"
+        |=> Inherits XMLHttpRequestEventTarget
+        |+> Static [
+            "UNSENT" =? T<int>
+            "OPENED" =? T<int>
+            "HEADERS_RECEIVED" =? T<int>
+            "LOADING" =? T<int>
+            "DONE" =? T<int>
+        ]
+        |+> Instance [
+            "onreadystatechange" =@ EH
+            "readyState" =? T<int>
+
+            // request
+            "open" => T<string>?``method`` * T<string>?url ^-> T<unit>
+            "open" => T<string>?``method`` * T<string>?url * T<bool>?async * !?T<string>?username * !?T<string>?password ^-> T<unit>
+            "setRequestHeader" => T<string>?name * T<string>?value ^-> T<unit>
+            "timeout" =@ T<int>
+            "withCredentials" =@ T<bool>
+            "upload" =? XMLHttpRequestUpload
+            "send" => !?Dom.Interfaces.Document?body ^-> T<unit>
+            "abort" => T<unit> ^-> T<unit>
+
+            // response
+            "responseURL" =? T<string>
+            "status" =? T<int>
+            "statusText" =? T<string>
+            "getResponseHeader" => T<string> ^-> T<string>
+            "getAllResponseHeaders" => T<unit> ^-> T<string>
+            "overrideMimeType" => T<string>?mime ^-> T<unit>
+            "responseType" =@ XMLHttpRequestResponseType
+            "response" =? T<obj>
+            "responseText" =? T<string>
+            "responseXML" =? Dom.Interfaces.Document
+        ]
+
+    let FormDataEntryValue = T<string> + File.File
+
+    let FormData =
+        Class "FormData"
+        |+> Instance [
+            Constructor(!? Elements.HTMLFormElement?form)
+            "append" => T<string>?names * T<string>?value ^-> T<unit> 
+            "append" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "delete" => T<string>?name ^-> T<unit> 
+            "get" => T<string>?name ^-> FormDataEntryValue
+            "getAll" => T<string>?name ^-> !|FormDataEntryValue
+            "has"  => T<string>?name ^-> T<bool>
+            "set" => T<string>?names * T<string>?value ^-> T<unit> 
+            "set" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "" =@ FormDataEntryValue |> Indexed T<string> 
+            // TODO: entries iterator
+            // TODO: keys iterator
+            // TODO: values iterator
+        ]
+
+    let URLSearchParams =
+        Class "URLSearchParams"
+        |+> Static [
+            Constructor T<string>
+            Constructor T<(string * string)[]>
+            Constructor T<string[]>
+            Constructor EcmaObjectG.[T<string>]
+        ]
+        |+> Instance [
+            "append" => T<string>?key * T<string>?value ^-> T<unit>
+            "delete" => T<string>?key ^-> T<unit>
+            "get" => T<string>?key ^-> T<string>
+            "getAll" => T<string>?key ^-> T<string[]>
+            "has" => T<string>?key ^-> T<bool>
+            "set" => T<string>?key * T<string>?value ^-> T<unit>
+            "sort" => T<unit> ^-> T<unit>
+        ]
+
+    let URL =
+        Class "URL"
+        |+> Static [
+            Constructor (T<string>?url * !?T<string>?``base``)
+        ]
+        |+> Instance [
+            "hash" =@ T<string>
+            "host" =@ T<string>
+            "hostname" =@ T<string>
+            "href" =@ T<string>
+            "origin" =? T<string>
+            "password" =@ T<string>
+            "pathname" =@ T<string>
+            "port" =@ T<string>
+            "protocol" =@ T<string>
+            "search" =@ T<string>
+            "searchParams" =? URLSearchParams
+            "username" =@ T<string>
+        ]
+        |+> Static [
+            "createObjectURL" => (File.Blob + File.File) ^-> T<string>
+            "revokeObjectURL" => T<string> ^-> T<unit>
+        ]
+
+    let Headers =
+        Class "Headers"
+        |+> Static [
+            Constructor T<unit>
+            Constructor TSelf
+            Constructor EcmaObjectG.[T<string>]
+        ]
+        |+> Instance [
+            "append" => T<string> * T<string> ^-> T<unit>
+            "delete" => T<string> ^-> T<unit>
+            "get" => T<string> ^-> T<string>
+            "has" => T<string> ^-> T<bool>
+            "set" => T<string> * T<string> ^-> T<unit>
+            // TODO: entries iterator
+            // TODO: keys iterator
+            // TODO: values iterator
+        ]
+
+    let Mode =
+        Pattern.EnumStrings "RequestMode" [
+            "same-origin"
+            "no-cors"
+            "cors"
+            "navigate"
+        ]
+
+    let Credentials =
+        Pattern.EnumStrings "RequestCredentials" [
+            "omit"
+            "same-origin"
+            "include"
+        ]
+
+    let Cache =
+        Pattern.EnumStrings "RequestCache" [
+            "default"
+            "no-store"
+            "reload"
+            "no-cache"
+            "force-cache"
+            "only-if-cached"
+        ]
+
+    let Redirect =
+        Pattern.EnumStrings "Redirect" [
+            "follow"
+            "error"
+            "manual"
+        ]
+
+    let Referrer =
+        Pattern.EnumStrings "Referrer" [
+            "no-referrer"
+            "client"
+        ]
+        |+> Static [
+            "url" => T<string>?url ^-> TSelf
+            |> WithInline "$url"
+        ]
+
+    let ReferrerPolicy =
+        Pattern.EnumStrings "ReferrerPolicy" [
+            "no-referrer"
+            "no-referrer-when-downgrade"
+            "origin"
+            "origin-when-cross-origin"
+            "unsafe-url"
+        ]
+
+    let RequestOptions =
+        Pattern.Config "RequestOptions" {
+            Required = []
+            Optional =
+                [
+                    "method", T<string>
+                    "headers", Headers.Type
+                    "body", T<obj>
+                    "mode", Mode.Type
+                    "credentials", Credentials.Type
+                    "cache", Cache.Type
+                    "redirect", Redirect.Type
+                    "referrer", Referrer.Type
+                    "referrerPolicy", ReferrerPolicy.Type
+                    "integrity", T<string>
+                    "keepalive", T<bool>
+                    // "signal", AbortSignal // Experimental
+                ]
+        }
+
+    let Body =
+        Instance [
+            // "body" =? ReadableStream // Experimental
+            "bodyUsed" =? T<bool>
+            "arrayBuffer" => T<unit> ^-> EcmaPromise.[TypedArrays.ArrayBuffer]
+            "blob" => T<unit> ^-> EcmaPromise.[File.Blob]
+            "formData" => T<unit> ^-> EcmaPromise.[FormData]
+            "json" => T<unit> ^-> EcmaPromise.[T<obj>]
+            "text" => T<unit> ^-> EcmaPromise.[T<string>]
+        ]
+
+    let RequestDestination =
+        Pattern.EnumStrings "RequestDestination" [
+            "audio"
+            "audioworklet"
+            "document"
+            "embed"
+            "font"
+            "image"
+            "manifest"
+            "object"
+            "paintworklet"
+            "report"
+            "script"
+            "serviceworker"
+            "sharedworker"
+            "style"
+            "track"
+            "video"
+            "worker"
+            "xslt"
+        ]
+
+    let Request =
+        Class "Request"
+        |+> Static [
+            Constructor (T<string> * !? RequestOptions)
+            Constructor TSelf
+        ]
+        |+> Instance [
+            "cache" =? Cache
+            "credentials" =? Credentials
+            "destination" =? RequestDestination
+            "headers" =? Headers
+            "integrity" =? T<string>
+            "method" =? T<string>
+            "mode" =? Mode
+            "redirect" =? Redirect
+            "referrer" =? Referrer
+            "referrerPolicy" =? ReferrerPolicy
+            "url" =? T<string>
+            "clone" => T<unit> ^-> TSelf
+        ]
+        |+> Body
+
+    let ResponseOptions =
+        Pattern.Config "ResponseOptions" {
+            Required = []
+            Optional =
+                [
+                    "status", T<int>
+                    "statusText", T<string>
+                    "headers", Headers.Type
+                ]
+        }
+
+    let ResponseType =
+        Pattern.EnumStrings "ResponseType" [
+            "basic"
+            "cors"
+            "error"
+            "opaque"
+            "opaqueredirect"
+        ]
+
+    let Response =
+        let bodyTypes = File.Blob + FormData (*+ ReadableStream *) + URLSearchParams + T<string>
+        Class "Response"
+        |+> Static [
+            Constructor (!?bodyTypes * !?ResponseOptions)
+            "error" => T<unit> ^-> TSelf
+            "redirect" => T<string>?url * T<int>?status ^-> TSelf
+        ]
+        |+> Instance [
+            "headers" =? Headers
+            "ok" =? T<bool>
+            "redirected" =? T<bool>
+            "status" =? T<int>
+            "statusText" =? T<string>
+            "type" =? ResponseType
+            "url" =? T<string>
+            "useFinalURL" =? T<bool>
+            "clone" => T<unit> ^-> TSelf
+        ]
+        |+> Body
 
 module General = 
     let BarProp =
@@ -1388,48 +1708,6 @@ module General =
             "setProperty" => T<string>?propertyName * !? T<string>?value * !? T<string>?priority ^-> T<unit>
         ]
 
-    let URLSearchParams =
-        Class "URLSearchParams"
-        |+> Static [
-            Constructor T<string>
-            Constructor T<(string * string)[]>
-            Constructor T<string[]>
-            Constructor Ecma.Definition.EcmaObjectG.[T<string>]
-        ]
-        |+> Instance [
-            "append" => T<string>?key * T<string>?value ^-> T<unit>
-            "delete" => T<string>?key ^-> T<unit>
-            "get" => T<string>?key ^-> T<string>
-            "getAll" => T<string>?key ^-> T<string[]>
-            "has" => T<string>?key ^-> T<bool>
-            "set" => T<string>?key * T<string>?value ^-> T<unit>
-            "sort" => T<unit> ^-> T<unit>
-        ]
-
-    let URL =
-        Class "URL"
-        |+> Static [
-            Constructor (T<string>?url * !?T<string>?``base``)
-        ]
-        |+> Instance [
-            "hash" =@ T<string>
-            "host" =@ T<string>
-            "hostname" =@ T<string>
-            "href" =@ T<string>
-            "origin" =? T<string>
-            "password" =@ T<string>
-            "pathname" =@ T<string>
-            "port" =@ T<string>
-            "protocol" =@ T<string>
-            "search" =@ T<string>
-            "searchParams" =? URLSearchParams
-            "username" =@ T<string>
-        ]
-        |+> Static [
-            "createObjectURL" => (File.Blob + File.File) ^-> T<string>
-            "revokeObjectURL" => T<string> ^-> T<unit>
-        ]
-
     let WindowOrWorkerGlobalScope =
         Class "WindowOrWorkerGlobalScope"
         |=> Inherits Dom.Interfaces.EventTarget
@@ -1446,6 +1724,9 @@ module General =
             "setTimeout" => (T<unit> ^-> T<unit>)?callback * !?T<int>?delay ^-> T<obj>
             "clearInterval" => T<obj>?intervalId ^-> T<unit>
             "clearTimeout" => T<obj>?timeoutId ^-> T<unit>
+
+            "fetch" => T<string> * !?Fetch.RequestOptions ^-> EcmaPromise.[Fetch.Response]
+            "fetch" => Fetch.Request ^-> EcmaPromise.[Fetch.Response]
         ]
 
     do
@@ -2426,6 +2707,26 @@ module Definition =
                 File.FileReaderReadyState
                 File.ProgressEvent
                 File.TextFileReader
+                Fetch.XMLHttpRequest
+                Fetch.XMLHttpRequestEventTarget
+                Fetch.XMLHttpRequestResponseType
+                Fetch.XMLHttpRequestUpload
+                Fetch.FormData
+                Fetch.URL
+                Fetch.URLSearchParams
+                Fetch.Headers
+                Fetch.Mode
+                Fetch.Credentials
+                Fetch.Cache
+                Fetch.Redirect
+                Fetch.Referrer
+                Fetch.ReferrerPolicy
+                Fetch.RequestOptions
+                Fetch.RequestDestination
+                Fetch.Request
+                Fetch.ResponseOptions
+                Fetch.ResponseType
+                Fetch.Response
                 General.BarProp
                 General.History
                 General.Location
@@ -2439,8 +2740,6 @@ module Definition =
                 General.Window
                 General.CSSSD
                 General.MQL
-                General.URL
-                General.URLSearchParams
                 TypedArrays.DataView.Class
                 TypedArrays.ArrayBuffer
                 TypedArrays.ArrayBufferView

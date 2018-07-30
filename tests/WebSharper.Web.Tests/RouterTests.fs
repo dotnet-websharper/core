@@ -90,18 +90,36 @@ module ClientServerTests =
                             try
                                 do! Expect testValue
                                 let! res = Router.Ajax ShiftedRouter testValue
-                                arr.Add (box res)
+                                arr.Add (res)
                             with e ->
-                                arr.Add (box e.StackTrace)
+                                arr.Add (e.StackTrace)
                         return arr.ToArray()
                     }
-                let expectedResults =
-                    serverResults |> Array.map (fun (_, serverLink, _) ->
-                        box serverLink
-                    )
-                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) ->
-                    Do { equalMsg r v (sprintf "Ajax call for: " + string v) }
-                )
+                let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) -> Do {
+                    equalMsg r v (sprintf "Ajax call for: " + string v)
+                })
+            }
+
+            TestIf runServerTests "Router.Fetch" {
+                let! serverResults = GetTestValues()
+                let! ajaxResults =
+                    async {
+                        let arr = ResizeArray()
+                        for testValue, _, _ in serverResults do
+                            try
+                                do! Expect testValue
+                                let! res = Router.Fetch ShiftedRouter testValue |> JavaScript.Promise.AsAsync
+                                let! text = res.Text() |> JavaScript.Promise.AsAsync
+                                arr.Add (text)
+                            with e ->
+                                arr.Add (e.StackTrace)
+                        return arr.ToArray()
+                    }
+                let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) -> Do {
+                    equalMsg r v (sprintf "Fetch call for: " + string v)
+                })
             }
 
             Test "Router primitives" {

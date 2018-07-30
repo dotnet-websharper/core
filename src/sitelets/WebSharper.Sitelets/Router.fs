@@ -693,12 +693,11 @@ module Router =
                     settings.ContentType <- Union1Of2 false
                     settings.Data <- fd
                     settings.ProcessData <- false
-                if Option.isNone path.Method then settings.Type <- RequestType.POST 
             | b ->
                 settings.ContentType <- Union2Of2 "application/json"
                 settings.Data <- b
                 settings.ProcessData <- false
-                if Option.isNone path.Method then settings.Type <- RequestType.POST 
+            if Option.isNone path.Method then settings.Type <- RequestType.POST 
             Async.FromContinuations (fun (ok, err, cc) ->
                 settings.Success <- fun res _ _ -> ok (As<string> res) 
                 settings.Error <- fun _ _ msg -> err (exn msg)
@@ -706,6 +705,26 @@ module Router =
                 let url = path.ToLink()
                 JQuery.Ajax(url, settings) |> ignore
             )
+        | _ -> 
+            failwith "Failed to map endpoint to request" 
+
+    let Fetch (router: Router<'A>) endpoint : Promise<Response> =
+        match Write router endpoint with
+        | Some path ->
+            let options = RequestOptions()
+            match path.Method with
+            | Some m -> options.Method <- m
+            | None -> ()
+            match path.Body.Value with
+            | null ->
+                if not (Map.isEmpty path.FormData) then
+                    let fd = JavaScript.FormData()
+                    path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
+                    options.Body <- fd
+            | b ->
+                options.Body <- b
+            if Option.isNone path.Method then options.Method <- "POST"
+            JS.Fetch(path.ToLink(), options)
         | _ -> 
             failwith "Failed to map endpoint to request" 
 

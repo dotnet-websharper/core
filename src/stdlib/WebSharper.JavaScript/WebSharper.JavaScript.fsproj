@@ -9,7 +9,6 @@
     <Compile Include="Ecma.fs" />
     <Compile Include="Dom.fs" />
     <Compile Include="Html5.fs" />
-    <Compile Include="Xhr.fs" />
     <Compile Include="Cookies.fs" />
     <Compile Include="Definition.fs" />
     <EmbeddedResource Include="Cookies.js" />
