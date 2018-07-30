@@ -1109,6 +1109,7 @@ let getObjectFields (t: System.Type) =
     let rec getAll (t: System.Type) =
         match t.BaseType with
         | null -> Seq.empty // this is a System.Object
+        | b when b.FullName = "System.Web.UI.Control" -> Seq.empty // Don't serialize web control private fields
         | b -> Seq.append (getAll b) (getDecl t)
     getAll t |> Array.ofSeq
 
