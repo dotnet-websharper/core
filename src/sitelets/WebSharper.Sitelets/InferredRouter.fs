@@ -22,7 +22,6 @@ namespace WebSharper.Sitelets
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 open System.Collections.Generic
 open System.Text
 

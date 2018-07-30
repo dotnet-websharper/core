@@ -72,16 +72,27 @@ module Activator =
     [<Literal>]
     let META_ID = "websharper-data"
 
-    [<Direct "typeof document !== 'undefined' && typeof jQuery !== 'undefined'">]
-    let private hasDocumentAndJQuery () = false
-
     let mutable Instances : obj = null
 
+    let private onReady (f: unit -> unit) =
+        let mutable readyFired = false
+        let rec ready() =
+            if not readyFired then
+                readyFired <- true
+                f()
+                JS.Document.RemoveEventListener("DOMContentLoaded", ready, false)
+                JS.Window.RemoveEventListener("load", ready, false)
+        if JS.Document?readyState = "complete" then
+            ready()
+        else
+            JS.Document.AddEventListener("DOMContentLoaded", ready, false)
+            JS.Window.AddEventListener("load", ready, false)
+
     let private Activate() =
-        if hasDocumentAndJQuery () then
+        if As JS.Document then
             let meta = JS.Document.GetElementById(META_ID)
             if (As meta) then
-                JQuery.Of(JS.Document).Ready(fun () ->
+                onReady <| fun () ->
                     let text = meta.GetAttribute("content")
                     let obj = Json.Activate (Json.Parse text)
                     JS.GetFields obj
@@ -94,5 +105,3 @@ module Activator =
                         | _ -> ()
                     )
                     Instances <- obj
-                ).Ignore
-
