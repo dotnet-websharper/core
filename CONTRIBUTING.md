@@ -21,6 +21,7 @@ We welcome all types of contributions, particularly:
 * Bug fixes in [the issue tracker](https://github.com/dotnet-websharper/core/issues)
 * Standard library improvements (JavaScript APIs, etc.)
 * Compiler optimizations and improvements
+* Documentation: improvements to [the documentation website](https://developers.websharper.com) can be contributed [in the "docs" repository](https://github.com/dotnet-websharper/docs)
 * Feature suggestions are welcome on [the Gitter chat](https://gitter.im/intellifactory/websharper) and [the issue tracker](https://github.com/dotnet-websharper/core/issues); we suggest that you discuss new features with the rest of the team on these channels before getting started on implementation.
 
 <a name="how-to-contribute"></a>
