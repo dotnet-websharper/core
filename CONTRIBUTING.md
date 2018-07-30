@@ -2,7 +2,7 @@
 
 WebSharper is a Free Software project, and we welcome your contributions!
 
-This repository contains the F# and C#-to-JavaScript compiler and core libraries. WebSharper consists of this repository as well as a constellation of libraries and extensions, many of which are located [in the `dotnet-websharper` GitHub organization](https://github.com/dotnet-websharper). Don't hesitate to contribute to these too!
+[The core repository](https://github.com/dotnet-websharper/core) contains the F# and C#-to-JavaScript compiler and core libraries. WebSharper consists of this repository as well as a constellation of libraries and extensions, located [in the `dotnet-websharper` GitHub organization](https://github.com/dotnet-websharper). Don't hesitate to contribute to these too!
 
 * [What to contribute](#what-to-contribute)
 * [How to contribute](#how-to-contribute)
