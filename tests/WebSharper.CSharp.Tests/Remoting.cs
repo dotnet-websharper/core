@@ -11,7 +11,7 @@ using static WebSharper.JavaScript.Pervasives;
 
 namespace WebSharper.CSharp.Tests
 {
-    [JavaScript, Serializable]
+    [JavaScript]
     public struct TestStruct
     {
         public int X;
@@ -24,14 +24,14 @@ namespace WebSharper.CSharp.Tests
         }
     }
 
-    [JavaScript, Serializable]
+    [JavaScript]
     public class TestClass
     {
         public int X = 0;
         public int Y { get; set; }
     }
 
-    [JavaScript, Serializable]
+    [JavaScript]
     public class TestClassSub : TestClass
     {
     }

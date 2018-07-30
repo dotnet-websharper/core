@@ -1262,8 +1262,6 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             callGeneric2 <@ makeArrayDictionary @> dD ta ga.[0] ga.[1]
     elif t = typeof<obj> then
         decodeObj
-    elif not t.IsSerializable then
-        raise (NoEncodingException t)
     elif t.IsValueType then
         let fs = t.GetFields fieldFlags
         match t.GetConstructor (fs |> Array.map (fun f -> f.FieldType)) with
