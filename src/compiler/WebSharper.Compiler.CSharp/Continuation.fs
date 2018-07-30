@@ -72,12 +72,12 @@ type AwaitTransformer() =
     override this.TransformAwait(a) =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
-        let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
+        let isStarted = ItemGet(Var awaited, Value (String "status"), NoSideEffect)
         let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
         let exc = ItemGet(Var awaited, Value (String "exc"), NoSideEffect)
         Sequential [
             NewVar(awaited, this.TransformExpression a)
-            Conditional (setStatus 0, start, Undefined)
+            Conditional (Unary(UnaryOperator.``!``, isStarted), start, Undefined)
             IgnoredStatementExpr <| Continuation(doneLabel, Var awaited)
             IgnoredStatementExpr <| Labeled(doneLabel, Empty)
             IgnoredStatementExpr <| If (exc, Throw exc, Empty)
@@ -477,6 +477,7 @@ type AsyncTransformer(labels, returns) =
 
     let task = Id.New "$task"
     let run = Id.New "$run"
+    let mutable tryScope = 0
 
     override this.Yield(v) =
         Block [
@@ -493,6 +494,25 @@ type AsyncTransformer(labels, returns) =
             yield Return (Value (Bool false))         
         ]
 
+    override this.TransformTryWith(body, e, catch) =
+        tryScope <- tryScope + 1
+        let trBody = this.TransformStatement body
+        tryScope <- tryScope - 1
+        let trCatch = this.TransformStatement catch
+        TryWith(trBody, e, trCatch)      
+
+    override this.TransformThrow(a) =
+        if tryScope = 0 then
+            Block [
+                if IgnoreExprSourcePos a <> Undefined then
+                    yield ExprStatement <| ItemSet(Var task, Value (String "exc"), a)
+                yield ExprStatement <| ItemSet(Var task, Value (String "status"), Value (Int (int System.Threading.Tasks.TaskStatus.Faulted)))
+                yield ExprStatement <| Call(Some (Var task), NonGeneric Definitions.Task, TaskMethod.RunContinuations, [])
+                yield Return (Value (Bool false))         
+            ]
+        else
+            Throw(a)
+        
     member this.TransformMethodBody(s: Statement) =
         let extract = ExtractVarDeclarations()
         let inner =

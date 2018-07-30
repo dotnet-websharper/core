@@ -45,6 +45,12 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Remote]
+        public static Task<int> FailOnServer()
+        {
+            return Task.FromException<int>(new Exception("Deliberately failing for testing."));
+        }
+
+        [Remote]
         public static Task<int> AddOneAsync(int x)
         {
             return Task.FromResult(x + 1);
@@ -303,6 +309,49 @@ namespace WebSharper.CSharp.Tests
                     (!WebSharper.Pervasives.IsClient ? Server.Zero() : 1)
                     : Server.Zero();
             Equal(ok, 1, "IsClient in conditional expression");
+        }
+
+        static public async Task<int> AddOneAsyncSafe(int x)
+        {
+            try
+            {
+                return await Server.AddOneAsync(x);
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Unexpected server error");
+                throw;
+            }
+        }
+
+        static public async Task<int> TestServerFailure()
+        {
+            try
+            {
+                return await Server.FailOnServer();
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("Successfully caught exception in C# async");
+                throw;
+            }
+        }
+
+        [Test]
+        public async Task AsyncTryCatch()
+        {
+            if (!ShouldRun) { Expect(0); return; }
+            var r = await AddOneAsyncSafe(1783);
+            Equal(r, 1784);
+            try
+            {
+                await TestServerFailure();
+                IsTrue(false, "Expected server error");
+            }
+            catch (Exception)
+            {
+                IsTrue(true, "Expected server error");
+            }
         }
     }
 }
