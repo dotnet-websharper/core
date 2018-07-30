@@ -765,18 +765,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 f
             | _ ->
                 let cargs = List.init currying (fun _ -> Id.New(mut = false))
-                Lambda(cargs, CurriedApplication(expr, cargs |> List.map Var))  
+                Lambda(cargs, CurriedApplication(expr, cargs |> List.map Var)) |> FixThisScope().Fix
         | TupledFuncArg tupling -> 
             match expr with
             | TupledLambda (args, body, _) ->
-                Lambda(List.ofSeq args, body)
+                Lambda(List.ofSeq args, body) |> FixThisScope().Fix
             | _ ->
                 match IgnoreExprSourcePos expr with
                 | OptimizedFSharpArg(f, TupledFuncArg arity) when arity = tupling -> 
                     f
                 | _ ->
                     let args = List.init tupling (fun _ -> Id.New(mut = false))
-                    Lambda(args, Application(expr, [NewArray(args |> List.map Var)], NonPure, Some 1))
+                    Lambda(args, Application(expr, [NewArray(args |> List.map Var)], NonPure, Some 1)) |> FixThisScope().Fix
 
     override this.TransformOptimizedFSharpArg(f, opt) =
         match opt with
@@ -786,13 +786,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Application (f, List.rev args, NonPure, Some arity)
                 else
                     let x = Id.New(mut = false)
-                    Lambda ([x], c (Var x :: args) (a - 1))
+                    Lambda ([x], c (Var x :: args) (a - 1)) |> FixThisScope().Fix
             c [] arity
         | TupledFuncArg arity ->
             let x = Id.New(mut = false)
             let args =
                 List.init arity (fun i -> (Var x).[Value (Int i)])
-            Lambda ([x], Application (f, args, NonPure, Some arity))
+            Lambda ([x], Application (f, args, NonPure, Some arity)) |> FixThisScope().Fix
         | _ ->
             this.TransformExpression(f)
 

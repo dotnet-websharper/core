@@ -346,5 +346,23 @@ namespace WebSharper.CSharp.Tests
             o["background-color"] = "#777";
             Equal(o["background-color"], "#777");
         }
+
+        public class TestDelegateThisScoping
+        {
+            int X;
+
+            public TestDelegateThisScoping(int x) { X = x; }
+
+            int Add(int y, int z) => X + y + z;
+
+            public int AddWithFSharpFunc(int y, int z) => I.Module.InvokeFunc2(FSharpConvert.Fun<int, int, int>(Add), y, z);
+        }
+
+        [Test]
+        public void DelegateThisScoping()
+        {
+            var o = new TestDelegateThisScoping(1);
+            Equal(o.AddWithFSharpFunc(2, 3), 6);
+        }
     }
 }
