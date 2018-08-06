@@ -28,6 +28,7 @@ let private addOne (c: IControlBody) =
     c.ReplaceInDom(e)
 
 [<SPAEntryPoint>]
+[<Require(typeof<WebSharper.Tests.TwitterBootstrap>)>]
 let Main() =
     WebSharper.CSharp.Tests.Remoting.ShouldRun <- false
     Seq.iter addOne [

@@ -35,5 +35,5 @@ type WebsiteEntryPoint() =
         member this.Actions = this.Actions
 
 [<assembly: Website(typeof<WebsiteEntryPoint>)>]
-[<assembly: Require(typeof<Dependencies.TwitterBootstrap>)>]
+[<assembly: Require(typeof<WebSharper.Tests.TwitterBootstrap>)>]
 do ()

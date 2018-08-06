@@ -7,6 +7,7 @@
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Dependencies.fs" />
     <Compile Include="AddressOf.fs" />
     <Compile Include="Array.fs" />
     <Compile Include="Array2D.fs" />

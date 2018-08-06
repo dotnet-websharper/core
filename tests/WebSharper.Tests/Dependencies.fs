@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Declares resource (JS/CSS) dependencies.
-namespace WebSharper.Tests.Website.Dependencies
+namespace WebSharper.Tests
 
 open WebSharper
 
@@ -30,6 +30,3 @@ open WebSharper
 type TwitterBootstrap() =
     inherit Resources.BaseResource("//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/",
         "js/bootstrap.min.js", "css/bootstrap-combined.min.css")
-
-//[<assembly: Require(typeof<TwitterBootstrap>)>]
-//do ()
