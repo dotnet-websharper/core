@@ -34,9 +34,9 @@ group build
     framework: net45
     source https://api.nuget.org/v3/index.json
     nuget Paket.Core 5.173.1
-    nuget FAKE ~> 4.0
+    nuget FAKE
     nuget AjaxMin
-    nuget FSharp.Core ~> 4.2.0
+    nuget FSharp.Core
     nuget Mono.Cecil prerelease
 
 group wsbuild
