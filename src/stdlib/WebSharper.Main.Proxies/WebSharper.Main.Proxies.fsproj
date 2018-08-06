@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
+    <WebSharperUseNetFxCompiler>True</WebSharperUseNetFxCompiler>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WebSharper.Main/JavaScript.fs">
