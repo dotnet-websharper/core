@@ -8,7 +8,7 @@ open System.IO
 open Fake
 open WebSharper.Fake
 
-let version = "4.4"
+let version = "4.5"
 let pre = None
 
 let baseVersion =
