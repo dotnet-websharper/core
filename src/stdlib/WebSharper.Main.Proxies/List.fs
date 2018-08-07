@@ -41,7 +41,7 @@ type private ListProxy<'T> =
 
     member this.Length with get () = List.length (As this)
 
-    member this.Item with get (x: int) : 'T = List.nth (As this) x
+    member this.Item with get (x: int) : 'T = List.item x (As this)
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _

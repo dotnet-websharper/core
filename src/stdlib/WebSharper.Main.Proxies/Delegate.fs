@@ -28,7 +28,7 @@ open WebSharper.JavaScript
 type internal DelegateProxy =
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
-    member this.Equals(x: obj) = X<bool>
+    override this.Equals(x: obj) = X<bool>
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
     static member op_Equality(a: Delegate, b: Delegate) = X<bool>
@@ -37,7 +37,7 @@ type internal DelegateProxy =
     static member op_Inequality(a: Delegate, b: Delegate) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this
 
     [<Inline "$this.apply(null, $args)">]
     member this.DynamicInvoke(args: obj[]) = X<obj>
@@ -96,7 +96,7 @@ type internal DelegateProxy =
 type internal MulticastDelegateProxy =
     
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
-    member this.Equals(x: obj) = X<bool>
+    override this.Equals(x: obj) = X<bool>
 
     [<Inline "$wsruntime.DelegateEqual($0, $1)">]
     static member op_Equality(a: MulticastDelegate, b: MulticastDelegate) = X<bool>
@@ -105,7 +105,7 @@ type internal MulticastDelegateProxy =
     static member op_Inequality(a: MulticastDelegate, b: MulticastDelegate) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this
 
     [<Inline>]
     member this.GetInvocationList() : Delegate[] =

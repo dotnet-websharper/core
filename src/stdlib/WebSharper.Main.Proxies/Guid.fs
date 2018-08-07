@@ -40,7 +40,7 @@ type internal GuidProxy =
     static member Empty = X<System.Guid>
 
     [<Inline "$this">]
-    member this.ToString() = X<string>
+    override this.ToString() = X<string>
 
     [<Inline "$a == $b">]
     static member op_Equality(a: System.Guid, b: System.Guid) = X<bool>

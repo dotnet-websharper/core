@@ -26,7 +26,7 @@ open System
 
 type private D = System.DateTime
 type private K = System.DateTimeKind
-type private TS = System.TimeSpan
+type internal TS = System.TimeSpan
 type private DO = System.DateTimeOffset
 
 [<JavaScript>]

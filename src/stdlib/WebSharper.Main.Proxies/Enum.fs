@@ -33,7 +33,7 @@ type internal EnumProxy =
     member p.HasFlag (flag: System.Enum) = false
 
     [<Inline "$this === $x">]
-    member this.Equals(x: obj) = X<bool>
+    override this.Equals(x: obj) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this

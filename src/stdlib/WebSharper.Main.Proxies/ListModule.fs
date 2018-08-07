@@ -417,10 +417,10 @@ let MinBy f (list: list<_>) =
     m
 
 [<Inline>]
-let Get (l: list<_>) ix = Seq.nth ix l
+let Get (l: list<_>) ix = Seq.item ix l
 
 [<Inline>]
-let Item ix (l: list<_>) = Seq.nth ix l
+let Item ix (l: list<_>) = Seq.item ix l
 
 [<Name "ofArray">]
 let OfArray<'T> (arr: 'T []) =

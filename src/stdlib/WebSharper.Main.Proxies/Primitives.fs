@@ -208,7 +208,7 @@ type internal B =
     member this.Equals(x: bool) = X<bool>
 
     [<Inline "$this === $x">]
-    member this.Equals(x: obj) = X<bool>
+    override this.Equals(x: obj) = X<bool>
 
     [<Inline "$a == $b">]
     static member op_Equality(a: bool, b: bool) = X<bool>
@@ -217,7 +217,7 @@ type internal B =
     static member op_Inequality(a: bool, b: bool) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this
 
     [<Constant "true">]
     static member TrueString = X<string>
@@ -226,7 +226,7 @@ type internal B =
     static member FalseString = X<string>
 
     [<Inline>]
-    member this.ToString() = string this
+    override this.ToString() = string this
 
     [<Inline>]
     member this.CompareTo(x: bool) =

@@ -22,8 +22,6 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
-type private TS = System.TimeSpan
-
 [<Proxy(typeof<TS>)>]
 type private TimeSpanProxy =
 

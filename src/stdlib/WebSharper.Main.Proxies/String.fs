@@ -278,10 +278,10 @@ type private StringProxy =
     member this.Equals(s: string) = X<bool>
 
     [<Inline "$this === $s">]
-    member this.Equals(s: obj) = X<bool>
+    override this.Equals(s: obj) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this
 
     [<Inline>]
     member this.GetEnumerator() = Enumerator.Get (unbox<seq<char>> this) |> As<System.CharEnumerator>
@@ -393,7 +393,7 @@ type private StringProxy =
         ToCharArrayRange (As this) i l
 
     [<Inline "$this">]
-    member this.ToString() = X<string>
+    override this.ToString() = X<string>
     
     [<Inline "$this.toLowerCase()">]
     member this.ToLower() = X<string>

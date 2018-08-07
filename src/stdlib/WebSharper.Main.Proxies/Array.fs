@@ -126,12 +126,12 @@ type private ArrayProxy =
 
     [<Inline>]
     static member BinarySearch<'T>(haystack: 'T[], needle: 'T) : int =
-        let compare y = compare (As<IComparable<'T>> needle) (As<IComparable<'T>> y)
+        let compare y = compare (As<IComparable> needle) (As<IComparable> y)
         binarySearch haystack compare 0 haystack.Length
 
     [<Inline>]
     static member BinarySearch<'T>(haystack: 'T[], start: int, length: int, needle: 'T) : int =
-        let compare y = compare (As<IComparable<'T>> needle) (As<IComparable<'T>> y)
+        let compare y = compare (As<IComparable> needle) (As<IComparable> y)
         binarySearch haystack compare start (start + length)
 
     [<Inline>]
@@ -144,11 +144,11 @@ type private ArrayProxy =
 
     [<Name "WebSharper.Arrays.clear">]
     static member Clear(array: System.Array, index: int, length: int) : unit =
-        if isNull array then raise (ArgumentNullException(array))
+        if isNull array then raise (ArgumentNullException("array"))
         if index < 0 || length < 0 || index + length > array.Length then raise (IndexOutOfRangeException())
         for i = index to index + length - 1 do
-            (As<JSArray[]> array).[i] <-
-                match JS.TypeOf (As<JSArray[]> array).[i] with
+            (As<JSArray<obj>> array).[i] <-
+                match JS.TypeOf (As<JSArray<obj>> array).[i] with
                 | JS.Number -> box 0
                 | _ -> null
 
@@ -160,7 +160,7 @@ type private ArrayProxy =
     static member ConstrainedCopy(src: System.Array, srcIndex: int, dst: System.Array, dstIndex: int, length: int) =
         if src ===. dst && dstIndex <= srcIndex + length then
             let tmp = Array.init length (fun i -> (As<obj[]> src).[srcIndex + i])
-            Array.blit tmp 0 dst dstIndex length
+            Array.blit tmp 0 (As<obj[]> dst) dstIndex length
         else
             Array.blit (As<obj[]> src) srcIndex (As<obj[]> dst) dstIndex length
 
@@ -253,7 +253,7 @@ type private ArrayProxy =
 
     [<Inline>]
     member this.GetValue(i: int) =
-        (As<obj[]> this).[i] :> obj
+        (As<obj[]> this).[i]
 
     [<Inline>]
     static member IndexOf(haystack: System.Array, needle: obj, startIndex: int, count:  int) : int =

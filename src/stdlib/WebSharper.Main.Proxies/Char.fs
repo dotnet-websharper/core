@@ -41,10 +41,10 @@ type private CharProxy =
     member this.Equals(s: char) = X<bool>
 
     [<Inline "$this === $s">]
-    member this.Equals(s: obj) = X<bool>
+    override this.Equals(s: obj) = X<bool>
 
     [<Inline>]
-    member this.GetHashCode() = hash this
+    override this.GetHashCode() = hash this
 
     static member GetNumericValue(c: char) : float =
         if c >= '0' && c <= '9' then float c - float '0' else -1.
@@ -103,4 +103,4 @@ type private CharProxy =
     static member (+) (x: char, y: char) : char = x + y
 
     [<Inline "$this">]
-    member this.ToString() = X<string>
+    override this.ToString() = X<string>
