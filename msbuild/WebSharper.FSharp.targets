@@ -33,6 +33,8 @@
     <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperJsOutput)</OtherFlags>
+    <OtherFlags Condition=" '$(WebSharperMinJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperMinJsOutput)</OtherFlags>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
   </PropertyGroup>

@@ -29,6 +29,8 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperDeadCodeElimination { get; set; } = "";
         public string WebSharperDownloadResources { get; set; } = "";
         public string WebSharperAnalyzeClosures { get; set; }
+        public string WebSharperJsOutput { get; set; }
+        public string WebSharperMinJsOutput { get; set; }
         public string DocumentationFile { get; set; } = "";
         public string ZafirToolPath { get; set; } = "ZafirCs.exe";
         public string DefineConstants { get; set; } = "";
@@ -87,6 +89,9 @@ namespace WebSharper.MSBuild.CSharp
                     w.WriteLine("--dlres");
 
                 WriteIfSet(w, "--closures:", WebSharperAnalyzeClosures);
+
+                WriteIfSet(w, "--jsoutput:", WebSharperJsOutput);
+                WriteIfSet(w, "--minjsoutput:", WebSharperMinJsOutput);
 
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");

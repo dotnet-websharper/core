@@ -57,6 +57,8 @@
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperJsOutput="$(WebSharperJsOutput)"
+      WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       ZafirToolPath="$(ZafirToolPath)"
       TargetType="$(OutputType)"
       NoConfig="true"

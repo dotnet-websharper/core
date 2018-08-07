@@ -425,6 +425,8 @@ let HandleDefaultArgsAndCommands argv isFSharp =
                           default: false
   --wsoutput:<dir>      Specify output directory for WebSharper-generated files
                           available for --ws:html,bundle,bundleOnly
+  --jsoutput:<path>     Specify output file for compiled JavaScript
+  --minjsoutput:<path>  Specify output file for compiled & minified JavaScript
   --project:<path>      Location of project file
   --closures[+|-]       Enable JS closure analysis
                           default: false
@@ -463,6 +465,10 @@ let RecognizeWebSharperArg a wsArgs =
         Some { wsArgs with OutputDir = Some o }
     | StartsWith "--project:" p ->
         Some { wsArgs with ProjectFile = Path.Combine(Directory.GetCurrentDirectory(), p) }
+    | StartsWith "--jsoutput:" f ->
+        Some { wsArgs with JSOutputPath = Some f }
+    | StartsWith "--minjsoutput:" f ->
+        Some { wsArgs with MinJSOutputPath = Some f }
     | Flag "--closures" v ->
         Some { wsArgs with AnalyzeClosures = Some v }
     | StartsWith "--closures:" c ->
