@@ -794,12 +794,25 @@ module Interfaces =
             "relatedTarget" =? EventTarget
         ]
 
+    let MouseButtons =
+        Class "MouseButtons"
+        |+> Static [
+            "none" =? T<int> |> WithGetterInline "0"
+            "left" =? T<int> |> WithGetterInline "1"
+            "right" =? T<int> |> WithGetterInline "2"
+            "middle" =? T<int> |> WithGetterInline "4"
+            "back" =? T<int> |> WithGetterInline "8"
+            "forward" =? T<int> |> WithGetterInline "16"
+        ]
+        |> WithComment "Flags for the Buttons property of MouseEvent. Note that this is different from the Button property."
+
     let MouseEvent =
         Class "MouseEvent"
         |=> Inherits UIEvent
         |+> Instance [
                 "altKey" =? T<bool>
                 "button" =? T<int> // short
+                "buttons" =? T<int>
                 "clientX" =? T<int>
                 "clientY" =? T<int>
                 "ctrlKey" =? T<bool>
@@ -1260,6 +1273,7 @@ module Definition =
                 I.DocumentView
                 I.AbstractView
                 I.UIEvent
+                I.MouseButtons
                 I.MouseEvent
                 I.MouseWheelEvent
                 I.WheelEvent
