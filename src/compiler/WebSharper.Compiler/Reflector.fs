@@ -266,9 +266,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     try methods.Add(mdef, (kind, opts, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
-        
-        if constructors.Count = 0 && methods.Count = 0 then () else
-                           
+
         classes.Add(def, 
             {
                 Address = prototypes.TryFind(def.Value.FullName) |> Option.map (fun s -> s.Split('.') |> List.ofArray |> List.rev |> Address)

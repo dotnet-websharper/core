@@ -137,7 +137,17 @@ module Definition =
             "asLowerCase" =@ !? T<string> |> Indexed Lowercase
                 |> WithInteropGetterInline (fun tr -> sprintf "$this[%s]" (tr "index"))
                 |> WithInteropSetterInline (fun tr -> sprintf "$wsruntime.SetOrDelete($this, %s, %s)" (tr "index") (tr "value"))
-        ] 
+        ]
+
+    module Regression1010 =
+        let A =
+            Class "Regression1010.A"
+
+        let B =
+            Class "Regression1010.B"
+            |=> Inherits A
+            |+> Static [Constructor T<unit>]
+            |+> Instance ["m" => T<unit> ^-> T<int>]
 
     let Assembly =
         let res1 = Resource "WIGTestJs" "WIGtest.js"
@@ -155,6 +165,10 @@ module Definition =
                  ObjWithOptionalFields
                  res1 |> AssemblyWide
                  Resource "WIGTestJs2" "WIGtest2.js" |> Requires [ res1 ] |> AssemblyWide
+            ]
+            Namespace "WebSharper.InterfaceGenerator.Tests.Regression1010" [
+                Regression1010.A
+                Regression1010.B
             ]
         ]
 

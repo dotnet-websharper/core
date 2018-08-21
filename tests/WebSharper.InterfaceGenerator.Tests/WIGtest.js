@@ -118,3 +118,11 @@ var StubTest = {
 StubTest.Class.Static = function () { return 4; };
 
 var StubTestClass = StubTest.Class;
+
+var Regression1010 = {
+  A: function() { this.a = 42; },
+  B: function() { Regression1010.A.call(this); }
+};
+
+Regression1010.A.prototype.m = function() { return this.a; }
+Regression1010.B.prototype = Object.create(Regression1010.A.prototype);

@@ -474,6 +474,11 @@ module Bug991 =
             override __.ToFoo s = 42
             override __.FromFoo x = "wee"
 
+/// Regression would make this fail at compile time
+[<JavaScript>]
+type Bug1010() =
+    inherit WebSharper.InterfaceGenerator.Tests.Regression1010.B()
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -973,4 +978,8 @@ let Tests =
         //Test "Recursive module value" {
         //    equal (moduleFuncValue 0) 5
         //}
+
+        Test "#1010 WIG inheritance" {
+            equal (Bug1010().M()) 42
+        }
     }
