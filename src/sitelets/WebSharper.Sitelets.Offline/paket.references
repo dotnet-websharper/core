@@ -1,4 +1,0 @@
-﻿Mono.Cecil copy_local: false
-  exclude Mono.Cecil.Rocks.dll
-group compilers
-  FSharp.Core copy_local: false

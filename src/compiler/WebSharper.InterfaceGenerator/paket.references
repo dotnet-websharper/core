@@ -1,7 +1,0 @@
-Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
-FSharp.Core
-System.ValueTuple
-System.CodeDom
-group compilers
-  FSharp.Compiler.Tools

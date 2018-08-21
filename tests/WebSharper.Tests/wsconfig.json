@@ -1,5 +1,0 @@
-{
-  "JavaScript": [ "WebSharper.Tests.Basis+SameName" ],
-  "JsOutput": "obj/output.js",
-  "MinJsOutput": "obj/output.min.js"
-}
