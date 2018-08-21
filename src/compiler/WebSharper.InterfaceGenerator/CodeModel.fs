@@ -32,7 +32,7 @@ module CodeModel =
         | NotObsolete
         | Obsolete of string option
 
-    type MethodKind = NonVirtual | Override | Abstract | Virtual
+    type MethodKind = NonVirtual | Implementation | Override | Abstract | Virtual
 
     and [<AbstractClass>] Entity =
         val mutable Name : string

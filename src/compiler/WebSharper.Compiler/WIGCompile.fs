@@ -825,7 +825,8 @@ type MemberConverter
     let instanceMethodAttributes = MethodAttributes.Public
     let ctorMethodAttributes = MethodAttributes.Public
     let interfaceMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
-    let overrideMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Final ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
+    let implementMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Final ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
+    let overrideMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig
     let abstractMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Abstract ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
     let virtualMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
 
@@ -836,6 +837,7 @@ type MemberConverter
         | :? Code.Member as m when m.IsStatic -> staticMethodAttributes
         | :? Code.Method as m ->
             match m.Kind with
+            | Code.Implementation -> implementMethodAttributes
             | Code.NonVirtual -> instanceMethodAttributes
             | Code.Virtual -> virtualMethodAttributes
             | Code.Override -> overrideMethodAttributes
@@ -1005,8 +1007,8 @@ type MemberConverter
             else
                 match x.Kind with
                 | CodeModel.NonVirtual -> false
-                | CodeModel.Override -> x.Inline.IsNone
-                | CodeModel.Abstract | CodeModel.Virtual ->
+                | CodeModel.Implementation -> x.Inline.IsNone
+                | CodeModel.Override | CodeModel.Abstract | CodeModel.Virtual ->
                     if x.Inline.IsSome then
                         failwithf "Cannot create abstract or virtual method with inline: %s on %s" x.Name dT.Name
                     true

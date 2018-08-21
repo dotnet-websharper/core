@@ -158,7 +158,7 @@ module Pervasives =
                     |> Seq.groupBy (fun m -> m.Name, m.Type)
                     |> Seq.map (fun (_, overrides) ->
                         let m = Seq.head overrides   
-                        m.Kind <- CodeModel.Override
+                        m.Kind <- CodeModel.Implementation
                         m
                     )
                     |> List.ofSeq
