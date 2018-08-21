@@ -119,6 +119,23 @@ StubTest.Class.Static = function () { return 4; };
 
 var StubTestClass = StubTest.Class;
 
+var AbsCls = function(arg) { this.arg = arg; }
+AbsCls.prototype.virtMeth = function () { return "base virtual method from " + this.arg; }
+AbsCls.prototype.concMeth = function () { return "concrete method from " + this.arg; }
+
+var OverridingCls = function() { AbsCls.call(this, "OverridingCls"); }
+OverridingCls.prototype = Object.create(AbsCls.prototype);
+OverridingCls.prototype.absMeth = function () { return "overridden abstract method from OverridingCls"; }
+OverridingCls.prototype.virtMeth = function () { return "overridden virtual method from OverridingCls"; }
+
+var NonOverridingCls = function() { AbsCls.call(this, "NonOverridingCls"); }
+NonOverridingCls.prototype = Object.create(AbsCls.prototype);
+NonOverridingCls.prototype.absMeth = function () { return "overridden abstract method from NonOverridingCls"; }
+
+var ConcCls = function(arg) { this.arg = arg; }
+ConcCls.prototype.virtMeth = function () { return "base virtual method from " + this.arg; }
+ConcCls.prototype.concMeth = function () { return "concrete method from " + this.arg; }
+
 var Regression1010 = {
   A: function() { this.a = 42; },
   B: function() { Regression1010.A.call(this); }

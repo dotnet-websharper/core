@@ -68,6 +68,9 @@ module Pervasives =
     /// Constructs a new class.
     let Class name = Code.Class name
 
+    /// Constructs a new abstract class.
+    let AbstractClass name = Code.Class(name, true)
+
     /// Constructs a new interface.
     let Interface name = Code.Interface name
 
@@ -155,7 +158,7 @@ module Pervasives =
                     |> Seq.groupBy (fun m -> m.Name, m.Type)
                     |> Seq.map (fun (_, overrides) ->
                         let m = Seq.head overrides   
-                        m.IsOverride <- true
+                        m.Kind <- CodeModel.Override
                         m
                     )
                     |> List.ofSeq
@@ -218,16 +221,33 @@ module Pervasives =
     // already provides the `T?x` syntax.
     // However, static members operators are always overridden
     // by `let`-bound operators, regardless of the order in which
-    // they are brought to scope. This means that if `IF.WS.JavaScript`
+    // they are brought to scope. This means that if `WS.JavaScript`
     // is opened in a WIG project, then any use of `?` will invoke
     // JavaScript field access, instead of the intended parameter naming.
-    // With the `let` definition below, opening `IF.WS.InterfaceGenerator`
-    // after `IF.WS.JavaScript` allows the use of the correct operator.
+    // With the `let` definition below, opening `WS.InterfaceGenerator`
+    // after `WS.JavaScript` allows the use of the correct operator.
 
     /// `T?x` constructs a `Parameter` named "x" of type `T`.
     let inline ( ? ) (ty: ^T) name =
         (^T : (static member op_Dynamic : ^T * string -> ^U) (ty, name))
-        
+
+    /// Marks a method as abstract.
+    /// A class including this method must be declared with AbstractClass.
+    let Abstract (m: Code.Method) =
+        m |> Code.Entity.Update (fun m -> m.Kind <- CodeModel.Abstract)
+
+    /// Marks a method as virtual.
+    let Virtual (m: Code.Method) =
+        m |> Code.Entity.Update (fun m -> m.Kind <- CodeModel.Virtual)
+
+    /// Marks a method as override.
+    let Override (m: Code.Method) =
+        m |> Code.Entity.Update (fun m -> m.Kind <- CodeModel.Override)
+
+    /// Marks a method as non-virtual (which is the default).
+    let NonVirtual (m: Code.Method) =
+        m |> Code.Entity.Update (fun m -> m.Kind <- CodeModel.NonVirtual)
+
     /// Marks an entity with the Obsolete attribute.
     let Obsolete (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete None)

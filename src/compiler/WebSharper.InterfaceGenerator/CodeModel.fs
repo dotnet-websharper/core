@@ -32,6 +32,8 @@ module CodeModel =
         | NotObsolete
         | Obsolete of string option
 
+    type MethodKind = NonVirtual | Override | Abstract | Virtual
+
     and [<AbstractClass>] Entity =
         val mutable Name : string
         val mutable SourceName : option<string>
@@ -123,6 +125,8 @@ module CodeModel =
                 Properties = []
             }
 
+        abstract IsAbstract : bool
+
         /// Assigns the associated type.
         [<System.Obsolete>]
         static member ( |=> )<'T when 'T :> TypeDeclaration>
@@ -183,6 +187,8 @@ module CodeModel =
                 BaseInterfaces = []
             }
 
+        override this.IsAbstract = true
+
         /// Applies updates.
         static member ( |+> ) (this: Interface, xs: list<#IInterfaceMember>) =
             (this, xs)
@@ -200,15 +206,30 @@ module CodeModel =
 
     and Class =
         inherit TypeDeclaration
+        val isAbstract : bool
         val mutable BaseClass : option<T>
         val mutable ImplementedInterfaces : list<T>
         val mutable Constructors : list<Constructor>
         val mutable NestedClasses : list<Class>
         val mutable NestedInterfaces : list<Interface>
 
+        override this.IsAbstract = this.isAbstract
+
         internal new (name) =
             {
                 inherit TypeDeclaration(name)
+                BaseClass = None
+                isAbstract = false
+                ImplementedInterfaces = []
+                Constructors = []
+                NestedClasses = []
+                NestedInterfaces = []
+            }
+
+        internal new (name, isAbstract) =
+            {
+                inherit TypeDeclaration(name)
+                isAbstract = isAbstract
                 BaseClass = None
                 ImplementedInterfaces = []
                 Constructors = []
@@ -300,19 +321,29 @@ module CodeModel =
     and Method =
         inherit MethodBase
         val mutable Generics : list<TypeParameter>
-        val mutable IsOverride : bool
+        val mutable Kind : MethodKind
 
         internal new (name, t) =
             {
                 inherit MethodBase(name, t)
                 Generics = []
-                IsOverride = false
+                Kind = NonVirtual
             }
 
         member private this.Add<'T when 'T :> TypeDeclaration> (x: 'T) =
-            x |> Entity.Update (fun x -> x.Methods <- this :: x.Methods)
+            x |> Entity.Update (fun x ->
+                if this.Kind = Abstract && not x.IsAbstract then
+                    failwithf "Cannot add abstract method %s to non-abstract class %s" this.Name x.Name
+                x.Methods <- this :: x.Methods)
 
         override this.AddTo x = this.Add x
+
+        interface IClassMember with
+            member this.AddTo x = this.AddTo x
+            member this.SetIsStatic s =
+                if s && this.Kind <> NonVirtual then
+                    failwithf "Static method must be nonvirtual: %s" this.Name
+                this |> Entity.Update (fun x -> x.IsStatic <- s) :> _
 
         interface IInterfaceMember with
             member this.AddTo x =

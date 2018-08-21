@@ -52,6 +52,26 @@ type StubTestClassNamed =
     static member Static() = X<int>
 
 [<JavaScript>]
+type InheritAbsCls1() =
+    inherit AbsCls("InheritAbsCls1")
+    override this.AbsMeth() = "overridden abstract method from InheritAbsCls1"
+    override this.VirtMeth() = "overridden virtual method from InheritAbsCls1"
+
+[<JavaScript>]
+type InheritAbsCls2() =
+    inherit AbsCls("InheritAbsCls2")
+    override this.AbsMeth() = "overridden abstract method from InheritAbsCls2"
+
+[<JavaScript>]
+type InheritConcCls1() =
+    inherit ConcCls("InheritConcCls1")
+    override this.VirtMeth() = "overridden virtual method from InheritConcCls1"
+
+[<JavaScript>]
+type InheritConcCls2() =
+    inherit ConcCls("InheritConcCls2")
+
+[<JavaScript>]
 let Tests =
     TestCategory "Interface generator" {
 
@@ -250,5 +270,41 @@ let Tests =
             equal (s.GetX()) 3
             equal (s.GetY()) 3
             equal (StubTestClassNamed.Static()) 4
+        }
+
+        Test "Abstract class" {
+            let x1 = InheritAbsCls1()
+            equal (x1.AbsMeth()) "overridden abstract method from InheritAbsCls1"
+            equal (x1.VirtMeth()) "overridden virtual method from InheritAbsCls1"
+            equal (x1.ConcMeth()) "concrete method from InheritAbsCls1"
+
+            let x2 = InheritAbsCls2()
+            equal (x2.AbsMeth()) "overridden abstract method from InheritAbsCls2"
+            equal (x2.VirtMeth()) "base virtual method from InheritAbsCls2"
+            equal (x2.ConcMeth()) "concrete method from InheritAbsCls2"
+
+            let x3 = OverridingCls()
+            equal (x3.AbsMeth()) "overridden abstract method from OverridingCls"
+            equal (x3.VirtMeth()) "overridden virtual method from OverridingCls"
+            equal (x3.ConcMeth()) "concrete method from OverridingCls"
+
+            let x4 = NonOverridingCls()
+            equal (x4.AbsMeth()) "overridden abstract method from NonOverridingCls"
+            equal (x4.VirtMeth()) "base virtual method from NonOverridingCls"
+            equal (x4.ConcMeth()) "concrete method from NonOverridingCls"
+        }
+
+        Test "Concrete class with virtual method" {
+            let x1 = InheritConcCls1()
+            equal (x1.VirtMeth()) "overridden virtual method from InheritConcCls1"
+            equal (x1.ConcMeth()) "concrete method from InheritConcCls1"
+
+            let x2 = InheritConcCls2()
+            equal (x2.VirtMeth()) "base virtual method from InheritConcCls2"
+            equal (x2.ConcMeth()) "concrete method from InheritConcCls2"
+
+            let x3 = ConcCls("ConcCls")
+            equal (x3.VirtMeth()) "base virtual method from ConcCls"
+            equal (x3.ConcMeth()) "concrete method from ConcCls"
         }
     }

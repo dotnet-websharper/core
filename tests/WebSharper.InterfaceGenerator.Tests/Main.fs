@@ -139,6 +139,46 @@ module Definition =
                 |> WithInteropSetterInline (fun tr -> sprintf "$wsruntime.SetOrDelete($this, %s, %s)" (tr "index") (tr "value"))
         ]
 
+    let AbsCls =
+        AbstractClass "AbsCls"
+        |+> Static [Constructor T<string>]
+        |+> Instance [
+            "absMeth" => T<unit> ^-> T<string>
+            |> Abstract
+            "virtMeth" => T<unit> ^-> T<string>
+            |> Virtual
+            "concMeth" => T<unit> ^-> T<string>
+        ]
+
+    let OverridingCls =
+        Class "OverridingCls"
+        |=> Inherits AbsCls
+        |+> Static [Constructor T<unit>]
+        |+> Instance [
+            "absMeth" => T<unit> ^-> T<string>
+            |> Override
+            "virtMeth" => T<unit> ^-> T<string>
+            |> Override
+        ]
+
+    let NonOverridingCls =
+        Class "NonOverridingCls"
+        |=> Inherits AbsCls
+        |+> Static [Constructor T<unit>]
+        |+> Instance [
+            "absMeth" => T<unit> ^-> T<string>
+            |> Override
+        ]
+
+    let ConcCls =
+        Class "ConcCls"
+        |+> Static [Constructor T<string>]
+        |+> Instance [
+            "virtMeth" => T<unit> ^-> T<string>
+            |> Virtual
+            "concMeth" => T<unit> ^-> T<string>
+        ]
+
     module Regression1010 =
         let A =
             Class "Regression1010.A"
@@ -163,6 +203,10 @@ module Definition =
                  ConfigObj
                  OneBasedArr
                  ObjWithOptionalFields
+                 AbsCls
+                 OverridingCls
+                 NonOverridingCls
+                 ConcCls
                  res1 |> AssemblyWide
                  Resource "WIGTestJs2" "WIGtest2.js" |> Requires [ res1 ] |> AssemblyWide
             ]
