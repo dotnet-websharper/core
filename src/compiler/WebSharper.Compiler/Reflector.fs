@@ -186,6 +186,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         let methods = Dictionary()
         let constructors = Dictionary()
+        let abstractMethods = HashSet()
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
@@ -263,9 +264,14 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
 
+                    if meth.IsAbstract || meth.IsVirtual then abstractMethods.Add(mdef) |> ignore
+
                     try methods.Add(mdef, (kind, opts, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
+
+        for mdef in abstractMethods do
+            graph.AddEdge(TypeNode def, MethodNode(def, mdef))
 
         classes.Add(def, 
             {
