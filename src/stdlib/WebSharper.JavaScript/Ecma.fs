@@ -406,8 +406,8 @@ module Definition =
         Class "Promise"
         |+> Static [
             Constructor ((a ^-> T<unit>) * (T<obj> ^-> T<unit>) ^-> T<unit>)?executor
-            "all" => TSelf.[a] ^-> TSelf.[Type.ArrayOf a]
-            "race" => TSelf.[a] ^-> TSelf.[a]
+            "all" => Type.ArrayOf TSelf.[a] ^-> TSelf.[Type.ArrayOf a]
+            "race" => Type.ArrayOf TSelf.[a] ^-> TSelf.[a]
             "reject" => T<obj>?reason ^-> TSelf.[a]
             "resolve" => a?value ^-> TSelf.[a]
             "resolve" => TSelf.[a] ^-> TSelf.[a]
