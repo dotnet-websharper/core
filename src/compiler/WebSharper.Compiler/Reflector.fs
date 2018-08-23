@@ -186,6 +186,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         let methods = Dictionary()
         let constructors = Dictionary()
+        let abstractAndVirtualMethods = ResizeArray()
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
@@ -263,9 +264,31 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
 
+                    if meth.IsAbstract then
+                        // Abstract method
+                        let aNode = graph.AddOrLookupNode(AbstractMethodNode(def, mdef))
+                        graph.AddEdge(mNode, aNode)
+                        abstractAndVirtualMethods.Add(aNode) |> ignore
+                    elif meth.IsVirtual then
+                        let bdef =
+                            if meth.HasOverrides then
+                                // Override
+                                getTypeDefinition meth.Overrides.[0].DeclaringType // why are there several Overrides?
+                            else
+                                // Virtual method
+                                def
+                        let aNode = graph.AddOrLookupNode(AbstractMethodNode(def, mdef))
+                        graph.AddEdge(mNode, aNode)
+                        graph.AddOverride(def, bdef, mdef)
+
                     try methods.Add(mdef, (kind, opts, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
+
+        // Reflector is used for WIG, where abstract/virtual methods are generally meant to be called externally,
+        // so any override of them should never be DCE'd. This enforces it.
+        for aNode in abstractAndVirtualMethods do
+            graph.AddEdge(clsNodeIndex, aNode)
 
         classes.Add(def, 
             {
