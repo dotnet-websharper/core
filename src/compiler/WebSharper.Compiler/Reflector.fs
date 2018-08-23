@@ -280,6 +280,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         let aNode = graph.AddOrLookupNode(AbstractMethodNode(def, mdef))
                         graph.AddEdge(mNode, aNode)
                         graph.AddOverride(def, bdef, mdef)
+                        abstractAndVirtualMethods.Add(aNode) |> ignore
 
                     try methods.Add(mdef, (kind, opts, body))
                     with _ ->
