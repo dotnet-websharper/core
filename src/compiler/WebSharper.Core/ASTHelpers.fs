@@ -91,6 +91,8 @@ let ReadLiteral (value: obj) =
     | :? uint32 as x -> UInt32 x
     | :? uint64 as x -> UInt64 x
     | :? decimal as x -> Decimal x
+    | :? (byte[]) as x -> ByteArray x
+    | :? (uint16[]) as x -> UInt16Array x
     | _ -> failwithf "Literal value not recognized: %A" value
 
 let private uncheckedOps =

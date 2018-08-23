@@ -861,4 +861,18 @@ let Tests =
             raises (Array.transpose [|[|1|]; [| |]|])
             equal (Array.transpose [|[|1; 2|]; [|3; 4|]|]) [|[|1; 3|]; [|2; 4|]|]
         }
+
+        // Array literals of uint8 and uint16 are treated specially as actual literal values
+        // rather than as constructing an array with literals as contents.
+        Test "Array byte literals" {
+            let uyArr = [| 1uy; 42uy |]
+            equal uyArr.Length 2
+            equal uyArr.[0] 1uy
+            equal uyArr.[1] 42uy
+
+            let usArr = [| 1us; 1036us |]
+            equal usArr.Length 2
+            equal usArr.[0] 1us
+            equal usArr.[1] 1036us
+        }
     }
