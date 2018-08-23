@@ -186,7 +186,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         let methods = Dictionary()
         let constructors = Dictionary()
-        let abstractAndVirtualMethods = HashSet()
+        let abstractAndVirtualMethods = ResizeArray()
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
