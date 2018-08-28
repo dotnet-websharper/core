@@ -119,6 +119,17 @@ StubTest.Class.Static = function () { return 4; };
 
 var StubTestClass = StubTest.Class;
 
+var StubModule = {
+  Function_add1: function(x) { return x + 1; },
+  UnitFunction_returns2: function() { return 2; },
+  Value_equals15: 15,
+  Nested: {
+    Function_add20: function(x) { return x + 20; },
+    UnitFunction_returns54: function() { return 54; },
+    Value_equals28: 28
+  }
+};
+
 var AbsCls = function(arg) { this.arg = arg; }
 AbsCls.prototype.virtMeth = function () { return "base virtual method from " + this.arg; }
 AbsCls.prototype.concMeth = function () { return "concrete method from " + this.arg; }

@@ -420,7 +420,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
-                let expr, err = Stubs.GetMethodInline annot mAnnot isInstance def mdef
+                let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
                 err |> Option.iter error
                 addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true expr
             | Member.Constructor cdef ->

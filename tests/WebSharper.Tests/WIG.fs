@@ -51,6 +51,18 @@ type StubTestClassNamed =
     member this.GetX() = X<int>
     static member Static() = X<int>
 
+[<Stub>]
+module StubModule =
+    let Function_add1 (x: int) = X<int>
+    let UnitFunction_returns2 () = X<int>
+    let Value_equals15 = X<int>
+
+[<Stub; Name "StubModule.Nested">]
+module NamedStubModule =
+    let Function_add20 (x: int) = X<int>
+    let UnitFunction_returns54 () = X<int>
+    let Value_equals28 = X<int>
+
 [<JavaScript>]
 type InheritAbsCls1() =
     inherit AbsCls("InheritAbsCls1")
@@ -306,5 +318,14 @@ let Tests =
             let x3 = ConcCls("ConcCls")
             equal (x3.VirtMeth()) "base virtual method from ConcCls"
             equal (x3.ConcMeth()) "concrete method from ConcCls"
+        }
+
+        Test "Stub module" {
+            equal (StubModule.Function_add1 100) 101
+            equal (StubModule.UnitFunction_returns2 ()) 2
+            equal StubModule.Value_equals15 15
+            equal (NamedStubModule.Function_add20 33) 53
+            equal (NamedStubModule.UnitFunction_returns54 ()) 54
+            equal NamedStubModule.Value_equals28 28
         }
     }
