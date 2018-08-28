@@ -603,41 +603,22 @@ let listOfArrayDef =
         Generics = 1      
     }
 
-let getFieldsList q =
-    let ``is (=>)`` (td: TypeDefinition) (m: Method) =
-        td.Value.FullName = "WebSharper.JavaScript.Pervasives"
-        && m.Value.MethodName = "op_EqualsGreater"
-    let rec getFieldsListTC l q =
-        let trItem i =
-            match IgnoreExprSourcePos i with    
-            | NewArray [I.Value (String n); v] -> n, v 
-            | Call (_, td, m, [I.Value (String n); v])
-                when ``is (=>)`` td.Entity m.Entity -> n, v
-            | _ -> failwith "Wrong type of array passed to New"
-        match IgnoreExprSourcePos q with
-        | NewUnionCase (_, _, [I.NewArray [I.Value (String n); v]; t]) ->
-            getFieldsListTC ((n, v) :: l) t         
-        | NewUnionCase (_, _, [I.Call (_, td, m, [I.Value (String n); v]); t])
-            when ``is (=>)`` td.Entity m.Entity ->
-            getFieldsListTC ((n, v) :: l) t         
-        | NewUnionCase (_, _, []) -> Some (l |> List.rev) 
-        | Call(None, td, m, [ I.NewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
-            items |> List.map trItem |> Some
-        | NewArray (items) ->
-            items |> List.map trItem |> Some
-        | _ -> None
-    getFieldsListTC [] q
-
 [<Sealed>]
 type New() =
     inherit Macro()
+    override this.NeedsTranslatedArguments = true
     override this.TranslateCall(c) =
         match c.Arguments with
-        | [x] -> 
-            match getFieldsList x with
-            | Some xl ->
-                MacroOk <| Object (xl |> List.map (fun (n, v) -> n, v))
-            | _ -> MacroFallback
+        | [I.NewArray items] ->
+            let items, isOk =
+                (true, items)
+                ||> List.mapFold (fun isOk item ->
+                    match isOk, item with
+                    | true, I.NewArray [I.Value (String key); e] -> (key, e), true
+                    | _ -> ("", NewArray []), false
+                )
+            if isOk then MacroOk (Object items) else MacroFallback
+        | [_] -> MacroFallback
         | _ -> MacroError "New macro Error"
 
 //type FST = Reflection.FSharpType

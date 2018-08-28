@@ -107,6 +107,11 @@ type Macro() =
     abstract Close : Metadata.ICompilation -> unit
     default this.Close _ = ()
 
+    /// Set this to true if compiler must translate the arguments to JavaScript expressions before calling TranslateCall or TranslateCtor.
+    /// Default is false, ie. arguments are .NET expressions.
+    abstract NeedsTranslatedArguments : bool
+    default this.NeedsTranslatedArguments = false
+
 /// The return type of Generate method of a generator 
 type GeneratedMember =
     | GeneratedMethod of TypeDefinition * Method

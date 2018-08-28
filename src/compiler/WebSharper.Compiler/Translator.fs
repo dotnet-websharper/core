@@ -868,6 +868,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match comp.GetMacroInstance(macro) with
                 | Some m ->
                     try 
+                        let args =
+                            if m.NeedsTranslatedArguments then
+                                List.map this.TransformExpression args
+                            else args
                         m.TranslateCall {
                             This = thisObj
                             DefiningType = typ
@@ -1120,6 +1124,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match comp.GetMacroInstance(macro) with
                 | Some m ->
                     try
+                        let args =
+                            if m.NeedsTranslatedArguments then
+                                List.map this.TransformExpression args
+                            else args
                         m.TranslateCtor {
                             DefiningType = typ
                             Constructor = ctor
