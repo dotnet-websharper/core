@@ -43,9 +43,14 @@ let Tests =
             isTrue (Nullable(2).HasValue)
         }
 
-        Test "GetValueOrDefault" {
+        Test "GetValueOrDefault(x)" {
             equal (Nullable<int>().GetValueOrDefault(2)) 2
             equal (Nullable(1).GetValueOrDefault(2)) 1
+        }
+
+        Test "GetValueOrDefault()" {
+            equal (Nullable<int>().GetValueOrDefault()) 0
+            equal (Nullable(32).GetValueOrDefault()) 32
         }
 
         Test "Operators" {

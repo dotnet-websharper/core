@@ -25,13 +25,13 @@ open WebSharper.JavaScript
 [<JavaScript>]
 module Nullable =
     let get (x: obj) =
-        if x ==. null then failwith "Nullable object must have a value." else x
+        if x ===. null then failwith "Nullable object must have a value." else x
 
 ////    let getOrDefault<'T> (x: 'T) =
 //        if x ==. null then Unchecked.defaultof<'T> else x     
 
     let getOrValue<'T> (x: 'T) (v: 'T)  =
-        if x ==. null then v else x     
+        if x ===. null then v else x     
 
 [<Proxy(typeof<System.Nullable<_>>)>]
 type private NullableProxy<'T> =
@@ -48,8 +48,8 @@ type private NullableProxy<'T> =
     member this.HasValue
         with [<JavaScript; Inline>] get() = this !=. null
 
-//    [<Inline>]
-////    member this.GetValueOrDefault() : 'T = Nullable.getOrDefault (As<'T> this)
+    [<Inline>]
+    member this.GetValueOrDefault() : 'T = Nullable.getOrValue (As<'T> this) Unchecked.defaultof<'T>
 
     [<Inline>]
     member this.GetValueOrDefault(v: 'T) : 'T = Nullable.getOrValue (As<'T> this) v
