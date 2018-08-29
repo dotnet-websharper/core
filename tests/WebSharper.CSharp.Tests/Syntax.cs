@@ -487,6 +487,55 @@ namespace WebSharper.CSharp.Tests
             Equal(default(string), null);
         }
 
+        private class NullTest
+        {
+            int x;
+
+            public NullTest(int x)
+            {
+                this.x = x;
+            }
+
+            public int? X() => this.x;
+
+            public int? Increment() {
+                this.x++;
+                return this.x;
+            }
+        }
+
+        [Test]
+        public void NullConditionalAccess()
+        {
+            NullTest x = null;
+            Equal(x?.X(), null, "object null case");
+            x = new NullTest(42);
+            Equal(x?.X(), 42, "object non null case");
+            Equal(x?.Increment(), 43, "check side effect 1");
+            Equal(x?.Increment(), 44, "check side effect 2");
+
+            int? y = null;
+            Equal(y?.ToString(), null, "Nullable null case");
+            y = 23;
+            Equal(y?.ToString(), "23", "Nullable non-null case");
+        }
+
+        [Test]
+        public void NullCoalesce()
+        {
+            NullTest x = null;
+            Equal((x ?? new NullTest(42)).X(), 42, "object null case");
+            x = new NullTest(53);
+            Equal((x ?? new NullTest(42)).X(), 53, "object non-null case");
+            Equal(x.Increment() ?? 12, 54, "check side effect 1");
+            Equal(x.Increment() ?? 35, 55, "check side effect 2");
+
+            int? y = null;
+            Equal(y ?? 67, 67, "Nullable null case");
+            y = 23;
+            Equal(y ?? 67, 23, "Nullable non-null case");
+        }
+
         public int this[int i] => i * i;
 
         public string this[string x] { get { return x + "!"; } }
