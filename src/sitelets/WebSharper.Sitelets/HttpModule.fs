@@ -204,9 +204,13 @@ type HttpModule() =
 
     interface IHttpModule with
         member this.Init app =
+            match Loading.SiteletDefinition with
+            | None -> failwith "Failed to find WebSharper Sitelet definition. Add one in a WebSharper-translated assembly or do not load WebSharper.Sitelets.HttpModule."
+            | Some siteletDef ->
             let appPath = HttpRuntime.AppDomainAppVirtualPath
+            
             runtime <- Some (
-                Loading.SiteletDefinition,
+                siteletDef,
                 ResourceContext.ResourceContext appPath,
                 appPath,
                 HttpRuntime.AppDomainAppPath

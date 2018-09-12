@@ -85,5 +85,4 @@ let SiteletDefinition =
         System.Web.Compilation.BuildManager.GetReferencedAssemblies()
         |> Seq.cast<Assembly>
         |> DiscoverSitelet
-        |> Option.defaultValue Sitelet.Empty
 #endif
