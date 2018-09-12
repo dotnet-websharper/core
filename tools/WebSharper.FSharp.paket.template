@@ -28,6 +28,7 @@ files
     ../build/Release/FSharp/net461/deploy/System.IO.Compression.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/System.Reflection.Metadata.dll ==> tools/net461
     ../build/Release/FSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
+    ../build/Release/FSharp/net461/deploy/System.Runtime.dll ==> tools/net461
     ../build/Release/FSharp/net461/netstandard.dll ==> tools/net461
     ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netcoreapp2.0/deploy/wsfsc.dll.config ==> tools/netstandard2.0
@@ -50,6 +51,7 @@ files
     ../build/Release/FSharp/netcoreapp2.0/deploy/System.CodeDom.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netcoreapp2.0/deploy/System.Configuration.ConfigurationManager.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netcoreapp2.0/deploy/System.Security.Cryptography.ProtectedData.dll ==> tools/netstandard2.0
+    ../build/Release/FSharp/netcoreapp2.0/deploy/System.Reflection.Metadata.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netcoreapp2.0/deploy/Microsoft.DotNet.PlatformAbstractions.dll ==> tools/netstandard2.0
     ../build/Release/FSharp/netcoreapp2.0/deploy/Microsoft.Extensions.DependencyModel.dll ==> tools/netstandard2.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
