@@ -15,7 +15,6 @@
     <Compile Include="Main.fs" />
     <None Include="genHelpers.fsx" />
     <None Include="paket.references" />
-    <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />

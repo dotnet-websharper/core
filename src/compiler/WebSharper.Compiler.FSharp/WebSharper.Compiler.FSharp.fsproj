@@ -18,7 +18,6 @@
     <None Include="genTransformer.fsx" />
     <None Include="tests.fsx" />
     <None Include="paket.references" />
-    <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

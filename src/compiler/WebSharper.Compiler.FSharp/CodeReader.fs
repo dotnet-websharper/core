@@ -44,6 +44,10 @@ module P = BasicPatterns
 let rec getOrigType (t: FSharpType) =
     if t.IsAbbreviation then getOrigType t.AbbreviatedType else t
 
+let isByRefDef (td: FSharpEntity) =
+    // workaround for FCS bug 
+    td.IsByRef || td.CompiledName = "byref`2"
+
 let isUnit (t: FSharpType) =
     let t = getOrigType t
     if t.IsGenericParameter then
@@ -52,7 +56,7 @@ let isUnit (t: FSharpType) =
     let t = getOrigType t
     if t.IsTupleType || t.IsFunctionType then false else
     let td = t.TypeDefinition
-    if td.IsArrayType || td.IsByRef then false
+    if td.IsArrayType || isByRefDef td then false
     elif td.IsProvidedAndErased then false
     else td.FullName = "Microsoft.FSharp.Core.Unit" || td.FullName = "System.Void"
 
@@ -82,7 +86,7 @@ let isByRef (t: FSharpType) =
         false
     else
     if t.IsTupleType || t.IsFunctionType then false else
-    t.HasTypeDefinition && t.TypeDefinition.IsByRef
+    t.HasTypeDefinition && isByRefDef t.TypeDefinition
 
 let getFuncArg t =
     let rec get acc (t: FSharpType) =
@@ -388,12 +392,14 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         let td = t.TypeDefinition
         if td.IsArrayType then
             ArrayType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0], td.ArrayRank)
-        elif td.IsByRef then
+        elif isByRefDef td then
             ByRefType(this.ReadTypeSt markStaticTP tparams t.GenericArguments.[0])
         else
             let fn = 
                 if td.IsProvidedAndErased then td.LogicalName else
-                td.FullName
+                try
+                    td.FullName
+                with _ -> failwithf "No FullName: LogicalName '%s', CompiledName '%s'" td.LogicalName td.CompiledName 
             if fn.StartsWith "System.Tuple" then
                 getTupleType false
             elif fn.StartsWith "System.ValueTuple" then
@@ -596,7 +602,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | FuncArg -> Var v
                 | ByRefArg -> 
                     let t = getOrigType expr.Type
-                    if t.HasTypeDefinition && t.TypeDefinition.IsByRef then Var v else GetRef (Var v)
+                    if t.HasTypeDefinition && isByRefDef t.TypeDefinition then Var v else GetRef (Var v)
                 | ThisArg -> This
         | P.Lambda _ ->
             let rec loop acc = function
@@ -1102,7 +1108,11 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             tr expr
         | P.Quote expr -> tr expr
         | P.BaseValue _ -> Base
-        | P.ILAsm("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]", _, [ arr; i ]) ->
+        | P.ILAsm
+            (
+                ("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]" 
+                    | "[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],!0)]"), _, [ arr; i ]
+            ) ->
             let arrId = newId()
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value))))

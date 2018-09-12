@@ -35,11 +35,17 @@ type AddressOfTests() =
     static member OutOne([<Out>] x: byref<int>) = 
         x <- 1
 
+    static member OutOne2(x: outref<int>) = 
+        x <- 1
+
     static member AddTwo(x: byref<int>) = 
         AddressOfTests.AddOne(&x)
         AddressOfTests.AddOne(&x)
 
-    static member ByRefReturn (x, a: byref<int>, b: byref<int>) =
+    static member InRef (x: inref<int>) =
+        x + 1
+
+    static member ByRefReturn (x, a: byref<int>, b: byref<int>) : byref<int> =
         if x then &a else &b
 
 [<JavaScript>]
@@ -114,14 +120,23 @@ let Tests =
             equal res 1
 
             equal (AddressOfTests.OutOne()) 1
+
+            equal (AddressOfTests.OutOne2()) 1
+        }      
+
+        Test "InRef" {
+            let res =
+                let mutable x = 1
+                AddressOfTests.InRef(&x)
+            equal res 2
         }      
 
         Test "Byref returns" {
             let res =
                 let mutable a = 0
                 let mutable b = 0
-                let ar = AddressOfTests.ByRefReturn(true, &a, &b) 
-                let br = AddressOfTests.ByRefReturn(false, &a, &b) 
+                let ar = &AddressOfTests.ByRefReturn(true, &a, &b) 
+                let br = &AddressOfTests.ByRefReturn(false, &a, &b) 
                 ar <- 1
                 br <- 2
                 a, b
