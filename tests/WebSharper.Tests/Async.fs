@@ -255,4 +255,15 @@ let Tests =
             equalAsync (Async.AwaitTask a) 1
             equalAsync (Async.AwaitTask b) 2
         }
+
+        Test "Match!" {
+            let! x = 
+                async {
+                    match! async { return Some 1 } with
+                    | Some x -> return x
+                    | None -> return 0
+                }
+            equal x 1 
+        }
+
     }

@@ -1,4 +1,4 @@
-version 5.173.1
+version 5.178.0
 
 references: strict
 redirects: on
@@ -10,7 +10,7 @@ storage: none
 
 nuget Microsoft.CSharp ~> 4.4.0
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
-nuget Mono.Cecil ~> 0.10-beta
+nuget Mono.Cecil ~> 0.10
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 2.8.0
@@ -19,7 +19,6 @@ nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core 4.2.3
-nuget FSharp.Compiler.Service ~> 23.0.3
 
 nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget NETStandard.Library ~> 2.0.0
@@ -33,11 +32,11 @@ nuget System.Reflection.Metadata 1.4.2
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.173.1
+    nuget Paket.Core 5.178.0
     nuget FAKE
     nuget AjaxMin
     nuget FSharp.Core
-    nuget Mono.Cecil prerelease
+    nuget Mono.Cecil
 
 group wsbuild
     git https://github.com/dotnet-websharper/build-script
@@ -51,6 +50,14 @@ group includes
 group compilers
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
-    nuget FSharp.Compiler.Tools ~> 10.0.2
+    nuget FSharp.Compiler.Tools ~> 10.2.1
     nuget FSharp.Core ~> 4.5.0
-    nuget Microsoft.Net.Compilers ~> 2.8.2
+    nuget Microsoft.Net.Compilers ~> 2.9.0
+
+group fcs
+    framework: net46, net461, netstandard2.0, netcoreapp2.0
+    source https://api.nuget.org/v3/index.json
+    strategy: min
+    storage: none
+    nuget FSharp.Compiler.Service ~> 23.0.3
+    nuget FSharp.Core ~> 4.5.0

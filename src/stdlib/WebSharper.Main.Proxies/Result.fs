@@ -22,13 +22,9 @@ namespace WebSharper
 
 open WebSharper
 
-#if FSHARP41
-
 [<Struct>]
 [<Proxy(typeof<Result<_,_>>)>]
 [<RequireQualifiedAccess>]
 type private ResultProxy<'T,'TError> =
     | Ok of ResultValue:'T 
     | Error of ErrorValue:'TError
-
-#endif

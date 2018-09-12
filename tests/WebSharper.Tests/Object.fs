@@ -123,7 +123,6 @@ type TestStruct =
 
     member this.X2 = this.X + 1
 
-#if FSHARP41
 [<JavaScript; Struct>]
 type StructUnion = SU of int
 
@@ -137,7 +136,6 @@ type StructRecord =
 [<JavaScript; Struct>]
 type StructRecord2 =
     { SR2 : int; SR2b : string }
-#endif
 
 [<CompilationRepresentation (CompilationRepresentationFlags.UseNullAsTrueValue)>]
 type U =
@@ -468,7 +466,6 @@ let Tests =
             equal ((b :?> I2).Get()) 2
         }
         
-        #if FSHARP41
         Test "Struct union" {
             let f x =
                 Console.Log "deconstructing struct union"
@@ -489,6 +486,5 @@ let Tests =
             equal y.SR2 1
             equal y.SR2b "a"
         }
-        #endif
 
     }

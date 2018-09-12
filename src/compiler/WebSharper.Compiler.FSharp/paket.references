@@ -1,6 +1,7 @@
-FSharp.Compiler.Service
-System.Collections.Immutable
-System.Reflection.Metadata
+group fcs
+  FSharp.Compiler.Service
+  System.Collections.Immutable
+  System.Reflection.Metadata
 Fsharp.Core
 group compilers
   Fsharp.Compiler.Tools
