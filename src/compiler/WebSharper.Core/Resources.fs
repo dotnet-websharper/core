@@ -22,6 +22,7 @@ module WebSharper.Core.Resources
 
 open System
 open System.IO
+open System.Net
 open System.Reflection
 
 module CT = ContentTypes
@@ -42,9 +43,6 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
 
     let mutable tagStack = System.Collections.Generic.Stack()
     let currentAttributes = ResizeArray()
-
-    let encodeText (text: string) =
-        text // TODO dotnet: do encode
 
     new (w) = new HtmlTextWriter(w, "\t")
 
@@ -88,8 +86,8 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         this.Write(">")
 
     member this.WriteEncodedText(text: string) =
-        this.Write(encodeText text)
-        
+        WebUtility.HtmlEncode(text, w)
+
     member this.AddAttribute(name: string, value: string) =
         currentAttributes.Add(struct (name, value))
 
@@ -97,7 +95,9 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         this.WriteAttribute(name, value, false)
 
     member this.WriteAttribute(name: string, value: string, encoded: bool) =
-        this.Write(" {0}=\"{1}\"", name, encodeText value)
+        this.Write(" {0}=\"", name)
+        WebUtility.HtmlEncode(value, w)
+        this.Write("\"")
 
 #endif
 
