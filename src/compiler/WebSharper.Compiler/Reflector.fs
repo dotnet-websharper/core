@@ -231,7 +231,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         |> List.foldBack (fun (m, p) x -> Some (Macro(m, p, x))) macros 
                     |> Option.get
 
-                let body = match parsed with | Some b -> b | _ -> Undefined
+                let body = match parsed with | Some b -> b.Expr | _ -> Undefined
 
                 let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
                 if meth.IsConstructor then 

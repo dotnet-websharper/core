@@ -107,6 +107,7 @@ type Environment =
         This : option<Id>
         Purity : Purity
         MutableExternals : HashSet<Address>
+        UnknownArgs : HashSet<string>
     }
 
     static member New(thisArg, isDirect, isPure, args, ext) =
@@ -134,6 +135,7 @@ type Environment =
             This = None
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
+            UnknownArgs = HashSet()
         }
 
     static member Empty =
@@ -144,6 +146,7 @@ type Environment =
             This = None
             Purity = NonPure
             MutableExternals = HashSet()
+            UnknownArgs = HashSet()
         }
 
     member this.WithNewScope (vars) =
@@ -418,7 +421,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | _ ->
         match env.TryFindVar a with
         | Some e -> e
-        | None -> Global [ a ]
+        | None ->
+            if a.StartsWith("$") && a <> "$" then
+                env.UnknownArgs.Add a |> ignore
+            Global [ a ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -518,35 +524,59 @@ type InlinedStatementsTransformer() =
     member this.Run(st) =
         let res = this.TransformStatement(st)
         StatementExpr(res, returnVar)
-                
-let createInline ext thisArg args isPure inlineString =        
+
+type ParseResult =
+    {
+        Expr: Expression
+        Warnings: string list
+    }
+
+let createInline ext thisArg args isPure inlineString =
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
-        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
+        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
+    let env = Environment.New(thisArg, false, isPure, args, ext)
     let b =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, false, isPure, args, ext))
+            e |> transformExpression env
         | Choice2Of2 p ->
             p
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, false, isPure, args, ext))
+            |> transformStatement env
             |> InlinedStatementsTransformer().Run
-    makeExprInline (Option.toList thisArg @ args) b
+    {
+        Expr = makeExprInline (Option.toList thisArg @ args) b
+        Warnings =
+            [
+                if env.UnknownArgs.Count > 0 then
+                    yield "Dollar-prefixed variable(s) in inline JavaScript don't correspond to an argument: "
+                        + String.concat ", " env.UnknownArgs
+            ]
+    }
 
 let parseDirect ext thisArg args jsString =
     let parsed = 
         try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
-        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
+        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
+    let env = Environment.New(thisArg, true, false, args, ext)
     let body =
         match parsed with
         | Choice1Of2 e ->
-            e |> transformExpression (Environment.New(thisArg, true, false, args, ext)) |> Return 
+            e |> transformExpression env |> Return 
         | Choice2Of2 p ->
             p
             |> S.Block
-            |> transformStatement (Environment.New(thisArg, true, false, args, ext))
-    Function(args, body)
+            |> transformStatement env
+    {
+        Expr = Function(args, body)
+        Warnings =
+            [
+                if env.UnknownArgs.Count > 0 then
+                    yield "Dollar-prefixed variable(s) in direct JavaScript don't correspond to an argument: "
+                        + String.concat ", " env.UnknownArgs
+            ]
+    }
 
 let parseGeneratedJavaScript e =
     e |> transformExpression Environment.Empty

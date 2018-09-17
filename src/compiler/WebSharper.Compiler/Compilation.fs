@@ -201,10 +201,11 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
         member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
 
-        member this.ParseJSInline(inl: string, args: Expression list): Expression = 
+        member this.ParseJSInline(inl: string, args: Expression list, ?position: SourcePos): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
             let parsed = Recognize.createInline mutableExternals None vars false inl
-            Substitution(args).TransformExpression(parsed)
+            parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
+            Substitution(args).TransformExpression(parsed.Expr)
                 
         member this.NewGenerated addr =
             let resolved = resolver.Value.StaticAddress (List.rev addr)

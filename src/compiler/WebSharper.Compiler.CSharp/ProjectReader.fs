@@ -407,12 +407,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let mAnnot =
             sr.AttributeReader.GetMemberAnnot(annot, attrs)
             |> fixMemberAnnot sr annot meth
-        let error m = 
-            let sourcePos =
-                if decls.Length > 0 then
-                    Some (CodeReader.getSourcePosOfSyntaxReference decls.[0])
-                else None
-            comp.AddError(sourcePos, SourceError m)
+        let sourcePos() =
+            if decls.Length > 0 then
+                Some (CodeReader.getSourcePosOfSyntaxReference decls.[0])
+            else None
+        let error m = comp.AddError(sourcePos(), SourceError m)
+        let warn m = comp.AddWarning(sourcePos(), SourceWarning m)
         
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
@@ -712,9 +712,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addMethod (Some (meth, memdef)) mAnnot mdef N.NoFallback true Undefined
                 | A.MemberKind.Inline js ->
                     checkNotAbstract() 
-                    try 
+                    try
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
-                        addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true parsed
+                        List.iter warn parsed.Warnings
+                        addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true parsed.Expr
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Constant c ->
@@ -723,7 +724,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) true parsed
+                        List.iter warn parsed.Warnings
+                        addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) true parsed.Expr
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript ->
@@ -777,13 +779,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
-                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true parsed 
+                        List.iter warn parsed.Warnings
+                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true parsed.Expr
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
                 | A.MemberKind.Direct js ->
                     try
                         let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
-                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Static true parsed 
+                        List.iter warn parsed.Warnings
+                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Static true parsed.Expr
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript -> jsCtor false

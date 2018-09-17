@@ -637,9 +637,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let vars, thisVar = getVarsAndThis()
                         try 
                             let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
-                            if addModuleValueProp N.Inline parsed then
-                                addMethod None mAnnot mdef N.Inline true None parsed   
-                            else addM N.Inline true None parsed
+                            List.iter warn parsed.Warnings
+                            if addModuleValueProp N.Inline parsed.Expr then
+                                addMethod None mAnnot mdef N.Inline true None parsed.Expr
+                            else addM N.Inline true None parsed.Expr
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Constant c ->
@@ -649,7 +650,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
-                            addM (getKind()) true None parsed
+                            List.iter warn parsed.Warnings
+                            addM (getKind()) true None parsed.Expr
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript ->
@@ -693,14 +695,16 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
-                            addC N.Inline true None parsed 
+                            List.iter warn parsed.Warnings
+                            addC N.Inline true None parsed.Expr
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Direct js ->
                         let vars, thisVar = getVarsAndThis()
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
-                            addC N.Static true None parsed 
+                            List.iter warn parsed.Warnings
+                            addC N.Static true None parsed.Expr
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript -> jsCtor false

@@ -1239,15 +1239,17 @@ type InlineJS() =
     inherit Macro()
 
     override __.TranslateCall(c) =
-        match c.Arguments.Head with
-        | I.Value (String inl) ->
-            let args =
-                match c.Arguments with
-                | [_] -> [] 
-                | [_; I.NewArray args] -> args
-                | _ -> failwith "InlineJS error: arguments cannot be passed as an array"
-            c.Compilation.ParseJSInline(inl, args) |> MacroOk
-        | _ -> failwith "InlineJS error: first argument must be a constant string"
+        let inl, pos =
+            match c.Arguments.Head with
+            | Value (String inl) -> inl, None
+            | ExprSourcePos(pos, Value (String inl)) -> inl, Some pos
+            | _ -> failwith "InlineJS error: first argument must be a constant string"
+        let args =
+            match c.Arguments with
+            | [_] -> [] 
+            | [_; I.NewArray args] -> args
+            | _ -> failwith "InlineJS error: arguments cannot be passed as an array"
+        c.Compilation.ParseJSInline(inl, args, ?position = pos) |> MacroOk
 
 let stringTy, lengthMeth, padLeft, padRight =
     let t = typeof<System.String>
