@@ -51,6 +51,12 @@ type ConstantAttribute private () =
 type InlineAttribute(template: string) =
     inherit A()
 
+    /// Comma separated list of variable names starting with a dollar
+    /// that are expected to be found in the inline JavaScript.
+    /// Any variable name starting with a dollar that is neither
+    /// in this list nor an argument raises a warning.
+    member val UsingDollarVariables : string = null with get, set
+
     member this.Template = template
 
     new () = InlineAttribute(null)
@@ -62,6 +68,12 @@ type InlineAttribute(template: string) =
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
 type DirectAttribute(template: string) =
     inherit A()
+
+    /// Comma separated list of variable names starting with a dollar
+    /// that are expected to be found in the inline JavaScript.
+    /// Any variable name starting with a dollar that is neither
+    /// in this list nor an argument raises a warning.
+    member val UsingDollarVariables : string = null with get, set
 
 /// Marks methods and constructors as pure, so the call may be erased by optimizer
 /// or applied in different execution order. 

@@ -187,7 +187,8 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
             override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
             override this.GetName attr = attr.AttributeClass.Name
-            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq          
+            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map getTypedConstantValue |> Array.ofSeq
+            override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (KeyValue(n, v)) -> n, getTypedConstantValue v) |> Array.ofSeq
             override this.GetTypeDef o = self.ReadNamedTypeDefinition (o :?> INamedTypeSymbol)
         }
 

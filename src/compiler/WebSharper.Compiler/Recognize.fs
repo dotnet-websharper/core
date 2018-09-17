@@ -107,10 +107,11 @@ type Environment =
         This : option<Id>
         Purity : Purity
         MutableExternals : HashSet<Address>
+        ExpectedDollarVars : string[]
         UnknownArgs : HashSet<string>
     }
 
-    static member New(thisArg, isDirect, isPure, args, ext) =
+    static member New(thisArg, isDirect, isPure, args, ext, dollarVars) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -135,6 +136,7 @@ type Environment =
             This = None
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
+            ExpectedDollarVars = dollarVars
             UnknownArgs = HashSet()
         }
 
@@ -146,6 +148,7 @@ type Environment =
             This = None
             Purity = NonPure
             MutableExternals = HashSet()
+            ExpectedDollarVars = [||]
             UnknownArgs = HashSet()
         }
 
@@ -422,7 +425,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         match env.TryFindVar a with
         | Some e -> e
         | None ->
-            if a.StartsWith("$") && a <> "$" then
+            if a.StartsWith("$") && a <> "$" && not (env.ExpectedDollarVars |> Array.contains a) then
                 env.UnknownArgs.Add a |> ignore
             Global [ a ]
     | e ->     
@@ -531,11 +534,11 @@ type ParseResult =
         Warnings: string list
     }
 
-let createInline ext thisArg args isPure inlineString =
+let createInline ext thisArg args isPure dollarVars inlineString =
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
-    let env = Environment.New(thisArg, false, isPure, args, ext)
+    let env = Environment.New(thisArg, false, isPure, args, ext, dollarVars)
     let b =
         match parsed with
         | Choice1Of2 e ->
@@ -555,11 +558,11 @@ let createInline ext thisArg args isPure inlineString =
             ]
     }
 
-let parseDirect ext thisArg args jsString =
+let parseDirect ext thisArg args dollarVars jsString =
     let parsed = 
         try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
-    let env = Environment.New(thisArg, true, false, args, ext)
+    let env = Environment.New(thisArg, true, false, args, ext, dollarVars)
     let body =
         match parsed with
         | Choice1Of2 e ->

@@ -710,10 +710,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.NoFallback ->
                     checkNotAbstract()
                     addMethod (Some (meth, memdef)) mAnnot mdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                | A.MemberKind.Inline (js, dollarVars) ->
                     checkNotAbstract() 
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure dollarVars js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true parsed.Expr
                     with e ->
@@ -721,9 +721,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Constant c ->
                     checkNotAbstract() 
                     addMethod (Some (meth, memdef)) mAnnot mdef N.Inline true (Value c)                        
-                | A.MemberKind.Direct js ->
+                | A.MemberKind.Direct (js, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) dollarVars js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) true parsed.Expr
                     with e ->
@@ -776,16 +776,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 match kind with
                 | A.MemberKind.NoFallback ->
                     addConstructor (Some (meth, memdef)) mAnnot cdef N.NoFallback true Undefined
-                | A.MemberKind.Inline js ->
+                | A.MemberKind.Inline (js, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure dollarVars js
                         List.iter warn parsed.Warnings
                         addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline true parsed.Expr
                     with e ->
                         error ("Error parsing inline JavaScript: " + e.Message)
-                | A.MemberKind.Direct js ->
+                | A.MemberKind.Direct (js, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) js
+                        let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None (getVars()) dollarVars js
                         List.iter warn parsed.Warnings
                         addConstructor (Some (meth, memdef)) mAnnot cdef N.Static true parsed.Expr
                     with e ->

@@ -201,9 +201,11 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.GetMethodAttributes(typ, meth) = this.LookupMethodAttributes typ meth
         member this.GetConstructorAttributes(typ, ctor) = this.LookupConstructorAttributes typ ctor
 
-        member this.ParseJSInline(inl: string, args: Expression list, ?position: SourcePos): Expression = 
+        member this.ParseJSInline(inl: string, args: Expression list, position: SourcePos, dollarVars: string[]): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
-            let parsed = Recognize.createInline mutableExternals None vars false inl
+            let dollarVars = if isNull dollarVars then [||] else dollarVars
+            let position = if obj.ReferenceEquals(position, null) then None else Some position
+            let parsed = Recognize.createInline mutableExternals None vars false dollarVars inl
             parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
             Substitution(args).TransformExpression(parsed.Expr)
                 

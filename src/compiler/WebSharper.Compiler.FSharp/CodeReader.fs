@@ -313,7 +313,8 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetAssemblyName attr =
                 readSimpleName attr.AttributeType.Assembly (attr.AttributeType.QualifiedName.Split([|','|]).[0])
             override this.GetName attr = attr.AttributeType.LogicalName
-            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq          
+            override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map snd |> Array.ofSeq
+            override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (_, n, _, v) -> n, v) |> Array.ofSeq
             override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
         }
 

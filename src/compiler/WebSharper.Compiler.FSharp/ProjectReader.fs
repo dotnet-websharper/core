@@ -632,11 +632,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.NoFallback ->
                         checkNotAbstract()
                         addM N.NoFallback true None Undefined
-                    | A.MemberKind.Inline js ->
+                    | A.MemberKind.Inline (js, dollarVars) ->
                         checkNotAbstract() 
                         let vars, thisVar = getVarsAndThis()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure dollarVars js
                             List.iter warn parsed.Warnings
                             if addModuleValueProp N.Inline parsed.Expr then
                                 addMethod None mAnnot mdef N.Inline true None parsed.Expr
@@ -646,10 +646,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
                         addM N.Inline true None (Value c)                        
-                    | A.MemberKind.Direct js ->
+                    | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
                             List.iter warn parsed.Warnings
                             addM (getKind()) true None parsed.Expr
                         with e ->
@@ -691,18 +691,18 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match kind with
                     | A.MemberKind.NoFallback ->
                         addC N.NoFallback true None Undefined
-                    | A.MemberKind.Inline js ->
+                    | A.MemberKind.Inline (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure dollarVars js
                             List.iter warn parsed.Warnings
                             addC N.Inline true None parsed.Expr
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
-                    | A.MemberKind.Direct js ->
+                    | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
                             List.iter warn parsed.Warnings
                             addC N.Static true None parsed.Expr
                         with e ->

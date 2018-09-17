@@ -104,6 +104,20 @@ let inlineStatement () = X<unit>
 [<Inline "inlineStatementTest1 = true; inlineStatementTest2 = true;">]
 let inlineStatements () = X<unit>
 
+[<Inline("$you_should_NOT_see_this + $you_should_see_this + $you_should_see_this_too")>]
+let inline unmarkedDollarInlines (you_should_NOT_see_this: int) = X<unit>
+
+[<Inline("$x + $you_should_NOT_see_this + $you_should_NOT_see_this_either",
+         UsingDollarVariables = "$you_should_NOT_see_this, you_should_NOT_see_this_either")>]
+let inline markedDollarInlines (x: int) = X<unit>
+
+[<Direct("$you_should_NOT_see_this + $you_should_see_this + $you_should_see_this_too")>]
+let inline unmarkedDollarDirects (you_should_NOT_see_this: int) = X<unit>
+
+[<Direct("$x + $you_should_NOT_see_this + $you_should_NOT_see_this_either",
+         UsingDollarVariables = "$you_should_NOT_see_this, you_should_NOT_see_this_either")>]
+let inline markedDollarDirects (x: int) = X<unit>
+
 [<JavaScript>]
 let InnerGenerics pred l =
     let rec loop l cont =

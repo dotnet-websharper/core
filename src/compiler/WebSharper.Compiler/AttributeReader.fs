@@ -32,8 +32,8 @@ module M = WebSharper.Core.Metadata
 type private Attribute =
     | Macro of TypeDefinition * option<obj>
     | Proxy of TypeDefinition
-    | Inline of option<string>
-    | Direct of string
+    | Inline of option<string> * dollarVars: string[]
+    | Direct of string * dollarVars: string[]
     | Pure
     | Warn of string
     | Constant of Literal
@@ -94,8 +94,8 @@ type TypeAnnotation =
         }
 
 type MemberKind = 
-    | Inline of string
-    | Direct of string
+    | Inline of string * dollarVars: string[]
+    | Direct of string * dollarVars: string[]
     | InlineJavaScript
     | JavaScript
     | Constant of Literal
@@ -183,12 +183,35 @@ type AttributeReader<'A>() =
     abstract GetAssemblyName : 'A -> string
     abstract GetName : 'A -> string
     abstract GetCtorArgs : 'A -> obj[]
+    abstract GetNamedArgs : 'A -> (string * obj)[]
     abstract GetTypeDef : obj -> TypeDefinition
 
-    member private this.ReadTypeArg(attr: 'A) =
+    member private this.CtorArg<'T>(attr, ?n) =
+        this.GetCtorArgs(attr)
+        |> Seq.item (defaultArg n 0)
+        |> unbox<'T>
+
+    member private this.CtorArgOption<'T>(attr, ?n) =
+        this.GetCtorArgs(attr)
+        |> Seq.tryItem (defaultArg n 0)
+        |> Option.map unbox<'T>
+
+    member private this.DollarVars(attr: 'A) =
+        this.GetNamedArgs(attr)
+        |> Array.tryPick (function
+            | "UsingDollarVariables", x ->
+                (x :?> string).Split(',')
+                |> Array.map (fun s ->
+                    let s = s.Trim()
+                    if s.StartsWith("$") then s else "$" + s)
+                |> Some
+            | _ -> None)
+        |> Option.defaultValue [||]
+
+    member private this.ReadTypeArg(attr: 'A, ?n) =
         let args = this.GetCtorArgs(attr)
         let def =
-            match args.[0] with
+            match args.[defaultArg n 0] with
             | :? string as s ->
                 let ss = s.Split([|','|])
                 if ss.Length >= 2 then
@@ -217,13 +240,13 @@ type AttributeReader<'A>() =
         | "ProxyAttribute" ->
             A.Proxy (this.ReadTypeArg attr |> fst)
         | "InlineAttribute" ->
-            A.Inline (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
+            A.Inline (this.CtorArgOption(attr), this.DollarVars(attr))
         | "DirectAttribute" ->
-            A.Direct (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+            A.Direct (this.CtorArg(attr), this.DollarVars(attr))
         | "PureAttribute" ->
             A.Pure
         | "WarnAttribute" ->
-            A.Warn (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+            A.Warn (this.CtorArg(attr))
         | "ConstantAttribute" ->
             A.Constant (Seq.head (this.GetCtorArgs(attr)) |> ReadLiteral)
         | "MacroAttribute" ->
@@ -255,7 +278,7 @@ type AttributeReader<'A>() =
         | "RemotingProviderAttribute" ->
             A.RemotingProvider (this.ReadTypeArg attr)
         | "NamedUnionCasesAttribute" ->
-            A.NamedUnionCases (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.map unbox)
+            A.NamedUnionCases (this.CtorArgOption(attr))
         | "DateTimeFormatAttribute" ->
             match this.GetCtorArgs(attr) with
             | [| f |] -> A.DateTimeFormat (None, unbox f)
@@ -273,7 +296,7 @@ type AttributeReader<'A>() =
                 let t, _ = this.ReadTypeArg attr
                 A.JavaScriptExport (Some t.Value.FullName)
         | "PrototypeAttribute" ->
-            A.Prototype (Seq.tryHead (this.GetCtorArgs(attr)) |> Option.forall unbox)
+            A.Prototype (this.CtorArgOption(attr) |> Option.defaultValue true)
         | n -> 
             A.OtherAttribute
 
@@ -380,9 +403,9 @@ type AttributeReader<'A>() =
             | [| A.Remote |] -> Some (Remote rp)
             | [| a |] ->
                 match a with   
-                | A.Inline None -> Some InlineJavaScript
-                | A.Inline (Some i) -> Some (Inline i)
-                | A.Direct s -> Some (Direct s)
+                | A.Inline (None, _) -> Some InlineJavaScript
+                | A.Inline (Some i, d) -> Some (Inline (i, d))
+                | A.Direct (s, d) -> Some (Direct (s, d))
                 | A.Constant x -> Some (Constant x)
                 | A.Generated (g, p) -> Some (Generated (g, p))
                 | A.OptionalField -> Some OptionalField
@@ -455,6 +478,7 @@ type ReflectionAttributeReader() =
     override this.GetAssemblyName attr = attr.Constructor.DeclaringType.Assembly.FullName.Split(',').[0]
     override this.GetName attr = attr.Constructor.DeclaringType.Name
     override this.GetCtorArgs attr = attr.ConstructorArguments |> Seq.map (fun a -> a.Value) |> Array.ofSeq
+    override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun a -> a.MemberName, a.TypedValue.Value) |> Array.ofSeq
     override this.GetTypeDef o = Reflection.ReadTypeDefinition (o :?> System.Type) 
 
 let attrReader = ReflectionAttributeReader()
