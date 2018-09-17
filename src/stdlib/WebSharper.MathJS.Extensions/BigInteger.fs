@@ -62,31 +62,31 @@ type private BigIntegerProxy =
     static member Compare(n1 : bigint, n2 : bigint) = X<int>
 
     [<Inline "math.compare($this, $n)">]
-    static member CompareTo(n : bigint) = X<int>
+    member this.CompareTo(n : bigint) = X<int>
 
     [<Inline "math.compare($this, $n)">]
-    static member CompareTo(n : int64) = X<int>
+    member this.CompareTo(n : int64) = X<int>
 
     [<Inline "math.compare($this, $n)">]
-    static member CompareTo(n : obj) = X<int>
+    member this.CompareTo(n : obj) = X<int>
 
     [<Inline "math.compare($this, $n)">]
-    static member CompareTo(n : uint64) = X<int>
+    member this.CompareTo(n : uint64) = X<int>
 
     [<Inline "math.divide($n1, $n2)">]
     static member Divide(n1 : bigint, n2 : bigint) = X<bigint>
 
     [<Inline "math.equal($this, $n)">]
-    static member Equals(n : bigint) = X<bool>
+    member this.Equals(n : bigint) = X<bool>
         
     [<Inline "math.equal($this, $n)">]
-    static member Equals(n : int64) = X<bool>
+    member this.Equals(n : int64) = X<bool>
         
     [<Inline "math.equal($this, $n)">]
-    static member Equals(n : obj) = X<bool>
+    member this.Equals(n : obj) = X<bool>
         
     [<Inline "math.equal($this, $n)">]
-    static member Equals(n : uint64) = X<bool>
+    member this.Equals(n : uint64) = X<bool>
 
     [<Inline "math.gcd($n1, $n2)">]
     static member GreatestCommonDivisor(n1 : bigint, n2 : bigint) = X<bigint>
@@ -125,7 +125,7 @@ type private BigIntegerProxy =
     static member Subtract(n1 : bigint, n2 : bigint) = X<bigint>
 
     [<Inline "math.format($this)">]
-    static member ToString() = X<string>
+    member this.ToString() = X<string>
         
     [<Inline "math.add($n1, $n2)">]
     static member op_Addition(n1 : bigint, n2 : bigint) = X<bigint>
