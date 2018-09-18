@@ -154,7 +154,7 @@ module PerformanceTests =
         async.Zero()    
     
     let Site =
-        Sitelet.Infer<Action> (fun ctx act -> 
+        Sitelet.New (Router.Infer<Action>()) (fun ctx act -> 
             let def() =
                 for i in 1 .. 49 do
                     ctx.Link act |> ignore // stress-test writing links 

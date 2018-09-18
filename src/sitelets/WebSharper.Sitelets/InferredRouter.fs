@@ -65,7 +65,7 @@ module internal ServerInferredOperators =
             {
                 Segments = path.Segments
                 QueryArgs = Http.ParametersFromMap(path.QueryArgs)
-                FormData = Http.EmptyParameters
+                FormData = Http.ParametersFromMap(path.FormData)
                 Method = path.Method
                 Body = path.Body
                 Result = StrictMode
