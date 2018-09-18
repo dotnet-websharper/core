@@ -20,11 +20,13 @@
 
 namespace WebSharper.Sitelets
 
+open System.Collections.Generic
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
+open System.Text
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.JQuery
-open System.Collections.Generic
-open System.Text
 
 #nowarn "64" // type parameter renaming warnings 
 
@@ -678,13 +680,16 @@ module Router =
         | Some p -> p.ToLink()
         | None -> ""
 
-    let Ajax (router: Router<'A>) endpoint =
+    let AjaxWith (settings: AjaxSettings) (router: Router<'A>) endpoint =
+        if As settings then settings else AjaxSettings()
         match Write router endpoint with
         | Some path ->
-            let settings = AjaxSettings(DataType = DataType.Text)
-            match path.Method with
-            | Some m -> settings.Type <- As m
-            | _ -> ()
+            if settings.DataType ===. JS.Undefined then
+                settings.DataType <- DataType.Text
+            settings.Type <-
+                match path.Method with
+                | Some m -> As m
+                | None -> RequestType.POST
             match path.Body.Value with
             | null ->
                 if not (Map.isEmpty path.FormData) then
@@ -697,24 +702,29 @@ module Router =
                 settings.ContentType <- Union2Of2 "application/json"
                 settings.Data <- b
                 settings.ProcessData <- false
-            if Option.isNone path.Method then settings.Type <- RequestType.POST 
             Async.FromContinuations (fun (ok, err, cc) ->
                 settings.Success <- fun res _ _ -> ok (As<string> res) 
                 settings.Error <- fun _ _ msg -> err (exn msg)
                 // todo: cancellation
                 let url = path.ToLink()
-                JQuery.Ajax(url, settings) |> ignore
+                settings.Url <-
+                    if As settings.Url then
+                        settings.Url.TrimEnd('/') + url
+                    else
+                        url
+                JQuery.Ajax(settings) |> ignore
             )
         | _ -> 
             failwith "Failed to map endpoint to request" 
 
-    let Fetch (router: Router<'A>) endpoint : Promise<Response> =
+    let Ajax router endpoint =
+        AjaxWith (AjaxSettings()) router endpoint
+
+    let FetchWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Promise<Response> =
+        if As options then options else RequestOptions()
         match Write router endpoint with
         | Some path ->
-            let options = RequestOptions()
-            match path.Method with
-            | Some m -> options.Method <- m
-            | None -> ()
+            options.Method <-defaultArg path.Method "POST"
             match path.Body.Value with
             | null ->
                 if not (Map.isEmpty path.FormData) then
@@ -723,10 +733,17 @@ module Router =
                     options.Body <- fd
             | b ->
                 options.Body <- b
-            if Option.isNone path.Method then options.Method <- "POST"
-            JS.Fetch(path.ToLink(), options)
+            let url = path.ToLink()
+            let url =
+                match baseUrl with
+                | Some baseUrl -> baseUrl.TrimEnd('/') + url
+                | None -> url
+            JS.Fetch(url, options)
         | _ -> 
             failwith "Failed to map endpoint to request" 
+
+    let Fetch router endpoint =
+        FetchWith None (RequestOptions()) router endpoint
 
     let HashLink (router: Router<'A>)  endpoint =
         "#" + Link router endpoint
@@ -1026,8 +1043,12 @@ type Router<'T when 'T: equality> with
         Router.FormData this
 
     [<Inline>]
-    member this.Ajax(endpoint) =
-        Router.Ajax this endpoint |> Async.StartAsTask
+    member this.Ajax(endpoint, [<Optional>] settings) =
+        Router.AjaxWith settings this endpoint |> Async.StartAsTask
+
+    [<Inline>]
+    member this.Fetch(endpoint, [<Optional>] baseUrl, [<Optional>] settings) =
+        Router.FetchWith (Option.ofObj baseUrl) settings this endpoint
 
     [<Inline>]
     member this.Box() =
@@ -1037,8 +1058,6 @@ type Router<'T when 'T: equality> with
     member this.Array() =
         Router.Array this
 
-open System.Runtime.CompilerServices
-    
 [<Extension>]
 type RouterExtensions =
     [<Inline>]
