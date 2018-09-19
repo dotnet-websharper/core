@@ -253,6 +253,9 @@
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
   </ItemGroup>
+  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
+    <Reference Include="System.Web" />
+  </ItemGroup>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

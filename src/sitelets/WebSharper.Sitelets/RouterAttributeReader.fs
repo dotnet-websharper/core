@@ -30,12 +30,19 @@ module P = FSharp.Quotations.Patterns
 
 type Annotation =
     {
-        EndPoints : list<option<string> * string * bool>
+        EndPoints : list<EndPointAnnotation>
         Query : option<Set<string>>
         Json : option<option<string>>
         FormData : option<Set<string>>
         IsWildcard : bool
         DateTimeFormat: option<Choice<string, Map<string, string>>>
+    }
+
+and EndPointAnnotation =
+    {
+        Method : option<string>
+        Path : string
+        InheritRoute : bool
     }
 
 module Annotation =
@@ -48,6 +55,9 @@ module Annotation =
             IsWildcard = false
             DateTimeFormat = None
         }
+
+    let EndPoint m p i =
+        { Method = m; Path = p; InheritRoute = i }
 
     let Combine a b =
         let comb f a b =
@@ -63,17 +73,17 @@ module Annotation =
         {
             EndPoints = 
                 [
-                    for (bm, bp, inh) in b.EndPoints do
-                        if inh then
-                            for (am, ap, _) in a.EndPoints do
-                                match am, bm with
+                    for be in b.EndPoints do
+                        if be.InheritRoute then
+                            for ae in a.EndPoints do
+                                match ae.Method, be.Method with
                                 | None, None -> 
-                                    yield None, pcomb ap bp, false
+                                    yield EndPoint None (pcomb ae.Path be.Path) false
                                 | Some m, None
                                 | None, Some m ->
-                                    yield Some m, pcomb ap bp, false
+                                    yield EndPoint (Some m) (pcomb ae.Path be.Path) false
                                 | _ -> ()
-                        else yield bm, bp, false
+                        else yield { be with InheritRoute = false }
                 ]
             Query = comb Set.union a.Query b.Query
             Json = comb (fun a b -> comb (fun _ _ -> failwith "multiple json fields") a b) a.Json b.Json 
@@ -164,18 +174,18 @@ type AttributeReader<'A>() =
             ep |> Seq.sortBy (fun (_, o, _) -> o)
             |> Seq.map (fun (e, _, inh) -> 
                 match e.IndexOf(" ") with
-                | -1 -> None, e, inh
-                | i -> Some (e.Substring(0, i)), e.Substring(i + 1), inh
+                | -1 -> Annotation.EndPoint None e inh
+                | i -> Annotation.EndPoint (Some <| e.Substring(0, i)) (e.Substring(i + 1)) inh
             ) |> List.ofSeq 
         let endpoints =
             if ms.Count = 0 then
                 endpointsWithExplicitMethods
             else
                 [
-                    for (em, p, i) as e in endpointsWithExplicitMethods do
-                        match em with
+                    for ep as e in endpointsWithExplicitMethods do
+                        match ep.Method with
                         | Some _ -> yield e
-                        | _ -> for m in ms -> Some m, p, i
+                        | _ -> for m in ms -> { ep with Method = Some m }
                 ]
         {
             EndPoints = endpoints 

@@ -330,6 +330,40 @@ module Content =
     let Ok<'T> : Async<Content<'T>> =
         httpStatusContent Http.Status.Ok
 
+    let Cors (cors: Cors<'T>) (allows: CorsAllows -> CorsAllows) (content: 'T -> Async<Content<'U>>) : Async<Content<'U>> =
+        let allows = allows (defaultArg cors.DefaultAllows CorsAllows.Empty)
+        let headers = [
+            match List.ofSeq allows.Origins with
+            | [] -> ()
+            | l -> yield Http.Header.Custom "Access-Control-Allow-Origin" (String.concat ", " l)
+            match List.ofSeq allows.Methods with
+            | [] -> ()
+            | l -> yield Http.Header.Custom "Access-Control-Allow-Methods" (String.concat ", " l)
+            match List.ofSeq allows.Headers with
+            | [] -> ()
+            | l -> yield Http.Header.Custom "Access-Control-Allow-Headers" (String.concat ", " l)
+            match List.ofSeq allows.ExposeHeaders with
+            | [] -> ()
+            | l -> yield Http.Header.Custom "Access-Control-Expose-Headers" (String.concat ", " l)
+            match allows.MaxAge with
+            | None -> ()
+            | Some age -> yield Http.Header.Custom "Access-Control-Max-Age" (string age)
+            if allows.Credentials then
+                yield Http.Header.Custom "Access-Control-Allow-Credentials" "true"
+        ]
+        match cors.EndPoint with
+        | None ->
+            CustomContent <| fun ctx ->
+                {
+                    Status = Http.Status.Ok
+                    Headers = headers
+                    WriteBody = ignore
+                }
+            |> async.Return
+        | Some ep ->
+            content ep
+            |> WithHeaders headers
+
 [<System.Runtime.CompilerServices.Extension; Sealed>]
 type ContextExtensions =
 

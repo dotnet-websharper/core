@@ -151,6 +151,12 @@ module Content =
     /// Constructs a 200 Ok response with empty body.
     val Ok<'T> : Async<Content<'T>>
 
+    /// Respond to a Cross-Origin checked request.
+    val Cors : Cors<'EndPoint>
+            -> (CorsAllows -> CorsAllows)
+            -> ('EndPoint -> Async<Content<'OuterEndPoint>>)
+            -> Async<Content<'OuterEndPoint>>
+
     type RenderedResources =
         {
             Scripts : string

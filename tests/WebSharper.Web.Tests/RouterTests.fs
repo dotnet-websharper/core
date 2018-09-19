@@ -21,6 +21,7 @@
 namespace WebSharper.Sitelets.Tests
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 open WebSharper.Sitelets
 open PerformanceTests
@@ -32,7 +33,7 @@ module ClientServerTests =
     let ShiftedRouter = 
         Router.Shift "perf-tests" <| Router.Infer<Action>()
 
-    let Tests apiBaseUri runServerTests =
+    let Tests apiBaseUri corsBaseUri runServerTests =
         let parse router p =
             Route.FromUrl(p) |> Router.Parse router    
         let parseHash router p =
@@ -52,6 +53,7 @@ module ClientServerTests =
             | UJsonInt _
             | UFormData _
             | UMultiFormData _
+            | UCors _
                 -> true
             | _ -> false
 
@@ -82,6 +84,12 @@ module ClientServerTests =
             }
 
             TestIf runServerTests "Router.Ajax" {
+                let settings ep =
+                    let s = JQuery.AjaxSettings()
+                    match ep with
+                    | UCors _ -> corsBaseUri |> Option.iter (fun uri -> s.Url <- uri)
+                    | _ -> ()
+                    s
                 let! serverResults = GetTestValues()
                 let! ajaxResults =
                     async {
@@ -89,7 +97,7 @@ module ClientServerTests =
                         for testValue, _, _ in serverResults do
                             try
                                 do! Expect testValue
-                                let! res = Router.Ajax ShiftedRouter testValue
+                                let! res = Router.AjaxWith (settings testValue) ShiftedRouter testValue
                                 arr.Add (res)
                             with e ->
                                 arr.Add (e.StackTrace)
@@ -102,6 +110,10 @@ module ClientServerTests =
             }
 
             TestIf runServerTests "Router.Fetch" {
+                let baseUri ep =
+                    match ep with
+                    | UCors _ -> corsBaseUri
+                    | _ -> None
                 let! serverResults = GetTestValues()
                 let! ajaxResults =
                     async {
@@ -109,7 +121,8 @@ module ClientServerTests =
                         for testValue, _, _ in serverResults do
                             try
                                 do! Expect testValue
-                                let! res = Router.Fetch ShiftedRouter testValue |> JavaScript.Promise.AsAsync
+                                let! res = Router.FetchWith (baseUri testValue) (RequestOptions()) ShiftedRouter testValue
+                                            |> JavaScript.Promise.AsAsync
                                 let! text = res.Text() |> JavaScript.Promise.AsAsync
                                 arr.Add (text)
                             with e ->
@@ -153,8 +166,8 @@ module ClientServerTests =
             }
         }
 
-    let RunTests apiBaseUri runServerTests =
+    let RunTests apiBaseUri corsBaseUri runServerTests =
         Runner.RunTests [|
-            Tests apiBaseUri runServerTests
+            Tests apiBaseUri corsBaseUri runServerTests
         |]
 

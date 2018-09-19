@@ -23,6 +23,11 @@ type TargetFramework =
         | NetStandard20 -> "netstandard2.0"
         | NetCoreApp20 -> "netcoreapp2.0"
 
+    member this.IsNetFx =
+        match this with
+        | Net461 | Net46 -> true
+        | NetStandard20 | NetCoreApp20 -> false
+
 let parseTargetFrameworks (attrValue: string) : TargetFramework[] =
     attrValue.Split(';')
     |> Array.map (function
@@ -52,7 +57,7 @@ let copyFileIfExistsAndIsDifferent (srcFile: string) (dstFile: string) =
         else
             ()
 
-let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetFrameworks: string -> TargetFramework[] -> option<TargetFramework>) =
+let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetFrameworks: string -> TargetFramework[] -> TargetFramework) =
     for f in Directory.GetFiles(srcDir, "*.*proj", SearchOption.AllDirectories) do
         let origFullDir = Path.GetDirectoryName(f)
         let relDir = origFullDir.[srcDir.Length..].Trim([|Path.DirectorySeparatorChar|])
@@ -83,11 +88,17 @@ let copyAndTransformProjects (srcDir: string) (dstDir: string) (transformTargetF
             |> Seq.iter (fun e -> e.Value <- Path.Combine(origFullDir, "bin"))
 
         | tfe ->
-            match tfe.Value |> parseTargetFrameworks |> transformTargetFrameworks fn with
-            | None -> ()
-            | Some fw ->
-                tfe.Name <- xn"TargetFramework"
-                tfe.Value <- fw |> string
+            let fw = tfe.Value |> parseTargetFrameworks |> transformTargetFrameworks fn
+            tfe.Name <- xn"TargetFramework"
+            tfe.Value <- fw |> string
+
+            //doc.XPathSelectElements("/Project/ItemGroup[contains(@Condition, 'TargetFramework.StartsWith')]")
+            //|> Seq.iter (fun e ->
+            //    if fw.IsNetFx then
+            //        e.Attribute(xn"Condition").Remove()
+            //    else
+            //        e.Remove()
+            //)
 
         // Fix compile/embed/etc file names
         doc.XPathSelectElements("/Project/ItemGroup/*[self::Compile or self::Content or self::None or self::EmbeddedResource]")
@@ -128,12 +139,12 @@ let doCopyAll dstDir transformTargetFrameworks =
 
 let gen() =
     doCopyAll "netfx" <| fun fn fws ->
-        if fws |> Array.contains Net461 then Some Net461
-        elif fws |> Array.contains Net46 then Some Net46
-        else Some Net461
+        if fws |> Array.contains Net461 then Net461
+        elif fws |> Array.contains Net46 then Net46
+        else Net461
     doCopyAll "netcore" <| fun fn fws ->
-        if fws |> Array.contains NetCoreApp20 then Some NetCoreApp20
-        elif fws |> Array.contains NetStandard20 then Some NetStandard20
-        else Some NetStandard20
+        if fws |> Array.contains NetCoreApp20 then NetCoreApp20
+        elif fws |> Array.contains NetStandard20 then NetStandard20
+        else NetStandard20
 
 do gen()

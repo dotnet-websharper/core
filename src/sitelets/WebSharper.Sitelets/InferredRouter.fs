@@ -20,6 +20,7 @@
 
 namespace WebSharper.Sitelets
 
+open FSharp.Reflection
 open WebSharper
 open WebSharper.JavaScript
 open System.Collections.Generic
@@ -146,6 +147,7 @@ module internal ServerInferredOperators =
         {
             IParse : MRoute -> obj option
             IWrite : PathWriter * obj -> unit 
+            IExplicitMethods : Set<string>
         }   
 
         member this.Link(action: 'T) =
@@ -165,6 +167,7 @@ module internal ServerInferredOperators =
         {
             IParse = fun _ -> None
             IWrite = ignore
+            IExplicitMethods = Set.empty
         }
 
     let internal iString : InferredRouter =
@@ -183,6 +186,7 @@ module internal ServerInferredOperators =
                     w.NextSegment().Append("null") |> ignore
                 else
                     w.NextSegment().Append(StringEncoding.write (unbox value)) |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let internal iChar : InferredRouter =
@@ -198,6 +202,7 @@ module internal ServerInferredOperators =
                 | _ -> None
             IWrite = fun (w, value) ->
                 w.NextSegment().Append(StringEncoding.write (string value)) |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let inline iTryParse< ^T when ^T: (static member TryParse: string * byref< ^T> -> bool) and ^T: equality>() =
@@ -214,6 +219,7 @@ module internal ServerInferredOperators =
                 | _ -> None
             IWrite = fun (w, value) ->
                 w.NextSegment().Append(value) |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let iGuid = iTryParse<System.Guid>()
@@ -241,6 +247,7 @@ module internal ServerInferredOperators =
                 | _ -> None
             IWrite = fun (w, value) ->
                 w.NextSegment().Append(if value :?> bool then "True" else "False") |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let iDateTime format =
@@ -257,6 +264,7 @@ module internal ServerInferredOperators =
                 | _ -> None
             IWrite = fun (w, value) ->                
                 w.NextSegment().Append((value:?> System.DateTime).ToString(format)) |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let iWildcardString = 
@@ -267,6 +275,7 @@ module internal ServerInferredOperators =
                 Some (box s)
             IWrite = fun (w, value) ->
                 w.NextSegment().Append(value) |> ignore
+            IExplicitMethods = Set.empty
         }
 
     let iWildcardArray (itemType: System.Type) (item: InferredRouter) = 
@@ -295,6 +304,7 @@ module internal ServerInferredOperators =
                 let l = arr.Length 
                 for i = 0 to l - 1 do
                     item.IWrite (w, arr.GetValue i) 
+            IExplicitMethods = item.IExplicitMethods
         }
 
     let IMap (decode: obj -> obj) (encode: obj -> obj) router =
@@ -303,6 +313,7 @@ module internal ServerInferredOperators =
                 router.IParse path |> Option.map decode
             IWrite = fun (w, value) ->
                 router.IWrite(w, encode value)
+            IExplicitMethods = router.IExplicitMethods
         }
 
     let iWildcardList (itemType: System.Type) (item: InferredRouter) : InferredRouter = 
@@ -325,6 +336,7 @@ module internal ServerInferredOperators =
                     w.NextSegment().Append("null") |> ignore
                 else
                     item.IWrite(w, value)
+            IExplicitMethods = item.IExplicitMethods
         }
 
     let error<'T> err path =
@@ -362,6 +374,42 @@ module internal ServerInferredOperators =
                     | _ -> Some (caseCtors.[0] [| v |])    
             IWrite = fun (w, value) ->
                 item.IWrite (w, decodeResultAction.Invoke(value, [||]))
+            IExplicitMethods = item.IExplicitMethods
+        }
+
+    let ICors (typ: System.Type) (item: InferredRouter) =
+        let corsTyp = typedefof<Cors<_>>.MakeGenericType(typ)
+        let ctor = FSharpValue.PreComputeRecordConstructor(corsTyp, true)
+        let defaultAllows : option<CorsAllows> =
+            Some {
+                Origins = []
+                Methods = List.ofSeq item.IExplicitMethods
+                Headers = []
+                ExposeHeaders = []
+                MaxAge = None
+                Credentials = false
+            }
+        let epOptionTyp = typedefof<option<_>>.MakeGenericType(typ)
+        let epOptionCases = FSharpType.GetUnionCases epOptionTyp
+        let epNone = FSharpValue.MakeUnion(epOptionCases.[0], [||])
+        let epSome = FSharpValue.PreComputeUnionConstructor epOptionCases.[1]
+        let preflight = ctor [| box defaultAllows; epNone |]
+        let request x = ctor [| box defaultAllows; epSome [| x |] |]
+        let getEndPointOption = FSharpValue.PreComputeRecordFieldReader (corsTyp.GetProperty "EndPoint")
+        let getEndPointSome = FSharpValue.PreComputeUnionReader epOptionCases.[1]
+        {
+            IParse = fun path ->
+                match path.Method with
+                | Some "OPTIONS" ->
+                    path.Segments <- []
+                    path.Result <- ParseResult.NoErrors
+                    Some preflight
+                | _ -> Option.map request (item.IParse path)
+            IWrite = fun (w, value) ->
+                match getEndPointOption value with
+                | null -> ()
+                | o -> item.IWrite(w, (getEndPointSome o).[0])
+            IExplicitMethods = Set.add "OPTIONS" item.IExplicitMethods
         }
 
     let IQuery key (item: InferredRouter) : InferredRouter =
@@ -382,6 +430,7 @@ module internal ServerInferredOperators =
                 w.QueryWriter.Append(key).Append('=') |> ignore
                 let qw = { w with PathWriter = q; AddSlash = false }
                 item.IWrite (qw, value)
+            IExplicitMethods = Set.empty
         }
 
     type IOptionConverter =
@@ -420,6 +469,7 @@ module internal ServerInferredOperators =
                 w.QueryWriter.Append(key).Append('=') |> ignore
                 let qw = { w with PathWriter = q; AddSlash = false }
                 item.IWrite (qw, v)
+            IExplicitMethods = Set.empty
         }
 
     let IQueryNullable key (item: InferredRouter) : InferredRouter =
@@ -443,6 +493,7 @@ module internal ServerInferredOperators =
                 w.QueryWriter.Append(key).Append('=') |> ignore
                 let qw = { w with PathWriter = q; AddSlash = false }
                 item.IWrite (qw, v)
+            IExplicitMethods = Set.empty
         }
 
     let Unbox<'A when 'A: equality> (router: InferredRouter) : Router<'A> =
@@ -480,6 +531,7 @@ module internal ServerInferredOperators =
                     try Some (Json.Deserialize<'T> b |> box)
                     with _ -> error InvalidJson path
             IWrite = ignore
+            IExplicitMethods = Set.empty
         }
 
     let IFormData (item: InferredRouter) : InferredRouter =
@@ -491,6 +543,7 @@ module internal ServerInferredOperators =
                 | _ -> ()
                 res
             IWrite = ignore
+            IExplicitMethods = Set.empty
         }
 
     let internal ITuple (readItems: obj -> obj[]) (createTuple: obj[] -> obj) (items: InferredRouter[]) =
@@ -516,6 +569,14 @@ module internal ServerInferredOperators =
                 let values = readItems value
                 for i = 0 to items.Length - 1 do
                     items.[i].IWrite (w, values.[i]) 
+            IExplicitMethods =
+                items
+                |> Seq.choose (fun i ->
+                    if Set.isEmpty i.IExplicitMethods
+                    then None
+                    else Some i.IExplicitMethods
+                )
+                |> Set.unionMany
         }
 
     let internal IRecord (readFields: obj -> obj[]) (createRecord: obj[] -> obj) (fields: InferredRouter[]) =
@@ -541,6 +602,14 @@ module internal ServerInferredOperators =
                 (readFields value, fields) ||> Array.iter2 (fun v r ->
                     r.IWrite(w, v)
                 )
+            IExplicitMethods =
+                fields
+                |> Seq.choose (fun i ->
+                    if Set.isEmpty i.IExplicitMethods
+                    then None
+                    else Some i.IExplicitMethods
+                )
+                |> Set.unionMany
         }
 
     let IDelayed (getRouter: unit -> InferredRouter) : InferredRouter =
@@ -548,6 +617,7 @@ module internal ServerInferredOperators =
         {
             IParse = fun path -> r.Value.IParse path
             IWrite = fun (w, value) -> r.Value.IWrite(w, value)
+            IExplicitMethods = Set.empty
         }
 
     let internal IArray (itemType: System.Type) (item: InferredRouter) : InferredRouter =
@@ -580,6 +650,7 @@ module internal ServerInferredOperators =
                 w.NextSegment().Append(arr.Length) |> ignore
                 for i = 0 to l - 1 do
                     item.IWrite (w, arr.GetValue i) 
+            IExplicitMethods = item.IExplicitMethods
         }
 
     let IList (itemType: System.Type) (item: InferredRouter) : InferredRouter = 
@@ -588,15 +659,41 @@ module internal ServerInferredOperators =
             :?> Router.IListArrayConverter
         IArray itemType item |> IMap converter.OfArray converter.ToArray
 
-    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: ((option<string> * string[])[] * InferredRouter[] * bool)[]) : InferredRouter =
+    type internal UnionCaseRoutingInfo =
+        {
+            EndPoints: (option<string> * string[])[]
+            Fields: InferredRouter[]
+            HasWildCard: bool
+        }
+
+    let internal IUnion getTag (caseReaders: _[]) (caseCtors: _[]) (cases: UnionCaseRoutingInfo[]) : InferredRouter =
+
+        let methods =
+            cases
+            |> Array.map (fun u ->
+                let fieldMethods =
+                    u.Fields
+                    |> Array.choose (fun f ->
+                        if Set.isEmpty f.IExplicitMethods
+                        then None
+                        else Some f.IExplicitMethods)
+                    |> Set.unionMany
+                u.EndPoints
+                |> Array.map (function
+                    | None, _ -> fieldMethods
+                    | Some m, _ -> Set.singleton m
+                )
+                |> Set.unionMany
+            )
+            |> Set.unionMany
 
         let parseWithOrWithoutWildcards useWildcards =
 
             let lookupCasesByMethod =
-                cases |> Seq.indexed |> Seq.collect (fun (i, (eps, fields, hasWildCard)) -> 
-                    if hasWildCard && not useWildcards then Seq.empty else
-                    let fieldList = List.ofArray fields
-                    let l = fields.Length
+                cases |> Seq.indexed |> Seq.collect (fun (i, c) -> 
+                    if c.HasWildCard && not useWildcards then Seq.empty else
+                    let fieldList = List.ofArray c.Fields
+                    let l = c.Fields.Length
                     let parseFields p path =
                         let arr = Array.zeroCreate l
                         let origSegments = path.Segments
@@ -616,7 +713,7 @@ module internal ServerInferredOperators =
                         collect 0 fieldList
                     // a heuristic is used for performance:
                     // inferred parsing is forward only, cases with more segments are checked first
-                    eps |> Seq.map (fun (m, s) ->
+                    c.EndPoints |> Seq.map (fun (m, s) ->
                         let s = List.ofArray s
                         m,
                         match s with
@@ -750,7 +847,7 @@ module internal ServerInferredOperators =
                     if Option.isNone res then notFound() else res
         
         let hasWildcardCase =
-            cases |> Seq.exists (fun (_, _, hasWildCard) -> hasWildCard) 
+            cases |> Seq.exists (fun c -> c.HasWildCard) 
         
         let parse =
             if hasWildcardCase then
@@ -778,8 +875,8 @@ module internal ServerInferredOperators =
                 parseWithOrWithoutWildcards false
         
         let writeCases =
-            cases |> Array.map (fun (eps, fields, _) -> 
-                String.concat "/" (snd eps.[0]), fields
+            cases |> Array.map (fun c -> 
+                String.concat "/" (snd c.EndPoints.[0]), c.Fields
             )
         {
             IParse = parse
@@ -794,6 +891,7 @@ module internal ServerInferredOperators =
                     let values = caseReaders.[tag] value : _[]
                     for i = 0 to fields.Length - 1 do
                         fields.[i].IWrite (w, values.[i]) 
+            IExplicitMethods = methods
         }
 
     let internal isCorrectMethod m p =
@@ -817,6 +915,8 @@ module internal ServerInferredOperators =
         let partsAndRoutersLists = 
             partsAndRoutersLists
             |> Array.sortByDescending (fun (_, ep) -> ep.Length)
+        let methods =
+            Set.unionMany [for f in fields -> Set f.IExplicitMethods]
         let thisClass =
             {
                 IParse = fun path ->
@@ -853,6 +953,7 @@ module internal ServerInferredOperators =
                         | Choice2Of2 (i, r) ->
                             r.IWrite(w, values.[i])
                     )
+                IExplicitMethods = methods
             }
         if Array.isEmpty subClasses then
             thisClass
@@ -868,4 +969,7 @@ module internal ServerInferredOperators =
                     match sub with 
                     | Some s -> s.IWrite (w, value)
                     | _ -> thisClass.IWrite (w, value)
+                IExplicitMethods =
+                    (methods :: [for (_, c) in subClasses -> Set c.IExplicitMethods])
+                    |> Set.unionMany
             }

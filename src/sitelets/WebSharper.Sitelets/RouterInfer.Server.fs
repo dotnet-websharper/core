@@ -47,7 +47,7 @@ module internal ServerRouting =
                 [| unbox<string> a.Value; unbox<string> b.Value |]
             | [| a |] ->
                 a.Value |> unbox<seq<CustomAttributeTypedArgument>> |> Seq.map (fun a -> unbox<string> a.Value) |> Array.ofSeq
-            | _ -> failwithf "Unrecognized %s attribute constructor" attr.Constructor.DeclaringType.Name 
+            | _ -> failwithf "Unrecognized %s attribute constructor" attr.Constructor.DeclaringType.Name
         override this.GetCtorParamArgsOrPair attr =
             match attr.ConstructorArguments |> Array.ofSeq with
             | [| a |] when a.ArgumentType = typeof<string> ->
@@ -62,7 +62,7 @@ module internal ServerRouting =
                 [| unbox<string> a.Value, unbox<int> b.Value, unbox<bool> c.Value |]
             | _ -> failwith "Unrecognized Endpoint attribute constructor"
 
-    let attrReader = ReflectionAttributeReader() 
+    let attrReader = ReflectionAttributeReader()
 
     type BF = System.Reflection.BindingFlags
     let flags = BF.Public ||| BF.NonPublic ||| BF.Static ||| BF.Instance
@@ -76,8 +76,8 @@ module internal ServerRouting =
 
     let GetEndPointHoles (parts: string[]) =
         parts
-        |> Array.map (fun p -> 
-            if p.StartsWith("{") && p.EndsWith("}") then  
+        |> Array.map (fun p ->
+            if p.StartsWith("{") && p.EndsWith("}") then
                 FieldSegment (p.Substring(1, p.Length - 2))
             else StringSegment p
         )
@@ -105,12 +105,12 @@ module internal ServerRouting =
     let getMethod expr =
         match expr with
         | P.Call(_, mi, _) -> mi.GetGenericMethodDefinition()
-        | _ ->              
+        | _ ->
             eprintfn "Reflection error in RouterInfer.Server, not a Call: %A" expr
             Unchecked.defaultof<_>
 
     let jsonRouterM = getMethod <@ IJson<int> @>
-    let getJsonRouter (t: Type) = 
+    let getJsonRouter (t: Type) =
         jsonRouterM.MakeGenericMethod(t).Invoke(null, [||]) :?> InferredRouter
 
     let recurringOn = HashSet()
@@ -124,7 +124,7 @@ module internal ServerRouting =
             IDelayed (fun () -> routerCache.[t])
 
     and wildCardRouter (t: Type) : InferredRouter =
-        if t = typeof<string> then 
+        if t = typeof<string> then
             iWildcardString
         elif t.IsArray then
             let item = t.GetElementType()
@@ -138,230 +138,242 @@ module internal ServerRouting =
         if t.FullName = "System.DateTime" then
             iDateTime (Some fmt)
         else failwithf "Expecting a DateTime field: %s, type %s" name t.FullName
-    
+
     and queryRouter (t: Type) name r =
         let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
-        if gd = typedefof<option<_>> then 
+        if gd = typedefof<option<_>> then
             let item = t.GetGenericArguments().[0]
             getRouter item |> IQueryOption item name
-        elif gd = typedefof<Nullable<_>> then 
+        elif gd = typedefof<Nullable<_>> then
             let item = t.GetGenericArguments().[0]
             getRouter item |> IQueryNullable name
         else
             r() |> IQuery name
-    
+
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
         let name =
             match annot.EndPoints with
-            | (_, n, _) :: _ -> n
+            | { Path = n } :: _ -> n
             | _ -> name
-        let r() = 
+        let r() =
             match annot.DateTimeFormat with
             | Some (Choice1Of2 fmt) ->
-                getDateTimeRouter name fmt t   
+                getDateTimeRouter name fmt t
             | Some (Choice2Of2 m) when m.ContainsKey name ->
-                getDateTimeRouter name m.[name] t    
+                getDateTimeRouter name m.[name] t
             | _ ->
                 getRouter t
         match annot.Query with
         | Some _ -> queryRouter t name r
-        | _ -> 
+        | _ ->
         match annot.FormData with
         | Some _ -> queryRouter t name r |> IFormData
-        | _ -> 
+        | _ ->
         match annot.Json with
         | Some _ -> getJsonRouter t
         | _ when annot.IsWildcard -> wildCardRouter t
-        | _ -> r() 
+        | _ -> r()
+
+    and enumRouter (t: Type) : InferredRouter =
+        getRouter (System.Enum.GetUnderlyingType(t))
+
+    and arrayRouter (t: Type) : InferredRouter =
+        let item = t.GetElementType()
+        IArray item (getRouter item)
+
+    and tupleRouter (t: Type) : InferredRouter =
+        let items = Reflection.FSharpType.GetTupleElements t
+        let itemReader = Reflection.FSharpValue.PreComputeTupleReader t
+        let ctor = Reflection.FSharpValue.PreComputeTupleConstructor t
+        ITuple itemReader ctor
+            (items |> Array.map getRouter)
+
+    and recordRouter (t: Type) : InferredRouter =
+        if t.IsGenericType && t.GetGenericTypeDefinition() = typedefof<Cors<_>> then
+            let item = t.GetGenericArguments().[0]
+            ICors item (getRouter item)
+        else
+        let fields =
+            Reflection.FSharpType.GetRecordFields t
+            |> Array.map (fun f ->
+                fieldRouter f.PropertyType (getPropertyAnnot f) f.Name
+            )
+        let fieldReader = Reflection.FSharpValue.PreComputeRecordReader(t, flags)
+        let ctor = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
+        IRecord fieldReader ctor fields
+
+    and unionRouter (t: Type) : InferredRouter =
+        let isGen = t.IsGenericType
+        if isGen && t.GetGenericTypeDefinition() = typedefof<list<_>> then
+            let item = t.GetGenericArguments().[0]
+            IList item (getRouter item)
+        elif isGen && t.GetGenericTypeDefinition() = typedefof<ParseRequestResult<_>> then
+            let item = t.GetGenericArguments().[0]
+            IWithCustomErrors t (getRouter item)
+        else
+            let cases = Reflection.FSharpType.GetUnionCases(t, flags)
+            let tagReader = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
+            let caseReaders = 
+                cases |> Array.map (fun c -> Reflection.FSharpValue.PreComputeUnionReader(c, flags))
+            let caseCtors = 
+                cases |> Array.map (fun c -> Reflection.FSharpValue.PreComputeUnionConstructor(c, flags))
+            IUnion tagReader caseReaders caseCtors (cases |> Array.map unionCaseRouter)
+
+    and unionCaseRouter (c: Reflection.UnionCaseInfo) : UnionCaseRoutingInfo =
+        let cAnnot = getUnionCaseAnnot c
+        let mutable queryFields = defaultArg cAnnot.Query Set.empty
+        let mutable jsonField = cAnnot.Json |> Option.bind id
+        let mutable formDataFields = defaultArg cAnnot.FormData Set.empty
+        let endpoints = 
+            cAnnot.EndPoints |> Seq.map (fun e -> e.Method, ReadEndPointString e.Path) |> Array.ofSeq
+        let f =
+            let fields = c.GetFields()
+            fields |> Array.mapi (fun i f -> 
+                let fTyp = f.PropertyType
+                let fName = f.Name
+                let r() = 
+                    match cAnnot.DateTimeFormat with
+                    | Some (Choice1Of2 fmt) ->
+                        getDateTimeRouter fName fmt fTyp  
+                    | Some (Choice2Of2 m) when m.ContainsKey fName ->
+                        getDateTimeRouter fName m.[fName] fTyp    
+                    | _ ->
+                        getRouter fTyp
+                if queryFields.Contains fName then 
+                    queryFields <- queryFields |> Set.remove fName
+                    queryRouter fTyp fName r
+                elif formDataFields.Contains fName then 
+                    formDataFields <- formDataFields |> Set.remove fName
+                    queryRouter fTyp fName r |> IFormData
+                elif Option.isSome jsonField && jsonField.Value = fName then
+                    jsonField <- None
+                    getJsonRouter fTyp
+                elif cAnnot.IsWildcard && i = fields.Length - 1 then
+                    wildCardRouter fTyp
+                else r()
+            )
+        if queryFields.Count > 0 then
+            failwithf "Query field not found: %s" (Seq.head queryFields)
+        match jsonField with
+        | Some j ->
+            failwithf "Json field not found: %s" j
+        | _ -> ()
+        if formDataFields.Count > 0 then
+            failwithf "FormData field not found: %s" (Seq.head formDataFields)
+        // todo: more error reports
+        { EndPoints = endpoints; Fields = f; HasWildCard = cAnnot.IsWildcard }
+
+    and systemRouter (t: Type) : InferredRouter =
+        match t.Name with
+        | "Object" -> IEmpty
+        | "String" -> iString
+        | "Char" -> iChar
+        | "Guid" -> iGuid
+        | "Boolean" -> iBool
+        | "Int32" -> iInt
+        | "Double" -> iDouble
+        | "DateTime" -> iDateTime None
+        | "SByte" -> iSByte
+        | "Byte" -> iByte
+        | "Int16" -> iInt16
+        | "UInt16" -> iUInt16
+        | "UInt32" -> iUInt
+        | "Int64" -> iInt64
+        | "UInt64" -> iUInt64
+        | "Single" -> iSingle
+        | "Nullable`1" ->
+            let item = t.GetGenericArguments().[0]
+            INullable (getRouter item)
+        | n ->
+            failwithf "System type not supported for inferred router: %s" n
+
+    and classRouter (t: Type) : InferredRouter =
+        let rec getClassAnnotation td : Annotation =
+            match parsedClassEndpoints.TryFind(td) with
+            | Some ep -> ep
+            | None ->
+                let b =
+                    let b = t.BaseType
+                    if b.FullName = "System.Object" then None else Some (getClassAnnotation b)
+                let thisAnnot = getTypeAnnot t
+                let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
+                parsedClassEndpoints.Add(td, annot)
+                annot
+        let annot = getClassAnnotation t
+        let endpoints =
+            annot.EndPoints |> List.map (fun e ->
+                e.Method, Route.FromUrl e.Path |> GetPathHoles |> fst
+            )
+        let endpoints =
+            if List.isEmpty endpoints then [None, [||]] else endpoints
+        let allFieldsArr =
+            t.GetFields(BF.Instance ||| BF.Public)
+            |> Array.map (fun f ->
+                f.Name,
+                (f, getFieldAnnot f)
+            )
+        let allFields = dict allFieldsArr
+        let allQueryFields =
+            allFieldsArr |> Seq.choose (
+                function
+                | fn, (_, { Query = Some _ }) -> Some fn
+                | _ -> None
+            ) |> Set
+        let routedFieldNames =
+            endpoints |> Seq.collect (fun (_, ep) ->
+                ep |> Seq.choose (fun s ->
+                    match s with
+                    | StringSegment _ -> None
+                    | FieldSegment fName -> Some fName
+                )
+            ) |> Seq.append allQueryFields |> Seq.distinct |> Array.ofSeq
+        let fieldIndexes =
+            routedFieldNames |> Seq.mapi (fun i n -> n, i) |> dict
+        let fieldRouters =
+            routedFieldNames
+            |> Seq.map (fun fName ->
+                let field, fAnnot = allFields.[fName]
+                fieldRouter field.FieldType fAnnot fName
+            )
+            |> Array.ofSeq
+        let fields =
+            routedFieldNames
+            |> Seq.map (fun fName ->
+                fst allFields.[fName]
+            )
+            |> Array.ofSeq
+        let partsAndFields =
+            endpoints |> Seq.map (fun (m, ep) ->
+                let mutable queryFields = allQueryFields
+                let explicitSegments =
+                    ep |> Seq.map (function
+                    | StringSegment s -> Choice1Of2 s
+                    | FieldSegment fName ->
+                        queryFields <- queryFields.Remove fName
+                        Choice2Of2 fieldIndexes.[fName]
+                    ) |> Array.ofSeq
+                m,
+                Array.append explicitSegments (
+                    queryFields |> Seq.map (fun f -> Choice2Of2 fieldIndexes.[f]) |> Array.ofSeq
+                )
+            ) |> Array.ofSeq
+        let readFields (o: obj) =
+            fields |> Array.map (fun f -> f.GetValue(o))
+        let createObject values =
+            let o = System.Activator.CreateInstance(t)
+            (fields, values) ||> Array.iter2 (fun f v -> f.SetValue(o, v))
+            o
+        let subClasses =
+            t.GetNestedTypes() |> Array.choose (fun nt ->
+                if nt.BaseType = t then Some (nt, getRouter nt) else None
+            )
+        IClass readFields createObject fieldRouters partsAndFields subClasses
 
     and createRouter (t: Type) : InferredRouter =
-        if t.IsEnum then
-            getRouter (System.Enum.GetUnderlyingType(t))
-        elif t.IsArray then
-            let item = t.GetElementType()
-            IArray item (getRouter item)
-        elif Reflection.FSharpType.IsTuple t then
-            let items = Reflection.FSharpType.GetTupleElements t
-            let itemReader = Reflection.FSharpValue.PreComputeTupleReader t
-            let ctor = Reflection.FSharpValue.PreComputeTupleConstructor t
-            ITuple itemReader ctor
-                (items |> Array.map getRouter) 
-        elif Reflection.FSharpType.IsRecord t then
-            let fields =
-                Reflection.FSharpType.GetRecordFields t
-                |> Array.map (fun f -> 
-                    fieldRouter f.PropertyType (getPropertyAnnot f) f.Name 
-                )
-            let fieldReader = Reflection.FSharpValue.PreComputeRecordReader(t, flags)
-            let ctor = Reflection.FSharpValue.PreComputeRecordConstructor(t, flags)
-            IRecord fieldReader ctor fields
-        elif Reflection.FSharpType.IsUnion t then
-            let isGen = t.IsGenericType
-            if isGen && t.GetGenericTypeDefinition() = typedefof<list<_>> then
-                let item = t.GetGenericArguments().[0]
-                IList item (getRouter item)
-            elif isGen && t.GetGenericTypeDefinition() = typedefof<ParseRequestResult<_>> then
-                let item = t.GetGenericArguments().[0]
-                IWithCustomErrors t (getRouter item)
-            else
-                let cases = Reflection.FSharpType.GetUnionCases(t, flags)
-                let tagReader = Reflection.FSharpValue.PreComputeUnionTagReader(t, flags)
-                let caseReaders = 
-                    cases |> Array.map (fun c -> Reflection.FSharpValue.PreComputeUnionReader(c, flags))
-                let caseCtors = 
-                    cases |> Array.map (fun c -> Reflection.FSharpValue.PreComputeUnionConstructor(c, flags))
-                IUnion 
-                    tagReader 
-                    caseReaders
-                    caseCtors
-                    (cases |> Array.map (fun c ->
-                        let cAnnot = getUnionCaseAnnot c
-                        let mutable queryFields = defaultArg cAnnot.Query Set.empty
-                        let mutable jsonField = cAnnot.Json |> Option.bind id
-                        let mutable formDataFields = defaultArg cAnnot.FormData Set.empty
-                        let endpoints = 
-                            cAnnot.EndPoints |> Seq.map (fun (m, e, _) -> m, ReadEndPointString e) |> Array.ofSeq
-                        let f =
-                            let fields = c.GetFields()
-                            fields |> Array.mapi (fun i f -> 
-                                let fTyp = f.PropertyType
-                                let fName = f.Name
-                                let r() = 
-                                    match cAnnot.DateTimeFormat with
-                                    | Some (Choice1Of2 fmt) ->
-                                        getDateTimeRouter fName fmt fTyp  
-                                    | Some (Choice2Of2 m) when m.ContainsKey fName ->
-                                        getDateTimeRouter fName m.[fName] fTyp    
-                                    | _ ->
-                                        getRouter fTyp
-                                if queryFields.Contains fName then 
-                                    queryFields <- queryFields |> Set.remove fName
-                                    queryRouter fTyp fName r
-                                elif formDataFields.Contains fName then 
-                                    formDataFields <- formDataFields |> Set.remove fName
-                                    queryRouter fTyp fName r |> IFormData
-                                elif Option.isSome jsonField && jsonField.Value = fName then
-                                    jsonField <- None
-                                    getJsonRouter fTyp
-                                elif cAnnot.IsWildcard && i = fields.Length - 1 then
-                                    wildCardRouter fTyp
-                                else r()
-                            )    
-                        if queryFields.Count > 0 then 
-                            failwithf "Query field not found: %s" (Seq.head queryFields)
-                        match jsonField with
-                        | Some j ->
-                            failwithf "Json field not found: %s" j
-                        | _ -> ()
-                        if formDataFields.Count > 0 then 
-                            failwithf "FormData field not found: %s" (Seq.head formDataFields)
-                        // todo: more error reports
-                        endpoints, f, cAnnot.IsWildcard
-                    ))
-                
-        else
-            match t.Namespace with
-            | "System" ->
-                match t.Name with
-                | "Object" -> IEmpty
-                | "String" -> iString 
-                | "Char" -> iChar 
-                | "Guid" -> iGuid 
-                | "Boolean" -> iBool 
-                | "Int32" -> iInt
-                | "Double" -> iDouble 
-                | "DateTime" -> iDateTime None
-                | "SByte" -> iSByte 
-                | "Byte" -> iByte 
-                | "Int16" -> iInt16 
-                | "UInt16" -> iUInt16
-                | "UInt32" -> iUInt 
-                | "Int64" -> iInt64 
-                | "UInt64" -> iUInt64
-                | "Single" -> iSingle
-                | "Nullable`1" ->
-                    let item = t.GetGenericArguments().[0]
-                    INullable (getRouter item)
-                | n ->
-                    failwithf "System type not supported for inferred router: %s" n
-            | _ ->
-                let rec getClassAnnotation td : Annotation =
-                    match parsedClassEndpoints.TryFind(td) with
-                    | Some ep -> ep
-                    | None ->
-                        let b = 
-                            let b = t.BaseType  
-                            if b.FullName = "System.Object" then None else Some (getClassAnnotation b)
-                        let thisAnnot = getTypeAnnot t
-                        let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
-                        parsedClassEndpoints.Add(td, annot)
-                        annot
-                let annot = getClassAnnotation t 
-                let endpoints = 
-                    annot.EndPoints |> List.map (fun (m, p, _) -> 
-                        m, Route.FromUrl p |> GetPathHoles |> fst
-                    ) 
-                let endpoints =
-                    if List.isEmpty endpoints then [None, [||]] else endpoints
-                let allFieldsArr =
-                    t.GetFields(BF.Instance ||| BF.Public)
-                    |> Array.map (fun f ->
-                        f.Name,
-                        (f, getFieldAnnot f)
-                    )
-                let allFields = dict allFieldsArr
-                let allQueryFields =
-                    allFieldsArr |> Seq.choose (
-                        function
-                        | fn, (_, { Query = Some _ }) -> Some fn
-                        | _ -> None
-                    ) |> Set
-                let routedFieldNames = 
-                    endpoints |> Seq.collect (fun (_, ep) ->
-                        ep |> Seq.choose (fun s ->
-                            match s with
-                            | StringSegment _ -> None
-                            | FieldSegment fName -> Some fName 
-                        )
-                    ) |> Seq.append allQueryFields |> Seq.distinct |> Array.ofSeq
-                let fieldIndexes =
-                    routedFieldNames |> Seq.mapi (fun i n -> n, i) |> dict
-                let fieldRouters =
-                    routedFieldNames
-                    |> Seq.map (fun fName ->
-                        let field, fAnnot = allFields.[fName]
-                        fieldRouter field.FieldType fAnnot fName
-                    )
-                    |> Array.ofSeq 
-                let fields =
-                    routedFieldNames
-                    |> Seq.map (fun fName ->
-                        fst allFields.[fName]
-                    )
-                    |> Array.ofSeq 
-                let partsAndFields =
-                    endpoints |> Seq.map (fun (m, ep) ->
-                        let mutable queryFields = allQueryFields
-                        let explicitSegments =
-                            ep |> Seq.map (function
-                            | StringSegment s -> Choice1Of2 s
-                            | FieldSegment fName ->  
-                                queryFields <- queryFields.Remove fName
-                                Choice2Of2 fieldIndexes.[fName]
-                            ) |> Array.ofSeq
-                        m,
-                        Array.append explicitSegments (
-                            queryFields |> Seq.map (fun f -> Choice2Of2 fieldIndexes.[f]) |> Array.ofSeq       
-                        )
-                    ) |> Array.ofSeq
-                let readFields (o: obj) =
-                    fields |> Array.map (fun f -> f.GetValue(o))
-                let createObject values =
-                    let o = System.Activator.CreateInstance(t)
-                    (fields, values) ||> Array.iter2 (fun f v -> f.SetValue(o, v))
-                    o
-                let subClasses =
-                    t.GetNestedTypes() |> Array.choose (fun nt ->
-                        if nt.BaseType = t then Some (nt, getRouter nt) else None
-                    )
-                IClass readFields createObject fieldRouters partsAndFields subClasses
+        if t.IsEnum then enumRouter t
+        elif t.IsArray then arrayRouter t
+        elif Reflection.FSharpType.IsTuple t then tupleRouter t
+        elif Reflection.FSharpType.IsRecord t then recordRouter t
+        elif Reflection.FSharpType.IsUnion t then unionRouter t
+        elif t.Namespace = "System" then systemRouter t
+        else classRouter t

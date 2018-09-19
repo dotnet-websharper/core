@@ -57,6 +57,15 @@ module PerformanceTests =
         | [<EndPoint "/sub1">] Sub1
         | [<EndPoint "/sub2">] Sub2 of string
 
+    type CorsA =
+        | [<EndPoint "POST /a">] CorsA_A
+
+    type CorsApi =
+        | [<EndPoint "/a">] CorsA of CorsA
+        | [<EndPoint "PUT /b">] CorsB of body: MultipleFormData
+        | [<EndPoint "POST /c"; Json "body">] CorsC of body: RecTest
+        | [<EndPoint "GET /d">] CorsD
+
     type Action =
         | [<EndPoint "/">] URoot
         | [<EndPoint "/">] USubAction of SubAction
@@ -91,6 +100,7 @@ module PerformanceTests =
         | [<EndPoint "/csharp">] UCSharp of CSharpEndPointRoot
         | [<EndPoint "/type-tests">] TypeTests of 
             Guid * single * double * sbyte * byte * int16 * uint16 * uint32 * int64 * uint64  
+        | [<EndPoint "/cors">] UCors of Cors<CorsApi>
 
     let TestValues =
         [
@@ -136,7 +146,11 @@ module PerformanceTests =
             UTwoUnions (A1 1, A1 1)
             UCSharp (new CSharpEndPointRoot())
             UCSharp (new CSharpEndPointRoot.Sub1(X = 42))
-            TypeTests (Guid.NewGuid(), 1.3f, 1.4, 15y, 16uy, 64s, 65us, 66u, 67L, 68UL) 
+            TypeTests (Guid.NewGuid(), 1.3f, 1.4, 15y, 16uy, 64s, 65us, 66u, 67L, 68UL)
+            UCors <| Cors.Of (CorsA CorsA_A)
+            UCors <| Cors.Of (CorsB { Text = "helloCorsB"; Id = Some 2; Flag = false })
+            UCors <| Cors.Of (CorsC { A = "helloCorsC"; B = 123; C = false })
+            UCors <| Cors.Of CorsD
         ]
 
     let ExtraTestValues =
@@ -154,23 +168,36 @@ module PerformanceTests =
         async.Zero()    
     
     let Site =
-        Sitelet.New (Router.Infer<Action>()) (fun ctx act -> 
-            let def() =
-                for i in 1 .. 49 do
-                    ctx.Link act |> ignore // stress-test writing links 
-                Content.Text (
-                    ctx.Link act
-                ) 
-            match expecting with
-            | Some exp ->
-                if exp <> act && (match exp with UCSharp _ -> false | _ -> true) then
+        Sitelet.New (Router.Infer<Action>()) (fun ctx act ->
+            let ok() =
+                let act =
+                    match act with
+                    | UCors (Cors.Of x) -> UCors (Cors.Of x) // remove DefaultAllows
+                    | act -> act
+                let def() =
+                    for i in 1 .. 49 do
+                        ctx.Link act |> ignore // stress-test writing links 
                     Content.Text (
-                        sprintf "Wrong endpoint parsed, expecting %A, got %A" exp act
+                        ctx.Link act
                     ) 
-                else
-                    expecting <- None
-                    def()
-            | _ -> def()
+                match expecting with
+                | Some exp ->
+                    if exp <> act && (match exp with UCSharp _ -> false | _ -> true) then
+                        Content.Text (
+                            sprintf "Wrong endpoint parsed, expecting %A, got %A" exp act
+                        ) 
+                    else
+                        expecting <- None
+                        def()
+                | _ -> def()
+            match act with
+            | UCors cors ->
+                Content.Cors cors (fun allows ->
+                    { allows with
+                        Origins = ["*"]
+                        Headers = ["Content-Type"] }
+                ) (fun _ -> ok())
+            | _ -> ok()
         )
 
     let ShiftedRouter = 

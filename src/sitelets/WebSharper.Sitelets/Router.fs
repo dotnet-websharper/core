@@ -30,6 +30,51 @@ open WebSharper.JQuery
 
 #nowarn "64" // type parameter renaming warnings 
 
+/// Indicates the "Access-Control-Xyz" headers to send.
+type CorsAllows =
+    {
+        Origins : string list
+        Methods : string list
+        Headers : string list
+        ExposeHeaders : string list
+        MaxAge : int option
+        Credentials : bool
+    }
+
+    [<Inline>]
+    static member Empty =
+        {
+            Origins = []
+            Methods = []
+            Headers = []
+            ExposeHeaders = []
+            MaxAge = None
+            Credentials = false
+        }
+
+/// Use as an endpoint to indicate that it must check for Cross-Origin Resource Sharing headers.
+/// In addition to matching the same endpoints as 'EndPoint does, this also matches preflight OPTIONS requests.
+/// The corresponding Content should use Content.Cors.
+type Cors<'EndPoint> =
+    {
+        [<OptionalField>]
+        DefaultAllows : CorsAllows option
+        // if None, then this is a preflight OPTIONS request
+        [<OptionalField>]
+        EndPoint : 'EndPoint option
+    }
+
+module Cors =
+    [<Inline>]
+    let Of (endpoint: 'EndPoint) =
+        { DefaultAllows = None; EndPoint = Some endpoint }
+
+    [<Inline>]
+    let (|Of|Preflight|) (c: Cors<'EndPoint>) =
+        match c.EndPoint with
+        | Some ep -> Of ep
+        | None -> Preflight
+
 [<NamedUnionCases "result"; RequireQualifiedAccess>]
 type ParseRequestResult<'T> =
     | [<CompiledName "success">]
@@ -302,10 +347,7 @@ type Route =
         let segments = System.Collections.Generic.Queue()
         let mutable queryArgs = Map.empty
         let mutable formData = Map.empty
-        let mutable i = 0
-        let l = paths.Length
-        while i < l do
-            let p = paths.[i]
+        paths |> Array.iter (fun p ->
             match p.Method with
             | Some _ as m ->
                 method <- m
@@ -317,7 +359,7 @@ type Route =
             queryArgs <- p.QueryArgs |> Map.foldBack Map.add queryArgs 
             formData <- p.FormData |> Map.foldBack Map.add formData 
             p.Segments |> List.iter segments.Enqueue
-            i <- i + 1
+        )
         {
             Segments = List.ofSeq segments
             QueryArgs = queryArgs
@@ -681,7 +723,7 @@ module Router =
         | None -> ""
 
     let AjaxWith (settings: AjaxSettings) (router: Router<'A>) endpoint =
-        if As settings then settings else AjaxSettings()
+        let settings = if As settings then settings else AjaxSettings()
         match Write router endpoint with
         | Some path ->
             if settings.DataType ===. JS.Undefined then
@@ -721,7 +763,7 @@ module Router =
         AjaxWith (AjaxSettings()) router endpoint
 
     let FetchWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Promise<Response> =
-        if As options then options else RequestOptions()
+        let options = if As options then options else RequestOptions()
         match Write router endpoint with
         | Some path ->
             options.Method <-defaultArg path.Method "POST"
@@ -1328,6 +1370,16 @@ module RouterOperators =
                     pad4 d.Year + "-" + pad2 d.Month + "-" + pad2 d.Day
                     + "-" + pad2 d.Hour + "." + pad2 d.Minute + "." + pad2 d.Second
                 Some (Seq.singleton (Route.Segment s))
+        }
+
+    let rCors<'T when 'T : equality> (r: Router<'T>) : Router<Cors<'T>> =
+        {
+            Parse = fun path ->
+                r.Parse path
+                |> Seq.map (fun (p, e) -> (p, Cors.Of e))
+            Write = function
+                | Cors.Of e -> r.Write e
+                | Cors.Preflight -> Some (Seq.singleton Route.Empty)
         }
       
     let internal Tuple (readItems: obj -> obj[]) (createTuple: obj[] -> obj) (items: Router<obj>[]) =
