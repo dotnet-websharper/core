@@ -30,6 +30,7 @@ module private Util =
 
 [<AutoOpen>]
 module private Types =
+    let DOMClass name = Class ("DOM" + name) |> WithSourceName name
     let DOMTimeStamp = T<System.DateTime>
     let DocumentType = Class "DocumentType"
     let Document = Class "Document"
@@ -37,7 +38,6 @@ module private Types =
     let NamedNodeMap = Class "NamedNodeMap"
     let Element = Class "Element"
     let TypeInfo = Class "TypeInfo"
-    let DOMLocator = Class "DOMLocator"
     let Event = Class "Event"
     let AbstractView = Class "AbstractView"
     let NodeFilter = Class "NodeFilter"
@@ -64,7 +64,7 @@ module private Enumerations =
         |> P.EnumInlines name
 
     let DOMExceptionType =
-        Enum "DOMExceptionType" "DOMException." "_ERR" "\
+        Enum "ExceptionType" "DOMException." "_ERR" "\
             INDEX_SIZE_ERR DOMSTRING_SIZE_ERR HIERARCHY_REQUEST_ERR
             WRONG_DOCUMENT_ERR INVALID_CHARACTER_ERR NO_DATA_ALLOWED_ERR \
             NO_MODIFICATION_ALLOWED_ERR NOT_FOUND_ERR NOT_SUPPORTED_ERR \
@@ -120,14 +120,15 @@ module private Enumerations =
 module Interfaces =
 
     let DOMException =
-        Class "DomException"
+        DOMClass "Exception"
         |+> Static [
                 "code" =? DOMExceptionType
+                "message" =? T<string>
                 "name" =? T<string>
             ]
 
     let DOMStringList =
-        Class "DomStringList"
+        DOMClass "StringList"
         |+> Instance [
                 "length" =? T<int>
                 "contains" => T<string->bool>
@@ -145,7 +146,7 @@ module Interfaces =
             ]
 
     let DOMImplementation =
-        Class "DOMImplementation"
+        DOMClass "Implementation"
         |+> Instance [
                 "hasFeature" =>
                     T<string>?feature * T<string>?version ^-> T<bool>
@@ -162,14 +163,14 @@ module Interfaces =
             ]
 
     let DOMImplementationList =
-        Class "DomImplementationList"
+        DOMClass "ImplementationList"
         |+> Instance [
                 "item" => T<int> ^-> DOMImplementation
                 "length" =? T<int>
             ]
 
     let DOMImpementationSource =
-        Class "DomImplementationSource"
+        DOMClass "ImplementationSource"
         |+> Instance [
                 "getDOMImplementation" =>
                     T<string> ^-> DOMImplementation
@@ -178,7 +179,7 @@ module Interfaces =
             ]
 
     let DOMRect =
-        Class "DomRect"
+        DOMClass "Rect"
         |+> Instance [
                 "x" =? T<double>
                 "y" =? T<double>
@@ -307,7 +308,7 @@ module Interfaces =
             ]
 
     let DOMTokenList =
-        Class "DOMTokenList"
+        DOMClass "TokenList"
         |+> Instance [
             "length" =? T<int>
             "item" => T<int> ^-> T<string>
@@ -532,21 +533,22 @@ module Interfaces =
         |> Obsolete
 
     let DOMError =
-        Class "DOMError"
+        DOMClass "Error"
         |+> Instance [
                 "name" =? T<string>
                 "message" =? T<string>
             ]
 
     let DOMErrorHandler =
-        Class "DOMErrorHandler"
+        DOMClass "ErrorHandler"
         |+> Instance [
                 "handleError" => DOMError ^-> T<bool>
             ]
         |> Obsolete
 
     let DOMLocator =
-        DOMLocator
+        DOMClass "Locator"
+        |> WithSourceName "Locator"
         |+> Instance [
                 "lineNumber" =? T<int>
                 "columnNumber" =? T<int>
@@ -558,7 +560,7 @@ module Interfaces =
         |> Obsolete
 
     let DOMConfiguration =
-        Class "DOMConfiguration"
+        DOMClass "Configuration"
         |+> Instance [
                 "setParameter" => T<string*obj->unit>
                 "getParameter" => T<string->obj>
