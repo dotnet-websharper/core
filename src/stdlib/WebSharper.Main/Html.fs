@@ -22,7 +22,6 @@ namespace WebSharper
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
