@@ -1200,6 +1200,8 @@ module IRouter =
 
 [<JavaScript>]
 module RouterOperators =
+    open System.Globalization
+    
     let rRoot : Router =
         {
             Parse = fun path -> Seq.singleton path
@@ -1256,12 +1258,30 @@ module RouterOperators =
                 Some (Seq.singleton (Route.Segment (string value)))
         }
 
+    [<JavaScript false>]
+    let inline rTryParseFloat< ^T when ^T: (static member TryParse: string * NumberStyles * NumberFormatInfo * byref< ^T> -> bool) and ^T: equality>() =
+        {
+            Parse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    let mutable res = Unchecked.defaultof< ^T>
+                    let ok =
+                        (^T: (static member TryParse: string * NumberStyles * NumberFormatInfo * byref< ^T> -> bool)
+                            (h, NumberStyles.Float, NumberFormatInfo.InvariantInfo, &res))
+                    if ok then 
+                        Seq.singleton ({ path with Segments = t }, res)
+                    else Seq.empty
+                | _ -> Seq.empty
+            Write = fun value ->
+                Some (Seq.singleton (Route.Segment (string value)))
+        }
+
     /// Parse/write a Guid.
     let rGuid = rTryParse<System.Guid>()
     /// Parse/write an int.
     let rInt = rTryParse<int>()
     /// Parse/write a double.
-    let rDouble = rTryParse<double>()
+    let rDouble = if IsClient then rTryParse<double>() else rTryParseFloat<double>()
     /// Parse/write a signed byte.
     let rSByte = rTryParse<sbyte>() 
     /// Parse/write a byte.
@@ -1277,7 +1297,7 @@ module RouterOperators =
     /// Parse/write a 64-bit unsigned int.
     let rUInt64 = rTryParse<uint64>() 
     /// Parse/write a single.
-    let rSingle = rTryParse<single>() 
+    let rSingle = if IsClient then rTryParse<single>() else rTryParseFloat<single>()
 
     /// Parse/write a bool.
     let rBool : Router<bool> =

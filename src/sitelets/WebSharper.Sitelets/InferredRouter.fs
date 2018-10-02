@@ -25,6 +25,7 @@ open WebSharper
 open WebSharper.JavaScript
 open System.Collections.Generic
 open System.Text
+open System.Globalization
 
 module internal ServerInferredOperators =
 
@@ -222,9 +223,28 @@ module internal ServerInferredOperators =
             IExplicitMethods = Set.empty
         }
 
+    let inline iTryParseFloat< ^T when ^T: (static member TryParse: string * NumberStyles * NumberFormatInfo * byref< ^T> -> bool) and ^T: equality>() =
+        {
+            IParse = fun path ->
+                match path.Segments with
+                | h :: t -> 
+                    let mutable res = Unchecked.defaultof< ^T>
+                    let ok =
+                        (^T: (static member TryParse: string * NumberStyles * NumberFormatInfo * byref< ^T> -> bool) 
+                            (h, NumberStyles.Float, NumberFormatInfo.InvariantInfo, &res))
+                    if ok then 
+                        path.Segments <- t
+                        Some (box res)
+                    else None
+                | _ -> None
+            IWrite = fun (w, value) ->
+                w.NextSegment().Append(string value) |> ignore
+            IExplicitMethods = Set.empty
+        }
+
     let iGuid = iTryParse<System.Guid>()
     let iInt = iTryParse<int>()
-    let iDouble = iTryParse<double>()
+    let iDouble = iTryParseFloat<double>()
     let iSByte = iTryParse<sbyte>() 
     let iByte = iTryParse<byte>() 
     let iInt16 = iTryParse<int16>() 
@@ -232,7 +252,7 @@ module internal ServerInferredOperators =
     let iUInt = iTryParse<uint32>() 
     let iInt64 = iTryParse<int64>() 
     let iUInt64 = iTryParse<uint64>() 
-    let iSingle = iTryParse<single>() 
+    let iSingle = iTryParseFloat<single>() 
 
     let internal iBool : InferredRouter =
         {
