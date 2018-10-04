@@ -7,7 +7,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="RoslynHelpers.fs" />
+    <Compile Include="RoslynHelpers.g.fs" />
     <Compile Include="Scoping.fs" />
     <Compile Include="Continuation.fs" />
     <Compile Include="CodeReader.fs" />

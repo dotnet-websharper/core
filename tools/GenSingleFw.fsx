@@ -1,6 +1,7 @@
 module GenSingleFw
 
 #r "System.Xml.Linq"
+// $nocopyright
 open System
 open System.IO
 open System.Text.RegularExpressions
