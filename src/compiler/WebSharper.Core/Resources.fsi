@@ -24,9 +24,6 @@ module WebSharper.Core.Resources
 open System
 
 type HtmlTextWriter =
-#if NET461 // ASP.NET: HtmlTextWriter
-    inherit System.Web.UI.HtmlTextWriter
-#else
     inherit System.IO.TextWriter
     member RenderBeginTag : string -> unit
     member RenderEndTag : unit -> unit
@@ -36,8 +33,7 @@ type HtmlTextWriter =
     member WriteEncodedText : string -> unit
     member AddAttribute : string * string -> unit
     member WriteAttribute : string * string -> unit
-    member WriteAttribute : string * string * bool -> unit
-#endif
+    member WriteAttribute : string * string * encode: bool -> unit
     static member SelfClosingTagEnd : string
     static member TagLeftChar : char
     static member TagRightChar : char

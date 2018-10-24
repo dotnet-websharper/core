@@ -26,17 +26,6 @@ open System.Net
 open System.Reflection
 
 module CT = ContentTypes
-
-#if NET461 // ASP.NET: HtmlTextWriter
-
-type private HTW = System.Web.UI.HtmlTextWriter
-
-type HtmlTextWriter =
-    inherit HTW
-    new(w: TextWriter, i: string) = { inherit HTW(w, i) }
-    new(w: TextWriter) = { inherit HTW(w) }
-
-#else
     
 type HtmlTextWriter(w: TextWriter, indentString: string) =
     inherit System.IO.TextWriter(w.FormatProvider)
@@ -92,14 +81,15 @@ type HtmlTextWriter(w: TextWriter, indentString: string) =
         currentAttributes.Add(struct (name, value))
 
     member this.WriteAttribute(name: string, value: string) =
-        this.WriteAttribute(name, value, false)
+        this.WriteAttribute(name, value, true)
 
-    member this.WriteAttribute(name: string, value: string, encoded: bool) =
+    member this.WriteAttribute(name: string, value: string, encode: bool) =
         this.Write(" {0}=\"", name)
-        WebUtility.HtmlEncode(value, w)
+        if encode then
+            WebUtility.HtmlEncode(value, w)
+        else
+            w.Write(value)
         this.Write("\"")
-
-#endif
 
     static member SelfClosingTagEnd = " />"
 
