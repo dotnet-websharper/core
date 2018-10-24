@@ -6,6 +6,8 @@
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperUseNetFxCompiler>True</WebSharperUseNetFxCompiler>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>FS0864</NoWarn>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="BigInteger.fs" />
