@@ -1184,16 +1184,19 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 | Member.Method(_, m) ->
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
                     | Some x ->
+                        Option.iter scan this
                         x |> Array.iter (fun i ->
                             let arg = arguments.[i]
-                            match arg with
-                            | P.Quote e -> Some e
-                            | P.Value v ->
-                                match vars.TryGetValue v with
-                                | true, e -> Some e
-                                | false, _ -> None
-                            | _ -> None
-                            |> Option.iter (fun e ->
+                            let e =
+                                match arg with
+                                | P.Quote e -> Some e
+                                | P.Value v ->
+                                    match vars.TryGetValue v with
+                                    | true, e -> Some e
+                                    | false, _ -> None
+                                | _ -> None
+                            match e with
+                            | Some e ->
                                 let pos = e.Range.AsSourcePos
                                 let e = transformExpression env e
                                 let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
@@ -1218,7 +1221,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                                     | _ -> false
                                 if not isTrivial then
                                     quotations.Add(pos, qm, argNames, f) 
-                            )
+                            | None -> scan arg
                         )
                     | _ -> default'()
                 | _ -> default'()
