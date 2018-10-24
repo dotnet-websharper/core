@@ -467,7 +467,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Unary(UnaryOperator.``!``, JSRuntime.DelegateEqual d1 d2)
                 | _ -> this.Error("Delegate equality check expects two arguments")
             | "ToString" -> Value (String typ.Entity.Value.FullName)
-            | mn -> this.Error("Unrecognized delegate method: " + mn)
+            | mn -> this.Error(sprintf "Unrecognized delegate method: %s.%s" typ.Entity.Value.FullName mn)
         | M.FSharpRecordInfo _ ->
             match me.MethodName.[.. 2] with
             | "get" ->
@@ -479,7 +479,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> 
                 match me.MethodName with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error("Unrecognized member of F# record type")         
+                | _ -> this.Error(sprintf "Unrecognized member of F# record type: %s.%s" typ.Entity.Value.FullName me.MethodName)         
         | M.FSharpUnionInfo u ->
             // union types with a single non-null case do not have
             // nested subclass subclass for the case
@@ -541,14 +541,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error("Unrecognized F# compiler generated method for union: " + mN)                 
+                | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union: %s.%s" typ.Entity.Value.FullName mN)                 
         | M.FSharpUnionCaseInfo c -> 
             match unionCase false c with
             | Some res -> res
-            | _ -> this.Error("Unrecognized F# compiler generated method for union case: " + me.MethodName)    
+            | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union case: %s.%s" typ.Entity.Value.FullName me.MethodName)    
         | M.EnumInfo e ->
             this.TransformCall(objExpr, NonGeneric e, meth, args)
-        | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
+        | _ -> this.Error(sprintf "Unrecognized compiler generated method: %s.%s" typ.Entity.Value.FullName me.MethodName)
      
     member this.CompileMethod(info, expr, typ, meth) =
         try
