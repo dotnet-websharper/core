@@ -49,6 +49,31 @@ type IControl =
     abstract member Body : IControlBody
     abstract member Id : string
 
+/// An interface that has to be implemented by controls that
+/// are subject to activation but are not attached to a
+/// specific DOM element.
+type IInitializer =
+    inherit IRequiresResources
+
+    /// Called during the preparation phase of initialization.
+    /// This is guaranteed to run before any IInitializer's Initialize
+    /// and before any IControl's Body.
+    /// The order between the PreInitialize of two IInitializers is unspecified.
+    [<JavaScript; Name "$preinit">]
+    abstract member PreInitialize : id: string -> unit
+
+    /// Called during the main phase of initialization.
+    /// The order between the Initialize of two IInitializers is unspecified.
+    [<JavaScript; Name "$init">]
+    abstract member Initialize : id: string -> unit
+
+    /// Called during the final phase of initialization.
+    /// This is guaranteed to run after any IInitializer's Initialize
+    /// and after any IControl's Body.
+    /// The order between the PostInitialize of two IInitializers is unspecified.
+    [<JavaScript; Name "$postinit">]
+    abstract member PostInitialize : id: string -> unit
+
 [<AutoOpen>]
 module HtmlContentExtensions =
 
@@ -94,13 +119,30 @@ module Activator =
                 onReady <| fun () ->
                     let text = meta.GetAttribute("content")
                     let obj = Json.Activate (Json.Parse text)
-                    JS.GetFields obj
-                    |> Array.iter (fun (k, v) ->
+                    Instances <- obj
+                    let fields = JS.GetFields obj
+                    // PreInitialize
+                    fields |> Array.iter (fun (k, v) ->
+                        match v with
+                        | :? IInitializer as i ->
+                            i.PreInitialize(k)
+                        | _ -> ()
+                    )
+                    // Initialize
+                    fields |> Array.iter (fun (k, v) ->
                         match v with
                         | :? IControl as v ->
                             let p = v.Body
                             let old = JS.Document.GetElementById k
                             p.ReplaceInDom old
+                        | :? IInitializer as i ->
+                            i.Initialize(k)
                         | _ -> ()
                     )
-                    Instances <- obj
+                    // PostInitialize
+                    fields |> Array.iter (fun (k, v) ->
+                        match v with
+                        | :? IInitializer as i ->
+                            i.PostInitialize(k)
+                        | _ -> ()
+                    )
