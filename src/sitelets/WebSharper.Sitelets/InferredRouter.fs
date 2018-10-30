@@ -181,11 +181,12 @@ module internal ServerInferredOperators =
                         path.Segments <- t
                         Some (box s)
                     | _ -> None
-                | _ -> None
+                | [] -> 
+                    Some (box "")
             IWrite = fun (w, value) ->
                 if isNull value then 
                     w.NextSegment().Append("null") |> ignore
-                else
+                elif unbox value <> "" then
                     w.NextSegment().Append(StringEncoding.write (unbox value)) |> ignore
             IExplicitMethods = Set.empty
         }

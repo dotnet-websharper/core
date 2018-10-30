@@ -1222,7 +1222,8 @@ module RouterOperators =
                     | Some s ->
                         Seq.singleton ({ path with Segments = t }, s)
                     | _ -> Seq.empty
-                | _ -> Seq.empty
+                | [] ->
+                    Seq.singleton (path, "")
             Write = fun value ->
                 Some (Seq.singleton (Route.Segment (if isNull value then "null" else StringEncoding.write value)))
         }

@@ -107,6 +107,7 @@ module PerformanceTests =
             URoot
             USubAction Sub1
             USubAction (Sub2 "x")
+            UString ""
             UString "hello"
             UString """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UQuery "hello"
@@ -155,6 +156,7 @@ module PerformanceTests =
 
     let ExtraTestValues =
         [
+            UString "", "/string"
             UString "xx", "/stringtoo/xx"
             UCSharp (new CSharpEndPointRoot()), "/csharp/home"
             UCSharp (new CSharpEndPointRoot.Sub1(X = 42)), "/csharp/sub1full/42"
