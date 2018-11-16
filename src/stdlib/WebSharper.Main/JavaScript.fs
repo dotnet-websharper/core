@@ -74,6 +74,7 @@ type Kind =
     | [<Constant "object">]    Object
     | [<Constant "undefined">] Undefined
     | [<Constant "symbol">]    Symbol
+    | [<Constant "bigint">]    BigInt
 
 /// Displays a popup dialog.
 [<Inline "alert($message)">]

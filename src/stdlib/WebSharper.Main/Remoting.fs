@@ -75,15 +75,7 @@ type IAjaxProvider =
             $err(new Error(msg + xhr.status));
         }
     }
-    if ('onload' in xhr) {
-        xhr.onload = xhr.onerror = xhr.onabort = k;
-    } else {
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState == 4) {
-                k();
-            }
-        };
-    }
+    xhr.onload = xhr.onerror = xhr.onabort = k;
     xhr.send($data);
 ">]
 let private ajax (async: bool) (url: Url) (headers: Headers) (data: Data)

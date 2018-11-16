@@ -580,7 +580,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let id = id |> withType innerEnv tr
         CollectVariables(innerEnv).VisitStatement(b)
         let throws, body = b |> transformStatement innerEnv |> flattenFuncBody tr
-        let id = if throws then id.WithType(J.Var (J.Id.New "never")) else id
+        let id = if throws then id.WithType(J.Var (J.Id.New "any")) else id // using "never" fixes applications on result in TS 3
         let f = J.Function(id, args, flattenJS body)
         if env.InFuncScope then
             f

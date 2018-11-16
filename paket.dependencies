@@ -2,16 +2,19 @@ version 5.108.0
 
 references: strict
 redirects: on
+strategy: min
 
 framework: net45, net46
 source https://api.nuget.org/v3/index.json
+source https://www.myget.org/F/typescript-preview/api/v3/index.json
 
-nuget FAKE
-nuget FSharp.Compiler.Tools
+nuget FAKE 4.63.2
+nuget FSharp.Compiler.Tools 4.1.29
+nuget FSharp.Core 4.2.3
 
-nuget Mono.Cecil ~> 0.10-beta
+nuget Mono.Cecil ~> 0.10
 nuget System.ValueTuple 4.3.0
-nuget Microsoft.TypeScript.MSBuild ~> 2.6.1
+nuget Microsoft.TypeScript.MSBuild ~> 3.2.0-beta
 
 group fsharp4
     framework: net45, net46
@@ -32,7 +35,7 @@ group roslyn
     strategy: min
 
     nuget System.ValueTuple 4.3.0
-    nuget Microsoft.CodeAnalysis.CSharp ~2.3
+    nuget Microsoft.CodeAnalysis.CSharp 2.4
 
 group fcs
     framework: net45
@@ -40,11 +43,11 @@ group fcs
     strategy: min
 
     nuget System.ValueTuple 4.3.0
-    nuget FSharp.Compiler.Service ~16.0.2
+    nuget FSharp.Compiler.Service 16.0.2
 
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
     nuget Paket.Core 5.108.0
-    nuget FAKE
+    nuget FAKE 4.63.2
 	nuget AjaxMin

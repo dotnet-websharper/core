@@ -1,13 +1,16 @@
 REFERENCES: STRICT
 REDIRECTS: ON
+STRATEGY: MIN
 RESTRICTION: || (== net45) (== net46)
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FAKE (4.63.2)
     FSharp.Compiler.Tools (4.1.29)
-    Microsoft.TypeScript.MSBuild (2.6.1)
-    Mono.Cecil (0.10.0-beta7)
+    FSharp.Core (4.2.3)
+    Mono.Cecil (0.10.1)
     System.ValueTuple (4.3)
+  remote: https://www.myget.org/F/typescript-preview/api/v3/index.json
+    Microsoft.TypeScript.MSBuild (3.2.0-beta-20181115-1)
 
 GROUP build
 RESTRICTION: == net45
@@ -17,10 +20,10 @@ NUGET
     Chessie (0.6)
       FSharp.Core
     FAKE (4.63.2)
-    FSharp.Compiler.Tools (4.1.29)
-    FSharp.Core (4.2.3)
-    Mono.Cecil (0.10.0-beta7)
-    Newtonsoft.Json (10.0.3)
+    FSharp.Compiler.Tools (10.2.1)
+    FSharp.Core (4.5.2)
+    Mono.Cecil (0.10.1)
+    Newtonsoft.Json (11.0.2)
     Paket.Core (5.108)
       Chessie (>= 0.6)
       FSharp.Compiler.Tools

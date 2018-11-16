@@ -326,6 +326,16 @@ module Interfaces =
                     T<obj> ^-> T<unit>
             ]
 
+    let HTMLCollectionOf =
+        Generic - fun (a: CodeModel.TypeParameter) ->
+        Class "HTMLCollectionOf"
+        |> WithTSType "HTMLCollectionOf"
+        |+> Instance [
+            "length" =? T<int>
+            "item" => T<int> ^-> a
+            "namedItem" => T<string> ^-> a
+        ]
+
     let DOMTokenList =
         Class "DOMTokenList"
         |> WithTSType "DOMTokenList"
@@ -508,6 +518,31 @@ module Interfaces =
                 "attachShadow" => ShadowRootInit ^-> ShadowRoot
                 "shadowRoot" =? ShadowRoot
             ]
+
+    let HTMLEmbedElement =
+        Class "HTMLEmbedElement"
+        |> WithTSType "HTMLEmbedElement"
+        |=> Inherits Element
+
+    let HTMLFormElement =
+        Class "HTMLFormElement"
+        |> WithTSType "HTMLFormElement"
+        |=> Inherits Element
+
+    let HTMLImageElement =
+        Class "HTMLImageElement"
+        |> WithTSType "HTMLImageElement"
+        |=> Inherits Element
+
+    let HTMLAnchorElement =
+        Class "HTMLAnchorElement"
+        |> WithTSType "HTMLAnchorElement"
+        |=> Inherits Element
+
+    let HTMLScriptElement =
+        Class "HTMLScriptElement"
+        |> WithTSType "HTMLScriptElement"
+        |=> Inherits Element
 
     let HTMLCollection =
         Class "HTMLCollection"
@@ -1176,21 +1211,21 @@ module Interfaces =
                 "documentURI" =? T<string>
                 "domain" =@ T<string>
                 "domConfig" =@ DOMConfiguration |> Obsolete
-                "embeds" =? NodeList
-                "forms" =? NodeList
+                "embeds" =? HTMLCollectionOf.[HTMLEmbedElement]
+                "forms" =? HTMLCollectionOf.[HTMLFormElement]
                 "head" =? Element
                 "hidden" =? T<bool>
-                "images" =? NodeList
+                "images" =? HTMLCollectionOf.[HTMLImageElement]
                 "implementation" =@ DOMImplementation
                 "inputEncoding" =? T<string> |> Obsolete
                 "lastModified" =? T<string>
-                "links" =? NodeList
+                "links" =? HTMLCollectionOf.[HTMLAnchorElement]
                 "lastStyleSheetSet" =? T<string>
-                "plugins" =? NodeList
+                "plugins" =? HTMLCollectionOf.[HTMLEmbedElement]
                 "preferredStyleSheetSet" =? T<string>
                 "readyState" =? T<string>
                 "referrer" =? T<string>
-                "scripts" =? NodeList
+                "scripts" =? HTMLCollectionOf.[HTMLScriptElement]
                 "selectedStyleSheetSet" =@ T<string>
                 "strictErrorChecking" =@ T<bool>
                 "styleSheets" =? T<obj> // StyleSheetList
@@ -1324,6 +1359,12 @@ module Definition =
                 I.NodeFilter
                 I.NodeIterator
                 I.HTMLCollection
+                I.HTMLCollectionOf
+                I.HTMLEmbedElement
+                I.HTMLFormElement
+                I.HTMLImageElement
+                I.HTMLAnchorElement
+                I.HTMLScriptElement
                 I.TreeWalker
                 I.Range
                 E.DOMExceptionType

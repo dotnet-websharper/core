@@ -14,6 +14,7 @@
     <WebSharperDeadCodeElimination>False</WebSharperDeadCodeElimination>
     <TypeScriptToolsVersion>Latest</TypeScriptToolsVersion>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>
+    <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
   </PropertyGroup>
   <Import Project="../../msbuild/WebSharper.FSharp.Internal.targets" />
   <Import Project="$(VSToolsPath)\TypeScript\Microsoft.TypeScript.targets" />
