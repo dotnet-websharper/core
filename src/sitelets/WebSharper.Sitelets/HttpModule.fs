@@ -100,15 +100,18 @@ module private WebUtils =
             }
         override this.Cookies =
             if isNull cookies then
-                let d = NameValueCollection()
-                match headers |> Seq.tryFind (fun h -> h.Name = "Cookie") with
-                | None -> ()
-                | Some h ->
-                    for s in h.Value.Split([|"; "|], StringSplitOptions.None) do
-                        match s.IndexOf '=' with
-                        | -1 -> failwith "Cookie header syntax invalid"
-                        | i -> d.Add(s.[..i-1], s.[i+1..])
-                cookies <- Http.ParametersFromNameValues d
+                cookies <-
+                    { new Http.ParameterCollection with
+                        member this.Item(name:string) =
+                            match req.Cookies.Get name with
+                            | null -> None
+                            | c -> Some c.Value
+                        member this.ToList() =
+                            [
+                                for k in req.Cookies.AllKeys do
+                                    yield (k, req.Cookies.[k].Value)
+                            ]    
+                    }
             cookies
 
     /// Converts ASP.NET requests to Sitelet requests.
