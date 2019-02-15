@@ -2102,7 +2102,7 @@ module WebGL =
     let RenderingContextClass =
         RenderingContext
         |+> Instance
-            [
+            (List.ofArray [|
                 // GLEnum constants
                 "DEPTH_BUFFER_BIT" =? T<int>
                 "STENCIL_BUFFER_BIT" =? T<int>
@@ -2563,7 +2563,7 @@ module WebGL =
                 "vertexAttrib4fv" => T<int>?indx * (Type.ArrayOf T<float>)?values ^-> T<unit>
                 "vertexAttribPointer" => T<int>?indx * T<int>?size * Enum?typ * T<bool>?normalized * T<int>?stride * T<int>?offset ^-> T<unit>
                 "viewport" => T<int>?x * T<int>?y * T<int>?width * T<int>?height ^-> T<unit>
-            ]
+            |])
 
     let ContextAttributesClass =
         ContextAttributes
