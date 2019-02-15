@@ -566,6 +566,11 @@ let Tests =
             raises (List.exactlyOne [ 0; 1 ])
         }
 
+        Test "List.tryExactlyOne" {
+            equal (List.tryExactlyOne [ 0 ]) (Some 0)
+            equal (List.tryExactlyOne [ 0; 1 ]) None
+        }
+
         Test "List.except" {
             equal (List.except List.empty [ 0; 1 ]) [ 0; 1 ]
             equal (List.except [ 0 ] [ 0; 1 ]) [ 1 ]

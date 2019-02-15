@@ -22,8 +22,10 @@ namespace WebSharper
 
 open WebSharper.JavaScript
 
+[<Struct>]
 [<Proxy(typeof<voption<_>>)>]
 [<RequireQualifiedAccess>]
+[<Prototype(false)>]
 type private ValueOptionProxy<'T> =
     | ValueNone 
     | ValueSome of 'T
@@ -33,5 +35,17 @@ type private ValueOptionProxy<'T> =
         | ValueNone -> invalidOp "ValueOption.Value"
         | ValueSome x -> x 
 
-    static member Test =
-        (ValueSome 2).Value
+    [<Inline "$0.$ == 1">]
+    member this.IsSome = false
+
+    [<Inline "$0.$ == 0">]
+    member this.IsNone = false
+
+    [<Inline; Pure>]  
+    static member Some(v: 'T) = As<'T voption> (ValueSome v)  
+  
+    [<Inline>]  
+    static member None = As<'T voption> ValueNone
+
+    [<Inline>]
+    static member op_Implicit(v: 'T) = As<'T voption> (ValueSome v)  

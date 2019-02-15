@@ -48,6 +48,7 @@
     <Compile Include="String.fs" />
     <Compile Include="Task.fs" />
     <Compile Include="TimeSpan.fs" />
+    <Compile Include="ValueOption.fs" />
     <Compile Include="Printf.fs" />
     <Compile Include="Tupled.fs" />
     <Compile Include="WIG.fs" />

@@ -641,6 +641,16 @@ let Tests =
             raises (Seq.splitInto 0 Seq.empty<int> |> ignore)
         }
 
+        Test "Seq.exactlyOne" {
+            equal (Seq.exactlyOne [ 0 ]) 0
+            raises (Seq.exactlyOne [ 0; 1 ])
+        }
+
+        Test "Seq.tryExactlyOne" {
+            equal (Seq.tryExactlyOne [ 0 ]) (Some 0)
+            equal (Seq.tryExactlyOne [ 0; 1 ]) None
+        }
+
         Test "Seq.except" {
             equal (Seq.except Seq.empty [ 0; 1 ] |> Array.ofSeq) [| 0; 1 |]
             equal (Seq.except [ 0 ] [ 0; 1 ] |> Array.ofSeq) [| 1 |]

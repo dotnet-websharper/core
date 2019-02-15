@@ -246,6 +246,9 @@
     <Compile Include="../WebSharper.Main.Proxies/ValueOption.fs">
       <Link>ValueOption.fs</Link>
     </Compile>
+    <Compile Include="../WebSharper.Main.Proxies/ValueOptionModule.fs">
+      <Link>ValueOptionModule.fs</Link>
+    </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Primitives.fs">
       <Link>Primitives.fs</Link>
     </Compile>

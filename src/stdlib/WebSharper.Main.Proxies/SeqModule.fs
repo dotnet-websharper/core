@@ -231,6 +231,16 @@ let ExactlyOne<'T> (s: seq<'T>) =
         else x
     else invalidOp "Sequence contains no elements"
 
+[<Name "tryExactlyOne">]
+let TryExactlyOne<'T> (s: seq<'T>) =
+    use e = Enumerator.Get s
+    if e.MoveNext() then
+        let x = e.Current
+        if e.MoveNext() then
+            None
+        else Some x
+    else None
+
 [<Inline>]
 let Except (itemsToExclude: seq<'T>) (s: seq<'T>) =
     SeqExcept itemsToExclude s

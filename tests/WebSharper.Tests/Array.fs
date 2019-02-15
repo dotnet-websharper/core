@@ -683,6 +683,11 @@ let Tests =
             raises (Array.exactlyOne [| 0; 1 |])
         }
 
+        Test "Array.tryExactlyOne" {
+            equal (Array.tryExactlyOne [| 0 |]) (Some 0)
+            equal (Array.tryExactlyOne [| 0; 1 |]) None
+        }
+
         Test "Array.except" {
             equal (Array.except Array.empty [| 0; 1 |]) [| 0; 1 |]
             equal (Array.except [| 0 |] [| 0; 1 |]) [| 1 |]

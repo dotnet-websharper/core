@@ -708,6 +708,13 @@ let ExactlyOne (ar : 'T []) =
     else
         failwith "The input does not have precisely one element."
 
+[<Name "tryExactlyOne">]
+let TryExactlyOne (ar : 'T []) =
+    if Array.length ar = 1 then
+        Some ar.JS.[0]
+    else
+        None
+
 [<Name "unfold">]
 let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : 'T [] =
     Seq.unfold f s

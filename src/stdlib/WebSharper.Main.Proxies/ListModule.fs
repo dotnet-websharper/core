@@ -739,10 +739,18 @@ let TryLast<'T> (list: list<'T>) =
 [<Name "exactlyOne">]
 let ExactlyOne (list : 'T list) =
     match list with
-    | head :: [] ->
+    | [ head ] ->
         head
     | _ ->
         failwith "The input does not have precisely one element."
+
+[<Name "tryExactlyOne">]
+let TryExactlyOne (list : 'T list) =
+    match list with
+    | [ head ] ->
+        Some head
+    | _ ->
+        None
 
 [<Name "unfold">]
 let Unfold<'T, 'S> (f: 'S -> option<'T * 'S>) (s: 'S) : list<'T> =

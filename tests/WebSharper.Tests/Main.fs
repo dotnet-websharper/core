@@ -74,6 +74,7 @@ let RunTests runServerSide =
         String.Tests
         Task.Tests
         TimeSpan.Tests
+        ValueOption.Tests
         Printf.Tests
         Tupled.Tests
         WIG.Tests
