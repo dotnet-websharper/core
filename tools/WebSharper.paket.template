@@ -7,6 +7,8 @@ description
     .NET-to-JavaScript compiler and web application framework
 tags
     Web JavaScript F# C#
+dependencies
+    FSharp.Core == LOCKEDVERSION
 files
     ../build/Release/net461/WebSharper.Core.JavaScript.dll ==> lib/net461
     ../build/Release/net461/WebSharper.Core.JavaScript.xml ==> lib/net461

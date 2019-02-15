@@ -762,7 +762,7 @@ GROUP compilers
 RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Tools (10.2.1)
+    FSharp.Compiler.Tools (10.0.2)
     FSharp.Core (4.6.2)
     Microsoft.Net.Compilers (2.9)
 

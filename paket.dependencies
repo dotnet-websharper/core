@@ -50,7 +50,7 @@ group includes
 group compilers
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
-    nuget FSharp.Compiler.Tools ~> 10.2.1
+    nuget FSharp.Compiler.Tools ~> 10.0.2
     nuget FSharp.Core ~> 4.6.2
     nuget Microsoft.Net.Compilers ~> 2.9.0
 
