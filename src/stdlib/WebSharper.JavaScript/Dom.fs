@@ -1048,6 +1048,9 @@ module Interfaces =
             "observe" => (Node * !?MutationObserverInit) ^-> T<unit>
             "takeRecords" => T<unit> ^-> Type.ArrayOf MutationRecord
         ]
+        |+> Static [
+            Constructor ((!|MutationRecord * TSelf ^-> T<unit>)?callback)
+        ]
 
     let MutationEvent =
         Class "MutationEvent"
