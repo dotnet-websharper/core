@@ -86,8 +86,9 @@ module Utils =
         | BasicPatterns.NewTuple(v,args) -> printTupledArgs args 
         | BasicPatterns.NewUnionCase(ty,uc,args) -> uc.CompiledName + printTupledArgs args 
         | BasicPatterns.Quote(e1) -> "quote" + printTupledArgs [e1]
-        | BasicPatterns.FSharpFieldGet(obj, ty,f) -> printObjOpt obj + f.Name 
+        | BasicPatterns.FSharpFieldGet(obj, ty,f) -> printObjOpt obj + "." + f.Name 
         | BasicPatterns.FSharpFieldSet(obj, ty,f,arg) -> printObjOpt obj + f.Name + " <- " + printExpr 0 arg
+        | BasicPatterns.AnonRecordGet(obj, ty, index) -> printExpr 10 obj + "." + ty.AnonRecordTypeDetails.SortedFieldNames.[index] 
         | BasicPatterns.Sequential(e1,e2) -> "(" + printExpr 0 e1 + "; " + printExpr 0 e2 + ")"
         | BasicPatterns.ThisValue _ -> "this"
         | BasicPatterns.TryFinally(e1,e2) -> "try " + printExpr 0 e1 + " finally " + printExpr 0 e2
@@ -432,6 +433,9 @@ module Module =
     let AnonRecordNested() =
         {| A = 1; B = {| A = 2; B = "hi"|}|}  
         
+    let StructAnonRecord() =
+        let a = struct {| SA = 5 |}
+        a.SA
 """
 
 translate """

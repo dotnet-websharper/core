@@ -429,6 +429,18 @@ module Definitions =
             FullName = "System.Decimal"
         }
 
+    let FSharpOption =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpOption`1"
+        }
+    
+    let FSharpValueOption =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpValueOption`1"
+        }
+    
 /// Stores a definition and type parameter information
 type Concrete<'T> =
     {
@@ -628,6 +640,13 @@ and Type =
         | FSharpFuncType (a1, r1), FSharpFuncType (a2, r2) -> Type.IsGenericCompatible(a1, a2) && Type.IsGenericCompatible(r1, r2)
         | ByRefType t1, ByRefType t2 -> Type.IsGenericCompatible(t1, t2)
         | VoidType, VoidType -> true
+        | _ -> false
+
+    member this.IsOptional =
+        match this with
+        | ConcreteType t ->
+            t.Entity = Definitions.FSharpOption 
+            || t.Entity = Definitions.FSharpValueOption 
         | _ -> false
 
 type MethodInfo =

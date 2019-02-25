@@ -541,6 +541,9 @@ let Tests =
                 | IM.AnonRecordTest r -> r.A, r.B
             equal a 3
             equal b "hi"
-            equal {| A = 1; B = Undefined; C = Defined 3 |} (New ["A" => 1; "C" => 3])
+            equal {| A = 1; B = ValueNone; C = ValueSome 3 |} (New ["A" => 1; "C" => 3])
+            equal {| A = 1; B = None; C = Some 3 |} (New ["A" => 1; "C" => 3])
+            let s = struct {| A = 5 |}
+            equal s.A 5
         }
     }

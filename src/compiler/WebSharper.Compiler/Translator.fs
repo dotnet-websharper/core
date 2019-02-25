@@ -426,7 +426,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.CustomTypeConstructor (typ : Concrete<TypeDefinition>, i : M.CustomTypeInfo, ctor: Constructor, args) =
         match i with
-        | M.FSharpRecordInfo fields ->
+        | M.FSharpRecordInfo _
+        | M.FSharpAnonRecordInfo _ ->
             this.TransformNewRecord(typ, args)
         | _ -> this.Error("Unhandled F# compiler generated constructor")
     
@@ -468,7 +469,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | _ -> this.Error("Delegate equality check expects two arguments")
             | "ToString" -> Value (String typ.Entity.Value.FullName)
             | mn -> this.Error(sprintf "Unrecognized delegate method: %s.%s" typ.Entity.Value.FullName mn)
-        | M.FSharpRecordInfo _ ->
+        | M.FSharpRecordInfo _ 
+        | M.FSharpAnonRecordInfo _ ->
             match me.MethodName.[.. 2] with
             | "get" ->
                 let fn = me.MethodName.[4 ..]
@@ -1200,6 +1202,24 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     if f.Optional then Some (Value (String f.JSName)) else None)
             if List.isEmpty optFields then obj
             else JSRuntime.DeleteEmptyFields obj optFields
+        | M.FSharpAnonRecordInfo fields ->
+            let obj = 
+                (args, fields, typ.Generics)
+                |||> Seq.map3 (fun a f g -> 
+                    f,
+                        if g.IsOptional then
+                            let id = Id.New(mut = false)
+                            Let(id, this.TransformExpression a,
+                                Conditional(Var id, ItemGet(Var id, Value (String "$0"), Pure), Undefined))
+                        else this.TransformExpression a)
+                |> List.ofSeq |> Object
+            let optFields = 
+                (fields, typ.Generics)
+                ||> List.map2 (fun f g -> 
+                    if g.IsOptional then Some (Value (String f)) else None)
+                |> List.choose id
+            if List.isEmpty optFields then obj
+            else JSRuntime.DeleteEmptyFields obj optFields
         | _ -> this.Error("Unhandled F# compiler generated constructor")
 
     override this.TransformNewUnionCase(typ, case, args) = 
@@ -1553,6 +1573,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     else
                         this.TransformExpression expr.Value |> getItemRO name ro
                 | _ -> this.Error(sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field)
+            | M.FSharpAnonRecordInfo fields ->
+                let fOpt =
+                    (fields, typ.Generics)
+                    ||> List.map2 (fun f g ->
+                        if f = field then Some (f, g.IsOptional) else None    
+                    )
+                    |> List.tryPick id
+                match fOpt with
+                | Some (name, isOpt) ->
+                    if isOpt then
+                        JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem name)
+                    else
+                        this.TransformExpression expr.Value |> getItemRO name false
+                | _ -> this.Error(sprintf "Could not find field of F# anonymous record type: %s.%s" typ.Entity.Value.FullName field)
             | M.FSharpUnionInfo _ -> this.Error "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
         | PropertyField (getter, _) ->
@@ -1591,6 +1625,20 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     else
                         ItemSet(this.TransformExpression expr.Value, Value (String name), this.TransformExpression value)
                 | _ -> this.Error(sprintf "Could not find field of F# record type: %s.%s" typ.Entity.Value.FullName field)
+            | M.FSharpAnonRecordInfo fields ->
+                let fOpt =
+                    (fields, typ.Generics)
+                    ||> List.map2 (fun f g ->
+                        if f = field then Some (f, g.IsOptional) else None    
+                    )
+                    |> List.tryPick id
+                match fOpt with
+                | Some (name, isOpt) ->
+                    if isOpt then
+                        JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String name)) (this.TransformExpression value)
+                    else
+                        ItemSet(this.TransformExpression expr.Value, Value (String name), this.TransformExpression value)
+                | _ -> this.Error(sprintf "Could not find field of F# anonymous record type: %s.%s" typ.Entity.Value.FullName field)
             | M.FSharpUnionCaseInfo _ -> this.Error "Union case field should not be set" 
             | M.FSharpUnionInfo _ -> this.Error "Union base type should not have fields"   
             | _ -> failwith "CustomTypeField error"          
@@ -1650,6 +1698,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | M.DelegateInfo _ ->
                         TypeOf "function"
                     | M.FSharpRecordInfo _
+                    | M.FSharpAnonRecordInfo _
                     | M.StructInfo _ ->
                         PlainObject false
                     | M.FSharpUnionInfo ui ->

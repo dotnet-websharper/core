@@ -61,7 +61,10 @@ let isOption (t: FSharpType) =
     t.HasTypeDefinition &&
         let td = t.TypeDefinition
         not td.IsProvidedAndErased &&
-        td.TryFullName = Some "Microsoft.FSharp.Core.FSharpOption`1"
+        match td.TryFullName with
+        | Some "Microsoft.FSharp.Core.FSharpOption`1"
+        | Some "Microsoft.FSharp.Core.FSharpValueOption`1" -> true
+        | _ -> false
 
 let rec isSeq (t: FSharpType) = 
     let t = getOrigType t
@@ -392,18 +395,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 }
             if not (comp.HasCustomTypeInfo def) then
                 let info =
-                    d.SortedFieldNames |> Seq.mapi (fun i fn ->
-                        {
-                            Name = fn
-                            JSName = fn
-                            RecordFieldType = Type.TypeParameter i
-                            DateTimeFormat = None
-                            Optional = false
-                            IsMutable = false
-                        } : M.FSharpRecordFieldInfo
-                    )
-                    |> List.ofSeq
-                    |> M.FSharpRecordInfo
+                    d.SortedFieldNames
+                    |> List.ofArray
+                    |> M.FSharpAnonRecordInfo
                 comp.AddCustomType(def, info)
             GenericType def (t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq)
         else
@@ -1034,7 +1028,9 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.AddressOf expr ->
             let isStructUnionOrTupleGet =
                 let t = getOrigType expr.Type
-                t.IsStructTupleType || (
+                t.IsStructTupleType 
+                || t.IsAnonRecordType
+                || (
                     t.HasTypeDefinition && (
                         let td = t.TypeDefinition
                         td.IsFSharpUnion && td.IsValueType

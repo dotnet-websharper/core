@@ -238,6 +238,7 @@ type CustomTypeInfo =
     | NotCustomType
     | EnumInfo of TypeDefinition
     | StructInfo
+    | FSharpAnonRecordInfo of list<string>
 
 type Node =
     | MethodNode of TypeDefinition * Method
