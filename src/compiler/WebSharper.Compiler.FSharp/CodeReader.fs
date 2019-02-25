@@ -20,7 +20,7 @@
 
 module internal WebSharper.Compiler.FSharp.CodeReader
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
  
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -50,11 +50,7 @@ let isByRefDef (td: FSharpEntity) =
 
 let isUnit (t: FSharpType) =
     let t = getOrigType t
-    if t.IsGenericParameter then
-        false
-    else
-    let t = getOrigType t
-    if t.IsTupleType || t.IsFunctionType then false else
+    if not t.HasTypeDefinition then false else
     let td = t.TypeDefinition
     if td.IsArrayType || isByRefDef td then false
     elif td.IsProvidedAndErased then false
@@ -119,7 +115,7 @@ let hasCompilationRepresentation (cr: CompilationRepresentationFlags) attrs =
         && obj.Equals(snd a.ConstructorArguments.[0], int cr)
     )
 
-let getRange (range: Microsoft.FSharp.Compiler.Range.range) =
+let getRange (range: FSharp.Compiler.Range.range) =
     {   
         FileName = range.FileName
         Start = range.StartLine, range.StartColumn + 1
@@ -386,6 +382,30 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             getTupleType false
         elif t.IsFunctionType then
             getFunc()
+        elif t.IsAnonRecordType then
+            let d = t.AnonRecordTypeDetails
+            let cname = d.CompiledName
+            let def =
+                TypeDefinition {
+                    Assembly = readSimpleName t.AnonRecordTypeDetails.Assembly cname
+                    FullName = cname
+                }
+            if not (comp.HasCustomTypeInfo def) then
+                let info =
+                    d.SortedFieldNames |> Seq.mapi (fun i fn ->
+                        {
+                            Name = fn
+                            JSName = fn
+                            RecordFieldType = Type.TypeParameter i
+                            DateTimeFormat = None
+                            Optional = false
+                            IsMutable = false
+                        } : M.FSharpRecordFieldInfo
+                    )
+                    |> List.ofSeq
+                    |> M.FSharpRecordInfo
+                comp.AddCustomType(def, info)
+            GenericType def (t.GenericArguments |> Seq.map (this.ReadTypeSt markStaticTP tparams) |> List.ofSeq)
         else
         // measure type parameters do not have a TypeDefinition
         // reusing LocalTypeParameter case as it is also fully erased
@@ -883,6 +903,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                         for a, f in Seq.zip items fields ->
                             FieldSet(Some This, t, f.Name, tr a)
                     ]
+        | P.NewAnonRecord (typ, items) ->
+            let t =
+                match sr.ReadType env.TParams typ with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a named type"
+            NewRecord (t, List.map tr items)
         | P.DecisionTree (matchValue, cases) ->
             let trMatchVal = transformExpression env matchValue
             let simpleMatchCases = System.Collections.Generic.Dictionary()
@@ -999,6 +1025,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | ConcreteType ct -> ct
                 | _ -> parsefailf "Expected a named type in ILFieldSet"
             FieldSet(thisOpt |> Option.map tr, t, field, tr value)
+        | P.AnonRecordGet (expr, typ, index) ->
+            let t =
+                match sr.ReadType env.TParams typ with
+                | ConcreteType ct -> ct
+                | _ -> parsefailf "Expected a named type"
+            FieldGet (Some (tr expr), t, typ.AnonRecordTypeDetails.SortedFieldNames.[index])
         | P.AddressOf expr ->
             let isStructUnionOrTupleGet =
                 let t = getOrigType expr.Type
@@ -1156,7 +1188,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         errorPlaceholder        
     |> withSourcePos expr
 
-type Microsoft.FSharp.Compiler.Range.range with
+type FSharp.Compiler.Range.range with
     member this.AsSourcePos =
         {
             FileName = System.IO.Path.GetFileName(this.FileName)

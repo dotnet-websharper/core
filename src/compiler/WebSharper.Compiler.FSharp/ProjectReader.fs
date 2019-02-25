@@ -20,7 +20,7 @@
 
 module WebSharper.Compiler.FSharp.ProjectReader
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open System.Collections.Generic
 
 open WebSharper.Core

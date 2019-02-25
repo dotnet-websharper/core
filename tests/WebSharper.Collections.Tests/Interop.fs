@@ -105,6 +105,17 @@ module Module =
     let UndefVal = JavaScript.Undefined : JavaScript.Optional<int>
     let DefVal = JavaScript.Defined 42
 
+    let AnonRecord (x: {| A : int |}) = {| B = x.A |}
+
+    type TAnonRecordInUnion =
+        | AnonRecordTest of {| A: int; B: string|}
+
+    let AnonRecordInUnion() =
+        AnonRecordTest {| A = 3; B = "hi"|}   
+
+    let AnonRecordNested() =
+        {| A = 1; B = {| A = 2; B = "hi"|}|}   
+
 [<JavaScript>]
 type GenericClass<'T>() =
     member this.GenericMethod<'U>(x: 'U) = x

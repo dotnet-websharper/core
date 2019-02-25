@@ -772,18 +772,6 @@ STRATEGY: MIN
 RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (26.0.1)
-      FSharp.Core (>= 4.5.2)
-      System.Collections.Immutable (>= 1.5)
-      System.Data.SqlClient (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Diagnostics.Process (>= 4.1) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Diagnostics.TraceSource (>= 4.0) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Reflection.Emit (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Reflection.Metadata (>= 1.6)
-      System.Reflection.TypeExtensions (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Runtime.Loader (>= 4.0) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
-      System.ValueTuple (>= 4.4) - restriction: || (== net46) (== net461) (&& (== netcoreapp2.0) (>= net45)) (&& (== netstandard2.0) (>= net45))
     FSharp.Core (4.6.2)
     Microsoft.NETCore.Platforms (1.1) - restriction: || (== net46) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
     Microsoft.NETCore.Targets (1.1) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
@@ -1375,6 +1363,19 @@ NUGET
       System.Threading.Tasks (>= 4.3) - restriction: || (&& (== net46) (>= dnxcore50)) (&& (== net46) (< net45)) (&& (== net461) (>= dnxcore50)) (&& (== net461) (< net45)) (== netcoreapp2.0) (== netstandard2.0)
       System.Threading.Tasks.Extensions (>= 4.3) - restriction: || (&& (== net46) (>= dnxcore50)) (&& (== net46) (< net45)) (&& (== net461) (>= dnxcore50)) (&& (== net461) (< net45)) (== netcoreapp2.0) (== netstandard2.0)
     System.Xml.XDocument (4.3) - restriction: || (== net46) (&& (== net461) (== netcoreapp2.0)) (&& (== netcoreapp2.0) (>= net45) (< netstandard2.0))
+  remote: https://daily.websharper.com/nuget
+    IntelliFactory.FSharp.Compiler.Service (26.1.1)
+      FSharp.Core (>= 4.5.2)
+      System.Collections.Immutable (>= 1.5)
+      System.Data.SqlClient (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Diagnostics.Process (>= 4.1) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Diagnostics.TraceSource (>= 4.0) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Reflection.Emit (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Reflection.Metadata (>= 1.6)
+      System.Reflection.TypeExtensions (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Runtime.Loader (>= 4.0) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.Security.Cryptography.Algorithms (>= 4.3) - restriction: || (&& (== net46) (< net45) (>= netstandard2.0)) (&& (== net461) (< net45) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
+      System.ValueTuple (>= 4.4) - restriction: || (== net46) (== net461) (&& (== netcoreapp2.0) (>= net45)) (&& (== netstandard2.0) (>= net45))
 
 GROUP includes
 REFERENCES: STRICT

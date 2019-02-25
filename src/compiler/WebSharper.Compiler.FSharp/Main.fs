@@ -20,7 +20,7 @@
 
 namespace WebSharper.Compiler.FSharp
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FrontEnd
 open WebSharper.Compiler.CommandTools
 open ErrorPrinting

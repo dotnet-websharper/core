@@ -37,7 +37,7 @@ let MakeDummyDll (path: string) (assemblyName: string) =
     let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
     asm.Write(path)
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 let Compile (config : WsConfig) (warnSettings: WarnSettings) =    
     StartTimer()
     

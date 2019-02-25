@@ -1,5 +1,5 @@
 group fcs
-  FSharp.Compiler.Service
+  IntelliFactory.FSharp.Compiler.Service
   System.Collections.Immutable
   System.Reflection.Metadata
 Fsharp.Core

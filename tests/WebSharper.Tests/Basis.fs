@@ -26,6 +26,8 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
+module IM = WebSharper.Collections.Tests.Interop.Module
+
 #nowarn "40" // recursive values
 
 [<JavaScript>]
@@ -528,5 +530,17 @@ let Tests =
                 let window = 20
                 self = 10 && window = 20 && self + window = 30 && JS.Global :? WebSharper.JavaScript.Window
             )
+        }
+
+        Test "Anonymous records" {
+            let x = IM.AnonRecord({| A = 42 |})
+            equal x.B 42
+            equal {| x with C = 3|} (New ["B" => 42; "C" => 3])
+            let a, b = 
+                match IM.AnonRecordInUnion() with
+                | IM.AnonRecordTest r -> r.A, r.B
+            equal a 3
+            equal b "hi"
+            equal {| A = 1; B = Undefined; C = Defined 3 |} (New ["A" => 1; "C" => 3])
         }
     }

@@ -7,7 +7,7 @@ description
     Compiler libraries for F#-to-JavaScript translation
 dependencies
     WebSharper.Compiler.Common == CURRENTVERSION
-    FSharp.Compiler.Service >= LOCKEDVERSION
+    IntelliFactory.FSharp.Compiler.Service >= LOCKEDVERSION
 files
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> lib/net461
     ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.xml ==> lib/net461

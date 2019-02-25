@@ -20,7 +20,7 @@
 
 module WebSharper.Compiler.FSharp.ErrorPrinting
 
-open Microsoft.FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.SourceCodeServices
 open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting

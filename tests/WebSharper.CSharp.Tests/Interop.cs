@@ -383,5 +383,14 @@ namespace WebSharper.CSharp.Tests
             var o = new TestDelegateThisScoping(1);
             Equal(o.AddWithFSharpFunc(2, 3), 6);
         }
+
+        [Test]
+        public void FSharpAnonRecord()
+        {   
+            Equal(I.Module.AnonRecordNested().A, 1);
+            Equal(I.Module.AnonRecordNested().B.A, 2);
+            Equal(I.Module.AnonRecordNested().B.B, "hi");
+        }
+
     }
 }
