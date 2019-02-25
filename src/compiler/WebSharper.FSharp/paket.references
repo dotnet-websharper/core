@@ -1,10 +1,10 @@
 Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
+Microsoft.NETCore.Platforms
 group fcs
   FSharp.Compiler.Service
   System.Collections.Immutable
   System.Reflection.Metadata
   FSharp.Core
-Microsoft.NETCore.Platforms
 group compilers
   FSharp.Compiler.Tools
