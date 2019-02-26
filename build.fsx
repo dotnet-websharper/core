@@ -156,7 +156,7 @@ Target "GenAppConfig" <| fun () ->
             if not (xmlFile.StartsWith(Path.GetFileName(asmFullPath))) then
                 let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(asmFullPath)
                 let token = asm.Name.PublicKeyToken
-                let token = String.init token.Length (fun i -> sprintf "%x" token.[i])
+                let token = String.init token.Length (fun i -> sprintf "%02x" token.[i])
                 sprintf """<ac:dependentAssembly>
                         <ac:assemblyIdentity name="%s" publicKeyToken="%s" culture="neutral" />
                         <ac:bindingRedirect oldVersion="0.0.0.0-65535.65535.65535.65535" newVersion="%A" />
