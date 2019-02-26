@@ -57,8 +57,7 @@ group compilers
 group fcs
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
-    source https://daily.websharper.com/nuget
     strategy: min
     storage: none
-    nuget IntelliFactory.FSharp.Compiler.Service ~> 26.1.1
+    nuget FSharp.Compiler.Service ~> 27.0.1
     nuget FSharp.Core ~> 4.6.2
