@@ -109,6 +109,10 @@ let internal defCTS = ref(new System.Threading.CancellationTokenSource())
 [<Inline>]
 let fork action = scheduler.Fork action
 
+/// Client implementation of the public function in ../WebSharper.Main/Concurrency.fs.
+[<Inline>]
+let Schedule action = fork action
+
 [<JavaScript>]
 let private cancel c = c.k (Cc (new OCE(As<System.Threading.CancellationToken> c.ct)))
 

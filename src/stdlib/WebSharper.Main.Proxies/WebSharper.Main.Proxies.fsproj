@@ -42,23 +42,14 @@
     <EmbeddedResource Include="../WebSharper.Main/AnimFrame.min.js">
       <Link>AnimFrame.min.js</Link>
     </EmbeddedResource>
-    <Compile Include="../WebSharper.Main/Utils.fs">
-      <Link>Utils.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/Concurrency.fs">
-      <Link>Concurrency.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/Enumerator.fs">
-      <Link>Enumerator.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/Enumerable.fs">
-      <Link>Enumerable.fs</Link>
-    </Compile>
     <Compile Include="../WebSharper.Main/Resources.fs">
       <Link>Resources.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main/Html.fs">
       <Link>Html.fs</Link>
+    </Compile>
+    <Compile Include="../WebSharper.Main/JSObject.fs">
+      <Link>JSObject.fs</Link>
     </Compile>
     <Compile Include="../WebSharper.Main/FSharpConvert.fs">
       <Link>FSharpConvert.fs</Link>
@@ -83,9 +74,6 @@
     </Compile>
     <Compile Include="../WebSharper.Main.Proxies/Interop.fs">
       <Link>Interop.fs</Link>
-    </Compile>
-    <Compile Include="../WebSharper.Main/JSObject.fs">
-      <Link>JSObject.fs</Link>
     </Compile>
     <None Include="../WebSharper.Main.Proxies/genInterop.fsx">
       <Link>genInterop.fsx</Link>
