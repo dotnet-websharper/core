@@ -77,7 +77,7 @@ let Compile config =
                 }
             with e ->
                 refError <- true
-                PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
+                PrintGlobalError (sprintf "Error merging WebSharper metadata: %A" e)
                 None
 
     TimedStage "Loading referenced metadata"
@@ -296,5 +296,5 @@ let main argv =
         PrintGlobalError msg
         1    
     | e -> 
-        PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
+        PrintGlobalError (sprintf "Global error: %A" e)
         1

@@ -145,7 +145,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     )
                 with e ->
                     refError <- true
-                    PrintGlobalError ("Error merging WebSharper metadata: " + e.Message)
+                    PrintGlobalError (sprintf "Error merging WebSharper metadata: %A" e)
                     None
         )
     
@@ -433,6 +433,6 @@ let main(argv) =
         PrintGlobalError msg
         1    
     | e -> 
-        PrintGlobalError (sprintf "Global error '%s' at %s" e.Message e.StackTrace)
+        PrintGlobalError (sprintf "Global error: %A" e)
         1
 #endif
