@@ -8,12 +8,12 @@ source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
-nuget Microsoft.CSharp ~> 4.4.0
+nuget Microsoft.CSharp ~> 4.6.0 prerelease
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.10
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 2.8.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.0.0 prerelease
 nuget System.CodeDom ~> 4.4.0
 nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
@@ -24,10 +24,6 @@ nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget NETStandard.Library ~> 2.0.0
 nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Security.Cryptography.Csp ~> 4.3.0
-
-// fixed for analyzer to work
-nuget System.Collections.Immutable 1.3.1
-nuget System.Reflection.Metadata 1.4.2
 
 group build
     framework: net45
@@ -52,7 +48,7 @@ group compilers
     source https://api.nuget.org/v3/index.json
     nuget FSharp.Compiler.Tools ~> 10.0.2
     nuget FSharp.Core ~> 4.6.2
-    nuget Microsoft.Net.Compilers ~> 2.9.0
+    nuget Microsoft.Net.Compilers ~> 3.0.0 prerelease
 
 group fcs
     framework: net46, net461, netstandard2.0, netcoreapp2.0
