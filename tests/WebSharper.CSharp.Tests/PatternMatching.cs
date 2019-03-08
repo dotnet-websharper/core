@@ -88,5 +88,25 @@ namespace WebSharper.CSharp.Tests
                 res = 2;
             Equal(res, 2);
         }
+
+        [Test]
+        public void Property()
+        {
+            var o = new { X = 1 };
+            var res = 0;
+            if (o is { X: var x })
+                res = x;
+            Equal(res, 1);
+        }
+
+        [Test]
+        public void Recursive()
+        {
+            var o = new { X = (1, 3) };
+            var res = 0;
+            if (o is { X: var (x, y) })
+                res = x + y;
+            Equal(res, 4);
+        }
     }
 }
