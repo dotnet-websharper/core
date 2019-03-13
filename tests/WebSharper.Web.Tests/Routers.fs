@@ -81,6 +81,11 @@ module PerformanceTests =
         | [<EndPoint "/record-with-queries">] URecordQ of RecQTest
         | [<EndPoint "/list">] UList of list<int * string>
         | [<EndPoint "/array">] UArray of (int * string)[]
+        | [<EndPoint "/priority">] UPriority1
+        | [<EndPoint "/priority">] UPriority2 of int
+        | [<EndPoint "/priority">] UPriority3 of string
+        | [<EndPoint "/priority">] UPriority4 of int * string
+        | [<EndPoint "/priority">] UPriority5 of string * string
         | [<Method "POST"; EndPoint "/post">] UPost of int
         | [<Method "PUT"; EndPoint "/put">] UPut of int
         | [<EndPoint "POST /post2">] UPost2 of int
@@ -160,6 +165,11 @@ module PerformanceTests =
             UString "xx", "/stringtoo/xx"
             UCSharp (new CSharpEndPointRoot()), "/csharp/home"
             UCSharp (new CSharpEndPointRoot.Sub1(X = 42)), "/csharp/sub1full/42"
+            UPriority1, "/priority"
+            UPriority2 123, "/priority/123"
+            UPriority3 "xx", "/priority/xx"
+            UPriority4 (123, "xx"), "/priority/123/xx"
+            UPriority5 ("xx", "yy"), "/priority/xx/yy"
         ]
 
     let mutable expecting = None
