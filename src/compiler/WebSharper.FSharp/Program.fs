@@ -300,14 +300,13 @@ let compileMain (argv: string[]) =
     match HandleDefaultArgsAndCommands argv true with
     | Some r -> r
     | _ ->
-
+    
     let wsArgs = ref WsConfig.Empty
     let warn = ref WarnSettings.Default
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
-    if argv.Length > 0 && not (argv.[0].EndsWith "fsc.exe") then
-        fscArgs.Add "fsc.exe"   
+    fscArgs.Add "fsc.exe"   
 
     let cArgv =
         [|
@@ -419,6 +418,7 @@ let compileMain (argv: string[]) =
 let formatArgv (argv: string[]) =
     match argv with
     | [| a |] when a.StartsWith "@" -> File.ReadAllLines a.[1..]
+    | [| f; a |] when f.EndsWith "fsc.exe" && a.StartsWith "@" -> File.ReadAllLines a.[1..]
     | _ -> argv
 
 [<EntryPoint>]
