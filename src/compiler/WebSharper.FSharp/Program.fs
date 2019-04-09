@@ -295,7 +295,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     | _ ->
         0
 
-let compileMain argv =
+let compileMain (argv: string[]) =
 
     match HandleDefaultArgsAndCommands argv true with
     | Some r -> r
@@ -306,7 +306,8 @@ let compileMain argv =
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
-    fscArgs.Add "fsc.exe"
+    if argv.Length > 0 && not (argv.[0].EndsWith "fsc.exe") then
+        fscArgs.Add "fsc.exe"   
 
     let cArgv =
         [|
