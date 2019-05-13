@@ -34,8 +34,6 @@ type OptionalFieldKind =
     /// The field has type Optional<'T>
     | ErasedOption = 3
 
-let ServerSideProvider = WebSharper.Core.Json.Provider.Create ()
-
 [<JavaScript>]
 module Provider =
     let Id () = 
