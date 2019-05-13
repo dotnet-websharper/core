@@ -306,7 +306,8 @@ let compileMain (argv: string[]) =
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
-    fscArgs.Add "fsc.exe"   
+    if not (argv.[0].EndsWith "fsc.exe") then
+        fscArgs.Add "fsc.exe"   
 
     let cArgv =
         [|
@@ -417,8 +418,10 @@ let compileMain (argv: string[]) =
 
 let formatArgv (argv: string[]) =
     match argv with
-    | [| a |] when a.StartsWith "@" -> File.ReadAllLines a.[1..]
-    | [| f; a |] when f.EndsWith "fsc.exe" && a.StartsWith "@" -> File.ReadAllLines a.[1..]
+    | [| a |] when a.StartsWith "@" ->
+        File.ReadAllLines a.[1..]
+    | [| f; a |] when f.EndsWith "fsc.exe" && a.StartsWith "@" ->
+        Array.append [| f |] (File.ReadAllLines a.[1..])
     | _ -> argv
 
 [<EntryPoint>]

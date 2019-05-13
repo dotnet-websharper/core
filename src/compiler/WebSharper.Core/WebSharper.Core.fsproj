@@ -32,6 +32,7 @@
     <Compile Include="Remoting.fsi" />
     <Compile Include="Remoting.fs" />
     <Compile Include="Interop.fs" />
+    <Compile Include="TypedJson.fs" />
     <None Include="genInterop.fsx" />
     <None Include="paket.references" />
   </ItemGroup>
