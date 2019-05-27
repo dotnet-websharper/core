@@ -23,10 +23,12 @@ namespace WebSharper
 open WebSharper.JavaScript
 
 [<CompiledName "TypedJson">]
-type Json =
+type Json private () =
 
+    static let serverSideProvider = WebSharper.Core.Json.Provider.Create ()
+    
     /// An instance of Json.Provider, used for custom JSON serialization on the server.
-    static member ServerSideProvider = WebSharper.Core.Json.Provider.Create ()
+    static member ServerSideProvider = serverSideProvider
 
     /// Encodes an object in such a way that JSON stringification
     /// results in the same readable format as Sitelets.
@@ -36,8 +38,8 @@ type Json =
     /// Serializes an object to JSON using the same readable format as Sitelets.
     /// For plain JSON stringification, see Json.Stringify.
     static member Serialize<'T> (x: 'T) =
-        Json.ServerSideProvider.GetEncoder<'T>().Encode x
-        |> Json.ServerSideProvider.Pack
+        serverSideProvider.GetEncoder<'T>().Encode x
+        |> serverSideProvider.Pack
         |> Core.Json.Stringify
 
     /// Decodes an object parsed from the same readable JSON format as Sitelets.
@@ -48,4 +50,4 @@ type Json =
     /// For plain JSON parsing, see Json.Parse.
     static member Deserialize<'T> (x: string) =
         Core.Json.Parse x
-        |> Json.ServerSideProvider.GetDecoder<'T>().Decode
+        |> serverSideProvider.GetDecoder<'T>().Decode
