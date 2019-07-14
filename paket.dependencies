@@ -1,4 +1,4 @@
-version 5.178.0
+version 5.198.0
 
 references: strict
 redirects: on
@@ -28,7 +28,7 @@ nuget System.Security.Cryptography.Csp ~> 4.3.0
 group build
     framework: net45
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.178.0
+    nuget Paket.Core 5.198.0
     nuget FAKE
     nuget AjaxMin
     nuget FSharp.Core

@@ -647,7 +647,7 @@ namespace WebSharper.CSharp.Tests
             JsEqual(strings, new[] { "5" });
         }
 
-#if NETCORE
+#if NETCORE30
         [Test]
         public void IndexTest()
         {
