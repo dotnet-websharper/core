@@ -143,11 +143,6 @@ type FixCtorTransformer(typ, btyp, ?thisExpr) =
 
     let thisExpr = defaultArg thisExpr This
 
-    override this.TransformSequential (es) =
-        match es with
-        | h :: t -> Sequential (this.TransformExpression h :: t)
-        | _ -> Undefined
-
     override this.TransformLet(a, b, c) =
         Let(a, b, this.TransformExpression c)
 

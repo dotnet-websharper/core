@@ -479,6 +479,18 @@ module Bug991 =
 type Bug1010() =
     inherit WebSharper.InterfaceGenerator.Tests.Regression1010.B()
 
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1051 =
+    type Base<'T> (x: 'T) = 
+        class end
+
+    type Sub() as this =
+        inherit Base<unit>(())
+    
+        member __.A() = ()
+        member __.B() = this.A()
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
