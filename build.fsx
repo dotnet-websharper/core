@@ -52,7 +52,7 @@ let targets = MakeTargets {
                         AdditionalArgs = ["--no-dependencies"; "--no-restore"]
                         Configuration = mode.ToString() }
                 if explicitlyCopyFsCore then
-                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/compilers/FSharp.Core/lib/netstandard1.6"
+                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/compilers/FSharp.Core/lib/netstandard2.0"
                     [ 
                         fsharpCoreLib </> "FSharp.Core.dll" 
                         fsharpCoreLib </> "FSharp.Core.sigdata" 
