@@ -344,6 +344,8 @@ type RoutingMacro() =
                             failwithf "Failed to create Router for type %O, F# union case types are not supported yet" t
                         | M.DelegateInfo _ ->
                             failwithf "Failed to create Router for type %O, delegate types are not supported" t
+                        | M.FSharpAnonRecordInfo _ ->
+                            failwith "Failed to create Router, anonymous F# record types are not supported"
                         | M.StructInfo
                         | M.NotCustomType ->
                             if not allJSClassesInitialized then
