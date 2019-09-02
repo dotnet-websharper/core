@@ -481,7 +481,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> 
                 match me.MethodName with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error(sprintf "Unrecognized member of F# record type: %s.%s" typ.Entity.Value.FullName me.MethodName)         
+                | _ -> this.Error(sprintf "No client-side support for member of F# record type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName me.MethodName)         
         | M.FSharpUnionInfo u ->
             // union types with a single non-null case do not have
             // nested subclass subclass for the case
@@ -543,11 +543,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union: %s.%s" typ.Entity.Value.FullName mN)                 
+                | _ -> this.Error(sprintf "No client-side support for member of F# union type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName mN)                 
         | M.FSharpUnionCaseInfo c -> 
             match unionCase false c with
             | Some res -> res
-            | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union case: %s.%s" typ.Entity.Value.FullName me.MethodName)    
+            | _ -> this.Error(sprintf "No client-side support for member of F# union case type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName me.MethodName)    
         | M.EnumInfo e ->
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error(sprintf "Unrecognized compiler generated method: %s.%s" typ.Entity.Value.FullName me.MethodName)
@@ -1408,7 +1408,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match IgnoreExprSourcePos expr with
             | This -> norm
             | Var _ -> def()
-            | _ -> this.Error("Unrecognized this value in constructor inline")
+            | _ -> this.Error("Unrecognized 'this' value in constructor inline")
         else def()
 
     override this.TransformCctor(typ) =
