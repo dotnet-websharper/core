@@ -123,8 +123,8 @@ type private AsyncProxy =
     static member TryCancelled(p: Async<'T>, f: OCE -> unit) : Async<'T> =
         As (C.TryCancelled(As p, f))
 
-[<Proxy(typeof<Async>)>]
-type private Async1Proxy =
+[<Proxy(typeof<Async<_>>)>]
+type private Async1Proxy<'T> =
     class end
 
 [<Proxy(typeof<CT>)>]
