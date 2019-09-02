@@ -82,7 +82,7 @@ type Context() =
 module Remoting =
 
     let internal context =
-        new System.Threading.AsyncLocal<option<Context>>()
+        new System.Threading.AsyncLocal<Context>()
 
     let mutable internal allowedOrigins = Set.empty
 
@@ -115,13 +115,14 @@ module Remoting =
     let DisableCsrfProtection() =
         csrfProtect <- false
 
-    /// Retrieve the current web context in an Rpc function. This function must be called
-    /// from the thread from which the Rpc function is originally called. The returned
-    /// object can be used throughout the Rpc function.
+    /// Retrieve the current web context in an Rpc function.
+    /// Using an AsyncLocal value, it is unique request handling asynchronous flow.
     let GetContext() =
-        match context.Value with
-        | None -> failwith "No remoting context available."
-        | Some c -> c
+        let c = context.Value
+        if obj.ReferenceEquals(c, null) then
+            failwith "No remoting context available."
+        else
+            c
 
 [<AutoOpen>]
 module RemotingExtensions =
@@ -130,7 +131,7 @@ module RemotingExtensions =
 
         /// Handle a request with the given web context.
         member this.HandleRequest(req, context) =
-            Remoting.context.Value <- Some context
-            let res = this.HandleRequest(req)
-            Remoting.context.Value <- None
-            res
+            async {
+                Remoting.context.Value <- context
+                return! this.HandleRequest(req)
+            }
