@@ -82,7 +82,7 @@ type Context() =
 module Remoting =
 
     let internal context =
-        new System.Threading.ThreadLocal<option<Context>>(fun () -> None)
+        new System.Threading.AsyncLocal<option<Context>>()
 
     let mutable internal allowedOrigins = Set.empty
 
