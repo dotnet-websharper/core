@@ -546,4 +546,15 @@ let Tests =
             let s = struct {| A = 5 |}
             equal s.A 5
         }
+
+        Test "Implicit yield" {
+            let l =
+                [
+                    1 
+                    if true then
+                        2
+                    3
+                ]
+            equal l [1; 2; 3]
+        }
     }

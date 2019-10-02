@@ -307,6 +307,11 @@ namespace WebSharper.CSharp.Tests
             Equal(I.Module.InvokeFunc2(FSharpConvert.Fun((int x, int y) => x + y), 1, 2), 3);
             Equal(I.Module.InvokeFunc(FuncConvert.FromFunc((int x) => x + 1), 1), 2);
             Equal(I.Module.InvokeFunc2(FuncConvert.FromFunc((int x, int y) => x + y), 1, 2), 3);
+            Equal(I.Module.InvokeFunc(FuncConvert.ToFSharpFunc((int x) => x + 1), 1), 2);
+            var c = FSharpFunc<int, int>.ToConverter(I.Module.ReturnsFunc());
+            Equal(c(3), 3);
+            var f2 = FSharpFunc<int, int>.FromConverter(c);
+            Equal(f2.Invoke(3), 3);
         }
 
         [Test]

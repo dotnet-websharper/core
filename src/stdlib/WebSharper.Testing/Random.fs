@@ -536,6 +536,6 @@ type Sample<'A> (data: list<'A>) =
         member this.GetEnumerator() = (Seq.ofList this.Data).GetEnumerator()
         member this.GetEnumerator() = (Seq.ofList this.Data).GetEnumerator() :> System.Collections.IEnumerator
 
-[<JavaScript>]
 type Generator<'T> with
+    [<JavaScript>]
     member this.GetEnumerator() = (Sample(this)).GetEnumerator()

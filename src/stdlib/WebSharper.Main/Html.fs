@@ -83,9 +83,9 @@ module HtmlContentExtensions =
             member this.ReplaceInDom(old) =
                 node.ParentNode.ReplaceChild(node, old) |> ignore
 
-    [<JavaScript>]
     type IControlBody with
         /// Create HTML content comprised of a single DOM node.
+        [<JavaScript>]
         static member SingleNode (node: Dom.Node) =
             new SingleNode(node) :> IControlBody
 

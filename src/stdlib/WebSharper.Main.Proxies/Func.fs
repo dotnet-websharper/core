@@ -28,8 +28,17 @@ type private FuncProxy<'T,'TResult> =
     [<Inline "$this($arg)">]
     member this.Invoke (arg: 'T) = X<'TResult>     
 
-    [<JavaScript; Inline "$f">]
+    [<Inline "$f">]
     static member FromConverter (f: Converter<'T, 'TResult>) = X<'T -> 'TResult>
+
+    [<Inline "$f">]
+    static member ToConverter (f: 'T -> 'TResult) = X<Converter<'T, 'TResult>>
+
+    [<Inline "$f">]
+    static member op_Implicit (f: Converter<'T, 'TResult>) = X<'T -> 'TResult>
+
+    [<Inline "$f">]
+    static member op_Implicit (f: 'T -> 'TResult) = X<Converter<'T, 'TResult>>
 
 [<Proxy(typeof<FuncConvert>)>]
 type private FuncConvertProxy =
@@ -65,3 +74,7 @@ type private FuncConvertProxy =
     static member FuncFromTupled(f) = fun a b c d -> f(a, b, c, d)            
     [<Inline>]
     static member FuncFromTupled(f) = fun a b c d e -> f(a, b, c, d, e)            
+    [<Inline>]
+    static member ToFSharpFunc(del: Action<_>) = del.Invoke            
+    [<Inline>]
+    static member ToFSharpFunc(del: Converter<_,_>) = del.Invoke            

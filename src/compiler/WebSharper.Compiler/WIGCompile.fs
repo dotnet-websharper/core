@@ -953,7 +953,7 @@ type MemberConverter
                     namesTaken.Add n |> ignore
                     let gP = GenericParameter(n, owner)
                     for c in g.Constraints do
-                        gP.Constraints.Add(tC.TypeReference (c, td))
+                        gP.Constraints.Add(GenericParameterConstraint(tC.TypeReference (c, td)))
                     owner.GenericParameters.Add(gP)
                     g.Id, gP
             ]        

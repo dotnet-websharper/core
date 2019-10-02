@@ -88,6 +88,14 @@ type private AsyncProxy =
         As (C.Parallel (As cs))
 
     [<Inline>]
+    static member Parallel(cs: seq<Async<'T>>, ?d: int) : Async<'T []> =
+        As (C.ParallelWithMaxDegree (As cs) (Option.defaultValue 0 d))
+
+    [<Inline>]
+    static member Sequential(cs: seq<Async<'T>>) : Async<'T []> =
+        As (C.Sequential (As cs))
+
+    [<Inline>]
     static member StartImmediate(c: Async<unit>, ?t: CT) : unit =
         C.StartImmediate (As c, As t)
 

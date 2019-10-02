@@ -62,6 +62,39 @@ let Tests =
                     async { return 2 }
                 |]
             equal x [| 1; 2 |] 
+
+            let running = ref (0, 0) // currently running and maximum parallelism
+            let run i =
+                async {
+                    let (r, m) = !running
+                    running := (r + 1, max m (r + 1))
+                    do! Async.Sleep 500
+                    let (r, m) = !running
+                    running := (r - 1, m)
+                    return i
+                }
+
+            let! y =
+                Async.Parallel ([|
+                    run 1
+                    run 2
+                |], 1)
+            equal y [| 1; 2 |] 
+            equal !running (0, 1)
+
+            raises (Async.Parallel ([||], 0))
+        }
+
+        Test "Sequential" {
+            let! x = Async.Sequential (Array.empty<Async<int>>)
+            equal x [||]
+
+            let! x =
+                Async.Sequential [|
+                    async { return 1 }
+                    async { return 2 }
+                |]
+            equal x [| 1; 2 |] 
         }
 
         Test "TryWith" {
