@@ -1000,6 +1000,10 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
     | JSAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
     | JSFilesOrTypes a -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = List.ofArray a @ asmAnnot.JavaScriptTypesAndFiles }
 
+    match config.ProjectType with
+    | Some Proxy -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+    | _ ->  ()
+
     for jsExport in config.JavaScriptExport do
         comp.AddJavaScriptExport jsExport
         match jsExport with

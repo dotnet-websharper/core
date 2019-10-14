@@ -31,12 +31,6 @@ open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 
-/// In BundleOnly mode, output a dummy DLL to please MSBuild
-let MakeDummyDll (path: string) (assemblyName: string) =
-    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, Version())
-    let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
-    asm.Write(path)
-
 open FSharp.Compiler.SourceCodeServices
 let Compile (config : WsConfig) (warnSettings: WarnSettings) =    
     StartTimer()
@@ -62,7 +56,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         let mainProxiesFile = mainProxiesFile()
         Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
         File.WriteAllLines(mainProxiesFile, config.CompilerArgs)
-        MakeDummyDll config.AssemblyFile thisName
+        MakeDummyDll config.AssemblyFile thisName (Version())
         printfn "Written Proxies.args"
         0 
     else
@@ -73,9 +67,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
+    let isWSOnly = isBundleOnly || config.ProjectType = Some Proxy
+
     let exitCode = 
-        if isBundleOnly then
-            MakeDummyDll config.AssemblyFile thisName
+        if isWSOnly then
+            MakeDummyDll config.AssemblyFile thisName (Version())
             0
         else
             let errors, exitCode = 
@@ -99,7 +95,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            if not isBundleOnly then yield Path.GetFullPath config.AssemblyFile
+            if not isWSOnly then yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()

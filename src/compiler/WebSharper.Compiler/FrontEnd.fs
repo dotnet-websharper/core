@@ -322,3 +322,9 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
     for d in deps do
         d.Render ctx (fun _ -> writer)
     Resources.HtmlTextWriter.WriteStartCode(writer, scriptBaseUrl)
+
+/// In BundleOnly mode, output a dummy DLL to please MSBuild
+let MakeDummyDll (path: string) (assemblyName: string) version =
+    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, version)
+    let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
+    asm.Write(path)

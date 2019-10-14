@@ -37,6 +37,7 @@ type ProjectType =
     | Website
     | Html
     | WIG
+    | Proxy
 
     static member Parse(wsProjectType: string) =
         match wsProjectType.ToLower() with
@@ -46,6 +47,7 @@ type ProjectType =
         | "extension" | "interfacegenerator" -> Some WIG
         | "html" -> Some Html
         | "site" | "web" | "website" | "export" -> Some Website
+        | "proxy" -> Some Proxy
         | _ -> argError ("Invalid project type: " + wsProjectType)
 
 type JavaScriptScope =
