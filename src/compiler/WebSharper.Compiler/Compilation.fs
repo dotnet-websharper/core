@@ -63,6 +63,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let mutable resolver = None : option<Resolve.Resolver>
     let generatedMethodAddresses = Dictionary()
 
+    let typeErrors = HashSet()
+    
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
@@ -118,7 +120,16 @@ type Compilation(meta: Info, ?hasGraph) =
         }
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
-        errors.Add (pos, error)
+        match error with
+        | TypeNotFound _
+        | MethodNotFound _
+        | MethodNameNotFound _
+        | ConstructorNotFound _
+        | FieldNotFound _ ->
+            if typeErrors.Add(error) then
+                errors.Add (pos, error)
+        | _ ->
+            errors.Add (pos, error)
 
     member this.Errors = List.ofSeq errors
 
