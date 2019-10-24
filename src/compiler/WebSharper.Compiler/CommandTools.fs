@@ -80,6 +80,7 @@ type WsConfig =
         JavaScriptExport : JsExport[]
         JSOutputPath : string option
         MinJSOutputPath : string option
+        SingleNoJSErrors : bool
     }
 
     member this.ProjectDir =
@@ -112,6 +113,7 @@ type WsConfig =
              JavaScriptExport = [||]
              JSOutputPath = None
              MinJSOutputPath = None
+             SingleNoJSErrors = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -212,6 +214,8 @@ type WsConfig =
                 res <- { res with JSOutputPath = Some (getPath k v) }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
+            | "singlenojserrors" ->
+                res <- { res with SintleNoJSErrors = getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res

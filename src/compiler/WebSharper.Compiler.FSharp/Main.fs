@@ -84,7 +84,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs))
+                (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
                 assemblyName
                 config
                 checkProjectResults
