@@ -215,7 +215,7 @@ type WsConfig =
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
             | "singlenojserrors" ->
-                res <- { res with SintleNoJSErrors = getBool k v }
+                res <- { res with SingleNoJSErrors = getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res
