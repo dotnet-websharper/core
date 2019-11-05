@@ -40,6 +40,18 @@ type private FuncProxy<'T,'TResult> =
     [<Inline "$f">]
     static member op_Implicit (f: 'T -> 'TResult) = X<Converter<'T, 'TResult>>
 
+    [<Inline>]
+    static member InvokeFast (f: 'T1 -> 'T2 -> 'TResult, arg1: 'T1, arg2: 'T2) = f arg1 arg2
+
+    [<Inline>]
+    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3) = f arg1 arg2 arg3
+
+    [<Inline>]
+    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = f arg1 arg2 arg3 arg4
+
+    [<Inline>]
+    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = f arg1 arg2 arg3 arg4 arg5
+
 [<Proxy(typeof<FuncConvert>)>]
 type private FuncConvertProxy =
     [<Inline>]
@@ -78,3 +90,47 @@ type private FuncConvertProxy =
     static member ToFSharpFunc(del: Action<_>) = del.Invoke            
     [<Inline>]
     static member ToFSharpFunc(del: Converter<_,_>) = del.Invoke            
+
+[<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_>>)>]
+type private OptFuncProxy<'T1, 'T2, 'TResult> =
+    [<Inline "$this($arg)">]
+    member this.Invoke(arg: 'T1) = X<'T2 -> 'TResult>     
+
+    [<Inline "$this($arg1)($arg2)">]
+    member this.Invoke(arg1: 'T1, arg2: 'T2) = X<'TResult>     
+
+    [<Inline "$f">]
+    static member Adapt(f: 'T1 -> 'T2 -> 'TResult) = X<OptimizedClosures.FSharpFunc<'T1, 'T2, 'TResult>>
+        
+[<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_>>)>]
+type private OptFuncProxy<'T1, 'T2, 'T3, 'TResult> =
+    [<Inline "$this($arg)">]
+    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'TResult>     
+
+    [<Inline "$this($arg1)($arg2)($arg3)">]
+    member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<'TResult>     
+
+    [<Inline "$f">]
+    static member Adapt(f: 'T1 -> 'T2 -> 'T3 -> 'TResult) = X<OptimizedClosures.FSharpFunc<'T1, 'T2, 'T3, 'TResult>>
+        
+[<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_,_>>)>]
+type private OptFuncProxy<'T1, 'T2, 'T3, 'T4, 'TResult> =
+    [<Inline "$this($arg)">]
+    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'T4 -> 'TResult>     
+
+    [<Inline "$this($arg1)($arg2)($arg3)($arg4)">]
+    member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<'TResult>     
+
+    [<Inline "$f">]
+    static member Adapt(f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'TResult) = X<OptimizedClosures.FSharpFunc<'T1, 'T2, 'T3, 'T4, 'TResult>>
+        
+[<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_,_,_>>)>]
+type private OptFuncProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
+    [<Inline "$this($arg)">]
+    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult>     
+
+    [<Inline "$this($arg1)($arg2)($arg3)($arg4)($arg5)">]
+    member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<'TResult>     
+
+    [<Inline "$f">]
+    static member Adapt(f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult) = X<OptimizedClosures.FSharpFunc<'T1, 'T2, 'T3, 'T4, 'T5, 'TResult>>

@@ -557,4 +557,19 @@ let Tests =
                 ]
             equal l [1; 2; 3]
         }
+
+        Test "OptimizedClosures" {
+            let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt(fun a b -> a + b)
+            let f3 = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(fun a b c -> a + b + c)
+            let f4 = OptimizedClosures.FSharpFunc<_,_,_,_,_>.Adapt(fun a b c d -> a + b + c + d)
+            let f5 = OptimizedClosures.FSharpFunc<_,_,_,_,_,_>.Adapt(fun a b c d e -> a + b + c + d + e)
+            equal (f2.Invoke(1) 2) 3
+            equal (f2.Invoke(1, 2)) 3
+            equal (f3.Invoke(1) 2 3) 6
+            equal (f3.Invoke(1, 2, 3)) 6
+            equal (f4.Invoke(1) 2 3 4) 10
+            equal (f4.Invoke(1, 2, 3, 4)) 10
+            equal (f5.Invoke(1) 2 3 4 5) 15
+            equal (f5.Invoke(1, 2, 3, 4, 5)) 15
+        }
     }
