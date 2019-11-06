@@ -81,6 +81,7 @@ type WsConfig =
         JSOutputPath : string option
         MinJSOutputPath : string option
         SingleNoJSErrors : bool
+        UseJavaScriptSymbol : bool
     }
 
     member this.ProjectDir =
@@ -114,6 +115,7 @@ type WsConfig =
              JSOutputPath = None
              MinJSOutputPath = None
              SingleNoJSErrors = false
+             UseJavaScriptSymbol = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -216,6 +218,8 @@ type WsConfig =
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
             | "singlenojserrors" ->
                 res <- { res with SingleNoJSErrors = getBool k v }
+            | "usejavascriptsymbol" ->
+                res <- { res with UseJavaScriptSymbol = getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res

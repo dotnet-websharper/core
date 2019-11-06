@@ -6,6 +6,9 @@
     <WebSharperUseNetFxCompiler>True</WebSharperUseNetFxCompiler>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(TargetFramework)|$(Platform)'=='Release|net461|AnyCPU'">
+    <DefineConstants>TRACE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Include="JavaScript.fs" />
     <Compile Include="Pervasives.fs" />
@@ -24,13 +27,71 @@
     <Compile Include="FSharpConvert.fs" />
     <Compile Include="JavaScript.Extensions.fs" />
     <Compile Include="Comparers.fs" />
-    <Compile Include="Concurrency.fs" />
+    <Compile Include="Proxies/Utils.fs" />
+    <Compile Include="Proxies/Concurrency.fs" />
+    <Compile Include="Proxies/Enumerator.fs" />
+    <Compile Include="Proxies/Enumerable.fs" />
+    <Compile Include="Proxies/Interop.fs" />
+    <None Include="Proxies/genInterop.fsx" />
+    <Compile Include="Proxies/CollectionInternals.fs" />
+    <Compile Include="Proxies/Object.fs" />
+    <Compile Include="Proxies/IntrinsicFunctions.fs" />
+    <Compile Include="Proxies/Array.fs" />
+    <Compile Include="Proxies/ArrayModule.fs" />
+    <Compile Include="Proxies/Array2DModule.fs" />
+    <Compile Include="Proxies/Async.fs" />
+    <Compile Include="Proxies/AsyncBuilder.fs" />
+    <Compile Include="Proxies/Char.fs" />
+    <Compile Include="Proxies/Choice.fs" />
+    <Compile Include="Proxies/Console.fs" />
+    <Compile Include="Proxies/CommonExtensions.fs" />
+    <Compile Include="Proxies/DateTime.fs" />
+    <Compile Include="Proxies/Delegate.fs" />
+    <Compile Include="Proxies/Dictionary.fs" />
+    <Compile Include="Proxies/Enum.fs" />
+    <Compile Include="Proxies/Exception.fs" />
+    <Compile Include="Proxies/ExtraTopLevelOperators.fs" />
+    <Compile Include="Proxies/Func.fs" />
+    <Compile Include="Proxies/Guid.fs" />
+    <Compile Include="Proxies/HashSet.fs" />
+    <Compile Include="Proxies/Interfaces.fs" />
+    <Compile Include="Proxies/IntrinsicOperators.fs" />
+    <Compile Include="Proxies/KeyValuePair.fs" />
+    <Compile Include="Proxies/LanguagePrimitives.fs" />
+    <Compile Include="Proxies/Lazy.fs" />
+    <Compile Include="Proxies/LazyExtensions.fs" />
+    <Compile Include="Proxies/List.fs" />
+    <Compile Include="Proxies/ListModule.fs" />
+    <Compile Include="Proxies/Math.fs" />
+    <Compile Include="Proxies/Nullable.fs" />
+    <Compile Include="Proxies/NullableModule.fs" />
+    <Compile Include="Proxies/NullableOperators.fs" />
+    <Compile Include="Proxies/Tuple.fs" />
+    <Compile Include="Proxies/Operators.fs" />
+    <Compile Include="Proxies/OperatorIntrinsics.fs" />
+    <Compile Include="Proxies/Option.fs" />
+    <Compile Include="Proxies/OptionModule.fs" />
+    <Compile Include="Proxies/Queue.fs" />
+    <Compile Include="Proxies/Printf.fs" />
+    <Compile Include="Proxies/Random.fs" />
+    <Compile Include="Proxies/Ref.fs" />
+    <Compile Include="Proxies/Result.fs" />
+    <Compile Include="Proxies/ResultModule.fs" />
+    <Compile Include="Proxies/RuntimeHelpers.fs" />
+    <Compile Include="Proxies/SeqModule.fs" />
+    <Compile Include="Proxies/Stack.fs" />
+    <Compile Include="Proxies/String.fs" />
+    <Compile Include="Proxies/Task.fs" />
+    <Compile Include="Proxies/TimeSpan.fs" />
+    <Compile Include="Proxies/Unchecked.fs" />
+    <Compile Include="Proxies/ValueOption.fs" />
+    <Compile Include="Proxies/ValueOptionModule.fs" />
+    <Compile Include="Proxies/Primitives.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
-    <ProjectReference Include="..\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <Reference Include="System.Web" />

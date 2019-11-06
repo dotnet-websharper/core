@@ -31,6 +31,9 @@ open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 
+[<Literal>]
+let LatestFSharpCoreSupported = "4.7.0"
+
 open FSharp.Compiler.SourceCodeServices
 let Compile (config : WsConfig) (warnSettings: WarnSettings) =    
     StartTimer()
@@ -42,24 +45,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         argError "You must provide project file path."
 
     let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
-
-    let mainProxiesFile() =
-        "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
-
-    if thisName = "WebSharper.Main.Proxies" then
-        let config =
-            { config with
-                References =
-                    config.References
-                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.Main.Proxies.dll"))
-            }
-        let mainProxiesFile = mainProxiesFile()
-        Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
-        File.WriteAllLines(mainProxiesFile, config.CompilerArgs)
-        MakeDummyDll config.AssemblyFile thisName (Version())
-        printfn "Written Proxies.args"
-        0 
-    else
 
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
@@ -167,13 +152,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         )
 
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
-
-    let compilerArgs =
-        if thisName = "WebSharper.Main" then
-            printfn "Reading Proxies.args"
-            File.ReadAllLines(mainProxiesFile())
-        else
-            config.CompilerArgs    
     
     let refMeta = 
         wsRefsMeta.ContinueWith(fun (t: System.Threading.Tasks.Task<_>) -> 
@@ -181,8 +159,15 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             | Some (_, _, m) -> Some m 
             | _ -> None
         )
+
+    let cArgs =
+        if not config.UseJavaScriptSymbol || config.CompilerArgs |> Array.contains "--define:JAVASCRIPT" then
+            config.CompilerArgs
+        else
+            Array.append config.CompilerArgs [|"--define:JAVASCRIPT"|]
+
     let comp =
-        compiler.Compile(refMeta, compilerArgs, config, thisName)
+        compiler.Compile(refMeta, cArgs, config, thisName)
 
     match comp with
     | None ->        
@@ -393,6 +378,18 @@ let compileMain (argv: string[]) =
         wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
 
     wsArgs := SetScriptBaseUrl !wsArgs
+
+    if Path.GetFileNameWithoutExtension((!wsArgs).AssemblyFile) = "WebSharper.Main" then
+        // Build JS-only part of WebSharper.Main with latest FSharp.Core
+        let retargetFSharpCore (x: string) = 
+            x
+                .Replace(@"4.2.3\lib\net45\FSharp.Core.dll", LatestFSharpCoreSupported + @"\lib\net45\FSharp.Core.dll")
+                .Replace(@"4.2.3\lib\netstandard1.6\FSharp.Core.dll", LatestFSharpCoreSupported + @"\lib\netstandard2.0\FSharp.Core.dll")
+        wsArgs := 
+            { !wsArgs with 
+                References = (!wsArgs).References |> Array.map retargetFSharpCore
+                CompilerArgs = (!wsArgs).CompilerArgs |> Array.map retargetFSharpCore
+            }
 
     let clearOutput() =
         try

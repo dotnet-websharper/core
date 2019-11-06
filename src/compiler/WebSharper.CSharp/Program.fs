@@ -268,6 +268,14 @@ let rec compileMain (argv: string[]) =
 
     wsArgs := SetScriptBaseUrl !wsArgs
 
+    if (!wsArgs).UseJavaScriptSymbol then
+        let cArgs = (!wsArgs).CompilerArgs
+        if cArgs |> Array.contains "-define:JAVASCRIPT" |> not then
+            wsArgs := 
+                { !wsArgs with 
+                    CompilerArgs = Array.append cArgs [|"-define:JAVASCRIPT"|]
+                }
+
     try
         Compile !wsArgs
         0
