@@ -24,6 +24,7 @@ open WebSharper
 open WebSharper.Collections.Tests.SplitProxy
 open WebSharper.JavaScript
 open WebSharper.Testing
+
 module R = WebSharper.Testing.RandomValues
 
 [<JavaScript false>]
