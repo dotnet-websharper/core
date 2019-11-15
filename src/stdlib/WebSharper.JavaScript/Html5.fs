@@ -1297,6 +1297,8 @@ module Fetch =
         Class "XMLHttpRequest"
         |=> Inherits XMLHttpRequestEventTarget
         |+> Static [
+            Constructor T<unit>
+
             "UNSENT" =? T<int>
             "OPENED" =? T<int>
             "HEADERS_RECEIVED" =? T<int>
