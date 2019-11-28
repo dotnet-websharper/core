@@ -62,6 +62,7 @@ let RunTests runServerSide =
         Optimizations.Tests
         Promise.Tests
         Proxy.Tests
+        Collections.Tests
         Queue.Tests
         Query.Tests
         Random.Tests
