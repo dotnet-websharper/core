@@ -168,3 +168,10 @@ type private TaskCanceledException(message: string) =
     inherit exn(message)
 
     new () = TaskCanceledException "A task was canceled."
+
+[<Proxy(typeof<System.Collections.Generic.KeyNotFoundException>)>]
+[<Name "KeyNotFoundException">]
+type private KeyNotFoundException(message: string) =
+    inherit exn(message)
+
+    new () = KeyNotFoundException "The given key was not present in the dictionary."

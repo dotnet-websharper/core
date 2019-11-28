@@ -572,4 +572,10 @@ let Tests =
             equal (f5.Invoke(1) 2 3 4 5) 15
             equal (f5.Invoke(1, 2, 3, 4, 5)) 15
         }
+
+        Test "LanguagePrimitives" {
+            equal LanguagePrimitives.GenericZero 0
+            equal LanguagePrimitives.GenericOne 1
+            equal (LanguagePrimitives.FastGenericComparer<int>.Compare(1, 2)) -1
+        }
     }

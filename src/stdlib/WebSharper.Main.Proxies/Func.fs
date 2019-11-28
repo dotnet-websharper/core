@@ -41,16 +41,16 @@ type private FuncProxy<'T,'TResult> =
     static member op_Implicit (f: 'T -> 'TResult) = X<Converter<'T, 'TResult>>
 
     [<Inline>]
-    static member InvokeFast (f: 'T1 -> 'T2 -> 'TResult, arg1: 'T1, arg2: 'T2) = f arg1 arg2
+    static member InvokeFast (f: 'T -> 'TResult -> 'V, arg1: 'T, arg2: 'TResult) = f arg1 arg2
 
     [<Inline>]
-    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3) = f arg1 arg2 arg3
+    static member InvokeFast (f: 'T -> 'TResult -> 'V -> 'W, arg1: 'T, arg2: 'TResult, arg3: 'V) = f arg1 arg2 arg3
 
     [<Inline>]
-    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = f arg1 arg2 arg3 arg4
+    static member InvokeFast (f: 'T -> 'TResult -> 'V -> 'W -> 'X, arg1: 'T, arg2: 'TResult, arg3: 'V, arg4: 'W) = f arg1 arg2 arg3 arg4
 
     [<Inline>]
-    static member InvokeFast (f: 'T1 -> 'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult, arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = f arg1 arg2 arg3 arg4 arg5
+    static member InvokeFast (f: 'T -> 'TResult -> 'V -> 'W -> 'X -> 'Y, arg1: 'T, arg2: 'TResult, arg3: 'V, arg4: 'W, arg5: 'X) = f arg1 arg2 arg3 arg4 arg5
 
 [<Proxy(typeof<FuncConvert>)>]
 type private FuncConvertProxy =

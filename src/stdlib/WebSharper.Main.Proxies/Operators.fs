@@ -248,6 +248,9 @@ let InvalidOp (msg: string) : 'T = raise (System.InvalidOperationException(msg))
 
 let InvalidArg (arg: string) (msg: string) : 'T = raise (System.ArgumentException(arg, msg))
 
+[<Inline>]
+let Lock (o: 'TLock) (act: unit -> 'T) = act()
+
 [<Macro(typeof<M.Conversion>)>]
 let ToInt (x: 'T) = X<int>
 
