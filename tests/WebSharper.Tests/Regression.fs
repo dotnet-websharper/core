@@ -491,6 +491,19 @@ module Bug1051 =
         member __.A() = ()
         member __.B() = this.A()
 
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1074 =
+    type  Val<'P> = VView of ref<'P> | VConst of 'P
+        with
+        [<Inline>] static member ( <* )(vf:Val<'a->'b> , a :    'a ) = VConst a
+        [<Inline>] static member ( <* )(vf:Val<'a->'b> , aV:ref<'a>) = VView  aV
+
+    let add1 a = a + 1
+    let a11V = ref 11
+
+    let mainX = VConst add1 <* a11V
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -993,5 +1006,9 @@ let Tests =
 
         Test "#1010 WIG inheritance" {
             equal (Bug1010().M()) 42
+        }
+
+        Test "#1074 Ambiguity at translating trait call" {
+            equal Bug1074.mainX (Bug1074.VView (ref 11))
         }
     }

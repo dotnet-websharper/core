@@ -248,7 +248,7 @@ type GenericInlineResolver (generics) =
         TraitCall (
             thisObj |> Option.map this.TransformExpression, 
             typs |> List.map subs,
-            Generic meth.Entity (meth.Generics |> List.map subs), 
+            Generic (Method (meth.Entity.Value.SubstituteResolvedGenerics(gs))) (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
         )
 
@@ -1024,37 +1024,40 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 None
         let trmv = meth.Entity.Value
         let mName = trmv.MethodName
-        let pLength = trmv.Parameters.Length
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
+                    //let trmv = trmv.SubstituteGenerics(Array.ofList (typ :: meth.Generics))
                     let methods = comp.GetMethods ct.Entity
                     let getMethods pars ret =
                         methods |> Seq.choose (fun m ->
                             let mv = m.Value
-                            if mv.MethodName = mName 
-                                && mv.Parameters.Length = pLength 
-                                && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) mv.Parameters pars 
-                                && Type.IsGenericCompatible(mv.ReturnType, ret) then 
+                            if mv.MethodName = mName then
+                                let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
+                                let tcSig = FSharpFuncType (TupleType (pars, false), ret)
+                                if Type.IsGenericCompatible(mSig, tcSig) then
                                     Some m 
+                                else
+                                    None
                             else None
                         ) 
                         |> List.ofSeq
-                    let ms =                        
-                        match getMethods trmv.Parameters trmv.ReturnType with
-                        | [] -> []
-                        | [_] as ms -> ms
-                        | _ ->
-                            let gen = ct.Generics @ meth.Generics |> Array.ofList
-                            let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
-                            let ret = trmv.ReturnType.SubstituteGenerics gen
-                            getMethods pars ret
-                    match ms with
+                    match getMethods trmv.Parameters trmv.ReturnType with
                     | [ m ] ->
                         this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
                     | [] -> 
-                        delay (sprintf "Could not find method for trait call: %s" mName)
+                        let targets =
+                            methods |> Seq.choose (fun m ->
+                                let mv = m.Value
+                                if mv.MethodName = mName then
+                                    let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
+                                    Some (string mSig)
+                                else None
+                            ) 
+                            |> String.concat "; "
+                        let source = string (FSharpFuncType (TupleType (trmv.Parameters, false), trmv.ReturnType))
+                        delay (sprintf "Could not find method for trait call: %s targets:%s source:%s" mName targets source)
                     | _ -> delay (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
                     delay "Using a trait call requires the Inline attribute"

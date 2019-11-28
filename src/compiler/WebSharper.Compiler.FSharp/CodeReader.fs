@@ -1148,7 +1148,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             Call(Some (tr arr), NonGeneric Definitions.Array, NonGeneric Definitions.ArrayLength, [])
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
-        | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
+        | P.TraitCall(sourceTypes, traitName, memberFlags, _, _, argExprs) ->
             let isInstance = memberFlags.IsInstance
             let meth =
                 Method {
@@ -1158,7 +1158,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
+            let m = NonGeneric meth
             if isInstance then 
                 match argExprs |> List.map tr with
                 | t :: a ->

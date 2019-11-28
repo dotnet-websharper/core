@@ -42,7 +42,7 @@
 #r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll"
 
-fsi.ShowDeclarationValues = false
+fsi.ShowDeclarationValues <- false
 
 open System
 open System.IO
@@ -380,7 +380,13 @@ let translate source =
         ]
         |> List.ofSeq
 
-    WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+    fsDeclarations |> List.iter (printfn "%s") 
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
+
+    try
+        WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+    with e ->
+        printfn "Compile error: %A" e
 
     if not (List.isEmpty comp.Errors) then
         for pos, err in comp.Errors do
@@ -410,8 +416,6 @@ let translate source =
     
     let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-    fsDeclarations |> List.iter (printfn "%s") 
-    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
