@@ -31,10 +31,10 @@ type Assembly =
     member GetScripts : unit -> seq<EmbeddedFile>
 
     /// Returns the raw assembly data.
-    member RawBytes : option<StrongNameKeyPair> -> byte []
+    member RawBytes : option<string> -> byte []
 
     /// Writes the assembly to the given path.
-    member Write : option<StrongNameKeyPair> -> path: string -> unit
+    member Write : option<string> -> path: string -> unit
 
     /// Reads the embedded JavaScript.
     member CompressedJavaScript : option<string>

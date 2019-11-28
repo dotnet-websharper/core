@@ -105,7 +105,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     if config.ProjectType = Some WIG then  
         aR.Wrap <| fun () ->
         try 
-            RunInterfaceGenerator aR (config.KeyFile |> Option.map readStrongNameKeyPair) config
+            RunInterfaceGenerator aR (config.KeyFile) config
             TimedStage "WIG running time"
             0
         with e ->
@@ -235,7 +235,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     printfn "%s" js
                 | _ -> ()
 
-            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles

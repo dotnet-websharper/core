@@ -219,8 +219,6 @@ type WsConfig =
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res
-
-let readStrongNameKeyPair p = StrongNameKeyPair(File.ReadAllBytes(p))
     
 module ExecuteCommands =
     
@@ -336,7 +334,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     EmbeddedResources = config.Resources |> Seq.map fst
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
-                    StrongNameKeyPair = snk
+                    StrongNameKey = snk
             }
 
         let cmp = InterfaceGenerator.Compiler.Create()

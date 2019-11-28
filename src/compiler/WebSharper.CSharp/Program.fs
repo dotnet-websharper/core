@@ -152,7 +152,7 @@ let Compile config =
                     printfn "%s" js
                 | _ -> ()
 
-            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles

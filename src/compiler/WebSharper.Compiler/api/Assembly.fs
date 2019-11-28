@@ -110,21 +110,19 @@ type Assembly =
 
     member this.OutputParameters(keyPair) =
         let par = Mono.Cecil.WriterParameters()
-#if NET461 // TODO dotnet: strong naming
         match keyPair with
-        | Some kp -> par.StrongNameKeyPair <- kp
+        | Some kp -> par.StrongNameKeyContainer <- kp
         | None -> ()
-#endif
         par
 
-    member this.RawBytes(kP: option<StrongNameKeyPair>) =
+    member this.RawBytes(kP: option<string>) =
         use s = new System.IO.MemoryStream(16 * 1024)
         this.Definition.Write(s, this.OutputParameters kP)
         s.ToArray()
 
     member this.Symbols = this.Debug
 
-    member this.Write(kP: option<StrongNameKeyPair>)(path: string) =
+    member this.Write(kP: option<string>)(path: string) =
         let par = this.OutputParameters kP
         match this.Debug with
         | Some (Mdb _) ->
