@@ -81,6 +81,7 @@ type WsConfig =
         JSOutputPath : string option
         MinJSOutputPath : string option
         SingleNoJSErrors : bool
+        ProxyTargetName : string option
     }
 
     member this.ProjectDir =
@@ -90,30 +91,31 @@ type WsConfig =
 
     static member Empty =
         {                 
-             SourceMap   = false
-             TypeScript  = false
-             IsDebug = false
-             ProjectType = None
-             OutputDir  = None
-             ScriptBaseUrl = None
-             AssemblyFile = null
-             References  = [||]
-             Resources = [||]
-             KeyFile = None
-             CompilerArgs = [||]
-             ProjectFile = null
-             Documentation = None
-             VSStyleErrors = false
-             PrintJS  = false
-             WarnOnly = false
-             DeadCodeElimination = true
-             DownloadResources = None       
-             AnalyzeClosures = None
-             JavaScriptScope = JSDefault
-             JavaScriptExport = [||]
-             JSOutputPath = None
-             MinJSOutputPath = None
-             SingleNoJSErrors = false
+            SourceMap   = false
+            TypeScript  = false
+            IsDebug = false
+            ProjectType = None
+            OutputDir  = None
+            ScriptBaseUrl = None
+            AssemblyFile = null
+            References  = [||]
+            Resources = [||]
+            KeyFile = None
+            CompilerArgs = [||]
+            ProjectFile = null
+            Documentation = None
+            VSStyleErrors = false
+            PrintJS  = false
+            WarnOnly = false
+            DeadCodeElimination = true
+            DownloadResources = None       
+            AnalyzeClosures = None
+            JavaScriptScope = JSDefault
+            JavaScriptExport = [||]
+            JSOutputPath = None
+            MinJSOutputPath = None
+            SingleNoJSErrors = false
+            ProxyTargetName = None
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -216,6 +218,8 @@ type WsConfig =
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
             | "singlenojserrors" ->
                 res <- { res with SingleNoJSErrors = getBool k v }
+            | "proxytargetname" ->
+                res <- { res with ProxyTargetName = Some (getString k v) }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res

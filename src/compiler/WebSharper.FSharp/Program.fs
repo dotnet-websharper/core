@@ -56,7 +56,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         let mainProxiesFile = mainProxiesFile()
         Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
         File.WriteAllLines(mainProxiesFile, config.CompilerArgs)
-        MakeDummyDll config.AssemblyFile thisName (Version())
+        MakeDummyDll config.AssemblyFile thisName
         printfn "Written Proxies.args"
         0 
     else
@@ -67,11 +67,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
-    let isWSOnly = isBundleOnly || config.ProjectType = Some Proxy
-
     let exitCode = 
-        if isWSOnly then
-            MakeDummyDll config.AssemblyFile thisName (Version())
+        if isBundleOnly then
+            MakeDummyDll config.AssemblyFile thisName
             0
         else
             let errors, exitCode = 
@@ -95,7 +93,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     let paths =
         [
             for r in config.References -> Path.GetFullPath r
-            if not isWSOnly then yield Path.GetFullPath config.AssemblyFile
+            yield Path.GetFullPath config.AssemblyFile
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -105,7 +103,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     if config.ProjectType = Some WIG then  
         aR.Wrap <| fun () ->
         try 
-            RunInterfaceGenerator aR (config.KeyFile) config
+            RunInterfaceGenerator aR config.KeyFile config
             TimedStage "WIG running time"
             0
         with e ->
@@ -213,6 +211,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         else
             let assem = loader.LoadFile config.AssemblyFile
 
+            if config.ProjectType = Some Proxy then
+                EraseAssemblyContents assem
+
             let extraBundles = Bundling.AddExtraBundles config (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
@@ -235,7 +236,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                     printfn "%s" js
                 | _ -> ()
 
-            assem.Write (config.KeyFile) config.AssemblyFile
+            TimedStage "Erasing assembly content for Proxy project"
+
+            assem.Write config.KeyFile config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles

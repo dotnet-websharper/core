@@ -134,6 +134,9 @@ let Compile config =
         else
             let assem = loader.LoadFile config.AssemblyFile
 
+            if config.ProjectType = Some Proxy then
+                EraseAssemblyContents assem
+
             let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
@@ -152,7 +155,9 @@ let Compile config =
                     printfn "%s" js
                 | _ -> ()
 
-            assem.Write (config.KeyFile) config.AssemblyFile
+            TimedStage "Erasing assembly content for Proxy project"
+
+            assem.Write config.KeyFile config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles

@@ -93,9 +93,6 @@ type private FuncConvertProxy =
 
 [<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_>>)>]
 type private OptFuncProxy<'T1, 'T2, 'TResult> =
-    [<Inline "$this($arg)">]
-    member this.Invoke(arg: 'T1) = X<'T2 -> 'TResult>     
-
     [<Inline "$this($arg1)($arg2)">]
     member this.Invoke(arg1: 'T1, arg2: 'T2) = X<'TResult>     
 
@@ -104,9 +101,6 @@ type private OptFuncProxy<'T1, 'T2, 'TResult> =
         
 [<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_>>)>]
 type private OptFuncProxy<'T1, 'T2, 'T3, 'TResult> =
-    [<Inline "$this($arg)">]
-    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'TResult>     
-
     [<Inline "$this($arg1)($arg2)($arg3)">]
     member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3) = X<'TResult>     
 
@@ -115,9 +109,6 @@ type private OptFuncProxy<'T1, 'T2, 'T3, 'TResult> =
         
 [<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_,_>>)>]
 type private OptFuncProxy<'T1, 'T2, 'T3, 'T4, 'TResult> =
-    [<Inline "$this($arg)">]
-    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'T4 -> 'TResult>     
-
     [<Inline "$this($arg1)($arg2)($arg3)($arg4)">]
     member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4) = X<'TResult>     
 
@@ -126,9 +117,6 @@ type private OptFuncProxy<'T1, 'T2, 'T3, 'T4, 'TResult> =
         
 [<Proxy(typeof<OptimizedClosures.FSharpFunc<_,_,_,_,_,_>>)>]
 type private OptFuncProxy<'T1, 'T2, 'T3, 'T4, 'T5, 'TResult> =
-    [<Inline "$this($arg)">]
-    member this.Invoke(arg: 'T1) = X<'T2 -> 'T3 -> 'T4 -> 'T5 -> 'TResult>     
-
     [<Inline "$this($arg1)($arg2)($arg3)($arg4)($arg5)">]
     member this.Invoke(arg1: 'T1, arg2: 'T2, arg3: 'T3, arg4: 'T4, arg5: 'T5) = X<'TResult>     
 

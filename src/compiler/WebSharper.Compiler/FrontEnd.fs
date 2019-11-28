@@ -324,7 +324,24 @@ let RenderDependencies(ctx: ResourceContext, writer: HtmlTextWriter, nameOfSelf,
     Resources.HtmlTextWriter.WriteStartCode(writer, scriptBaseUrl)
 
 /// In BundleOnly mode, output a dummy DLL to please MSBuild
-let MakeDummyDll (path: string) (assemblyName: string) version =
-    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, version)
+let MakeDummyDll (path: string) (assemblyName: string) =
+    let aND = Mono.Cecil.AssemblyNameDefinition(assemblyName, System.Version())
     let asm = Mono.Cecil.AssemblyDefinition.CreateAssembly(aND, assemblyName, Mono.Cecil.ModuleKind.Dll)
     asm.Write(path)
+
+/// For Proxy project type, erase all IL assembly contents except System.Reflection attributes
+let EraseAssemblyContents (assembly : Assembly) =
+    let asm = assembly.Raw
+    let attrs = asm.CustomAttributes.ToArray()
+    asm.CustomAttributes.Clear()
+    asm.EntryPoint <- null
+    asm.Modules.Clear()
+    asm.MainModule.Resources.Clear()
+    asm.MainModule.Types.Clear()
+    for a in attrs do
+        match a.AttributeType.Namespace with
+        | "System.Reflection"
+        | "System.Runtime.Versioning" ->
+            asm.CustomAttributes.Add(a)
+        | _ ->
+            ()

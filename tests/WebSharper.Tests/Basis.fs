@@ -578,4 +578,8 @@ let Tests =
             equal LanguagePrimitives.GenericOne 1
             equal (LanguagePrimitives.FastGenericComparer<int>.Compare(1, 2)) -1
         }
+
+        Test "Proxy project" {
+            equal (ProxyProjectTest.Functions.add 1 2) 3
+        }
     }
