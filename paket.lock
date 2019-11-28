@@ -742,7 +742,7 @@ NUGET
     FSharp.Compiler.Tools (10.2.3)
     FSharp.Core (4.7)
     Mono.Cecil (0.11.1)
-    Newtonsoft.Json (12.0.2)
+    Newtonsoft.Json (12.0.3)
     Paket.Core (5.230)
       Chessie (>= 0.6)
       FSharp.Compiler.Tools
@@ -764,7 +764,7 @@ STRATEGY: MIN
 RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (32.0)
+    FSharp.Compiler.Service (33.0)
       FSharp.Core (>= 4.6.2) - restriction: || (&& (== net46) (>= net461)) (&& (== net46) (>= netstandard2.0)) (== net461) (== netcoreapp2.0) (== netstandard2.0)
       System.Collections.Immutable (>= 1.5) - restriction: || (&& (== net46) (>= net461)) (&& (== net46) (>= netstandard2.0)) (== net461) (== netcoreapp2.0) (== netstandard2.0)
       System.Diagnostics.Process (>= 4.1) - restriction: || (&& (== net46) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
