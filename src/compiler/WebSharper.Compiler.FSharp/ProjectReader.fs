@@ -989,7 +989,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 open WebSharper.Compiler.FrontEnd
 
 let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
-    comp.AssemblyName <- config.ProxyTargetName |> Option.defaultValue assemblyName
+    comp.AssemblyName <- assemblyName
+    comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
     
     let mutable asmAnnot =
@@ -1146,7 +1147,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
             let def =
                 TypeDefinition {
-                    Assembly = assemblyName
+                    Assembly = comp.FindProxiedAssembly(assemblyName)
                     FullName = name
                 }
             def, 

@@ -85,6 +85,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
+    member val ProxyTargetName: option<string> = None with get, set
     member val AssemblyRequires = [] : list<TypeDefinition * option<obj>> with get, set
     
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
@@ -112,6 +113,12 @@ type Compilation(meta: Info, ?hasGraph) =
         match proxies.TryFind typ with
         | Some p -> p 
         | _ -> typ
+
+    member this.FindProxiedAssembly(name: string) =
+        if name = this.AssemblyName then
+            this.ProxyTargetName |> Option.defaultValue name
+        else
+            name
     
     member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
         {

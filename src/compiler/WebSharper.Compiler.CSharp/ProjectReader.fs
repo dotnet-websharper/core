@@ -910,7 +910,8 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
 
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
-    comp.AssemblyName <- config.ProxyTargetName |> Option.defaultValue assembly.Name
+    comp.AssemblyName <- assembly.Name
+    comp.ProxyTargetName <- config.ProxyTargetName
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 

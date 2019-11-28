@@ -325,7 +325,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             td.QualifiedName.Split([|','|]).[0] 
         let res =
             {
-                Assembly = readSimpleName td.Assembly fullName
+                Assembly = comp.FindProxiedAssembly(readSimpleName td.Assembly fullName)
                 FullName = fullName
             }
         // TODO: more measure types
@@ -385,7 +385,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let cname = d.CompiledName
             let def =
                 TypeDefinition {
-                    Assembly = readSimpleName t.AnonRecordTypeDetails.Assembly cname
+                    Assembly = comp.FindProxiedAssembly(readSimpleName t.AnonRecordTypeDetails.Assembly cname)
                     FullName = cname
                 }
             if not (comp.HasCustomTypeInfo def) then
