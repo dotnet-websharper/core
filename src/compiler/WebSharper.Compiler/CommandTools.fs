@@ -82,6 +82,7 @@ type WsConfig =
         MinJSOutputPath : string option
         SingleNoJSErrors : bool
         ProxyTargetName : string option
+        UseJavaScriptSymbol : bool
     }
 
     member this.ProjectDir =
@@ -116,6 +117,7 @@ type WsConfig =
             MinJSOutputPath = None
             SingleNoJSErrors = false
             ProxyTargetName = None
+            UseJavaScriptSymbol = false
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -220,6 +222,8 @@ type WsConfig =
                 res <- { res with SingleNoJSErrors = getBool k v }
             | "proxytargetname" ->
                 res <- { res with ProxyTargetName = Some (getString k v) }
+            | "usejavascriptsymbol" ->
+                res <- { res with UseJavaScriptSymbol = getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
         res

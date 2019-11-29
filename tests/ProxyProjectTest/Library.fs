@@ -21,3 +21,10 @@
 module ProxyProjectTest.Functions
 
 let add x y = x + y
+
+let isJS() =
+#if JAVASCRIPT
+    true
+#else
+    false
+#endif

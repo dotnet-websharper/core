@@ -179,6 +179,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
             | Some (_, _, m) -> Some m 
             | _ -> None
         )
+
+    let compilerArgs =
+        if not config.UseJavaScriptSymbol || compilerArgs |> Array.contains "--define:JAVASCRIPT" then
+            compilerArgs
+        else
+            Array.append compilerArgs [|"--define:JAVASCRIPT"|]
+
     let comp =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 

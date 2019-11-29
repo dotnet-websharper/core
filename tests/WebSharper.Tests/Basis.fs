@@ -581,5 +581,6 @@ let Tests =
 
         Test "Proxy project" {
             equal (ProxyProjectTest.Functions.add 1 2) 3
+            isTrue (ProxyProjectTest.Functions.isJS())
         }
     }
