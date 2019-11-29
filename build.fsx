@@ -12,7 +12,7 @@ open System.Xml.XPath
 open Fake
 open WebSharper.Fake
 
-let version = "4.5"
+let version = "4.6"
 let pre = None
 
 let baseVersion =
