@@ -42,7 +42,7 @@ type CompilerOptions =
         OutputPath : option<string>
         ProjectDir : string
         ReferencePaths : seq<string>
-        StrongNameKey : option<string>
+        StrongNameKeyPath : option<string>
     }
 
     static member Default : assemblyName: string -> CompilerOptions

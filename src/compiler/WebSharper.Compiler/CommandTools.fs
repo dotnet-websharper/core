@@ -342,7 +342,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     EmbeddedResources = config.Resources |> Seq.map fst
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
-                    StrongNameKey = snk
+                    StrongNameKeyPath = snk
             }
 
         let cmp = InterfaceGenerator.Compiler.Create()

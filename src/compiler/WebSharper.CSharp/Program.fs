@@ -157,7 +157,7 @@ let Compile config =
 
             TimedStage "Erasing assembly content for Proxy project"
 
-            assem.Write config.KeyFile config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles

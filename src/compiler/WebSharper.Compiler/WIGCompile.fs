@@ -703,7 +703,7 @@ type CompilerOptions =
         OutputPath : option<string>
         ProjectDir : string
         ReferencePaths : seq<string>
-        StrongNameKey : option<string>
+        StrongNameKeyPath : option<string>
     }
 
     static member Default(name) =
@@ -717,7 +717,7 @@ type CompilerOptions =
             OutputPath = None
             ProjectDir = "."
             ReferencePaths = Seq.empty
-            StrongNameKey = None
+            StrongNameKeyPath = None
         }
 
     static member Parse args =
@@ -731,7 +731,7 @@ type CompilerOptions =
             | S "-v:" ver ->
                 { opts with AssemblyVersion = Version.Parse ver }
             | S "-snk:" path ->
-                { opts with StrongNameKey = Some path }
+                { opts with StrongNameKeyPath = Some path }
             | S "-embed:" path ->
                 { opts with EmbeddedResources = Seq.append opts.EmbeddedResources [path] }
             | S "-o:" out ->
@@ -1258,10 +1258,10 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder) =
 
     let writerParams =
-        match options.StrongNameKey with
+        match options.StrongNameKeyPath with
         | None -> WriterParameters()
         | Some p ->
-            WriterParameters(StrongNameKeyContainer = p)
+            WriterParameters(StrongNameKeyBlob = File.ReadAllBytes p)
 
     member a.GetBytes() =
         use out = new MemoryStream()

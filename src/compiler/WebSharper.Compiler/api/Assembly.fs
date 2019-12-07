@@ -111,18 +111,18 @@ type Assembly =
     member this.OutputParameters(keyPair) =
         let par = Mono.Cecil.WriterParameters()
         match keyPair with
-        | Some kp -> par.StrongNameKeyContainer <- kp
+        | Some kp -> par.StrongNameKeyBlob <- kp
         | None -> ()
         par
 
-    member this.RawBytes(kP: option<string>) =
+    member this.RawBytes(kP: option<byte[]>) =
         use s = new System.IO.MemoryStream(16 * 1024)
         this.Definition.Write(s, this.OutputParameters kP)
         s.ToArray()
 
     member this.Symbols = this.Debug
 
-    member this.Write(kP: option<string>)(path: string) =
+    member this.Write(kP: option<byte[]>)(path: string) =
         let par = this.OutputParameters kP
         match this.Debug with
         | Some (Mdb _) ->
