@@ -764,7 +764,7 @@ STRATEGY: MIN
 RESTRICTION: || (== net46) (== net461) (== netcoreapp2.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (33.0)
+    FSharp.Compiler.Service (33.0.1)
       FSharp.Core (>= 4.6.2) - restriction: || (&& (== net46) (>= net461)) (&& (== net46) (>= netstandard2.0)) (== net461) (== netcoreapp2.0) (== netstandard2.0)
       System.Collections.Immutable (>= 1.5) - restriction: || (&& (== net46) (>= net461)) (&& (== net46) (>= netstandard2.0)) (== net461) (== netcoreapp2.0) (== netstandard2.0)
       System.Diagnostics.Process (>= 4.1) - restriction: || (&& (== net46) (>= netstandard2.0)) (== netcoreapp2.0) (== netstandard2.0)
@@ -1023,7 +1023,7 @@ REFERENCES: STRICT
 RESTRICTION: == netstandard2.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Microsoft.NETCore.Platforms (3.0)
+    Microsoft.NETCore.Platforms (3.1)
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
 
