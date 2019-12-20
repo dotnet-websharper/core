@@ -117,6 +117,12 @@ let Compile config =
     if config.ProjectFile = null then
         argError "You must provide project file path."
     
+    let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
+
+    if assem.IsSome && assem.Value.HasWebSharperMetadata then
+        TimedStage "WebSharper resources already exist, skipping"
+    else
+
     let comp =
         compiler.Compile(refMeta, config)
     
@@ -132,10 +138,11 @@ let Compile config =
             let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
-            let assem = loader.LoadFile config.AssemblyFile
+            let assem = assem.Value
 
             if config.ProjectType = Some Proxy then
                 EraseAssemblyContents assem
+                TimedStage "Erasing assembly content for Proxy project"
 
             let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
 
@@ -154,8 +161,6 @@ let Compile config =
                 | Some (js, _) ->
                     printfn "%s" js
                 | _ -> ()
-
-            TimedStage "Erasing assembly content for Proxy project"
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 

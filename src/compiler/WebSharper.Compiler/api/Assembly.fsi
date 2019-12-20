@@ -63,6 +63,9 @@ type Assembly =
     /// The TypeScript `.d.ts` declarations for the JavaScript.
     member TypeScriptDeclarations : option<string>
 
+    /// True if the assembly contains the `WebSharper.meta` embedded resource.
+    member HasWebSharperMetadata : bool
+
     static member internal Create :
         def: Mono.Cecil.AssemblyDefinition
         * ?loadPath: string

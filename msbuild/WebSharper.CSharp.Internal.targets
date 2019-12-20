@@ -31,6 +31,7 @@
     <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.cmd</ZafirCsFullPath>
     <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.sh</ZafirCsFullPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
+    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
   </PropertyGroup>
   <PropertyGroup>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
@@ -49,7 +50,7 @@
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+  <Target Name="WebSharperCompile">
     <Exec Command="chmod u+x '$(ZafirCsFullPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"

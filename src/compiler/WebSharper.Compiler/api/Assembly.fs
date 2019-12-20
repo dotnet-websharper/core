@@ -53,16 +53,18 @@ module AssemblyUtility =
         else
             None
 
+    let HasWebSharperMetadata (a: Mono.Cecil.AssemblyDefinition) =
+        let key = EMBEDDED_METADATA
+        a.MainModule.Resources
+        |> Seq.exists (function
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name = key -> true
+            | _ -> false)
+
     let IsWebSharperAssembly (a: Mono.Cecil.AssemblyDefinition) =
         match a.Name.Name with
         | "WebSharper.Core.JavaScript" -> true
         | n when n.Contains("WebSharper") -> true
-        | _ ->
-            let key = EMBEDDED_METADATA
-            a.MainModule.Resources
-            |> Seq.exists (function
-                | :? Mono.Cecil.EmbeddedResource as r when r.Name = key -> true
-                | _ -> false)
+        | _ -> HasWebSharperMetadata a
 
     let ParseWebResourcesUnchecked (def: Mono.Cecil.AssemblyDefinition) =
         def.CustomAttributes
@@ -148,6 +150,9 @@ type Assembly =
 
     member this.TypeScriptDeclarations =
         ReadResource EMBEDDED_DTS this.Definition
+
+    member this.HasWebSharperMetadata =
+        HasWebSharperMetadata this.Definition
 
     static member Create(def, ?loadPath, ?symbols) =
         {

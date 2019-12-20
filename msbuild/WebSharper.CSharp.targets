@@ -29,9 +29,10 @@
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/ZafirCs.exe</ZafirToolPath>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.cmd</ZafirToolPath>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.sh</ZafirToolPath>
+    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
   </PropertyGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile" Inputs="@(Compile)" Outputs="$(TargetPath)">
+  <Target Name="WebSharperCompile">
     <Exec Command="chmod u+x '$(ZafirToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
