@@ -33,6 +33,11 @@
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
   </PropertyGroup>
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="wsconfig.json" />
+    </ItemGroup>
+  </Target>
   <PropertyGroup>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
   </PropertyGroup>

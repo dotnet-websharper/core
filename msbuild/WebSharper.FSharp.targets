@@ -38,6 +38,11 @@
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
   </PropertyGroup>
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="wsconfig.json" />
+    </ItemGroup>
+  </Target>
   <Choose>
     <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
       <PropertyGroup>
