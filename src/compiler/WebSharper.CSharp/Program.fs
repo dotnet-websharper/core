@@ -117,18 +117,18 @@ let Compile config =
     if config.ProjectFile = null then
         argError "You must provide project file path."
     
+    let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
+
+    if assem.IsSome && assem.Value.HasWebSharperMetadata then
+        TimedStage "WebSharper resources already exist, skipping"
+    else
+
     let comp =
         compiler.Compile(refMeta, config)
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors config.WarnOnly comp
         argError "" // exits without printing more errors
-    else
-
-    let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
-
-    if assem.IsSome && assem.Value.HasWebSharperMetadata then
-        TimedStage "WebSharper resources already exist, skipping"
     else
 
     let js, currentMeta, sources, extraBundles =
