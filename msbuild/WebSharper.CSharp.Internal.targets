@@ -33,9 +33,9 @@
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
   </PropertyGroup>
-  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)/wsconfig.json')">
     <ItemGroup>
-      <CustomAdditionalCompileInputs Include="wsconfig.json" />
+      <CustomAdditionalCompileInputs Include="$(MSBuildProjectDirectory)\wsconfig.json" />
     </ItemGroup>
   </Target>
   <PropertyGroup>

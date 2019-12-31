@@ -38,9 +38,9 @@
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
   </PropertyGroup>
-  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)/wsconfig.json')">
     <ItemGroup>
-      <CustomAdditionalCompileInputs Include="wsconfig.json" />
+      <CustomAdditionalCompileInputs Include="$(MSBuildProjectDirectory)/wsconfig.json" />
     </ItemGroup>
   </Target>
   <Choose>
