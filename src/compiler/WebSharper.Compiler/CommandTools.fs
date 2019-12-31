@@ -126,18 +126,18 @@ type WsConfig =
         | "movetotop" -> Some true
         | _ -> argError "Invalid value for AnalyzeClosures, value must be true or movetotop."
     
-    member this.AddJson(jsonString) =
+    member this.AddJson(jsonString, fileName) =
         let json =
             try Json.Parse jsonString 
-            with _ -> argError "Failed to parse wsconfig.json, not a valid json."
+            with _ -> argError (sprintf "Failed to parse %s, not a valid json." fileName)
         let settings = 
             match json with
             | Json.Object values -> values
-            | _ -> argError "Failed to parse wsconfig.json, not a json object."
+            | _ -> argError (sprintf "Failed to parse %s, not a json object." fileName)
         let getString k v =
             match v with
             | Json.String s -> s
-            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting a string." k)
+            | _ -> argError (sprintf "Invalid value in %s for %s, expecting a string." fileName k)
         let projectDir = Path.GetDirectoryName this.ProjectFile
         let getPath k v =
             Path.Combine(projectDir, getString k v)
@@ -148,8 +148,8 @@ type WsConfig =
             | Json.String s ->
                 match bool.TryParse s with
                 | true, b -> b
-                | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
-            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false." k)
+                | _ -> argError (sprintf "Invalid value in %s for %s, expecting true or false." fileName k)
+            | _ -> argError (sprintf "Invalid value in %s for %s, expecting true or false." fileName k)
         let getDlRes k v = 
             match v with
             | Json.True -> Some true
@@ -160,8 +160,8 @@ type WsConfig =
                 | _ ->
                     match s.ToLower() with
                     | "warnonly" -> Some false
-                    | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false or 'warnonly'." k)   
-            | _ -> argError (sprintf "Invalid value in wsconfig.json for %s, expecting true or false or 'warnonly'." k)
+                    | _ -> argError (sprintf "Invalid value in %s for %s, expecting true or false or 'warnonly'." fileName k)   
+            | _ -> argError (sprintf "Invalid value in %s for %s, expecting true or false or 'warnonly'." fileName k)
         let mutable res = this
         for k, v in settings do
             match k.ToLower() with
@@ -185,7 +185,7 @@ type WsConfig =
                     | Json.True -> Some false
                     | Json.False -> None
                     | Json.String s -> WsConfig.ParseAnalyzeClosures s
-                    | _ -> argError "Invalid value for AnalyzeClosures, value must be true, false or \"movetotop\"."    
+                    | _ -> argError (sprintf "Invalid value in %s for AnalyzeClosures, value must be true, false or \"movetotop\"." fileName)    
                 res <- { res with AnalyzeClosures = a }
             | "javascript" ->
                 let j =
@@ -196,9 +196,9 @@ type WsConfig =
                         a |> Seq.map (
                             function
                             | Json.String s -> s
-                            | _ -> argError "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings."
+                            | _ -> argError (sprintf "Invalid value in %s for JavaScript, expecting true or false or an array of strings." fileName)
                         ) |> Array.ofSeq |> JSFilesOrTypes
-                    | _ -> argError "Invalid value in wsconfig.json for JavaScript, expecting true or false or an array of strings." 
+                    | _ -> argError (sprintf "Invalid value in %s for JavaScript, expecting true or false or an array of strings." fileName) 
                 res <- { res with JavaScriptScope = j }
             | "javascriptexport" ->
                 let j =
@@ -210,9 +210,9 @@ type WsConfig =
                             function
                             | Json.True -> ExportCurrentAssembly
                             | Json.String s -> ExportByName s
-                            | _ -> argError "Invalid value in wsconfig.json for JavaScriptExport, expecting true or false or an array of strings."
+                            | _ -> argError (sprintf "Invalid value in %s for JavaScriptExport, expecting true or false or an array of strings." fileName)
                         ) |> Array.ofSeq
-                    | _ -> argError "Invalid value in wsconfig.json for JavaScriptExport, expecting true or false or an array of strings." 
+                    | _ -> argError (sprintf "Invalid value in %s for JavaScriptExport, expecting true or false or an array of strings." fileName) 
                 res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
             | "jsoutput" ->
                 res <- { res with JSOutputPath = Some (getPath k v) }
@@ -225,7 +225,7 @@ type WsConfig =
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = getBool k v }
             | "$schema" -> ()
-            | _ -> failwithf "Unrecognized setting in wsconfig.json: %s" k 
+            | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         res
     
 module ExecuteCommands =
@@ -491,6 +491,11 @@ let RecognizeWebSharperArg a wsArgs =
             printfn "--closures:%s argument unrecognized, must be one of: true, false, movetotop" c
             Some wsArgs
     | StartsWith "--scriptbaseurl" u -> Some { wsArgs with ScriptBaseUrl = Some u }
+    | StartsWith "--wsconfig:" c ->
+        if File.Exists c then
+            Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c))
+        else 
+            argError (sprintf "Cannot find WebSharper configuration file %s" c)    
     | _ -> 
         None
 

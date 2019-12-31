@@ -271,11 +271,6 @@ let rec compileMain (argv: string[]) =
             VSStyleErrors = true
         }
     wsArgs := SetDefaultProjectFile !wsArgs false
-
-    let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
-    if File.Exists wsconfig then
-        wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
-
     wsArgs := SetScriptBaseUrl !wsArgs
 
     if (!wsArgs).UseJavaScriptSymbol then

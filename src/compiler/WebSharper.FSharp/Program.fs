@@ -397,11 +397,6 @@ let compileMain (argv: string[]) =
             CompilerArgs = fscArgs.ToArray() 
         }
     wsArgs := SetDefaultProjectFile !wsArgs true
-
-    let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
-    if File.Exists wsconfig then
-        wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
-
     wsArgs := SetScriptBaseUrl !wsArgs
 
     let clearOutput() =

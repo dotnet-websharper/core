@@ -39,6 +39,7 @@ namespace WebSharper.MSBuild.CSharp
         public string Name { get; set; } = "";
         public string OutputPath { get; set; }
         public string WebProjectOutputDir { get; set; }
+        public string WebSharperConfigFile { get; set; }
         public string WebSharperBundleOutputDir { get; set; }
         public string WebSharperHtmlDirectory { get; set; }
         public string WebSharperProject { get; set; }
@@ -117,6 +118,8 @@ namespace WebSharper.MSBuild.CSharp
 
                 if (WebProjectOutputDir != null && WebSharperProject == null)
                     w.WriteLine("--site");
+
+                WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
 
                 WriteIfSet(w, "/define:", DefineConstants);
 

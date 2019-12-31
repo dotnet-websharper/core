@@ -30,10 +30,12 @@
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.cmd</ZafirToolPath>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.sh</ZafirToolPath>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
   </PropertyGroup>
-  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)/wsconfig.json')">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
-      <CustomAdditionalCompileInputs Include="$(MSBuildProjectDirectory)/wsconfig.json" />
+      <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
@@ -53,6 +55,7 @@
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          

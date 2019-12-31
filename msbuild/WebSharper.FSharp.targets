@@ -37,10 +37,13 @@
     <OtherFlags Condition=" '$(WebSharperMinJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperMinJsOutput)</OtherFlags>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
+    <OtherFlags Condition=" '$(WebSharperConfigFile)' != '' ">$(OtherFlags) --wsconfig:"$(WebSharperConfigFile)"</OtherFlags>
   </PropertyGroup>
-  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)/wsconfig.json')">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
-      <CustomAdditionalCompileInputs Include="$(MSBuildProjectDirectory)/wsconfig.json" />
+      <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
   <Choose>
