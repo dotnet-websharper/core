@@ -1,15 +1,5 @@
+#r "paket: groupref build //"
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
-#I "packages/build/AjaxMin/lib/net40"
-#r "AjaxMin.dll"
-#I "packages/build/Mono.Cecil/lib/net40"
-#r "Mono.Cecil.dll"
-#r "System.Xml.Linq"
-
-open System.IO
-open System.Xml
-open System.Xml.Linq
-open System.Xml.XPath
-open Fake
 open WebSharper.Fake
 
 let version = "4.6"

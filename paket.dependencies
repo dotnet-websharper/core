@@ -1,4 +1,4 @@
-version 5.230.0
+version 5.203.0
 
 references: strict
 redirects: on
@@ -30,16 +30,22 @@ nuget System.Collections.Immutable 1.3.1
 nuget System.Reflection.Metadata 1.4.2
 
 group build
-    framework: net45
+    framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.230.0
-    nuget FAKE
-    nuget AjaxMin
-    nuget FSharp.Core
-    nuget Mono.Cecil
+    storage: none
+
+	  nuget Fake.Core.CommandLineParsing
+    nuget Fake.Core.Target
+    nuget Fake.IO.FileSystem
+    nuget Fake.DotNet.AssemblyInfoFile
+    nuget Fake.DotNet.Cli
+    nuget Fake.DotNet.MSBuild
+    nuget Fake.DotNet.Paket
+    nuget Fake.Tools.Git
+    nuget Paket.Core 5.203.0
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script
+    git https://github.com/dotnet-websharper/build-script fake5
 
 group includes
     references: strict
