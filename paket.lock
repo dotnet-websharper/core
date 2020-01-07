@@ -736,6 +736,7 @@ STORAGE: NONE
 RESTRICTION: == netstandard2.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
+    AjaxMin (5.14.5506.26202)
     BlackFox.VsWhere (1.0)
       FSharp.Core (>= 4.2.3)
     Chessie (0.6)
@@ -920,7 +921,7 @@ NUGET
       NuGet.Packaging (>= 5.4)
       System.Dynamic.Runtime (>= 4.3)
     NuGet.Versioning (5.4)
-    Paket.Core (5.203)
+    Paket.Core (5.230)
       Chessie (>= 0.6)
       Mono.Cecil (>= 0.10.0-beta6)
       Newtonsoft.Json (>= 10.0.3)

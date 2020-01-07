@@ -1,4 +1,4 @@
-version 5.203.0
+version 5.230.0
 
 references: strict
 redirects: on
@@ -34,7 +34,7 @@ group build
     source https://api.nuget.org/v3/index.json
     storage: none
 
-	  nuget Fake.Core.CommandLineParsing
+	nuget Fake.Core.CommandLineParsing
     nuget Fake.Core.Target
     nuget Fake.IO.FileSystem
     nuget Fake.DotNet.AssemblyInfoFile
@@ -42,7 +42,10 @@ group build
     nuget Fake.DotNet.MSBuild
     nuget Fake.DotNet.Paket
     nuget Fake.Tools.Git
-    nuget Paket.Core 5.203.0
+    nuget Paket.Core 5.230.0
+    nuget AjaxMin
+    nuget FSharp.Core
+    nuget Mono.Cecil
 
 group wsbuild
     git https://github.com/dotnet-websharper/build-script fake5

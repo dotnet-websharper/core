@@ -1,7 +1,8 @@
 @echo off
 setlocal
 
-dotnet restore
+dotnet restore WebSharper.Compiler.sln
+dotnet restore WebSharper.sln
 if errorlevel 1 exit /b %errorlevel%
 
 call paket-files\wsbuild\github.com\dotnet-websharper\build-script\update.cmd
