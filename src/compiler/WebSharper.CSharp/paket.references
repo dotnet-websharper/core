@@ -4,6 +4,5 @@ Microsoft.CodeAnalysis.CSharp
 System.IO.FileSystem
 System.Security.Cryptography.Algorithms
 System.Security.Cryptography.Primitives
-group compilers
-  Fsharp.Core
-  Fsharp.Compiler.Tools
+group includes
+  FSharp.Core

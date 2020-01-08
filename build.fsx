@@ -79,11 +79,10 @@ let NeedsBuilding input output =
 
 let Minify () =
     let minify (path: string) =
-        let min = Microsoft.Ajax.Utilities.Minifier()
         let out = Path.ChangeExtension(path, ".min.js")
         if NeedsBuilding path out then
             let raw = File.ReadAllText(path)
-            let mjs = min.MinifyJavaScript(raw)
+            let mjs = NUglify.Uglify.Js(raw).Code
             File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
             stdout.WriteLine("Written {0}", out)
     minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
@@ -171,12 +170,6 @@ Target.create "GenAppConfig" <| fun _ ->
 "WS-BuildRelease"
     ==> "GenAppConfig"
     ==> "WS-Package"
-
-Target.create "Build" ignore
-targets.BuildDebug ==> "Build"
-
-Target.create "CI-Release" ignore
-targets.Publish ==> "CI-Release"
 
 let rm_rf x =
     if Directory.Exists(x) then

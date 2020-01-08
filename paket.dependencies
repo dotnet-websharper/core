@@ -43,7 +43,7 @@ group build
     nuget Fake.DotNet.Paket
     nuget Fake.Tools.Git
     nuget Paket.Core 5.230.0
-    nuget AjaxMin
+    nuget NUglify
     nuget FSharp.Core
     nuget Mono.Cecil
 
@@ -55,13 +55,7 @@ group includes
     framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
-
-group compilers
-    framework: net46, net461, netstandard2.0, netcoreapp2.0
-    source https://api.nuget.org/v3/index.json
-    nuget FSharp.Compiler.Tools ~> 10.0.2
     nuget FSharp.Core ~> 4.7.0
-    nuget Microsoft.Net.Compilers ~> 2.9.0
 
 group fcs
     framework: net46, net461, netstandard2.0, netcoreapp2.0
