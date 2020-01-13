@@ -167,6 +167,7 @@ Target.create "GenAppConfig" <| fun _ ->
                 |> e.Add
         doc.Save(xmlFullPath)
     )
+    
 "WS-BuildRelease"
     ==> "GenAppConfig"
     ==> "WS-Package"
@@ -193,5 +194,35 @@ Target.create "Run" <| fun _ ->
     |> ignore
 
 "Build" ==> "Run"
+
+Target.create "PublishTests" <| fun _ ->
+    match Environment.environVarOrNone "WS_TEST_FOLDER" with
+    | Some publishPath ->
+        DotNet.publish (fun p ->
+            { p with
+                OutputPath = Some publishPath
+                NoRestore = true
+                Configuration = DotNet.BuildConfiguration.Release
+            }) "tests/Web/Web.csproj"        
+    | _ ->
+        failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
+
+Target.create "RunTests" <| fun _ ->
+    match Environment.environVarOrNone "WS_TEST_URL" with
+    | Some publishUrl ->
+        Shell.Exec(
+            "packages/test/Chutzpah/tools/chutzpah.console.exe",
+            publishUrl
+        )
+        |> ignore
+    | _ ->
+        failwithf "Could not find WS_TEST_URL environment variable for running tests"
+
+"WS-BuildRelease"
+    ==> "PublishTests"
+    ==> "RunTests"
+    ?=> "WS-Package"
+"RunTests"
+    ==> "CI-Release"
 
 Target.runOrDefault "Build"

@@ -64,3 +64,7 @@ group fcs
     storage: none
     nuget FSharp.Compiler.Service ~> 33.0.1
     nuget FSharp.Core ~> 4.7.0
+
+group test
+    source https://api.nuget.org/v3/index.json
+    nuget Chutzpah 4.4.7
