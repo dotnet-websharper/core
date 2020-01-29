@@ -206,23 +206,20 @@ Target.create "Run" <| fun _ ->
 Target.create "PublishTests" <| fun _ ->
     match Environment.environVarOrNone "WS_TEST_FOLDER" with
     | Some publishPath ->
-        DotNet.publish (fun p ->
-            { p with
-                OutputPath = Some publishPath
-                NoRestore = true
-                Configuration = DotNet.BuildConfiguration.Release
-            }) "tests/Web/Web.csproj"        
+        Shell.copyDir publishPath "tests/Web" (fun _ -> true)
     | _ ->
         failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
 
 Target.create "RunTests" <| fun _ ->
     match Environment.environVarOrNone "WS_TEST_URL" with
     | Some publishUrl ->
-        Shell.Exec(
-            "packages/test/Chutzpah/tools/chutzpah.console.exe",
-            publishUrl + "/consoletests /engine Chrome"
-        )
-        |> ignore
+        let res =
+            Shell.Exec(
+                "packages/test/Chutzpah/tools/chutzpah.console.exe",
+                publishUrl + "/consoletests /engine Chrome"
+            )
+        if res <> 0 then
+            failwith "Chutzpah test run failed"
     | _ ->
         failwithf "Could not find WS_TEST_URL environment variable for running tests"
 
