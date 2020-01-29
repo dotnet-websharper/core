@@ -2,6 +2,14 @@
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
 #r "System.Xml.Linq"
 
+// Only reference these packages from editors/non fake-cli tools
+#if !FAKE
+    // To have proper language service in the editor
+    #r "netstandard"
+    // To help FAKE related IntelliSense in editor
+    #load "./.fake/build.fsx/intellisense_lazy.fsx"
+#endif
+
 open System.IO
 open System.Xml
 open System.Xml.Linq
@@ -54,7 +62,7 @@ let targets = MakeTargets {
                         Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
                     }) input
                 if explicitlyCopyFsCore then
-                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/compilers/FSharp.Core/lib/netstandard2.0"
+                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
                     [ 
                         fsharpCoreLib </> "FSharp.Core.dll" 
                         fsharpCoreLib </> "FSharp.Core.sigdata" 
@@ -212,12 +220,15 @@ Target.create "RunTests" <| fun _ ->
     | Some publishUrl ->
         Shell.Exec(
             "packages/test/Chutzpah/tools/chutzpah.console.exe",
-            publishUrl
+            publishUrl + "/consoletests /engine Chrome"
         )
         |> ignore
     | _ ->
         failwithf "Could not find WS_TEST_URL environment variable for running tests"
 
+"WS-BuildRelease"
+    ==> "WS-Package"
+    ==> "CI-Release"
 "WS-BuildRelease"
     ==> "PublishTests"
     ==> "RunTests"

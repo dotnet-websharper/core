@@ -24,4 +24,5 @@ module WebSharper.Tests.Website.Actions
 type Action =
     | [<CompiledName "/">] Home
     | [<CompiledName "/tests">] Tests
+    | [<CompiledName "/consoletests">] ConsoleTests
 

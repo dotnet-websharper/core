@@ -72,7 +72,7 @@ let HomePage (ctx: Context<_>) =
         ]
     )
 
-let TestsPage runServerTests (ctx: Context<FullAction>) =
+let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
     let t12 = (1, 2)
     let jsonBaseUri =
         Tests.Json.String ""
@@ -94,7 +94,7 @@ let TestsPage runServerTests (ctx: Context<FullAction>) =
         Title = "WebSharper client-side tests",
         Body = (
             [
-                yield ClientSide <@ WebSharper.Tests.Main.RunTests runServerTests @> :> Web.Control
+                yield ClientSide <@ WebSharper.Tests.Main.RunTests runServerTests autoStart @> :> Web.Control
                 yield ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @> :> Web.Control
                 yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
                 yield ClientSide <@ Client.ClientSideTupleTest t12 @> :> Web.Control
@@ -109,7 +109,8 @@ let TestsPage runServerTests (ctx: Context<FullAction>) =
 
 let MainSite runServerTests ctx = function
     | Actions.Home -> HomePage ctx
-    | Actions.Tests -> TestsPage runServerTests ctx
+    | Actions.Tests -> TestsPage runServerTests true ctx
+    | Actions.ConsoleTests -> TestsPage runServerTests false ctx
 
 let Main runServerTests =
     Sitelet.Sum [

@@ -94,10 +94,10 @@ module QUnit =
         [<Stub; Name "async">]
         member this.Async() = X<unit -> unit>
 
-        [<Stub; Name "push">]
+        [<Inline "$this.pushResult({ result: $result, actual: $actual, expected: $expected, message: $message })">]
         member this.Push(result: bool, actual: 'T, expected: 'T, message: string) = X<unit>
 
-        [<Stub; Name "push">]
+        [<Inline "$this.pushResult({ result: $result, actual: $actual, expected: $expected })">]
         member this.Push(result: bool, actual: 'T, expected: 'T) = X<unit>
 
     // Unlike the methods above, the functions below must not be implemented as X<_>.
