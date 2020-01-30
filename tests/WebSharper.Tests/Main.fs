@@ -27,7 +27,9 @@ open WebSharper.Testing
 do()
 
 [<JavaScript>]
-let RunTests runServerSide =
+let RunTests runServerSide autoStart =
+    if not autoStart then
+        JavaScript.JS.Inline "QUnit.config.autostart = false";
     Test "non-categorized test" {
         equal 1 1
     }

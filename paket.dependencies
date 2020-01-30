@@ -30,29 +30,32 @@ nuget System.Collections.Immutable 1.3.1
 nuget System.Reflection.Metadata 1.4.2
 
 group build
-    framework: net45
+    framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
+    storage: none
+
+	nuget Fake.Core.CommandLineParsing
+    nuget Fake.Core.Target
+    nuget Fake.IO.FileSystem
+    nuget Fake.DotNet.AssemblyInfoFile
+    nuget Fake.DotNet.Cli
+    nuget Fake.DotNet.MSBuild
+    nuget Fake.DotNet.Paket
+    nuget Fake.Tools.Git
     nuget Paket.Core 5.230.0
-    nuget FAKE
-    nuget AjaxMin
+    nuget NUglify
     nuget FSharp.Core
     nuget Mono.Cecil
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script
+    git https://github.com/dotnet-websharper/build-script fake5
 
 group includes
     references: strict
-    framework: netstandard2.0
-    source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 
-
-group compilers
     framework: net46, net461, netstandard2.0, netcoreapp2.0
     source https://api.nuget.org/v3/index.json
-    nuget FSharp.Compiler.Tools ~> 10.0.2
+    nuget NETStandard.Library 
     nuget FSharp.Core ~> 4.7.0
-    nuget Microsoft.Net.Compilers ~> 2.9.0
 
 group fcs
     framework: net46, net461, netstandard2.0, netcoreapp2.0
@@ -61,3 +64,7 @@ group fcs
     storage: none
     nuget FSharp.Compiler.Service ~> 33.0.1
     nuget FSharp.Core ~> 4.7.0
+
+group test
+    source https://api.nuget.org/v3/index.json
+    nuget Chutzpah 4.4.7

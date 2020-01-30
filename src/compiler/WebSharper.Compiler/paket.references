@@ -2,6 +2,4 @@ Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
 System.Configuration.ConfigurationManager
 Microsoft.Extensions.DependencyModel
-Fsharp.Core
-group compilers
-  Fsharp.Compiler.Tools
+FSharp.Core

@@ -1,2 +1,2 @@
-group compilers
-   Fsharp.Core
+group fcs
+   FSharp.Core

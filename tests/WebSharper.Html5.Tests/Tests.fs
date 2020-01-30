@@ -333,7 +333,14 @@ let Tests =
     TestCategory "HTML5" {
 
         Test "Geolocation" {
-            let! position = SamplesInternals.GetPosition()
+            let! position = 
+                async { 
+                    try
+                        return! SamplesInternals.GetPosition()
+                    with _ ->
+                        Console.Log "Geolocation not supported"
+                        return JS.Inline "{ coords: { latitude: 0, longitude: 0 } }"
+                }
             let coords = position.Coords
             isFalse (JS.IsNaN coords.Latitude)
             isFalse (JS.IsNaN coords.Longitude)

@@ -350,10 +350,11 @@ let tryFindWebResource (t: Type) (spec: string) =
     |> Seq.tryFind ok
 
 let tryGetUriFileName (u: string) =
-    try
-        let parts = u.Split('/')
-        parts.[parts.Length - 1] |> Some
-    with _ -> None
+    if u.StartsWith "http:" || u.StartsWith "https:" || u.StartsWith "//" then
+        let parts = u.Split([| '/' |], StringSplitOptions.RemoveEmptyEntries)
+        Array.tryLast parts
+    else
+        None
 
 let EmptyResource =
    { new IResource with member this.Render _ = ignore }
@@ -430,7 +431,7 @@ type BaseResource(kind: Kind) as this =
                             if isLocal then
                                 match tryGetUriFileName spec with
                                 | Some f ->
-                                    RenderLink (localFolder (mt = Css)  f)
+                                    RenderLink (localFolder (mt = Css) f)
                                 | _ ->
                                     RenderLink spec
                             else

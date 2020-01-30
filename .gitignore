@@ -23,3 +23,8 @@
 /tests/WebSharper.SPA.Tests/Content/*
 /netcore/
 /netfx/
+.paket/.store/
+.paket/*.exe
+.paket/fake
+.paket/paket
+.paket/paket.bootstrapper
