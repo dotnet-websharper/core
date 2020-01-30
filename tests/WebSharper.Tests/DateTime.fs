@@ -188,14 +188,14 @@ let Tests =
         Test "Parse" {
             let d = DateTime(2010, 4, 8, 15, 5, 39)
             raises (DateTime.Parse("not a date"))
-            equal (DateTime.Parse("Thu, 08 Apr 2010 13:05:39 GMT")) d
-            equal (Date.Parse("Thu, 08 Apr 2010 13:05:39 GMT")) (As<int> d)
+            equal (DateTime.Parse("Thu, 08 Apr 2010 13:05:39")) d
+            equal (Date.Parse("Thu, 08 Apr 2010 13:05:39")) (As<int> d)
         }
 
         Test "TryParse" {
             let d = DateTime(2010, 4, 8, 15, 5, 39)
             equal (DateTime.TryParse("not a date") |> fst) false
-            equal (DateTime.TryParse("Thu, 08 Apr 2010 13:05:39 GMT")) (true, d)
+            equal (DateTime.TryParse("Thu, 08 Apr 2010 13:05:39")) (true, d)
         }
 
         Test "DaysInMonth" {
