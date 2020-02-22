@@ -10,7 +10,7 @@ storage: none
 
 nuget Microsoft.CSharp ~> 4.4.0
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
-nuget Mono.Cecil ~> 0.10
+nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 2.8.0
@@ -62,7 +62,7 @@ group fcs
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
-    nuget FSharp.Compiler.Service ~> 34.0.1
+    nuget FSharp.Compiler.Service ~> 34.1.0
     nuget FSharp.Core ~> 4.7.0
 
 group test
