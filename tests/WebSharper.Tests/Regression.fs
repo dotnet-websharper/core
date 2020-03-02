@@ -504,6 +504,11 @@ module Bug1074 =
 
     let mainX = VConst add1 <* a11V
 
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1091 =
+    let foo = [| (try (0).ToString() with e -> e.ToString()) |]
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
