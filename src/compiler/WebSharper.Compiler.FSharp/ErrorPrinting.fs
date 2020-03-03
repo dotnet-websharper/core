@@ -43,7 +43,7 @@ type WarnSettings =
     static member Default =
         {
             // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L403
-            NoWarn = Set [ 1182; 3218; 3180 ] 
+            NoWarn = Set [ 1182; 3218; 3180; 3186 ] 
             WarnLevel = 3 
             WarnAsError = Set []
             AllWarnAsError = false
