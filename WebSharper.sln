@@ -8,7 +8,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D54C3-23BE-4087-9DAC-119986649CC4}"
 	ProjectSection(SolutionItems) = preProject
 		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
+		msbuild\CSharp.targets = msbuild\CSharp.targets
 		msbuild\FSharp.targets = msbuild\FSharp.targets
+		msbuild\netfx.props = msbuild\netfx.props
 		msbuild\WebSharper.CSharp.Internal.targets = msbuild\WebSharper.CSharp.Internal.targets
 		msbuild\WebSharper.CSharp.targets = msbuild\WebSharper.CSharp.targets
 		msbuild\WebSharper.FSharp.Internal.targets = msbuild\WebSharper.FSharp.Internal.targets
@@ -68,12 +70,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		build.cmd = build.cmd
 		build.fsx = build.fsx
 		build.sh = build.sh
-		ivy.xml = ivy.xml
+		CONTRIBUTING.md = CONTRIBUTING.md
 		LICENSE.md = LICENSE.md
 		paket.dependencies = paket.dependencies
 		paket.lock = paket.lock
 		README.md = README.md
 		rebuild.cmd = rebuild.cmd
+		runtests.cmd = runtests.cmd
 		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
@@ -122,15 +125,23 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
 	ProjectSection(SolutionItems) = preProject
-		tools\LICENSE.txt = tools\LICENSE.txt
-		tools\UpdateLicense.fsx = tools\UpdateLicense.fsx
+		tools\GenSingleFw.cmd = tools\GenSingleFw.cmd
+		tools\GenSingleFw.fsx = tools\GenSingleFw.fsx
+		tools\GenSingleFw.sh = tools\GenSingleFw.sh
 		tools\UpdateVersion.fsx = tools\UpdateVersion.fsx
+		tools\WebSharper.Compiler.Common.paket.template = tools\WebSharper.Compiler.Common.paket.template
+		tools\WebSharper.Compiler.CSharp.paket.template = tools\WebSharper.Compiler.CSharp.paket.template
+		tools\WebSharper.Compiler.FSharp.paket.template = tools\WebSharper.Compiler.FSharp.paket.template
 		tools\WebSharper.Compiler.paket.template = tools\WebSharper.Compiler.paket.template
+		tools\WebSharper.Core.paket.template = tools\WebSharper.Core.paket.template
 		tools\WebSharper.CSharp.paket.template = tools\WebSharper.CSharp.paket.template
-		tools\WebSharper.Fake.fsx = tools\WebSharper.Fake.fsx
 		tools\WebSharper.FSharp.paket.template = tools\WebSharper.FSharp.paket.template
+		tools\WebSharper.MathJS.paket.template = tools\WebSharper.MathJS.paket.template
 		tools\WebSharper.paket.template = tools\WebSharper.paket.template
+		tools\WebSharper.png = tools\WebSharper.png
+		tools\WebSharper.snk = tools\WebSharper.snk
 		tools\WebSharper.Testing.paket.template = tools\WebSharper.Testing.paket.template
+		tools\WebSharper.Tests.paket.template = tools\WebSharper.Tests.paket.template
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.SPA.Tests", "tests\WebSharper.SPA.Tests\WebSharper.SPA.Tests.fsproj", "{10EFC79A-9592-4DB2-A033-D29B7C7C917E}"

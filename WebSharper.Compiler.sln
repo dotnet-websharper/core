@@ -1,19 +1,16 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26430.6
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D54C3-23BE-4087-9DAC-119986649CC4}"
 	ProjectSection(SolutionItems) = preProject
 		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
+		msbuild\CSharp.targets = msbuild\CSharp.targets
 		msbuild\FSharp.targets = msbuild\FSharp.targets
-		msbuild\Mono.Cecil.targets = msbuild\Mono.Cecil.targets
-		msbuild\Temp.proj = msbuild\Temp.proj
-		msbuild\WebSharper.Internal.targets = msbuild\WebSharper.Internal.targets
-		msbuild\WebSharper.proj = msbuild\WebSharper.proj
-		msbuild\WebSharper.targets = msbuild\WebSharper.targets
+		msbuild\netfx.props = msbuild\netfx.props
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{EC03CB1D-151F-4469-A6DD-D5854A340F1D}"
@@ -26,23 +23,18 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\comp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EED59312-2E8D-4332-8BA5-671F85D8E25E}"
-	ProjectSection(SolutionItems) = preProject
-		tools\minify.fsx = tools\minify.fsx
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NuGet", "NuGet", "{B38B1480-30AC-4F48-8AA3-C406889EC6CF}"
-	ProjectSection(SolutionItems) = preProject
-		tools\NuGet\NuGet.exe = tools\NuGet\NuGet.exe
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
 		build.cmd = build.cmd
 		build.fsx = build.fsx
-		ivy.xml = ivy.xml
+		build.sh = build.sh
+		CONTRIBUTING.md = CONTRIBUTING.md
 		LICENSE.md = LICENSE.md
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
 		README.md = README.md
+		rebuild.cmd = rebuild.cmd
+		runtests.cmd = runtests.cmd
 		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
@@ -135,7 +127,6 @@ Global
 		{BFB21B61-FDA9-4814-A728-7D43038E0B57} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{52741881-8D64-4639-8B5C-19C060958C35} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A05B0B61-A2EF-4C88-B9A3-00E888777798} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
-		{B38B1480-30AC-4F48-8AA3-C406889EC6CF} = {EED59312-2E8D-4332-8BA5-671F85D8E25E}
 		{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{8F188E8B-547E-4A8E-BD3B-257A13AF9ACD} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{615AEA64-16EC-49BC-AFB4-36211F6354CC} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
