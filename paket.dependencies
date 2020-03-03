@@ -1,4 +1,4 @@
-version 5.230.0
+version 5.242.2
 
 references: strict
 redirects: on
@@ -42,7 +42,7 @@ group build
     nuget Fake.DotNet.MSBuild
     nuget Fake.DotNet.Paket
     nuget Fake.Tools.Git
-    nuget Paket.Core 5.230.0
+    nuget Paket.Core 5.242.2
     nuget NUglify
     nuget FSharp.Core
     nuget Mono.Cecil

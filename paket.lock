@@ -921,7 +921,7 @@ NUGET
       System.Dynamic.Runtime (>= 4.3)
     NuGet.Versioning (5.4)
     NUglify (1.5.13)
-    Paket.Core (5.230)
+    Paket.Core (5.242.2)
       Chessie (>= 0.6)
       Mono.Cecil (>= 0.10.0-beta6)
       Newtonsoft.Json (>= 10.0.3)
