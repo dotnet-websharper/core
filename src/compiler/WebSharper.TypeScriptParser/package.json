@@ -7,9 +7,9 @@
     "name": "IntelliFactory"
   },
   "devDependencies": {
-    "@types/node": "^6.0.87"
+    "@types/node": "^10.17.17"
   },
   "dependencies": {
-    "typescript": "^2.6.1"
+    "typescript": "^3.8.3"
   }
 }
