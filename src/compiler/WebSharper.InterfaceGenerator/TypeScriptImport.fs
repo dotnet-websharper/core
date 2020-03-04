@@ -24,46 +24,52 @@ open WebSharper
 
 module J = WebSharper.Core.Json 
 
-type OutputParameter =
+type TSParameter =
     {
-      name: string
-      ``type``: OutputType
+        Name: string
+        Type: TSType
     }
 
-and [<NamedUnionCases "kind">] OutputType =
-    | [<Name "simple">] OutputSimpleType of ``type``: string
-    | [<Name "array">] OutputArrayType of elementType: OutputType
-    | [<Name "tuple">] OutputTupleType of elementTypes: OutputType[]
-    | [<Name "function">] OutputFunctionType of parameters: OutputParameter[] * returnType: OutputType
-    | [<Name "new">] OutputNewType of parameters: OutputParameter[] * returnType: OutputType
-    | [<Name "union">] OutputUnionType of types: OutputType[]
-    | [<Name "intersection">] OutputIntersectionType of types: OutputType[]
-    | [<Name "object">] OutputTypeLiteral of members: OutputTypeElement[]
-    | [<Name "typeref">] OutputTypeReference of ``type``: string * arguments: OutputType[]
-    | [<Name "typeparamref">] OutputTypeParamReference of ``type``: string
-    | [<Name "predicate">] OutputTypePredicate of ``type``: OutputType * parameter: string
-    | [<Name "index">] OutputIndexType of index: OutputType * ``type``: OutputType
-    | [<Name "keyof">] OutputKeyOfType of ``type``: OutputType
-    | [<Name "mapped">] OutputMappedType of ``type``: OutputType
+and [<NamedUnionCases "Kind">] TSType =
+    | [<Name "simple">] TSSimpleType of Type: string
+    | [<Name "array">] TSArrayType of ElementType: TSType
+    | [<Name "tuple">] TSTupleType of ElementTypes: TSType[]
+    | [<Name "function">] TSFunctionType of Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "new">] TSNewType of Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "union">] TSUnionType of Types: TSType[]
+    | [<Name "intersection">] TSIntersectionType of Types: TSType[]
+    | [<Name "object">] TSTypeLiteral of Members: TSTypeElement[]
+    | [<Name "typeref">] TSTypeReference of Type: string * Arguments: TSType[]
+    | [<Name "typeparamref">] TSTypeParamReference of Type: string
+    | [<Name "predicate">] TSTypePredicate of Type: TSType * Parameter: string
+    | [<Name "index">] TSIndexType of Index: TSType * Type: TSType
+    | [<Name "keyof">] TSKeyOfType of Type: TSType
+    | [<Name "mapped">] TSMappedType of Type: TSType
 
-and OutputTypeParameter =
+and TSTypeParameter =
     {
-      name: string
-      ``constraint``: OutputType
+        Name: string
+        Constraint: TSType
     }
 
-and [<NamedUnionCases "kind">] OutputTypeElement =
-    | [<Name "method">] OutputMethod of name: string * parameters: OutputParameter[] * typeParameters: OutputTypeParameter[] * ``type``: OutputType
-    | [<Name "property">] OutputProperty of name: string * ``type``: OutputType
-    | [<Name "new">] OutputNew of parameters: OutputParameter[] * ``type``: OutputType
-    | [<Name "call">] OutputCall of parameters: OutputParameter[] * typeParameters: OutputTypeParameter[] * ``type``: OutputType
-    | [<Name "index">] OutputIndex of parameters: OutputParameter[] * ``type``: OutputType
+and [<NamedUnionCases "Kind">] TSTypeElement =
+    | [<Name "method">] TSMethod of Name: string * Parameters: TSParameter[] * TypeParameters: TSTypeParameter[] * Type: TSType
+    | [<Name "property">] TSProperty of Name: string * Type: TSType
+    | [<Name "new">] TSNew of Parameters: TSParameter[] * Type: TSType
+    | [<Name "call">] TSCall of Parameters: TSParameter[] * TypeParameters: TSTypeParameter[] * Type: TSType
+    | [<Name "index">] TSIndex of Parameters: TSParameter[] * Type: TSType
 
-and [<NamedUnionCases "kind">] OutputStatement =
-    | [<Name "vars">] OutputVariableStatement of declarations:OutputParameter[]
-    | [<Name "function">] OutputFunction of parameters: OutputParameter[] * returnType: OutputType
-    | [<Name "new">] OutputNew of parameters: OutputParameter[] * returnType: OutputType
-    | [<Name "typealias">] OutputTypeAlias of name: string * typeParameters: OutputTypeParameter[] * ``type``: OutputType
-    | [<Name "class">] OutputClassDeclaration of name: string * typeParameters: OutputTypeParameter[]  * members: OutputTypeElement[] * extends: OutputType * implements: OutputType[]
-    | [<Name "interface">] OutputInterfaceDeclaration of name: string * typeParameters: OutputTypeParameter[]  * members: OutputTypeElement[] * extends: OutputType[]
-    | [<Name "module">] OutputModuleDeclaration of name: string * members: OutputStatement[]
+and [<NamedUnionCases "Kind">] TSStatement =
+    | [<Name "vars">] TSVariableStatement of Declarations: TSParameter[]
+    | [<Name "function">] TSFunction of Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "new">] TSNew of Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "typealias">] TSTypeAlias of Name: string * TypeParameters: TSTypeParameter[] * Type: TSType
+    | [<Name "class">] TSClassDeclaration of Name: string * TypeParameters: TSTypeParameter[] * Members: TSTypeElement[] * Extends: TSType * Implements: TSType[]
+    | [<Name "interface">] TSInterfaceDeclaration of Name: string * TypeParameters: TSTypeParameter[] * Members: TSTypeElement[] * Extends: TSType[]
+    | [<Name "module">] TSModuleDeclaration of Name: string * Members: TSStatement[]
+
+and TSFile =
+    {
+        Name: string
+        Statements: TSStatement[]
+    }
