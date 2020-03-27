@@ -82,6 +82,7 @@ type Compilation(meta: Info, ?hasGraph) =
         typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
 
     member val UseLocalMacros = true with get, set
+    member val UseReflectedDefinitions = false with get, set
     member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
@@ -605,32 +606,45 @@ type Compilation(meta: Info, ?hasGraph) =
                             List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
                         Compiled (info, Optimizations.None, Undefined)
                     else
-                        match this.GetCustomType typ with
-                        | NotCustomType -> 
-                            let mName = meth.Value.MethodName
-                            let candidates = 
-                                [
-                                    for m in cls.Methods.Keys do
-                                        if m.Value.MethodName = mName then
-                                            yield m
-                                    for t, m in compilingMethods.Keys do
-                                        if typ = t && m.Value.MethodName = mName then
-                                            yield m
-                                ]
-                            if List.isEmpty candidates then
-                                let names =
-                                    seq {
+                        let reflected =
+                            if this.UseReflectedDefinitions then
+                                let mi = Reflection.LoadMethod typ meth     
+                                match WebSharper.Compiler.ReflectedDefinitionReader.readReflected this mi with
+                                | Some rd ->
+                                    Some ()
+                                | None ->
+                                    None
+                            else 
+                                None
+                        match reflected with
+                        | Some m -> Compiling m
+                        | None ->
+                            match this.GetCustomType typ with
+                            | NotCustomType -> 
+                                let mName = meth.Value.MethodName
+                                let candidates = 
+                                    [
                                         for m in cls.Methods.Keys do
-                                            yield m.Value.MethodName
+                                            if m.Value.MethodName = mName then
+                                                yield m
                                         for t, m in compilingMethods.Keys do
-                                            if typ = t then
+                                            if typ = t && m.Value.MethodName = mName then
+                                                yield m
+                                    ]
+                                if List.isEmpty candidates then
+                                    let names =
+                                        seq {
+                                            for m in cls.Methods.Keys do
                                                 yield m.Value.MethodName
-                                    }
-                                    |> Seq.distinct |> List.ofSeq
-                                LookupMemberError (MethodNameNotFound (typ, meth, names))
-                            else
-                                LookupMemberError (MethodNotFound (typ, meth, candidates))
-                        | i -> CustomTypeMember i
+                                            for t, m in compilingMethods.Keys do
+                                                if typ = t then
+                                                    yield m.Value.MethodName
+                                        }
+                                        |> Seq.distinct |> List.ofSeq
+                                    LookupMemberError (MethodNameNotFound (typ, meth, names))
+                                else
+                                    LookupMemberError (MethodNotFound (typ, meth, candidates))
+                            | i -> CustomTypeMember i
         | _ ->
             match this.GetCustomType typ with
             | NotCustomType -> LookupMemberError (TypeNotFound typ)

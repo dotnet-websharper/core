@@ -24,11 +24,12 @@ module WebSharper.Compiler.ReflectedDefinitionReader
 open System.Reflection
 open FSharp.Quotations
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader
 
-let readReflected (comp: Compilation) (m: MethodBase) =
+let readReflected (comp: ICompilation) (m: MethodBase) =
     match Expr.TryGetReflectedDefinition m with
     | None -> None
     | Some q -> 

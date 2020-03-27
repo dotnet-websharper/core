@@ -25,6 +25,7 @@ open FSharp.Quotations
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 module A = WebSharper.Compiler.AttributeReader
 
@@ -37,7 +38,7 @@ type Environment =
     {
         Vars : System.Collections.Generic.Dictionary<Var, Id * VarKind>
         Exception : option<Id>
-        Compilation : Compilation
+        Compilation : ICompilation
     }
     static member New(comp) = 
         { 
@@ -269,7 +270,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match e with
             | ParseError m -> m
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
-        env.Compilation.AddError(getOptSourcePos expr, SourceError msg)
+        env.Compilation.AddError(getOptSourcePos expr, msg)
         CompilationHelpers.errorPlaceholder        
 
 let readExpression (comp: Compilation) expr =
