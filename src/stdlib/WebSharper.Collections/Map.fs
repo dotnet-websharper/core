@@ -33,8 +33,13 @@ module private MapUtil =
 
     let fromSeq(s: seq<_>) =
         let a : Pair<_,_> [] =
-            [| for (k, v) in Seq.distinctBy fst s ->
-                { Key = k; Value = v } |]
+            s
+            |> Seq.rev
+            |> Seq.distinctBy fst
+            |> Seq.map (fun (k, v) ->
+                { Key = k; Value = v }
+            )
+            |> Array.ofSeq
         Array.sortInPlace a
         T.OfSorted a
 
