@@ -11,7 +11,7 @@ let program = ts.createProgram([filePath], { target: ts.ScriptTarget.Latest });
 let checker = program.getTypeChecker();
 
 let output = program.getSourceFiles().map(transformFile)
-let outputPath = filePath + ".json"
+let outputPath = process.argv[3] ?? (filePath + ".json")
 
 fs.writeFileSync(outputPath, JSON.stringify(output, undefined, 2))
 
@@ -44,6 +44,13 @@ interface TSUnionOrIntersectionType {
   Kind: 'union' | 'intersection'
   Types: TSType[]
 }
+interface TSConditionalType {
+  Kind: 'conditional'
+  CheckType: TSType
+  ExtendsType: TSType
+  TrueType: TSType
+  FalseType: TSType
+}
 interface TSTypeLiteral {
   Kind: 'object'
   Members: TSTypeElement[]
@@ -73,6 +80,7 @@ type TSType =
   | TSTupleType
   | TSFunctionOrNewType
   | TSUnionOrIntersectionType
+  | TSConditionalType
   | TSTypeLiteral
   | TSTypeReference
   | TSTypePredicate
@@ -112,12 +120,23 @@ interface TSModuleDeclaration {
   Name: string
   Members: TSStatement[]
 }
+interface TSExportAssignment {
+  Kind: 'exportassignment'
+  Expression: string
+}
+interface TSExportDeclaration {
+  Kind: 'exportdeclaration'
+  Expression: string
+  Name?: string
+}
 type TSStatement =
   | TSVariableStatement
   | TSFunctionOrNewType
   | TSTypeAlias
   | TSTypeDeclaration
   | TSModuleDeclaration
+  | TSExportAssignment
+  | TSExportDeclaration
 
 interface TSFile {
     Name: string
@@ -138,6 +157,10 @@ function simpleType(x: string): TSSimpleType {
     Kind: 'simple',
     Type: x
   }
+}
+
+function unhandled(x: ts.Node, ctx: string) {
+  throw Error(`Unhandled SyntaxKind for ${ctx}: ${x.kind} '${x.getText()}' in ${x.getSourceFile().fileName}`);
 }
 
 function transformType(x: ts.TypeNode): TSType {
@@ -169,12 +192,20 @@ function transformType(x: ts.TypeNode): TSType {
   if (ts.isUnionTypeNode(x))
     return {
       Kind: 'union',
-      Types: x.types.map(transformType),
+      Types: x.types.map(transformType)
     }
   if (ts.isIntersectionTypeNode(x))
     return {
       Kind: 'intersection',
-      Types: x.types.map(transformType),
+      Types: x.types.map(transformType)
+    }
+  if (ts.isConditionalTypeNode(x))
+    return {
+      Kind: 'conditional',
+      CheckType: transformType(x.checkType),
+      ExtendsType: transformType(x.extendsType),
+      TrueType: transformType(x.trueType),
+      FalseType: transformType(x.falseType)
     }
   if (ts.isTypeLiteralNode(x))
     return {
@@ -199,7 +230,7 @@ function transformType(x: ts.TypeNode): TSType {
       if (t && t.flags & ts.TypeFlags.TypeParameter)
         return {
           Kind: 'typeparamref',
-          Type: x.typeName.getText(),
+          Type: x.typeName.getText()
         }
       else
         return simpleType(x.typeName.getText())
@@ -221,7 +252,8 @@ function transformType(x: ts.TypeNode): TSType {
       Type: transformType(x.type)
     }
   let res = x.getText()
-  if (res.indexOf('<') > 0) throw Error("needsBetterTypeParsing:" + x.kind)
+  if (res.indexOf('<') > 0)
+    unhandled(x, "type");
   return simpleType(x.getText())
 }
 
@@ -257,7 +289,7 @@ function transformTypeElement(x: ts.TypeElement): TSTypeElement {
       Parameters: x.parameters.map(transformParameter),
       Type: transformType(x.type)
     }
-  throw { nonParsedTypeElementKind: x.kind }
+  unhandled(x, "type");
 }
 
 function transformTypeParameter(x: ts.TypeParameterDeclaration): TSTypeParameter {
@@ -273,7 +305,7 @@ function transformClassElement(x: ts.ClassElement): TSTypeElement {
       Kind: 'method',
       Name: x.name.getText(),
       Parameters: x.parameters.map(transformParameter),
-      TypeParameters: x.typeParameters.map(transformTypeParameter),
+      TypeParameters: x.typeParameters?.map(transformTypeParameter),
       Type: transformType(x.type)
     }
   if (ts.isConstructorDeclaration(x))
@@ -288,7 +320,7 @@ function transformClassElement(x: ts.ClassElement): TSTypeElement {
       Name: x.name.getText(),
       Type: transformType(x.type)
     }
-  throw { nonParsedClassElementKind: x.kind }
+  unhandled(x, "type");
 }
 
 function transformExpessionWithTypeArguments(x: ts.ExpressionWithTypeArguments): TSType {
@@ -352,7 +384,19 @@ function transformStatement(x: ts.Statement): TSStatement {
       Name: x.name.text,
       Members: x.body.statements.map(transformStatement)
     }
-  throw { nonParsedStatementKind: x.kind }
+  if (ts.isExportAssignment(x)) {
+    return {
+      Kind: 'exportassignment',
+      Expression: x.expression.getText()
+    }
+  }
+  if (ts.isExportDeclaration(x)) {
+    return {
+      Kind: 'exportdeclaration',
+      Expression: x..getText()
+    }
+  }
+  unhandled(x, "type");
 }
 
 function transformFile(x: ts.SourceFile): TSFile {

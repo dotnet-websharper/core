@@ -38,6 +38,7 @@ and [<NamedUnionCases "Kind">] TSType =
     | [<Name "new">] TSNewType of Parameters: TSParameter[] * ReturnType: TSType
     | [<Name "union">] TSUnionType of Types: TSType[]
     | [<Name "intersection">] TSIntersectionType of Types: TSType[]
+    | [<Name "conditional">] TSConditionalType of CheckType: TSType * ExtendsType: TSType * TrueType: TSType * FalseType: TSType
     | [<Name "object">] TSTypeLiteral of Members: TSTypeElement[]
     | [<Name "typeref">] TSTypeReference of Type: string * Arguments: TSType[]
     | [<Name "typeparamref">] TSTypeParamReference of Type: string
