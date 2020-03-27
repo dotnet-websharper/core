@@ -273,5 +273,5 @@ let rec transformExpression (env: Environment) (expr: Expr) =
         env.Compilation.AddError(getOptSourcePos expr, msg)
         CompilationHelpers.errorPlaceholder        
 
-let readExpression (comp: Compilation) expr =
+let readExpression (comp: ICompilation) expr =
     transformExpression (Environment.New(comp)) expr
