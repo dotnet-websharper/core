@@ -26,8 +26,10 @@ open FSharp.Quotations
 open WebSharper.Core
 open WebSharper.Core.AST
 open System.Reflection
+open WebSharper.Compiler.NotResolved
 
 module M = WebSharper.Core.Metadata
+module A = WebSharper.Compiler.AttributeReader
 type FST = FSharp.Reflection.FSharpType
 
 type QuotationCompiler (?meta : M.Info) =
@@ -39,14 +41,50 @@ type QuotationCompiler (?meta : M.Info) =
     member this.CompileReflectedDefinitions(asm: Assembly) =
         for t in asm.GetTypes() do
             let typeAnnot =
-                lazy AttributeReader.attrReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, t.CustomAttributes)
+                lazy A.attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, t.CustomAttributes)
             let clsMembers = ResizeArray()
             let readMember m =
                 match ReflectedDefinitionReader.readReflected comp m with
                 | Some expr ->
-                    let mAnnot = AttributeReader.attrReader.GetMemberAnnot(typeAnnot.Value, m.CustomAttributes)   
+                    let mAnnot = A.attrReader.GetMemberAnnot(typeAnnot.Value, m.CustomAttributes)   
                     let mem = Reflection.ReadMember m |> Option.get
-                    clsMembers.Add(NotResolvedMember.Method(mem, ))
+                    let kind =
+                        match mAnnot.Kind with
+                        | Some A.MemberKind.InlineJavaScript -> NotResolvedMemberKind.Inline
+                        | _ -> 
+                            if m.IsConstructor then
+                                NotResolvedMemberKind.Constructor
+                            elif m.IsStatic then
+                                NotResolvedMemberKind.Static
+                            else
+                                NotResolvedMemberKind.Instance
+                    
+                    let nr =
+                        {
+                            Kind = kind
+                            StrongName = mAnnot.Name
+                            Macros = mAnnot.Macros
+                            Generator = None
+                            Compiled = false 
+                            Pure = mAnnot.Pure
+                            Body = expr
+                            Requires = mAnnot.Requires
+                            FuncArgs = None
+                            Args = []
+                            Warn = mAnnot.Warn
+                        }
+                    match mem with
+                    | Member.Constructor ctor ->
+                        clsMembers.Add(NotResolvedMember.Constructor(ctor, nr))
+                    | Member.Method (inst, meth) ->
+                        clsMembers.Add(NotResolvedMember.Method(meth, nr))
+                    | Member.Implementation (td, impl) ->
+                        clsMembers.Add(NotResolvedMember.Method(impl, nr)) // ?
+                    | Member.Override (td, impl) ->
+                        clsMembers.Add(NotResolvedMember.Method(impl, nr)) // ?
+                    | Member.StaticConstructor ->
+                        clsMembers.Add(NotResolvedMember.StaticConstructor(expr))
+
                 | None ->
                     ()
             for m in t.GetMethods() do
@@ -88,10 +126,10 @@ type QuotationCompiler (?meta : M.Info) =
                     )   
 
                 let ckind = 
-                    if annot.IsStub || (hasStubMember && not hasNonStubMember)
+                    if annot.IsStub //|| (hasStubMember && not hasNonStubMember)
                     then NotResolvedClassKind.Stub
                     elif fsharpModule then NotResolvedClassKind.Static
-                    elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+                    elif (annot.IsJavaScript && (t.IsAbstract || FST.IsExceptionRepresentation(t))) || (annot.Prototype = Some true)
                     then NotResolvedClassKind.WithPrototype
                     else NotResolvedClassKind.Class
 
@@ -105,13 +143,13 @@ type QuotationCompiler (?meta : M.Info) =
                         Kind = ckind
                         IsProxy = Option.isSome annot.ProxyOf
                         Macros = annot.Macros
-                        ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
-                        ForceAddress = hasSingletonCase || def.Value.FullName = "System.Exception" // needed for Error inheritance
+                        ForceNoPrototype = (annot.Prototype = Some false) // || hasConstantCase
+                        ForceAddress = false // hasSingletonCase 
                     }
                 )
                 
-
     member this.Compile (expr: Expr) = 
         let e = QuotationReader.readExpression comp expr
-        Translator.
-        ()
+        let trE = Translator.DotNetToJavaScript.CompileExpression(comp, e)
+        let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable))
+        trE, js
