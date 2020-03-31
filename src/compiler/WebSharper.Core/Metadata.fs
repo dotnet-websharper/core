@@ -375,7 +375,7 @@ type Info =
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
         }
-
+    
     member this.DiscardExpressions() =
         { this with
             Classes =

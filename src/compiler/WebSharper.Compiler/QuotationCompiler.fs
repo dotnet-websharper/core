@@ -25,6 +25,7 @@ open FSharp.Quotations
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open WebSharper.Core.DependencyGraph
 open System.Reflection
 open WebSharper.Compiler.NotResolved
 
@@ -151,5 +152,17 @@ type QuotationCompiler (?meta : M.Info) =
     member this.Compile (expr: Expr) = 
         let e = QuotationReader.readExpression comp expr
         let trE = Translator.DotNetToJavaScript.CompileExpression(comp, e)
-        let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable))
+        let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable)) trE
         trE, js
+
+    member this.CompileToJSAndRefs (expr: Expr, prefs: WebSharper.Core.JavaScript.Preferences) =
+        let e = QuotationReader.readExpression comp expr
+        let trE, node = Translator.DotNetToJavaScript.TransformExpressionWithDeps(comp, e)
+        let js =
+            trE
+            |> JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(prefs))
+            |> WebSharper.Core.JavaScript.Writer.ExpressionToString prefs 
+        let deps =
+            comp.Graph.GetResources [ node ]
+
+        js, deps
