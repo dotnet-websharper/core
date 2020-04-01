@@ -61,7 +61,7 @@
     <None Include="QuotationTests.fsx" />
     <None Include="ASTTests.fsx" />
     <None Include="paket.references" />
-    <Content Include="wsconfig.json" />
+    <Content Include="testwsconfig.json" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />

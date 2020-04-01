@@ -726,7 +726,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.TransformExpressionWithDeps(expr) =
         let node = M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString())
         currentNode <- node
-        let res = this.TransformExpression(expr)
+        let wrap e = ExprStatement(ItemSet(Global [], Value (String "EntryPoint"), Lambda([], e)))
+        let res = this.TransformExpression(expr) |> wrap |> breakStatement
         res, node
     
     static member CompileExpression (comp, expr) =

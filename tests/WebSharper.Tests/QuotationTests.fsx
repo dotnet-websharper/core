@@ -18,9 +18,9 @@
 //
 // $end{copyright}
 #I __SOURCE_DIRECTORY__
-#r "../../build/Release/FSharp/net461/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/net461/Mono.Cecil.dll"
+#r "../../build/Release/net461/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/net461/Mono.Cecil.Pdb.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -38,7 +38,7 @@
 #r "../../build/Release/net461/WebSharper.Control.dll"
 #r "../../build/Release/net461/WebSharper.Web.dll"
 #r "../../build/Release/net461/WebSharper.Sitelets.dll"
-#r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
+#r "../../build/Release/net461/WebSharper.Compiler.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -80,8 +80,8 @@ open WebSharper.Core.JavaScript
 
 let translate expr = 
     let compiler = QuotationCompiler(metadata)
-    let ast, js = compiler.Compile(expr)
-    Writer.ExpressionToString Preferences.Readable js
+    let js, refs = compiler.CompileToJSAndRefs(expr, WebSharper.Core.JavaScript.Preferences.Readable)
+    js
 
 translate <@ [ 1; 2 ] |> List.map (fun x -> x + 1) @>
 

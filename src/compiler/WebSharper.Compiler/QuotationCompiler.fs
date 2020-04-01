@@ -149,17 +149,19 @@ type QuotationCompiler (?meta : M.Info) =
                     }
                 )
                 
-    member this.Compile (expr: Expr) = 
-        let e = QuotationReader.readExpression comp expr
-        let trE = Translator.DotNetToJavaScript.CompileExpression(comp, e)
-        let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable)) trE
-        trE, js
+    //member this.Compile (expr: Expr) = 
+    //    let e = QuotationReader.readExpression comp expr
+    //    let trE = Translator.DotNetToJavaScript.CompileExpression(comp, e)
+    //    let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable)) trE
+    //    trE, js
 
     member this.CompileToJSAndRefs (expr: Expr, prefs: WebSharper.Core.JavaScript.Preferences) =
         let e = QuotationReader.readExpression comp expr
-        let trE, node = Translator.DotNetToJavaScript.TransformExpressionWithDeps(comp, e)
+        let ep, node = Translator.DotNetToJavaScript.CompileExpressionWithDeps(comp, e)
+        let p =
+            Packager.packageAssembly meta (comp.ToCurrentMetadata()) (Some ep) Packager.ForceImmediate
         let js =
-            trE
+            p
             |> JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(prefs))
             |> WebSharper.Core.JavaScript.Writer.ExpressionToString prefs 
         let deps =

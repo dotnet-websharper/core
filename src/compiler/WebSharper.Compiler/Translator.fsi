@@ -29,6 +29,6 @@ type DotNetToJavaScript =
 
     static member CompileFull : comp: Compilation -> unit
 
-    static member CompileExpression : comp: Compilation * expr: Expression -> Expression
+    static member CompileExpression : comp: Compilation * expr: Expression -> Statement
 
-    static member CompileExpressionWithDeps : comp: Compilation * expr: Expression -> Expression * Metadata.Node
+    static member CompileExpressionWithDeps : comp: Compilation * expr: Expression -> Statement * Metadata.Node
