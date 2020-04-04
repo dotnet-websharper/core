@@ -410,16 +410,3 @@ type Graph =
             Lookup = Dictionary()
             Resources = ConcurrentDictionary()
         }
-
-namespace WebSharper.Core
-
-module MetatadaExtension =
-
-    open WebSharper.Core.Metadata
-    open WebSharper.Core.DependencyGraph
-
-    type Info with
-        static member Union (metas: seq<Info>) = 
-            { WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-                Dependencies = Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
-            }

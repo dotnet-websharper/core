@@ -70,7 +70,7 @@ let metadata =
         )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
-            Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
+            Dependencies = WebSharper.Core.DependencyGraph.Graph.FromData(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
 
 open System.IO
@@ -81,7 +81,7 @@ open WebSharper.Core.JavaScript
 let translate expr = 
     let compiler = QuotationCompiler(metadata)
     let js, refs = compiler.CompileToJSAndRefs(expr, WebSharper.Core.JavaScript.Preferences.Readable)
-    js
+    js, refs |> List.length
 
 translate <@ [ 1; 2 ] |> List.map (fun x -> x + 1) @>
 

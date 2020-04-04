@@ -160,10 +160,8 @@ type QuotationCompiler (?meta : M.Info) =
         let ep, node = Translator.DotNetToJavaScript.CompileExpressionWithDeps(comp, e)
         let p =
             Packager.packageAssembly meta (comp.ToCurrentMetadata()) (Some ep) Packager.ForceImmediate
-        let js =
-            p
-            |> JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(prefs))
-            |> WebSharper.Core.JavaScript.Writer.ExpressionToString prefs 
+        let js, _ =
+            p |> Packager.exprToString prefs (fun () -> WebSharper.Core.JavaScript.Writer.CodeWriter())
         let deps =
             comp.Graph.GetResources [ node ]
 
