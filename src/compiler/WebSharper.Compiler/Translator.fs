@@ -723,18 +723,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         comp.CloseMacros()
         compileMethods()
 
-    member this.TransformExpressionWithDeps(expr) =
-        let node = M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString())
-        currentNode <- node
-        let wrap e = ExprStatement(ItemSet(Global [], Value (String "EntryPoint"), Lambda([], e)))
-        let res = this.TransformExpression(expr) |> wrap |> breakStatement
-        res, node
+    member this.TransformExpressionWithNode(expr, node) =
+        match node with
+        | Some n ->
+            currentNode <- n
+        | _ ->
+            currentNode <- M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString()) // unique new node
+        this.TransformExpression(expr) |> breakExpr
     
-    static member CompileExpression (comp, expr) =
-        DotNetToJavaScript(comp).TransformExpressionWithDeps(expr) |> fst
-
-    static member CompileExpressionWithDeps (comp, expr) =
-        DotNetToJavaScript(comp).TransformExpressionWithDeps(expr)
+    static member CompileExpression (comp, expr, ?node) =
+        DotNetToJavaScript(comp).TransformExpressionWithNode(expr, node)
 
     member this.AnotherNode() = DotNetToJavaScript(comp, currentNode :: inProgress)    
 

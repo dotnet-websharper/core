@@ -31,11 +31,11 @@ open WebSharper.Compiler.NotResolved
 
 module M = WebSharper.Core.Metadata
 module A = WebSharper.Compiler.AttributeReader
-type FST = FSharp.Reflection.FSharpType
+type private FST = FSharp.Reflection.FSharpType
+type private N = NotResolvedMemberKind
 
-type QuotationCompiler (?meta : M.Info) =
-    let meta = defaultArg meta M.Info.Empty
-    let comp = Compilation(meta)
+type QuotationCompiler (meta : M.Info) =
+    let comp = Compilation(meta, CustomTypesReflector = A.reflectCustomType)
 
     member this.Compilation = comp
 
@@ -44,23 +44,23 @@ type QuotationCompiler (?meta : M.Info) =
             let typeAnnot =
                 lazy A.attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, t.CustomAttributes)
             let clsMembers = ResizeArray()
+            // TODO JS inlines, macros, generators, stubs
             let readMember m =
-                match ReflectedDefinitionReader.readReflected comp m with
+                let reflected =
+                    try ReflectedDefinitionReader.readReflected comp m
+                    with e -> 
+                        comp.AddError(None, SourceError(sprintf "Error during reading reflected definition of %s.%s: %s" m.DeclaringType.FullName m.Name e.Message))
+                        None
+                match reflected with
                 | Some expr ->
                     let mAnnot = A.attrReader.GetMemberAnnot(typeAnnot.Value, m.CustomAttributes)   
                     let mem = Reflection.ReadMember m |> Option.get
-                    let kind =
-                        match mAnnot.Kind with
-                        | Some A.MemberKind.InlineJavaScript -> NotResolvedMemberKind.Inline
-                        | _ -> 
-                            if m.IsConstructor then
-                                NotResolvedMemberKind.Constructor
-                            elif m.IsStatic then
-                                NotResolvedMemberKind.Static
-                            else
-                                NotResolvedMemberKind.Instance
                     
-                    let nr =
+                    let nr k =
+                        let kind =
+                            match mAnnot.Kind with
+                            | Some A.MemberKind.InlineJavaScript -> N.Inline
+                            | _ -> k
                         {
                             Kind = kind
                             StrongName = mAnnot.Name
@@ -74,22 +74,28 @@ type QuotationCompiler (?meta : M.Info) =
                             Args = []
                             Warn = mAnnot.Warn
                         }
+
+                    // TODO add Abstract methods
                     match mem with
                     | Member.Constructor ctor ->
-                        clsMembers.Add(NotResolvedMember.Constructor(ctor, nr))
+                        clsMembers.Add(NotResolvedMember.Constructor(ctor, nr N.Constructor))
                     | Member.Method (inst, meth) ->
-                        clsMembers.Add(NotResolvedMember.Method(meth, nr))
+                        clsMembers.Add(NotResolvedMember.Method(meth, nr (if inst then N.Instance else N.Static)))
                     | Member.Implementation (td, impl) ->
-                        clsMembers.Add(NotResolvedMember.Method(impl, nr)) // ?
+                        clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Implementation(td)))) 
                     | Member.Override (td, impl) ->
-                        clsMembers.Add(NotResolvedMember.Method(impl, nr)) // ?
+                        clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Override td)))
                     | Member.StaticConstructor ->
-                        clsMembers.Add(NotResolvedMember.StaticConstructor(expr))
+                        clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], expr)))
 
                 | None ->
                     ()
-            for m in t.GetMethods() do
+
+            for m in t.GetMethods(Reflection.AllMethodsFlags) do
                 readMember m
+
+            for c in t.GetConstructors(Reflection.AllMethodsFlags) do
+                readMember c
 
             if clsMembers.Count > 0 then
 
@@ -132,7 +138,19 @@ type QuotationCompiler (?meta : M.Info) =
                     elif fsharpModule then NotResolvedClassKind.Static
                     elif (annot.IsJavaScript && (t.IsAbstract || FST.IsExceptionRepresentation(t))) || (annot.Prototype = Some true)
                     then NotResolvedClassKind.WithPrototype
-                    else NotResolvedClassKind.Class
+                    else NotResolvedClassKind.Class               
+
+                for f in t.GetFields(Reflection.AllMethodsFlags) do
+                    let fAnnot = A.attrReader.GetMemberAnnot(annot, f.CustomAttributes) 
+                    let nr =
+                        {
+                            StrongName = fAnnot.Name
+                            IsStatic = f.IsStatic
+                            IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField 
+                            IsReadonly = f.IsInitOnly
+                            FieldType = Reflection.ReadType f.FieldType
+                        }
+                    clsMembers.Add(NotResolvedMember.Field(f.Name, nr))    
 
                 comp.AddClass(
                     def,
@@ -148,21 +166,11 @@ type QuotationCompiler (?meta : M.Info) =
                         ForceAddress = false // hasSingletonCase 
                     }
                 )
-                
-    //member this.Compile (expr: Expr) = 
-    //    let e = QuotationReader.readExpression comp expr
-    //    let trE = Translator.DotNetToJavaScript.CompileExpression(comp, e)
-    //    let js = JavaScriptWriter.transformExpr (JavaScriptWriter.Environment.New(WebSharper.Core.JavaScript.Preferences.Readable)) trE
-    //    trE, js
+        
+        comp.Resolve()
 
-    member this.CompileToJSAndRefs (expr: Expr, prefs: WebSharper.Core.JavaScript.Preferences) =
+        Translator.DotNetToJavaScript.CompileFull comp
+
+    member this.CompileExpression (expr: Expr, ?node) =
         let e = QuotationReader.readExpression comp expr
-        let ep, node = Translator.DotNetToJavaScript.CompileExpressionWithDeps(comp, e)
-        let p =
-            Packager.packageAssembly meta (comp.ToCurrentMetadata()) (Some ep) Packager.ForceImmediate
-        let js, _ =
-            p |> Packager.exprToString prefs (fun () -> WebSharper.Core.JavaScript.Writer.CodeWriter())
-        let deps =
-            comp.Graph.GetResources [ node ]
-
-        js, deps
+        Translator.DotNetToJavaScript.CompileExpression(comp, e, ?node = node)

@@ -77,55 +77,74 @@ open System.IO
 
 open WebSharper.Compiler
 open WebSharper.Core.JavaScript
+open Microsoft.FSharp.Quotations
+
+type Rec = 
+    {
+        A : int
+    }
+
+[<ReflectedDefinition>]
+let recValue = { A = 0 }
+
+[<ReflectedDefinition>]
+type Union = 
+    | A of int
+
+    member this.Value = match this with A x -> x
+
+[<ReflectedDefinition>]
+let unionValue = A 0
+
+[<ReflectedDefinition>]
+type TestType(a) =
+    static do printfn "hello"
+    
+    member thisy.Y = 3
+    member thisx.X x = x + a + recValue.A + unionValue.Value
+
+[<ReflectedDefinition>]
+let f x = TestType(1).X x
+
+open WebSharper.Core.AST
 
 let translate expr = 
     let compiler = QuotationCompiler(metadata)
-    let js, refs = compiler.CompileToJSAndRefs(expr, WebSharper.Core.JavaScript.Preferences.Readable)
-    js, refs |> List.length
+    let fsiAsm = System.Reflection.Assembly.Load("FSI-ASSEMBLY")
+    
+    // logging
+    for t in fsiAsm.GetTypes() do
+        let printReflDef (m: Reflection.MethodBase) =
+            match Expr.TryGetReflectedDefinition m with
+            | Some expr ->
+                printfn "%s.%s (isStatic:%b) : %A" m.DeclaringType.FullName m.Name m.IsStatic expr
+            | None -> () 
+        for m in t.GetMethods() do      
+            printReflDef m
+        for m in t.GetConstructors() do      
+            printReflDef m
+        for f in t.GetFields(WebSharper.Core.AST.Reflection.AllMethodsFlags) do
+            printfn "Field %s.%s" t.FullName f.Name
 
-translate <@ [ 1; 2 ] |> List.map (fun x -> x + 1) @>
+    compiler.CompileReflectedDefinitions(fsiAsm)
+    let node = WebSharper.Core.Metadata.EntryPointNode
+    let e = compiler.CompileExpression(expr, node)
+    let comp = compiler.Compilation
+    Translator.DotNetToJavaScript.CompileFull comp
+    let ep = ExprStatement(ItemSet(Global [], Value (String "EntryPoint"), Lambda([], e)))
 
-//translate """
-//module M
+    if List.isEmpty comp.Errors then
+        let prefs = WebSharper.Core.JavaScript.Preferences.Readable
+        let p =
+            Packager.packageAssembly metadata (comp.ToCurrentMetadata()) (Some ep) Packager.ForceImmediate
+        let js, _ =
+            p |> Packager.exprToString prefs (fun () -> WebSharper.Core.JavaScript.Writer.CodeWriter())
+        let refs =
+            comp.Graph.GetResources [ node ]
+        js, refs
+    else
+        let errors = comp.Errors
+        errors |> Seq.map (fun (_, e) -> e.ToString()) |> Seq.iter (printfn "Error: %s")
+        "", []
 
-//open WebSharper
-
-//[<JavaScript>]
-//module Module =
-//    let AnonRecord (x: {| A : int |}) = {| B = x.A |}
-
-//    type AnonRecordInUnion =
-//        | AnonRecordTest of {| A: int; B: string|}
-
-//    let AnonRecordInUnion() =
-//        AnonRecordTest {| A = 3; B = "hi"|}   
-
-//    let AnonRecordNested() =
-//        {| A = 1; B = {| A = 2; B = "hi"|}|}  
-        
-//    let StructAnonRecord() =
-//        let a = struct {| SA = 5 |}
-//        a.SA
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//module Bug923 =
-//    type V2<[<Measure>] 'u> =
-//        struct
-//            val x : float<'u>
-//            val y : float<'u>
-//            new (x, y) = {x=x; y=y}
-//        end
-
-//        static member (+) (a : V2<_>, b : V2<_>) = 
-//            V2 (a.x + b.x, a.y + b.y)
-
-//    [<JavaScript>]
-//    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
-
-//    """
-
+translate <@ f 1 @>
