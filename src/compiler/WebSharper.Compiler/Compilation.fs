@@ -144,6 +144,14 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.Errors = List.ofSeq errors
 
+    member this.SetErrors(e) =
+        errors.Clear()
+        errors.AddRange(e)
+
+    member this.SetWarnings(w) =
+        warnings.Clear()
+        warnings.AddRange(w)
+
     member this.AddWarning (pos : SourcePos option, warning : CompilationWarning) =
         warnings.Add (pos, warning)
 

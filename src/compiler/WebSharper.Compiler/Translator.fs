@@ -723,8 +723,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         comp.CloseMacros()
         compileMethods()
 
-    static member CompileExpression (comp, expr) =
-        DotNetToJavaScript(comp).TransformExpression(expr)
+    member this.TransformExpressionWithNode(expr, node) =
+        match node with
+        | Some n ->
+            currentNode <- n
+        | _ ->
+            currentNode <- M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString()) // unique new node
+        this.TransformExpression(expr) |> breakExpr
+    
+    static member CompileExpression (comp, expr, ?node) =
+        DotNetToJavaScript(comp).TransformExpressionWithNode(expr, node)
 
     member this.AnotherNode() = DotNetToJavaScript(comp, currentNode :: inProgress)    
 
