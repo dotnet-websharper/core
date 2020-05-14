@@ -191,33 +191,37 @@ let cleanLink dHttp (url: string) =
         else url
 
 let link dHttp (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("type", CT.Text.Css.Text)
-    html.AddAttribute("rel", "stylesheet")
-    html.AddAttribute("href", cleanLink dHttp url)
-    html.RenderBeginTag "link"
-    html.RenderEndTag()
-    html.WriteLine()
+    if not (String.IsNullOrWhiteSpace(url)) then
+        html.AddAttribute("type", CT.Text.Css.Text)
+        html.AddAttribute("rel", "stylesheet")
+        html.AddAttribute("href", cleanLink dHttp url)
+        html.RenderBeginTag "link"
+        html.RenderEndTag()
+        html.WriteLine()
 
 let inlineStyle (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", CT.Text.Css.Text)
-    html.RenderBeginTag "style"
-    html.Write(text)
-    html.RenderEndTag()
-    html.WriteLine()
+    if not (String.IsNullOrWhiteSpace(text)) then
+        html.AddAttribute("type", CT.Text.Css.Text)
+        html.RenderBeginTag "style"
+        html.Write(text)
+        html.RenderEndTag()
+        html.WriteLine()
 
 let script dHttp (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("src", cleanLink dHttp url)
-    html.AddAttribute("type", CT.Text.JavaScript.Text)
-    html.AddAttribute("charset", "UTF-8")
-    html.RenderBeginTag "script"
-    html.RenderEndTag()
+    if not (String.IsNullOrWhiteSpace(url)) then
+        html.AddAttribute("src", cleanLink dHttp url)
+        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("charset", "UTF-8")
+        html.RenderBeginTag "script"
+        html.RenderEndTag()
 
 let inlineScript (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", CT.Text.JavaScript.Text)
-    html.AddAttribute("charset", "UTF-8")
-    html.RenderBeginTag "script"
-    html.Write(text)
-    html.RenderEndTag()
+    if not (String.IsNullOrWhiteSpace(text)) then
+        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("charset", "UTF-8")
+        html.RenderBeginTag "script"
+        html.Write(text)
+        html.RenderEndTag()
 
 let thisAssemblyToken =
     typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
