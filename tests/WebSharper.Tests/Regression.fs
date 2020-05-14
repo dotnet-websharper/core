@@ -1016,4 +1016,13 @@ let Tests =
         Test "#1074 Ambiguity at translating trait call" {
             equal Bug1074.mainX (Bug1074.VView (ref 11))
         }
+
+        Test "#1098 Tuple argument match with trailing wildcard and 'as'" {
+            let mappedArr =
+                [| (1, 2); (3, 4) |]
+                |> Array.map (fun ((p, _) as o) ->
+                    p, o
+                )
+            equal mappedArr [|As [|1; As [|1; 2|]|]; As [|3; As [|3; 4|]|]|]  
+        }
     }
