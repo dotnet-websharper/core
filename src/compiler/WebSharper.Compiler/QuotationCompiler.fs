@@ -40,56 +40,232 @@ type QuotationCompiler (meta : M.Info) =
     member this.Compilation = comp
 
     member this.CompileReflectedDefinitions(asm: Assembly) =
+        comp.AssemblyName <- asm.FullName
+        let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
+        let rootTypeAnnot = asmAnnot.RootTypeAnnot
         for t in asm.GetTypes() do
-            let typeAnnot =
-                lazy A.attrReader.GetTypeAnnot(A.TypeAnnotation.Empty, t.CustomAttributes)
+            let annot = A.attrReader.GetTypeAnnot(rootTypeAnnot, t.CustomAttributes)
+            let thisDef = Reflection.ReadTypeDefinition(t) 
+            let def =
+                match annot.ProxyOf with
+                | Some p -> p 
+                | _ -> thisDef
+
             let clsMembers = ResizeArray()
-            // TODO JS inlines, macros, generators, stubs
-            let readMember m =
-                let reflected =
+
+            let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
+                {
+                    Kind = kind
+                    StrongName = mAnnot.Name
+                    Macros = mAnnot.Macros
+                    Generator = 
+                        match mAnnot.Kind with
+                        | Some (A.MemberKind.Generated (g, p)) -> Some (g, p)
+                        | _ -> None
+                    Compiled = compiled 
+                    Pure = mAnnot.Pure
+                    Body = expr
+                    Requires = mAnnot.Requires
+                    FuncArgs = None
+                    Args = []
+                    Warn = mAnnot.Warn
+                }
+
+            let addMethod mAnnot mdef kind compiled expr =
+                clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled expr)))
+
+            let addConstructor mAnnot cdef kind compiled expr =
+                clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled expr)))
+
+            let mutable hasStubMember = false
+            let mutable hasNonStubMember = false
+
+            let readMember (m: MethodBase) =
+                let reflected() =
                     try ReflectedDefinitionReader.readReflected comp m
                     with e -> 
                         comp.AddError(None, SourceError(sprintf "Error during reading reflected definition of %s.%s: %s" m.DeclaringType.FullName m.Name e.Message))
                         None
-                match reflected with
-                | Some expr ->
-                    let mAnnot = A.attrReader.GetMemberAnnot(typeAnnot.Value, m.CustomAttributes)   
-                    let mem = Reflection.ReadMember m |> Option.get
-                    
-                    let nr k =
-                        let kind =
-                            match mAnnot.Kind with
-                            | Some A.MemberKind.InlineJavaScript -> N.Inline
-                            | _ -> k
-                        {
-                            Kind = kind
-                            StrongName = mAnnot.Name
-                            Macros = mAnnot.Macros
-                            Generator = None
-                            Compiled = false 
-                            Pure = mAnnot.Pure
-                            Body = expr
-                            Requires = mAnnot.Requires
-                            FuncArgs = None
-                            Args = []
-                            Warn = mAnnot.Warn
-                        }
+                let mAnnot = A.attrReader.GetMemberAnnot(annot, m.CustomAttributes)   
+                
+                let memdef = Reflection.ReadMember m |> Option.get
+                
+                let getVars() =
+                    match m.GetParameters() with
+                    | [| u |] when u.GetType() = typeof<unit> -> []
+                    | a -> a |> Seq.map (fun p -> Id.New(p.Name)) |> List.ofSeq
+   
+                let getKind() =
+                    match memdef with
+                    | Member.Method (isInstance , _) ->
+                        if isInstance then N.Instance else N.Static  
+                    | Member.Override (t, _) -> N.Override t 
+                    | Member.Implementation (t, _) -> N.Implementation t
+                    | _ -> failwith "impossible"
+                
+                let getRange _ = None
 
-                    // TODO add Abstract methods
-                    match mem with
-                    | Member.Constructor ctor ->
-                        clsMembers.Add(NotResolvedMember.Constructor(ctor, nr N.Constructor))
-                    | Member.Method (inst, meth) ->
-                        clsMembers.Add(NotResolvedMember.Method(meth, nr (if inst then N.Instance else N.Static)))
-                    | Member.Implementation (td, impl) ->
-                        clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Implementation(td)))) 
-                    | Member.Override (td, impl) ->
-                        clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Override td)))
-                    | Member.StaticConstructor ->
-                        clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], expr)))
+                let error msg = comp.AddError(getRange m, SourceError msg)
+                let warn msg = comp.AddWarning(getRange m, SourceWarning msg)
 
-                | None ->
-                    ()
+                let jsMember isInline =
+                    match reflected() with
+                    | Some expr ->
+                        let mem = Reflection.ReadMember m |> Option.get
+    
+                        let nr k =
+                            let kind =
+                                match mAnnot.Kind with
+                                | Some A.MemberKind.InlineJavaScript -> N.Inline
+                                | _ -> k
+                            {
+                                Kind = kind
+                                StrongName = mAnnot.Name
+                                Macros = mAnnot.Macros
+                                Generator = None
+                                Compiled = false 
+                                Pure = mAnnot.Pure
+                                Body = expr
+                                Requires = mAnnot.Requires
+                                FuncArgs = None
+                                Args = []
+                                Warn = mAnnot.Warn
+                            }
+
+                        match mem with
+                        | Member.Constructor ctor ->
+                            clsMembers.Add(NotResolvedMember.Constructor(ctor, nr N.Constructor))
+                        | Member.Method (inst, meth) ->
+                            clsMembers.Add(NotResolvedMember.Method(meth, nr (if inst then N.Instance else N.Static)))
+                        | Member.Implementation (td, impl) ->
+                            clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Implementation(td)))) 
+                        | Member.Override (td, impl) ->
+                            clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Override td)))
+                        | Member.StaticConstructor ->
+                            clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], expr)))
+                    | None -> 
+                        ()
+
+                match memdef with
+                | Member.Method (_, mdef) 
+                | Member.Override (_, mdef) 
+                | Member.Implementation (_, mdef) ->
+                    if mAnnot.Kind.IsNone then () else
+                    match mAnnot.Kind.Value with
+                    | A.MemberKind.Stub ->
+                        match memdef with
+                        | Member.Method (isInstance, mdef) ->
+                            hasStubMember <- true
+                            let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
+                            err |> Option.iter error
+                            addMethod mAnnot mdef N.Inline true expr
+                        | _ -> failwith "Member kind not expected for astract method"
+                    | A.MemberKind.JavaScript when m.IsAbstract -> 
+                        match memdef with
+                        | Member.Method (isInstance, mdef) ->
+                            if not isInstance then failwith "Abstract method should not be static" 
+                            addMethod mAnnot mdef N.Abstract true Undefined
+                        | _ -> failwith "Member kind not expected for astract method"
+                    | A.MemberKind.Remote rp ->
+                        let remotingKind =
+                            match mdef.Value.ReturnType with
+                            | VoidType -> M.RemoteSend
+                            | ConcreteType { Entity = e } when e = Definitions.Async -> M.RemoteAsync
+                            | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> M.RemoteTask
+                            | _ -> M.RemoteSync
+                        let handle = 
+                            comp.GetRemoteHandle(
+                                thisDef.Value.FullName + "." + mdef.Value.MethodName,
+                                mdef.Value.Parameters,
+                                mdef.Value.ReturnType
+                            )
+                        let nr =
+                            {
+                                Kind = N.Remote (remotingKind, handle, rp)
+                                StrongName = mAnnot.Name
+                                Macros = mAnnot.Macros
+                                Generator = None
+                                Compiled = true 
+                                Pure = mAnnot.Pure
+                                Body = Undefined
+                                Requires = mAnnot.Requires
+                                FuncArgs = None
+                                Args = []
+                                Warn = mAnnot.Warn
+                            }
+                        clsMembers.Add(NotResolvedMember.Method(mdef, nr))
+                    | A.MemberKind.NoFallback ->
+                        addMethod mAnnot mdef N.NoFallback true Undefined
+                    | A.MemberKind.Inline (js, dollarVars) ->
+                        let vars = getVars()
+                        try 
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure dollarVars js
+                            List.iter warn parsed.Warnings
+                            addMethod mAnnot mdef N.Inline true parsed.Expr
+                        with e ->
+                            error ("Error parsing inline JavaScript: " + e.Message)
+                    | A.MemberKind.Constant c ->
+                        //checkNotAbstract() 
+                        addMethod mAnnot mdef N.Inline true (Value c)                        
+                    | A.MemberKind.Direct (js, dollarVars) ->
+                        let vars = getVars()
+                        try
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
+                            List.iter warn parsed.Warnings
+                            addMethod mAnnot mdef (getKind()) true parsed.Expr
+                        with e ->
+                            error ("Error parsing direct JavaScript: " + e.Message)
+                    | A.MemberKind.JavaScript ->
+                        jsMember false
+                    | A.MemberKind.InlineJavaScript ->
+                        //checkNotAbstract()
+                        jsMember true
+                    | A.MemberKind.OptionalField ->
+                        if m.Name.StartsWith("get_") then
+                            let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String m.Name.[4..]), Pure))
+                            addMethod mAnnot mdef N.Inline true i
+                        elif m.Name.StartsWith("set_") then  
+                            let i = JSRuntime.SetOptional (Hole 0) (Value (String m.Name.[4..])) (Hole 1)
+                            addMethod mAnnot mdef N.Inline true i
+                        else error "OptionalField attribute not on property"
+                    | A.MemberKind.Generated _ ->
+                        addMethod mAnnot mdef (getKind()) false Undefined
+                    | A.MemberKind.AttributeConflict m -> error m
+                | Member.Constructor cdef ->
+                    if mAnnot.Kind.IsNone then () else
+                    match mAnnot.Kind.Value with
+                    | A.MemberKind.Stub ->
+                        let expr = Stubs.GetConstructorInline annot mAnnot def cdef
+                        addConstructor mAnnot cdef N.Inline true expr
+                    | A.MemberKind.NoFallback ->
+                        addConstructor mAnnot cdef N.NoFallback true Undefined
+                    | A.MemberKind.Inline (js, dollarVars) ->
+                        let vars = getVars()
+                        try
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure dollarVars js
+                            List.iter warn parsed.Warnings
+                            addConstructor mAnnot cdef N.Inline true parsed.Expr
+                        with e ->
+                            error ("Error parsing inline JavaScript: " + e.Message)
+                    | A.MemberKind.Direct (js, dollarVars) ->
+                        let vars = getVars()
+                        try
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
+                            List.iter warn parsed.Warnings
+                            addConstructor mAnnot cdef N.Static true parsed.Expr
+                        with e ->
+                            error ("Error parsing direct JavaScript: " + e.Message)
+                    | A.MemberKind.JavaScript -> jsMember false
+                    | A.MemberKind.InlineJavaScript -> jsMember true
+                    | A.MemberKind.Generated _ ->
+                        addConstructor mAnnot cdef N.Static false Undefined
+                    | A.MemberKind.AttributeConflict m -> error m
+                    | A.MemberKind.Remote _
+                    | A.MemberKind.Stub -> failwith "should be handled previously"
+                    | A.MemberKind.OptionalField
+                    | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
+                | Member.StaticConstructor ->
+                    jsMember false
 
             for m in t.GetMethods(Reflection.AllMethodsFlags) do
                 readMember m
@@ -98,16 +274,7 @@ type QuotationCompiler (meta : M.Info) =
                 readMember c
 
             if clsMembers.Count > 0 then
-
-                let annot = typeAnnot.Value
-
-                let thisDef = Reflection.ReadTypeDefinition(t) 
                 
-                let def =
-                    match annot.ProxyOf with
-                    | Some p -> p
-                    | _ -> thisDef
-
                 let fsharpSpecificNonException =
                     FST.IsUnion(t) || FST.IsRecord(t) || t.IsValueType
 
@@ -133,7 +300,7 @@ type QuotationCompiler (meta : M.Info) =
                     )   
 
                 let ckind = 
-                    if annot.IsStub //|| (hasStubMember && not hasNonStubMember)
+                    if annot.IsStub || (hasStubMember && not hasNonStubMember)
                     then NotResolvedClassKind.Stub
                     elif fsharpModule then NotResolvedClassKind.Static
                     elif (annot.IsJavaScript && (t.IsAbstract || FST.IsExceptionRepresentation(t))) || (annot.Prototype = Some true)
