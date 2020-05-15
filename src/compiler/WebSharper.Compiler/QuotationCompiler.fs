@@ -39,7 +39,8 @@ type QuotationCompiler (meta : M.Info) =
 
     member this.Compilation = comp
 
-    member this.CompileReflectedDefinitions(asm: Assembly) =
+    member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
+        let treatReflectedDefinitionAsJavaScript = defaultArg treatReflectedDefinitionAsJavaScript true
         comp.AssemblyName <- asm.FullName
         let asmAnnot = A.attrReader.GetAssemblyAnnot(asm.CustomAttributes)
         let rootTypeAnnot = asmAnnot.RootTypeAnnot
@@ -113,24 +114,7 @@ type QuotationCompiler (meta : M.Info) =
                     | Some expr ->
                         let mem = Reflection.ReadMember m |> Option.get
     
-                        let nr k =
-                            let kind =
-                                match mAnnot.Kind with
-                                | Some A.MemberKind.InlineJavaScript -> N.Inline
-                                | _ -> k
-                            {
-                                Kind = kind
-                                StrongName = mAnnot.Name
-                                Macros = mAnnot.Macros
-                                Generator = None
-                                Compiled = false 
-                                Pure = mAnnot.Pure
-                                Body = expr
-                                Requires = mAnnot.Requires
-                                FuncArgs = None
-                                Args = []
-                                Warn = mAnnot.Warn
-                            }
+                        let nr k = getUnresolved mAnnot (if isInline then N.Inline else k) false expr
 
                         match mem with
                         | Member.Constructor ctor ->
@@ -146,12 +130,28 @@ type QuotationCompiler (meta : M.Info) =
                     | None -> 
                         ()
 
+                let checkNotAbstract() =
+                    if m.IsAbstract then
+                        error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
+                    else
+                        match memdef with
+                        | Member.Override (bTyp, _) -> 
+                            if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
+                                error "Override methods cannot be marked with Inline, Macro or Constant attributes."
+                        | Member.Implementation _ ->
+                            error "Interface implementation methods cannot be marked with Inline, Macro or Constant attributes."
+                        | _ -> ()
+                
                 match memdef with
                 | Member.Method (_, mdef) 
                 | Member.Override (_, mdef) 
                 | Member.Implementation (_, mdef) ->
-                    if mAnnot.Kind.IsNone then () else
-                    match mAnnot.Kind.Value with
+                    match mAnnot.Kind with
+                    | None ->
+                        if treatReflectedDefinitionAsJavaScript then
+                            jsMember false
+                    | Some kind ->
+                    match kind with
                     | A.MemberKind.Stub ->
                         match memdef with
                         | Member.Method (isInstance, mdef) ->
@@ -195,8 +195,10 @@ type QuotationCompiler (meta : M.Info) =
                             }
                         clsMembers.Add(NotResolvedMember.Method(mdef, nr))
                     | A.MemberKind.NoFallback ->
+                        checkNotAbstract()
                         addMethod mAnnot mdef N.NoFallback true Undefined
                     | A.MemberKind.Inline (js, dollarVars) ->
+                        checkNotAbstract() 
                         let vars = getVars()
                         try 
                             let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure dollarVars js
@@ -205,7 +207,7 @@ type QuotationCompiler (meta : M.Info) =
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Constant c ->
-                        //checkNotAbstract() 
+                        checkNotAbstract() 
                         addMethod mAnnot mdef N.Inline true (Value c)                        
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars = getVars()
@@ -218,7 +220,7 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.JavaScript ->
                         jsMember false
                     | A.MemberKind.InlineJavaScript ->
-                        //checkNotAbstract()
+                        checkNotAbstract()
                         jsMember true
                     | A.MemberKind.OptionalField ->
                         if m.Name.StartsWith("get_") then
@@ -232,8 +234,12 @@ type QuotationCompiler (meta : M.Info) =
                         addMethod mAnnot mdef (getKind()) false Undefined
                     | A.MemberKind.AttributeConflict m -> error m
                 | Member.Constructor cdef ->
-                    if mAnnot.Kind.IsNone then () else
-                    match mAnnot.Kind.Value with
+                    match mAnnot.Kind with
+                    | None ->
+                        if treatReflectedDefinitionAsJavaScript then
+                            jsMember false
+                    | Some kind ->
+                    match kind with
                     | A.MemberKind.Stub ->
                         let expr = Stubs.GetConstructorInline annot mAnnot def cdef
                         addConstructor mAnnot cdef N.Inline true expr
@@ -265,7 +271,8 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.OptionalField
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
-                    jsMember false
+                    if treatReflectedDefinitionAsJavaScript then
+                        jsMember false
 
             for m in t.GetMethods(Reflection.AllMethodsFlags) do
                 readMember m
