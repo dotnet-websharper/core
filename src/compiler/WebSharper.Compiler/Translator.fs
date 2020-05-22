@@ -205,7 +205,7 @@ let defaultRemotingProvider =
     TypeDefinition {
         Assembly = "WebSharper.Main"
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
-    }, []
+    }, ConstructorInfo.Default(), []
     
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
@@ -936,19 +936,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | M.RemoteSend -> "Send", sendRpcMethodNode
                 | M.RemoteSync -> "Sync", syncRpcMethodNode
             let remotingProvider =
-                let rpTyp, rpArgs =
+                let rpTyp, rpCtor, rpArgs =
                     match rh with
                     | Some (rp, p) -> 
-                        rp, 
-                        let toParamValue o = o |> M.ParameterObject.ToObj |> ReadLiteral |> Value
-                        match p with
-                        | None -> []
-                        | Some (M.ParameterObject.Array ps) ->
-                            ps |> Seq.map toParamValue |> List.ofSeq   
-                        | Some p ->
-                            [ toParamValue p ]
+                        let paramInfo =
+                            let getParamInfo o = 
+                                let v = o |> M.ParameterObject.ToObj 
+                                let argType = 
+                                    if isNull v then 
+                                        NonGenericType Definitions.String 
+                                    else 
+                                        Reflection.ReadType (v.GetType())
+                                argType, v |> ReadLiteral |> Value
+                            match p with
+                            | None -> []
+                            | Some (M.ParameterObject.Array ps) ->
+                                ps |> Seq.map getParamInfo |> List.ofSeq   
+                            | Some p ->
+                                [ getParamInfo p ]
+                        rp, Constructor { CtorParameters = paramInfo |> List.map fst }, paramInfo |> List.map snd 
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric rpTyp, ConstructorInfo.Default(), rpArgs) 
+                this.TransformCtor(NonGeneric rpTyp, rpCtor, rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =
