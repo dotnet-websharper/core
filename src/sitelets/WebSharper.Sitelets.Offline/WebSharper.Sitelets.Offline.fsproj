@@ -28,6 +28,7 @@
   </ItemGroup>
   <Target Name="_CopyToDeploy" AfterTargets="Build" Condition="'$(TargetFramework)' == 'netstandard2.0'">
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\netcoreapp2.0\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\netcoreapp3.1\deploy" />
   </Target>
   <Target Name="_CopyToTools" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net461'">
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\net461\deploy" />

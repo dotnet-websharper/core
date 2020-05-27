@@ -1135,7 +1135,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm
             (
                 ("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]" 
-                    | "[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],!0)]"), _, [ arr; i ]
+                    | "[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],!0)]"
+                    | "[I_ldelema (NormalAddress, false, ILArrayShape [(Some 0, None)], !0)]"), _, [ arr; i ]
             ) ->
             let arrId = newId()
             let iId = newId()

@@ -5,11 +5,9 @@
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
     <LangVersion>7.3</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="**/*.cs" />
     <None Include="paket.references" />
     <None Include="WebSharper.CSharp.Tests.ruleset" />
   </ItemGroup>

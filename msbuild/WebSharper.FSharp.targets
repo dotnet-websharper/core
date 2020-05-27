@@ -37,6 +37,9 @@
     <OtherFlags Condition=" '$(WebSharperMinJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperMinJsOutput)</OtherFlags>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
+    <_WebSharperUseNetCore31Compiler Condition="'$(WebSharperUseNetCore20Compiler)' == '' ">False</_WebSharperUseNetCore31Compiler>
+    <_WebSharperUseNetCore31Compiler Condition="'$(WebSharperUseNetCore31Compiler)' == '' ">True</_WebSharperUseNetCore31Compiler>
+    <_WebSharperUseNetCore31Compiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ($(TargetFramework.StartsWith('netcoreapp3.')) OR $(TargetFramework.StartsWith('netstandard2.1')))">True</_WebSharperUseNetCore31Compiler>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <OtherFlags Condition=" '$(WebSharperConfigFile)' != '' ">$(OtherFlags) --wsconfig:"$(WebSharperConfigFile)"</OtherFlags>
@@ -50,6 +53,12 @@
     <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
       <PropertyGroup>
         <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
+        <FscToolExe>wsfsc.exe</FscToolExe>
+      </PropertyGroup>
+    </When>
+    <When Condition="'$(_WebSharperUseNetCore31Compiler)' == 'True'">
+      <PropertyGroup>
+        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1</FscToolPath>
         <FscToolExe>wsfsc.exe</FscToolExe>
       </PropertyGroup>
     </When>

@@ -2,20 +2,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp2.0</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp2.0;netcoreapp3.1</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.fs" />
     <Content Include="wsfsc.cmd">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory Condition="'$(TargetFramework)' == 'netcoreapp2.0'">PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="wsfsc.sh">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory Condition="'$(TargetFramework)' == 'netcoreapp2.0'">PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="paket.references" />
     <Content Include="App.config" />

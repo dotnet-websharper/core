@@ -28,8 +28,7 @@
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build\$(Configuration)\CSharp\net461\deploy\ZafirCs.exe</ZafirCsFullPath>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.cmd</ZafirCsFullPath>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.sh</ZafirCsFullPath>
+    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build\$(Configuration)\CSharp\netcoreapp3.1\deploy\zafircs.exe</ZafirCsFullPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>

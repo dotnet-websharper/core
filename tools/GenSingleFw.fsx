@@ -15,19 +15,19 @@ type TargetFramework =
     | Net461
     | Net46
     | NetStandard20
-    | NetCoreApp20
+    | NetCoreApp31
 
     override this.ToString() =
         match this with
         | Net461 -> "net461"
         | Net46 -> "net46"
         | NetStandard20 -> "netstandard2.0"
-        | NetCoreApp20 -> "netcoreapp2.0"
+        | NetCoreApp31 -> "netcoreapp3.1"
 
     member this.IsNetFx =
         match this with
         | Net461 | Net46 -> true
-        | NetStandard20 | NetCoreApp20 -> false
+        | NetStandard20 | NetCoreApp31 -> false
 
 let parseTargetFrameworks (attrValue: string) : TargetFramework[] =
     attrValue.Split(';')
@@ -35,7 +35,7 @@ let parseTargetFrameworks (attrValue: string) : TargetFramework[] =
         | "net461" -> Net461
         | "net46" -> Net46
         | "netstandard2.0" -> NetStandard20
-        | "netcoreapp2.0" -> NetCoreApp20
+        | "netcoreapp3.1" -> NetCoreApp31
         | s -> failwithf "Unknown target framework: %s" s
     )
 
@@ -144,7 +144,7 @@ let gen() =
         elif fws |> Array.contains Net46 then Net46
         else Net461
     doCopyAll "netcore" <| fun fn fws ->
-        if fws |> Array.contains NetCoreApp20 then NetCoreApp20
+        if fws |> Array.contains NetCoreApp31 then NetCoreApp31
         elif fws |> Array.contains NetStandard20 then NetStandard20
         else NetStandard20
 
