@@ -25,12 +25,6 @@ open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
 
-let PrintGlobalError err =
-    eprintfn "WebSharper error FS9001: %s" (NormalizeErrorString err)
-
-let PrintGlobalWarning err =
-    eprintfn "WebSharper warning FS9001: %s" (NormalizeErrorString err)
-
 type WarnSettings =
     {
         NoWarn : int Set
@@ -48,7 +42,25 @@ type WarnSettings =
             WarnAsError = Set []
             AllWarnAsError = false
             DontWarnAsError = Set []
-        }    
+        }   
+        
+    member this.CheckNoWarn(c) =
+        this.NoWarn.Contains(c)
+
+    member this.CheckWarnAsError(c) =
+        this.WarnAsError.Contains(c)
+        || (this.AllWarnAsError && this.DontWarnAsError.Contains(c))
+
+let PrintGlobalError err =
+    eprintfn "WebSharper error FS9001: %s" (NormalizeErrorString err)
+
+let PrintGlobalWarning (warnSettings: WarnSettings) err =
+    if warnSettings.CheckNoWarn(9002) then
+        ()
+    elif warnSettings.CheckWarnAsError(9002) then
+        PrintGlobalError err
+    else
+        eprintfn "WebSharper warning FS9002: %s" (NormalizeErrorString err)
 
 // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L380
 let private Level5Warnings =
@@ -96,17 +108,24 @@ let fullpath cwd nm =
     let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
     try Path.GetFullPath(p) with _ -> p
 
-let PrintWebSharperErrors warnOnly projFile (comp: Compilation) =
+let PrintWebSharperErrors warnOnly projFile (warnSettings: WarnSettings) (comp: Compilation) =
     let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError && not warnOnly then "error FS9001" else "warning FS9002"
-        match pos with
-        | Some pos ->
-            eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
-                (fullpath projDir pos.FileName) (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
-                severity (NormalizeErrorString msg)
-        | _ ->
-            eprintfn "WebSharper %s: %s" severity (NormalizeErrorString msg)
+        if (not isError || warnOnly) && warnSettings.CheckNoWarn(9002) then
+            ()
+        else
+            let severity =
+                if (isError && not warnOnly) || (not isError && warnSettings.CheckWarnAsError(9002)) then 
+                    "error FS9001" 
+                else 
+                    "warning FS9002"
+            match pos with
+            | Some pos ->
+                eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
+                    (fullpath projDir pos.FileName) (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
+                    severity (NormalizeErrorString msg)
+            | _ ->
+                eprintfn "WebSharper %s: %s" severity (NormalizeErrorString msg)
     
     for pos, err in comp.Errors do
         printWebSharperError pos true (string err)

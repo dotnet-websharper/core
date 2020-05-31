@@ -195,7 +195,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
     | Some comp ->
 
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
-        PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
+        PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings comp
         1
     else
     
@@ -235,7 +235,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                 AddExtraAssemblyReferences wsRefs assem
             | _ -> ()
 
-            PrintWebSharperErrors config.WarnOnly config.ProjectFile comp
+            PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings comp
             
             if config.PrintJS then
                 match js with 
@@ -288,7 +288,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
                 | C.Ok -> 0
                 | C.Errors errors ->
                     if config.WarnOnly || config.DownloadResources = Some false then
-                        errors |> List.iter PrintGlobalWarning
+                        errors |> List.iter (PrintGlobalWarning warnSettings)
                         0
                     else
                         errors |> List.iter PrintGlobalError
