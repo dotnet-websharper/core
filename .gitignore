@@ -25,3 +25,4 @@
 /netfx/
 /.paket/fake.exe
 /.paket/.store/
+/.ionide

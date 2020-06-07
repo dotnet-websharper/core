@@ -22,6 +22,10 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
+    <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
     <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
@@ -44,33 +48,33 @@
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <OtherFlags Condition=" '$(WebSharperConfigFile)' != '' ">$(OtherFlags) --wsconfig:"$(WebSharperConfigFile)"</OtherFlags>
   </PropertyGroup>
-  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
   <Choose>
     <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
-      <PropertyGroup>
+      <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
         <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
         <FscToolExe>wsfsc.exe</FscToolExe>
       </PropertyGroup>
     </When>
     <When Condition="'$(_WebSharperUseNetCore31Compiler)' == 'True'">
-      <PropertyGroup>
+      <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
         <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1</FscToolPath>
         <FscToolExe>wsfsc.exe</FscToolExe>
       </PropertyGroup>
     </When>
     <Otherwise>
-      <PropertyGroup>
+      <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
         <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netcoreapp2.0</FscToolPath>
         <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.cmd</FscToolExe>
         <FscToolExe Condition="'$(OS)' != 'Windows_NT'">wsfsc.sh</FscToolExe>
       </PropertyGroup>
     </Otherwise>
   </Choose>
-  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition="'$(OS)' != 'Windows_NT'">
+  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(OS)' != 'Windows_NT'">
     <Exec Command="chmod u+x '$(FscToolPath)/$(FscToolExe)'" />
   </Target>
 </Project>
