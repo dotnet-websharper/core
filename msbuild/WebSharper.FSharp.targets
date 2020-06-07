@@ -63,7 +63,8 @@
     <When Condition="'$(_WebSharperUseNetCore31Compiler)' == 'True'">
       <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
         <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1</FscToolPath>
-        <FscToolExe>wsfsc.exe</FscToolExe>
+        <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.exe</FscToolExe>
+        <FscToolExe Condition="'$(OS)' != 'Windows_NT'">wsfsc.sh</FscToolExe>
       </PropertyGroup>
     </When>
     <Otherwise>

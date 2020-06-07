@@ -52,6 +52,7 @@ files
     ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.exe ==> tools/netcoreapp3.1
     ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.dll.config ==> tools/netcoreapp3.1
     ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.runtimeconfig.json ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp2.0/deploy/zafircs-netcore.sh ==> tools/netcoreapp3.1
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netcoreapp3.1
     ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netcoreapp3.1
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461
