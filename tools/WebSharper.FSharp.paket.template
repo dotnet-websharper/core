@@ -14,11 +14,11 @@ files
     ../build/Release/FSharp/net461/deploy/wsfsc.exe ==> tools/net461
     ../build/Release/FSharp/net461/deploy/wsfsc.exe.config ==> tools/net461
     ../build/Release/FSharp/net461/deploy/*.dll ==> tools/net461
-    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netcoreapp2.0
     ../build/Release/FSharp/netcoreapp3.1/deploy/*.dll ==> tools/netcoreapp3.1
     ../build/Release/FSharp/netcoreapp3.1/deploy/**/*.dll ==> tools/netcoreapp3.1
     ../build/Release/FSharp/netcoreapp3.1/deploy/wsfsc.exe ==> tools/netcoreapp3.1
     ../build/Release/FSharp/netcoreapp3.1/deploy/wsfsc.dll.config ==> tools/netcoreapp3.1
     ../build/Release/FSharp/netcoreapp3.1/deploy/wsfsc.sh ==> tools/netcoreapp3.1
     ../build/Release/FSharp/netcoreapp3.1/deploy/wsfsc.runtimeconfig.json ==> tools/netcoreapp3.1
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netcoreapp3.1
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools
