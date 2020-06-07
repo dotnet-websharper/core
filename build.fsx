@@ -72,8 +72,6 @@ let targets = MakeTargets {
             BuildAction.Multiple [
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->
-                    publishExe mode "netcoreapp2.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-                    publishExe mode "netcoreapp2.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
                     publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
                     publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
                     publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false

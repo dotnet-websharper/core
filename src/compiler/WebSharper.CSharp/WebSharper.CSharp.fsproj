@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp2.0;netcoreapp3.1</TargetFrameworks>
+    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
     <OutputType>Exe</OutputType>
     <Name>ZafirCs</Name>
     <Signed>False</Signed>
@@ -14,10 +14,10 @@
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
     <Content Include="zafircs-netcore.cmd">
-      <CopyToOutputDirectory Condition="'$(TargetFramework)' == 'netcoreapp2.0'">PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="zafircs-netcore.sh">
-      <CopyToOutputDirectory Condition="'$(TargetFramework)' == 'netcoreapp2.0'">PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="paket.references" />
   </ItemGroup>
