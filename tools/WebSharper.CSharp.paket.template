@@ -38,11 +38,20 @@ files
     ../build/Release/CSharp/net461/deploy/System.Text.Encoding.CodePages.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
     ../build/Release/CSharp/net461/deploy/System.Xml.XPath.XDocument.dll ==> tools/net461
-    ../build/Release/CSharp/netcoreapp2.0/deploy/** ==> tools/netstandard2.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netstandard2.0
-    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netstandard2.0
-    ../build/Release/CSharp/netcoreapp3.1/deploy/** ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp2.0/deploy/*.dll ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp2.0/deploy/**/*.dll ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp2.0/deploy/ZafirCs.dll.config ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp2.0/deploy/ZafirCs.runtimeconfig.json ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp2.0/deploy/zafircs-netcore.cmd ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp2.0/deploy/zafircs-netcore.sh ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netcoreapp2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netcoreapp2.0
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/netcoreapp2.0
+    ../build/Release/CSharp/netcoreapp3.1/deploy/*.dll ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp3.1/deploy/**/*.dll ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.exe ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.dll.config ==> tools/netcoreapp3.1
+    ../build/Release/CSharp/netcoreapp3.1/deploy/ZafirCs.runtimeconfig.json ==> tools/netcoreapp3.1
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netcoreapp3.1
     ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/netcoreapp3.1
     ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461

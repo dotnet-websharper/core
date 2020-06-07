@@ -64,7 +64,7 @@
     </When>
     <Otherwise>
       <PropertyGroup>
-        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netstandard2.0</FscToolPath>
+        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netcoreapp2.0</FscToolPath>
         <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.cmd</FscToolExe>
         <FscToolExe Condition="'$(OS)' != 'Windows_NT'">wsfsc.sh</FscToolExe>
       </PropertyGroup>
