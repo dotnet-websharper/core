@@ -428,8 +428,8 @@ type Content<'Endpoint> with
         let encoding = defaultArg encoding System.Text.Encoding.UTF8
         Content.Custom(
             WriteBody = fun s ->
-                use w = new System.IO.StreamWriter(s, encoding)
-                w.Write(text)
+                let bytes = encoding.GetBytes(text)
+                s.Write(bytes, 0, bytes.Length)
         )
 
     static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Endpoint>> =
