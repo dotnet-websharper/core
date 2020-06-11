@@ -431,7 +431,7 @@ type Content<'Endpoint> with
         Content.Custom(
             WriteBody = fun s ->
                 use w = new System.IO.StreamWriter(s, encoding)
-                w.Write(msg)
+                w.Write(text)
         )
 
     static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Endpoint>> =
