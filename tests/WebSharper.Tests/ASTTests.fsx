@@ -355,8 +355,8 @@ let translate source =
     let options =  checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
-    if wholeProjectResults.Errors.Length > 0 then
-        for err in wholeProjectResults.Errors do
+    if wholeProjectResults.HasCriticalErrors then
+        for err in wholeProjectResults.Errors |> Seq.filter (fun e -> e.Severity = FSharpErrorSeverity.Error) do
             printfn "F# Error: %d:%d-%d:%d %s" err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn err.Message
     else
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
@@ -424,22 +424,11 @@ module M
 
 open WebSharper
 
-[<JavaScript>]
-module Module =
-    let AnonRecord (x: {| A : int |}) = {| B = x.A |}
-
-    type AnonRecordInUnion =
-        | AnonRecordTest of {| A: int; B: string|}
-
-    let AnonRecordInUnion() =
-        AnonRecordTest {| A = 3; B = "hi"|}   
-
-    let AnonRecordNested() =
-        {| A = 1; B = {| A = 2; B = "hi"|}|}  
-        
-    let StructAnonRecord() =
-        let a = struct {| SA = 5 |}
-        a.SA
+[<Inline>]
+let tailRecSingleInline n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
 """
 
 translate """

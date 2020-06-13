@@ -207,6 +207,22 @@ and [<JavaScript>] moduleTailRecMultiple2 n =
     if n > 0 then moduleTailRecMultiple1 (n - 1) else 1
 
 [<JavaScript>]
+let tailRecAndNonTailRec() =
+    let rec g x =
+        if x < 100 then
+            if x < 10 then Some "foo" else
+            match g (x-1) with None -> Some "bar" | Some _ -> None
+        else g (x-1)
+    g 100000
+
+[<JavaScript>]
+let rec moduletailRecAndNonTailRec x =
+    if x < 100 then
+        if x < 10 then Some "foo" else
+        match moduletailRecAndNonTailRec (x-1) with None -> Some "bar" | Some _ -> None
+    else moduletailRecAndNonTailRec (x-1)
+
+[<JavaScript>]
 type TailRec() =
     let rec classTailRecSingle n =
         if n > 0 then classTailRecSingle (n - 1) else 0
@@ -234,6 +250,12 @@ type TailRec() =
         match l with
         | h :: r -> moduleTailRecSingleNoReturn r
         | _ -> ()
+
+    member this.TailRecAndNonTailRec x =
+        if x < 100 then
+            if x < 10 then Some "foo" else
+            match this.TailRecAndNonTailRec (x-1) with None -> Some "bar" | Some _ -> None
+        else this.TailRecAndNonTailRec (x-1)
 
 [<JavaScript>]
 let tailRecWithValue n =
@@ -333,15 +355,18 @@ let Tests =
             equalMsg (tailRecMultiple 5) 1 "mutually recursive let rec"
             equalMsg (tailRecWithValue 5) 1 "mutually recursive let rec with a function and a value"
             equalMsg (tailRecMultipleWithValue 5) 1 "mutually recursive let rec with two functions and a value"
+            equalMsg (tailRecAndNonTailRec()) (Some "bar") "not always tail recursion"
             equalMsg (moduleTailRecSingle 5) 0 "single let rec in module"
             equalMsg (moduleTailRecMultiple1 5) 1 "mutually recursive let rec in module 1"
             equalMsg (moduleTailRecMultiple2 5) 0 "mutually recursive let rec in module 2"
+            equalMsg (moduletailRecAndNonTailRec 100000) (Some "bar") "not always tail recursion in module"
             equalMsg (tailRecSingleUsedInside 5) 6 "recursive function used as a value inside"
             let o = TailRec()
             equalMsg (o.TailRecSingle 5) 0 "single let rec in class constructor"
             equalMsg (o.TailRecMultiple 5) 1 "mutually recursive let rec in class constructor"
             equalMsg (o.TailRecSingle2 5) 0 "single recursive class member"
             equalMsg (o.TailRecMultiple1 5) 1 "mutually recursive class members"
+            equalMsg (o.TailRecAndNonTailRec 100000) (Some "bar") "not always tail recursion in class member"
 
             let dbl x = x * 2 
             equalMsg (rev_map_acc dbl [ 1; 3; 4 ] []) [ 8; 6; 2 ] "module let rec with list accumulator"
