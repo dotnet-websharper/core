@@ -43,7 +43,7 @@ module Content =
 //    module R = WebSharper.Core.Reflection
     module J = WebSharper.Core.Json
 
-    let defaultEncoding = new System.Text.Encoding.UTF8Encoding(false)
+    let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
