@@ -387,9 +387,11 @@ let compileMain (argv: string[]) =
             warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
         | StartsWith "--preferreduilang:" _ ->
             () // not handled by FSC 16.0.2
+        | StartsWith "--langversion:" v ->
+            PrintGlobalWarning WarnSettings.Default ("Using language version " +  v)
+            fscArgs.Add a  
         | _ -> 
             fscArgs.Add a  
-    fscArgs.Add "--define:FSHARP41"
     wsArgs := 
         { !wsArgs with 
             References = refs |> Seq.distinct |> Array.ofSeq

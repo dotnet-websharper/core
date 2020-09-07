@@ -175,3 +175,18 @@ type private KeyNotFoundException(message: string) =
     inherit exn(message)
 
     new () = KeyNotFoundException "The given key was not present in the dictionary."
+
+[<Proxy(typeof<System.Runtime.ExceptionServices.ExceptionDispatchInfo>)>]
+type private ExceptionDispatchInfo =
+    [<Inline>]
+    static member Capture (e: exn) = As<System.Runtime.ExceptionServices.ExceptionDispatchInfo> e
+
+    [<Inline>]
+    static member Throw (e: exn): unit = raise e
+
+    [<Inline>]
+    member this.Throw(): unit = raise (As<exn> this)
+
+    [<Inline>]
+    member this.SourceException = As<exn> this
+        

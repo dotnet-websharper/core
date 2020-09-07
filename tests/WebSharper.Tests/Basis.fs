@@ -583,4 +583,12 @@ let Tests =
             equal (ProxyProjectTest.Functions.add 1 2) 3
             isTrue (ProxyProjectTest.Functions.isJS())
         }
+
+        Test "nameof" {
+            equal (nameof System) "System"
+            equal (nameof System.Int32) "Int32"
+            let x = 1 + 1
+            equal (nameof x) "x"
+            equal (nameof ModuleValues.a) "a"
+        }
     }
