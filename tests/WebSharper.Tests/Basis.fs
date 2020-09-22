@@ -184,7 +184,7 @@ module ModuleValues =
 [<JavaScript>]
 let mA, mB = 1, 2
 
-[<Inline>]
+//[<Inline>]
 //let importTestJsAll : obj = JS.ImportAll "/modules/test.js"
 
 //[<Inline>]
