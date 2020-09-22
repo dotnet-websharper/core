@@ -184,6 +184,18 @@ module ModuleValues =
 [<JavaScript>]
 let mA, mB = 1, 2
 
+[<Inline>]
+//let importTestJsAll : obj = JS.ImportAll "/modules/test.js"
+
+//[<Inline>]
+//let importTestJs : obj = JS.Import("testExport", "/modules/test.js")
+
+//[<Inline>]
+//let importTestJsDefault : obj = JS.ImportDefault "/modules/test.js"
+
+//[<Inline "import('/modules/test.js')">]
+//let importInline = X<obj>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {
@@ -591,4 +603,13 @@ let Tests =
             equal (nameof x) "x"
             equal (nameof ModuleValues.a) "a"
         }
+
+        //Test "import" {
+        //    Console.Log("import all", importTestJsAll)
+        //    Console.Log("import all 2", importTestJsAll)
+        //    Console.Log("import", importTestJs)
+        //    Console.Log("import default", importTestJsDefault)
+        //    Console.Log("import inline", importInline)
+        //    expect 0
+        //}
     }

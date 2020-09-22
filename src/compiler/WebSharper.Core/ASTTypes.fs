@@ -723,11 +723,20 @@ module private Instances =
             Tuple = false
         }
 
+    let ImportId =
+        {
+            IdName = Some "import"
+            Id = -2L
+            Mutable = false
+            Tuple = false
+        }
+
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
 type Id with
     static member Global() = Instances.GlobalId
+    static member Import() = Instances.ImportId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor

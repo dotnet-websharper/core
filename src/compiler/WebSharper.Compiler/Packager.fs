@@ -34,6 +34,7 @@ type EntryPointStyle =
     | ForceImmediate
 
 let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
+    let imports = ResizeArray()
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
@@ -43,6 +44,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
     declarations.Add <| VarDeclaration (g, Var (Id.Global()))
     addresses.Add(Address [], glob)
     addresses.Add(Address [ "self" ], glob)
+    addresses.Add(Address [ "import" ], Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =
@@ -77,8 +79,30 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
+            let getModuleName (from: string) =
+                let fn = from.Split('/') |> Array.last
+                if fn.EndsWith(".js") then
+                    fn.[.. fn.Length - 4].Replace(".", "$")
+                else fn.Replace(".", "$")
             match address.Value with
             | [] -> glob
+            | [ from; "import" ] ->
+                let name = "def$" + getModuleName from
+                let id = Id.New (name, mut = false)
+                let res = Var id
+                imports.Add (from, None, id)
+                addresses.Add(address, res)
+                res
+            | [ export; from; "import" ] -> 
+                let name = 
+                    match export with
+                    | "*" -> getModuleName from
+                    | n -> n
+                let id = Id.New (name, mut = false) 
+                let res = Var id
+                imports.Add (from, Some export, id)
+                addresses.Add(address, res)
+                res
             | h :: t ->
                 let parent = getOrImportAddress false (Address t)
                 let import = ItemGet(parent, Value (String h), Pure)
@@ -222,7 +246,23 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
     if List.isEmpty trStatements then Undefined else
         let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-        Application(Function([], Block allStatements), [], NonPure, Some 0)
+        let wsPkg = 
+            Application(Function([], Block allStatements), [], NonPure, Some 0)
+        if imports.Count = 0 then
+            wsPkg
+        else
+            Sequential (
+                Seq.append (
+                    imports |> Seq.map (fun (from, export, id) ->
+                        let args =
+                            match export with
+                            | None -> [ Value (String from) ]
+                            | Some e -> [  Value (String e); Value (String from) ]
+                        StatementExpr(VarDeclaration(id, Application(Var (Id.Import()), args, NonPure, Some 0)), None)
+                    )
+                ) (Seq.singleton wsPkg)
+                |> List.ofSeq
+            )
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
@@ -236,10 +276,23 @@ let readMapFileSources mapFile =
 let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
     let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
     let program =
-        statement
-        |> JavaScriptWriter.transformExpr env
-        |> WebSharper.Core.JavaScript.Syntax.Ignore
-        |> List.singleton
+        match statement with
+        | Sequential statements ->
+            statements |> List.map (
+                function
+                | StatementExpr (st, None) ->
+                    st 
+                    |> JavaScriptWriter.transformStatement env
+                | e ->
+                    e
+                    |> JavaScriptWriter.transformExpr env
+                    |> WebSharper.Core.JavaScript.Syntax.Ignore
+            )
+        | _ ->
+            statement
+            |> JavaScriptWriter.transformExpr env
+            |> WebSharper.Core.JavaScript.Syntax.Ignore
+            |> List.singleton
 
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program

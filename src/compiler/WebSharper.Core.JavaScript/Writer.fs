@@ -475,6 +475,28 @@ and Statement canBeEmpty statement =
         ++ Id name
         ++ Parens (CommaSeparated Id formals)
         -- BlockLayout (List.map (Statement true) body)
+    | S.Import (e, x, f) ->
+        match e with 
+        | None ->
+            Word "import"
+            ++ Id (EscapeId x)
+        | Some "*" ->
+            Word "import * as"
+            ++ Id (EscapeId x)
+        | Some e ->
+            let ei = EscapeId x
+            if e <> ei then
+                Word "import {"
+                ++ Id e
+                ++ Word "as"
+                ++ Id ei
+                ++ Word "}"
+            else
+                Word "import {"
+                ++ Id e
+                ++ Word "}"
+        ++ Word "from "
+        ++ Token (QuoteString f)
 
 and Block statement =
     match statement with

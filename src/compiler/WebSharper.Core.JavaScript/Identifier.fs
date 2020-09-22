@@ -58,7 +58,6 @@ let ReservedWords =
         "goto"
         "if"
         "implements"
-        "import"
         "in"
         "instanceof"
         "int"

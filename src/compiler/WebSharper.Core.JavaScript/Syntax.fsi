@@ -181,6 +181,7 @@ and Statement =
     | Function     of Id * list<Id> * list<S>
     | StatementPos of S * SourcePos 
     | StatementComment of S * string
+    | Import       of option<string> * Id * string 
 
 /// Represents switch elements.
 and SwitchElement =
@@ -248,6 +249,7 @@ val (|With        |_|) : S -> (E * S                                           )
 val (|Function    |_|) : S -> (Id * list<Id> * list<S>                         ) option                
 val (|StatementPos|_|) : S -> (S * SourcePos                                   ) option                         
 val (|StatementComment|_|) : S -> (S * string) option                         
+val (|Import      |_|) : S -> (option<string> * Id * string) option        
 
 val Block        : list<S>                                          -> S
 val Break        : option<Label>                                    -> S
@@ -273,6 +275,7 @@ val With         : E * S                                            -> S
 val Function     : Id * list<Id> * list<S>                          -> S
 val StatementPos : S * SourcePos                                    -> S
 val StatementComment : S * string                                   -> S
+val Import       : option<string> * Id * string                     -> S
 
 /// Represents complete programs.
 type Program = list<S>

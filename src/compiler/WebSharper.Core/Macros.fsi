@@ -146,6 +146,11 @@ type InlineJS =
     inherit Macro
 
 [<Sealed>]
+type ImportJS =
+    new : unit -> ImportJS
+    inherit Macro
+
+[<Sealed>]
 type StringFormat =
     new : unit -> StringFormat
     inherit Macro
