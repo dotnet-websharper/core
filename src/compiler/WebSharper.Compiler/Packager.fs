@@ -41,7 +41,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
     let g = Id.New "Global"
     let glob = Var g
-    declarations.Add <| VarDeclaration (g, Var (Id.Global()))
     addresses.Add(Address [], glob)
     addresses.Add(Address [ "self" ], glob)
     addresses.Add(Address [ "import" ], Var (Id.Import()))
@@ -247,7 +246,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
     if List.isEmpty trStatements then Undefined else
         let allStatements = List.ofSeq (Seq.append declarations trStatements) 
         let wsPkg = 
-            Application(Function([], Block allStatements), [], NonPure, Some 0)
+            Application(Function([g], Block allStatements), [Var (Id.Global())], NonPure, Some 0)
         if imports.Count = 0 then
             wsPkg
         else
