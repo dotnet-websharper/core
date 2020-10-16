@@ -191,33 +191,37 @@ let cleanLink dHttp (url: string) =
         else url
 
 let link dHttp (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("type", CT.Text.Css.Text)
-    html.AddAttribute("rel", "stylesheet")
-    html.AddAttribute("href", cleanLink dHttp url)
-    html.RenderBeginTag "link"
-    html.RenderEndTag()
-    html.WriteLine()
+    if not (String.IsNullOrWhiteSpace(url)) then
+        html.AddAttribute("type", CT.Text.Css.Text)
+        html.AddAttribute("rel", "stylesheet")
+        html.AddAttribute("href", cleanLink dHttp url)
+        html.RenderBeginTag "link"
+        html.RenderEndTag()
+        html.WriteLine()
 
 let inlineStyle (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", CT.Text.Css.Text)
-    html.RenderBeginTag "style"
-    html.Write(text)
-    html.RenderEndTag()
-    html.WriteLine()
+    if not (String.IsNullOrWhiteSpace(text)) then
+        html.AddAttribute("type", CT.Text.Css.Text)
+        html.RenderBeginTag "style"
+        html.Write(text)
+        html.RenderEndTag()
+        html.WriteLine()
 
 let script dHttp (html: HtmlTextWriter) (url: string) =
-    html.AddAttribute("src", cleanLink dHttp url)
-    html.AddAttribute("type", CT.Text.JavaScript.Text)
-    html.AddAttribute("charset", "UTF-8")
-    html.RenderBeginTag "script"
-    html.RenderEndTag()
+    if not (String.IsNullOrWhiteSpace(url)) then
+        html.AddAttribute("src", cleanLink dHttp url)
+        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("charset", "UTF-8")
+        html.RenderBeginTag "script"
+        html.RenderEndTag()
 
 let inlineScript (html: HtmlTextWriter) (text: string) =
-    html.AddAttribute("type", CT.Text.JavaScript.Text)
-    html.AddAttribute("charset", "UTF-8")
-    html.RenderBeginTag "script"
-    html.Write(text)
-    html.RenderEndTag()
+    if not (String.IsNullOrWhiteSpace(text)) then
+        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("charset", "UTF-8")
+        html.RenderBeginTag "script"
+        html.Write(text)
+        html.RenderEndTag()
 
 let thisAssemblyToken =
     typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
@@ -350,10 +354,11 @@ let tryFindWebResource (t: Type) (spec: string) =
     |> Seq.tryFind ok
 
 let tryGetUriFileName (u: string) =
-    try
-        let parts = u.Split('/')
-        parts.[parts.Length - 1] |> Some
-    with _ -> None
+    if u.StartsWith "http:" || u.StartsWith "https:" || u.StartsWith "//" then
+        let parts = u.Split([| '/' |], StringSplitOptions.RemoveEmptyEntries)
+        Array.tryLast parts
+    else
+        None
 
 let EmptyResource =
    { new IResource with member this.Render _ = ignore }
@@ -430,7 +435,7 @@ type BaseResource(kind: Kind) as this =
                             if isLocal then
                                 match tryGetUriFileName spec with
                                 | Some f ->
-                                    RenderLink (localFolder (mt = Css)  f)
+                                    RenderLink (localFolder (mt = Css) f)
                                 | _ ->
                                     RenderLink spec
                             else

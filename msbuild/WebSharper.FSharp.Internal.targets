@@ -23,12 +23,17 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="FSharp.targets" />
   <PropertyGroup>
+    <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
+    <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+  </PropertyGroup>
+  <PropertyGroup>
     <WebSharperSourceMap Condition="'$(WebSharperSourceMap)' == ''">True</WebSharperSourceMap>
     <WebSharperHtmlDirectory Condition="'$(WebSharperProject)' == 'Html'">$(Root)\build\$(Configuration)\$(TargetFramework)\html</WebSharperHtmlDirectory>
   </PropertyGroup>
   <Import Project="WebSharper.FSharp.targets" />
-  <PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\deploy\</FscToolPath>
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\netcoreapp2.0\deploy\</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\netcoreapp3.1\deploy\</FscToolPath>
+    <FscToolExe Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">wsfsc.exe</FscToolExe>
   </PropertyGroup>
 </Project>

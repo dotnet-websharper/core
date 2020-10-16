@@ -539,7 +539,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Variables = brA.Variables |> List.filter (fun (v, _) -> removeVars |> List.contains v |> not)
             }
     | NewArray [ a ] ->
-        br a |> mapBroken (fun a -> NewArray [getExpr a])
+        br a |> toBrExpr |> mapBroken (fun a -> NewArray [ a ])
     | NewArray a ->
         brL a |> mapBroken NewArray
     | Conditional (I.Sequential a, b, c) ->

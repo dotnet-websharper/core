@@ -184,6 +184,18 @@ module ModuleValues =
 [<JavaScript>]
 let mA, mB = 1, 2
 
+//[<Inline>]
+//let importTestJsAll : obj = JS.ImportAll "/modules/test.js"
+
+//[<Inline>]
+//let importTestJs : obj = JS.Import("testExport", "/modules/test.js")
+
+//[<Inline>]
+//let importTestJsDefault : obj = JS.ImportDefault "/modules/test.js"
+
+//[<Inline "import('/modules/test.js')">]
+//let importInline = X<obj>
+
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {
@@ -546,4 +558,58 @@ let Tests =
             let s = struct {| A = 5 |}
             equal s.A 5
         }
+
+        Test "Implicit yield" {
+            let l =
+                [
+                    1 
+                    if true then
+                        2
+                    3
+                ]
+            equal l [1; 2; 3]
+        }
+
+        Test "OptimizedClosures" {
+            let f2 = OptimizedClosures.FSharpFunc<_,_,_>.Adapt(fun a b -> a + b)
+            let f3 = OptimizedClosures.FSharpFunc<_,_,_,_>.Adapt(fun a b c -> a + b + c)
+            let f4 = OptimizedClosures.FSharpFunc<_,_,_,_,_>.Adapt(fun a b c d -> a + b + c + d)
+            let f5 = OptimizedClosures.FSharpFunc<_,_,_,_,_,_>.Adapt(fun a b c d e -> a + b + c + d + e)
+            equal (f2.Invoke(1) 2) 3
+            equal (f2.Invoke(1, 2)) 3
+            equal (f3.Invoke(1) 2 3) 6
+            equal (f3.Invoke(1, 2, 3)) 6
+            equal (f4.Invoke(1) 2 3 4) 10
+            equal (f4.Invoke(1, 2, 3, 4)) 10
+            equal (f5.Invoke(1) 2 3 4 5) 15
+            equal (f5.Invoke(1, 2, 3, 4, 5)) 15
+        }
+
+        Test "LanguagePrimitives" {
+            equal LanguagePrimitives.GenericZero 0
+            equal LanguagePrimitives.GenericOne 1
+            equal (LanguagePrimitives.FastGenericComparer<int>.Compare(1, 2)) -1
+        }
+
+        Test "Proxy project" {
+            equal (ProxyProjectTest.Functions.add 1 2) 3
+            isTrue (ProxyProjectTest.Functions.isJS())
+        }
+
+        Test "nameof" {
+            equal (nameof System) "System"
+            equal (nameof System.Int32) "Int32"
+            let x = 1 + 1
+            equal (nameof x) "x"
+            equal (nameof ModuleValues.a) "a"
+        }
+
+        //Test "import" {
+        //    Console.Log("import all", importTestJsAll)
+        //    Console.Log("import all 2", importTestJsAll)
+        //    Console.Log("import", importTestJs)
+        //    Console.Log("import default", importTestJsDefault)
+        //    Console.Log("import inline", importInline)
+        //    expect 0
+        //}
     }

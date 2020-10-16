@@ -189,4 +189,9 @@ let Tests =
             equal found 9
             isFalse notFound
         }
+
+        Test "Construction" {
+            equal (Map Seq.empty) Map.empty
+            equal (Map [("A",1); ("B",2); ("A",3)]) (Map [("A",3); ("B",2)])
+        }
     }

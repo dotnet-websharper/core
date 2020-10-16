@@ -3,10 +3,13 @@
   <PropertyGroup>
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
+    <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
+  	<LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Collections.fs" />
     <Compile Include="Dependencies.fs" />
     <Compile Include="AddressOf.fs" />
     <Compile Include="Array.fs" />
@@ -56,8 +59,10 @@
     <Compile Include="Promise.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Main.fs" />
+    <None Include="QuotationTests.fsx" />
     <None Include="ASTTests.fsx" />
     <None Include="paket.references" />
+    <Content Include="testwsconfig.json" />
   </ItemGroup>
   <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
     <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
@@ -71,6 +76,8 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
+    <ProjectReference Include="..\ProxyProjectTest.Proxy\ProxyProjectTest.Proxy.fsproj" />
+    <ProjectReference Include="..\ProxyProjectTest\ProxyProjectTest.fsproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />

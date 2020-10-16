@@ -1,3 +1,2 @@
-group compilers
-  Fsharp.Core
-  Microsoft.Net.Compilers
+group includes
+   FSharp.Core

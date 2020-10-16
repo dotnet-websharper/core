@@ -345,13 +345,76 @@ let Parallel (cs: seq<C<'T>>) : C<'T[]> =
         let a = As<'T[]>(JavaScript.Array(n))
         let accept i x =
             match !o, x with
-            | 0, _     -> ()
-            | 1, Ok x  -> a.[i] <- x; o := 0; c.k (Ok a)
-            | n, Ok x  -> a.[i] <- x; o := n - 1
-            | n, res   -> o := 0; c.k (As res)
-        Array.iteri (fun i run ->
-            fork (fun () -> run { k = accept i; ct = c.ct }))
-            cs
+            | 0, _ -> ()
+            | 1, Ok x -> 
+                a.[i] <- x
+                o := 0
+                c.k (Ok a)
+            | oo, Ok x -> 
+                a.[i] <- x
+                o := oo - 1
+            | _, res ->
+                o := 0
+                c.k (As res)
+        for i = 0 to n - 1 do
+            fork (fun () -> cs.[i] { k = accept i; ct = c.ct })            
+
+[<JavaScript; Pure>]
+let ParallelWithMaxDegree (cs: seq<C<'T>>) (d: int) : C<'T[]> =
+    if d <= 0 then
+       invalidArg "maxDegreeOfParallelism" ("maxDegreeOfParallelism must be positive, was " + string d)
+    let cs = Array.ofSeq cs
+    if cs.Length = 0 then Return [||] else
+    fun c ->
+        let n = Array.length cs
+        let o = ref n
+        let a = As<'T[]>(JavaScript.Array(n))
+        let rec start i =
+            fork (fun () -> cs.[i] { k = accept i; ct = c.ct })
+        and accept i x =
+            match !o, x with
+            | 0, _ -> ()
+            | 1, Ok x -> 
+                a.[i] <- x
+                o := 0
+                c.k (Ok a)
+            | oo, Ok x -> 
+                if c.ct.IsCancellationRequested then 
+                    o := 0
+                    cancel c 
+                else
+                    a.[i] <- x
+                    o := oo - 1
+                    let j = n - oo + d
+                    if j < n then start j 
+            | n, res -> 
+                o := 0
+                c.k (As res)
+        for i = 0 to (min d n) - 1 do 
+            start i
+
+[<JavaScript; Pure>]
+let Sequential (cs: seq<C<'T>>) : C<'T[]> =
+    let cs = Array.ofSeq cs
+    if cs.Length = 0 then Return [||] else
+    fun c ->
+        let n = Array.length cs
+        let a = As<'T[]>(JavaScript.Array(n))
+        let rec start i =
+            fork (fun () -> cs.[i] { k = accept i; ct = c.ct })
+        and accept i x =
+            match x with
+            | Ok x -> 
+                a.[i] <- x
+                if i = n - 1 then
+                    c.k (Ok a)
+                elif c.ct.IsCancellationRequested then 
+                    cancel c 
+                else
+                    start (i + 1) 
+            | res ->
+                c.k (As res)
+        start 0     
 
 [<JavaScript; Pure>]
 let StartChild (r : C<'T>, t: Milliseconds option) : C<C<'T>> =

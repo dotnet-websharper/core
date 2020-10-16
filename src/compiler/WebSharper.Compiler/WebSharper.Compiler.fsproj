@@ -21,9 +21,9 @@
     <Compile Include="Recognize.fs" />
     <Compile Include="Verifier.fs" />
     <Compile Include="CompilationTypes.fs" />
-    <Compile Include="Compilation.fs" />
     <Compile Include="QuotationReader.fs" />
     <Compile Include="ReflectedDefinitionReader.fs" />
+    <Compile Include="Compilation.fs" />
     <Compile Include="Translator.fsi" />
     <Compile Include="Translator.fs" />
     <Compile Include="Stubs.fs" />
@@ -43,6 +43,7 @@
     <Compile Include="api/Loader.fs" />
     <Compile Include="Reflector.fsi" />
     <Compile Include="Reflector.fs" />
+    <Compile Include="QuotationCompiler.fs" />
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
     <Compile Include="WIGCompile.fs" />

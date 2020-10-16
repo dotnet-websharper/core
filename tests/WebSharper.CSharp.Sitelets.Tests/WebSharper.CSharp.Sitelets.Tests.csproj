@@ -4,11 +4,9 @@
     <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <WebSharperProject>Library</WebSharperProject>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="**/*.cs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

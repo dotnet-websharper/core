@@ -45,7 +45,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformFieldGet (_,_,_) = invalidForm "FieldGet"
     override this.TransformFieldSet (_,_,_,_) = invalidForm "FieldSet"
     override this.TransformLet (a, b, c) = if isInline then base.TransformLet(a, b, c) else invalidForm "Let" 
-    override this.TransformLetRec (_,_) = invalidForm "LetRec"
+    override this.TransformLetRec (a,b) = if isInline then base.TransformLetRec(a, b) else invalidForm "LetRec"
     override this.TransformStatementExpr (a, b) = if isInline then base.TransformStatementExpr(a, b) else invalidForm "StatementExpr"
     override this.TransformAwait _  = invalidForm "Await"
     override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
@@ -205,7 +205,7 @@ let defaultRemotingProvider =
     TypeDefinition {
         Assembly = "WebSharper.Main"
         FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
-    }, []
+    }, ConstructorInfo.Default(), []
     
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
@@ -248,7 +248,7 @@ type GenericInlineResolver (generics) =
         TraitCall (
             thisObj |> Option.map this.TransformExpression, 
             typs |> List.map subs,
-            Generic meth.Entity (meth.Generics |> List.map subs), 
+            Generic (Method (meth.Entity.Value.SubstituteResolvedGenerics(gs))) (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
         )
 
@@ -481,7 +481,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> 
                 match me.MethodName with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error(sprintf "Unrecognized member of F# record type: %s.%s" typ.Entity.Value.FullName me.MethodName)         
+                | _ -> this.Error(sprintf "No client-side support for member of F# record type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName me.MethodName)         
         | M.FSharpUnionInfo u ->
             // union types with a single non-null case do not have
             // nested subclass subclass for the case
@@ -543,11 +543,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
                 match mN with
                 | "ToString" -> Value (String typ.Entity.Value.FullName)
-                | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union: %s.%s" typ.Entity.Value.FullName mN)                 
+                | _ -> this.Error(sprintf "No client-side support for member of F# union type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName mN)                 
         | M.FSharpUnionCaseInfo c -> 
             match unionCase false c with
             | Some res -> res
-            | _ -> this.Error(sprintf "Unrecognized F# compiler generated method for union case: %s.%s" typ.Entity.Value.FullName me.MethodName)    
+            | _ -> this.Error(sprintf "No client-side support for member of F# union case type, add JavaScript attribute: %s.%s" typ.Entity.Value.FullName me.MethodName)    
         | M.EnumInfo e ->
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error(sprintf "Unrecognized compiler generated method: %s.%s" typ.Entity.Value.FullName me.MethodName)
@@ -723,8 +723,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         comp.CloseMacros()
         compileMethods()
 
-    static member CompileExpression (comp, expr) =
-        DotNetToJavaScript(comp).TransformExpression(expr)
+    member this.TransformExpressionWithNode(expr, node) =
+        match node with
+        | Some n ->
+            currentNode <- n
+        | _ ->
+            currentNode <- M.ExtraBundleEntryPointNode ("Expr", System.Guid.NewGuid().ToString()) // unique new node
+        this.TransformExpression(expr) |> breakExpr
+    
+    static member CompileExpression (comp, expr, ?node) =
+        DotNetToJavaScript(comp).TransformExpressionWithNode(expr, node)
 
     member this.AnotherNode() = DotNetToJavaScript(comp, currentNode :: inProgress)    
 
@@ -928,25 +936,35 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | M.RemoteSend -> "Send", sendRpcMethodNode
                 | M.RemoteSync -> "Sync", syncRpcMethodNode
             let remotingProvider =
-                let rpTyp, rpArgs =
+                let rpTyp, rpCtor, rpArgs =
                     match rh with
                     | Some (rp, p) -> 
-                        rp, 
-                        let toParamValue o = o |> M.ParameterObject.ToObj |> ReadLiteral |> Value
-                        match p with
-                        | None -> []
-                        | Some (M.ParameterObject.Array ps) ->
-                            ps |> Seq.map toParamValue |> List.ofSeq   
-                        | Some p ->
-                            [ toParamValue p ]
+                        let paramInfo =
+                            let getParamInfo o = 
+                                let v = o |> M.ParameterObject.ToObj 
+                                let argType = 
+                                    if isNull v then 
+                                        NonGenericType Definitions.String 
+                                    else 
+                                        Reflection.ReadType (v.GetType())
+                                argType, v |> ReadLiteral |> Value
+                            match p with
+                            | None -> []
+                            | Some (M.ParameterObject.Array ps) ->
+                                ps |> Seq.map getParamInfo |> List.ofSeq   
+                            | Some p ->
+                                [ getParamInfo p ]
+                        rp, Constructor { CtorParameters = paramInfo |> List.map fst }, paramInfo |> List.map snd 
                     | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric rpTyp, ConstructorInfo.Default(), rpArgs) 
+                this.TransformCtor(NonGeneric rpTyp, rpCtor, rpArgs) 
             if comp.HasGraph then
                 this.AddDependency(mnode)
                 let rec addTypeDeps (t: Type) =
                     match t with
                     | ConcreteType c ->
                         this.AddDependency(M.TypeNode c.Entity)
+                        if not (comp.HasType c.Entity) then
+                            this.Warning("Remote method is returning a type which is not fully supported on client side. Add a JavaScript attribute or proxy for " + c.Entity.Value.FullName)
                         c.Generics |> List.iter addTypeDeps
                     | ArrayType(t, _) -> addTypeDeps t
                     | TupleType (ts, _) -> ts |> List.iter addTypeDeps
@@ -1022,37 +1040,40 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 None
         let trmv = meth.Entity.Value
         let mName = trmv.MethodName
-        let pLength = trmv.Parameters.Length
         let res =
             typs |> List.tryPick (fun typ ->
                 match typ with
                 | ConcreteType ct ->
+                    //let trmv = trmv.SubstituteGenerics(Array.ofList (typ :: meth.Generics))
                     let methods = comp.GetMethods ct.Entity
                     let getMethods pars ret =
                         methods |> Seq.choose (fun m ->
                             let mv = m.Value
-                            if mv.MethodName = mName 
-                                && mv.Parameters.Length = pLength 
-                                && List.forall2 (fun a b -> Type.IsGenericCompatible(a, b)) mv.Parameters pars 
-                                && Type.IsGenericCompatible(mv.ReturnType, ret) then 
+                            if mv.MethodName = mName then
+                                let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
+                                let tcSig = FSharpFuncType (TupleType (pars, false), ret)
+                                if Type.IsGenericCompatible(mSig, tcSig) then
                                     Some m 
+                                else
+                                    None
                             else None
                         ) 
                         |> List.ofSeq
-                    let ms =                        
-                        match getMethods trmv.Parameters trmv.ReturnType with
-                        | [] -> []
-                        | [_] as ms -> ms
-                        | _ ->
-                            let gen = ct.Generics @ meth.Generics |> Array.ofList
-                            let pars = trmv.Parameters |> List.map (fun t -> t.SubstituteGenerics gen)
-                            let ret = trmv.ReturnType.SubstituteGenerics gen
-                            getMethods pars ret
-                    match ms with
+                    match getMethods trmv.Parameters trmv.ReturnType with
                     | [ m ] ->
                         this.TransformCall(thisObj, ct, Generic m meth.Generics, args) |> Some
                     | [] -> 
-                        delay (sprintf "Could not find method for trait call: %s" mName)
+                        let targets =
+                            methods |> Seq.choose (fun m ->
+                                let mv = m.Value
+                                if mv.MethodName = mName then
+                                    let mSig = FSharpFuncType (TupleType (mv.Parameters, false), mv.ReturnType)
+                                    Some (string mSig)
+                                else None
+                            ) 
+                            |> String.concat "; "
+                        let source = string (FSharpFuncType (TupleType (trmv.Parameters, false), trmv.ReturnType))
+                        delay (sprintf "Could not find method for trait call: %s targets:%s source:%s" mName targets source)
                     | _ -> delay (sprintf "Ambiguity at translating trait call: %s" mName)
                 | _ ->
                     delay "Using a trait call requires the Inline attribute"
@@ -1408,7 +1429,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match IgnoreExprSourcePos expr with
             | This -> norm
             | Var _ -> def()
-            | _ -> this.Error("Unrecognized this value in constructor inline")
+            | _ -> this.Error("Unrecognized 'this' value in constructor inline")
         else def()
 
     override this.TransformCctor(typ) =

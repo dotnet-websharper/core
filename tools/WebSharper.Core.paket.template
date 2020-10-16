@@ -1,0 +1,19 @@
+type file
+id WebSharper.Core
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    Contains only WebSharper.Core.dll for acessing basic server-side functionality of WebSharper.
+    For a web project with client-side/Sitelets support, use WebSharper package instead.
+tags
+    Web JavaScript F# C#
+dependencies
+    FSharp.Core >= LOCKEDVERSION
+files
+    ../build/Release/net461/WebSharper.Core.dll ==> lib/net461
+    ../build/Release/net461/WebSharper.Core.xml ==> lib/net461
+    ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
+
+    !../tools/*

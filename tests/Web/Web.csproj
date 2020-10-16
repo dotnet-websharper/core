@@ -1,6 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build">
-  <Import Project="..\..\packages\compilers\Microsoft.Net.Compilers\build\Microsoft.Net.Compilers.props" Condition="Exists('..\..\packages\compilers\Microsoft.Net.Compilers\build\Microsoft.Net.Compilers.props')" Label="Paket" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
@@ -106,6 +105,14 @@
       <Project>{a28d0cc6-9c9c-4438-81e2-0c21fb9549a3}</Project>
       <Name>WebSharper.Main</Name>
     </ProjectReference>
+    <ProjectReference Include="..\ProxyProjectTest.Proxy\ProxyProjectTest.Proxy.fsproj">
+      <Project>{25e7daf6-e287-4e5f-b596-fe4517761463}</Project>
+      <Name>ProxyProjectTest.Proxy</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\ProxyProjectTest\ProxyProjectTest.fsproj">
+      <Project>{24d8d80f-8536-4fdf-a8c2-fcd8cef57dca}</Project>
+      <Name>ProxyProjectTest</Name>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj">
       <Project>{bb4817e7-12a1-4622-b8ce-29cb3c406851}</Project>
       <Name>WebSharper.Collections.Tests</Name>
@@ -162,7 +169,6 @@
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <OutputPath>bin\</OutputPath>
@@ -192,16 +198,16 @@
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.6' Or $(TargetFrameworkVersion) == 'v4.6.1')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\compilers\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\packages\includes\FSharp.Core\lib\net45\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
       </ItemGroup>
     </When>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v2.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v3.1') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>..\..\packages\compilers\FSharp.Core\lib\netstandard1.6\FSharp.Core.dll</HintPath>
+          <HintPath>..\..\packages\includes\FSharp.Core\lib\netstandard2.0\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>

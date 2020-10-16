@@ -75,44 +75,43 @@ module Definition =
     let Error =
         Class "Error"
     
-    let Promise =
-        Class "Promise"
-        |+> Instance [
-            "always" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            "done" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            "fail" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            "progress" => (!+ (!+ T<obj> ^-> T<unit>)) ^-> TSelf
-            "state" => T<unit -> string>
-            "then" => T<unit -> unit> * !? T<unit -> unit> * !? T<unit -> unit> ^-> TSelf
-        ]
-
     let DeferredState = 
         "pending resolved rejected".Split(' ')
         |> Pattern.EnumStrings "DeferredState"
 
-    let Deferred =
+    let Promise, Deferred =
         let func = T<unit> ^-> T<unit>
-        let funcorfuncs = func + Type.ArrayOf func
+        let funcWithArgs = !+ T<obj> ^-> T<unit>
+        let promiseMethods pr =
+            [
+                "always" => !+ func ^-> TSelf
+                "always" => !+ funcWithArgs ^-> TSelf
+                "catch" => func ^-> pr
+                "done" => !+ func ^-> TSelf
+                "done" => !+ funcWithArgs ^-> TSelf
+                "fail" => !+ func ^-> TSelf
+                "fail" => !+ funcWithArgs ^-> TSelf
+                "progress" => !+ func ^-> TSelf
+                "progress" => !+ funcWithArgs ^-> TSelf
+                "promise" => !?T<obj> ^-> pr
+                "state" => T<unit> ^-> DeferredState
+                "then" => func * !?func * !?func ^-> pr
+                "then" => funcWithArgs * !?funcWithArgs * !?funcWithArgs ^-> pr
+            ] : CodeModel.IClassMember list 
+        let Promise =
+            Class "jQuery.Promise"
+            |+> Instance (promiseMethods TSelf)
+        
+        Promise,
         Class "jQuery.Deferred"
+        |+> Instance (promiseMethods Promise)
         |+> Instance [
-            "always" => func ^-> TSelf
-            "always" => func *+ func ^-> TSelf
-            "catch" => func ^-> Promise
-            "done" => func ^-> TSelf
-            "done" => func *+ func ^-> TSelf
-            "fail" => func ^-> TSelf
-            "fail" => func *+ func ^-> TSelf
-            "notifiy" => T<obj> ^-> TSelf
-            "notifiyWith" => T<obj> * !?T<obj []> ^-> TSelf
-            "progressCallbacks" => func ^-> TSelf
-            "progressCallbacks" => func *+ func ^-> TSelf
-            "promise" => !?T<obj> ^-> Promise
+            "notify" => T<obj> ^-> TSelf
+            "notifyWith" => T<obj> * !?T<obj []> ^-> TSelf
             "reject" => !?T<obj> ^-> TSelf
             "rejectWith" => T<obj> * !?T<obj []> ^-> TSelf
             "resolve" => !?T<obj> ^-> TSelf
             "resolveWith" => T<obj> * !?T<obj []> ^-> TSelf
-            "state" => T<unit> ^-> DeferredState
-            "then" => funcorfuncs * funcorfuncs * !?funcorfuncs ^-> Promise
         ]
 
     let JqXHR =
@@ -718,7 +717,7 @@ module Definition =
             "removeData" => T<Dom.Element> * (T<string> + T<string []>) ^-> TSelf
 
             // Deferred
-            "Deferred" => (T<unit> ^-> T<unit>) ^-> Deferred
+            "Deferred" => !?(Deferred ^-> T<unit>) ^-> Deferred
 
             // Effects
             "speed" => (T<int> + T<string>) * Speed ^-> T<obj>

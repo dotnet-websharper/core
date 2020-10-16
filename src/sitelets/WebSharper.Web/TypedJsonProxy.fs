@@ -24,34 +24,17 @@ open WebSharper.JavaScript
 open WebSharper.ClientSideJson
 open WebSharper.ClientSideJson.Macro
 
-[<CompiledName "TypedJson">]
-type Json =
+[<Proxy(typeof<WebSharper.Json>)>]
+type internal TypedJsonProxy =
 
-    /// An instance of Json.Provider, used for custom JSON serialization on the server.
-    static member ServerSideProvider = ServerSideProvider
-
-    /// Encodes an object in such a way that JSON stringification
-    /// results in the same readable format as Sitelets.
-    /// Client-side only.
     [<Macro(typeof<SerializeMacro>)>]
     static member Encode<'T> (x: 'T) = X<obj>
 
-    /// Serializes an object to JSON using the same readable format as Sitelets.
-    /// For plain JSON stringification, see Json.Stringify.
     [<Macro(typeof<SerializeMacro>)>]
-    static member Serialize<'T> (x: 'T) =
-        ServerSideProvider.GetEncoder<'T>().Encode x
-        |> ServerSideProvider.Pack
-        |> Core.Json.Stringify
+    static member Serialize<'T> (x: 'T) = X<string>
 
-    /// Decodes an object parsed from the same readable JSON format as Sitelets.
-    /// Client-side only.
     [<Macro(typeof<SerializeMacro>)>]
     static member Decode<'T> (x: obj) = X<'T>
 
-    /// Deserializes a JSON string using the same readable format as Sitelets.
-    /// For plain JSON parsing, see Json.Parse.
     [<Macro(typeof<SerializeMacro>)>]
-    static member Deserialize<'T> (x: string) =
-        Core.Json.Parse x
-        |> ServerSideProvider.GetDecoder<'T>().Decode
+    static member Deserialize<'T> (x: string) = X<'T>

@@ -1,16 +1,14 @@
-version 5.198.0
-
 references: strict
 redirects: on
 
-framework: net46, net461, netstandard2.0, netcoreapp2.0
+framework: net46, net461, netstandard2.0, netcoreapp3.1
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Microsoft.CSharp ~> 4.6.0 prerelease
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
-nuget Mono.Cecil ~> 0.10
+nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 3.0.0 prerelease
@@ -26,34 +24,41 @@ nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Security.Cryptography.Csp ~> 4.3.0
 
 group build
-    framework: net45
+    framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
-    nuget Paket.Core 5.198.0
-    nuget FAKE
-    nuget AjaxMin
+    storage: none
+
+	nuget Fake.Core.CommandLineParsing
+    nuget Fake.Core.Target
+    nuget Fake.IO.FileSystem
+    nuget Fake.DotNet.AssemblyInfoFile
+    nuget Fake.DotNet.Cli
+    nuget Fake.DotNet.MSBuild
+    nuget Fake.DotNet.Paket
+    nuget Fake.Tools.Git
+    nuget Paket.Core
+    nuget NUglify
     nuget FSharp.Core
     nuget Mono.Cecil
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script
+    git https://github.com/dotnet-websharper/build-script fake5
 
 group includes
     references: strict
-    framework: netstandard2.0
+    framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
-
-group compilers
-    framework: net46, net461, netstandard2.0, netcoreapp2.0
-    source https://api.nuget.org/v3/index.json
-    nuget FSharp.Compiler.Tools ~> 10.0.2
-    nuget FSharp.Core ~> 4.6.2
-    nuget Microsoft.Net.Compilers ~> 3.0.0 prerelease
+    nuget FSharp.Core ~> 4.7.0
 
 group fcs
-    framework: net46, net461, netstandard2.0, netcoreapp2.0
+    framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
-    nuget FSharp.Compiler.Service ~> 27.0.1
-    nuget FSharp.Core ~> 4.6.2
+    nuget FSharp.Compiler.Service ~> 37.0
+    nuget FSharp.Core ~> 4.7.0
+
+group test
+    source https://api.nuget.org/v3/index.json
+    nuget Chutzpah 4.4.7

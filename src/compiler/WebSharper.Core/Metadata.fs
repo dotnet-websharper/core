@@ -375,7 +375,7 @@ type Info =
             ResourceHashes = Dict.union (metas |> Seq.map (fun m -> m.ResourceHashes))
             ExtraBundles = Set.unionMany (metas |> Seq.map (fun m -> m.ExtraBundles))
         }
-
+    
     member this.DiscardExpressions() =
         { this with
             Classes =
@@ -491,6 +491,7 @@ type ICompilation =
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
+    abstract AddJSImport : export: option<string> * from: string -> Expression 
 
 module IO =
     module B = Binary
@@ -502,7 +503,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.5"
+    let CurrentVersion = "4.6"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

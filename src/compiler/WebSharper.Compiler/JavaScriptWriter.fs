@@ -46,7 +46,7 @@ type Environment =
             Preference = pref    
             ScopeNames = Set [ "window"; "self" ]
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "self" ]
+            ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ]
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = false
@@ -271,7 +271,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         failwithf "Not in JavaScript form: %A" (RemoveSourcePositions().TransformExpression(expr))
         invalidForm (GetUnionCaseName expr)
 
-and private transformStatement (env: Environment) (statement: Statement) : J.Statement =
+and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     let sequential s effect =
@@ -361,6 +361,13 @@ and private transformStatement (env: Environment) (statement: Statement) : J.Sta
     | VarDeclaration (id, e) ->
         match e with
         | IgnoreSourcePos.Undefined -> J.Empty 
+        | IgnoreSourcePos.Application(Var importId, args, NonPure, Some 0) when importId = Id.Import() ->
+            match args with
+            | [ Value (String from) ] ->
+                J.Import(None, defineId env false id, from)  
+            | [ Value (String export); Value (String from) ] ->
+                J.Import(Some export, defineId env false id, from)  
+            | _ -> failwith "unrecognized args for import"
         | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, b) ->
         let id = transformId env x

@@ -1262,9 +1262,8 @@ let (|TupledLambda|_|) expr =
                 Some (vars, body |> BottomUp (function TupleGet i -> Var vars.[i] | e -> e), isReturn)
             | _ ->                                                        
                 // if we would use the arguments object for anything else than getting
-                // a tuple item, convert it to an array
-                if List.isEmpty vars then None else
-                Some (vars, Let (tupledArg, sliceFromArguments [], body), isReturn)
+                // a tuple item, do not optimize this lambda
+                None
         else
             if List.isEmpty vars then None else
             Some (vars, body, isReturn)

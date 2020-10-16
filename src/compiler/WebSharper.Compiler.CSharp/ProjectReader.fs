@@ -273,7 +273,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         let msg = "Proxy member do not match any member names of target class."
                         comp.AddWarning(Some (CodeReader.getSourcePosOfSyntaxReference mem.DeclaringSyntaxReferences.[0]), SourceWarning msg)
                 else 
-                    let msg = sprintf "Proxy member do not match any member signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    let msg = sprintf "Proxy member do not match any member signatures of target class %s. Current: %s, candidates: %s" (string def.Value) (string mdef.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getSourcePosOfSyntaxReference mem.DeclaringSyntaxReferences.[0]), SourceWarning msg)
         | _ -> ()
         if mAnnot.IsJavaScriptExport then
@@ -897,6 +897,10 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     | JSAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
     | JSFilesOrTypes a -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = List.ofArray a @ asmAnnot.JavaScriptTypesAndFiles }
 
+    match config.ProjectType with
+    | Some Proxy -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+    | _ ->  ()
+
     for jsExport in config.JavaScriptExport do
         comp.AddJavaScriptExport jsExport
         match jsExport with
@@ -907,6 +911,7 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     let rootTypeAnnot = asmAnnot.RootTypeAnnot
 
     comp.AssemblyName <- assembly.Name
+    comp.ProxyTargetName <- config.ProxyTargetName
     comp.AssemblyRequires <- asmAnnot.Requires
     comp.SiteletDefinition <- asmAnnot.SiteletDefinition
 

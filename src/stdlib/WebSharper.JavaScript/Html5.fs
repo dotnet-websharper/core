@@ -764,7 +764,7 @@ module Elements =
             "checked" =@ T<bool>
             "dirName" =@ T<string>
             "form" =? HTMLFormElement
-            "file" =? File.FileList
+            "files" =? File.FileList
             "formAction" =@ T<string>
             "formEnctype" =@ T<string>
             "formMethod" =@ T<string>
@@ -1297,6 +1297,8 @@ module Fetch =
         Class "XMLHttpRequest"
         |=> Inherits XMLHttpRequestEventTarget
         |+> Static [
+            Constructor T<unit>
+
             "UNSENT" =? T<int>
             "OPENED" =? T<int>
             "HEADERS_RECEIVED" =? T<int>

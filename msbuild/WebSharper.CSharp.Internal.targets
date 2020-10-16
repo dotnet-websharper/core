@@ -23,15 +23,26 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildThisFileDirectory)CSharp.targets" />
   <PropertyGroup>
+    <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
+    <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build/$(Configuration)/CSharp/net46/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build\$(Configuration)\CSharp\net461\deploy\ZafirCs.exe</ZafirCsFullPath>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.cmd</ZafirCsFullPath>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT'">$(Root)build\$(Configuration)\CSharp\netcoreapp2.0\deploy\zafircs-netcore.sh</ZafirCsFullPath>
+    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build\$(Configuration)\CSharp\netcoreapp3.1\deploy\zafircs.exe</ZafirCsFullPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
+    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
   </PropertyGroup>
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
+    </ItemGroup>
+  </Target>
   <PropertyGroup>
     <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
   </PropertyGroup>
@@ -48,13 +59,13 @@
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
-  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <Exec Command="chmod u+x '$(ZafirCsFullPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"
-      Sources="@(Compile)"  
+      Sources="@(Compile)"
       OutputAssembly="@(IntermediateAssembly)"
       References="@(ReferencePath)"
       Configuration="$(Configuration)"
@@ -65,6 +76,7 @@
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
@@ -72,8 +84,11 @@
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperJsOutput="$(WebSharperJsOutput)"
+      WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       ZafirToolPath="$(ZafirCsFullPath)"
       TargetType="$(OutputType)"
       NoConfig="true"

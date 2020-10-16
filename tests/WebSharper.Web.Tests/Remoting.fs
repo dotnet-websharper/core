@@ -249,8 +249,9 @@ module Server =
 
     [<Remote>]
     let GetLoggedInUser () =
-        let ctx = Web.Remoting.GetContext()
         async {
+            do! Async.SwitchToNewThread() // test AsyncLocal behavior
+            let ctx = Web.Remoting.GetContext()
             return! ctx.UserSession.GetLoggedInUser()
         }
 

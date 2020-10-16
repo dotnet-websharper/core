@@ -87,7 +87,7 @@ type WebSharperCSharpCompiler(logger) =
             
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
-                (WebSharper.Compiler.Compilation(refMeta))
+                (WebSharper.Compiler.Compilation(refMeta, SingleNoJSErrors = config.SingleNoJSErrors))
                 config
                 compilation
 

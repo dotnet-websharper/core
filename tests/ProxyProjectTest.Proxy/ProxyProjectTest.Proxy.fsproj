@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\..\msbuild\netfx.props" />
+  <PropertyGroup>
+    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <WebSharperProject>Library</WebSharperProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\ProxyProjectTest\Library.fs" />
+    <None Include="paket.references" />
+    <Content Include="wsconfig.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

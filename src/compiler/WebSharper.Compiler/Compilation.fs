@@ -63,6 +63,8 @@ type Compilation(meta: Info, ?hasGraph) =
     let mutable resolver = None : option<Resolve.Resolver>
     let generatedMethodAddresses = Dictionary()
 
+    let typeErrors = HashSet()
+
     let errors = ResizeArray()
     let warnings = ResizeArray() 
 
@@ -80,8 +82,10 @@ type Compilation(meta: Info, ?hasGraph) =
         typ.Value.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
 
     member val UseLocalMacros = true with get, set
+    member val SingleNoJSErrors = false with get, set
     member val SiteletDefinition: option<TypeDefinition> = None with get, set
     member val AssemblyName = "EntryPoint" with get, set
+    member val ProxyTargetName: option<string> = None with get, set
     member val AssemblyRequires = [] : list<TypeDefinition * option<obj>> with get, set
     
     member val CustomTypesReflector = fun _ -> NotCustomType with get, set 
@@ -109,6 +113,12 @@ type Compilation(meta: Info, ?hasGraph) =
         match proxies.TryFind typ with
         | Some p -> p 
         | _ -> typ
+
+    member this.FindProxiedAssembly(name: string) =
+        if name = this.AssemblyName then
+            this.ProxyTargetName |> Option.defaultValue name
+        else
+            name
     
     member this.GetRemoteHandle(path: string, args: Type list, ret: Type) =
         {
@@ -118,9 +128,29 @@ type Compilation(meta: Info, ?hasGraph) =
         }
 
     member this.AddError (pos : SourcePos option, error : CompilationError) =
-        errors.Add (pos, error)
+        if this.SingleNoJSErrors then
+            match error with
+            | TypeNotFound _
+            | MethodNotFound _
+            | MethodNameNotFound _
+            | ConstructorNotFound _
+            | FieldNotFound _ ->
+                if typeErrors.Add(error) then
+                    errors.Add (pos, error)
+            | _ ->
+                errors.Add (pos, error)
+        else
+            errors.Add (pos, error)
 
     member this.Errors = List.ofSeq errors
+
+    member this.SetErrors(e) =
+        errors.Clear()
+        errors.AddRange(e)
+
+    member this.SetWarnings(w) =
+        warnings.Clear()
+        warnings.AddRange(w)
 
     member this.AddWarning (pos : SourcePos option, warning : CompilationWarning) =
         warnings.Add (pos, warning)
@@ -253,6 +283,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddBundle(name, entryPoint, includeJsExports) =
             this.AddBundle(name, entryPoint, includeJsExports)
+              
+        member this.AddJSImport(export, from) = 
+            this.AddJSImport(export, from)
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -832,6 +865,11 @@ type Compilation(meta: Info, ?hasGraph) =
             IncludeJsExports = includeJsExports
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
+
+    member this.AddJSImport(export: string option, from: string) =
+        match export with
+        | None -> Global ["import"; from]
+        | Some x -> Global ["import"; from; x] 
 
     member this.Resolve () =
         

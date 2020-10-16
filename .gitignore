@@ -23,3 +23,6 @@
 /tests/WebSharper.SPA.Tests/Content/*
 /netcore/
 /netfx/
+/.paket/fake.exe
+/.paket/.store/
+/.ionide

@@ -479,6 +479,36 @@ module Bug991 =
 type Bug1010() =
     inherit WebSharper.InterfaceGenerator.Tests.Regression1010.B()
 
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1051 =
+    type Base<'T> (x: 'T) = 
+        class end
+
+    type Sub() as this =
+        inherit Base<unit>(())
+    
+        member __.A() = ()
+        member __.B() = this.A()
+
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1074 =
+    type  Val<'P> = VView of ref<'P> | VConst of 'P
+        with
+        [<Inline>] static member ( <* )(vf:Val<'a->'b> , a :    'a ) = VConst a
+        [<Inline>] static member ( <* )(vf:Val<'a->'b> , aV:ref<'a>) = VView  aV
+
+    let add1 a = a + 1
+    let a11V = ref 11
+
+    let mainX = VConst add1 <* a11V
+
+/// Regression would make this fail at compile time
+[<JavaScript>]
+module Bug1091 =
+    let foo = [| (try (0).ToString() with e -> e.ToString()) |]
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -981,5 +1011,18 @@ let Tests =
 
         Test "#1010 WIG inheritance" {
             equal (Bug1010().M()) 42
+        }
+
+        Test "#1074 Ambiguity at translating trait call" {
+            equal Bug1074.mainX (Bug1074.VView (ref 11))
+        }
+
+        Test "#1098 Tuple argument match with trailing wildcard and 'as'" {
+            let mappedArr =
+                [| (1, 2); (3, 4) |]
+                |> Array.map (fun ((p, _) as o) ->
+                    p, o
+                )
+            equal mappedArr [|As [|1; As [|1; 2|]|]; As [|3; As [|3; 4|]|]|]  
         }
     }

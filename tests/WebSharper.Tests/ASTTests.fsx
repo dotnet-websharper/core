@@ -42,7 +42,7 @@
 #r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll"
 
-fsi.ShowDeclarationValues = false
+fsi.ShowDeclarationValues <- false
 
 open System
 open System.IO
@@ -355,8 +355,8 @@ let translate source =
     let options =  checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
-    if wholeProjectResults.Errors.Length > 0 then
-        for err in wholeProjectResults.Errors do
+    if wholeProjectResults.HasCriticalErrors then
+        for err in wholeProjectResults.Errors |> Seq.filter (fun e -> e.Severity = FSharpErrorSeverity.Error) do
             printfn "F# Error: %d:%d-%d:%d %s" err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn err.Message
     else
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
@@ -380,7 +380,13 @@ let translate source =
         ]
         |> List.ofSeq
 
-    WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+    fsDeclarations |> List.iter (printfn "%s") 
+    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
+
+    try
+        WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
+    with e ->
+        printfn "Compile error: %A" e
 
     if not (List.isEmpty comp.Errors) then
         for pos, err in comp.Errors do
@@ -410,8 +416,6 @@ let translate source =
     
     let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
-    fsDeclarations |> List.iter (printfn "%s") 
-    expressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiling: %s")
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
@@ -420,22 +424,11 @@ module M
 
 open WebSharper
 
-[<JavaScript>]
-module Module =
-    let AnonRecord (x: {| A : int |}) = {| B = x.A |}
-
-    type AnonRecordInUnion =
-        | AnonRecordTest of {| A: int; B: string|}
-
-    let AnonRecordInUnion() =
-        AnonRecordTest {| A = 3; B = "hi"|}   
-
-    let AnonRecordNested() =
-        {| A = 1; B = {| A = 2; B = "hi"|}|}  
-        
-    let StructAnonRecord() =
-        let a = struct {| SA = 5 |}
-        a.SA
+[<Inline>]
+let tailRecSingleInline n =
+    let rec f n =
+        if n > 0 then f (n - 1) else 0
+    f n
 """
 
 translate """

@@ -31,25 +31,32 @@ let private trace =
 
 let private loadMetadata () =
     let before = System.DateTime.UtcNow
-    let filterExpressions : M.Info -> M.Info =
-        match Context.GetSetting "WebSharperSharedMetadata" with
-        | Some "Inlines" -> fun m -> m.DiscardNotInlineExpressions()
-        | Some "NotInlines" -> fun m -> m.DiscardInlineExpressions()
-        | Some "Full" | None -> id
-        | _ -> fun m -> m.DiscardExpressions()
-    let metas =
-        WebSharper.Core.Resources.AllReferencedAssemblies.Value
-        |> Seq.choose M.IO.LoadReflected
-        |> Seq.map filterExpressions
-        |> Seq.toList
-    let after = System.DateTime.UtcNow
-    trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-        (after-before).TotalSeconds)
-    if List.isEmpty metas then 
-        M.Info.Empty, Graph.Empty 
-    else 
-        let graph = Graph.FromData (metas |> Seq.map (fun m -> m.Dependencies))
-        { M.Info.UnionWithoutDependencies metas with M.Dependencies = graph.GetData() }, graph
+    let metadataSetting =
+        Context.GetSetting "WebSharperSharedMetadata"
+        |> Option.map (fun x -> x.ToLower())
+    match metadataSetting with
+    | Some "none" ->
+        M.Info.Empty, Graph.Empty
+    | _ ->
+        let filterExpressions : M.Info -> M.Info =
+            match metadataSetting with
+            | Some "inlines" -> fun m -> m.DiscardNotInlineExpressions()
+            | Some "notinlines" -> fun m -> m.DiscardInlineExpressions()
+            | Some "full" | None -> id
+            | _ -> fun m -> m.DiscardExpressions()
+        let metas =
+            WebSharper.Core.Resources.AllReferencedAssemblies.Value
+            |> Seq.choose M.IO.LoadReflected
+            |> Seq.map filterExpressions
+            |> Seq.toList
+        let after = System.DateTime.UtcNow
+        trace.TraceInformation("Initialized WebSharper in {0} seconds.",
+            (after-before).TotalSeconds)
+        if List.isEmpty metas then 
+            M.Info.Empty, Graph.Empty 
+        else 
+            let graph = Graph.FromData (metas |> Seq.map (fun m -> m.Dependencies))
+            { M.Info.UnionWithoutDependencies metas with M.Dependencies = graph.GetData() }, graph
 
 let Metadata, Dependencies = loadMetadata () 
 

@@ -143,11 +143,6 @@ type FixCtorTransformer(typ, btyp, ?thisExpr) =
 
     let thisExpr = defaultArg thisExpr This
 
-    override this.TransformSequential (es) =
-        match es with
-        | h :: t -> Sequential (this.TransformExpression h :: t)
-        | _ -> Undefined
-
     override this.TransformLet(a, b, c) =
         Let(a, b, this.TransformExpression c)
 
@@ -330,7 +325,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             td.QualifiedName.Split([|','|]).[0] 
         let res =
             {
-                Assembly = readSimpleName td.Assembly fullName
+                Assembly = comp.FindProxiedAssembly(readSimpleName td.Assembly fullName)
                 FullName = fullName
             }
         // TODO: more measure types
@@ -390,7 +385,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             let cname = d.CompiledName
             let def =
                 TypeDefinition {
-                    Assembly = readSimpleName t.AnonRecordTypeDetails.Assembly cname
+                    Assembly = comp.FindProxiedAssembly(readSimpleName t.AnonRecordTypeDetails.Assembly cname)
                     FullName = cname
                 }
             if not (comp.HasCustomTypeInfo def) then
@@ -1140,7 +1135,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.ILAsm
             (
                 ("[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],TypeVar 0us)]" 
-                    | "[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],!0)]"), _, [ arr; i ]
+                    | "[I_ldelema (NormalAddress,false,ILArrayShape [(Some 0, None)],!0)]"
+                    | "[I_ldelema (NormalAddress, false, ILArrayShape [(Some 0, None)], !0)]"), _, [ arr; i ]
             ) ->
             let arrId = newId()
             let iId = newId()
@@ -1153,7 +1149,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             Call(Some (tr arr), NonGeneric Definitions.Array, NonGeneric Definitions.ArrayLength, [])
         | P.ILAsm (s, _, _) ->
             parsefailf "Unrecognized ILAsm: %s" s
-        | P.TraitCall(sourceTypes, traitName, memberFlags, typeArgs, typeInstantiation, argExprs) ->
+        | P.TraitCall(sourceTypes, traitName, memberFlags, _, _, argExprs) ->
             let isInstance = memberFlags.IsInstance
             let meth =
                 Method {
@@ -1163,7 +1159,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
+            let m = NonGeneric meth
             if isInstance then 
                 match argExprs |> List.map tr with
                 | t :: a ->

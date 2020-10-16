@@ -1,10 +1,10 @@
-﻿<!--
+<!--
 // $begin{copyright}
-// 
+//
 // This file is part of WebSharper
-// 
+//
 // Copyright (c) 2008-2014 IntelliFactory
-// 
+//
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published
@@ -22,6 +22,10 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
+    <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
     <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
     <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
@@ -37,23 +41,24 @@
     <OtherFlags Condition=" '$(WebSharperMinJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperMinJsOutput)</OtherFlags>
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
+    <OtherFlags Condition=" '$(WebSharperConfigFile)' != '' ">$(OtherFlags) --wsconfig:"$(WebSharperConfigFile)"</OtherFlags>
   </PropertyGroup>
-  <Choose>
-    <When Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">
-      <PropertyGroup>
-        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
-        <FscToolExe>wsfsc.exe</FscToolExe>
-      </PropertyGroup>
-    </When>
-    <Otherwise>
-      <PropertyGroup>
-        <FscToolPath>$(MSBuildThisFileDirectory)/../tools/netstandard2.0</FscToolPath>
-        <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.cmd</FscToolExe>
-        <FscToolExe Condition="'$(OS)' != 'Windows_NT'">wsfsc.sh</FscToolExe>
-      </PropertyGroup>
-    </Otherwise>
-  </Choose>
-  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition="'$(OS)' != 'Windows_NT'">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
+    </ItemGroup>
+  </Target>
+
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+    <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.exe</FscToolExe>
+    <FscToolExe Condition="'$(OS)' == 'Unix'"      >wsfsc.sh</FscToolExe>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1</FscToolPath>
+  </PropertyGroup>
+
+  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(OS)' != 'Windows_NT'">
     <Exec Command="chmod u+x '$(FscToolPath)/$(FscToolExe)'" />
   </Target>
 </Project>

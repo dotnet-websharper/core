@@ -703,7 +703,7 @@ type CompilerOptions =
         OutputPath : option<string>
         ProjectDir : string
         ReferencePaths : seq<string>
-        StrongNameKeyPair : option<StrongNameKeyPair>
+        StrongNameKeyPath : option<string>
     }
 
     static member Default(name) =
@@ -717,7 +717,7 @@ type CompilerOptions =
             OutputPath = None
             ProjectDir = "."
             ReferencePaths = Seq.empty
-            StrongNameKeyPair = None
+            StrongNameKeyPath = None
         }
 
     static member Parse args =
@@ -731,8 +731,7 @@ type CompilerOptions =
             | S "-v:" ver ->
                 { opts with AssemblyVersion = Version.Parse ver }
             | S "-snk:" path ->
-                let snk = StrongNameKeyPair(File.ReadAllBytes path)
-                { opts with StrongNameKeyPair = Some snk }
+                { opts with StrongNameKeyPath = Some path }
             | S "-embed:" path ->
                 { opts with EmbeddedResources = Seq.append opts.EmbeddedResources [path] }
             | S "-o:" out ->
@@ -953,7 +952,7 @@ type MemberConverter
                     namesTaken.Add n |> ignore
                     let gP = GenericParameter(n, owner)
                     for c in g.Constraints do
-                        gP.Constraints.Add(tC.TypeReference (c, td))
+                        gP.Constraints.Add(GenericParameterConstraint(tC.TypeReference (c, td)))
                     owner.GenericParameters.Add(gP)
                     g.Id, gP
             ]        
@@ -1259,14 +1258,10 @@ type XmlDocGenerator(assembly: AssemblyDefinition, comments: Comments) =
 type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: CompilerOptions, tB: TypeBuilder) =
 
     let writerParams =
-        match options.StrongNameKeyPair with
+        match options.StrongNameKeyPath with
         | None -> WriterParameters()
         | Some p ->
-#if NET461 // TODO dotnet: strong naming
-            WriterParameters(StrongNameKeyPair = p)
-#else
-            WriterParameters()
-#endif
+            WriterParameters(StrongNameKeyBlob = File.ReadAllBytes p)
 
     member a.GetBytes() =
         use out = new MemoryStream()

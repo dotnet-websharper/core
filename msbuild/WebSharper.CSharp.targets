@@ -22,16 +22,28 @@
 -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <WebSharperRunCompiler Condition=" '$(DesignTimeBuild)' == 'true' " >False</WebSharperRunCompiler>
+    <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
     <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' ">$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True' ">$(MSBuildThisFileDirectory)/../tools/net461/ZafirCs.exe</ZafirToolPath>
-    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.cmd</ZafirToolPath>
-    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/zafircs-netcore.sh</ZafirToolPath>
+    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1/zafircs.exe</ZafirToolPath>
+    <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/netcoreapp3.1/zafircs-netcore.sh</ZafirToolPath>
+    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
+    <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
   </PropertyGroup>
-  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" />
-  <Target Name="WebSharperCompile" AfterTargets="CoreCompile">
+  <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
+    <ItemGroup>
+      <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
+    </ItemGroup>
+  </Target>
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <Exec Command="chmod u+x '$(ZafirToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
@@ -47,6 +59,7 @@
       MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
       Name="$(AssemblyName)"
       OutputPath="$(OutputPath)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          

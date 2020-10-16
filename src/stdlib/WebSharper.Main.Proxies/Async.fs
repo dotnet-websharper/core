@@ -88,6 +88,14 @@ type private AsyncProxy =
         As (C.Parallel (As cs))
 
     [<Inline>]
+    static member Parallel(cs: seq<Async<'T>>, ?d: int) : Async<'T []> =
+        As (C.ParallelWithMaxDegree (As cs) (Option.defaultValue 0 d))
+
+    [<Inline>]
+    static member Sequential(cs: seq<Async<'T>>) : Async<'T []> =
+        As (C.Sequential (As cs))
+
+    [<Inline>]
     static member StartImmediate(c: Async<unit>, ?t: CT) : unit =
         C.StartImmediate (As c, As t)
 
@@ -122,6 +130,10 @@ type private AsyncProxy =
     [<Inline>]
     static member TryCancelled(p: Async<'T>, f: OCE -> unit) : Async<'T> =
         As (C.TryCancelled(As p, f))
+
+[<Proxy(typeof<Async<_>>)>]
+type private Async1Proxy<'T> =
+    class end
 
 [<Proxy(typeof<CT>)>]
 type private CancellationTokenProxy =

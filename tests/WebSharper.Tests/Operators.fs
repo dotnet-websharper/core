@@ -252,4 +252,10 @@ let Tests =
             let u2 = CustomNumber(6)
             isTrue (u1*u2 = 55)
         }
+
+        Test "lock" {
+            let x =
+                lock (obj()) (fun () -> 1 + 1)
+            equal x 2
+        }
     }

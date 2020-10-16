@@ -182,13 +182,23 @@ module internal ServerInferredOperators =
                         Some (box s)
                     | _ -> None
                 | [] -> 
-                    Some (box "")
+                    None
             IWrite = fun (w, value) ->
                 if isNull value then 
                     w.NextSegment().Append("null") |> ignore
                 elif unbox value <> "" then
                     w.NextSegment().Append(StringEncoding.write (unbox value)) |> ignore
             IExplicitMethods = Set.empty
+        }
+
+    let internal iEmptyString : InferredRouter =
+        { iString with
+            IParse = fun path ->
+                match path.Segments with
+                | [] -> 
+                    Some (box "")
+                | _ ->
+                    None
         }
 
     let internal iChar : InferredRouter =
@@ -711,9 +721,27 @@ module internal ServerInferredOperators =
         let parseWithOrWithoutWildcards useWildcards =
 
             let lookupCasesByMethod =
-                cases |> Seq.indexed |> Seq.collect (fun (i, c) -> 
+                cases |> Seq.indexed
+                |> Seq.collect (fun (i, c) ->
+                    // for cases ending with any number of field segments, generate extra parses cases
+                    // where they are all parsing empty strings from reaching the end of a route
+                    let fieldsLength = c.Fields.Length
+                    Some (List.rev (List.ofArray c.Fields), 0)
+                    |> List.unfold (
+                        function
+                        | Some (f, e) ->
+                            let case = 
+                                i, c, List.rev (List.replicate e iEmptyString @ f), fieldsLength - e
+                            match f with
+                            | h :: t when h = iString ->
+                                Some (case, Some (t, e + 1))
+                            | _ ->
+                                Some (case, None)
+                        | None -> None
+                    )
+                )
+                |> Seq.collect (fun (i, c, fieldList, fieldsLength) -> 
                     if c.HasWildCard && not useWildcards then Seq.empty else
-                    let fieldList = List.ofArray c.Fields
                     let l = c.Fields.Length
                     let parseFields p path =
                         let arr = Array.zeroCreate l
@@ -746,7 +774,7 @@ module internal ServerInferredOperators =
                                 -1,
                                 fun p path -> Some c
                             | _ ->
-                                fieldList.Length - 1, parseFields
+                                fieldsLength - 1, parseFields
                         | [ h ] ->
                             h, 
                             match fieldList with
@@ -757,7 +785,7 @@ module internal ServerInferredOperators =
                                     path.Segments <- p
                                     Some c
                             | _ ->
-                                fieldList.Length, parseFields
+                                fieldsLength, parseFields
                         | h :: t ->
                             h, 
                             match fieldList with
@@ -771,7 +799,7 @@ module internal ServerInferredOperators =
                                         Some c
                                     | None -> None
                             | _ ->
-                                t.Length + fieldList.Length,
+                                t.Length + fieldsLength,
                                 fun p path ->
                                     match p |> List.startsWith t with
                                     | Some p -> parseFields p path

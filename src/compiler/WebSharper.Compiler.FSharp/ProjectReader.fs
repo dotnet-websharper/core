@@ -144,7 +144,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) parentAnnot (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -243,7 +243,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let msg = "Proxy member do not match any member names of target class."
                         comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
                 else 
-                    let msg = sprintf "Proxy member do not match any member signatures of target class. Current: %s, candidates: %s" (string def.Value) (String.concat ", " candidates)
+                    let msg = sprintf "Proxy member do not match any member signatures of target class %s. Current: %s, candidates: %s" (string def.Value) (string mdef.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
         | _ -> ()
         if mAnnot.IsJavaScriptExport then
@@ -414,6 +414,16 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let memdef = sr.ReadMember meth
 
                 if stubs.Contains memdef then () else
+                let kind =
+                    // for Proxy projects only, handle F# inline as WS Inline
+                    if Option.isSome comp.ProxyTargetName && kind = A.MemberKind.JavaScript then
+                        match meth.InlineAnnotation with
+                        | FSharpInlineAnnotation.AggressiveInline
+                        | FSharpInlineAnnotation.AlwaysInline
+                        | FSharpInlineAnnotation.PseudoValue ->
+                            A.MemberKind.InlineJavaScript
+                        | _ -> kind
+                    else kind
                 let getBody isInline = 
                     let noCurriedOpt =
                         match memdef with
@@ -736,7 +746,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots annot ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
@@ -990,6 +1000,7 @@ open WebSharper.Compiler.FrontEnd
 
 let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
     comp.AssemblyName <- assemblyName
+    comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
     
     let mutable asmAnnot =
@@ -999,6 +1010,10 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
     | JSDefault -> ()
     | JSAssembly -> asmAnnot <- { asmAnnot with IsJavaScript = true }
     | JSFilesOrTypes a -> asmAnnot <- { asmAnnot with JavaScriptTypesAndFiles = List.ofArray a @ asmAnnot.JavaScriptTypesAndFiles }
+
+    match config.ProjectType with
+    | Some Proxy -> asmAnnot <- { asmAnnot with IsJavaScript = true }
+    | _ ->  ()
 
     for jsExport in config.JavaScriptExport do
         comp.AddJavaScriptExport jsExport
@@ -1142,7 +1157,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
             let def =
                 TypeDefinition {
-                    Assembly = assemblyName
+                    Assembly = comp.FindProxiedAssembly(assemblyName)
                     FullName = name
                 }
             def, 
@@ -1193,7 +1208,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations rootTypeAnnot c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             

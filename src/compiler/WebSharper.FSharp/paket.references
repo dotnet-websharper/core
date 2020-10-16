@@ -6,5 +6,3 @@ group fcs
   System.Collections.Immutable
   System.Reflection.Metadata
   FSharp.Core
-group compilers
-  FSharp.Compiler.Tools

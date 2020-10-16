@@ -410,4 +410,3 @@ type Graph =
             Lookup = Dictionary()
             Resources = ConcurrentDictionary()
         }
-

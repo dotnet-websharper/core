@@ -183,6 +183,7 @@ and Statement =
     | Function     of Id * list<Id> * list<S>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
+    | Import       of option<string> * Id * string 
 
 and SwitchElement =
     | Case of E * list<S>
@@ -247,6 +248,7 @@ let TransformStatement (!) (!^) stmt =
     | Empty -> stmt
     | StatementPos (x, pos) -> StatementPos (!^x, pos)
     | StatementComment (x, comment) -> StatementComment (x, comment)
+    | Import (n, x, f) ->  Import (n, x, f)
 
 let Fold t fE fS init x =
     let state = ref init
@@ -434,6 +436,7 @@ let (|Function    |_|) s = match s with IgnoreStatementPos (Function   (a,b,c)  
 
 let (|StatementPos|_|) s = match s with StatementPos (a,b) -> Some (a,b) | _ -> None
 let (|StatementComment|_|) s = match s with StatementComment (a,b) -> Some (a,b) | _ -> None
+let (|Import|_|) s = match s with Import (a,b,c) -> Some (a,b,c) | _ -> None
 
 let Block      a         = Block      a        
 let Break      a         = Break      a        
@@ -465,3 +468,4 @@ let rec RemoveOuterStatementSourcePos s =
 
 let StatementPos (a,b) = StatementPos (RemoveOuterStatementSourcePos a,b)
 let StatementComment (a,b) = StatementComment (a,b)
+let Import (a,b,c) = Import (a,b,c)

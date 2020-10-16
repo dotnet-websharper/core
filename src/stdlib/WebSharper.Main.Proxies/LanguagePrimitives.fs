@@ -24,6 +24,8 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.LanguagePrimitivesProxy
 
+open WebSharper.JavaScript
+
 [<Inline>]
 let GenericEquality<'T> (a: 'T) (b: 'T) = Unchecked.equals a b
 
@@ -41,4 +43,13 @@ let GenericComparisonWithComparer<'T> (c: System.Collections.IComparer) (a: 'T) 
 
 [<Inline>]
 let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a: 'T) (b: 'T) = c.Equals(a, b)
+                                
+[<Constant 0>]
+let GenericZero<'T>() = X<'T>
 
+[<Constant 1>]
+let GenericOne<'T>() = X<'T>
+
+[<Inline>]
+let FastGenericComparer<'T>() = 
+    { new System.Collections.Generic.IComparer<'T> with member _.Compare(a, b) = Unchecked.compare<'T> a b }

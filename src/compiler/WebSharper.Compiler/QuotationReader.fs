@@ -25,8 +25,13 @@ open FSharp.Quotations
 
 open WebSharper.Core
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 module A = WebSharper.Compiler.AttributeReader
+
+exception ParseError of string
+let parsefailf x =
+    Printf.kprintf (fun s -> raise <| ParseError s) x
 
 type VarKind =
     | LocalVar 
@@ -37,7 +42,7 @@ type Environment =
     {
         Vars : System.Collections.Generic.Dictionary<Var, Id * VarKind>
         Exception : option<Id>
-        Compilation : Compilation
+        Compilation : ICompilation
     }
     static member New(comp) = 
         { 
@@ -55,7 +60,14 @@ type Environment =
         { this with Exception = Some i }
 
     member this.LookupVar (v: Var) =
-        this.Vars.[v]
+        match this.Vars.TryGetValue(v) with
+        | true, r ->
+            this.Vars.[v]
+        | _ ->
+            if v.Name = "this" then 
+                Id.Global(), ThisArg 
+            else
+                parsefailf "Failed to look up variable %s" v.Name
 
 let getOptSourcePos (expr: Expr) =
     expr.CustomAttributes |> List.tryPick (
@@ -83,10 +95,6 @@ let withOptSourcePos (expr: Expr) (e: Expression) =
     match getOptSourcePos expr with
     | Some p -> ExprSourcePos(p, e)
     | _ -> e
-
-exception ParseError of string
-let parsefailf x =
-    Printf.kprintf (fun s -> raise <| ParseError s) x
 
 let rec transformExpression (env: Environment) (expr: Expr) =
     let inline tr x = transformExpression env x
@@ -269,8 +277,8 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match e with
             | ParseError m -> m
             | _ -> "Error while reading F# quotation: " + e.Message //+ " " + e.StackTrace
-        env.Compilation.AddError(getOptSourcePos expr, SourceError msg)
+        env.Compilation.AddError(getOptSourcePos expr, sprintf "%s at %A" msg expr)
         CompilationHelpers.errorPlaceholder        
 
-let readExpression (comp: Compilation) expr =
+let readExpression (comp: ICompilation) expr =
     transformExpression (Environment.New(comp)) expr

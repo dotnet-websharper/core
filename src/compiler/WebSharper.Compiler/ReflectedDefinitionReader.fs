@@ -23,12 +23,15 @@ module WebSharper.Compiler.ReflectedDefinitionReader
 
 open System.Reflection
 open FSharp.Quotations
+open FSharp.Reflection
 open WebSharper.Core.AST
+open WebSharper.Core.Metadata
 
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader
 
-let readReflected (comp: Compilation) (m: MethodBase) =
+
+let readReflected (comp: ICompilation) (m: MethodBase) =
     match Expr.TryGetReflectedDefinition m with
     | None -> None
     | Some q -> 
@@ -40,16 +43,18 @@ let readReflected (comp: Compilation) (m: MethodBase) =
                 |> Seq.map (fun v -> v.Value :?> int) |> List.ofSeq |> Some
             else None  
         )
-    let currying =
+    let currying, curryingInfo =
         match compArgCounts with
         | None ->
             let k = m.GetParameters().Length
             // -1 marks 'this' argument
-            if m.IsStatic then 
-                if k = 0 then [1] else [k]
-            elif k = 0 then [-1; 1] else [-1; k]
+            if FSharpType.IsModule m.DeclaringType && m.Name.StartsWith "get_" then
+                [], "Module let"
+            elif m.IsStatic || m.IsConstructor then 
+                if k = 0 then [1], "Static 0" else [k], "Static " + string k
+            elif k = 0 then [-1; 1], "Instance 0" else [-1; k], "Instance " + string k
         | Some x ->
-            if m.IsStatic then x else -1 :: x   
+            if m.IsStatic || m.IsConstructor then x, "CompArg Static " + string x else -1 :: x, "CompArg Instance " + string x   
     
     let env = QR.Environment.New(comp)
     
@@ -62,7 +67,7 @@ let readReflected (comp: Compilation) (m: MethodBase) =
                 env.AddVar(i, arg, QR.ThisArg)
                 decurry [] restCurr body
             | _ ->
-                failwithf "Expecting a lambda while decurrying 'this' argument of a ReflectedDefinition quotation: %A" expr
+                failwithf "Expecting a lambda while decurrying 'this' argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | 1 :: restCurr ->
             match expr with
             | Patterns.Lambda (arg, body) ->
@@ -70,7 +75,7 @@ let readReflected (comp: Compilation) (m: MethodBase) =
                 env.AddVar(i, arg, QR.LocalVar)
                 decurry (args @ [i]) restCurr body
             | _ ->
-                failwithf "Expecting a lambda while decurrying an argument of a ReflectedDefinition quotation: %A" expr
+                failwithf "Expecting a lambda while decurrying an argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | k :: restCurr ->
             match expr with
             | Patterns.Lambda (arg, body) ->
@@ -83,7 +88,7 @@ let readReflected (comp: Compilation) (m: MethodBase) =
                         else
                             detuple (vn :: tup) (j + 1) q
                     | _ ->
-                        failwithf "Expecting a tuple get while detupling arguments a ReflectedDefinition quotation: %A" q
+                        failwithf "Expecting a tuple get while detupling arguments a ReflectedDefinition quotation: %A currying info %A" q curryingInfo
                 
                 let tupleVars, detupledBody = detuple [] 0 body
                 let tupleArgs = 
@@ -94,7 +99,7 @@ let readReflected (comp: Compilation) (m: MethodBase) =
                     ) 
                 decurry (args @ tupleArgs) restCurr detupledBody
             | _ ->
-                failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A" expr
+                failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | _ ->
             Lambda(args, QR.transformExpression env expr)
 

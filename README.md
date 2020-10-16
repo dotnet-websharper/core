@@ -104,7 +104,7 @@ open WebSharper
 open WebSharper.Sitelets
 
 [<Website>]
-    let Main = Application.Text (fun ctx -> "Hello World!")
+let Main = Application.Text (fun ctx -> "Hello World!")
 ```
 
 [![](http://i.imgur.com/fZgqeKjm.png)](http://i.imgur.com/fZgqeKjl.png)

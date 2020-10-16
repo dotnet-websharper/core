@@ -43,6 +43,8 @@ module Content =
 //    module R = WebSharper.Core.Reflection
     module J = WebSharper.Core.Json
 
+    let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
+
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
         |> List.ofSeq
@@ -425,7 +427,7 @@ type Content<'Endpoint> with
         |> async.Return
 
     static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Endpoint>> =
-        let encoding = defaultArg encoding System.Text.Encoding.UTF8
+        let encoding = defaultArg encoding Content.defaultEncoding
         Content.Custom(
             WriteBody = fun s ->
                 use w = new System.IO.StreamWriter(s, encoding)

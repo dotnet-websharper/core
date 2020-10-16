@@ -117,6 +117,12 @@ let Compile config =
     if config.ProjectFile = null then
         argError "You must provide project file path."
     
+    let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
+
+    if assem.IsSome && assem.Value.HasWebSharperMetadata then
+        TimedStage "WebSharper resources already exist, skipping"
+    else
+
     let comp =
         compiler.Compile(refMeta, config)
     
@@ -132,7 +138,11 @@ let Compile config =
             let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
-            let assem = loader.LoadFile config.AssemblyFile
+            let assem = assem.Value
+
+            if config.ProjectType = Some Proxy then
+                EraseAssemblyContents assem
+                TimedStage "Erasing assembly content for Proxy project"
 
             let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
 
@@ -152,7 +162,7 @@ let Compile config =
                     printfn "%s" js
                 | _ -> ()
 
-            assem.Write (config.KeyFile |> Option.map readStrongNameKeyPair) config.AssemblyFile
+            assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles
@@ -261,12 +271,15 @@ let rec compileMain (argv: string[]) =
             VSStyleErrors = true
         }
     wsArgs := SetDefaultProjectFile !wsArgs false
-
-    let wsconfig = Path.Combine(Path.GetDirectoryName (!wsArgs).ProjectFile, "wsconfig.json")
-    if File.Exists wsconfig then
-        wsArgs := (!wsArgs).AddJson(File.ReadAllText wsconfig)
-
     wsArgs := SetScriptBaseUrl !wsArgs
+
+    if (!wsArgs).UseJavaScriptSymbol then
+        let cArgs = (!wsArgs).CompilerArgs
+        if cArgs |> Array.contains "-define:JAVASCRIPT" |> not then
+            wsArgs := 
+                { !wsArgs with 
+                    CompilerArgs = Array.append cArgs [|"-define:JAVASCRIPT"|]
+                }
 
     try
         Compile !wsArgs

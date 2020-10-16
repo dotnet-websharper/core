@@ -15,8 +15,6 @@
     <Compile Include="ProjectReader.fs" />
     <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Main.fs" />
-    <None Include="genTransformer.fsx" />
-    <None Include="tests.fsx" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
