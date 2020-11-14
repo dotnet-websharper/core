@@ -65,8 +65,6 @@ let targets = MakeTargets {
                     let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
                     [ 
                         fsharpCoreLib </> "FSharp.Core.dll" 
-                        fsharpCoreLib </> "FSharp.Core.sigdata" 
-                        fsharpCoreLib </> "FSharp.Core.optdata" 
                     ] 
                     |> Shell.copy outputPath                
             BuildAction.Multiple [
