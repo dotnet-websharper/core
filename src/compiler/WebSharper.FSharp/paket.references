@@ -3,6 +3,4 @@ Mono.Cecil
 Microsoft.NETCore.Platforms
 group fcs
   FSharp.Compiler.Service
-  System.Collections.Immutable
-  System.Reflection.Metadata
   FSharp.Core
