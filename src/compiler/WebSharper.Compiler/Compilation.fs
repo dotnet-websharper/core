@@ -283,6 +283,9 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddBundle(name, entryPoint, includeJsExports) =
             this.AddBundle(name, entryPoint, includeJsExports)
+              
+        member this.AddJSImport(export, from) = 
+            this.AddJSImport(export, from)
 
     member this.GetMacroInstance(macro) =
         match macros.TryFind macro with
@@ -862,6 +865,11 @@ type Compilation(meta: Info, ?hasGraph) =
             IncludeJsExports = includeJsExports
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
+
+    member this.AddJSImport(export: string option, from: string) =
+        match export with
+        | None -> Global ["import"; from]
+        | Some x -> Global ["import"; from; x] 
 
     member this.Resolve () =
         

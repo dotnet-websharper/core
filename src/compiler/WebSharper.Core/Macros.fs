@@ -1239,17 +1239,47 @@ type InlineJS() =
     inherit Macro()
 
     override __.TranslateCall(c) =
-        let inl, pos =
-            match c.Arguments.Head with
-            | Value (String inl) -> inl, Unchecked.defaultof<_>
-            | ExprSourcePos(pos, Value (String inl)) -> inl, pos
-            | _ -> failwith "InlineJS error: first argument must be a constant string"
-        let args =
+        try
+            let inl, pos =
+                match c.Arguments.Head with
+                | Value (String inl) -> inl, Unchecked.defaultof<_>
+                | ExprSourcePos(pos, Value (String inl)) -> inl, pos
+                | _ -> failwith "JS.Inline first argument must be a constant string"
+            let args =
+                match c.Arguments with
+                | [_] -> [] 
+                | [_; I.NewArray args] -> args
+                | _ -> failwith "JS.Inline arguments cannot be passed as an array"
+            c.Compilation.ParseJSInline(inl, args, pos) |> MacroOk
+        with e ->
+            MacroError e.Message
+
+[<Sealed>]
+type ImportJS() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        match c.Method.Entity.Value.MethodName with
+        | "Import" ->
             match c.Arguments with
-            | [_] -> [] 
-            | [_; I.NewArray args] -> args
-            | _ -> failwith "InlineJS error: arguments cannot be passed as an array"
-        c.Compilation.ParseJSInline(inl, args, pos) |> MacroOk
+            | [I.Value (String export); I.Value (String from)] ->
+                if JavaScript.Identifier.IsValid export || export = "*" then
+                    c.Compilation.AddJSImport (Some export, from) |> MacroOk
+                else
+                    MacroError "JS.Import `export` argument must be a valid identifier"
+            | _ -> MacroError "JS.Import arguments must be constant string"
+        | "ImportDefault" ->
+            match c.Arguments with
+            | [I.Value (String from)] ->
+                c.Compilation.AddJSImport (None, from) |> MacroOk
+            | _ -> MacroError "JS.ImportDefault arguments must be constant string"
+        | "ImportAll" ->
+            match c.Arguments with
+            | [I.Value (String from)] ->
+                c.Compilation.AddJSImport (Some "*", from) |> MacroOk
+            | _ -> MacroError "JS.ImportAll argument must be constant string"
+        | _ ->
+            failwith "Unrecognized method using ImportJS"
 
 let stringTy, lengthMeth, padLeft, padRight =
     let t = typeof<System.String>

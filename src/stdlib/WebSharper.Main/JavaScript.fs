@@ -274,3 +274,15 @@ type JS =
     /// Performs the given request.
     [<Inline>]
     static member Fetch(request: Request) = JS.Window.Fetch(request)
+
+    /// Imports a single given export from an ES6 module.
+    [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
+    static member Import<'T> (export: string, from: string) = X<'T>
+
+    /// Imports an entire ES6 module.
+    [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
+    static member ImportAll<'T> (from: string) = X<'T>
+
+    /// Imports default export from an ES6 module.
+    [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
+    static member ImportDefault<'T> (from: string) = X<'T>

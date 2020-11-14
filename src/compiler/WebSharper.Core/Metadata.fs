@@ -491,6 +491,7 @@ type ICompilation =
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle
+    abstract AddJSImport : export: option<string> * from: string -> Expression 
 
 module IO =
     module B = Binary
