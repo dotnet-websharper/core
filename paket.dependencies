@@ -62,6 +62,7 @@ group fcs
     storage: none
     nuget FSharp.Compiler.Service ~> 38.0
     nuget FSharp.Core ~> 5.0.0
+    nuget System.Runtime.InteropServices.RuntimeInformation ~> 4.3.0
 
 group test
     source https://api.nuget.org/v3/index.json

@@ -186,6 +186,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) =
         else
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
 
+    failwith "before compile"
+
     let comp =
         compiler.Compile(refMeta, compilerArgs, config, thisName)
 
