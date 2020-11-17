@@ -11,7 +11,7 @@ nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 3.3.1
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.4.0
 nuget System.CodeDom ~> 4.4.0
 nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
@@ -48,7 +48,7 @@ group includes
     references: strict
     framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 
+    nuget NETStandard.Library
     nuget FSharp.Core ~> 4.7.0
 
 group fcs
