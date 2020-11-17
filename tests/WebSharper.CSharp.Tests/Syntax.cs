@@ -210,6 +210,22 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void SwitchExpression()
+        {
+            var arr = new List<int>();
+            for (int i = 0; i < 4; i++)
+                arr.Add(
+                    i switch
+                {
+                    0 => 1,
+                    _ when (i == 1 || i == 2) => 2,
+                    _ => 3
+                });
+            Equal(arr.ToArray(), new[] { 1, 2, 2, 3 });
+            Equal(arr[1], 2);
+        }
+
+        [Test]
         public void ArrayIndexer()
         {
             var arr = new[] { 1, 2 };
@@ -542,12 +558,14 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void NullCoalesce()
         {
-            NullTest x = null;
+#nullable enable
+            NullTest? x = null;
             Equal((x ?? new NullTest(42)).X(), 42, "object null case");
             x = new NullTest(53);
             Equal((x ?? new NullTest(42)).X(), 53, "object non-null case");
             Equal(x.Increment() ?? 12, 54, "check side effect 1");
             Equal(x.Increment() ?? 35, 55, "check side effect 2");
+#nullable disable
 
             int? y = null;
             Equal(y ?? 67, 67, "Nullable null case");
@@ -620,6 +638,28 @@ namespace WebSharper.CSharp.Tests
 
             Equal(r.ToArray(), new[] { 5 }, "expression variable in query");
         }
+
+        [Test]
+        public void TargetTypedNew()
+        {
+            string[] strings = { "5" };
+
+            JsEqual(strings, new[] { "5" });
+        }
+
+#if NETCORE30
+        [Test]
+        public void IndexTest()
+        {
+            string[] strings = { "0", "1", "2", "3", "4" };
+
+            Index i = 2;
+            Index j = ^2;
+
+            Equal(strings[i], "2");
+            Equal(strings[j], "3");
+        }
+#endif
     }
 
     [JavaScript]
