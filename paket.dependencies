@@ -6,12 +6,12 @@ source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
-nuget Microsoft.CSharp ~> 4.6.0 prerelease
+nuget Microsoft.CSharp ~> 4.6.0
 nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.Build.Utilities.Core ~> 15.3.0
 nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 3.0.0 prerelease
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.3.1
 nuget System.CodeDom ~> 4.4.0
 nuget System.Reflection.Emit.Lightweight ~> 4.3.0
 nuget System.Net.Http ~> 4.3.0
