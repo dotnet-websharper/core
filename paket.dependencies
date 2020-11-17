@@ -1,27 +1,17 @@
 references: strict
 redirects: on
 
-framework: net46, net461, netstandard2.0, netcoreapp3.1
+framework: net50
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
-nuget Microsoft.CSharp ~> 4.6.0
-nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.Build.Utilities.Core ~> 15.3.0
-nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 3.4.0
-nuget System.CodeDom ~> 4.4.0
-nuget System.Reflection.Emit.Lightweight ~> 4.3.0
-nuget System.Net.Http ~> 4.3.0
-nuget System.ValueTuple ~> 4.4.0
-nuget FSharp.Core 4.2.3
-
-nuget Microsoft.NETCore.Platforms ~> 2.0.0
-nuget NETStandard.Library ~> 2.0.0
-nuget System.Text.RegularExpressions ~> 4.3.0
-nuget System.Security.Cryptography.Csp ~> 4.3.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.8.0
+nuget FSharp.Core 5.0.0
+nuget System.CodeDom 5.0.0
+nuget System.Configuration.ConfigurationManager 5.0.0
+nuget Microsoft.Build.Utilities.Core 16.8.0
 
 group build
     framework: netstandard2.0
@@ -44,15 +34,8 @@ group build
 group wsbuild
     git https://github.com/dotnet-websharper/build-script fake5
 
-group includes
-    references: strict
-    framework: net46, net461, netstandard2.0, netcoreapp3.1
-    source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 
-    nuget FSharp.Core ~> 5.0.0
-
 group fcs
-    framework: net46, net461, netstandard2.0, netcoreapp3.1
+    framework: net50
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
