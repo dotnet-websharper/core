@@ -32,7 +32,7 @@ group build
     nuget Mono.Cecil
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script fake5
+    git https://github.com/dotnet-websharper/build-script dotnettool
 
 group fcs
     framework: net50
