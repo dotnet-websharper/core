@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <!-- The following has an extra .. because it's only used in single-target mode -->
     <WebSharperBundleOutputDir>..\..\..\tests\WebSharper.SPA.Tests\Content</WebSharperBundleOutputDir>

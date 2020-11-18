@@ -2,7 +2,7 @@ REFERENCES: STRICT
 REDIRECTS: ON
 STORAGE: NONE
 STRATEGY: MIN
-RESTRICTION: == netstandard2.0
+RESTRICTION: == netstandard2.1
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Core (5.0)
@@ -391,7 +391,7 @@ NUGET
 GROUP fcs
 STORAGE: NONE
 STRATEGY: MIN
-RESTRICTION: == netstandard2.0
+RESTRICTION: == netstandard2.1
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Compiler.Service (38.0)

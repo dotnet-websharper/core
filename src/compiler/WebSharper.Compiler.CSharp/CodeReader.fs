@@ -175,13 +175,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     let getContainingAssemblyName (t: ITypeSymbol) =
         match t.ContainingAssembly with
         | null -> comp.AssemblyName
-        | a ->
-            match getTypeFullName t with
-            | "" -> a.Name
-            | t ->
-                match AssemblyConventions.StandardAssemblyNameForTypeNamed t with
-                | Some n -> n
-                | None -> a.Name
+        | a -> a.Name
 
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with

@@ -25,21 +25,21 @@ open System
 open System.Globalization
 
 type Int32 with
-    static member FromString text =
+    static member FromString (text: string) =
         let ic = CultureInfo.InvariantCulture
         match Int32.TryParse(text, NumberStyles.Any, ic) with
         | true, x -> Some x
         | _ -> None
 
 type Int64 with
-    static member FromString text =
+    static member FromString (text: string) =
         let ic = CultureInfo.InvariantCulture
         match Int64.TryParse(text, NumberStyles.Any, ic) with
         | true, x -> Some x
         | _ -> None
 
 type Double with
-    static member FromString text =
+    static member FromString (text: string) =
         let ic = CultureInfo.InvariantCulture
         match Double.TryParse(text, NumberStyles.Any, ic) with
         | true, x -> Some x

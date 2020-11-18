@@ -83,7 +83,6 @@ module Bundling =
 
         let sourceMap = o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
-        let appConfig = None
         
         let graph =
             o.RefMetas |> Seq.map (fun m -> m.Dependencies)
@@ -104,19 +103,6 @@ module Bundling =
         let mutable map = None
         let mutable minmap = None
 
-        let getSetting =
-            match appConfig with
-            | None -> fun _ -> None
-            | Some p ->
-                let conf =
-                    ConfigurationManager.OpenMappedExeConfiguration(
-                        ExeConfigurationFileMap(ExeConfigFilename = p),
-                        ConfigurationUserLevel.None)
-                fun name ->
-                    match conf.AppSettings.Settings.[name] with
-                    | null -> None
-                    | x -> Some x.Value
-
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
         let concatScripts = not dce && not sourceMap
         if concatScripts then
@@ -127,7 +113,7 @@ module Bundling =
                 DebuggingEnabled = false
                 DefaultToHttp = false
                 ScriptBaseUrl = o.Config.ScriptBaseUrl
-                GetSetting = getSetting
+                GetSetting = fun _ -> None
                 GetAssemblyRendering = fun _ -> Res.Skip
                 GetWebResourceRendering = fun _ _-> Res.Skip
                 WebRoot = "/"
@@ -205,7 +191,7 @@ module Bundling =
                                     Res.Skip
                             | _ ->
                                 fun _ -> Res.Skip
-                        GetSetting = getSetting
+                        GetSetting = fun _ -> None
                         GetWebResourceRendering = fun ty name ->
                             let (c, cT) = Utility.ReadWebResource ty name
                             renderWebResource cT c

@@ -311,7 +311,7 @@ type Type =
         match this with
         | ArrayType (t, _) -> t.AssemblyName
         | ConcreteType (t, _) -> string t.AssemblyName
-        | GenericType _ -> AssemblyConventions.NetStandardFullName
+        | GenericType _ -> "netstandard"
 
     member this.AssemblyQualifiedName =
         System.String.Format(

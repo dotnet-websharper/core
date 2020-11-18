@@ -91,6 +91,26 @@ with
         | SyntaxKind.InKeyword -> InKeyword
         | k -> failwithf "Unexpected ArgumentRefKindKeyword kind: %O" k
 
+type [<RequireQualifiedAccess>] OrderingKind =
+    | AscendingOrdering 
+    | DescendingOrdering
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.AscendingOrdering -> AscendingOrdering
+        | SyntaxKind.DescendingOrdering -> DescendingOrdering
+        | _ -> failwithf "Unexpected OrderingKind kind: %O" k
+
+type [<RequireQualifiedAccess>] OrderingAscendingOrDescendingKeyword =
+    | AscendingKeyword 
+    | DescendingKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.AscendingKeyword -> AscendingKeyword
+        | SyntaxKind.DescendingKeyword -> DescendingKeyword
+        | k -> failwithf "Unexpected OrderingAscendingOrDescendingKeyword kind: %O" k
+
 type [<RequireQualifiedAccess>] GotoStatementKind =
     | GotoStatement       
     | GotoCaseStatement   
@@ -152,6 +172,210 @@ with
         | SyntaxKind.CheckedKeyword -> CheckedKeyword
         | SyntaxKind.UncheckedKeyword -> UncheckedKeyword
         | k -> failwithf "Unexpected CheckedStatementKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] ClassOrStructConstraintKind =
+    | ClassConstraint 
+    | StructConstraint
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.ClassConstraint -> ClassConstraint
+        | SyntaxKind.StructConstraint -> StructConstraint
+        | _ -> failwithf "Unexpected ClassOrStructConstraintKind kind: %O" k
+
+type [<RequireQualifiedAccess>] ClassOrStructConstraintClassOrStructKeyword =
+    | ClassKeyword 
+    | StructKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.ClassKeyword -> ClassKeyword
+        | SyntaxKind.StructKeyword -> StructKeyword
+        | k -> failwithf "Unexpected ClassOrStructConstraintClassOrStructKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] CrefParameterRefKindKeyword =
+    | RefKeyword
+    | OutKeyword
+    | InKeyword 
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.RefKeyword -> RefKeyword
+        | SyntaxKind.OutKeyword -> OutKeyword
+        | SyntaxKind.InKeyword -> InKeyword
+        | k -> failwithf "Unexpected CrefParameterRefKindKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] OperatorMemberCrefOperatorToken =
+    | PlusToken                  
+    | MinusToken                 
+    | ExclamationToken           
+    | TildeToken                 
+    | PlusPlusToken              
+    | MinusMinusToken            
+    | AsteriskToken              
+    | SlashToken                 
+    | PercentToken               
+    | LessThanLessThanToken      
+    | GreaterThanGreaterThanToken
+    | BarToken                   
+    | AmpersandToken             
+    | CaretToken                 
+    | EqualsEqualsToken          
+    | ExclamationEqualsToken     
+    | LessThanToken              
+    | LessThanEqualsToken        
+    | GreaterThanToken           
+    | GreaterThanEqualsToken     
+    | FalseKeyword               
+    | TrueKeyword                
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.PlusToken -> PlusToken
+        | SyntaxKind.MinusToken -> MinusToken
+        | SyntaxKind.ExclamationToken -> ExclamationToken
+        | SyntaxKind.TildeToken -> TildeToken
+        | SyntaxKind.PlusPlusToken -> PlusPlusToken
+        | SyntaxKind.MinusMinusToken -> MinusMinusToken
+        | SyntaxKind.AsteriskToken -> AsteriskToken
+        | SyntaxKind.SlashToken -> SlashToken
+        | SyntaxKind.PercentToken -> PercentToken
+        | SyntaxKind.LessThanLessThanToken -> LessThanLessThanToken
+        | SyntaxKind.GreaterThanGreaterThanToken -> GreaterThanGreaterThanToken
+        | SyntaxKind.BarToken -> BarToken
+        | SyntaxKind.AmpersandToken -> AmpersandToken
+        | SyntaxKind.CaretToken -> CaretToken
+        | SyntaxKind.EqualsEqualsToken -> EqualsEqualsToken
+        | SyntaxKind.ExclamationEqualsToken -> ExclamationEqualsToken
+        | SyntaxKind.LessThanToken -> LessThanToken
+        | SyntaxKind.LessThanEqualsToken -> LessThanEqualsToken
+        | SyntaxKind.GreaterThanToken -> GreaterThanToken
+        | SyntaxKind.GreaterThanEqualsToken -> GreaterThanEqualsToken
+        | SyntaxKind.FalseKeyword -> FalseKeyword
+        | SyntaxKind.TrueKeyword -> TrueKeyword
+        | k -> failwithf "Unexpected OperatorMemberCrefOperatorToken kind: %O" k
+
+type [<RequireQualifiedAccess>] ConversionOperatorMemberCrefImplicitOrExplicitKeyword =
+    | ImplicitKeyword
+    | ExplicitKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.ImplicitKeyword -> ImplicitKeyword
+        | SyntaxKind.ExplicitKeyword -> ExplicitKeyword
+        | k -> failwithf "Unexpected ConversionOperatorMemberCrefImplicitOrExplicitKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlTextAttributeStartQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlTextAttributeStartQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlTextAttributeEndQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlTextAttributeEndQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlCrefAttributeStartQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlCrefAttributeStartQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlCrefAttributeEndQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlCrefAttributeEndQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlNameAttributeStartQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlNameAttributeStartQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] XmlNameAttributeEndQuoteToken =
+    | SingleQuoteToken
+    | DoubleQuoteToken
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.SingleQuoteToken -> SingleQuoteToken
+        | SyntaxKind.DoubleQuoteToken -> DoubleQuoteToken
+        | k -> failwithf "Unexpected XmlNameAttributeEndQuoteToken kind: %O" k
+
+type [<RequireQualifiedAccess>] ConstructorInitializerKind =
+    | BaseConstructorInitializer
+    | ThisConstructorInitializer
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.BaseConstructorInitializer -> BaseConstructorInitializer
+        | SyntaxKind.ThisConstructorInitializer -> ThisConstructorInitializer
+        | _ -> failwithf "Unexpected ConstructorInitializerKind kind: %O" k
+
+type [<RequireQualifiedAccess>] ConstructorInitializerThisOrBaseKeyword =
+    | BaseKeyword
+    | ThisKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.BaseKeyword -> BaseKeyword
+        | SyntaxKind.ThisKeyword -> ThisKeyword
+        | k -> failwithf "Unexpected ConstructorInitializerThisOrBaseKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] AccessorDeclarationKind =
+    | GetAccessorDeclaration    
+    | SetAccessorDeclaration    
+    | AddAccessorDeclaration    
+    | RemoveAccessorDeclaration 
+    | UnknownAccessorDeclaration
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.GetAccessorDeclaration -> GetAccessorDeclaration
+        | SyntaxKind.SetAccessorDeclaration -> SetAccessorDeclaration
+        | SyntaxKind.AddAccessorDeclaration -> AddAccessorDeclaration
+        | SyntaxKind.RemoveAccessorDeclaration -> RemoveAccessorDeclaration
+        | SyntaxKind.UnknownAccessorDeclaration -> UnknownAccessorDeclaration
+        | _ -> failwithf "Unexpected AccessorDeclarationKind kind: %O" k
+
+type [<RequireQualifiedAccess>] AccessorDeclarationKeyword =
+    | GetKeyword     
+    | SetKeyword     
+    | AddKeyword     
+    | RemoveKeyword  
+    | IdentifierToken of string
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.GetKeyword -> GetKeyword
+        | SyntaxKind.SetKeyword -> SetKeyword
+        | SyntaxKind.AddKeyword -> AddKeyword
+        | SyntaxKind.RemoveKeyword -> RemoveKeyword
+        | SyntaxKind.IdentifierToken -> IdentifierToken t.Text
+        | k -> failwithf "Unexpected AccessorDeclarationKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] PrefixUnaryExpressionKind =
     | UnaryPlusExpression         
@@ -479,26 +703,6 @@ with
         | SyntaxKind.ComplexElementInitializerExpression -> ComplexElementInitializerExpression
         | _ -> failwithf "Unexpected InitializerExpressionKind kind: %O" k
 
-type [<RequireQualifiedAccess>] OrderingKind =
-    | AscendingOrdering 
-    | DescendingOrdering
-with
-    static member FromKind(k: SyntaxKind) =
-        match k with
-        | SyntaxKind.AscendingOrdering -> AscendingOrdering
-        | SyntaxKind.DescendingOrdering -> DescendingOrdering
-        | _ -> failwithf "Unexpected OrderingKind kind: %O" k
-
-type [<RequireQualifiedAccess>] OrderingAscendingOrDescendingKeyword =
-    | AscendingKeyword 
-    | DescendingKeyword
-with
-    static member FromToken(t: SyntaxToken) =
-        match t.Kind() with
-        | SyntaxKind.AscendingKeyword -> AscendingKeyword
-        | SyntaxKind.DescendingKeyword -> DescendingKeyword
-        | k -> failwithf "Unexpected OrderingAscendingOrDescendingKeyword kind: %O" k
-
 type [<RequireQualifiedAccess>] InterpolatedStringExpressionStringStartToken =
     | InterpolatedStringStartToken        
     | InterpolatedVerbatimStringStartToken
@@ -570,26 +774,6 @@ with
         | SyntaxKind.ImplicitKeyword -> ImplicitKeyword
         | SyntaxKind.ExplicitKeyword -> ExplicitKeyword
         | k -> failwithf "Unexpected ConversionOperatorDeclarationImplicitOrExplicitKeyword kind: %O" k
-
-type [<RequireQualifiedAccess>] ConstructorInitializerKind =
-    | BaseConstructorInitializer
-    | ThisConstructorInitializer
-with
-    static member FromKind(k: SyntaxKind) =
-        match k with
-        | SyntaxKind.BaseConstructorInitializer -> BaseConstructorInitializer
-        | SyntaxKind.ThisConstructorInitializer -> ThisConstructorInitializer
-        | _ -> failwithf "Unexpected ConstructorInitializerKind kind: %O" k
-
-type [<RequireQualifiedAccess>] ConstructorInitializerThisOrBaseKeyword =
-    | BaseKeyword
-    | ThisKeyword
-with
-    static member FromToken(t: SyntaxToken) =
-        match t.Kind() with
-        | SyntaxKind.BaseKeyword -> BaseKeyword
-        | SyntaxKind.ThisKeyword -> ThisKeyword
-        | k -> failwithf "Unexpected ConstructorInitializerThisOrBaseKeyword kind: %O" k
 
 type TypeParameterData(node: TypeParameterSyntax) =
     member this.Node = node
@@ -700,72 +884,6 @@ and ParameterData(node: ParameterSyntax) =
     member this.Default = node.Default |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
     static member FromNode(n: ParameterSyntax) = ParameterData(n)
 
-and SimpleLambdaExpressionData(node: SimpleLambdaExpressionSyntax) =
-    member this.Node = node
-    member this.Parameter = node.Parameter |> ParameterData.FromNode
-    static member FromNode(n: SimpleLambdaExpressionSyntax) = SimpleLambdaExpressionData(n)
-
-and ParameterListData(node: ParameterListSyntax) =
-    member this.Node = node
-    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
-    static member FromNode(n: ParameterListSyntax) = ParameterListData(n)
-
-and ParenthesizedLambdaExpressionData(node: ParenthesizedLambdaExpressionSyntax) =
-    member this.Node = node
-    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
-    static member FromNode(n: ParenthesizedLambdaExpressionSyntax) = ParenthesizedLambdaExpressionData(n)
-
-and [<RequireQualifiedAccess>] LambdaExpressionData =
-    | SimpleLambdaExpression        of SimpleLambdaExpressionData
-    | ParenthesizedLambdaExpression of ParenthesizedLambdaExpressionData
-with
-    static member FromNode(n: LambdaExpressionSyntax) =
-        match n with
-        | :? SimpleLambdaExpressionSyntax as d -> SimpleLambdaExpression (SimpleLambdaExpressionData.FromNode(d))
-        | :? ParenthesizedLambdaExpressionSyntax as d -> ParenthesizedLambdaExpression (ParenthesizedLambdaExpressionData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of LambdaExpressionSyntax"
-    member this.Node =
-        match this with
-        | SimpleLambdaExpression d -> d.Node :> LambdaExpressionSyntax
-        | ParenthesizedLambdaExpression d -> d.Node :> LambdaExpressionSyntax
-
-and ForEachStatementData(node: ForEachStatementSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> TypeData.FromNode
-    member this.Identifier = node.Identifier
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: ForEachStatementSyntax) = ForEachStatementData(n)
-
-and ForEachVariableStatementData(node: ForEachVariableStatementSyntax) =
-    member this.Node = node
-    member this.Variable = node.Variable |> ExpressionData.FromNode
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: ForEachVariableStatementSyntax) = ForEachVariableStatementData(n)
-
-and [<RequireQualifiedAccess>] CommonForEachStatementData =
-    | ForEachStatement         of ForEachStatementData
-    | ForEachVariableStatement of ForEachVariableStatementData
-with
-    static member FromNode(n: CommonForEachStatementSyntax) =
-        match n with
-        | :? ForEachStatementSyntax as d -> ForEachStatement (ForEachStatementData.FromNode(d))
-        | :? ForEachVariableStatementSyntax as d -> ForEachVariableStatement (ForEachVariableStatementData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of CommonForEachStatementSyntax"
-    member this.Node =
-        match this with
-        | ForEachStatement d -> d.Node :> CommonForEachStatementSyntax
-        | ForEachVariableStatement d -> d.Node :> CommonForEachStatementSyntax
-
-and LocalFunctionStatementData(node: LocalFunctionStatementSyntax) =
-    member this.Node = node
-    member this.ReturnType = node.ReturnType |> TypeData.FromNode
-    member this.Identifier = node.Identifier
-    member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
-    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
-    static member FromNode(n: LocalFunctionStatementSyntax) = LocalFunctionStatementData(n)
-
 and NameColonData(node: NameColonSyntax) =
     member this.Node = node
     member this.Name = node.Name |> IdentifierNameData.FromNode
@@ -778,135 +896,122 @@ and ArgumentData(node: ArgumentSyntax) =
     member this.Expression = node.Expression |> ExpressionData.FromNode
     static member FromNode(n: ArgumentSyntax) = ArgumentData(n)
 
+and ArgumentListData(node: ArgumentListSyntax) =
+    member this.Node = node
+    member this.Arguments = node.Arguments |> Seq.map ArgumentData.FromNode
+    static member FromNode(n: ArgumentListSyntax) = ArgumentListData(n)
+
 and BracketedArgumentListData(node: BracketedArgumentListSyntax) =
     member this.Node = node
     member this.Arguments = node.Arguments |> Seq.map ArgumentData.FromNode
     static member FromNode(n: BracketedArgumentListSyntax) = BracketedArgumentListData(n)
 
-and VariableDeclaratorData(node: VariableDeclaratorSyntax) =
+and [<RequireQualifiedAccess>] BaseArgumentListData =
+    | ArgumentList          of ArgumentListData
+    | BracketedArgumentList of BracketedArgumentListData
+with
+    static member FromNode(n: BaseArgumentListSyntax) =
+        match n with
+        | :? ArgumentListSyntax as d -> ArgumentList (ArgumentListData.FromNode(d))
+        | :? BracketedArgumentListSyntax as d -> BracketedArgumentList (BracketedArgumentListData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of BaseArgumentListSyntax"
+    member this.Node =
+        match this with
+        | ArgumentList d -> d.Node :> BaseArgumentListSyntax
+        | BracketedArgumentList d -> d.Node :> BaseArgumentListSyntax
+
+and FromClauseData(node: FromClauseSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
+    member this.Identifier = node.Identifier
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: FromClauseSyntax) = FromClauseData(n)
+
+and LetClauseData(node: LetClauseSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
-    member this.ArgumentList = node.ArgumentList |> Option.ofObj |> Option.map BracketedArgumentListData.FromNode
-    member this.Initializer = node.Initializer |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
-    static member FromNode(n: VariableDeclaratorSyntax) = VariableDeclaratorData(n)
-
-and VariableDeclarationData(node: VariableDeclarationSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> TypeData.FromNode
-    member this.Variables = node.Variables |> Seq.map VariableDeclaratorData.FromNode
-    static member FromNode(n: VariableDeclarationSyntax) = VariableDeclarationData(n)
-
-and LocalDeclarationStatementData(node: LocalDeclarationStatementSyntax) =
-    member this.Node = node
-    member this.Declaration = node.Declaration |> VariableDeclarationData.FromNode
-    static member FromNode(n: LocalDeclarationStatementSyntax) = LocalDeclarationStatementData(n)
-
-and ExpressionStatementData(node: ExpressionStatementSyntax) =
-    member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: ExpressionStatementSyntax) = ExpressionStatementData(n)
+    static member FromNode(n: LetClauseSyntax) = LetClauseData(n)
 
-and EmptyStatementData(node: EmptyStatementSyntax) =
-    member this.Node = node
-    static member FromNode(n: EmptyStatementSyntax) = EmptyStatementData(n)
-
-and LabeledStatementData(node: LabeledStatementSyntax) =
+and JoinIntoClauseData(node: JoinIntoClauseSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: LabeledStatementSyntax) = LabeledStatementData(n)
+    static member FromNode(n: JoinIntoClauseSyntax) = JoinIntoClauseData(n)
 
-and GotoStatementData(node: GotoStatementSyntax) =
+and JoinClauseData(node: JoinClauseSyntax) =
     member this.Node = node
-    member this.Kind = GotoStatementKind.FromKind(node.Kind())
-    member this.CaseOrDefaultKeyword = node.CaseOrDefaultKeyword |> optionalToken |> Option.map GotoStatementCaseOrDefaultKeyword.FromToken
-    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
-    static member FromNode(n: GotoStatementSyntax) = GotoStatementData(n)
+    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
+    member this.Identifier = node.Identifier
+    member this.InExpression = node.InExpression |> ExpressionData.FromNode
+    member this.LeftExpression = node.LeftExpression |> ExpressionData.FromNode
+    member this.RightExpression = node.RightExpression |> ExpressionData.FromNode
+    member this.Into = node.Into |> Option.ofObj |> Option.map JoinIntoClauseData.FromNode
+    static member FromNode(n: JoinClauseSyntax) = JoinClauseData(n)
 
-and BreakStatementData(node: BreakStatementSyntax) =
-    member this.Node = node
-    static member FromNode(n: BreakStatementSyntax) = BreakStatementData(n)
-
-and ContinueStatementData(node: ContinueStatementSyntax) =
-    member this.Node = node
-    static member FromNode(n: ContinueStatementSyntax) = ContinueStatementData(n)
-
-and ReturnStatementData(node: ReturnStatementSyntax) =
-    member this.Node = node
-    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
-    static member FromNode(n: ReturnStatementSyntax) = ReturnStatementData(n)
-
-and ThrowStatementData(node: ThrowStatementSyntax) =
-    member this.Node = node
-    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
-    static member FromNode(n: ThrowStatementSyntax) = ThrowStatementData(n)
-
-and YieldStatementData(node: YieldStatementSyntax) =
-    member this.Node = node
-    member this.Kind = YieldStatementKind.FromKind(node.Kind())
-    member this.ReturnOrBreakKeyword = node.ReturnOrBreakKeyword |> YieldStatementReturnOrBreakKeyword.FromToken
-    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
-    static member FromNode(n: YieldStatementSyntax) = YieldStatementData(n)
-
-and WhileStatementData(node: WhileStatementSyntax) =
+and WhereClauseData(node: WhereClauseSyntax) =
     member this.Node = node
     member this.Condition = node.Condition |> ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: WhileStatementSyntax) = WhileStatementData(n)
+    static member FromNode(n: WhereClauseSyntax) = WhereClauseData(n)
 
-and DoStatementData(node: DoStatementSyntax) =
+and OrderingData(node: OrderingSyntax) =
     member this.Node = node
-    member this.Statement = node.Statement |> StatementData.FromNode
-    member this.Condition = node.Condition |> ExpressionData.FromNode
-    static member FromNode(n: DoStatementSyntax) = DoStatementData(n)
+    member this.Kind = OrderingKind.FromKind(node.Kind())
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    member this.AscendingOrDescendingKeyword = node.AscendingOrDescendingKeyword |> optionalToken |> Option.map OrderingAscendingOrDescendingKeyword.FromToken
+    static member FromNode(n: OrderingSyntax) = OrderingData(n)
 
-and ForStatementData(node: ForStatementSyntax) =
+and OrderByClauseData(node: OrderByClauseSyntax) =
     member this.Node = node
-    member this.Condition = node.Condition |> Option.ofObj |> Option.map ExpressionData.FromNode
-    member this.Incrementors = node.Incrementors |> Seq.map ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: ForStatementSyntax) = ForStatementData(n)
+    member this.Orderings = node.Orderings |> Seq.map OrderingData.FromNode
+    static member FromNode(n: OrderByClauseSyntax) = OrderByClauseData(n)
 
-and UsingStatementData(node: UsingStatementSyntax) =
-    member this.Node = node
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: UsingStatementSyntax) = UsingStatementData(n)
+and [<RequireQualifiedAccess>] QueryClauseData =
+    | FromClause    of FromClauseData
+    | LetClause     of LetClauseData
+    | JoinClause    of JoinClauseData
+    | WhereClause   of WhereClauseData
+    | OrderByClause of OrderByClauseData
+with
+    static member FromNode(n: QueryClauseSyntax) =
+        match n with
+        | :? FromClauseSyntax as d -> FromClause (FromClauseData.FromNode(d))
+        | :? LetClauseSyntax as d -> LetClause (LetClauseData.FromNode(d))
+        | :? JoinClauseSyntax as d -> JoinClause (JoinClauseData.FromNode(d))
+        | :? WhereClauseSyntax as d -> WhereClause (WhereClauseData.FromNode(d))
+        | :? OrderByClauseSyntax as d -> OrderByClause (OrderByClauseData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of QueryClauseSyntax"
+    member this.Node =
+        match this with
+        | FromClause d -> d.Node :> QueryClauseSyntax
+        | LetClause d -> d.Node :> QueryClauseSyntax
+        | JoinClause d -> d.Node :> QueryClauseSyntax
+        | WhereClause d -> d.Node :> QueryClauseSyntax
+        | OrderByClause d -> d.Node :> QueryClauseSyntax
 
-and FixedStatementData(node: FixedStatementSyntax) =
-    member this.Node = node
-    member this.Declaration = node.Declaration |> VariableDeclarationData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: FixedStatementSyntax) = FixedStatementData(n)
-
-and CheckedStatementData(node: CheckedStatementSyntax) =
-    member this.Node = node
-    member this.Kind = CheckedStatementKind.FromKind(node.Kind())
-    member this.Keyword = node.Keyword |> CheckedStatementKeyword.FromToken
-    member this.Block = node.Block |> BlockData.FromNode
-    static member FromNode(n: CheckedStatementSyntax) = CheckedStatementData(n)
-
-and UnsafeStatementData(node: UnsafeStatementSyntax) =
-    member this.Node = node
-    member this.Block = node.Block |> BlockData.FromNode
-    static member FromNode(n: UnsafeStatementSyntax) = UnsafeStatementData(n)
-
-and LockStatementData(node: LockStatementSyntax) =
+and SelectClauseData(node: SelectClauseSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: LockStatementSyntax) = LockStatementData(n)
+    static member FromNode(n: SelectClauseSyntax) = SelectClauseData(n)
 
-and ElseClauseData(node: ElseClauseSyntax) =
+and GroupClauseData(node: GroupClauseSyntax) =
     member this.Node = node
-    member this.Statement = node.Statement |> StatementData.FromNode
-    static member FromNode(n: ElseClauseSyntax) = ElseClauseData(n)
+    member this.GroupExpression = node.GroupExpression |> ExpressionData.FromNode
+    member this.ByExpression = node.ByExpression |> ExpressionData.FromNode
+    static member FromNode(n: GroupClauseSyntax) = GroupClauseData(n)
 
-and IfStatementData(node: IfStatementSyntax) =
-    member this.Node = node
-    member this.Condition = node.Condition |> ExpressionData.FromNode
-    member this.Statement = node.Statement |> StatementData.FromNode
-    member this.Else = node.Else |> Option.ofObj |> Option.map ElseClauseData.FromNode
-    static member FromNode(n: IfStatementSyntax) = IfStatementData(n)
+and [<RequireQualifiedAccess>] SelectOrGroupClauseData =
+    | SelectClause of SelectClauseData
+    | GroupClause  of GroupClauseData
+with
+    static member FromNode(n: SelectOrGroupClauseSyntax) =
+        match n with
+        | :? SelectClauseSyntax as d -> SelectClause (SelectClauseData.FromNode(d))
+        | :? GroupClauseSyntax as d -> GroupClause (GroupClauseData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of SelectOrGroupClauseSyntax"
+    member this.Node =
+        match this with
+        | SelectClause d -> d.Node :> SelectOrGroupClauseSyntax
+        | GroupClause d -> d.Node :> SelectOrGroupClauseSyntax
 
 and DiscardPatternData(node: DiscardPatternSyntax) =
     member this.Node = node
@@ -1005,6 +1110,223 @@ with
         | VarPattern d -> d.Node :> PatternSyntax
         | RecursivePattern d -> d.Node :> PatternSyntax
         | ConstantPattern d -> d.Node :> PatternSyntax
+
+and InterpolatedStringTextData(node: InterpolatedStringTextSyntax) =
+    member this.Node = node
+    static member FromNode(n: InterpolatedStringTextSyntax) = InterpolatedStringTextData(n)
+
+and InterpolationAlignmentClauseData(node: InterpolationAlignmentClauseSyntax) =
+    member this.Node = node
+    member this.Value = node.Value |> ExpressionData.FromNode
+    static member FromNode(n: InterpolationAlignmentClauseSyntax) = InterpolationAlignmentClauseData(n)
+
+and InterpolationFormatClauseData(node: InterpolationFormatClauseSyntax) =
+    member this.Node = node
+    static member FromNode(n: InterpolationFormatClauseSyntax) = InterpolationFormatClauseData(n)
+
+and InterpolationData(node: InterpolationSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    member this.AlignmentClause = node.AlignmentClause |> Option.ofObj |> Option.map InterpolationAlignmentClauseData.FromNode
+    member this.FormatClause = node.FormatClause |> Option.ofObj |> Option.map InterpolationFormatClauseData.FromNode
+    static member FromNode(n: InterpolationSyntax) = InterpolationData(n)
+
+and [<RequireQualifiedAccess>] InterpolatedStringContentData =
+    | InterpolatedStringText of InterpolatedStringTextData
+    | Interpolation          of InterpolationData
+with
+    static member FromNode(n: InterpolatedStringContentSyntax) =
+        match n with
+        | :? InterpolatedStringTextSyntax as d -> InterpolatedStringText (InterpolatedStringTextData.FromNode(d))
+        | :? InterpolationSyntax as d -> Interpolation (InterpolationData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of InterpolatedStringContentSyntax"
+    member this.Node =
+        match this with
+        | InterpolatedStringText d -> d.Node :> InterpolatedStringContentSyntax
+        | Interpolation d -> d.Node :> InterpolatedStringContentSyntax
+
+and ForEachStatementData(node: ForEachStatementSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    member this.Identifier = node.Identifier
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: ForEachStatementSyntax) = ForEachStatementData(n)
+
+and ForEachVariableStatementData(node: ForEachVariableStatementSyntax) =
+    member this.Node = node
+    member this.Variable = node.Variable |> ExpressionData.FromNode
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: ForEachVariableStatementSyntax) = ForEachVariableStatementData(n)
+
+and [<RequireQualifiedAccess>] CommonForEachStatementData =
+    | ForEachStatement         of ForEachStatementData
+    | ForEachVariableStatement of ForEachVariableStatementData
+with
+    static member FromNode(n: CommonForEachStatementSyntax) =
+        match n with
+        | :? ForEachStatementSyntax as d -> ForEachStatement (ForEachStatementData.FromNode(d))
+        | :? ForEachVariableStatementSyntax as d -> ForEachVariableStatement (ForEachVariableStatementData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of CommonForEachStatementSyntax"
+    member this.Node =
+        match this with
+        | ForEachStatement d -> d.Node :> CommonForEachStatementSyntax
+        | ForEachVariableStatement d -> d.Node :> CommonForEachStatementSyntax
+
+and BlockData(node: BlockSyntax) =
+    member this.Node = node
+    member this.Statements = node.Statements |> Seq.map StatementData.FromNode
+    static member FromNode(n: BlockSyntax) = BlockData(n)
+
+and ParameterListData(node: ParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
+    static member FromNode(n: ParameterListSyntax) = ParameterListData(n)
+
+and ArrowExpressionClauseData(node: ArrowExpressionClauseSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: ArrowExpressionClauseSyntax) = ArrowExpressionClauseData(n)
+
+and LocalFunctionStatementData(node: LocalFunctionStatementSyntax) =
+    member this.Node = node
+    member this.ReturnType = node.ReturnType |> TypeData.FromNode
+    member this.Identifier = node.Identifier
+    member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
+    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    static member FromNode(n: LocalFunctionStatementSyntax) = LocalFunctionStatementData(n)
+
+and VariableDeclaratorData(node: VariableDeclaratorSyntax) =
+    member this.Node = node
+    member this.Identifier = node.Identifier
+    member this.ArgumentList = node.ArgumentList |> Option.ofObj |> Option.map BracketedArgumentListData.FromNode
+    member this.Initializer = node.Initializer |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
+    static member FromNode(n: VariableDeclaratorSyntax) = VariableDeclaratorData(n)
+
+and VariableDeclarationData(node: VariableDeclarationSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    member this.Variables = node.Variables |> Seq.map VariableDeclaratorData.FromNode
+    static member FromNode(n: VariableDeclarationSyntax) = VariableDeclarationData(n)
+
+and LocalDeclarationStatementData(node: LocalDeclarationStatementSyntax) =
+    member this.Node = node
+    member this.Declaration = node.Declaration |> VariableDeclarationData.FromNode
+    static member FromNode(n: LocalDeclarationStatementSyntax) = LocalDeclarationStatementData(n)
+
+and ExpressionStatementData(node: ExpressionStatementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: ExpressionStatementSyntax) = ExpressionStatementData(n)
+
+and EmptyStatementData(node: EmptyStatementSyntax) =
+    member this.Node = node
+    static member FromNode(n: EmptyStatementSyntax) = EmptyStatementData(n)
+
+and LabeledStatementData(node: LabeledStatementSyntax) =
+    member this.Node = node
+    member this.Identifier = node.Identifier
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: LabeledStatementSyntax) = LabeledStatementData(n)
+
+and GotoStatementData(node: GotoStatementSyntax) =
+    member this.Node = node
+    member this.Kind = GotoStatementKind.FromKind(node.Kind())
+    member this.CaseOrDefaultKeyword = node.CaseOrDefaultKeyword |> optionalToken |> Option.map GotoStatementCaseOrDefaultKeyword.FromToken
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
+    static member FromNode(n: GotoStatementSyntax) = GotoStatementData(n)
+
+and BreakStatementData(node: BreakStatementSyntax) =
+    member this.Node = node
+    static member FromNode(n: BreakStatementSyntax) = BreakStatementData(n)
+
+and ContinueStatementData(node: ContinueStatementSyntax) =
+    member this.Node = node
+    static member FromNode(n: ContinueStatementSyntax) = ContinueStatementData(n)
+
+and ReturnStatementData(node: ReturnStatementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
+    static member FromNode(n: ReturnStatementSyntax) = ReturnStatementData(n)
+
+and ThrowStatementData(node: ThrowStatementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
+    static member FromNode(n: ThrowStatementSyntax) = ThrowStatementData(n)
+
+and YieldStatementData(node: YieldStatementSyntax) =
+    member this.Node = node
+    member this.Kind = YieldStatementKind.FromKind(node.Kind())
+    member this.ReturnOrBreakKeyword = node.ReturnOrBreakKeyword |> YieldStatementReturnOrBreakKeyword.FromToken
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
+    static member FromNode(n: YieldStatementSyntax) = YieldStatementData(n)
+
+and WhileStatementData(node: WhileStatementSyntax) =
+    member this.Node = node
+    member this.Condition = node.Condition |> ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: WhileStatementSyntax) = WhileStatementData(n)
+
+and DoStatementData(node: DoStatementSyntax) =
+    member this.Node = node
+    member this.Statement = node.Statement |> StatementData.FromNode
+    member this.Condition = node.Condition |> ExpressionData.FromNode
+    static member FromNode(n: DoStatementSyntax) = DoStatementData(n)
+
+and ForStatementData(node: ForStatementSyntax) =
+    member this.Node = node
+    member this.Declaration = node.Declaration |> Option.ofObj |> Option.map VariableDeclarationData.FromNode
+    member this.Initializers = node.Initializers |> Seq.map ExpressionData.FromNode
+    member this.Condition = node.Condition |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.Incrementors = node.Incrementors |> Seq.map ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: ForStatementSyntax) = ForStatementData(n)
+
+and UsingStatementData(node: UsingStatementSyntax) =
+    member this.Node = node
+    member this.Declaration = node.Declaration |> Option.ofObj |> Option.map VariableDeclarationData.FromNode
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: UsingStatementSyntax) = UsingStatementData(n)
+
+and FixedStatementData(node: FixedStatementSyntax) =
+    member this.Node = node
+    member this.Declaration = node.Declaration |> VariableDeclarationData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: FixedStatementSyntax) = FixedStatementData(n)
+
+and CheckedStatementData(node: CheckedStatementSyntax) =
+    member this.Node = node
+    member this.Kind = CheckedStatementKind.FromKind(node.Kind())
+    member this.Keyword = node.Keyword |> CheckedStatementKeyword.FromToken
+    member this.Block = node.Block |> BlockData.FromNode
+    static member FromNode(n: CheckedStatementSyntax) = CheckedStatementData(n)
+
+and UnsafeStatementData(node: UnsafeStatementSyntax) =
+    member this.Node = node
+    member this.Block = node.Block |> BlockData.FromNode
+    static member FromNode(n: UnsafeStatementSyntax) = UnsafeStatementData(n)
+
+and LockStatementData(node: LockStatementSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: LockStatementSyntax) = LockStatementData(n)
+
+and ElseClauseData(node: ElseClauseSyntax) =
+    member this.Node = node
+    member this.Statement = node.Statement |> StatementData.FromNode
+    static member FromNode(n: ElseClauseSyntax) = ElseClauseData(n)
+
+and IfStatementData(node: IfStatementSyntax) =
+    member this.Node = node
+    member this.Condition = node.Condition |> ExpressionData.FromNode
+    member this.Statement = node.Statement |> StatementData.FromNode
+    member this.Else = node.Else |> Option.ofObj |> Option.map ElseClauseData.FromNode
+    static member FromNode(n: IfStatementSyntax) = IfStatementData(n)
 
 and WhenClauseData(node: WhenClauseSyntax) =
     member this.Node = node
@@ -1165,16 +1487,588 @@ with
         | SwitchStatement d -> d.Node :> StatementSyntax
         | TryStatement d -> d.Node :> StatementSyntax
 
-and BlockData(node: BlockSyntax) =
+and ConstructorConstraintData(node: ConstructorConstraintSyntax) =
     member this.Node = node
-    member this.Statements = node.Statements |> Seq.map StatementData.FromNode
-    static member FromNode(n: BlockSyntax) = BlockData(n)
+    static member FromNode(n: ConstructorConstraintSyntax) = ConstructorConstraintData(n)
+
+and ClassOrStructConstraintData(node: ClassOrStructConstraintSyntax) =
+    member this.Node = node
+    member this.Kind = ClassOrStructConstraintKind.FromKind(node.Kind())
+    member this.ClassOrStructKeyword = node.ClassOrStructKeyword |> ClassOrStructConstraintClassOrStructKeyword.FromToken
+    static member FromNode(n: ClassOrStructConstraintSyntax) = ClassOrStructConstraintData(n)
+
+and TypeConstraintData(node: TypeConstraintSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    static member FromNode(n: TypeConstraintSyntax) = TypeConstraintData(n)
+
+and [<RequireQualifiedAccess>] TypeParameterConstraintData =
+    | ConstructorConstraint   of ConstructorConstraintData
+    | ClassOrStructConstraint of ClassOrStructConstraintData
+    | TypeConstraint          of TypeConstraintData
+with
+    static member FromNode(n: TypeParameterConstraintSyntax) =
+        match n with
+        | :? ConstructorConstraintSyntax as d -> ConstructorConstraint (ConstructorConstraintData.FromNode(d))
+        | :? ClassOrStructConstraintSyntax as d -> ClassOrStructConstraint (ClassOrStructConstraintData.FromNode(d))
+        | :? TypeConstraintSyntax as d -> TypeConstraint (TypeConstraintData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of TypeParameterConstraintSyntax"
+    member this.Node =
+        match this with
+        | ConstructorConstraint d -> d.Node :> TypeParameterConstraintSyntax
+        | ClassOrStructConstraint d -> d.Node :> TypeParameterConstraintSyntax
+        | TypeConstraint d -> d.Node :> TypeParameterConstraintSyntax
+
+and BracketedParameterListData(node: BracketedParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
+    static member FromNode(n: BracketedParameterListSyntax) = BracketedParameterListData(n)
+
+and [<RequireQualifiedAccess>] BaseParameterListData =
+    | ParameterList          of ParameterListData
+    | BracketedParameterList of BracketedParameterListData
+with
+    static member FromNode(n: BaseParameterListSyntax) =
+        match n with
+        | :? ParameterListSyntax as d -> ParameterList (ParameterListData.FromNode(d))
+        | :? BracketedParameterListSyntax as d -> BracketedParameterList (BracketedParameterListData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of BaseParameterListSyntax"
+    member this.Node =
+        match this with
+        | ParameterList d -> d.Node :> BaseParameterListSyntax
+        | BracketedParameterList d -> d.Node :> BaseParameterListSyntax
+
+and CrefParameterData(node: CrefParameterSyntax) =
+    member this.Node = node
+    member this.RefKindKeyword = node.RefKindKeyword |> optionalToken |> Option.map CrefParameterRefKindKeyword.FromToken
+    member this.Type = node.Type |> TypeData.FromNode
+    static member FromNode(n: CrefParameterSyntax) = CrefParameterData(n)
+
+and CrefParameterListData(node: CrefParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map CrefParameterData.FromNode
+    static member FromNode(n: CrefParameterListSyntax) = CrefParameterListData(n)
+
+and NameMemberCrefData(node: NameMemberCrefSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> TypeData.FromNode
+    member this.Parameters = node.Parameters |> Option.ofObj |> Option.map CrefParameterListData.FromNode
+    static member FromNode(n: NameMemberCrefSyntax) = NameMemberCrefData(n)
+
+and CrefBracketedParameterListData(node: CrefBracketedParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map CrefParameterData.FromNode
+    static member FromNode(n: CrefBracketedParameterListSyntax) = CrefBracketedParameterListData(n)
+
+and IndexerMemberCrefData(node: IndexerMemberCrefSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Option.ofObj |> Option.map CrefBracketedParameterListData.FromNode
+    static member FromNode(n: IndexerMemberCrefSyntax) = IndexerMemberCrefData(n)
+
+and OperatorMemberCrefData(node: OperatorMemberCrefSyntax) =
+    member this.Node = node
+    member this.OperatorToken = node.OperatorToken |> OperatorMemberCrefOperatorToken.FromToken
+    member this.Parameters = node.Parameters |> Option.ofObj |> Option.map CrefParameterListData.FromNode
+    static member FromNode(n: OperatorMemberCrefSyntax) = OperatorMemberCrefData(n)
+
+and ConversionOperatorMemberCrefData(node: ConversionOperatorMemberCrefSyntax) =
+    member this.Node = node
+    member this.ImplicitOrExplicitKeyword = node.ImplicitOrExplicitKeyword |> ConversionOperatorMemberCrefImplicitOrExplicitKeyword.FromToken
+    member this.Type = node.Type |> TypeData.FromNode
+    member this.Parameters = node.Parameters |> Option.ofObj |> Option.map CrefParameterListData.FromNode
+    static member FromNode(n: ConversionOperatorMemberCrefSyntax) = ConversionOperatorMemberCrefData(n)
+
+and [<RequireQualifiedAccess>] MemberCrefData =
+    | NameMemberCref               of NameMemberCrefData
+    | IndexerMemberCref            of IndexerMemberCrefData
+    | OperatorMemberCref           of OperatorMemberCrefData
+    | ConversionOperatorMemberCref of ConversionOperatorMemberCrefData
+with
+    static member FromNode(n: MemberCrefSyntax) =
+        match n with
+        | :? NameMemberCrefSyntax as d -> NameMemberCref (NameMemberCrefData.FromNode(d))
+        | :? IndexerMemberCrefSyntax as d -> IndexerMemberCref (IndexerMemberCrefData.FromNode(d))
+        | :? OperatorMemberCrefSyntax as d -> OperatorMemberCref (OperatorMemberCrefData.FromNode(d))
+        | :? ConversionOperatorMemberCrefSyntax as d -> ConversionOperatorMemberCref (ConversionOperatorMemberCrefData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of MemberCrefSyntax"
+    member this.Node =
+        match this with
+        | NameMemberCref d -> d.Node :> MemberCrefSyntax
+        | IndexerMemberCref d -> d.Node :> MemberCrefSyntax
+        | OperatorMemberCref d -> d.Node :> MemberCrefSyntax
+        | ConversionOperatorMemberCref d -> d.Node :> MemberCrefSyntax
+
+and TypeCrefData(node: TypeCrefSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    static member FromNode(n: TypeCrefSyntax) = TypeCrefData(n)
+
+and QualifiedCrefData(node: QualifiedCrefSyntax) =
+    member this.Node = node
+    member this.Container = node.Container |> TypeData.FromNode
+    member this.Member = node.Member |> MemberCrefData.FromNode
+    static member FromNode(n: QualifiedCrefSyntax) = QualifiedCrefData(n)
+
+and [<RequireQualifiedAccess>] CrefData =
+    | MemberCref    of MemberCrefData
+    | TypeCref      of TypeCrefData
+    | QualifiedCref of QualifiedCrefData
+with
+    static member FromNode(n: CrefSyntax) =
+        match n with
+        | :? MemberCrefSyntax as d -> MemberCref (MemberCrefData.FromNode(d))
+        | :? TypeCrefSyntax as d -> TypeCref (TypeCrefData.FromNode(d))
+        | :? QualifiedCrefSyntax as d -> QualifiedCref (QualifiedCrefData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of CrefSyntax"
+    member this.Node =
+        match this with
+        | MemberCref d -> d.Node :> CrefSyntax
+        | TypeCref d -> d.Node :> CrefSyntax
+        | QualifiedCref d -> d.Node :> CrefSyntax
+
+and [<RequireQualifiedAccess>] BaseCrefParameterListData =
+    | CrefParameterList          of CrefParameterListData
+    | CrefBracketedParameterList of CrefBracketedParameterListData
+with
+    static member FromNode(n: BaseCrefParameterListSyntax) =
+        match n with
+        | :? CrefParameterListSyntax as d -> CrefParameterList (CrefParameterListData.FromNode(d))
+        | :? CrefBracketedParameterListSyntax as d -> CrefBracketedParameterList (CrefBracketedParameterListData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of BaseCrefParameterListSyntax"
+    member this.Node =
+        match this with
+        | CrefParameterList d -> d.Node :> BaseCrefParameterListSyntax
+        | CrefBracketedParameterList d -> d.Node :> BaseCrefParameterListSyntax
+
+and XmlPrefixData(node: XmlPrefixSyntax) =
+    member this.Node = node
+    member this.Prefix = node.Prefix
+    static member FromNode(n: XmlPrefixSyntax) = XmlPrefixData(n)
+
+and XmlNameData(node: XmlNameSyntax) =
+    member this.Node = node
+    member this.Prefix = node.Prefix |> Option.ofObj |> Option.map XmlPrefixData.FromNode
+    member this.LocalName = node.LocalName
+    static member FromNode(n: XmlNameSyntax) = XmlNameData(n)
+
+and XmlTextAttributeData(node: XmlTextAttributeSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    member this.StartQuoteToken = node.StartQuoteToken |> XmlTextAttributeStartQuoteToken.FromToken
+    member this.EndQuoteToken = node.EndQuoteToken |> XmlTextAttributeEndQuoteToken.FromToken
+    static member FromNode(n: XmlTextAttributeSyntax) = XmlTextAttributeData(n)
+
+and XmlCrefAttributeData(node: XmlCrefAttributeSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    member this.StartQuoteToken = node.StartQuoteToken |> XmlCrefAttributeStartQuoteToken.FromToken
+    member this.Cref = node.Cref |> CrefData.FromNode
+    member this.EndQuoteToken = node.EndQuoteToken |> XmlCrefAttributeEndQuoteToken.FromToken
+    static member FromNode(n: XmlCrefAttributeSyntax) = XmlCrefAttributeData(n)
+
+and XmlNameAttributeData(node: XmlNameAttributeSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    member this.StartQuoteToken = node.StartQuoteToken |> XmlNameAttributeStartQuoteToken.FromToken
+    member this.Identifier = node.Identifier |> IdentifierNameData.FromNode
+    member this.EndQuoteToken = node.EndQuoteToken |> XmlNameAttributeEndQuoteToken.FromToken
+    static member FromNode(n: XmlNameAttributeSyntax) = XmlNameAttributeData(n)
+
+and [<RequireQualifiedAccess>] XmlAttributeData =
+    | XmlTextAttribute of XmlTextAttributeData
+    | XmlCrefAttribute of XmlCrefAttributeData
+    | XmlNameAttribute of XmlNameAttributeData
+with
+    static member FromNode(n: XmlAttributeSyntax) =
+        match n with
+        | :? XmlTextAttributeSyntax as d -> XmlTextAttribute (XmlTextAttributeData.FromNode(d))
+        | :? XmlCrefAttributeSyntax as d -> XmlCrefAttribute (XmlCrefAttributeData.FromNode(d))
+        | :? XmlNameAttributeSyntax as d -> XmlNameAttribute (XmlNameAttributeData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of XmlAttributeSyntax"
+    member this.Node =
+        match this with
+        | XmlTextAttribute d -> d.Node :> XmlAttributeSyntax
+        | XmlCrefAttribute d -> d.Node :> XmlAttributeSyntax
+        | XmlNameAttribute d -> d.Node :> XmlAttributeSyntax
+
+and XmlElementStartTagData(node: XmlElementStartTagSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    member this.Attributes = node.Attributes |> Seq.map XmlAttributeData.FromNode
+    static member FromNode(n: XmlElementStartTagSyntax) = XmlElementStartTagData(n)
+
+and XmlElementEndTagData(node: XmlElementEndTagSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    static member FromNode(n: XmlElementEndTagSyntax) = XmlElementEndTagData(n)
+
+and XmlElementData(node: XmlElementSyntax) =
+    member this.Node = node
+    member this.StartTag = node.StartTag |> XmlElementStartTagData.FromNode
+    member this.Content = node.Content |> Seq.map XmlNodeData.FromNode
+    member this.EndTag = node.EndTag |> XmlElementEndTagData.FromNode
+    static member FromNode(n: XmlElementSyntax) = XmlElementData(n)
+
+and XmlEmptyElementData(node: XmlEmptyElementSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    member this.Attributes = node.Attributes |> Seq.map XmlAttributeData.FromNode
+    static member FromNode(n: XmlEmptyElementSyntax) = XmlEmptyElementData(n)
+
+and XmlTextData(node: XmlTextSyntax) =
+    member this.Node = node
+    static member FromNode(n: XmlTextSyntax) = XmlTextData(n)
+
+and XmlCDataSectionData(node: XmlCDataSectionSyntax) =
+    member this.Node = node
+    static member FromNode(n: XmlCDataSectionSyntax) = XmlCDataSectionData(n)
+
+and XmlProcessingInstructionData(node: XmlProcessingInstructionSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> XmlNameData.FromNode
+    static member FromNode(n: XmlProcessingInstructionSyntax) = XmlProcessingInstructionData(n)
+
+and XmlCommentData(node: XmlCommentSyntax) =
+    member this.Node = node
+    static member FromNode(n: XmlCommentSyntax) = XmlCommentData(n)
+
+and [<RequireQualifiedAccess>] XmlNodeData =
+    | XmlElement               of XmlElementData
+    | XmlEmptyElement          of XmlEmptyElementData
+    | XmlText                  of XmlTextData
+    | XmlCDataSection          of XmlCDataSectionData
+    | XmlProcessingInstruction of XmlProcessingInstructionData
+    | XmlComment               of XmlCommentData
+with
+    static member FromNode(n: XmlNodeSyntax) =
+        match n with
+        | :? XmlElementSyntax as d -> XmlElement (XmlElementData.FromNode(d))
+        | :? XmlEmptyElementSyntax as d -> XmlEmptyElement (XmlEmptyElementData.FromNode(d))
+        | :? XmlTextSyntax as d -> XmlText (XmlTextData.FromNode(d))
+        | :? XmlCDataSectionSyntax as d -> XmlCDataSection (XmlCDataSectionData.FromNode(d))
+        | :? XmlProcessingInstructionSyntax as d -> XmlProcessingInstruction (XmlProcessingInstructionData.FromNode(d))
+        | :? XmlCommentSyntax as d -> XmlComment (XmlCommentData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of XmlNodeSyntax"
+    member this.Node =
+        match this with
+        | XmlElement d -> d.Node :> XmlNodeSyntax
+        | XmlEmptyElement d -> d.Node :> XmlNodeSyntax
+        | XmlText d -> d.Node :> XmlNodeSyntax
+        | XmlCDataSection d -> d.Node :> XmlNodeSyntax
+        | XmlProcessingInstruction d -> d.Node :> XmlNodeSyntax
+        | XmlComment d -> d.Node :> XmlNodeSyntax
+
+and TupleElementData(node: TupleElementSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> TypeData.FromNode
+    member this.Identifier = node.Identifier
+    static member FromNode(n: TupleElementSyntax) = TupleElementData(n)
+
+and NameEqualsData(node: NameEqualsSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> IdentifierNameData.FromNode
+    static member FromNode(n: NameEqualsSyntax) = NameEqualsData(n)
+
+and AnonymousObjectMemberDeclaratorData(node: AnonymousObjectMemberDeclaratorSyntax) =
+    member this.Node = node
+    member this.NameEquals = node.NameEquals |> Option.ofObj |> Option.map NameEqualsData.FromNode
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: AnonymousObjectMemberDeclaratorSyntax) = AnonymousObjectMemberDeclaratorData(n)
+
+and QueryContinuationData(node: QueryContinuationSyntax) =
+    member this.Node = node
+    member this.Identifier = node.Identifier
+    member this.Body = node.Body |> QueryBodyData.FromNode
+    static member FromNode(n: QueryContinuationSyntax) = QueryContinuationData(n)
+
+and QueryBodyData(node: QueryBodySyntax) =
+    member this.Node = node
+    member this.Clauses = node.Clauses |> Seq.map QueryClauseData.FromNode
+    member this.SelectOrGroup = node.SelectOrGroup |> SelectOrGroupClauseData.FromNode
+    member this.Continuation = node.Continuation |> Option.ofObj |> Option.map QueryContinuationData.FromNode
+    static member FromNode(n: QueryBodySyntax) = QueryBodyData(n)
+
+and SwitchExpressionArmData(node: SwitchExpressionArmSyntax) =
+    member this.Node = node
+    member this.Pattern = node.Pattern |> PatternData.FromNode
+    member this.WhenClause = node.WhenClause |> Option.ofObj |> Option.map WhenClauseData.FromNode
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: SwitchExpressionArmSyntax) = SwitchExpressionArmData(n)
+
+and AttributeTargetSpecifierData(node: AttributeTargetSpecifierSyntax) =
+    member this.Node = node
+    static member FromNode(n: AttributeTargetSpecifierSyntax) = AttributeTargetSpecifierData(n)
+
+and AttributeArgumentData(node: AttributeArgumentSyntax) =
+    member this.Node = node
+    member this.NameEquals = node.NameEquals |> Option.ofObj |> Option.map NameEqualsData.FromNode
+    member this.NameColon = node.NameColon |> Option.ofObj |> Option.map NameColonData.FromNode
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: AttributeArgumentSyntax) = AttributeArgumentData(n)
+
+and AttributeArgumentListData(node: AttributeArgumentListSyntax) =
+    member this.Node = node
+    member this.Arguments = node.Arguments |> Seq.map AttributeArgumentData.FromNode
+    static member FromNode(n: AttributeArgumentListSyntax) = AttributeArgumentListData(n)
+
+and AttributeData(node: AttributeSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> NameData.FromNode
+    member this.ArgumentList = node.ArgumentList |> Option.ofObj |> Option.map AttributeArgumentListData.FromNode
+    static member FromNode(n: AttributeSyntax) = AttributeData(n)
+
+and ExplicitInterfaceSpecifierData(node: ExplicitInterfaceSpecifierSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> NameData.FromNode
+    static member FromNode(n: ExplicitInterfaceSpecifierSyntax) = ExplicitInterfaceSpecifierData(n)
+
+and ConstructorInitializerData(node: ConstructorInitializerSyntax) =
+    member this.Node = node
+    member this.Kind = ConstructorInitializerKind.FromKind(node.Kind())
+    member this.ThisOrBaseKeyword = node.ThisOrBaseKeyword |> ConstructorInitializerThisOrBaseKeyword.FromToken
+    member this.ArgumentList = node.ArgumentList |> ArgumentListData.FromNode
+    static member FromNode(n: ConstructorInitializerSyntax) = ConstructorInitializerData(n)
+
+and AccessorDeclarationData(node: AccessorDeclarationSyntax) =
+    member this.Node = node
+    member this.Kind = AccessorDeclarationKind.FromKind(node.Kind())
+    member this.Keyword = node.Keyword |> AccessorDeclarationKeyword.FromToken
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    static member FromNode(n: AccessorDeclarationSyntax) = AccessorDeclarationData(n)
+
+and AccessorListData(node: AccessorListSyntax) =
+    member this.Node = node
+    member this.Accessors = node.Accessors |> Seq.map AccessorDeclarationData.FromNode
+    static member FromNode(n: AccessorListSyntax) = AccessorListData(n)
+
+and [<RequireQualifiedAccess>] CSharpNodeData =
+    | Expression                      of ExpressionData
+    | BaseArgumentList                of BaseArgumentListData
+    | QueryClause                     of QueryClauseData
+    | SelectOrGroupClause             of SelectOrGroupClauseData
+    | Pattern                         of PatternData
+    | InterpolatedStringContent       of InterpolatedStringContentData
+    | Statement                       of StatementData
+    | VariableDesignation             of VariableDesignationData
+    | SwitchLabel                     of SwitchLabelData
+    | MemberDeclaration               of MemberDeclarationData
+    | BaseType                        of BaseTypeData
+    | TypeParameterConstraint         of TypeParameterConstraintData
+    | BaseParameterList               of BaseParameterListData
+    | Cref                            of CrefData
+    | BaseCrefParameterList           of BaseCrefParameterListData
+    | XmlNode                         of XmlNodeData
+    | XmlAttribute                    of XmlAttributeData
+    | TypeArgumentList                of TypeArgumentListData
+    | ArrayRankSpecifier              of ArrayRankSpecifierData
+    | TupleElement                    of TupleElementData
+    | Argument                        of ArgumentData
+    | NameColon                       of NameColonData
+    | AnonymousObjectMemberDeclarator of AnonymousObjectMemberDeclaratorData
+    | QueryBody                       of QueryBodyData
+    | JoinIntoClause                  of JoinIntoClauseData
+    | Ordering                        of OrderingData
+    | QueryContinuation               of QueryContinuationData
+    | WhenClause                      of WhenClauseData
+    | PositionalPatternClause         of PositionalPatternClauseData
+    | PropertyPatternClause           of PropertyPatternClauseData
+    | Subpattern                      of SubpatternData
+    | InterpolationAlignmentClause    of InterpolationAlignmentClauseData
+    | InterpolationFormatClause       of InterpolationFormatClauseData
+    | VariableDeclaration             of VariableDeclarationData
+    | VariableDeclarator              of VariableDeclaratorData
+    | EqualsValueClause               of EqualsValueClauseData
+    | ElseClause                      of ElseClauseData
+    | SwitchSection                   of SwitchSectionData
+    | SwitchExpressionArm             of SwitchExpressionArmData
+    | CatchClause                     of CatchClauseData
+    | CatchDeclaration                of CatchDeclarationData
+    | CatchFilterClause               of CatchFilterClauseData
+    | FinallyClause                   of FinallyClauseData
+    | CompilationUnit                 of CompilationUnitData
+    | AttributeTargetSpecifier        of AttributeTargetSpecifierData
+    | Attribute                       of AttributeData
+    | AttributeArgumentList           of AttributeArgumentListData
+    | AttributeArgument               of AttributeArgumentData
+    | NameEquals                      of NameEqualsData
+    | TypeParameterList               of TypeParameterListData
+    | TypeParameter                   of TypeParameterData
+    | BaseList                        of BaseListData
+    | ExplicitInterfaceSpecifier      of ExplicitInterfaceSpecifierData
+    | ConstructorInitializer          of ConstructorInitializerData
+    | ArrowExpressionClause           of ArrowExpressionClauseData
+    | AccessorList                    of AccessorListData
+    | AccessorDeclaration             of AccessorDeclarationData
+    | Parameter                       of ParameterData
+    | CrefParameter                   of CrefParameterData
+    | XmlElementStartTag              of XmlElementStartTagData
+    | XmlElementEndTag                of XmlElementEndTagData
+    | XmlName                         of XmlNameData
+    | XmlPrefix                       of XmlPrefixData
+with
+    static member FromNode(n: CSharpSyntaxNode) =
+        match n with
+        | :? ExpressionSyntax as d -> Expression (ExpressionData.FromNode(d))
+        | :? BaseArgumentListSyntax as d -> BaseArgumentList (BaseArgumentListData.FromNode(d))
+        | :? QueryClauseSyntax as d -> QueryClause (QueryClauseData.FromNode(d))
+        | :? SelectOrGroupClauseSyntax as d -> SelectOrGroupClause (SelectOrGroupClauseData.FromNode(d))
+        | :? PatternSyntax as d -> Pattern (PatternData.FromNode(d))
+        | :? InterpolatedStringContentSyntax as d -> InterpolatedStringContent (InterpolatedStringContentData.FromNode(d))
+        | :? StatementSyntax as d -> Statement (StatementData.FromNode(d))
+        | :? VariableDesignationSyntax as d -> VariableDesignation (VariableDesignationData.FromNode(d))
+        | :? SwitchLabelSyntax as d -> SwitchLabel (SwitchLabelData.FromNode(d))
+        | :? MemberDeclarationSyntax as d -> MemberDeclaration (MemberDeclarationData.FromNode(d))
+        | :? BaseTypeSyntax as d -> BaseType (BaseTypeData.FromNode(d))
+        | :? TypeParameterConstraintSyntax as d -> TypeParameterConstraint (TypeParameterConstraintData.FromNode(d))
+        | :? BaseParameterListSyntax as d -> BaseParameterList (BaseParameterListData.FromNode(d))
+        | :? CrefSyntax as d -> Cref (CrefData.FromNode(d))
+        | :? BaseCrefParameterListSyntax as d -> BaseCrefParameterList (BaseCrefParameterListData.FromNode(d))
+        | :? XmlNodeSyntax as d -> XmlNode (XmlNodeData.FromNode(d))
+        | :? XmlAttributeSyntax as d -> XmlAttribute (XmlAttributeData.FromNode(d))
+        | :? TypeArgumentListSyntax as d -> TypeArgumentList (TypeArgumentListData.FromNode(d))
+        | :? ArrayRankSpecifierSyntax as d -> ArrayRankSpecifier (ArrayRankSpecifierData.FromNode(d))
+        | :? TupleElementSyntax as d -> TupleElement (TupleElementData.FromNode(d))
+        | :? ArgumentSyntax as d -> Argument (ArgumentData.FromNode(d))
+        | :? NameColonSyntax as d -> NameColon (NameColonData.FromNode(d))
+        | :? AnonymousObjectMemberDeclaratorSyntax as d -> AnonymousObjectMemberDeclarator (AnonymousObjectMemberDeclaratorData.FromNode(d))
+        | :? QueryBodySyntax as d -> QueryBody (QueryBodyData.FromNode(d))
+        | :? JoinIntoClauseSyntax as d -> JoinIntoClause (JoinIntoClauseData.FromNode(d))
+        | :? OrderingSyntax as d -> Ordering (OrderingData.FromNode(d))
+        | :? QueryContinuationSyntax as d -> QueryContinuation (QueryContinuationData.FromNode(d))
+        | :? WhenClauseSyntax as d -> WhenClause (WhenClauseData.FromNode(d))
+        | :? PositionalPatternClauseSyntax as d -> PositionalPatternClause (PositionalPatternClauseData.FromNode(d))
+        | :? PropertyPatternClauseSyntax as d -> PropertyPatternClause (PropertyPatternClauseData.FromNode(d))
+        | :? SubpatternSyntax as d -> Subpattern (SubpatternData.FromNode(d))
+        | :? InterpolationAlignmentClauseSyntax as d -> InterpolationAlignmentClause (InterpolationAlignmentClauseData.FromNode(d))
+        | :? InterpolationFormatClauseSyntax as d -> InterpolationFormatClause (InterpolationFormatClauseData.FromNode(d))
+        | :? VariableDeclarationSyntax as d -> VariableDeclaration (VariableDeclarationData.FromNode(d))
+        | :? VariableDeclaratorSyntax as d -> VariableDeclarator (VariableDeclaratorData.FromNode(d))
+        | :? EqualsValueClauseSyntax as d -> EqualsValueClause (EqualsValueClauseData.FromNode(d))
+        | :? ElseClauseSyntax as d -> ElseClause (ElseClauseData.FromNode(d))
+        | :? SwitchSectionSyntax as d -> SwitchSection (SwitchSectionData.FromNode(d))
+        | :? SwitchExpressionArmSyntax as d -> SwitchExpressionArm (SwitchExpressionArmData.FromNode(d))
+        | :? CatchClauseSyntax as d -> CatchClause (CatchClauseData.FromNode(d))
+        | :? CatchDeclarationSyntax as d -> CatchDeclaration (CatchDeclarationData.FromNode(d))
+        | :? CatchFilterClauseSyntax as d -> CatchFilterClause (CatchFilterClauseData.FromNode(d))
+        | :? FinallyClauseSyntax as d -> FinallyClause (FinallyClauseData.FromNode(d))
+        | :? CompilationUnitSyntax as d -> CompilationUnit (CompilationUnitData.FromNode(d))
+        | :? AttributeTargetSpecifierSyntax as d -> AttributeTargetSpecifier (AttributeTargetSpecifierData.FromNode(d))
+        | :? AttributeSyntax as d -> Attribute (AttributeData.FromNode(d))
+        | :? AttributeArgumentListSyntax as d -> AttributeArgumentList (AttributeArgumentListData.FromNode(d))
+        | :? AttributeArgumentSyntax as d -> AttributeArgument (AttributeArgumentData.FromNode(d))
+        | :? NameEqualsSyntax as d -> NameEquals (NameEqualsData.FromNode(d))
+        | :? TypeParameterListSyntax as d -> TypeParameterList (TypeParameterListData.FromNode(d))
+        | :? TypeParameterSyntax as d -> TypeParameter (TypeParameterData.FromNode(d))
+        | :? BaseListSyntax as d -> BaseList (BaseListData.FromNode(d))
+        | :? ExplicitInterfaceSpecifierSyntax as d -> ExplicitInterfaceSpecifier (ExplicitInterfaceSpecifierData.FromNode(d))
+        | :? ConstructorInitializerSyntax as d -> ConstructorInitializer (ConstructorInitializerData.FromNode(d))
+        | :? ArrowExpressionClauseSyntax as d -> ArrowExpressionClause (ArrowExpressionClauseData.FromNode(d))
+        | :? AccessorListSyntax as d -> AccessorList (AccessorListData.FromNode(d))
+        | :? AccessorDeclarationSyntax as d -> AccessorDeclaration (AccessorDeclarationData.FromNode(d))
+        | :? ParameterSyntax as d -> Parameter (ParameterData.FromNode(d))
+        | :? CrefParameterSyntax as d -> CrefParameter (CrefParameterData.FromNode(d))
+        | :? XmlElementStartTagSyntax as d -> XmlElementStartTag (XmlElementStartTagData.FromNode(d))
+        | :? XmlElementEndTagSyntax as d -> XmlElementEndTag (XmlElementEndTagData.FromNode(d))
+        | :? XmlNameSyntax as d -> XmlName (XmlNameData.FromNode(d))
+        | :? XmlPrefixSyntax as d -> XmlPrefix (XmlPrefixData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of CSharpSyntaxNode"
+    member this.Node =
+        match this with
+        | Expression d -> d.Node :> CSharpSyntaxNode
+        | BaseArgumentList d -> d.Node :> CSharpSyntaxNode
+        | QueryClause d -> d.Node :> CSharpSyntaxNode
+        | SelectOrGroupClause d -> d.Node :> CSharpSyntaxNode
+        | Pattern d -> d.Node :> CSharpSyntaxNode
+        | InterpolatedStringContent d -> d.Node :> CSharpSyntaxNode
+        | Statement d -> d.Node :> CSharpSyntaxNode
+        | VariableDesignation d -> d.Node :> CSharpSyntaxNode
+        | SwitchLabel d -> d.Node :> CSharpSyntaxNode
+        | MemberDeclaration d -> d.Node :> CSharpSyntaxNode
+        | BaseType d -> d.Node :> CSharpSyntaxNode
+        | TypeParameterConstraint d -> d.Node :> CSharpSyntaxNode
+        | BaseParameterList d -> d.Node :> CSharpSyntaxNode
+        | Cref d -> d.Node :> CSharpSyntaxNode
+        | BaseCrefParameterList d -> d.Node :> CSharpSyntaxNode
+        | XmlNode d -> d.Node :> CSharpSyntaxNode
+        | XmlAttribute d -> d.Node :> CSharpSyntaxNode
+        | TypeArgumentList d -> d.Node :> CSharpSyntaxNode
+        | ArrayRankSpecifier d -> d.Node :> CSharpSyntaxNode
+        | TupleElement d -> d.Node :> CSharpSyntaxNode
+        | Argument d -> d.Node :> CSharpSyntaxNode
+        | NameColon d -> d.Node :> CSharpSyntaxNode
+        | AnonymousObjectMemberDeclarator d -> d.Node :> CSharpSyntaxNode
+        | QueryBody d -> d.Node :> CSharpSyntaxNode
+        | JoinIntoClause d -> d.Node :> CSharpSyntaxNode
+        | Ordering d -> d.Node :> CSharpSyntaxNode
+        | QueryContinuation d -> d.Node :> CSharpSyntaxNode
+        | WhenClause d -> d.Node :> CSharpSyntaxNode
+        | PositionalPatternClause d -> d.Node :> CSharpSyntaxNode
+        | PropertyPatternClause d -> d.Node :> CSharpSyntaxNode
+        | Subpattern d -> d.Node :> CSharpSyntaxNode
+        | InterpolationAlignmentClause d -> d.Node :> CSharpSyntaxNode
+        | InterpolationFormatClause d -> d.Node :> CSharpSyntaxNode
+        | VariableDeclaration d -> d.Node :> CSharpSyntaxNode
+        | VariableDeclarator d -> d.Node :> CSharpSyntaxNode
+        | EqualsValueClause d -> d.Node :> CSharpSyntaxNode
+        | ElseClause d -> d.Node :> CSharpSyntaxNode
+        | SwitchSection d -> d.Node :> CSharpSyntaxNode
+        | SwitchExpressionArm d -> d.Node :> CSharpSyntaxNode
+        | CatchClause d -> d.Node :> CSharpSyntaxNode
+        | CatchDeclaration d -> d.Node :> CSharpSyntaxNode
+        | CatchFilterClause d -> d.Node :> CSharpSyntaxNode
+        | FinallyClause d -> d.Node :> CSharpSyntaxNode
+        | CompilationUnit d -> d.Node :> CSharpSyntaxNode
+        | AttributeTargetSpecifier d -> d.Node :> CSharpSyntaxNode
+        | Attribute d -> d.Node :> CSharpSyntaxNode
+        | AttributeArgumentList d -> d.Node :> CSharpSyntaxNode
+        | AttributeArgument d -> d.Node :> CSharpSyntaxNode
+        | NameEquals d -> d.Node :> CSharpSyntaxNode
+        | TypeParameterList d -> d.Node :> CSharpSyntaxNode
+        | TypeParameter d -> d.Node :> CSharpSyntaxNode
+        | BaseList d -> d.Node :> CSharpSyntaxNode
+        | ExplicitInterfaceSpecifier d -> d.Node :> CSharpSyntaxNode
+        | ConstructorInitializer d -> d.Node :> CSharpSyntaxNode
+        | ArrowExpressionClause d -> d.Node :> CSharpSyntaxNode
+        | AccessorList d -> d.Node :> CSharpSyntaxNode
+        | AccessorDeclaration d -> d.Node :> CSharpSyntaxNode
+        | Parameter d -> d.Node :> CSharpSyntaxNode
+        | CrefParameter d -> d.Node :> CSharpSyntaxNode
+        | XmlElementStartTag d -> d.Node :> CSharpSyntaxNode
+        | XmlElementEndTag d -> d.Node :> CSharpSyntaxNode
+        | XmlName d -> d.Node :> CSharpSyntaxNode
+        | XmlPrefix d -> d.Node :> CSharpSyntaxNode
+
+and SimpleLambdaExpressionData(node: SimpleLambdaExpressionSyntax) =
+    member this.Node = node
+    member this.Parameter = node.Parameter |> ParameterData.FromNode
+    member this.Body = node.Body |> CSharpNodeData.FromNode
+    static member FromNode(n: SimpleLambdaExpressionSyntax) = SimpleLambdaExpressionData(n)
+
+and ParenthesizedLambdaExpressionData(node: ParenthesizedLambdaExpressionSyntax) =
+    member this.Node = node
+    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> CSharpNodeData.FromNode
+    static member FromNode(n: ParenthesizedLambdaExpressionSyntax) = ParenthesizedLambdaExpressionData(n)
+
+and [<RequireQualifiedAccess>] LambdaExpressionData =
+    | SimpleLambdaExpression        of SimpleLambdaExpressionData
+    | ParenthesizedLambdaExpression of ParenthesizedLambdaExpressionData
+with
+    static member FromNode(n: LambdaExpressionSyntax) =
+        match n with
+        | :? SimpleLambdaExpressionSyntax as d -> SimpleLambdaExpression (SimpleLambdaExpressionData.FromNode(d))
+        | :? ParenthesizedLambdaExpressionSyntax as d -> ParenthesizedLambdaExpression (ParenthesizedLambdaExpressionData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of LambdaExpressionSyntax"
+    member this.Node =
+        match this with
+        | SimpleLambdaExpression d -> d.Node :> LambdaExpressionSyntax
+        | ParenthesizedLambdaExpression d -> d.Node :> LambdaExpressionSyntax
 
 and AnonymousMethodExpressionData(node: AnonymousMethodExpressionSyntax) =
     member this.Node = node
     member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
-    member this.Block = node.Block |> BlockData.FromNode
-    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.Body = node.Body |> CSharpNodeData.FromNode
     static member FromNode(n: AnonymousMethodExpressionSyntax) = AnonymousMethodExpressionData(n)
 
 and [<RequireQualifiedAccess>] AnonymousFunctionExpressionData =
@@ -1322,11 +2216,6 @@ and SizeOfExpressionData(node: SizeOfExpressionSyntax) =
     member this.Type = node.Type |> TypeData.FromNode
     static member FromNode(n: SizeOfExpressionSyntax) = SizeOfExpressionData(n)
 
-and ArgumentListData(node: ArgumentListSyntax) =
-    member this.Node = node
-    member this.Arguments = node.Arguments |> Seq.map ArgumentData.FromNode
-    static member FromNode(n: ArgumentListSyntax) = ArgumentListData(n)
-
 and InvocationExpressionData(node: InvocationExpressionSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
@@ -1369,17 +2258,6 @@ and ObjectCreationExpressionData(node: ObjectCreationExpressionSyntax) =
     member this.Initializer = node.Initializer |> Option.ofObj |> Option.map InitializerExpressionData.FromNode
     static member FromNode(n: ObjectCreationExpressionSyntax) = ObjectCreationExpressionData(n)
 
-and NameEqualsData(node: NameEqualsSyntax) =
-    member this.Node = node
-    member this.Name = node.Name |> IdentifierNameData.FromNode
-    static member FromNode(n: NameEqualsSyntax) = NameEqualsData(n)
-
-and AnonymousObjectMemberDeclaratorData(node: AnonymousObjectMemberDeclaratorSyntax) =
-    member this.Node = node
-    member this.NameEquals = node.NameEquals |> Option.ofObj |> Option.map NameEqualsData.FromNode
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: AnonymousObjectMemberDeclaratorSyntax) = AnonymousObjectMemberDeclaratorData(n)
-
 and AnonymousObjectCreationExpressionData(node: AnonymousObjectCreationExpressionSyntax) =
     member this.Node = node
     member this.Initializers = node.Initializers |> Seq.map AnonymousObjectMemberDeclaratorData.FromNode
@@ -1407,112 +2285,6 @@ and ImplicitStackAllocArrayCreationExpressionData(node: ImplicitStackAllocArrayC
     member this.Initializer = node.Initializer |> InitializerExpressionData.FromNode
     static member FromNode(n: ImplicitStackAllocArrayCreationExpressionSyntax) = ImplicitStackAllocArrayCreationExpressionData(n)
 
-and FromClauseData(node: FromClauseSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
-    member this.Identifier = node.Identifier
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: FromClauseSyntax) = FromClauseData(n)
-
-and LetClauseData(node: LetClauseSyntax) =
-    member this.Node = node
-    member this.Identifier = node.Identifier
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: LetClauseSyntax) = LetClauseData(n)
-
-and JoinIntoClauseData(node: JoinIntoClauseSyntax) =
-    member this.Node = node
-    member this.Identifier = node.Identifier
-    static member FromNode(n: JoinIntoClauseSyntax) = JoinIntoClauseData(n)
-
-and JoinClauseData(node: JoinClauseSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
-    member this.Identifier = node.Identifier
-    member this.InExpression = node.InExpression |> ExpressionData.FromNode
-    member this.LeftExpression = node.LeftExpression |> ExpressionData.FromNode
-    member this.RightExpression = node.RightExpression |> ExpressionData.FromNode
-    member this.Into = node.Into |> Option.ofObj |> Option.map JoinIntoClauseData.FromNode
-    static member FromNode(n: JoinClauseSyntax) = JoinClauseData(n)
-
-and WhereClauseData(node: WhereClauseSyntax) =
-    member this.Node = node
-    member this.Condition = node.Condition |> ExpressionData.FromNode
-    static member FromNode(n: WhereClauseSyntax) = WhereClauseData(n)
-
-and OrderingData(node: OrderingSyntax) =
-    member this.Node = node
-    member this.Kind = OrderingKind.FromKind(node.Kind())
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    member this.AscendingOrDescendingKeyword = node.AscendingOrDescendingKeyword |> optionalToken |> Option.map OrderingAscendingOrDescendingKeyword.FromToken
-    static member FromNode(n: OrderingSyntax) = OrderingData(n)
-
-and OrderByClauseData(node: OrderByClauseSyntax) =
-    member this.Node = node
-    member this.Orderings = node.Orderings |> Seq.map OrderingData.FromNode
-    static member FromNode(n: OrderByClauseSyntax) = OrderByClauseData(n)
-
-and [<RequireQualifiedAccess>] QueryClauseData =
-    | FromClause    of FromClauseData
-    | LetClause     of LetClauseData
-    | JoinClause    of JoinClauseData
-    | WhereClause   of WhereClauseData
-    | OrderByClause of OrderByClauseData
-with
-    static member FromNode(n: QueryClauseSyntax) =
-        match n with
-        | :? FromClauseSyntax as d -> FromClause (FromClauseData.FromNode(d))
-        | :? LetClauseSyntax as d -> LetClause (LetClauseData.FromNode(d))
-        | :? JoinClauseSyntax as d -> JoinClause (JoinClauseData.FromNode(d))
-        | :? WhereClauseSyntax as d -> WhereClause (WhereClauseData.FromNode(d))
-        | :? OrderByClauseSyntax as d -> OrderByClause (OrderByClauseData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of QueryClauseSyntax"
-    member this.Node =
-        match this with
-        | FromClause d -> d.Node :> QueryClauseSyntax
-        | LetClause d -> d.Node :> QueryClauseSyntax
-        | JoinClause d -> d.Node :> QueryClauseSyntax
-        | WhereClause d -> d.Node :> QueryClauseSyntax
-        | OrderByClause d -> d.Node :> QueryClauseSyntax
-
-and SelectClauseData(node: SelectClauseSyntax) =
-    member this.Node = node
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: SelectClauseSyntax) = SelectClauseData(n)
-
-and GroupClauseData(node: GroupClauseSyntax) =
-    member this.Node = node
-    member this.GroupExpression = node.GroupExpression |> ExpressionData.FromNode
-    member this.ByExpression = node.ByExpression |> ExpressionData.FromNode
-    static member FromNode(n: GroupClauseSyntax) = GroupClauseData(n)
-
-and [<RequireQualifiedAccess>] SelectOrGroupClauseData =
-    | SelectClause of SelectClauseData
-    | GroupClause  of GroupClauseData
-with
-    static member FromNode(n: SelectOrGroupClauseSyntax) =
-        match n with
-        | :? SelectClauseSyntax as d -> SelectClause (SelectClauseData.FromNode(d))
-        | :? GroupClauseSyntax as d -> GroupClause (GroupClauseData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of SelectOrGroupClauseSyntax"
-    member this.Node =
-        match this with
-        | SelectClause d -> d.Node :> SelectOrGroupClauseSyntax
-        | GroupClause d -> d.Node :> SelectOrGroupClauseSyntax
-
-and QueryContinuationData(node: QueryContinuationSyntax) =
-    member this.Node = node
-    member this.Identifier = node.Identifier
-    member this.Body = node.Body |> QueryBodyData.FromNode
-    static member FromNode(n: QueryContinuationSyntax) = QueryContinuationData(n)
-
-and QueryBodyData(node: QueryBodySyntax) =
-    member this.Node = node
-    member this.Clauses = node.Clauses |> Seq.map QueryClauseData.FromNode
-    member this.SelectOrGroup = node.SelectOrGroup |> SelectOrGroupClauseData.FromNode
-    member this.Continuation = node.Continuation |> Option.ofObj |> Option.map QueryContinuationData.FromNode
-    static member FromNode(n: QueryBodySyntax) = QueryBodyData(n)
-
 and QueryExpressionData(node: QueryExpressionSyntax) =
     member this.Node = node
     member this.FromClause = node.FromClause |> FromClauseData.FromNode
@@ -1522,40 +2294,6 @@ and QueryExpressionData(node: QueryExpressionSyntax) =
 and OmittedArraySizeExpressionData(node: OmittedArraySizeExpressionSyntax) =
     member this.Node = node
     static member FromNode(n: OmittedArraySizeExpressionSyntax) = OmittedArraySizeExpressionData(n)
-
-and InterpolatedStringTextData(node: InterpolatedStringTextSyntax) =
-    member this.Node = node
-    static member FromNode(n: InterpolatedStringTextSyntax) = InterpolatedStringTextData(n)
-
-and InterpolationAlignmentClauseData(node: InterpolationAlignmentClauseSyntax) =
-    member this.Node = node
-    member this.Value = node.Value |> ExpressionData.FromNode
-    static member FromNode(n: InterpolationAlignmentClauseSyntax) = InterpolationAlignmentClauseData(n)
-
-and InterpolationFormatClauseData(node: InterpolationFormatClauseSyntax) =
-    member this.Node = node
-    static member FromNode(n: InterpolationFormatClauseSyntax) = InterpolationFormatClauseData(n)
-
-and InterpolationData(node: InterpolationSyntax) =
-    member this.Node = node
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    member this.AlignmentClause = node.AlignmentClause |> Option.ofObj |> Option.map InterpolationAlignmentClauseData.FromNode
-    member this.FormatClause = node.FormatClause |> Option.ofObj |> Option.map InterpolationFormatClauseData.FromNode
-    static member FromNode(n: InterpolationSyntax) = InterpolationData(n)
-
-and [<RequireQualifiedAccess>] InterpolatedStringContentData =
-    | InterpolatedStringText of InterpolatedStringTextData
-    | Interpolation          of InterpolationData
-with
-    static member FromNode(n: InterpolatedStringContentSyntax) =
-        match n with
-        | :? InterpolatedStringTextSyntax as d -> InterpolatedStringText (InterpolatedStringTextData.FromNode(d))
-        | :? InterpolationSyntax as d -> Interpolation (InterpolationData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of InterpolatedStringContentSyntax"
-    member this.Node =
-        match this with
-        | InterpolatedStringText d -> d.Node :> InterpolatedStringContentSyntax
-        | Interpolation d -> d.Node :> InterpolatedStringContentSyntax
 
 and InterpolatedStringExpressionData(node: InterpolatedStringExpressionSyntax) =
     member this.Node = node
@@ -1573,13 +2311,6 @@ and ThrowExpressionData(node: ThrowExpressionSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
     static member FromNode(n: ThrowExpressionSyntax) = ThrowExpressionData(n)
-
-and SwitchExpressionArmData(node: SwitchExpressionArmSyntax) =
-    member this.Node = node
-    member this.Pattern = node.Pattern |> PatternData.FromNode
-    member this.WhenClause = node.WhenClause |> Option.ofObj |> Option.map WhenClauseData.FromNode
-    member this.Expression = node.Expression |> ExpressionData.FromNode
-    static member FromNode(n: SwitchExpressionArmSyntax) = SwitchExpressionArmData(n)
 
 and SwitchExpressionData(node: SwitchExpressionSyntax) =
     member this.Node = node
@@ -1745,12 +2476,6 @@ and NullableTypeData(node: NullableTypeSyntax) =
     member this.ElementType = node.ElementType |> TypeData.FromNode
     static member FromNode(n: NullableTypeSyntax) = NullableTypeData(n)
 
-and TupleElementData(node: TupleElementSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> TypeData.FromNode
-    member this.Identifier = node.Identifier
-    static member FromNode(n: TupleElementSyntax) = TupleElementData(n)
-
 and TupleTypeData(node: TupleTypeSyntax) =
     member this.Node = node
     member this.Elements = node.Elements |> Seq.map TupleElementData.FromNode
@@ -1910,11 +2635,6 @@ with
         | FieldDeclaration d -> d.Node :> BaseFieldDeclarationSyntax
         | EventFieldDeclaration d -> d.Node :> BaseFieldDeclarationSyntax
 
-and ExplicitInterfaceSpecifierData(node: ExplicitInterfaceSpecifierSyntax) =
-    member this.Node = node
-    member this.Name = node.Name |> NameData.FromNode
-    static member FromNode(n: ExplicitInterfaceSpecifierSyntax) = ExplicitInterfaceSpecifierData(n)
-
 and MethodDeclarationData(node: MethodDeclarationSyntax) =
     member this.Node = node
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
@@ -1922,6 +2642,8 @@ and MethodDeclarationData(node: MethodDeclarationSyntax) =
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: MethodDeclarationSyntax) = MethodDeclarationData(n)
 
 and OperatorDeclarationData(node: OperatorDeclarationSyntax) =
@@ -1929,6 +2651,8 @@ and OperatorDeclarationData(node: OperatorDeclarationSyntax) =
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
     member this.OperatorToken = node.OperatorToken |> OperatorDeclarationOperatorToken.FromToken
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: OperatorDeclarationSyntax) = OperatorDeclarationData(n)
 
 and ConversionOperatorDeclarationData(node: ConversionOperatorDeclarationSyntax) =
@@ -1936,26 +2660,25 @@ and ConversionOperatorDeclarationData(node: ConversionOperatorDeclarationSyntax)
     member this.ImplicitOrExplicitKeyword = node.ImplicitOrExplicitKeyword |> ConversionOperatorDeclarationImplicitOrExplicitKeyword.FromToken
     member this.Type = node.Type |> TypeData.FromNode
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: ConversionOperatorDeclarationSyntax) = ConversionOperatorDeclarationData(n)
-
-and ConstructorInitializerData(node: ConstructorInitializerSyntax) =
-    member this.Node = node
-    member this.Kind = ConstructorInitializerKind.FromKind(node.Kind())
-    member this.ThisOrBaseKeyword = node.ThisOrBaseKeyword |> ConstructorInitializerThisOrBaseKeyword.FromToken
-    member this.ArgumentList = node.ArgumentList |> ArgumentListData.FromNode
-    static member FromNode(n: ConstructorInitializerSyntax) = ConstructorInitializerData(n)
 
 and ConstructorDeclarationData(node: ConstructorDeclarationSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     member this.Initializer = node.Initializer |> Option.ofObj |> Option.map ConstructorInitializerData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: ConstructorDeclarationSyntax) = ConstructorDeclarationData(n)
 
 and DestructorDeclarationData(node: DestructorDeclarationSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: DestructorDeclarationSyntax) = DestructorDeclarationData(n)
 
 and [<RequireQualifiedAccess>] BaseMethodDeclarationData =
@@ -1986,6 +2709,9 @@ and PropertyDeclarationData(node: PropertyDeclarationSyntax) =
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Identifier = node.Identifier
+    member this.AccessorList = node.AccessorList |> Option.ofObj |> Option.map AccessorListData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Initializer = node.Initializer |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
     static member FromNode(n: PropertyDeclarationSyntax) = PropertyDeclarationData(n)
 
 and EventDeclarationData(node: EventDeclarationSyntax) =
@@ -1993,18 +2719,16 @@ and EventDeclarationData(node: EventDeclarationSyntax) =
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Identifier = node.Identifier
+    member this.AccessorList = node.AccessorList |> AccessorListData.FromNode
     static member FromNode(n: EventDeclarationSyntax) = EventDeclarationData(n)
-
-and BracketedParameterListData(node: BracketedParameterListSyntax) =
-    member this.Node = node
-    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
-    static member FromNode(n: BracketedParameterListSyntax) = BracketedParameterListData(n)
 
 and IndexerDeclarationData(node: IndexerDeclarationSyntax) =
     member this.Node = node
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.ParameterList = node.ParameterList |> BracketedParameterListData.FromNode
+    member this.AccessorList = node.AccessorList |> Option.ofObj |> Option.map AccessorListData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     static member FromNode(n: IndexerDeclarationSyntax) = IndexerDeclarationData(n)
 
 and [<RequireQualifiedAccess>] BasePropertyDeclarationData =

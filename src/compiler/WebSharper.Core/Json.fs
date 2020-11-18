@@ -540,12 +540,12 @@ let add<'T> (e: 'T -> Encoded) (d: Value -> 'T) (dict: Dictionary<_,_>) =
         | x -> box (d x)
     dict.[typeof<'T>] <- simple enc dec
 
-let tryParseSingle x= 
+let tryParseSingle (x: string) = 
     System.Single.TryParse(x, 
         System.Globalization.NumberStyles.Float, 
         System.Globalization.NumberFormatInfo.InvariantInfo)
 
-let tryParseDouble x = 
+let tryParseDouble (x: string) = 
     System.Double.TryParse(x, 
         System.Globalization.NumberStyles.Float, 
         System.Globalization.NumberFormatInfo.InvariantInfo)

@@ -51,7 +51,7 @@ let targets = MakeTargets {
                             }) sln
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
-            let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
+            let publishExe (mode: BuildMode) fw input output =
                 let outputPath =
                     __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> "deploy"
                 DotNet.publish (fun p ->
@@ -61,19 +61,13 @@ let targets = MakeTargets {
                         NoRestore = true
                         Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
                     }) input
-                if explicitlyCopyFsCore then
-                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
-                    [ 
-                        fsharpCoreLib </> "FSharp.Core.dll" 
-                    ] 
-                    |> Shell.copy outputPath                
             BuildAction.Multiple [
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->
-                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
-                    publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false
-                    publishExe mode "net461" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" false
+                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
+                    publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp"
+                    publishExe mode "net461" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp"
                 buildSln "WebSharper.sln"
             ]
 }
@@ -94,20 +88,6 @@ let Minify () =
     minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
-
-let MakeNetStandardTypesList() =
-    let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
-    if not f.Exists then
-        let asm =
-            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
-            |> Mono.Cecil.AssemblyDefinition.ReadAssembly
-        use s = f.OpenWrite()
-        use w = new StreamWriter(s)
-        w.WriteLine(asm.FullName)
-        let rec writeType (t: Mono.Cecil.TypeDefinition) =
-            w.WriteLine(t.FullName.Replace('/', '+'))
-            Seq.iter writeType t.NestedTypes
-        Seq.iter writeType asm.MainModule.Types
 
 let AddToolVersions() =
     let lockFile =
@@ -135,7 +115,6 @@ let AddToolVersions() =
 
 Target.create "Prepare" <| fun _ ->
     Minify()
-    MakeNetStandardTypesList()
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 "WS-GenAssemblyInfo" ==> "Prepare"

@@ -259,9 +259,9 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
             assemblies.["System.Core"] <- syscore
             mscorlib, syscore, false
 
+    // TODO clean up unnecessary correct helpers
     let correctType (t: TypeReference) =
-        if isNetStandard && AssemblyConventions.IsNetStandardType t.FullName then
-            t.Scope <- corelib.Name
+        ()
 
     let rec correctMethod (m: MethodReference) =
         correctType m.ReturnType
@@ -294,7 +294,6 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         | true, x -> x
         | false, _ ->
             let asm =
-                if isNetStandard && AssemblyConventions.IsNetStandardType typeName then corelib else
                 aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
