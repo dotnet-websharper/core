@@ -2,7 +2,7 @@ REFERENCES: STRICT
 REDIRECTS: ON
 STORAGE: NONE
 STRATEGY: MIN
-RESTRICTION: == netstandard2.1
+RESTRICTION: == netstandard2.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Core (5.0)
@@ -69,6 +69,9 @@ NUGET
       System.IO (>= 4.3)
       System.Reflection.Primitives (>= 4.3)
       System.Runtime (>= 4.3)
+    System.Reflection.Emit.ILGeneration (4.7)
+    System.Reflection.Emit.Lightweight (4.7)
+      System.Reflection.Emit.ILGeneration (>= 4.7)
     System.Reflection.Metadata (5.0)
       System.Collections.Immutable (>= 5.0)
     System.Reflection.Primitives (4.3)
@@ -391,7 +394,7 @@ NUGET
 GROUP fcs
 STORAGE: NONE
 STRATEGY: MIN
-RESTRICTION: == netstandard2.1
+RESTRICTION: == netstandard2.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Compiler.Service (38.0)

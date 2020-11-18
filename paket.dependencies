@@ -1,7 +1,7 @@
 references: strict
 redirects: on
 
-framework: netstandard2.1
+framework: netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
@@ -11,6 +11,7 @@ nuget Microsoft.CodeAnalysis.CSharp ~> 3.8.0
 nuget FSharp.Core 5.0.0
 nuget System.CodeDom 5.0.0
 nuget System.Configuration.ConfigurationManager 5.0.0
+nuget System.Reflection.Emit.Lightweight 4.7.0
 nuget Microsoft.Build.Utilities.Core 16.8.0
 
 group build
@@ -35,7 +36,7 @@ group wsbuild
     git https://github.com/dotnet-websharper/build-script dotnettool
 
 group fcs
-    framework: netstandard2.1
+    framework: netstandard2.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
