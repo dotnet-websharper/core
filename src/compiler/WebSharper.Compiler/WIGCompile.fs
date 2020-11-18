@@ -240,24 +240,16 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, netStandardPath: string option) =
+type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
     
-    let corelib, syscore, isNetStandard =
-        match netStandardPath with
-        | Some p ->
-            let netstandard = AssemblyDefinition.ReadAssembly p
-            assemblies.["netstandard"] <- netstandard
-            netstandard, null, true
-        | _ ->
-            let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
-            let mscorlib = resolve(typeof<int>.Assembly.FullName)
-            assemblies.["mscorlib"] <- mscorlib
-            let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
-            assemblies.["System.Core"] <- syscore
-            mscorlib, syscore, false
+    let corelib = 
+        let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
+        let corelib = resolve(typeof<int>.Assembly.FullName)
+        assemblies.["System.Private.CoreLib"] <- corelib
+        corelib
 
     // TODO clean up unnecessary correct helpers
     let correctType (t: TypeReference) =
@@ -432,8 +424,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.Delegate args res =
         let tn = if Option.isSome res then "System.Func" else "System.Action"
-        let fromLib = if isNetStandard || List.length args <= 8 then corelib else syscore
-        commonType fromLib tn (args @ Option.toList res)
+        commonType corelib tn (args @ Option.toList res)
 
     member b.InteropDelegate this args pars res =
         let tn =
@@ -1427,12 +1418,7 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
-        let netStandardPath = 
-            options.ReferencePaths 
-            |> Seq.tryPick (fun p ->
-                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
-            )
-        let tB = TypeBuilder(resolver, def, netStandardPath)
+        let tB = TypeBuilder(resolver, def)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])
