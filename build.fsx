@@ -23,7 +23,7 @@ open Fake.IO.Globbing.Operators
 open Fake.Tools
 open WebSharper.Fake
 
-let version = "4.6"
+let version = "5.0"
 let pre = None
 
 let baseVersion =

@@ -97,7 +97,7 @@ namespace WebSharper.CSharp.Tests
         public static Task SetAsync(int key, int value)
         {
             Set(key, value);
-            return Task.FromResult<object>(null); // .NET 4.6 has Task.CompletedTask;
+            return Task.CompletedTask;
         }
 
         [Remote]
