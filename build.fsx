@@ -87,6 +87,20 @@ let Minify () =
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
+let MakeNetStandardTypesList() =
+    let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
+    if not f.Exists then
+        let asm =
+            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
+            |> Mono.Cecil.AssemblyDefinition.ReadAssembly
+        use s = f.OpenWrite()
+        use w = new StreamWriter(s)
+        w.WriteLine(asm.FullName)
+        let rec writeType (t: Mono.Cecil.TypeDefinition) =
+            w.WriteLine(t.FullName.Replace('/', '+'))
+            Seq.iter writeType t.NestedTypes
+        Seq.iter writeType asm.MainModule.Types
+
 let AddToolVersions() =
     let lockFile =
         Paket.LockFile.LoadFrom(__SOURCE_DIRECTORY__ </> "paket.lock")
@@ -113,6 +127,7 @@ let AddToolVersions() =
 
 Target.create "Prepare" <| fun _ ->
     Minify()
+    MakeNetStandardTypesList()
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 "WS-GenAssemblyInfo" ==> "Prepare"

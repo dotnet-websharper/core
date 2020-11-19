@@ -298,7 +298,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         if Option.isNone a.FileName then // currently compiled assembly
             comp.AssemblyName
         else
-            a.SimpleName
+            match AssemblyConventions.StandardAssemblyNameForTypeNamed typeFullName with
+            | Some n -> n
+            | None -> a.SimpleName
 
     let attrReader =
         { new A.AttributeReader<FSharpAttribute>() with

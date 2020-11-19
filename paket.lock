@@ -410,6 +410,15 @@ NUGET
       FSharp.Core (5.0)
     FSharp.Core (5.0)
 
+GROUP includes
+REFERENCES: STRICT
+RESTRICTION: == netstandard2.0
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    Microsoft.NETCore.Platforms (5.0)
+    NETStandard.Library (2.0.3)
+      Microsoft.NETCore.Platforms (>= 1.1)
+
 GROUP test
 NUGET
   remote: https://api.nuget.org/v3/index.json

@@ -752,9 +752,13 @@ module Reflection =
         let name = getName t
         let asmName =
             if fullAsmName then
-                t.Assembly.FullName
+                match AssemblyConventions.StandardAssemblyFullNameForTypeNamed name with
+                | Some n -> n
+                | None -> t.Assembly.FullName
             else
-                t.Assembly.FullName.Split(',').[0]
+                match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
+                | Some n -> n
+                | None -> t.Assembly.FullName.Split(',').[0]
         Hashed {
             Assembly = asmName
             FullName = name

@@ -33,11 +33,14 @@ let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
     let fullName = tR.FullName.Split('<').[0].Replace('/', '+')
     Hashed {
         Assembly =
-            match tR.Scope.MetadataScopeType with
-            | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
-                let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
-                anr.FullName.Split(',').[0]
-            | _ -> tR.Module.Assembly.FullName.Split(',').[0]
+            if AssemblyConventions.IsNetStandardType fullName then
+                "netstandard"
+            else
+                match tR.Scope.MetadataScopeType with
+                | Mono.Cecil.MetadataScopeType.AssemblyNameReference ->
+                    let anr = tR.Scope :?> Mono.Cecil.AssemblyNameReference
+                    anr.FullName.Split(',').[0]
+                | _ -> tR.Module.Assembly.FullName.Split(',').[0]
         FullName = fullName
     }
 

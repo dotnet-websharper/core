@@ -240,20 +240,23 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition) =
+type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, netStandardPath: string option) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
     
-    let corelib = 
-        let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
-        let corelib = resolve(typeof<int>.Assembly.FullName)
-        assemblies.["System.Private.CoreLib"] <- corelib
-        corelib
+    let corelib =
+        match netStandardPath with
+        | Some p ->
+            let netstandard = AssemblyDefinition.ReadAssembly p
+            assemblies.["netstandard"] <- netstandard
+            netstandard
+        | _ ->
+            failwith "WIG project requires netstandard"
 
-    // TODO clean up unnecessary correct helpers
     let correctType (t: TypeReference) =
-        ()
+        if AssemblyConventions.IsNetStandardType t.FullName then
+            t.Scope <- corelib.Name
 
     let rec correctMethod (m: MethodReference) =
         correctType m.ReturnType
@@ -1418,7 +1421,12 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
-        let tB = TypeBuilder(resolver, def)
+        let netStandardPath = 
+            options.ReferencePaths 
+            |> Seq.tryPick (fun p ->
+                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
+            )
+        let tB = TypeBuilder(resolver, def, netStandardPath)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])

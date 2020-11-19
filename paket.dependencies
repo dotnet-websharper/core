@@ -32,6 +32,12 @@ group build
     nuget FSharp.Core
     nuget Mono.Cecil
 
+group includes
+    references: strict
+    framework: netstandard2.0
+    source https://api.nuget.org/v3/index.json
+    nuget NETStandard.Library 
+
 group wsbuild
     git https://github.com/dotnet-websharper/build-script dotnettool
 

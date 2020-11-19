@@ -216,7 +216,10 @@ type AttributeReader<'A>() =
                 let ss = s.Split([|','|])
                 if ss.Length >= 2 then
                     let fullName = ss.[0].Trim()
-                    let assemblyName = ss.[1].Trim()
+                    let assemblyName =
+                        match AssemblyConventions.StandardAssemblyNameForTypeNamed fullName with
+                        | Some n -> n
+                        | None -> ss.[1].Trim()
                     Hashed {
                         FullName = fullName
                         Assembly = assemblyName

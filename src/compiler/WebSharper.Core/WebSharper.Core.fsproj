@@ -5,12 +5,14 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="netstandardtypes.txt" />
     <Compile Include="FastInvoke.fsi" />
     <Compile Include="FastInvoke.fs" />
     <Compile Include="PathConventions.fsi" />
     <Compile Include="PathConventions.fs" />
     <Compile Include="ContentTypes.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="AssemblyConventions.fs" />
     <Compile Include="Binary.fsi" />
     <Compile Include="Binary.fs" />
     <Compile Include="ASTTypes.fs" />
