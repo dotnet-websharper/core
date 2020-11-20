@@ -289,6 +289,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         | true, x -> x
         | false, _ ->
             let asm =
+                if AssemblyConventions.IsNetStandardType typeName then corelib else
                 aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
@@ -1285,6 +1286,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyTitleAttribute>
                 typeof<System.Reflection.AssemblyFileVersionAttribute>
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
+                typeof<System.Runtime.Versioning.TargetFrameworkAttribute>
             |]
         let getSystemTypeDef (t: Type) =
             tB.SystemAssembly.MainModule.GetType(t.FullName)
