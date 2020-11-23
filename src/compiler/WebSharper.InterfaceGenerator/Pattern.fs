@@ -62,7 +62,10 @@ module Pattern =
         Instance [
             for (n, t) in optional do
                 yield n =! t :> _
-                yield n + "Opt" =@ !?t :> _
+                let sn =
+                    let name = n.Replace('.', '_')
+                    name.Substring(0, 1).ToUpper() + name.Substring 1 + "Opt"
+                yield n =@ !?t |> WithSourceName sn :> _
         ]
 
     /// Generates properties marked obsolete.
