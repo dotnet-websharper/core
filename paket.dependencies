@@ -46,13 +46,13 @@ group build
     nuget Mono.Cecil
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script fake5
+    git https://github.com/dotnet-websharper/build-script dotnettool
 
 group includes
     references: strict
     framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 
+    nuget NETStandard.Library 2.0.3
     nuget FSharp.Core ~> 4.7.0
 
 group fcs
