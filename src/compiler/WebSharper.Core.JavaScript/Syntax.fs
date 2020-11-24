@@ -124,6 +124,7 @@ and Expression =
     | VarNamed    of Id * string
     | ExprPos     of Expression * SourcePos
     | ExprComment of E * string
+    | ImportFunc
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
@@ -209,6 +210,7 @@ let TransformExpression (!) (!^) expr =
     | Constant _
     | NewRegex _
     | This
+    | ImportFunc
     | Var _ 
     | VarNamed _ -> expr
     | ExprPos (x, pos) -> ExprPos (!x, pos)
@@ -375,6 +377,7 @@ let (|NewRegex   |_|) e = match e with IgnoreExprPos (NewRegex x          ) -> S
 let (|Postfix    |_|) e = match e with IgnoreExprPos (Postfix(x, y)       ) -> Some (x, y)    | _ -> None 
 let (|This       |_|) e = match e with IgnoreExprPos (This                ) -> Some ()        | _ -> None 
 let (|Unary      |_|) e = match e with IgnoreExprPos (Unary(x, y)         ) -> Some (x, y)    | _ -> None 
+let (|ImportFunc |_|) e = match e with IgnoreExprPos (ImportFunc          ) -> Some ()        | _ -> None 
 
 let (|Var        |_|) e = match e with IgnoreExprPos (Var x | VarNamed(x, _)) -> Some x         | _ -> None 
 let (|VarNamed   |_|) e = match e with IgnoreExprPos (VarNamed(x, y)        ) -> Some (x, y)    | _ -> None 
@@ -396,6 +399,7 @@ let This                 = This
 let Unary(x, y)          = Unary(x, y)         
 let Var x                = Var x               
 let VarNamed(x, y)       = VarNamed(x, y)        
+let ImportFunc           = ImportFunc                
 
 let rec RemoveOuterExprSourcePos e = 
     match e with 

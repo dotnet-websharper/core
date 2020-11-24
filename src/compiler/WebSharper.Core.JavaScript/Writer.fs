@@ -140,7 +140,6 @@ let Keywords =
         "function"
         "if"
         "implements"
-        "import"
         "in"
         "instanceof"
         "interface"
@@ -167,7 +166,7 @@ let Keywords =
 let IsKeyword word = Keywords.Contains word
 
 let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
-    buf.AppendFormat(@"\u{0:x4}", int c)
+    buf.AppendFormat(@"u{0:x4}", int c)
     |> ignore
 
 let EscapeId (id: string) =
@@ -336,6 +335,8 @@ let rec Expression (expression) =
         Token (string x)
     | S.This ->
         Word "this"
+    | S.ImportFunc ->
+        Word "import"
     | _ ->
         failwith "Syntax.Expression not recognized"
 
