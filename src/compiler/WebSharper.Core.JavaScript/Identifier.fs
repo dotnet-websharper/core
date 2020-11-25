@@ -30,6 +30,7 @@ let ReservedWords =
     System.Collections.Generic.HashSet [|
         "abstract"  
         "arguments"
+        "await"
         "boolean"
         "break"
         "byte"
@@ -58,6 +59,7 @@ let ReservedWords =
         "goto"
         "if"
         "implements"
+        "import"
         "in"
         "instanceof"
         "int"

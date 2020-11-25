@@ -402,6 +402,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.PostfixOperator.``--`` -> mun a MutatingUnaryOperator.``()--``
         | _ -> failwith "unrecognized postfix operator"
     | S.This -> This
+    | S.ImportFunc -> Var (Id.Import())
     | S.Unary (a, b) ->
         match a with
         | S.UnaryOperator.``!`` -> Unary(UnaryOperator.``!``, trE b)
