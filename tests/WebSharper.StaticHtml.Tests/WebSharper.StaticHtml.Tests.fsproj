@@ -8,9 +8,6 @@
     <Compile Include="Main.fs" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />

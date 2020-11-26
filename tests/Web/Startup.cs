@@ -17,9 +17,10 @@ namespace Web
     {
         public void ConfigureServices(IServiceCollection services)
         {
-            //services.AddSitelet()
-            //    .AddAuthentication("WebSharper")
-            //    .AddCookie("WebSharper", options => { });
+            var site = new WebSharper.Tests.Website.WebsiteEntryPoint();
+            services.AddSitelet(site.Sitelet)
+                .AddAuthentication("WebSharper")
+                .AddCookie("WebSharper", options => { });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
