@@ -345,7 +345,7 @@ NUGET
     NuGet.Protocol (5.8)
       NuGet.Packaging (>= 5.8)
     NuGet.Versioning (5.8)
-    NUglify (1.11.1)
+    NUglify (1.11.3)
     Paket.Core (5.257)
       Chessie (>= 0.6)
       Mono.Cecil (>= 0.10.0-beta6)
@@ -451,12 +451,10 @@ NUGET
 
 GROUP includes
 REFERENCES: STRICT
-RESTRICTION: == netstandard2.0
+RESTRICTION: == netstandard2.1
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    Microsoft.NETCore.Platforms (5.0)
-    NETStandard.Library (2.0.3)
-      Microsoft.NETCore.Platforms (>= 1.1)
+    NETStandard.Library.Ref (2.1)
 
 GROUP test
 NUGET

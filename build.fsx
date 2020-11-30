@@ -91,7 +91,7 @@ let MakeNetStandardTypesList() =
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
     if not f.Exists then
         let asm =
-            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
+            "packages/includes/NETStandard.Library.Ref/ref/netstandard2.1/netstandard.dll"
             |> Mono.Cecil.AssemblyDefinition.ReadAssembly
         use s = f.OpenWrite()
         use w = new StreamWriter(s)
