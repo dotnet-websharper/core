@@ -59,8 +59,11 @@ type private ListProxy<'T> =
                     false)
 
     member this.GetSlice(start, finish) : list<'T> =
-        match start, finish with
-        | None, None -> As this
-        | Some i, None -> As this |> CollectionInternals.ListSkip i
-        | None, Some j -> As this |> Seq.take (j + 1) |> List.ofSeq  
-        | Some i, Some j -> As this |> CollectionInternals.ListSkip i |> Seq.take (j - i + 1) |> List.ofSeq        
+        try
+            match start, finish with
+            | None, None -> As this
+            | Some i, None -> As this |> CollectionInternals.ListSkip i
+            | None, Some j -> As this |> Seq.take (j + 1) |> List.ofSeq  
+            | Some i, Some j -> As this |> CollectionInternals.ListSkip i |> Seq.take (j - i + 1) |> List.ofSeq    
+        with _ ->
+            As List.empty

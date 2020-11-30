@@ -602,6 +602,16 @@ let Tests =
             let x = 1 + 1
             equal (nameof x) "x"
             equal (nameof ModuleValues.a) "a"
+            equal (nameof (+)) "+"
+        }
+
+        Test "F# 5 slicing" {
+            let l = [ 1..10 ]
+            let a = [| 1..10 |]
+            let s = "hello!"
+            equal (l.[-2..(-1)] |> Array.ofList) [||]
+            equal (a.[-2..(-1)]) [||]
+            equal (s.[-2..(-1)]) ""
         }
 
         //Test "import" {

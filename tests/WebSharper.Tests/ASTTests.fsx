@@ -18,10 +18,10 @@
 //
 // $end{copyright}
 #I __SOURCE_DIRECTORY__
-#r "../../build/Release/FSharp/net461/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net5.0/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Pdb.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -30,17 +30,17 @@
 #r "System.Web.dll"
 #r "System.Xml.dll"
 #r "System.Xml.Linq.dll"
-#r "../../build/Release/net461/WebSharper.Core.JavaScript.dll"
-#r "../../build/Release/net461/WebSharper.Core.dll"
-#r "../../build/Release/net461/WebSharper.JavaScript.dll"
-#r "../../build/Release/net461/WebSharper.JQuery.dll"
-#r "../../build/Release/net461/WebSharper.Main.dll"
-#r "../../build/Release/net461/WebSharper.Collections.dll"
-#r "../../build/Release/net461/WebSharper.Control.dll"
-#r "../../build/Release/net461/WebSharper.Web.dll"
-#r "../../build/Release/net461/WebSharper.Sitelets.dll"
-#r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
-#r "../../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/net5.0/WebSharper.Core.JavaScript.dll"
+#r "../../build/Release/net5.0/WebSharper.Core.dll"
+#r "../../build/Release/net5.0/WebSharper.JavaScript.dll"
+#r "../../build/Release/net5.0/WebSharper.JQuery.dll"
+#r "../../build/Release/net5.0/WebSharper.Main.dll"
+#r "../../build/Release/net5.0/WebSharper.Collections.dll"
+#r "../../build/Release/net5.0/WebSharper.Control.dll"
+#r "../../build/Release/net5.0/WebSharper.Web.dll"
+#r "../../build/Release/net5.0/WebSharper.Sitelets.dll"
+#r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.dll"
+#r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.FSharp.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -75,7 +75,7 @@ module Utils =
         | BasicPatterns.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
         | BasicPatterns.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
         | BasicPatterns.NewDelegate(ty,es) -> "new-delegate" 
-        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.DeclaringEntity.Value.CompiledName + printTupledArgs args 
+        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.DeclaringEntity.Value.CompiledName + printTyargs tys + printTupledArgs args 
         | BasicPatterns.NewRecord(v,args) -> 
             let fields = v.TypeDefinition.FSharpFields
             "{" + ((fields, args) ||> Seq.map2 (fun f a -> f.Name + " = " + printExpr 0 a) |> String.concat "; ") + "}" 
@@ -283,7 +283,7 @@ module Utils =
 
 let wsRefs =
     let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net461", x + ".dll")
+        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net5.0", x + ".dll")
     List.map wsLib [
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
@@ -294,6 +294,7 @@ let wsRefs =
         "WebSharper.Control"
         "WebSharper.Web"
         "WebSharper.Sitelets"
+        "FSharp.Core"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
     ]
@@ -302,7 +303,7 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
     let sysLib x =
         Path.Combine(System.Runtime.InteropServices.RuntimeEnvironment.GetRuntimeDirectory(), x + ".dll") 
     [|  yield "--simpleresolution" 
-        yield "--noframework" 
+//        yield "--noframework" 
         yield "--debug:full" 
         yield "--define:DEBUG" 
         yield "--optimize-" 
@@ -314,16 +315,16 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
         yield "--target:library" 
         for x in fileNames do 
             yield x
-        let references =
-            [ 
-                sysLib "mscorlib"
-                sysLib "System"
-                sysLib "System.Core"
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
-                    @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll")
-            ]
-        for r in references do
-            yield "-r:" + r
+//        let references =
+//            [ 
+//                sysLib "mscorlib"
+//                sysLib "System"
+//                sysLib "System.Core"
+//                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+//                    @"Reference Assemblies\Microsoft\FSharp\.NETFramework\v4.0\4.4.0.0\FSharp.Core.dll")
+//            ]
+//        for r in references do
+//            yield "-r:" + r
         for r in wsRefs do
             yield "-r:" + r
      |]
@@ -418,6 +419,21 @@ let translate source =
 
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
+
+translate """
+module M
+
+open WebSharper
+
+[<JavaScript>]
+let stringInterpolation() = 
+    //sprintf "x=%d %d" 5 6
+    $"x={(5, 5)}" 
+    //$"x=%d{5}" 
+"""
+
+ExtraTopLevelOperators.PrintFormatToString<Microsoft.FSharp.Core.string> (new PrintfFormat`5("x=%P()",[|Operators.Box<Microsoft.FSharp.Core.int> (5)|],dflt)) @ (7,28--7,36)
+compiling: Function([], Return(Call(_, Microsoft.FSharp.Core.ExtraTopLevelOperators, PrintFormatToString<System.String>, [Ctor(Microsoft.FSharp.Core.PrintfFormat`5<System.String,unit,System.String,System.String,System.Int32>, .ctor, [Value("x=%P()"); NewArray([Call(_, Microsoft.FSharp.Core.Operators, Box<System.Int32>, [Value(5)])]); Call(_, Microsoft.FSharp.Core.Operators+Unchecked, DefaultOf<System.Type[]>, [])])])))
 
 translate """
 module M

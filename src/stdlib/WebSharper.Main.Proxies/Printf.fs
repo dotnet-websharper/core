@@ -29,6 +29,9 @@ type internal PrintfFormat =
     [<Macro(typeof<M.PrintF>)>]
     new (value: string) = {}
 
+    [<Macro(typeof<M.PrintF>)>]
+    new (value: string, args: obj[], types: System.Type[]) = {}
+
 [<Name "Printf">]
 [<Proxy
     "Microsoft.FSharp.Core.PrintfModule, \

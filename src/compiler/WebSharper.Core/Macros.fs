@@ -888,6 +888,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                 else
                     stringProxy comp "PadLeft" [s; width]
         else t (nextVar())
+        |> Some
         
     let numberToString (f: FormatString.FormatSpecifier) t =
         withPadding f (fun (n, _) ->
@@ -1025,10 +1026,20 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
 
     let inner = 
         if Array.isEmpty parts then cString "" else
+        let mutable skipP = false
         parts
-        |> Seq.map (function
-            | FormatString.StringPart s -> cString s
+        |> Seq.choose (function
+            | FormatString.StringPart s -> Some (cString s)
             | FormatString.FormatPart f ->
+                match f.TypeChar with
+                | 'P' ->
+                    if skipP then
+                        skipP <- false
+                        None
+                    else
+                        withPadding f (fun (o, _) -> cCallG ["String"] [o])
+                | _ ->
+                skipP <- true
                 match f.TypeChar with
                 | 'b'
                 | 'O' -> 
@@ -1082,16 +1093,26 @@ let objty, objArrTy =
 type PrintF() =
     inherit Macro()
     override this.TranslateCtor(c) =
-        let rec getFunctionArgs f =
-            match f with
-            | FSharpFuncType(a, r) -> 
-                a :: getFunctionArgs r
-            | _ -> 
-                []
         match c.Arguments with
         | [I.Value (Literal.String fs)] ->
+            let rec getFunctionArgs f =
+                match f with
+                | FSharpFuncType(a, r) -> 
+                    a :: getFunctionArgs r
+                | _ -> 
+                    []
             let ts = c.DefiningType.Generics.Head |> getFunctionArgs |> List.map (fun t -> t.SubstituteGenericsToSame(NonGenericType objty))
             createPrinter c.Compilation ts fs |> MacroOk
+        | [I.Value (Literal.String fs); I.NewArray args; _] ->
+            let rec getTupleArgs t =
+                match t with
+                | TupleType(tt, _) when args.Length > 1 -> 
+                    tt
+                | _ -> 
+                    [t]
+            let ts = c.DefiningType.Generics.[4] |> getTupleArgs |> List.map (fun t -> t.SubstituteGenericsToSame(NonGenericType objty))
+            let f = createPrinter c.Compilation ts fs 
+            CurriedApplication(f, args) |> MacroOk
         | _ -> MacroError "printfMacro error"
 
 let rec isImplementing (comp: M.ICompilation) typ intf =
