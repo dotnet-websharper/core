@@ -47,14 +47,14 @@ let Middleware (options: WebSharperOptions) =
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
+            let syncIOFeature = httpCtx.Features.Get<IHttpBodyControlFeature>()
+            if not (isNull syncIOFeature) then
+                syncIOFeature.AllowSynchronousIO <- true
             let ctx = Context.GetOrMake httpCtx options
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
                 let content = sitelet.Controller.Handle endpoint
                 let response = Content.ToResponse content ctx |> Async.StartAsTask
-                let syncIOFeature = httpCtx.Features.Get<IHttpBodyControlFeature>();
-                if not (isNull syncIOFeature) then
-                    syncIOFeature.AllowSynchronousIO <- true
                 writeResponse response httpCtx.Response
             | None -> next.Invoke()
         )

@@ -4,6 +4,7 @@
     <TargetFrameworks>netstandard2.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>None</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WebSharper.Main/JavaScript.fs" />
