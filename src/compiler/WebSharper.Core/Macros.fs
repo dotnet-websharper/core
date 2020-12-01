@@ -864,22 +864,25 @@ let (^+) (a: Expression) (b: Expression) =
     | I.Value av, I.Value bv -> Value (AST.String (av.Value.ToString() + bv.Value.ToString()))
     | _ -> a ^+ b
 
-let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
+let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list option) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
         
-    let rArgs = ref args
-    let nextVar() =
+    let rArgs = 
+        match intp with
+        | None -> args |> List.map (fun (a, t) -> Var a, t) |> ref
+        | Some intp -> (intp, ts) ||> List.map2 (fun a t -> a, Some t) |> ref
+    let nextHole() =
         match !rArgs with
         | (a, t) :: r ->
             rArgs := r
-            Var a, t
+            a, t
         | _ -> failwithf "wrong number of Printer type arguments found: %d" (List.length ts)  
         
     let withPadding (f: FormatString.FormatSpecifier) t =
         if f.IsWidthSpecified then
-            let width = if f.IsStarWidth then nextVar() |> fst else cInt f.Width
-            let s = t (nextVar())
+            let width = if f.IsStarWidth then nextHole() |> fst else cInt f.Width
+            let s = t (nextHole())
             if FormatString.isLeftJustify f.Flags then
                 stringProxy comp "PadRight" [s; width]
             else
@@ -887,7 +890,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     utils comp "padNumLeft" [s; width]
                 else
                     stringProxy comp "PadLeft" [s; width]
-        else t (nextVar())
+        else t (nextHole())
         |> Some
         
     let numberToString (f: FormatString.FormatSpecifier) t =
@@ -1027,12 +1030,22 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
     let inner = 
         if Array.isEmpty parts then cString "" else
         let mutable skipP = false
+        let mutable skipPParens = false
         parts
         |> Seq.choose (function
-            | FormatString.StringPart s -> Some (cString s)
+            | FormatString.StringPart s -> 
+                if skipPParens then
+                    skipPParens <- false
+                    if s.StartsWith("()") then
+                        Some (cString (s.[2 ..]))
+                    else
+                        Some (cString s)
+                else
+                    Some (cString s)
             | FormatString.FormatPart f ->
                 match f.TypeChar with
                 | 'P' ->
+                    skipPParens <- true
                     if skipP then
                         skipP <- false
                         None
@@ -1070,7 +1083,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
                     numberToString f (fun n ->
                         let prec =
                             if f.IsPrecisionSpecified then
-                                if f.IsStarPrecision then nextVar() |> fst else cInt f.Precision
+                                if f.IsStarPrecision then nextHole() |> fst else cInt f.Precision
                             else cInt 6 // Default precision
                         cCall n "toFixed" [prec]
                     )
@@ -1079,9 +1092,15 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) fs =
         |> Seq.reduce (^+)
     
     let k = Id.New(mut = false) 
-    Lambda([k],
-        args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
-    )
+    match intp with
+    | None ->
+        Lambda([k],
+            args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
+        )
+    | Some _ ->
+        Lambda([k],
+            (Var k).[[inner]]
+        )
   
 let objty, objArrTy =
     let t = typeof<System.Object>
@@ -1102,7 +1121,7 @@ type PrintF() =
                 | _ -> 
                     []
             let ts = c.DefiningType.Generics.Head |> getFunctionArgs |> List.map (fun t -> t.SubstituteGenericsToSame(NonGenericType objty))
-            createPrinter c.Compilation ts fs |> MacroOk
+            createPrinter c.Compilation ts None fs |> MacroOk
         | [I.Value (Literal.String fs); I.NewArray args; _] ->
             let rec getTupleArgs t =
                 match t with
@@ -1111,8 +1130,7 @@ type PrintF() =
                 | _ -> 
                     [t]
             let ts = c.DefiningType.Generics.[4] |> getTupleArgs |> List.map (fun t -> t.SubstituteGenericsToSame(NonGenericType objty))
-            let f = createPrinter c.Compilation ts fs 
-            CurriedApplication(f, args) |> MacroOk
+            createPrinter c.Compilation ts (Some args) fs |> MacroOk
         | _ -> MacroError "printfMacro error"
 
 let rec isImplementing (comp: M.ICompilation) typ intf =

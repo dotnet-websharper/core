@@ -428,8 +428,8 @@ open WebSharper
 [<JavaScript>]
 let stringInterpolation() = 
     //sprintf "x=%d %d" 5 6
-    $"x={(5, 5)}" 
-    //$"x=%d{5}" 
+    //$"x={(5, 5)}" 
+    $"x=%d{5}" 
 """
 
 ExtraTopLevelOperators.PrintFormatToString<Microsoft.FSharp.Core.string> (new PrintfFormat`5("x=%P()",[|Operators.Box<Microsoft.FSharp.Core.int> (5)|],dflt)) @ (7,28--7,36)

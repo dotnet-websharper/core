@@ -63,7 +63,11 @@ type private ListProxy<'T> =
             match start, finish with
             | None, None -> As this
             | Some i, None -> As this |> CollectionInternals.ListSkip i
-            | None, Some j -> As this |> Seq.take (j + 1) |> List.ofSeq  
-            | Some i, Some j -> As this |> CollectionInternals.ListSkip i |> Seq.take (j - i + 1) |> List.ofSeq    
+            | None, Some j -> 
+                if j < 0 then As List.empty else
+                As this |> Seq.take (j + 1) |> List.ofSeq  
+            | Some i, Some j -> 
+                if j < 0 then As List.empty else
+                As this |> CollectionInternals.ListSkip i |> Seq.take (j - i + 1) |> List.ofSeq    
         with _ ->
             As List.empty
