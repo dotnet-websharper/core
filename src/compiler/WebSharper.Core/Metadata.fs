@@ -247,7 +247,7 @@ type Node =
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition * option<ParameterObject>
-    | AssemblyNode of string * bool
+    | AssemblyNode of string * hasJs:bool * isModule:bool
     | EntryPointNode 
     | ExtraBundleEntryPointNode of string * string
 

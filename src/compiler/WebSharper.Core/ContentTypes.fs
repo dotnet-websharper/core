@@ -42,6 +42,7 @@ module Text =
     let JavaScript = Define "text/javascript"
     let Css = Define "text/css"
     let Plain = Define "text/plain"
+    let Module = Define "module"
 
 let private (|EndsWith|_|) (suf: string) (x: string) =
     if x.ToLower().EndsWith(suf.ToLower()) then Some () else None

@@ -149,7 +149,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
     let graph = Graph.Empty
     
-    let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (asmName, false))
+    let asmNodeIndex = graph.AddOrLookupNode(AssemblyNode (asmName, false, false))
     for req in getRequires assembly.CustomAttributes do
         graph.AddEdge(asmNodeIndex, ResourceNode req)
 
