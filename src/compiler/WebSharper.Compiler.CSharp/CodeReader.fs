@@ -664,7 +664,7 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.CastExpression                    x -> this.TransformCastExpression x
                 | ExpressionData.RefExpression                     x -> this.TransformRefExpression x
                 | ExpressionData.InitializerExpression             x -> this.TransformInitializerExpression x
-                | ExpressionData.ObjectCreationExpression          x -> this.TransformObjectCreationExpression x
+                | ExpressionData.BaseObjectCreationExpression      x -> this.TransformBaseObjectCreationExpression x
                 | ExpressionData.AnonymousObjectCreationExpression x -> this.TransformAnonymousObjectCreationExpression x
                 | ExpressionData.ArrayCreationExpression           x -> this.TransformArrayCreationExpression x
                 | ExpressionData.ImplicitArrayCreationExpression   x -> this.TransformImplicitArrayCreationExpression x
@@ -675,6 +675,9 @@ type RoslynTransformer(env: Environment) =
                 | ExpressionData.InterpolatedStringExpression      x -> this.TransformInterpolatedStringExpression x      
                 | ExpressionData.IsPatternExpression               x -> this.TransformIsPatternExpression x
                 | ExpressionData.ThrowExpression                   x -> this.TransformThrowExpression x      
+                | ExpressionData.RangeExpression                   x -> this.TransformRangeExpression x      
+                | ExpressionData.SwitchExpression                  x -> this.TransformSwitchExpression x      
+                | ExpressionData.WithExpression                    x -> this.TransformWithExpression x      
             let conversion = env.SemanticModel.GetConversion(x.Node)
             if conversion.IsUserDefined then
                 let symbol = conversion.MethodSymbol
@@ -700,6 +703,7 @@ type RoslynTransformer(env: Environment) =
         | TypeData.PredefinedType      x -> TODO x //this.TransformPredefinedType x
         | TypeData.ArrayType           x -> TODO x //this.TransformArrayType x
         | TypeData.PointerType         x -> TODO x //this.TransformPointerType x
+        | TypeData.FunctionPointerType x -> TODO x //this.TransformFunctionPointerType x
         | TypeData.NullableType        x -> TODO x //this.TransformNullableType x
         | TypeData.TupleType           x -> TODO x //this.TransformTupleType x
         | TypeData.OmittedTypeArgument x -> TODO x //this.TransformOmittedTypeArgument x
@@ -1212,6 +1216,8 @@ type RoslynTransformer(env: Environment) =
                                 MutatingBinaryOperator.``<<=``
                             | AssignmentExpressionKind.RightShiftAssignmentExpression -> 
                                 MutatingBinaryOperator.``>>=``
+                            | AssignmentExpressionKind.CoalesceAssignmentExpression ->
+                                MutatingBinaryOperator.``??=``
                         MutatingBinary(left, op, right) |> Some
                     | _ -> None
                 else None
@@ -1412,6 +1418,11 @@ type RoslynTransformer(env: Environment) =
     member this.TransformReturnStatement (x: ReturnStatementData) : Statement =
         defaultArg (x.Expression |> Option.map (this.TransformExpression)) Undefined |> Return
 
+    member this.TransformBaseObjectCreationExpression (x: BaseObjectCreationExpressionData) : _ =
+        match x with
+        | BaseObjectCreationExpressionData.ImplicitObjectCreationExpression x -> this.TransformImplicitObjectCreationExpression x
+        | BaseObjectCreationExpressionData.ObjectCreationExpression         x -> this.TransformObjectCreationExpression x
+
     member this.TransformObjectCreationExpression (x: ObjectCreationExpressionData) : _ =
         let isDelegate = env.SemanticModel.GetTypeInfo(x.Node).Type.TypeKind = TypeKind.Delegate
         if isDelegate then
@@ -1427,6 +1438,31 @@ type RoslynTransformer(env: Environment) =
             match x.ArgumentList with
             | Some a -> fixParamArray symbol a argumentList
             | _-> argumentList
+        let tempVars, args = readReorderedParams argumentListWithParamsFix
+        let ctor =
+            Ctor (typ, sr.ReadConstructor symbol, args)
+            |> List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
+        match x.Initializer with
+        | Some init ->
+            let o = Id.New ()          
+            let initializer = init |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
+            Let(o, ctor, Sequential [initializer; Var o])
+        | None -> ctor
+        |> withExprSourcePos x.Node
+
+    member this.TransformImplicitObjectCreationExpression (x: ImplicitObjectCreationExpressionData) : _ =
+        let isDelegate = env.SemanticModel.GetTypeInfo(x.Node).Type.TypeKind = TypeKind.Delegate
+        if isDelegate then
+            let argumentList = this.TransformArgumentList x.ArgumentList
+            match argumentList with
+            | [_, lam] -> lam
+            | _ -> failwith "Delegate constructor must have a single argument"
+        else
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        let typ = sr.ReadNamedType symbol.ContainingType
+        let argumentList = this.TransformArgumentList x.ArgumentList
+        let argumentListWithParamsFix = 
+            fixParamArray symbol x.ArgumentList argumentList
         let tempVars, args = readReorderedParams argumentListWithParamsFix
         let ctor =
             Ctor (typ, sr.ReadConstructor symbol, args)
@@ -1458,6 +1494,8 @@ type RoslynTransformer(env: Environment) =
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> NewArray
         | InitializerExpressionKind.ComplexElementInitializerExpression -> 
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> ComplexElement
+        | InitializerExpressionKind.WithInitializerExpression -> 
+            failwith "TODO C# 9 WithInitializerExpression"  
         |> withExprSourcePos x.Node
 
     member this.TransformAnonymousObjectCreationExpression (x: AnonymousObjectCreationExpressionData) : _ =
@@ -1530,7 +1568,8 @@ type RoslynTransformer(env: Environment) =
                 x.Body |> Option.map (this.TransformBlock)
         match x.Kind with
         | AccessorDeclarationKind.GetAccessorDeclaration      
-        | AccessorDeclarationKind.SetAccessorDeclaration -> 
+        | AccessorDeclarationKind.SetAccessorDeclaration 
+        | AccessorDeclarationKind.InitAccessorDeclaration -> 
             let body =
                 match body with
                 | Some b -> b
@@ -1830,17 +1869,21 @@ type RoslynTransformer(env: Environment) =
         | LambdaExpressionData.ParenthesizedLambdaExpression x -> this.TransformParenthesizedLambdaExpression x
 
     member this.TransformAnonymousMethodExpression (x: AnonymousMethodExpressionData) : _ =
-        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-        //let parameterList = sr.ReadParameters symbol
         let parameterList = x.ParameterList |> Option.map this.TransformParameterList
-        let body = x.Body |> this.TransformCSharpNode
+        let block = x.Block |> this.TransformBlock
+        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
         TODO x
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
         let id = Id.New parameter.ParameterId.Name.Value              
         env.Parameters.Add(parameter.Symbol, (id, false))
-        let body = x.Body |> this.TransformCSharpNode
+        let block = x.Block |> Option.map this.TransformBlock
+        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let body =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> block.Value
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
         if symbol.IsAsync then
             let b = 
@@ -1863,7 +1906,13 @@ type RoslynTransformer(env: Environment) =
                 env.Parameters.Add(p.Symbol, (id, false))
                 id
             )    
-        let body = x.Body |> this.TransformCSharpNode
+        let block = x.Block |> Option.map this.TransformBlock
+        let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
+        let body =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> block.Value
+
         if symbol.IsAsync then
             let b = 
                 body |> Continuation.addLastReturnIfNeeded Undefined
@@ -1874,12 +1923,6 @@ type RoslynTransformer(env: Environment) =
             Function(ids, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
             Function(ids, body)
-
-    member this.TransformCSharpNode (x: CSharpNodeData) : _ =
-        match x with
-        | CSharpNodeData.Expression                      x -> this.TransformExpression x |> Return
-        | CSharpNodeData.Statement                       x -> this.TransformStatement x
-        | _ -> failwith "Unexpected lambda expression body node"
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with
@@ -2234,10 +2277,71 @@ type RoslynTransformer(env: Environment) =
         let expression = x.Expression |> this.TransformExpression
         fun v -> Var v ^== expression
 
-    member this.TransformPattern (x: PatternData) : (Id -> Expression) =
+    member this.TransformDiscardPattern (x: DiscardPatternData) : _ =
+        fun _ -> Value (Bool true)
+
+    member this.TransformVarPattern (x: VarPatternData) : _ =
+        let designation = x.Designation |> this.TransformVariableDesignation
+        let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Node).Type
+        fun v ->
+            Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ]
+
+    member this.TransformRecursivePattern (x: RecursivePatternData) : _ =
+        let type_ = x.Type |> Option.map this.TransformType
+        let positionalPatternClause = x.PositionalPatternClause |> Option.map this.TransformPositionalPatternClause
+        let propertyPatternClause = x.PropertyPatternClause |> Option.map this.TransformPropertyPatternClause
+        let designation = x.Designation |> Option.map this.TransformVariableDesignation
+        TODO x
+
+    member this.TransformPositionalPatternClause (x: PositionalPatternClauseData) : _ =
+        let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
+        TODO x
+
+    member this.TransformPropertyPatternClause (x: PropertyPatternClauseData) : _ =
+        let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
+        TODO x
+
+    member this.TransformSubpattern (x: SubpatternData) : _ =
+        let nameColon = x.NameColon |> Option.map this.TransformNameColon
+        let pattern = x.Pattern |> this.TransformPattern
+        TODO x
+
+    member this.TransformParenthesizedPattern (x: ParenthesizedPatternData) : _ =
+        x.Pattern |> this.TransformPattern
+
+    member this.TransformRelationalPattern (x: RelationalPatternData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        TODO x
+
+    member this.TransformTypePattern (x: TypePatternData) : _ =
+        let type_ = x.Type |> this.TransformType
+        TODO x
+
+    member this.TransformBinaryPattern (x: BinaryPatternData) : _ =
+        let left = x.Left |> this.TransformPattern
+        let right = x.Right |> this.TransformPattern
+        match x.Kind with
+        | BinaryPatternKind.OrPattern -> 
+            fun v -> left v ^|| right v
+        | BinaryPatternKind.AndPattern -> 
+            fun v -> left v ^&& right v
+
+    member this.TransformUnaryPattern (x: UnaryPatternData) : _ =
+        let pattern = x.Pattern |> this.TransformPattern
+        fun v -> Unary(UnaryOperator.``!``, pattern v)
+
+    member this.TransformPattern (x: PatternData) : _ =
         match x with
-        | PatternData.DeclarationPattern x -> this.TransformDeclarationPattern x
-        | PatternData.ConstantPattern    x -> this.TransformConstantPattern x
+        | PatternData.DiscardPattern       x -> this.TransformDiscardPattern x
+        | PatternData.DeclarationPattern   x -> this.TransformDeclarationPattern x
+        | PatternData.VarPattern           x -> this.TransformVarPattern x
+        | PatternData.RecursivePattern     x -> this.TransformRecursivePattern x
+        | PatternData.ConstantPattern      x -> this.TransformConstantPattern x
+        | PatternData.ParenthesizedPattern x -> this.TransformParenthesizedPattern x
+        | PatternData.RelationalPattern    x -> this.TransformRelationalPattern x
+        | PatternData.TypePattern          x -> this.TransformTypePattern x
+        | PatternData.BinaryPattern        x -> this.TransformBinaryPattern x
+        | PatternData.UnaryPattern         x -> this.TransformUnaryPattern x
 
     member this.TransformIsPatternExpression (x: IsPatternExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
@@ -2272,3 +2376,24 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformCheckedExpression (x: CheckedExpressionData) : _ =
         this.TransformExpression x.Expression
+
+    member this.TransformRangeExpression (x: RangeExpressionData) : _ =
+        let leftOperand = x.LeftOperand |> Option.map this.TransformExpression
+        let rightOperand = x.RightOperand |> Option.map this.TransformExpression
+        TODO x
+
+    member this.TransformSwitchExpression (x: SwitchExpressionData) : _ =
+        let governingExpression = x.GoverningExpression |> this.TransformExpression
+        let arms = x.Arms |> Seq.map this.TransformSwitchExpressionArm |> List.ofSeq
+        TODO x
+
+    member this.TransformSwitchExpressionArm (x: SwitchExpressionArmData) : _ =
+        let pattern = x.Pattern |> this.TransformPattern
+        let whenClause = x.WhenClause |> Option.map this.TransformWhenClause
+        let expression = x.Expression |> this.TransformExpression
+        TODO x
+
+    member this.TransformWithExpression (x: WithExpressionData) : _ =
+        let expression = x.Expression |> this.TransformExpression
+        let initializer = x.Initializer |> this.TransformInitializerExpression
+        TODO x

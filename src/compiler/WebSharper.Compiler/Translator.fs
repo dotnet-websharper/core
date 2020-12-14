@@ -1480,10 +1480,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             base.TransformBinary(a, b, c)
 
     override this.TransformCoalesce(a, b, c) =
-        let aId = Id.New()
-        this.TransformLet(aId, a,
-            Conditional(Binary(Var aId, BinaryOperator.``===``, !~Null), c, Var aId)
-        )
+        Binary(this.TransformExpression a, BinaryOperator.``??``, this.TransformExpression c) 
     
     override this.TransformWhile(a, b) =
         let trA = this.TransformExpression a
