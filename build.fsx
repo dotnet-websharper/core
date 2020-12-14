@@ -131,43 +131,8 @@ Target.create "Prepare" <| fun _ ->
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 "WS-GenAssemblyInfo" ==> "Prepare"
-
-// Generate App.config redirects from the actual assemblies being used,
-// because Paket gets some versions wrong.
-Target.create "GenAppConfig" <| fun _ ->
-    [
-        "build/Release/CSharp/net461/deploy", "ZafirCs.exe.config"
-        "build/Release/FSharp/net461/deploy", "wsfsc.exe.config"
-    ]
-    |> List.iter (fun (dir, xmlFile) ->
-        let xmlFullPath = dir </> xmlFile
-        let mgr = XmlNamespaceManager(NameTable())
-        mgr.AddNamespace("ac", "urn:schemas-microsoft-com:asm.v1")
-        let doc = XDocument.Load(xmlFullPath)
-        let e::rest = doc.XPathSelectElements("/configuration/runtime/ac:assemblyBinding", mgr) |> List.ofSeq
-        e.RemoveAll()
-        for e in rest do e.Remove()
-        let loadElt (s: string) =
-            let parserContext = XmlParserContext(null, mgr, null, XmlSpace.None)
-            use reader = new XmlTextReader(s, XmlNodeType.Element, parserContext)
-            XElement.Load(reader)
-        for asmFullPath in Directory.GetFiles(dir, "*.dll") do
-            if not (xmlFile.StartsWith(Path.GetFileName(asmFullPath))) then
-                let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(asmFullPath)
-                let token = asm.Name.PublicKeyToken
-                let token = String.init token.Length (fun i -> sprintf "%02x" token.[i])
-                sprintf """<ac:dependentAssembly>
-                        <ac:assemblyIdentity name="%s" publicKeyToken="%s" culture="neutral" />
-                        <ac:bindingRedirect oldVersion="0.0.0.0-65535.65535.65535.65535" newVersion="%A" />
-                    </ac:dependentAssembly>"""
-                    asm.Name.Name token asm.Name.Version
-                |> loadElt
-                |> e.Add
-        doc.Save(xmlFullPath)
-    )
     
 "WS-BuildRelease"
-    ==> "GenAppConfig"
     ==> "WS-Package"
 
 let rm_rf x =
