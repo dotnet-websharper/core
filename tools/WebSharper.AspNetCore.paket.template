@@ -1,0 +1,16 @@
+type file
+id WebSharper.AspNetCore
+authors IntelliFactory
+licenseUrl http://websharper.com/licensing
+projectUrl http://websharper.com
+description
+    Wrappers for hosting WebSharper sitelets and remoting components in ASP.NET Core projects
+tags
+    Web JavaScript F# C#
+files
+    ../WebSharper.AspNetCore/bin/Release/netstandard2.0/WebSharper.AspNetCore.dll ==> lib/netstandard2.0
+    ../WebSharper.AspNetCore/bin/Release/netstandard2.0/WebSharper.AspNetCore.xml ==> lib/netstandard2.0
+dependencies
+    WebSharper == CURRENTVERSION
+    Microsoft.AspNetCore.Hosting.Abstractions >= LOCKEDVERSION
+    Microsoft.AspNetCore.Authentication.Abstractions >= LOCKEDVERSION
