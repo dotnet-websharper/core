@@ -641,6 +641,42 @@ with
         | SyntaxKind.ThisKeyword -> ThisKeyword
         | k -> failwithf "Unexpected ConstructorInitializerThisOrBaseKeyword kind: %O" k
 
+type [<RequireQualifiedAccess>] AccessorDeclarationKind =
+    | GetAccessorDeclaration    
+    | SetAccessorDeclaration    
+    | InitAccessorDeclaration   
+    | AddAccessorDeclaration    
+    | RemoveAccessorDeclaration 
+    | UnknownAccessorDeclaration
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.GetAccessorDeclaration -> GetAccessorDeclaration
+        | SyntaxKind.SetAccessorDeclaration -> SetAccessorDeclaration
+        | SyntaxKind.InitAccessorDeclaration -> InitAccessorDeclaration
+        | SyntaxKind.AddAccessorDeclaration -> AddAccessorDeclaration
+        | SyntaxKind.RemoveAccessorDeclaration -> RemoveAccessorDeclaration
+        | SyntaxKind.UnknownAccessorDeclaration -> UnknownAccessorDeclaration
+        | _ -> failwithf "Unexpected AccessorDeclarationKind kind: %O" k
+
+type [<RequireQualifiedAccess>] AccessorDeclarationKeyword =
+    | GetKeyword     
+    | SetKeyword     
+    | InitKeyword    
+    | AddKeyword     
+    | RemoveKeyword  
+    | IdentifierToken of string
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.GetKeyword -> GetKeyword
+        | SyntaxKind.SetKeyword -> SetKeyword
+        | SyntaxKind.InitKeyword -> InitKeyword
+        | SyntaxKind.AddKeyword -> AddKeyword
+        | SyntaxKind.RemoveKeyword -> RemoveKeyword
+        | SyntaxKind.IdentifierToken -> IdentifierToken t.Text
+        | k -> failwithf "Unexpected AccessorDeclarationKeyword kind: %O" k
+
 type TypeParameterData(node: TypeParameterSyntax) =
     member this.Node = node
     member this.VarianceKeyword = node.VarianceKeyword |> optionalToken |> Option.map TypeParameterVarianceKeyword.FromToken
@@ -738,47 +774,6 @@ with
         | ThisExpression d -> d.Node :> InstanceExpressionSyntax
         | BaseExpression d -> d.Node :> InstanceExpressionSyntax
 
-and EqualsValueClauseData(node: EqualsValueClauseSyntax) =
-    member this.Node = node
-    member this.Value = node.Value |> ExpressionData.FromNode
-    static member FromNode(n: EqualsValueClauseSyntax) = EqualsValueClauseData(n)
-
-and ParameterData(node: ParameterSyntax) =
-    member this.Node = node
-    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
-    member this.Identifier = node.Identifier |> ParameterIdentifier.FromToken
-    member this.Default = node.Default |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
-    static member FromNode(n: ParameterSyntax) = ParameterData(n)
-
-and SimpleLambdaExpressionData(node: SimpleLambdaExpressionSyntax) =
-    member this.Node = node
-    member this.Parameter = node.Parameter |> ParameterData.FromNode
-    static member FromNode(n: SimpleLambdaExpressionSyntax) = SimpleLambdaExpressionData(n)
-
-and ParameterListData(node: ParameterListSyntax) =
-    member this.Node = node
-    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
-    static member FromNode(n: ParameterListSyntax) = ParameterListData(n)
-
-and ParenthesizedLambdaExpressionData(node: ParenthesizedLambdaExpressionSyntax) =
-    member this.Node = node
-    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
-    static member FromNode(n: ParenthesizedLambdaExpressionSyntax) = ParenthesizedLambdaExpressionData(n)
-
-and [<RequireQualifiedAccess>] LambdaExpressionData =
-    | SimpleLambdaExpression        of SimpleLambdaExpressionData
-    | ParenthesizedLambdaExpression of ParenthesizedLambdaExpressionData
-with
-    static member FromNode(n: LambdaExpressionSyntax) =
-        match n with
-        | :? SimpleLambdaExpressionSyntax as d -> SimpleLambdaExpression (SimpleLambdaExpressionData.FromNode(d))
-        | :? ParenthesizedLambdaExpressionSyntax as d -> ParenthesizedLambdaExpression (ParenthesizedLambdaExpressionData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of LambdaExpressionSyntax"
-    member this.Node =
-        match this with
-        | SimpleLambdaExpression d -> d.Node :> LambdaExpressionSyntax
-        | ParenthesizedLambdaExpression d -> d.Node :> LambdaExpressionSyntax
-
 and ForEachStatementData(node: ForEachStatementSyntax) =
     member this.Node = node
     member this.Type = node.Type |> TypeData.FromNode
@@ -808,8 +803,32 @@ with
         | ForEachStatement d -> d.Node :> CommonForEachStatementSyntax
         | ForEachVariableStatement d -> d.Node :> CommonForEachStatementSyntax
 
+and ArrowExpressionClauseData(node: ArrowExpressionClauseSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: ArrowExpressionClauseSyntax) = ArrowExpressionClauseData(n)
+
+and EqualsValueClauseData(node: EqualsValueClauseSyntax) =
+    member this.Node = node
+    member this.Value = node.Value |> ExpressionData.FromNode
+    static member FromNode(n: EqualsValueClauseSyntax) = EqualsValueClauseData(n)
+
+and ParameterData(node: ParameterSyntax) =
+    member this.Node = node
+    member this.Type = node.Type |> Option.ofObj |> Option.map TypeData.FromNode
+    member this.Identifier = node.Identifier |> ParameterIdentifier.FromToken
+    member this.Default = node.Default |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
+    static member FromNode(n: ParameterSyntax) = ParameterData(n)
+
+and ParameterListData(node: ParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map ParameterData.FromNode
+    static member FromNode(n: ParameterListSyntax) = ParameterListData(n)
+
 and LocalFunctionStatementData(node: LocalFunctionStatementSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
@@ -912,6 +931,8 @@ and DoStatementData(node: DoStatementSyntax) =
 
 and ForStatementData(node: ForStatementSyntax) =
     member this.Node = node
+    member this.Declaration = node.Declaration |> Option.ofObj |> Option.map VariableDeclarationData.FromNode
+    member this.Initializers = node.Initializers |> Seq.map ExpressionData.FromNode
     member this.Condition = node.Condition |> Option.ofObj |> Option.map ExpressionData.FromNode
     member this.Incrementors = node.Incrementors |> Seq.map ExpressionData.FromNode
     member this.Statement = node.Statement |> StatementData.FromNode
@@ -919,6 +940,8 @@ and ForStatementData(node: ForStatementSyntax) =
 
 and UsingStatementData(node: UsingStatementSyntax) =
     member this.Node = node
+    member this.Declaration = node.Declaration |> Option.ofObj |> Option.map VariableDeclarationData.FromNode
+    member this.Expression = node.Expression |> Option.ofObj |> Option.map ExpressionData.FromNode
     member this.Statement = node.Statement |> StatementData.FromNode
     static member FromNode(n: UsingStatementSyntax) = UsingStatementData(n)
 
@@ -1263,6 +1286,34 @@ and BlockData(node: BlockSyntax) =
     member this.Node = node
     member this.Statements = node.Statements |> Seq.map StatementData.FromNode
     static member FromNode(n: BlockSyntax) = BlockData(n)
+
+and SimpleLambdaExpressionData(node: SimpleLambdaExpressionSyntax) =
+    member this.Node = node
+    member this.Block = node.Block |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.Parameter = node.Parameter |> ParameterData.FromNode
+    static member FromNode(n: SimpleLambdaExpressionSyntax) = SimpleLambdaExpressionData(n)
+
+and ParenthesizedLambdaExpressionData(node: ParenthesizedLambdaExpressionSyntax) =
+    member this.Node = node
+    member this.Block = node.Block |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
+    static member FromNode(n: ParenthesizedLambdaExpressionSyntax) = ParenthesizedLambdaExpressionData(n)
+
+and [<RequireQualifiedAccess>] LambdaExpressionData =
+    | SimpleLambdaExpression        of SimpleLambdaExpressionData
+    | ParenthesizedLambdaExpression of ParenthesizedLambdaExpressionData
+with
+    static member FromNode(n: LambdaExpressionSyntax) =
+        match n with
+        | :? SimpleLambdaExpressionSyntax as d -> SimpleLambdaExpression (SimpleLambdaExpressionData.FromNode(d))
+        | :? ParenthesizedLambdaExpressionSyntax as d -> ParenthesizedLambdaExpression (ParenthesizedLambdaExpressionData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of LambdaExpressionSyntax"
+    member this.Node =
+        match this with
+        | SimpleLambdaExpression d -> d.Node :> LambdaExpressionSyntax
+        | ParenthesizedLambdaExpression d -> d.Node :> LambdaExpressionSyntax
 
 and AnonymousMethodExpressionData(node: AnonymousMethodExpressionSyntax) =
     member this.Node = node
@@ -2096,6 +2147,8 @@ and ExplicitInterfaceSpecifierData(node: ExplicitInterfaceSpecifierSyntax) =
 
 and MethodDeclarationData(node: MethodDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Identifier = node.Identifier
@@ -2105,6 +2158,8 @@ and MethodDeclarationData(node: MethodDeclarationSyntax) =
 
 and OperatorDeclarationData(node: OperatorDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
     member this.OperatorToken = node.OperatorToken |> OperatorDeclarationOperatorToken.FromToken
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
@@ -2112,6 +2167,8 @@ and OperatorDeclarationData(node: OperatorDeclarationSyntax) =
 
 and ConversionOperatorDeclarationData(node: ConversionOperatorDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ImplicitOrExplicitKeyword = node.ImplicitOrExplicitKeyword |> ConversionOperatorDeclarationImplicitOrExplicitKeyword.FromToken
     member this.Type = node.Type |> TypeData.FromNode
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
@@ -2126,6 +2183,8 @@ and ConstructorInitializerData(node: ConstructorInitializerSyntax) =
 
 and ConstructorDeclarationData(node: ConstructorDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.Identifier = node.Identifier
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     member this.Initializer = node.Initializer |> Option.ofObj |> Option.map ConstructorInitializerData.FromNode
@@ -2133,6 +2192,8 @@ and ConstructorDeclarationData(node: ConstructorDeclarationSyntax) =
 
 and DestructorDeclarationData(node: DestructorDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.Identifier = node.Identifier
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     static member FromNode(n: DestructorDeclarationSyntax) = DestructorDeclarationData(n)
@@ -2160,8 +2221,24 @@ with
         | ConstructorDeclaration d -> d.Node :> BaseMethodDeclarationSyntax
         | DestructorDeclaration d -> d.Node :> BaseMethodDeclarationSyntax
 
+and AccessorDeclarationData(node: AccessorDeclarationSyntax) =
+    member this.Node = node
+    member this.Kind = AccessorDeclarationKind.FromKind(node.Kind())
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
+    member this.Keyword = node.Keyword |> AccessorDeclarationKeyword.FromToken
+    static member FromNode(n: AccessorDeclarationSyntax) = AccessorDeclarationData(n)
+
+and AccessorListData(node: AccessorListSyntax) =
+    member this.Node = node
+    member this.Accessors = node.Accessors |> Seq.map AccessorDeclarationData.FromNode
+    static member FromNode(n: AccessorListSyntax) = AccessorListData(n)
+
 and PropertyDeclarationData(node: PropertyDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.Initializer = node.Initializer |> Option.ofObj |> Option.map EqualsValueClauseData.FromNode
+    member this.AccessorList = node.AccessorList |> Option.ofObj |> Option.map AccessorListData.FromNode
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Identifier = node.Identifier
@@ -2169,6 +2246,7 @@ and PropertyDeclarationData(node: PropertyDeclarationSyntax) =
 
 and EventDeclarationData(node: EventDeclarationSyntax) =
     member this.Node = node
+    member this.AccessorList = node.AccessorList |> Option.ofObj |> Option.map AccessorListData.FromNode
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Identifier = node.Identifier
@@ -2181,6 +2259,8 @@ and BracketedParameterListData(node: BracketedParameterListSyntax) =
 
 and IndexerDeclarationData(node: IndexerDeclarationSyntax) =
     member this.Node = node
+    member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
+    member this.AccessorList = node.AccessorList |> Option.ofObj |> Option.map AccessorListData.FromNode
     member this.Type = node.Type |> TypeData.FromNode
     member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.ParameterList = node.ParameterList |> BracketedParameterListData.FromNode

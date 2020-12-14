@@ -89,7 +89,15 @@ let nodes, abstractNodes =
                     Base = baseTy
                     Kinds = n |> getKinds
                     Fields =
-                        n |> Xml.elems "Field" |> Seq.map (fun f ->
+                        let rec withSeqAndChoice isOpt x =
+                            seq {
+                                yield! x |> Xml.elems "Choice" |> Seq.collect (withSeqAndChoice true)
+                                yield! x |> Xml.elems "Sequence" |> Seq.collect (withSeqAndChoice isOpt)
+                                yield (x, isOpt)
+                            }
+                        withSeqAndChoice false n
+                        |> Seq.collect (fun (e, o) -> e |> Xml.elems "Field" |> Seq.map (fun f -> f, o))
+                        |> Seq.map (fun (f, o) ->
                             let t, l =
                                 match f |> Xml.attr "Type" with
                                 | SyntaxList t -> t, true
@@ -98,7 +106,7 @@ let nodes, abstractNodes =
                                 Field.Name = f |> Xml.attr "Name"
                                 Type = t
                                 IsList = l
-                                Optional = f |> Xml.hasTrueAttr "Optional"
+                                Optional = o || f |> Xml.hasTrueAttr "Optional"
                                 Kinds = f |> getKinds
                             }     
                         )
