@@ -11,8 +11,6 @@ tags
 dependencies
     FSharp.Core >= LOCKEDVERSION
 files
-    ../build/Release/net461/WebSharper.Core.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Core.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
 
