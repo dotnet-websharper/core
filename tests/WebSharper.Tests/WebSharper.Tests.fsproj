@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard2.1</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
@@ -68,6 +68,7 @@
     <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />

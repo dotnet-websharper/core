@@ -2287,35 +2287,75 @@ type RoslynTransformer(env: Environment) =
             Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ]
 
     member this.TransformRecursivePattern (x: RecursivePatternData) : _ =
-        let type_ = x.Type |> Option.map this.TransformType
+        //let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
         let positionalPatternClause = x.PositionalPatternClause |> Option.map this.TransformPositionalPatternClause
         let propertyPatternClause = x.PropertyPatternClause |> Option.map this.TransformPropertyPatternClause
         let designation = x.Designation |> Option.map this.TransformVariableDesignation
-        TODO x
+        match positionalPatternClause with
+        | Some ppc -> ppc
+        | _ ->
+            match propertyPatternClause with
+            | Some ppc -> ppc
+            | _ ->
+                let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Value.Node).Type
+                fun v ->
+                    Sequential [ this.PatternSet(designation.Value, Var v, rTyp); Value (Bool true) ]
 
     member this.TransformPositionalPatternClause (x: PositionalPatternClauseData) : _ =
+        //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
         let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
-        TODO x
+        let len = List.length subpatterns
+        let vars = List.init len (fun _ -> Id.New(mut = false))
+        fun v ->
+            Sequential [
+                yield! vars |> List.mapi (fun i tv -> NewVar(tv, ItemGet(Var v, Value (Int i), Pure)))
+                yield (
+                    (subpatterns, vars) ||> List.map2 (fun p tv -> p tv) |> List.reduce (^&&)
+                )
+            ]
 
     member this.TransformPropertyPatternClause (x: PropertyPatternClauseData) : _ =
         let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
-        TODO x
+        fun v ->
+            subpatterns |> List.map (fun p -> p v)
+            |> List.reduce (^&&)
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
-        let nameColon = x.NameColon |> Option.map this.TransformNameColon
+        //let nameColon = x.NameColon |> Option.map this.TransformNameColon        
         let pattern = x.Pattern |> this.TransformPattern
-        TODO x
+        match x.NameColon with
+        | None -> pattern
+        | Some nc ->
+            let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
+            match symbol with
+            | :? IPropertySymbol as symbol ->
+                if symbol.ContainingType.IsAnonymousType then
+                    fun v ->
+                        ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect)
+                else
+                    fun v ->
+                        call symbol.GetMethod (Some (Var v)) [] // TODO property indexers
+            | _ ->
+                failwith "Expecting property symbol in PropertyPatternClause"
 
     member this.TransformParenthesizedPattern (x: ParenthesizedPatternData) : _ =
         x.Pattern |> this.TransformPattern
 
     member this.TransformRelationalPattern (x: RelationalPatternData) : _ =
         let expression = x.Expression |> this.TransformExpression
-        TODO x
+        let op =
+            match x.OperatorToken with
+            | RelationalPatternOperatorToken.EqualsEqualsToken      -> BinaryOperator.EqualsOp    
+            | RelationalPatternOperatorToken.ExclamationEqualsToken -> BinaryOperator.NotEquals
+            | RelationalPatternOperatorToken.LessThanToken          -> BinaryOperator.Less
+            | RelationalPatternOperatorToken.LessThanEqualsToken    -> BinaryOperator.LessOrEquals
+            | RelationalPatternOperatorToken.GreaterThanToken       -> BinaryOperator.Greater
+            | RelationalPatternOperatorToken.GreaterThanEqualsToken -> BinaryOperator.GreaterOrEquals
+        fun v -> Binary(Var v, op, expression)
 
     member this.TransformTypePattern (x: TypePatternData) : _ =
-        let type_ = x.Type |> this.TransformType
-        TODO x
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
+        fun v -> TypeCheck (Var v, typ)
 
     member this.TransformBinaryPattern (x: BinaryPatternData) : _ =
         let left = x.Left |> this.TransformPattern

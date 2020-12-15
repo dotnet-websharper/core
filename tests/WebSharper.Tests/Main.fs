@@ -82,7 +82,5 @@ let RunTests runServerSide autoStart =
         Tupled.Tests
         WIG.Tests
         Cookies.Tests
-#if NET461
         (if runServerSide then Compiler.Tests else TestCategory "Compiler" { do () })
-#endif
     |]

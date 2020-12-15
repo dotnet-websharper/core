@@ -20,8 +20,6 @@
 
 module WebSharper.Tests.Compiler
 
-#if NET461
-
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -123,5 +121,3 @@ let Tests =
             )
         }
     }
-
-#endif

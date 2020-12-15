@@ -168,6 +168,29 @@ namespace WebSharper.CSharp.Tests
             Equal(((ISomething)o).Foo(), 42);
         }
 
+        interface ITestDefaultImpl
+        {
+            int Foo() => 42;
+        }
+
+        class TestDefaultImpl : ITestDefaultImpl
+        {
+        }
+
+        class TestDefaultImpl2 : ITestDefaultImpl
+        {
+            int Foo() => 2;
+        }
+
+        [Test]
+        public void InterfaceDefaultImplementations()
+        {
+            var o = new TestDefaultImpl();
+            Equal(((ITestDefaultImpl)o).Foo(), 42);
+            var o2 = new TestDefaultImpl2();
+            Equal(((ITestDefaultImpl)o).Foo(), 2);
+        }
+
         struct StructTest
         {
             public readonly int X;
