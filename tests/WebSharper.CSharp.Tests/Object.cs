@@ -107,9 +107,13 @@ namespace WebSharper.CSharp.Tests
 
             public override int VirtualMethod() { return 2; }
 
+            public override SubClass CovariantVirtualMethod() { return this; }
+
             public int BaseCall() { return base.VirtualMethod(); }
 
             public SubClass(int v) : this() { Value += v; }
+
+            public int ValueAlias => this.Value;
         }
 
         class BaseClass : AbstractBaseClass
@@ -117,7 +121,9 @@ namespace WebSharper.CSharp.Tests
             public virtual int VirtualMethod() { return 1; }
 
             public override int AbstractMethod() { return 2; }
-        
+
+            public virtual BaseClass CovariantVirtualMethod() { return this; }
+
             public BaseClass() { }
 
             public BaseClass(int v) { Value = v; }
@@ -142,6 +148,8 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass().VirtualMethod(), 2, "Overridden method");
             Equal(new SubClass().BaseCall(), 1, "Base method call");
             Equal(new SubClass(3).Value, 5, "Chained constructor");
+            Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
+            Equal(new SubClass().CovariantVirtualMethod().ValueAlias, 2, "Covariant override method");
         }
 
         interface ISomething

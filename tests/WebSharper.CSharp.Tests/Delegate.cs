@@ -50,6 +50,13 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void StaticDelegates()
+        {
+            Equal(F1(static () => 41), 41, "Func<T> lambda invocation");
+            Equal(F2(static x => x + 41), 42, "Func<T,U> lambda invocation");
+        }
+
+        [Test]
         public async void AsyncLambda()
         {
             var x = 0;
@@ -147,6 +154,17 @@ namespace WebSharper.CSharp.Tests
             Equal(f(3), 3);
             Equal(f(), 5);
         }
+
+        [Test]
+        public void AnonymousMethod()
+        {
+            Func<int, int, int> sum = delegate (int a, int b) { return a + b; };
+            Equal(sum(3, 4), 7);
+
+            Func<int, int, int> sumStatic = static delegate (int a, int b) { return a + b; };
+            Equal(sumStatic(3, 4), 7);
+        }
+
 
         public event Action MyEvent;
 

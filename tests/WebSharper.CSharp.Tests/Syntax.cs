@@ -646,8 +646,17 @@ namespace WebSharper.CSharp.Tests
         public void TargetTypedNew()
         {
             string[] strings = { "5" };
-
             JsEqual(strings, new[] { "5" });
+
+            List<int> list = new();
+            Equal(list.Count, 0);
+        }
+
+        [Test]
+        public void TargetTypedConditional()
+        {
+            int? res = 1 < 2 ? 3 : null;
+            Equal(res, 3);
         }
 
         [Test]
