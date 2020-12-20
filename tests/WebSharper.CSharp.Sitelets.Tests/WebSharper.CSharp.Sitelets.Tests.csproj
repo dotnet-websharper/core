@@ -4,12 +4,7 @@
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <WebSharperProject>Library</WebSharperProject>
-    <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>2.0</OldToolsVersion>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
@@ -24,9 +19,6 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />

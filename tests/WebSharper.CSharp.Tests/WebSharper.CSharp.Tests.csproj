@@ -5,12 +5,7 @@
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
     <LangVersion>9.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
-    <FileUpgradeFlags>
-    </FileUpgradeFlags>
-    <UpgradeBackupLocation>
-    </UpgradeBackupLocation>
-    <OldToolsVersion>2.0</OldToolsVersion>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
@@ -29,11 +24,6 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj" />
   </ItemGroup>
-  <!-- <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System" />
-    <Reference Include="WebSharper.Sitelets.Tests, Version=4.0.0.0, Culture=neutral, PublicKeyToken=dcd983dec8f76a71, processorArchitecture=MSIL" />
-  </ItemGroup> -->
   <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

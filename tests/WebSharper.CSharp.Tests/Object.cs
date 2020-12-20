@@ -148,6 +148,11 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass().VirtualMethod(), 2, "Overridden method");
             Equal(new SubClass().BaseCall(), 1, "Base method call");
             Equal(new SubClass(3).Value, 5, "Chained constructor");
+        }
+
+        [Test]
+        public void CovariantInheritance()
+        {
             Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
             Equal(new SubClass().CovariantVirtualMethod().ValueAlias, 2, "Covariant override method");
         }

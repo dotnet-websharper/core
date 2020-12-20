@@ -1580,7 +1580,8 @@ type RoslynTransformer(env: Environment) =
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
                             Return <| ItemGet(Self, Value (String ("$" + pr.Name)), NoSideEffect)
-                        | AccessorDeclarationKind.SetAccessorDeclaration -> 
+                        | AccessorDeclarationKind.SetAccessorDeclaration 
+                        | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(Self, Value (String ("$" + pr.Name)), Var v)
                         | _ -> failwith "impossible"
@@ -1588,7 +1589,8 @@ type RoslynTransformer(env: Environment) =
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
                             Return <| ItemGet(This, Value (String ("$" + pr.Name)), NoSideEffect)
-                        | AccessorDeclarationKind.SetAccessorDeclaration -> 
+                        | AccessorDeclarationKind.SetAccessorDeclaration 
+                        | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
                             ExprStatement <| ItemSet(This, Value (String ("$" + pr.Name)), Var v)
                         | _ -> failwith "impossible"

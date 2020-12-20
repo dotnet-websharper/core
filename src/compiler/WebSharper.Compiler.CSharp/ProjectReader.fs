@@ -116,6 +116,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         let md = 
             match sr.ReadMember m with
             | Member.Method (_, md) -> md
+            | Member.Override (_, md) -> md
             | _ -> failwith "invalid interface member"
         methodNames.Add(md, mAnnot.Name)
     Some (def, 
