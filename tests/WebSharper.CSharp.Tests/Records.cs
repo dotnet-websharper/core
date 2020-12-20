@@ -78,6 +78,7 @@ namespace WebSharper.CSharp.Tests
         }
     }
 
+    [JavaScript]
     public record Person
     {
         public string LastName { get; }
@@ -86,6 +87,7 @@ namespace WebSharper.CSharp.Tests
         public Person(string first, string last) => (FirstName, LastName) = (first, last);
     }
 
+    [JavaScript]
     public record Teacher : Person
     {
         public string Subject { get; }
@@ -94,8 +96,10 @@ namespace WebSharper.CSharp.Tests
             : base(first, last) => Subject = sub;
     }
 
-    public record PersonP(string FirstName, string LastName);
+    [JavaScript]
+    public record PersonP(string FirstName, string LastName); // positional record
 
+    [JavaScript]
     public class InitOnlyTest
     {
         public string Name { get; init; }

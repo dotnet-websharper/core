@@ -974,6 +974,10 @@ type RoslynTransformer(env: Environment) =
                     )
                 )
             | Undefined -> Undefined
+            | Call(t, td, m, []) ->
+                let prop = (rTyp.GetMembers(m.Entity.Value.MethodName).[0] :?> IMethodSymbol).AssociatedSymbol :?> IPropertySymbol   
+                let sm = prop.SetMethod
+                Call(t, td, NonGeneric (sr.ReadMethod sm), [ v ])
             | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
             |> WithSourcePosOfExpr e
         Let(v, value, trDesignation (Var v) e)
@@ -1714,7 +1718,12 @@ type RoslynTransformer(env: Environment) =
                                                    
     member this.TransformPostfixUnaryExpression (x: PostfixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
-        this.TransformIncrOrDecr(x.Node, operand, true)
+        match x.Kind with
+        | PostfixUnaryExpressionKind.PostIncrementExpression 
+        | PostfixUnaryExpressionKind.PostDecrementExpression ->
+            this.TransformIncrOrDecr(x.Node, operand, true)
+        | PostfixUnaryExpressionKind.SuppressNullableWarningExpression ->
+            operand
 
     member this.TransformPrefixUnaryExpression (x: PrefixUnaryExpressionData) : _ =
         let operand = x.Operand |> this.TransformExpression
@@ -2437,5 +2446,6 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformWithExpression (x: WithExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
-        let initializer = x.Initializer |> this.TransformInitializerExpression
-        TODO x
+        let o = Id.New()
+        let initializer = x.Initializer |> RoslynTransformer(env.WithInitializing(o)).TransformInitializerExpression
+        Let(o, JSRuntime.Clone(expression), Sequential [initializer; Var o])
