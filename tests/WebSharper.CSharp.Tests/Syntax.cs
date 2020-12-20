@@ -151,6 +151,31 @@ namespace WebSharper.CSharp.Tests
             Equal(x, 6);
         }
 
+        [Test]
+        public void ForEachExtension()
+        {
+            var coll = new TestExtensionGetEnumerator() { Values = new() { 1, 2, 3 } };
+            var x = 0;
+            foreach (var e in coll)
+                x += e;
+            Equal(x, 6);
+        }
+
+        [Test]
+        public void LocalFunctions()
+        {
+            var one = 1;
+            int addOne(int x) => x + one;
+            Equal(addOne(1), 2);
+
+            static int add(int x, int y) { return x + y; }
+            Equal(add(1, 2), 3);
+
+            [Inline] int addOneInline(int x) => x + one;
+            Equal(addOneInline(1), 2);
+
+        }
+
         class Disposing : IDisposable
         {
             public Action OnDispose = null;
@@ -681,6 +706,21 @@ namespace WebSharper.CSharp.Tests
     }
 
     [JavaScript]
+    class TestExtensionGetEnumerator
+    {
+        public List<int> Values = new List<int>();
+    }
+
+    [JavaScript]
+    static class TestExtensionGetEnumeratorExtension
+    {
+        public static IEnumerator<int> GetEnumerator(this TestExtensionGetEnumerator coll)
+        {
+            return coll.Values.GetEnumerator();
+        }
+    }
+
+    [JavaScript]
     public class MyNumber
     {
         public double val;
@@ -712,6 +752,8 @@ namespace WebSharper.CSharp.Tests
         public int Field2 = 2;
 
         partial void PartialMethod() { Value = 3; }
+
+        private partial int PartialMethodRelaxed() { return Value; }
 
         public void SetValueTo4()
         {

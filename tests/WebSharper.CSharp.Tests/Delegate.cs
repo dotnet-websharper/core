@@ -52,8 +52,14 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void StaticDelegates()
         {
-            Equal(F1(static () => 41), 41, "Func<T> lambda invocation");
-            Equal(F2(static x => x + 41), 42, "Func<T,U> lambda invocation");
+            Equal(F1(static () => 41), 41, "static Func<T> lambda invocation");
+            Equal(F2(static x => x + 41), 42, "static Func<T,U> lambda invocation");
+        }
+
+        [Test]
+        public void LambdaDiscard()
+        {
+            Equal(F2(static _ => 42), 42, "Func<T,U> lambda invocation with discard");
         }
 
         [Test]

@@ -21,49 +21,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "compiler", "compiler", "{EC
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "stdlib", "stdlib", "{9042A9EB-28A6-4FCB-9D12-9E56835FD713}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{891CB1BD-128A-4455-8F02-A726B0B2EACF}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections", "src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj", "{4EF94364-B50F-4906-AB91-77BCA8413D60}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Control", "src\stdlib\WebSharper.Control\WebSharper.Control.fsproj", "{666977BF-E022-4C8F-B53D-5D294D41010F}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Testing", "src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj", "{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sitelets", "sitelets", "{70FEE852-57E6-4910-B4A8-E1B6D0F159E3}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web", "src\sitelets\WebSharper.Web\WebSharper.Web.fsproj", "{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets", "src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj", "{D991329A-3AA3-4269-83AD-3597864855A0}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{7C8FF043-B608-42BD-930B-2249675BA666}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript.Tests", "tests\WebSharper.Core.JavaScript.Tests\WebSharper.Core.JavaScript.Tests.fsproj", "{198AC342-E6F2-4612-813C-905B81E5471D}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Tests", "tests\WebSharper.Tests\WebSharper.Tests.fsproj", "{87D32671-869D-4F33-9F24-380A4070B2DC}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections.Tests", "tests\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj", "{BB4817E7-12A1-4622-B8CE-29CB3C406851}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Html5.Tests", "tests\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj", "{3958F5E1-DDA2-4A22-BF29-794A25BB14F7}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web.Tests", "tests\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj", "{2605322F-851C-4C6A-A204-F4EEE9E21252}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Tests", "tests\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Website", "tests\Website\Website.fsproj", "{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebOld", "tests\WebOld\WebOld.csproj", "{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
@@ -79,8 +39,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		runtests.cmd = runtests.cmd
 		runtests.fsx = runtests.fsx
 	EndProjectSection
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-BAD1-4D58-AFB8-529185357EE4}"
 	ProjectSection(SolutionItems) = preProject
@@ -115,14 +73,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 		docs\WebSharper.md = docs\WebSharper.md
 	EndProjectSection
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Tests", "tests\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj", "{C78F4FFD-9C51-466B-8E35-99588A419D60}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
 	ProjectSection(SolutionItems) = preProject
 		tools\GenSingleFw.cmd = tools\GenSingleFw.cmd
@@ -144,6 +94,54 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5
 		tools\WebSharper.Tests.paket.template = tools\WebSharper.Tests.paket.template
 	EndProjectSection
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript", "src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj", "{0C254682-65AB-4734-A19C-77688DB85B20}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler", "src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj", "{BFB21B61-FDA9-4814-A728-7D43038E0B57}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core", "src\compiler\WebSharper.Core\WebSharper.Core.fsproj", "{52741881-8D64-4639-8B5C-19C060958C35}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JQuery", "src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj", "{730AE40A-001C-4137-972D-898DC7C2BF0A}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections", "src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj", "{4EF94364-B50F-4906-AB91-77BCA8413D60}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Control", "src\stdlib\WebSharper.Control\WebSharper.Control.fsproj", "{666977BF-E022-4C8F-B53D-5D294D41010F}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Testing", "src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj", "{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web", "src\sitelets\WebSharper.Web\WebSharper.Web.fsproj", "{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets", "src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj", "{D991329A-3AA3-4269-83AD-3597864855A0}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Core.JavaScript.Tests", "tests\WebSharper.Core.JavaScript.Tests\WebSharper.Core.JavaScript.Tests.fsproj", "{198AC342-E6F2-4612-813C-905B81E5471D}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Tests", "tests\WebSharper.Tests\WebSharper.Tests.fsproj", "{87D32671-869D-4F33-9F24-380A4070B2DC}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Collections.Tests", "tests\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj", "{BB4817E7-12A1-4622-B8CE-29CB3C406851}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Html5.Tests", "tests\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj", "{3958F5E1-DDA2-4A22-BF29-794A25BB14F7}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Web.Tests", "tests\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj", "{2605322F-851C-4C6A-A204-F4EEE9E21252}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Tests", "tests\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj", "{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Website", "tests\Website\Website.fsproj", "{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator.Tests", "tests\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj", "{4C826618-E150-40F7-B13A-9182F0C3EACA}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Tests", "tests\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj", "{C78F4FFD-9C51-466B-8E35-99588A419D60}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Sitelets.Offline", "src\sitelets\WebSharper.Sitelets.Offline\WebSharper.Sitelets.Offline.fsproj", "{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.CSharp.Sitelets.Tests", "tests\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj", "{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main.Proxies", "src\stdlib\WebSharper.Main.Proxies\WebSharper.Main.Proxies.fsproj", "{7001E2B2-61F4-4770-BA7C-86F07F657678}"
+EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.SPA.Tests", "tests\WebSharper.SPA.Tests\WebSharper.SPA.Tests.fsproj", "{10EFC79A-9592-4DB2-A033-D29B7C7C917E}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.StaticHtml.Tests", "tests\WebSharper.StaticHtml.Tests\WebSharper.StaticHtml.Tests.fsproj", "{4D3CF8A4-E035-4E5B-8BCA-6E6D41FA17D9}"
@@ -152,13 +150,13 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.MathJS", "src\st
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.MathJS.Extensions", "src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj", "{E4B66FC3-0227-481A-9FA0-EB7A0BF66BAC}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ProxyProjectTest", "tests\ProxyProjectTest\ProxyProjectTest.fsproj", "{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ProxyProjectTest", "tests\ProxyProjectTest\ProxyProjectTest.fsproj", "{F344EA32-A8B4-4112-BD9A-6686A10D888A}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ProxyProjectTest.Proxy", "tests\ProxyProjectTest.Proxy\ProxyProjectTest.Proxy.fsproj", "{25E7DAF6-E287-4E5F-B596-FE4517761463}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.AspNetCore", "src\sitelets\WebSharper.AspNetCore\WebSharper.AspNetCore.fsproj", "{6DB7E533-6A1B-4960-B3E2-04CF03FE9075}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web", "tests\Web\Web.csproj", "{F0DB4321-4786-4EA6-9352-657B92EF7253}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web", "tests\Web\Web.csproj", "{F0DB4321-4786-4EA6-9352-657B92EF7253}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -166,10 +164,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{891CB1BD-128A-4455-8F02-A726B0B2EACF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{891CB1BD-128A-4455-8F02-A726B0B2EACF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{891CB1BD-128A-4455-8F02-A726B0B2EACF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{891CB1BD-128A-4455-8F02-A726B0B2EACF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0C254682-65AB-4734-A19C-77688DB85B20}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0C254682-65AB-4734-A19C-77688DB85B20}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0C254682-65AB-4734-A19C-77688DB85B20}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0C254682-65AB-4734-A19C-77688DB85B20}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BFB21B61-FDA9-4814-A728-7D43038E0B57}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{BFB21B61-FDA9-4814-A728-7D43038E0B57}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{BFB21B61-FDA9-4814-A728-7D43038E0B57}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -242,10 +240,6 @@ Global
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B}.Release|Any CPU.Build.0 = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4C826618-E150-40F7-B13A-9182F0C3EACA}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -282,10 +276,10 @@ Global
 		{E4B66FC3-0227-481A-9FA0-EB7A0BF66BAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E4B66FC3-0227-481A-9FA0-EB7A0BF66BAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E4B66FC3-0227-481A-9FA0-EB7A0BF66BAC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F344EA32-A8B4-4112-BD9A-6686A10D888A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F344EA32-A8B4-4112-BD9A-6686A10D888A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F344EA32-A8B4-4112-BD9A-6686A10D888A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F344EA32-A8B4-4112-BD9A-6686A10D888A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{25E7DAF6-E287-4E5F-B596-FE4517761463}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{25E7DAF6-E287-4E5F-B596-FE4517761463}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{25E7DAF6-E287-4E5F-B596-FE4517761463}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -305,7 +299,9 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{EC03CB1D-151F-4469-A6DD-D5854A340F1D} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
 		{9042A9EB-28A6-4FCB-9D12-9E56835FD713} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
-		{891CB1BD-128A-4455-8F02-A726B0B2EACF} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
+		{70FEE852-57E6-4910-B4A8-E1B6D0F159E3} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
+		{F4582361-BAD1-4D58-AFB8-529185357EE4} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{0C254682-65AB-4734-A19C-77688DB85B20} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{BFB21B61-FDA9-4814-A728-7D43038E0B57} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{52741881-8D64-4639-8B5C-19C060958C35} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{A05B0B61-A2EF-4C88-B9A3-00E888777798} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
@@ -315,7 +311,6 @@ Global
 		{4EF94364-B50F-4906-AB91-77BCA8413D60} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{666977BF-E022-4C8F-B53D-5D294D41010F} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{A7F7A74B-D0EE-4918-8A54-280FC7D2A30C} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{70FEE852-57E6-4910-B4A8-E1B6D0F159E3} = {E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}
 		{FE6BA781-FDC9-4BB5-B38A-3BB9841EA836} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{D991329A-3AA3-4269-83AD-3597864855A0} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{198AC342-E6F2-4612-813C-905B81E5471D} = {7C8FF043-B608-42BD-930B-2249675BA666}
@@ -325,9 +320,7 @@ Global
 		{2605322F-851C-4C6A-A204-F4EEE9E21252} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{BBA692B3-AB48-4F2E-8A33-260B0DD09A9B} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{2BF02FFF-1AB4-4725-A49E-73E81A91D50B} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{4C826618-E150-40F7-B13A-9182F0C3EACA} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{F4582361-BAD1-4D58-AFB8-529185357EE4} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{C78F4FFD-9C51-466B-8E35-99588A419D60} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{24B3FBDF-E7C2-4A54-8877-CBC05DBF2ABC} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{91E8E3CC-B1F5-4D27-8DAF-639CA5C76F63} = {7C8FF043-B608-42BD-930B-2249675BA666}
@@ -336,7 +329,7 @@ Global
 		{4D3CF8A4-E035-4E5B-8BCA-6E6D41FA17D9} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{927A30B7-9316-4374-8526-A011234638B9} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
 		{E4B66FC3-0227-481A-9FA0-EB7A0BF66BAC} = {9042A9EB-28A6-4FCB-9D12-9E56835FD713}
-		{24D8D80F-8536-4FDF-A8C2-FCD8CEF57DCA} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{F344EA32-A8B4-4112-BD9A-6686A10D888A} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{25E7DAF6-E287-4E5F-B596-FE4517761463} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{6DB7E533-6A1B-4960-B3E2-04CF03FE9075} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{F0DB4321-4786-4EA6-9352-657B92EF7253} = {7C8FF043-B608-42BD-930B-2249675BA666}

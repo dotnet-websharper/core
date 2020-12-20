@@ -234,7 +234,7 @@ namespace WebSharper.CSharp.Tests
             Equal(o.Field2, 2);
             Equal(o.Value, 0);
             o.SetValueTo3ByPartialMethod();
-            Equal(o.Value, 3);
+            Equal(o.GetValueByPartialMethod(), 3);
             o.SetValueTo4();
             Equal(o.Value, 4);
         }
@@ -359,9 +359,19 @@ namespace WebSharper.CSharp.Tests
 
         partial void PartialMethod();
 
+        partial void PartialMethodNotImpl();
+
+        private partial int PartialMethodRelaxed();
+
         public void SetValueTo3ByPartialMethod()
         {
             PartialMethod();
+            PartialMethodNotImpl();
+        }
+
+        public int GetValueByPartialMethod()
+        {
+            return PartialMethodRelaxed();
         }
     }
 }
