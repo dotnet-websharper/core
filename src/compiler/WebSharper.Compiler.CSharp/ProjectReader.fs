@@ -181,7 +181,7 @@ let baseCtor thisExpr (t: Concrete<TypeDefinition>) c a =
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (thisDef: TypeDefinition) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     if cls.TypeKind <> TypeKind.Class && not isStruct then None else
-
+    
     if isResourceType sr cls then
         if comp.HasGraph then
             let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
@@ -194,6 +194,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr))
 
     let clsMembers = ResizeArray()
+
+    let isRecord =
+        cls.DeclaringSyntaxReferences |> Seq.exists (fun x -> (x.SyntaxTree.GetRoot().FindNode(x.Span) :? RecordDeclarationSyntax))
 
     let def, proxied =
         match annot.ProxyOf with
@@ -340,6 +343,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             staticInits.Add <| ItemSet(Self, Value (String ("$" + p.Name)), b )
                         else
                             inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )
+                        if isRecord then
+                            // auto-add init methods for record properties
+                            let getter = sr.ReadMethod p.GetMethod
+                            let setter = CodeReader.setterOf (NonGeneric getter)
+                            let v = Id.New()
+                            let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+                            addMethod None pAnnot setter.Entity N.Inline false body
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth
                         if p.IsStatic then

@@ -156,6 +156,20 @@ let numericTypes =
         "System.Double" 
     ]
 
+let setterOf (getter : Concrete<Method>) =
+    let m = getter.Entity.Value
+    if not (m.MethodName.StartsWith "get_") then
+        failwithf "Invalid getter method: %s" m.MethodName
+    { getter with
+        Entity = 
+            Method {
+                MethodName = "set" + m.MethodName.[3 ..]
+                ReturnType = VoidType
+                Parameters = m.Parameters @ [ m.ReturnType ]
+                Generics = m.Generics
+            }
+    }        
+
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
     let getTypeFullName (t: ITypeSymbol) =
         let rec getNamespaceOrTypeAddress acc (symbol: INamespaceOrTypeSymbol) =
@@ -532,21 +546,7 @@ type RoslynTransformer(env: Environment) =
                     | _ -> Undefined
                 ) 
             [], fargs 
-    
-    let setterOf (getter : Concrete<Method>) =
-        let m = getter.Entity.Value
-        if not (m.MethodName.StartsWith "get_") then
-            failwithf "Invalid getter method: %s" m.MethodName
-        { getter with
-            Entity = 
-                Method {
-                    MethodName = "set" + m.MethodName.[3 ..]
-                    ReturnType = VoidType
-                    Parameters = m.Parameters @ [ m.ReturnType ]
-                    Generics = m.Generics
-                }
-        }        
-        
+            
     let createRef (e: Expression) =
         match IgnoreExprSourcePos e with
         | Var v ->
@@ -580,7 +580,7 @@ type RoslynTransformer(env: Environment) =
         Call (None, qtyp, meth, args)
 
     let getTypeAndMethod (symbol: IMethodSymbol) =
-        let typ = sr.ReadNamedType symbol.ContainingType
+        let typ = symbol.ContainingType |> sr.ReadNamedType
         let ma = symbol.TypeArguments |> Seq.map (sr.ReadType) |> List.ofSeq
         let meth = Generic (sr.ReadMethod symbol) ma
         typ, meth
@@ -974,10 +974,8 @@ type RoslynTransformer(env: Environment) =
                     )
                 )
             | Undefined -> Undefined
-            | Call(t, td, m, []) ->
-                let prop = (rTyp.GetMembers(m.Entity.Value.MethodName).[0] :?> IMethodSymbol).AssociatedSymbol :?> IPropertySymbol   
-                let sm = prop.SetMethod
-                Call(t, td, NonGeneric (sr.ReadMethod sm), [ v ])
+            | Call(t, td, g, []) ->
+                Call(t, td, setterOf g, [ v ])
             | _ -> failwithf "Unexpected form in variable designation: %s" (Debug.PrintExpression e)
             |> WithSourcePosOfExpr e
         Let(v, value, trDesignation (Var v) e)
@@ -1133,38 +1131,44 @@ type RoslynTransformer(env: Environment) =
             else this
         match leftSymbol with
         | :? IPropertySymbol as leftSymbol ->
-            let typ, setter = getTypeAndMethod leftSymbol.SetMethod
-            //if leftSymbol.IsIndexer // TODO property indexers
-            match x.Kind with
-            | AssignmentExpressionKind.SimpleAssignmentExpression ->
+            if leftSymbol.IsReadOnly then
+                // init property
+                let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
                 let right = x.Right |> trR.TransformExpression
-                if leftSymbol.IsStatic then
-                    withResultValue right <| fun rv -> Call(None, typ, setter, [rv])
-                else
+                withResultValue right <| fun rv -> FieldSet(Some This, NonGeneric td, leftSymbol.Name, rv)
+            else
+                let typ, setter = getTypeAndMethod leftSymbol.SetMethod
+                //if leftSymbol.IsIndexer // TODO property indexers
+                match x.Kind with
+                | AssignmentExpressionKind.SimpleAssignmentExpression ->
+                    let right = x.Right |> trR.TransformExpression
+                    if leftSymbol.IsStatic then
+                        withResultValue right <| fun rv -> Call(None, typ, setter, [rv])
+                    else
+                        let left = x.Left |> this.TransformExpression
+                        // eliminate getter
+                        match IgnoreExprSourcePos left with
+                        | Call (Some v, _, _, args) ->
+                            withResultValue right <| fun rv -> Call (Some v, typ, setter, args @ [rv])
+                        | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
+                | _ ->
                     let left = x.Left |> this.TransformExpression
-                    // eliminate getter
-                    match IgnoreExprSourcePos left with
-                    | Call (Some v, _, _, args) ->
-                        withResultValue right <| fun rv -> Call (Some v, typ, setter, args @ [rv])
-                    | _ -> failwithf "this.TransformAssignmentExpression: getter expression not recognized for creating assigment"
-            | _ ->
-                let left = x.Left |> this.TransformExpression
-                let right = x.Right |> trR.TransformExpression
-                let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
-                let opTyp, operator = getTypeAndMethod symbol
-                if leftSymbol.IsStatic then
-                    withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv -> 
-                        Call(None, typ, setter, [rv]) 
-                else
-                    let left = x.Left |> this.TransformExpression
-                    // eliminate getter
-                    match IgnoreExprSourcePos left with
-                    | Call (Some v, _, getter, []) ->
-                        let m = Id.New ()
-                        let leftWithM = Call (Some (Var m), typ, getter, [])
-                        withResultValue (Call(None, opTyp, operator, [leftWithM; right])) <| fun rv ->
-                            Let (m, v, Call (Some (Var m), typ, setter, [rv])) 
-                    | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
+                    let right = x.Right |> trR.TransformExpression
+                    let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+                    let opTyp, operator = getTypeAndMethod symbol
+                    if leftSymbol.IsStatic then
+                        withResultValue (Call(None, opTyp, operator, [left; right])) <| fun rv -> 
+                            Call(None, typ, setter, [rv]) 
+                    else
+                        let left = x.Left |> this.TransformExpression
+                        // eliminate getter
+                        match IgnoreExprSourcePos left with
+                        | Call (Some v, _, getter, []) ->
+                            let m = Id.New ()
+                            let leftWithM = Call (Some (Var m), typ, getter, [])
+                            withResultValue (Call(None, opTyp, operator, [leftWithM; right])) <| fun rv ->
+                                Let (m, v, Call (Some (Var m), typ, setter, [rv])) 
+                        | _ -> failwith "this.TransformAssignmentExpression: getter expression not recognized for creating compound assigment"
         | _ ->
         let left = x.Left |> this.TransformExpression
         let right = x.Right |> trR.TransformExpression
@@ -1481,7 +1485,8 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformInitializerExpression (x: InitializerExpressionData) : _ =
         match x.Kind with
-        | InitializerExpressionKind.ObjectInitializerExpression -> 
+        | InitializerExpressionKind.ObjectInitializerExpression
+        | InitializerExpressionKind.WithInitializerExpression -> 
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> Sequential
         | InitializerExpressionKind.CollectionInitializerExpression -> 
             x.Expressions |> Seq.map (fun e -> 
@@ -1498,8 +1503,6 @@ type RoslynTransformer(env: Environment) =
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> NewArray
         | InitializerExpressionKind.ComplexElementInitializerExpression -> 
             x.Expressions |> Seq.map this.TransformExpression |> List.ofSeq |> ComplexElement
-        | InitializerExpressionKind.WithInitializerExpression -> 
-            failwith "TODO C# 9 WithInitializerExpression"  
         |> withExprSourcePos x.Node
 
     member this.TransformAnonymousObjectCreationExpression (x: AnonymousObjectCreationExpressionData) : _ =
