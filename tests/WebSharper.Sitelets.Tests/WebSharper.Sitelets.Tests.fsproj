@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Api.fs" />
