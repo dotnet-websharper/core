@@ -614,6 +614,17 @@ let Tests =
             equal (s.[-2..(-1)]) ""
         }
 
+        Test "JS.Import" {
+            let sayHi = JS.Import<string -> string>("sayHi", "./WebSharper.Tests/sayHi.js")
+            equal (sayHi "World") "Hello, World!"
+        }
+
+        Test "JS.ImportDynamic" {
+            let! sayHiModule = JS.ImportDynamic("./WebSharper.Tests/sayHi.js") |> Promise.AsAsync
+            let sayHi = As<string -> string>(sayHiModule?sayHi)
+            equal (sayHi "World") "Hello, World!"
+        }
+
         //Test "import" {
         //    Console.Log("import all", importTestJsAll)
         //    Console.Log("import all 2", importTestJsAll)

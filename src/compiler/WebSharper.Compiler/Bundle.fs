@@ -313,7 +313,7 @@ module Bundling =
                     let e = System.Collections.Generic.HashSet jsExportNames
                     yield! 
                         graph.Nodes |> Seq.filter (function
-                            | M.AssemblyNode (a, _) -> e.Contains a
+                            | M.AssemblyNode (a, _, _) -> e.Contains a
                             | M.TypeNode td
                             | M.MethodNode (td, _)
                             | M.ConstructorNode (td, _) 

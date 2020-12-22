@@ -17,32 +17,14 @@ nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
 nuget Microsoft.CSharp 4.7.0
 
-group build
-    framework: netstandard2.0
-    source https://api.nuget.org/v3/index.json
-    storage: none
-
-	nuget Fake.Core.CommandLineParsing
-    nuget Fake.Core.Target
-    nuget Fake.IO.FileSystem
-    nuget Fake.DotNet.AssemblyInfoFile
-    nuget Fake.DotNet.Cli
-    nuget Fake.DotNet.MSBuild
-    nuget Fake.DotNet.Paket
-    nuget Fake.Tools.Git
-    nuget Paket.Core
-    nuget NUglify
-    nuget FSharp.Core
-    nuget Mono.Cecil
+group wsbuild
+    git https://github.com/dotnet-websharper/build-script dotnettool
 
 group includes
     references: strict
     framework: netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref
-
-group wsbuild
-    git https://github.com/dotnet-websharper/build-script dotnettool
 
 group fcs
     framework: netstandard2.0, net5.0

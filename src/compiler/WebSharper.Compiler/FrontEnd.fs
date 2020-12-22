@@ -210,15 +210,29 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
             addRes EMBEDDED_MINMAP None (Some (getBytes m)))
         TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
+        let isJSModule =
+            match pkg with
+            | AST.Sequential _ -> true
+            | _ -> false
+
+        if isJSModule then
+            // set current AssemblyNode to be a module
+            current.Dependencies.Nodes |> Array.tryFindIndex (function
+                | M.AssemblyNode (n, _, _) when n = assemblyName -> true
+                | _ -> false
+            ) |> Option.iter (fun asmNodeIndex ->
+                current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
+            )
+
         addMeta()
         Some (js, minJs), currentPosFixed, sources, res.ToArray()
     else
         // set current AssemblyNode to have no js
         current.Dependencies.Nodes |> Array.tryFindIndex (function
-            | M.AssemblyNode (n, _) when n = assemblyName -> true
+            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
             | _ -> false
         ) |> Option.iter (fun asmNodeIndex ->
-            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, false)
+            current.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, false, false)
         )
 
         addMeta()

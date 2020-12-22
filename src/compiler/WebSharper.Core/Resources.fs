@@ -150,6 +150,7 @@ type Rendering =
 type MediaType =
     | Css
     | Js
+    | JsModule
 
 type RenderLocation =
     | Scripts
@@ -158,7 +159,7 @@ type RenderLocation =
 
     static member ForMediaType t =
         match t with
-        | Js -> Scripts
+        | Js | JsModule -> Scripts
         | Css -> Styles
 
 type Context =
@@ -207,17 +208,17 @@ let inlineStyle (html: HtmlTextWriter) (text: string) =
         html.RenderEndTag()
         html.WriteLine()
 
-let script dHttp (html: HtmlTextWriter) (url: string) =
+let script dHttp (html: HtmlTextWriter) isModule (url: string) =
     if not (String.IsNullOrWhiteSpace(url)) then
         html.AddAttribute("src", cleanLink dHttp url)
-        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("type", if isModule then CT.Text.Module.Text else CT.Text.JavaScript.Text)
         html.AddAttribute("charset", "UTF-8")
         html.RenderBeginTag "script"
         html.RenderEndTag()
 
-let inlineScript (html: HtmlTextWriter) (text: string) =
+let inlineScript (html: HtmlTextWriter) isModule (text: string) =
     if not (String.IsNullOrWhiteSpace(text)) then
-        html.AddAttribute("type", CT.Text.JavaScript.Text)
+        html.AddAttribute("type", if isModule then CT.Text.Module.Text else CT.Text.JavaScript.Text)
         html.AddAttribute("charset", "UTF-8")
         html.RenderBeginTag "script"
         html.Write(text)
@@ -288,11 +289,13 @@ type Rendering with
         | Rendering.RenderInline text ->
             match mt with
             | Css -> inlineStyle html text
-            | Js -> inlineScript html text
+            | Js -> inlineScript html false text
+            | JsModule -> inlineScript html true text
         | Rendering.RenderLink url ->
             match mt with
             | Css -> link dHttp html url
-            | Js -> script dHttp html url
+            | Js -> script dHttp html false url
+            | JsModule -> script dHttp html true url
         | Rendering.Skip -> ()
 
     static member TryGetCdn(ctx: Context, assemblyName: string, filename: string) =
@@ -424,7 +427,10 @@ type BaseResource(kind: Kind) as this =
                 (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
             match kind with
             | Basic spec ->
-                let mt = if spec.EndsWith ".css" then Css else Js
+                let mt = 
+                    if spec.EndsWith ".css" then Css 
+                    elif spec.EndsWith ".mjs" then JsModule 
+                    else Js
                 let r =
                     match ctx.GetSetting name with
                     | Some url -> RenderLink url
@@ -462,7 +468,7 @@ type BaseResource(kind: Kind) as this =
                     for url, isCss in urls do
                         if isCss then
                             link dHttp (writer Styles) url
-                        else script dHttp (writer Scripts) url
+                        else script dHttp (writer Scripts) false url
 
     interface IDownloadableResource with
         member this.Unpack path =

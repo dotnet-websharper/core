@@ -32,7 +32,7 @@ module R = Resources
 
 /// A resource class for including the compiled .js for an assembly in Sitelets
 [<Sealed>]
-type AssemblyResource(name) =
+type AssemblyResource(name, isModule) =
     member this.Name = name
     
     interface R.IResource with
@@ -42,7 +42,7 @@ type AssemblyResource(name) =
                 match R.Rendering.TryGetCdn(ctx, name, filename) with
                 | Some r -> r
                 | None -> ctx.GetAssemblyRendering name
-            fun writer -> r.Emit(writer R.Scripts, R.Js)
+            fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
 
 /// The compilation-time mutable representation of a code dependency graph
 type Graph =
@@ -82,7 +82,7 @@ type Graph =
         for g in data do
             for n in g.Nodes do
                 match n with
-                | AssemblyNode (_, true) ->
+                | AssemblyNode (_, true, _) ->
                     if not (lookup.ContainsKey n) then
                         let i = nodes.Count
                         nodes.Add(n) 
@@ -264,8 +264,8 @@ type Graph =
         let activate i n =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
-                | AssemblyNode (name, true) ->
-                    AssemblyResource(name) :> R.IResource
+                | AssemblyNode (name, true, isModule) ->
+                    AssemblyResource(name, isModule) :> R.IResource
                 | ResourceNode (t, p) ->
                     try
                         match p with
@@ -308,7 +308,7 @@ type Graph =
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
-                | AssemblyNode (_, true) ->
+                | AssemblyNode (_, true, _) ->
                     Some (true, (i, n))
                 | ResourceNode _ ->
                     Some (false, (i, n))
@@ -345,7 +345,7 @@ type Graph =
      member this.GetResourcesOf (nodes : seq<Node>) =
         nodes |> Seq.filter (fun n ->
             match n with
-            | AssemblyNode (_, true)
+            | AssemblyNode (_, true, _)
             | ResourceNode _ ->
                 true
             | _ -> false
