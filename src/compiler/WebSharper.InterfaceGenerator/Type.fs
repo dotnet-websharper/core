@@ -603,7 +603,7 @@ module Type =
         ]
 
     let rec GetJSType t = 
-        let (|StartsWith|_|) start (s: string) =
+        let (|StartsWith|_|) (start: string) (s: string) =
             if s.StartsWith start then Some (s.Substring(start.Length)) else None
         match t with
         | ArrayType _ -> Some "0"

@@ -152,25 +152,37 @@ module UnpackCommand =
                 String.concat " - " (messages e)
 
             if cmd.DownloadResources then
+                let name = Path.GetFileNameWithoutExtension p
                 try
                     let asm = 
-                        try
-                            System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension p)
-                        with e ->
-                            if e.HResult <> 0x80131058 then
-                                errors.Add <| sprintf "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
-                            // else this is a reference assembly, so it's ok not to load it.
+                        if name.Contains "System." 
+                            || name.Contains "Microsoft." 
+                            || name = "WebSharper.Sitelets" 
+                            || name = "WebSharper.AspNetCore" 
+                        then
                             null
+                        else
+                            try
+                                System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension p)
+                            with e ->
+                                if e.HResult <> 0x80131058 then
+                                    errors.Add <| sprintf "Failed to load assembly for unpacking local resources: %s - %s" p (printError e)     
+                                // else this is a reference assembly, so it's ok not to load it.
+                                null
                     if not (isNull asm) then
                         for t in asm.GetTypes() do
-                            if t.GetConstructor([||]) |> isNull |> not && t.GetInterfaces() |> Array.contains localResTyp then
+                            let isDownloadableResource =
+                                try
+                                    t.GetInterfaces() |> Array.contains localResTyp && t.GetConstructor([||]) |> isNull |> not
+                                with _ -> false
+                            if isDownloadableResource then
                                 try
                                     let res = Activator.CreateInstance(t) :?> Re.IDownloadableResource
                                     res.Unpack(cmd.RootDirectory)
                                 with e ->
-                                    errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)     
+                                    errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)   
                 with e ->
-                    errors.Add <| sprintf "Failed to unpack local resources: %s" (printError e)
+                    errors.Add <| sprintf "Failed to unpack local resources from %s: %s" name (printError e)
 
         if errors.Count = 0 then
             C.Ok

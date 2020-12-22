@@ -971,7 +971,7 @@ type TransformSourcePositions(asmName) =
 
     let fileNames = HashSet()
 
-    let trFileName fn =
+    let trFileName (fn: string) =
         match fileMap.TryFind fn with
         | Some res -> res
         | None ->

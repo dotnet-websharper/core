@@ -374,6 +374,10 @@ type private StringProxy =
         SplitChars (As this) sep opts
 
     [<Inline>]
+    member this.Split(sep: char, opts: System.StringSplitOptions) =
+        SplitChars (As this) [| sep |] opts
+
+    [<Inline>]
     member this.Split(sep: string[], opts: System.StringSplitOptions) =
         SplitStrings (As this) sep opts
 
