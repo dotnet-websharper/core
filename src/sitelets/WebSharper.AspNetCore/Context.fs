@@ -149,6 +149,7 @@ type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
             match expiry with
             | None -> Nullable()
             | Some t -> Nullable(DateTimeOffset.UtcNow.Add(t))
+        httpCtx.User <- principal
         httpCtx.SignInAsync(scheme, principal, props)
         |> Async.AwaitTask
 
@@ -163,6 +164,7 @@ type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
             |> async.Return
 
         member this.Logout() =
+            httpCtx.User <- null
             httpCtx.SignOutAsync(scheme)
             |> Async.AwaitTask
 
