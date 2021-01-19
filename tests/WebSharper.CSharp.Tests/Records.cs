@@ -100,6 +100,19 @@ namespace WebSharper.CSharp.Tests
     public record PersonP(string FirstName, string LastName); // positional record
 
     [JavaScript]
+    public record TeacherP(string FirstName, string LastName, string Subject = "Math") : PersonP(FirstName, LastName);
+
+    [JavaScript]
+    public record PersonC(string FirstName)
+    {
+        private string middleName;
+
+        public string MiddleName { get => middleName; set => middleName = value; }
+
+        public string LastName { get; set; }
+    }
+
+    [JavaScript]
     public class InitOnlyTest
     {
         public string Name { get; init; }

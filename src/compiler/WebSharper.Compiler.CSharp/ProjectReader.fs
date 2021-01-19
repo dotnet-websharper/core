@@ -343,21 +343,29 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             staticInits.Add <| ItemSet(Self, Value (String ("$" + p.Name)), b )
                         else
                             inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )
-                        if isRecord then
-                            // auto-add init methods for record properties
-                            let getter = sr.ReadMethod p.GetMethod
-                            let setter = CodeReader.setterOf (NonGeneric getter)
-                            let v = Id.New()
-                            let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
-                            addMethod None pAnnot setter.Entity N.Inline false body
+                        //if isRecord then
+                        //    // auto-add init methods for record properties
+                        //    let getter = sr.ReadMethod p.GetMethod
+                        //    let setter = CodeReader.setterOf (NonGeneric getter)
+                        //    let v = Id.New()
+                        //    let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+                        //    addMethod None pAnnot setter.Entity N.Inline false body
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth
                         if p.IsStatic then
                             staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
                         else
                             inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
-                | :? ParameterSyntax as pSyntax ->
-                    () // positional record property
+                | :? ParameterSyntax as pSyntax ->  // positional record property
+                    let data =
+                        pSyntax |> RoslynHelpers.ParameterData.FromNode
+                    match data.Default with
+                    | Some def ->
+                        let b =
+                            def |> (cs model).TransformEqualsValueClause     
+                        inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )   
+                    | None ->
+                        () 
                 | _ -> failwithf "Unexpected property declaration kind: %s" (System.Enum.GetName(typeof<SyntaxKind>, syntax.Kind))
             | _ -> ()
         | :? IFieldSymbol as f -> 
@@ -429,6 +437,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let error m = comp.AddError(sourcePos(), SourceError m)
         let warn m = comp.AddWarning(sourcePos(), SourceWarning m)
         
+        let skipCompGen = 
+            meth.IsImplicitlyDeclared &&
+                match meth.Name with
+                | "PrintMembers" -> true
+                | _ -> false
+
+        if skipCompGen then () else
+
+        let mutable recordInfo = None
+
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
             hasStubMember <- true
@@ -594,6 +612,201 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> RoslynHelpers.ConversionOperatorDeclarationData.FromNode 
                             |> (cs model).TransformConversionOperatorDeclaration
                             |> fixMethod
+                        | :? RecordDeclarationSyntax as syntax ->
+                            let ri =
+                                match recordInfo with
+                                | Some x -> x
+                                | None ->
+                                    syntax    
+                                    |> RoslynHelpers.RecordDeclarationData.FromNode 
+                                    |> (cs model).TransformRecordDeclaration
+                            let useGetter getter = Call(Some This, NonGeneric def, NonGeneric getter, [])
+                            let cString s = Value (String s) 
+                            let getAllValues ofObj =
+                                seq {
+                                    for (p, getter) in ri.PositionalFields do
+                                        yield p.Symbol.Name, useGetter getter
+                                    for p in ri.OtherFields do
+                                        match p with 
+                                        | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                                            yield pSymbol.Name, useGetter getter
+                                        | CodeReader.CSharpRecordField (fSymbol, _) ->
+                                            yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
+                                }    
+                            let eq x y =
+                                let eqM =
+                                    Hashed {
+                                        MethodName = "Equals"
+                                        Parameters = [ NonGenericType Definitions.Object ] 
+                                        ReturnType = NonGenericType Definitions.Bool
+                                        Generics = 0
+                                    }
+                                Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
+                            match meth.Name with
+                            | "Deconstruct" ->
+                                let b =
+                                    ri.PositionalFields |> List.map (fun (p, getter) ->
+                                        SetRef (Var p.ParameterId) (useGetter getter)
+                                    ) |> Sequential |> ExprStatement
+                                {
+                                    IsStatic = false
+                                    Parameters = ri.PositionalFields |> List.map fst
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = Type.VoidType
+                                } : CodeReader.CSharpMethod
+                            | "ToString" ->
+                                let b =
+                                    let vals =
+                                        getAllValues This
+                                        |> Seq.indexed
+                                        |> Array.ofSeq
+                                    seq {
+                                        cString cls.Name 
+                                        cString " { "
+                                        for i, (name, v) in vals do
+                                            cString name  
+                                            cString " = "
+                                            v
+                                            if i < vals.Length - 1 then
+                                                cString ", "
+                                        cString " }"
+                                    } |> Seq.reduce (^+)
+                                    |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = ri.PositionalFields |> List.map fst
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "op_Inequality" ->
+                                let x = CodeReader.CSharpParameter.New "x"
+                                let y = CodeReader.CSharpParameter.New "y"
+                                let b =
+                                    Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                {
+                                    IsStatic = true
+                                    Parameters = [ x; y ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod                                
+                            | "op_Equality" ->
+                                let x = CodeReader.CSharpParameter.New "x"
+                                let y = CodeReader.CSharpParameter.New "y"
+                                let b =
+                                    eq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                {
+                                    IsStatic = true
+                                    Parameters = [ x; y ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "Equals" ->
+                                let p = CodeReader.CSharpParameter.New "other"
+                                let b =
+                                    let o = Var p.ParameterId
+                                    seq {
+                                        Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
+                                        for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
+                                            v ^== vo     
+                                    } |> Seq.reduce (^&&)
+                                    |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = [ p ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "GetHashCode" ->
+                                let b =
+                                    Value (Int 0) |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.Int
+                                } : CodeReader.CSharpMethod
+                            | "<Clone>$" ->
+                                let b =
+                                    JSRuntime.Clone This |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType def
+                                } : CodeReader.CSharpMethod
+                            | ".ctor" ->
+                                let isCloneCtor =
+                                    meth.Parameters.Length = 1 && (
+                                        match sr.ReadType meth.Parameters.[0].Type with
+                                        | ConcreteType ct -> ct.Entity = def
+                                        | _ -> false
+                                    )    
+                                
+                                if isCloneCtor then
+                                    // TODO is Runtime.Clone ok to use here?
+                                    let b =
+                                        JSRuntime.Clone This |> Return
+                                    {
+                                        IsStatic = false
+                                        Parameters = []
+                                        Body = b
+                                        IsAsync = false
+                                        ReturnType = Unchecked.defaultof<Type>
+                                    } : CodeReader.CSharpMethod
+                                else
+                                    let baseCall =
+                                        match ri.BaseCall with
+                                        | None -> Empty
+                                        | Some (bTyp, bCtor, args, reorder) ->
+                                            ExprStatement (baseCtor This bTyp bCtor args |> reorder)
+                                    let b =
+                                        ri.PositionalFields |> List.map (fun (p, getter) ->
+                                            let setter = CodeReader.setterOf (NonGeneric getter)
+                                            Call(Some This, NonGeneric def, setter, [Var p.ParameterId])
+                                        ) |> Sequential |> ExprStatement
+                                    {
+                                        IsStatic = false
+                                        Parameters = ri.PositionalFields |> List.map fst
+                                        Body = CombineStatements [ baseCall; b ]
+                                        IsAsync = false
+                                        ReturnType = Unchecked.defaultof<Type>
+                                    } : CodeReader.CSharpMethod
+                            | mname ->
+                                failwithf "Not recognized record method: %s" mname    
+                        | :? ParameterSyntax as syntax ->
+                            let p =
+                                syntax
+                                |> RoslynHelpers.ParameterData.FromNode 
+                                |> (cs model).TransformParameter
+                            if meth.Name.StartsWith "get_" then
+                                let b =
+                                    Return (FieldGet (Some This, NonGeneric def, p.ParameterId.Name.Value))
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = sr.ReadType meth.ReturnType
+                                } : CodeReader.CSharpMethod
+                            elif meth.Name.StartsWith "set_" then
+                                let b =
+                                    Return (FieldSet (Some This, NonGeneric def, p.ParameterId.Name.Value, Var p.ParameterId))
+                                {
+                                    IsStatic = false
+                                    Parameters = [ p ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = VoidType
+                                } : CodeReader.CSharpMethod
+                            else 
+                                failwithf "Not recognized generated method of record"
                         | _ -> failwithf "Not recognized method syntax kind: %A" (syntax.Kind()) 
                     with e ->
                         comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
@@ -873,6 +1086,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+
+    //if isRecord then
+    //    let getter = sr.ReadMethod p.GetMethod
+    //    let setter = CodeReader.setterOf (NonGeneric getter)
+    //    let v = Id.New()
+    //    let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+    //    addMethod None pAnnot setter.Entity N.Inline false body
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 

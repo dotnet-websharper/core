@@ -44,6 +44,15 @@ type CSharpParameter =
         RefOrOut : bool
     }
 
+    static member New name =    
+        {
+            ParameterId = Id.New()
+            Symbol = null
+            DefaultValue = None
+            Type = NonGenericType Definitions.Object
+            RefOrOut = false
+        }
+
 module Seq =
     open System.Linq
 
@@ -73,6 +82,17 @@ type CSharpSwitchLabel =
     | DefaultLabel 
     | ConstantLabel of Expression
     | PatternLabel of (Id -> Expression)
+
+type CSharpRecordDataMember =
+    | CSharpRecordProperty of IPropertySymbol * Method
+    | CSharpRecordField of IFieldSymbol * Type 
+
+type CSharpRecord =
+    {
+        PositionalFields : list<CSharpParameter * Method>
+        OtherFields : list<CSharpRecordDataMember>
+        BaseCall : option<Concrete<TypeDefinition> * Constructor * list<Expression> * (Expression -> Expression)>
+    }
 
 type RemoveBreaksTransformer() =
     inherit StatementTransformer()
@@ -1364,6 +1384,68 @@ type RoslynTransformer(env: Environment) =
         let parameterList = x.ParameterList |> this.TransformParameterList
         this.TransformMethodDeclarationBase(symbol, parameterList, x.Body, x.ExpressionBody)
 
+    member this.TransformRecordDeclaration (x: RecordDeclarationData) : _ =
+        //let attributeLists = x.AttributeLists |> Seq.map this.TransformAttributeList |> List.ofSeq
+        //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
+        let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let baseList = x.BaseList |> Option.map this.TransformBaseList
+        //let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
+        //let members = x.Members |> Seq.map this.TransformMemberDeclaration |> List.ofSeq
+
+        let positionalFields =
+            match parameterList with
+            | None -> []
+            | Some pl ->
+                pl |> List.map (fun p ->
+                    let pDef =
+                        Hashed {
+                            MethodName = "get_" + p.Symbol.Name
+                            Parameters = []
+                            ReturnType = p.Type
+                            Generics = 0
+                        }
+                    p, pDef
+                )   
+
+        let otherFields =
+            x.Members |> Seq.collect (fun m ->
+                match m with
+                | MemberDeclarationData.BaseFieldDeclaration (BaseFieldDeclarationData.FieldDeclaration fDecl) ->
+                    fDecl.Declaration.Variables |> Seq.map (fun v ->
+                        let vSymbol = env.SemanticModel.GetDeclaredSymbol(v.Node) :?> IFieldSymbol
+                        CSharpRecordField (vSymbol, sr.ReadType vSymbol.Type)
+                    )
+                | MemberDeclarationData.BasePropertyDeclaration (BasePropertyDeclarationData.PropertyDeclaration pDecl) ->
+                    let symbol = env.SemanticModel.GetDeclaredSymbol(pDecl.Node)
+                    let pDef =
+                        Hashed {
+                            MethodName = "get_" + symbol.Name
+                            Parameters = []
+                            ReturnType = sr.ReadType symbol.Type
+                            Generics = 0
+                        }
+                    Seq.singleton (CSharpRecordProperty (symbol, pDef))
+                | _ -> 
+                    Seq.empty
+            )
+            |> List.ofSeq
+
+        let baseCall =
+            baseList |> Option.bind (
+                List.tryPick (
+                    function
+                    | (typ: Type), Some (bCtor, args, reorder) -> 
+                        Some (NonGeneric typ.TypeDefinition, bCtor, args, reorder)
+                    | _ -> None
+                )
+            )
+
+        {
+            PositionalFields = positionalFields
+            OtherFields = otherFields
+            BaseCall = baseCall
+        }
+
     member this.TransformParameterList (x: ParameterListData) : list<CSharpParameter> =
         x.Parameters |> Seq.map this.TransformParameter |> List.ofSeq
 
@@ -1405,6 +1487,30 @@ type RoslynTransformer(env: Environment) =
                 RefOrOut = symbol.RefKind <> RefKind.None
             }
         | ParameterIdentifier.ArgListKeyword -> NotSupported "__arglist"
+
+    member this.TransformBaseList (x: BaseListData) : _ =
+        let types = x.Types |> Seq.map this.TransformBaseType |> List.ofSeq
+        types
+
+    member this.TransformBaseType (x: BaseTypeData) : _ =
+        match x with
+        | BaseTypeData.SimpleBaseType             x -> this.TransformSimpleBaseType x
+        | BaseTypeData.PrimaryConstructorBaseType x -> this.TransformPrimaryConstructorBaseType x
+
+    member this.TransformSimpleBaseType (x: SimpleBaseTypeData) : _ =
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).ConvertedType |> sr.ReadType
+        typ, None
+
+    member this.TransformPrimaryConstructorBaseType (x: PrimaryConstructorBaseTypeData) : _ =
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).ConvertedType |> sr.ReadType
+        let argumentList = x.ArgumentList |> this.TransformArgumentList
+        let argumentListWithParamsFix = fixParamArray symbol x.ArgumentList argumentList
+        let tempVars, args = readReorderedParams argumentListWithParamsFix
+        let initTempVars = List.foldBack (fun (v, e) b -> Let (v, e, b)) tempVars
+        let bCtor = sr.ReadConstructor symbol
+
+        typ, Some (bCtor, args, initTempVars)
 
     member this.TransformArrowExpressionClause (x: ArrowExpressionClauseData) : Expression =
         x.Expression |> this.TransformExpression
