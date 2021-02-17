@@ -286,3 +286,6 @@ type JS =
     /// Imports default export from an ES6 module.
     [<Macro(typeof<WebSharper.Core.Macros.ImportJS>)>]
     static member ImportDefault<'T> (from: string) = X<'T>
+
+    [<Inline "import($moduleName)">]
+    static member ImportDynamic<'T> (moduleName: string) = X<Promise<'T>>

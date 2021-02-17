@@ -9,6 +9,7 @@ tags
     Web JavaScript F# C#
 dependencies
     WebSharper == CURRENTVERSION
+    System.Configuration.ConfigurationManager >= LOCKEDVERSION
     Mono.Cecil >= LOCKEDVERSION
     FSharp.Core >= LOCKEDVERSION
 files

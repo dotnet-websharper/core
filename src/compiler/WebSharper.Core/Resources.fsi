@@ -48,6 +48,7 @@ val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
 type MediaType =
     | Css
     | Js
+    | JsModule
 
 type RenderLocation =
     | Scripts

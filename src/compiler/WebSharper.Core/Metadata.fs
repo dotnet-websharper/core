@@ -247,7 +247,7 @@ type Node =
     | AbstractMethodNode of TypeDefinition * Method
     | TypeNode of TypeDefinition
     | ResourceNode of TypeDefinition * option<ParameterObject>
-    | AssemblyNode of string * bool
+    | AssemblyNode of string * hasJs:bool * isModule:bool
     | EntryPointNode 
     | ExtraBundleEntryPointNode of string * string
 
@@ -503,7 +503,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.6"
+    let CurrentVersion = "4.7"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

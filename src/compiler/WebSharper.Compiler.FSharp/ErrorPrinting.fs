@@ -104,11 +104,11 @@ let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
 
 // We need to print full rooted path for VS to correctly link the error to the file
 open System.IO
-let fullpath cwd nm = 
+let fullpath cwd (nm: string) = 
     let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
     try Path.GetFullPath(p) with _ -> p
 
-let PrintWebSharperErrors warnOnly projFile (warnSettings: WarnSettings) (comp: Compilation) =
+let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSettings) (comp: Compilation) =
     let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
         if (not isError || warnOnly) && warnSettings.CheckNoWarn(9002) then

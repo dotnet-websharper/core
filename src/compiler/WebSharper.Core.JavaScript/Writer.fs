@@ -140,7 +140,6 @@ let Keywords =
         "function"
         "if"
         "implements"
-        "import"
         "in"
         "instanceof"
         "interface"
@@ -166,8 +165,8 @@ let Keywords =
     |]
 let IsKeyword word = Keywords.Contains word
 
-let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
-    buf.AppendFormat(@"\u{0:x4}", int c)
+let WriteUnicodeEscapeCodeForId (buf: StringBuilder) (c: char) =
+    buf.AppendFormat(@"u{0:x4}", int c)
     |> ignore
 
 let EscapeId (id: string) =
@@ -185,16 +184,20 @@ let EscapeId (id: string) =
         if isFollow c then
             buf.Append c |> ignore
         else
-            WriteUnicodeEscape buf c
+            WriteUnicodeEscapeCodeForId buf c
     match id.[0] with
     | k when not (isFirst k) || IsKeyword id ->
-        WriteUnicodeEscape buf id.[0]
+        WriteUnicodeEscapeCodeForId buf id.[0]
         for i in 1 .. id.Length - 1 do
             writeChar i
     | _ ->
         for i in 0 .. id.Length - 1 do
             writeChar i
     string buf
+
+let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
+    buf.AppendFormat(@"\u{0:x4}", int c)
+    |> ignore
 
 let QuoteString (s: string) =
     let buf = StringBuilder()
@@ -336,6 +339,8 @@ let rec Expression (expression) =
         Token (string x)
     | S.This ->
         Word "this"
+    | S.ImportFunc ->
+        Word "import"
     | _ ->
         failwith "Syntax.Expression not recognized"
 

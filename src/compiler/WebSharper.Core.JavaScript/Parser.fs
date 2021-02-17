@@ -134,6 +134,7 @@ let rec primExpr i =
     | L.ReservedWord Kw.``null`` -> skipDiv i; S.Constant S.Null
     | L.ReservedWord Kw.``false`` -> skipDiv i; S.Constant S.False
     | L.ReservedWord Kw.``true`` -> skipDiv i; S.Constant S.True
+    | L.ReservedWord Kw.``import`` -> skipDiv i; S.ImportFunc
     | L.NumericLiteral x -> skipDiv i; S.Constant (S.Number x)
     | L.StringLiteral x -> skipDiv i; S.Constant (S.String x)
     | L.RegexLiteral x -> skipDiv i; S.NewRegex x

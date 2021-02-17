@@ -804,7 +804,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.AddCompiledMethod(typ, meth, info, opts, comp) =
         let typ = this.FindProxied typ 
-        compilingMethods.Remove(typ, meth) |> ignore
+        compilingMethods.Remove((typ, meth)) |> ignore
         let cls = classes.[typ]
         match cls.Methods.TryFind meth with
         | Some (_, _, Undefined)
@@ -815,17 +815,17 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.FailedCompiledMethod(typ, meth) =
         let typ = this.FindProxied typ 
-        compilingMethods.Remove(typ, meth) |> ignore
+        compilingMethods.Remove((typ, meth)) |> ignore
 
     member this.AddCompiledConstructor(typ, ctor, info, opts, comp) = 
         let typ = this.FindProxied typ 
-        compilingConstructors.Remove(typ, ctor) |> ignore
+        compilingConstructors.Remove((typ, ctor)) |> ignore
         let cls = classes.[typ]
         cls.Constructors.Add(ctor, (info, opts, comp))
 
     member this.FailedCompiledConstructor(typ, ctor) =
         let typ = this.FindProxied typ 
-        compilingConstructors.Remove(typ, ctor) |> ignore
+        compilingConstructors.Remove((typ, ctor)) |> ignore
 
     member this.CompilingStaticConstructors = compilingStaticConstructors
 
@@ -839,7 +839,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.AddCompiledImplementation(typ, intf, meth, info, comp) =
         let typ = this.FindProxied typ 
-        compilingImplementations.Remove(typ, intf, meth) |> ignore
+        compilingImplementations.Remove((typ, intf, meth)) |> ignore
         let cls = classes.[typ]
         cls.Implementations.Add((intf, meth), (info, comp))
 
@@ -951,7 +951,7 @@ type Compilation(meta: Info, ?hasGraph) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
 
         let asmNodeIndex = 
-            if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true)) else 0
+            if hasGraph then graph.AddOrLookupNode(AssemblyNode (this.AssemblyName, true, false)) else 0
         if hasGraph then
             for req in this.AssemblyRequires do
                 graph.AddEdge(asmNodeIndex, resNode req)

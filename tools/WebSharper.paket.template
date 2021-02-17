@@ -9,6 +9,7 @@ tags
     Web JavaScript F# C#
 dependencies
     FSharp.Core >= LOCKEDVERSION
+    System.Reflection.Emit.Lightweight >= LOCKEDVERSION
 files
     ../build/Release/net461/WebSharper.Core.JavaScript.dll ==> lib/net461
     ../build/Release/net461/WebSharper.Core.JavaScript.xml ==> lib/net461

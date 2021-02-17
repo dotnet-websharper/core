@@ -349,7 +349,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
         let out = cmp.Compile(cfg, asmDef, asm)
         out.Save config.AssemblyFile
 
-let (|StartsWith|_|) start (input: string) =    
+let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then
         Some input.[start.Length ..]
     else None 

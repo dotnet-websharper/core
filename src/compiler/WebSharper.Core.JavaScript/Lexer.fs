@@ -52,6 +52,7 @@ type Keyword =
     | ``void`` = 26
     | ``while`` = 27
     | ``with`` = 28
+    | ``import`` = 29
 
 type Symbol =
     | ``{`` = 0
@@ -603,6 +604,7 @@ let parseIdentifierName id =
     | "void" -> ReservedWord Keyword.``void``
     | "while" -> ReservedWord Keyword.``while``
     | "with" -> ReservedWord Keyword.``with``
+    | "import" -> ReservedWord Keyword.``import``
     | _ -> Identifier id
 
 let lexIdentifierName allowKeywords s =

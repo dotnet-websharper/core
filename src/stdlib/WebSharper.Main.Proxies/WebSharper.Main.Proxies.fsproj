@@ -5,6 +5,7 @@
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperUseNetFxCompiler>True</WebSharperUseNetFxCompiler>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DebugType>None</DebugType>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../WebSharper.Main/JavaScript.fs" />

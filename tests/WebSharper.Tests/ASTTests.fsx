@@ -424,6 +424,20 @@ module M
 
 open WebSharper
 
+[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
+let testImport () = ()
+
+[<JavaScript>]
+let useImport() = 
+    testImport ()
+"""
+
+
+translate """
+module M
+
+open WebSharper
+
 [<Inline>]
 let tailRecSingleInline n =
     let rec f n =
