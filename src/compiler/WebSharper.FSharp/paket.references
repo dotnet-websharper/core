@@ -3,5 +3,4 @@ Mono.Cecil
 Microsoft.NETCore.Platforms
 group fcs
   FSharp.Compiler.Service
-  System.Runtime.InteropServices.RuntimeInformation
   FSharp.Core
