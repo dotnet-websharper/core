@@ -1685,7 +1685,15 @@ type Compilation(meta: Info, ?hasGraph) =
             let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]
             let uchEqIndex =
                 try graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
-                with e -> failwithf "%A | %A" uncheckedMdl.Value uncheckedEquals.Value
+                with e -> 
+                    let methodsFound =
+                        graph.Lookup.Keys |> Seq.choose (
+                            function
+                            | MethodNode (t, m) when t = uncheckedMdl -> Some m
+                            | _ -> None
+                        )
+                        |> Array.ofSeq
+                    failwithf "Method node not found: %A | %A. Found: %A" uncheckedMdl.Value uncheckedEquals.Value methodsFound
             let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 
             graph.AddEdge(objEqIndex, uchEqIndex)

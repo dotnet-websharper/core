@@ -18,7 +18,6 @@ nuget System.Net.Http ~> 4.3.0
 nuget System.ValueTuple ~> 4.4.0
 nuget FSharp.Core 4.2.3
 
-nuget Microsoft.NETCore.Platforms ~> 2.0.0
 nuget NETStandard.Library ~> 2.0.0
 nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Security.Cryptography.Csp ~> 4.3.0
