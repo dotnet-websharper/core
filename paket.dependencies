@@ -33,7 +33,7 @@ group includes
     references: strict
     framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library.Ref 
+    nuget NETStandard.Library 
     nuget FSharp.Core ~> 5.0.0
 
 group fcs
