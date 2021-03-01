@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperUseNetFxCompiler>True</WebSharperUseNetFxCompiler>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
