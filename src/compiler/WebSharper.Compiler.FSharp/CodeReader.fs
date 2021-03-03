@@ -118,7 +118,7 @@ let hasCompilationRepresentation (cr: CompilationRepresentationFlags) attrs =
         && obj.Equals(snd a.ConstructorArguments.[0], int cr)
     )
 
-let getRange (range: FSharp.Compiler.Range.range) =
+let getRange (range: FSharp.Compiler.Text.Range) =
     {   
         FileName = range.FileName
         Start = range.StartLine, range.StartColumn + 1
@@ -1180,7 +1180,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         errorPlaceholder        
     |> withSourcePos expr
 
-type FSharp.Compiler.Range.range with
+type FSharp.Compiler.Text.Range with
     member this.AsSourcePos =
         {
             FileName = System.IO.Path.GetFileName(this.FileName)

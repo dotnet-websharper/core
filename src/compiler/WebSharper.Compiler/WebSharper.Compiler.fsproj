@@ -57,9 +57,6 @@
     <Compile Include="Bundle.fs" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />

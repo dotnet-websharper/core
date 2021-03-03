@@ -75,10 +75,10 @@ let private Level5Warnings =
              // 1178,tcNoEqualityNeeded2,"The struct, record or union type '%s' does not support structural equality because the type '%s' does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality"
     ]
 
-let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
+let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpDiagnostic[]) =
     for err in errs do
         let isError, isPrinted =
-            if err.Severity = FSharpErrorSeverity.Error then
+            if err.Severity = FSharpDiagnosticSeverity.Error then
                 true, true
             else
                 let n = err.ErrorNumber
