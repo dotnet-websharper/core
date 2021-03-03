@@ -852,8 +852,8 @@ STRATEGY: MIN
 RESTRICTION: || (== net472) (== net50) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (39.0)
-      FSharp.Core (5.0.1)
+    FSharp.Compiler.Service (39.0.3-preview.21102.10)
+      FSharp.Core (5.0.2-beta.21102.10)
       Microsoft.Build.Framework (>= 16.6)
       Microsoft.Build.Tasks.Core (>= 16.6)
       Microsoft.Build.Utilities.Core (>= 16.6)
@@ -878,7 +878,7 @@ NUGET
       System.Threading.Tasks.Parallel (>= 4.3)
       System.Threading.Thread (>= 4.3)
       System.Threading.ThreadPool (>= 4.3)
-    FSharp.Core (5.0.1)
+    FSharp.Core (5.0.2-beta.21102.10)
     Microsoft.Build.Framework (16.6)
       System.Security.Permissions (>= 4.7) - restriction: || (== net50) (== netstandard2.0)
     Microsoft.Build.Tasks.Core (16.6)
@@ -1419,7 +1419,7 @@ REFERENCES: STRICT
 RESTRICTION: || (== net472) (== net50) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (5.0.1)
+    FSharp.Core (5.0.2-beta.21102.10)
     Microsoft.NETCore.Platforms (5.0.1)
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)

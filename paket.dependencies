@@ -34,15 +34,15 @@ group includes
     framework: net472, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
-    nuget FSharp.Core ~> 5.0.0
+    nuget FSharp.Core 5.0.2-beta.21102.10
 
 group fcs
     framework: net472, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
-    nuget FSharp.Compiler.Service ~> 39.0
-    nuget FSharp.Core ~> 5.0.0
+    nuget FSharp.Compiler.Service 39.0.3-preview.21102.10
+    nuget FSharp.Core 5.0.2-beta.21102.10
 
 group test
     source https://api.nuget.org/v3/index.json
