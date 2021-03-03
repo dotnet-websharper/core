@@ -432,9 +432,6 @@ let stringInterpolation() =
     $"x=%d{5}" 
 """
 
-ExtraTopLevelOperators.PrintFormatToString<Microsoft.FSharp.Core.string> (new PrintfFormat`5("x=%P()",[|Operators.Box<Microsoft.FSharp.Core.int> (5)|],dflt)) @ (7,28--7,36)
-compiling: Function([], Return(Call(_, Microsoft.FSharp.Core.ExtraTopLevelOperators, PrintFormatToString<System.String>, [Ctor(Microsoft.FSharp.Core.PrintfFormat`5<System.String,unit,System.String,System.String,System.Int32>, .ctor, [Value("x=%P()"); NewArray([Call(_, Microsoft.FSharp.Core.Operators, Box<System.Int32>, [Value(5)])]); Call(_, Microsoft.FSharp.Core.Operators+Unchecked, DefaultOf<System.Type[]>, [])])])))
-
 translate """
 module M
 

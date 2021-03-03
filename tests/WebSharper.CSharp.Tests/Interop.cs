@@ -397,5 +397,6 @@ namespace WebSharper.CSharp.Tests
             Equal(I.Module.AnonRecordNested().B.B, "hi");
         }
 
+        public static int AddNullables(int? x, int? y) => (x ?? 0) + (y ?? 0);
     }
 }
