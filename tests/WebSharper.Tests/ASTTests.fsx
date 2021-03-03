@@ -18,10 +18,10 @@
 //
 // $end{copyright}
 #I __SOURCE_DIRECTORY__
-#r "../../build/Release/FSharp/net461/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net461/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net472/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net472/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net472/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net472/Mono.Cecil.Pdb.dll"
 #r "System.Configuration.dll"
 #r "System.Core.dll"
 #r "System.Data.dll"
@@ -30,17 +30,17 @@
 #r "System.Web.dll"
 #r "System.Xml.dll"
 #r "System.Xml.Linq.dll"
-#r "../../build/Release/net461/WebSharper.Core.JavaScript.dll"
-#r "../../build/Release/net461/WebSharper.Core.dll"
-#r "../../build/Release/net461/WebSharper.JavaScript.dll"
-#r "../../build/Release/net461/WebSharper.JQuery.dll"
-#r "../../build/Release/net461/WebSharper.Main.dll"
-#r "../../build/Release/net461/WebSharper.Collections.dll"
-#r "../../build/Release/net461/WebSharper.Control.dll"
-#r "../../build/Release/net461/WebSharper.Web.dll"
-#r "../../build/Release/net461/WebSharper.Sitelets.dll"
-#r "../../build/Release/FSharp/net461/WebSharper.Compiler.dll"
-#r "../../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/net472/WebSharper.Core.JavaScript.dll"
+#r "../../build/Release/net472/WebSharper.Core.dll"
+#r "../../build/Release/net472/WebSharper.JavaScript.dll"
+#r "../../build/Release/net472/WebSharper.JQuery.dll"
+#r "../../build/Release/net472/WebSharper.Main.dll"
+#r "../../build/Release/net472/WebSharper.Collections.dll"
+#r "../../build/Release/net472/WebSharper.Control.dll"
+#r "../../build/Release/net472/WebSharper.Web.dll"
+#r "../../build/Release/net472/WebSharper.Sitelets.dll"
+#r "../../build/Release/FSharp/net472/WebSharper.Compiler.dll"
+#r "../../build/Release/FSharp/net472/WebSharper.Compiler.FSharp.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -283,7 +283,7 @@ module Utils =
 
 let wsRefs =
     let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net461", x + ".dll")
+        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net472", x + ".dll")
     List.map wsLib [
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
