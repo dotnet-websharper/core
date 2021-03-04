@@ -36,9 +36,6 @@
     <None Include="genInterop.fsx" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../WebSharper.Core.JavaScript/WebSharper.Core.JavaScript.fsproj" />
   </ItemGroup>

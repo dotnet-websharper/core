@@ -49,9 +49,4 @@
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>
-  <ItemGroup Condition="'$(OS)' != 'Windows_NT' AND $(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Runtime" />
-    <Reference Include="System.Threading.Tasks" />
-    <Reference Include="System.Text.Encoding" />
-  </ItemGroup>
 </Project>
