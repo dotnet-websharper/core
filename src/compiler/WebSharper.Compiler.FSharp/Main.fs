@@ -42,12 +42,15 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv, config: WsConfig, assemblyName) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
         let path = config.ProjectFile
         
+        let argv =
+            if argv.Length > 0 && argv.[0] = "fsc.exe" then argv.[1 ..] else argv
+
         let projectOptionsOpt =
             try
-                checker.GetProjectOptionsFromCommandLineArgs(path, argv) |> Some
+                checker.GetProjectOptionsFromCommandLineArgs(path, argv.[1 ..]) |> Some
             with e ->
                 None
 

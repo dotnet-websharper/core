@@ -312,8 +312,6 @@ let compileMain (argv: string[]) =
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
-    if not (argv.[0].EndsWith "fsc.exe") then
-        fscArgs.Add "fsc.exe"   
 
     let cArgv =
         [|
