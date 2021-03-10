@@ -8,10 +8,12 @@ description
 tags
     Web JavaScript F#
 dependencies
-    framework: netstandard2.0
-        WebSharper == CURRENTVERSION
+    WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
+    ../build/Release/FSharp/net472/deploy/wsfsc.exe ==> tools/net472
+    ../build/Release/FSharp/net472/deploy/wsfsc.exe.config ==> tools/net472
+    ../build/Release/FSharp/net472/deploy/*.dll ==> tools/net472
     ../build/Release/FSharp/net5.0/deploy/*.dll ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/**/*.dll ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/wsfsc.exe ==> tools/net5.0
@@ -19,3 +21,4 @@ files
     ../build/Release/FSharp/net5.0/deploy/wsfsc.sh ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/wsfsc.runtimeconfig.json ==> tools/net5.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0
+    ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools

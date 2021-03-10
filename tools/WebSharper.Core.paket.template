@@ -9,9 +9,10 @@ description
 tags
     Web JavaScript F# C#
 dependencies
-    framework: netstandard2.0
-        FSharp.Core >= LOCKEDVERSION
+    FSharp.Core >= LOCKEDVERSION
 files
+    ../build/Release/net472/WebSharper.Core.dll ==> lib/net472
+    ../build/Release/net472/WebSharper.Core.xml ==> lib/net472
     ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
 

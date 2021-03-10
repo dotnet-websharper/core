@@ -6,9 +6,10 @@ projectUrl http://websharper.com
 description
     Compiler libraries for C#-to-JavaScript translation
 dependencies
-    framework: netstandard2.0
-        WebSharper.Compiler.Common == CURRENTVERSION
-        Microsoft.CodeAnalysis.CSharp >= LOCKEDVERSION
+    WebSharper.Compiler.Common == CURRENTVERSION
+    Microsoft.CodeAnalysis.CSharp >= LOCKEDVERSION
 files
+    ../build/Release/CSharp/net472/WebSharper.Compiler.CSharp.dll ==> lib/net472
+    ../build/Release/CSharp/net472/WebSharper.Compiler.CSharp.xml ==> lib/net472
     ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> lib/netstandard2.0
     ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.xml ==> lib/netstandard2.0

@@ -1,14 +1,13 @@
 references: strict
 redirects: on
 
-framework: netstandard2.0, net5.0
+framework: net472, netstandard2.0, net5.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
 nuget Microsoft.CodeAnalysis.CSharp ~> 3.8.0
-nuget FSharp.Core 5.0.0
 nuget System.CodeDom 4.4.0
 nuget System.Configuration.ConfigurationManager 4.4.0
 nuget System.Reflection.Emit.Lightweight 4.3.0
@@ -17,17 +16,26 @@ nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
 nuget Microsoft.CSharp 4.7.0
 
+nuget System.Net.Http ~> 4.3.0
+nuget System.ValueTuple ~> 4.4.0
+nuget FSharp.Core 4.2.3
+
+nuget NETStandard.Library ~> 2.0.0
+nuget System.Text.RegularExpressions ~> 4.3.0
+nuget System.Security.Cryptography.Csp ~> 4.3.0
+
 group wsbuild
     git https://github.com/dotnet-websharper/build-script dotnettool
 
 group includes
     references: strict
-    framework: netstandard2.1
+    framework: net472, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library.Ref
+    nuget NETStandard.Library 
+    nuget FSharp.Core 5.0.2-beta.21102.10
 
 group fcs
-    framework: netstandard2.0, net5.0
+    framework: net472, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none

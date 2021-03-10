@@ -32,7 +32,8 @@
   </PropertyGroup>
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net5.0\deploy\</FscToolPath>
-    <FscToolExe>wsfsc.exe</FscToolExe>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net472\deploy\</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\net5.0\deploy\</FscToolPath>
+    <FscToolExe Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">wsfsc.exe</FscToolExe>
   </PropertyGroup>
 </Project>

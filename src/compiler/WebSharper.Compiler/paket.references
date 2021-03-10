@@ -1,4 +1,4 @@
 Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
-System.Configuration.ConfigurationManager
+System.Configuration.ConfigurationManager framework: netstandard2.0
 FSharp.Core

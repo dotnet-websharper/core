@@ -8,12 +8,15 @@ description
 tags
     Web JavaScript F# C#
 dependencies
-    framework: netstandard2.0
-        WebSharper == CURRENTVERSION
-        System.Configuration.ConfigurationManager >= LOCKEDVERSION
-        Mono.Cecil >= LOCKEDVERSION
-        FSharp.Core >= LOCKEDVERSION
+    WebSharper == CURRENTVERSION
+    System.Configuration.ConfigurationManager >= LOCKEDVERSION
+    Mono.Cecil >= LOCKEDVERSION
+    FSharp.Core >= LOCKEDVERSION
 files
+    ../build/Release/FSharp/net472/WebSharper.Compiler.dll ==> lib/net472
+    ../build/Release/FSharp/net472/WebSharper.Compiler.xml ==> lib/net472
+    ../build/Release/FSharp/Offline/net472/WebSharper.Sitelets.Offline.dll ==> lib/net472
+    ../build/Release/FSharp/Offline/net472/WebSharper.Sitelets.Offline.xml ==> lib/net472
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
     ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
