@@ -45,6 +45,9 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
         let path = config.ProjectFile
         
+        printfn "WebSharper compilation arguments:"
+        argv |> Array.iter (printfn "    %s")
+        
         let argv =
             if argv.Length > 0 && argv.[0] = "fsc.exe" then argv.[1 ..] else argv
 
