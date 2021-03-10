@@ -1511,22 +1511,22 @@ module RouterOperators =
         | _ -> true
 
     let internal JSUnion (t: obj) (cases: (option<obj> * (option<string> * string[])[] * Router<obj>[])[]) : Router<obj> = 
-        let getTag value = 
+        let getTag (value: obj) : int = 
             let constIndex =
-                cases |> Seq.tryFindIndex (
-                    function
+                cases |> Seq.tryFindIndex (fun case ->
+                    match case with
                     | Some c, _, _ -> value = c
                     | _ -> false
                 )
             match constIndex with
             | Some i -> i
             | _ -> value?("$") 
-        let readFields tag value =
+        let readFields (tag: int) (value: obj) : obj[] =
             let _, _, fields = cases.[tag]
             Array.init fields.Length (fun i ->
                 value?("$" + string i)
             )
-        let createCase tag fieldValues =
+        let createCase (tag: int) (fieldValues: obj[]) : obj =
             let o = if isNull t then New [] else JS.New t
             match cases.[tag] with
             | Some constant, _, _ -> constant
@@ -1540,6 +1540,7 @@ module RouterOperators =
             cases |> Seq.indexed |> Seq.collect (fun (i, (_, eps, fields)) ->
                 eps |> Seq.map (fun (m, p) -> i, m, p, fields)    
             )
+            |> Array.ofSeq
         {                                                    
             Parse = fun path ->
                 parseCases |> Seq.collect (fun (i, m, s, fields) ->
@@ -1563,14 +1564,14 @@ module RouterOperators =
                 let _, eps, fields = cases.[tag]
                 let method, path = eps.[0]
                 let casePath = Seq.singleton (Route.Segment (List.ofArray path, method))
-                match fields with
-                | [||] -> Some casePath
-                | _ ->
+                if Array.isEmpty fields then
+                    Some casePath
+                else
                     let fieldParts =
                         (readFields tag value, fields) ||> Array.map2 (fun v f -> f.Write v)
                     if Array.forall Option.isSome fieldParts then
                         Some (Seq.append casePath (fieldParts |> Seq.collect Option.get))
-                    else None                      
+                    else None    
         }
 
     let internal JSClass (ctor: unit -> obj) (fields: (string * bool * Router<obj>)[]) (endpoints: (option<string> * Union<string, int>[])[]) (subClasses: Router<obj>[]) : Router<obj> =

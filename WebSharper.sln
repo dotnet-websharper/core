@@ -103,6 +103,9 @@ EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator", "src\compiler\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj", "{A05B0B61-A2EF-4C88-B9A3-00E888777798}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Main", "src\stdlib\WebSharper.Main\WebSharper.Main.fsproj", "{A28D0CC6-9C9C-4438-81E2-0C21FB9549A3}"
+	ProjectSection(ProjectDependencies) = postProject
+		{7001E2B2-61F4-4770-BA7C-86F07F657678} = {7001E2B2-61F4-4770-BA7C-86F07F657678}
+	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.JavaScript", "src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj", "{3F2CEB8B-6FFD-45D0-8DBC-A5EED112CE68}"
 EndProject
