@@ -1,7 +1,7 @@
 references: strict
 redirects: on
 
-framework: net472, netstandard2.0, net5.0
+framework: net461, netstandard2.0, net5.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
@@ -29,13 +29,13 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net472, netstandard2.0, net5.0
+    framework: net461, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
     nuget FSharp.Core 5.0.2-beta.21102.10
 
 group fcs
-    framework: net472, netstandard2.0, net5.0
+    framework: net461, netstandard2.0, net5.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none

@@ -195,7 +195,7 @@
     </VisualStudio>
   </ProjectExtensions>
   <Choose>
-    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.7.2'">
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v4.6.1'">
       <ItemGroup>
         <Reference Include="FSharp.Core">
           <HintPath>C:\Users\andra\.nuget\packages\fsharp.core\4.2.3\lib\net45\FSharp.Core.dll</HintPath>
