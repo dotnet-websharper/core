@@ -1,5 +1,8 @@
 Mono.Cecil
   exclude Mono.Cecil.Rocks.dll
 Microsoft.CodeAnalysis.CSharp
-group fcs
+System.IO.FileSystem
+System.Security.Cryptography.Algorithms
+System.Security.Cryptography.Primitives
+group includes
   FSharp.Core

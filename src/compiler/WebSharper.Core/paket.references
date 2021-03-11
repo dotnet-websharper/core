@@ -1,2 +1,3 @@
 FSharp.Core
 System.Reflection.Emit.Lightweight
+System.ValueTuple
