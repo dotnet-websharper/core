@@ -684,6 +684,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 3);
         }
 
+#if NET50
         [Test]
         public void IndexTest()
         {
@@ -703,6 +704,7 @@ namespace WebSharper.CSharp.Tests
             Equal(someArray[0..2], new[] { 1, 2 });
             Equal(someArray[1..^0], new[] { 2, 3, 4, 5 });
         }
+#endif
     }
 
     [JavaScript]

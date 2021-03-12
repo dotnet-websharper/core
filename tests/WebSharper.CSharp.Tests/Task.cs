@@ -110,6 +110,7 @@ namespace WebSharper.CSharp.Tests
             Raises(() => new Task<int>(() => 2).Result);
         }
 
+#if NET50
         [Test("Await Using/AsyncDisposable")]
         public async Task AwaitUsing()
         {
@@ -138,6 +139,7 @@ namespace WebSharper.CSharp.Tests
             }
             Equal(res.ToArray(), new[] { 1, 2 });
         }
+#endif
 
         [Test]
         public async Task WebWorker()
@@ -161,6 +163,7 @@ namespace WebSharper.CSharp.Tests
         }
     }
 
+#if NET50
     [JavaScript]
     public class AsyncDisposableTest : IAsyncDisposable
     {
@@ -172,6 +175,7 @@ namespace WebSharper.CSharp.Tests
             IsDisposed = true;
         }
     }
+#endif
 
     // This needs to be a separate class, otherwise the web worker bundle
     // will include QUnit as a dependency.

@@ -107,7 +107,9 @@ namespace WebSharper.CSharp.Tests
 
             public override int VirtualMethod() { return 2; }
 
+#if NET50
             public override SubClass CovariantVirtualMethod() { return this; }
+#endif
 
             public int BaseCall() { return base.VirtualMethod(); }
 
@@ -122,7 +124,9 @@ namespace WebSharper.CSharp.Tests
 
             public override int AbstractMethod() { return 2; }
 
+#if NET50
             public virtual BaseClass CovariantVirtualMethod() { return this; }
+#endif
 
             public BaseClass() { }
 
@@ -150,12 +154,14 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
 
+#if NET50
         [Test]
         public void CovariantInheritance()
         {
             Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
             Equal(new SubClass().CovariantVirtualMethod().ValueAlias, 2, "Covariant override method");
         }
+#endif
 
         interface ISomething
         {
@@ -181,6 +187,7 @@ namespace WebSharper.CSharp.Tests
             Equal(((ISomething)o).Foo(), 42);
         }
 
+#if NET50
         interface ITestDefaultImpl
         {
             int Foo() => 42;
@@ -203,6 +210,7 @@ namespace WebSharper.CSharp.Tests
             var o2 = new TestDefaultImpl2();
             Equal(((ITestDefaultImpl)o).Foo(), 2);
         }
+#endif
 
         struct StructTest
         {
