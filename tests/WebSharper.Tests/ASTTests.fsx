@@ -38,7 +38,7 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
-//#r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
 #r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.FSharp.dll"
 
@@ -357,7 +357,7 @@ let translate source =
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     if wholeProjectResults.HasCriticalErrors then
-        for err in wholeProjectResults.Errors |> Seq.filter (fun e -> e.Severity = FSharpErrorSeverity.Error) do
+        for err in wholeProjectResults.Errors |> Seq.filter (fun e -> e.Severity = FSharpDiagnosticSeverity.Error) do
             printfn "F# Error: %d:%d-%d:%d %s" err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn err.Message
     else
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
@@ -419,6 +419,30 @@ let translate source =
 
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
+
+translate """
+module M
+
+open WebSharper
+
+[<JavaScript>]
+let matchArray() = 
+    let arr = [| obj() |]
+    match arr with
+    | [||] -> false
+    | _ -> true
+"""
+
+translate """
+module M
+
+open WebSharper
+
+[<JavaScript>]
+let anonymousRecord() = 
+    let r = {| A = 42 |}
+    r.A
+"""
 
 translate """
 module M
