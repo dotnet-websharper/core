@@ -222,7 +222,12 @@ Target.create "Run" <| fun _ ->
 Target.create "PublishTests" <| fun _ ->
     match Environment.environVarOrNone "WS_TEST_FOLDER" with
     | Some publishPath ->
-        Shell.copyDir publishPath "tests/Web" (fun _ -> true)
+        DotNet.publish (fun p ->
+            { p with
+                OutputPath = Some publishPath
+                NoRestore = true
+                Configuration = DotNet.Release
+            }) "tests/Web/Web.Net50.csproj"
     | _ ->
         failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
 
