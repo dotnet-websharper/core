@@ -1,13 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFrameworks>net461;net5.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   	<LangVersion>preview</LangVersion>
     <Tests>True</Tests>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('net5'))">
+    <DefineConstants>$(DefineConstants);NET50</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Collections.fs" />
