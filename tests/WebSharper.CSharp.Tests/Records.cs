@@ -72,6 +72,16 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void Inheritance()
+        {
+            var teacher = new TeacherP("Bill", "Wagner", "English");
+            Equal(teacher.FirstName, "Bill");
+            Equal(teacher.TFirstName, "Bill");
+            Equal(teacher.LastName, "Wagner");
+            Equal(teacher.Subject, "English");
+        }
+
+        [Test]
         public void InitOnlySetter()
         {
             var person = new InitOnlyTest { Name = "Bill Wagner" };
@@ -103,7 +113,7 @@ namespace WebSharper.CSharp.Tests
     public record PersonP(string FirstName, string LastName); // positional record
 
     [JavaScript]
-    public record TeacherP(string FirstName, string LastName, string Subject = "Math") : PersonP(FirstName, LastName);
+    public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
 
     [JavaScript]
     public record PersonC(string FirstName)

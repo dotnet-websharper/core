@@ -1597,7 +1597,18 @@ type RoslynTransformer(env: Environment) =
         | InitializerExpressionKind.CollectionInitializerExpression -> 
             x.Expressions |> Seq.map (fun e -> 
                 let item = this.TransformExpression e
-                let addSymbol = env.SemanticModel.GetCollectionInitializerSymbolInfo(e.Node).Symbol :?> IMethodSymbol
+                let addSymbol = 
+                    let s = env.SemanticModel.GetCollectionInitializerSymbolInfo(e.Node).Symbol :?> IMethodSymbol
+                    // workaround for implicit object creation expression's collection initializer 
+                    if isNull s then
+                        let iocType = env.SemanticModel.GetTypeInfo(x.Node.Parent).Type
+                        let addMethods = iocType.GetMembers("Add").OfType<IMethodSymbol>() |> Array.ofSeq
+                        if addMethods.Length = 1 then
+                            addMethods.[0]
+                        else
+                            failwith "Collection initializer for implicit object creation only supported with a non-overloaded Add method"
+                    else
+                        s
                 let cTyp, addM = getTypeAndMethod addSymbol
                 match IgnoreExprSourcePos item with
                 | ComplexElement cItem ->

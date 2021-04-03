@@ -135,6 +135,28 @@ let initDef =
         Generics = 0
     }
 
+let uncheckedMdl =
+    TypeDefinition {
+        FullName = "Microsoft.FSharp.Core.Operators+Unchecked"
+        Assembly = "FSharp.Core"
+    }
+
+let uncheckedEquals =
+    Method {
+        MethodName = "Equals"
+        Parameters = [ TypeParameter 0; TypeParameter 0 ]
+        ReturnType = NonGenericType Definitions.Bool
+        Generics = 1
+    }
+
+let uncheckedHash =
+    Method { 
+        MethodName = "Hash"
+        Parameters = [ TypeParameter 0 ]
+        ReturnType = NonGenericType Definitions.Int
+        Generics = 1
+    }
+
 type HasYieldVisitor() =
     inherit StatementVisitor()
     let mutable found = false
@@ -642,6 +664,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                         Generics = 0
                                     }
                                 Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
+                            let ueq x y =
+                                Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedEquals, [x; y])    
                             match meth.Name with
                             | "Deconstruct" ->
                                 let b =
@@ -657,25 +681,26 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             | "ToString" ->
                                 let b =
-                                    let vals =
-                                        getAllValues This
-                                        |> Seq.indexed
-                                        |> Array.ofSeq
-                                    seq {
-                                        cString cls.Name 
-                                        cString " { "
-                                        for i, (name, v) in vals do
-                                            cString name  
-                                            cString " = "
-                                            v
-                                            if i < vals.Length - 1 then
-                                                cString ", "
-                                        cString " }"
-                                    } |> Seq.reduce (^+)
-                                    |> Return
+                                    JSRuntime.PrintObject This |> Return
+                                    //let vals =
+                                    //    getAllValues This
+                                    //    |> Seq.indexed
+                                    //    |> Array.ofSeq
+                                    //seq {
+                                    //    cString cls.Name 
+                                    //    cString " { "
+                                    //    for i, (name, v) in vals do
+                                    //        cString name  
+                                    //        cString " = "
+                                    //        v
+                                    //        if i < vals.Length - 1 then
+                                    //            cString ", "
+                                    //    cString " }"
+                                    //} |> Seq.reduce (^+)
+                                    //|> Return
                                 {
                                     IsStatic = false
-                                    Parameters = ri.PositionalFields |> List.map fst
+                                    Parameters = []
                                     Body = b
                                     IsAsync = false
                                     ReturnType = NonGenericType Definitions.String
@@ -684,7 +709,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                    Unary(UnaryOperator.Not, ueq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                    //Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
@@ -696,7 +722,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    eq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                    ueq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                    //eq (Var x.ParameterId) (Var y.ParameterId) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
@@ -707,13 +734,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             | "Equals" ->
                                 let p = CodeReader.CSharpParameter.New "other"
                                 let b =
-                                    let o = Var p.ParameterId
-                                    seq {
-                                        Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
-                                        for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
-                                            v ^== vo     
-                                    } |> Seq.reduce (^&&)
-                                    |> Return
+                                    ueq This (Var p.ParameterId) |> Return
+                                    //let o = Var p.ParameterId
+                                    //seq {
+                                    //    Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
+                                    //    for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
+                                    //        v ^== vo     
+                                    //} |> Seq.reduce (^&&)
+                                    //|> Return
                                 {
                                     IsStatic = false
                                     Parameters = [ p ]
@@ -723,7 +751,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             | "GetHashCode" ->
                                 let b =
-                                    Value (Int 0) |> Return
+                                    Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedHash, [ This ]) |> Return
                                 {
                                     IsStatic = false
                                     Parameters = []
@@ -774,7 +802,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     {
                                         IsStatic = false
                                         Parameters = ri.PositionalFields |> List.map fst
-                                        Body = CombineStatements [ baseCall; b ]
+                                        Body = CombineStatements [ b; baseCall ]
                                         IsAsync = false
                                         ReturnType = Unchecked.defaultof<Type>
                                     } : CodeReader.CSharpMethod
@@ -782,9 +810,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 failwithf "Not recognized record method: %s" mname    
                         | :? ParameterSyntax as syntax ->
                             let p =
-                                syntax
-                                |> RoslynHelpers.ParameterData.FromNode 
-                                |> (cs model).TransformParameter
+                                try
+                                    syntax
+                                    |> RoslynHelpers.ParameterData.FromNode 
+                                    |> (cs model).TransformParameter
+                                with _ ->
+                                    failwithf "Failed to parse parameter"
                             if meth.Name.StartsWith "get_" then
                                 let b =
                                     Return (FieldGet (Some This, NonGeneric def, p.ParameterId.Name.Value))

@@ -52,7 +52,7 @@ let Compile config =
     let aR =
         AssemblyResolver.Create()
             .SearchPaths(paths)
-    
+
     let loader = Loader.Create aR (printfn "%s")
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let mutable refError = false
@@ -119,6 +119,7 @@ let Compile config =
     
     let assem = if isBundleOnly then None else Some (loader.LoadFile config.AssemblyFile)
 
+    // remove for debugging
     if assem.IsSome && assem.Value.HasWebSharperMetadata then
         TimedStage "WebSharper resources already exist, skipping"
     else
@@ -262,7 +263,7 @@ let rec compileMain (argv: string[]) =
         | StartsWith "/keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
         | _ -> 
-            cscArgs.Add a  
+            cscArgs.Add a
     wsArgs := 
         { !wsArgs with 
             References = refs |> Seq.distinct |> Array.ofSeq
