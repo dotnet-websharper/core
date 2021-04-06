@@ -79,6 +79,8 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher.TFirstName, "Bill");
             Equal(teacher.LastName, "Wagner");
             Equal(teacher.Subject, "English");
+            var teacher2 = new TeacherP("Bill", "Wagner");
+            Equal(teacher2.Subject, "Math");
         }
 
         [Test]

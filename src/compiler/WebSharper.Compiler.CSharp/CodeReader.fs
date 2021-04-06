@@ -1388,6 +1388,13 @@ type RoslynTransformer(env: Environment) =
         //let attributeLists = x.AttributeLists |> Seq.map this.TransformAttributeList |> List.ofSeq
         //let typeParameterList = x.TypeParameterList |> Option.map this.TransformTypeParameterList
         let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+
+        match parameterList with
+        | Some pl ->
+            for p in pl do
+                env.Parameters.Add(p.Symbol, (p.ParameterId, p.RefOrOut))
+        | None -> ()
+
         let baseList = x.BaseList |> Option.map this.TransformBaseList
         //let constraintClauses = x.ConstraintClauses |> Seq.map this.TransformTypeParameterConstraintClause |> List.ofSeq
         //let members = x.Members |> Seq.map this.TransformMemberDeclaration |> List.ofSeq
