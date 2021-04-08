@@ -53,6 +53,15 @@ type CSharpParameter =
             RefOrOut = false
         }
 
+    static member New (name, typ) =    
+        {
+            ParameterId = Id.New()
+            Symbol = null
+            DefaultValue = None
+            Type = typ
+            RefOrOut = false
+        }
+
 module Seq =
     open System.Linq
 

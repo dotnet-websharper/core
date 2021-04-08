@@ -242,6 +242,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             p, Some proxied
         | _ -> thisDef, None
 
+    let thisTyp =
+        GenericType def (List.init cls.TypeParameters.Length TypeParameter)
+
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
 
@@ -336,6 +339,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         | :? IPropertySymbol as p ->
             if p.IsAbstract || p.IsIndexer then () else
             let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
+            let jsFieldName() = Value (String ("$" + p.Name))
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
                 let decls = p.DeclaringSyntaxReferences
@@ -359,19 +363,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             i |> (cs model).TransformEqualsValueClause
                         | None -> 
                             DefaultValueOf (sr.ReadType p.Type)
+                    
                     match p.SetMethod with
                     | null ->
                         if p.IsStatic then
-                            staticInits.Add <| ItemSet(Self, Value (String ("$" + p.Name)), b )
+                            staticInits.Add <| ItemSet(Self, jsFieldName(), b )
                         else
-                            inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )
-                        //if isRecord then
-                        //    // auto-add init methods for record properties
-                        //    let getter = sr.ReadMethod p.GetMethod
-                        //    let setter = CodeReader.setterOf (NonGeneric getter)
-                        //    let v = Id.New()
-                        //    let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
-                        //    addMethod None pAnnot setter.Entity N.Inline false body
+                            inits.Add <| ItemSet(This, jsFieldName(), b )
+                        // auto-add init methods
+                        let getter = sr.ReadMethod p.GetMethod
+                        let setter = CodeReader.setterOf (NonGeneric getter)
+                        let v = Id.New()
+                        let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+                        addMethod None pAnnot setter.Entity N.Inline false body
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth
                         if p.IsStatic then
@@ -385,7 +389,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Some def ->
                         let b =
                             def |> (cs model).TransformEqualsValueClause     
-                        inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )   
+                        inits.Add <| ItemSet(This, jsFieldName(), b )   
                     | None ->
                         () 
                 | _ -> failwithf "Unexpected property declaration kind: %s" (System.Enum.GetName(typeof<SyntaxKind>, syntax.Kind))
@@ -643,27 +647,27 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     |> RoslynHelpers.RecordDeclarationData.FromNode 
                                     |> (cs model).TransformRecordDeclaration
                             let useGetter getter = Call(Some This, NonGeneric def, NonGeneric getter, [])
-                            let cString s = Value (String s) 
-                            let getAllValues ofObj =
-                                seq {
-                                    for (p, getter) in ri.PositionalFields do
-                                        yield p.Symbol.Name, useGetter getter
-                                    for p in ri.OtherFields do
-                                        match p with 
-                                        | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
-                                            yield pSymbol.Name, useGetter getter
-                                        | CodeReader.CSharpRecordField (fSymbol, _) ->
-                                            yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
-                                }    
-                            let eq x y =
-                                let eqM =
-                                    Hashed {
-                                        MethodName = "Equals"
-                                        Parameters = [ NonGenericType Definitions.Object ] 
-                                        ReturnType = NonGenericType Definitions.Bool
-                                        Generics = 0
-                                    }
-                                Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
+                            //let cString s = Value (String s) 
+                            //let getAllValues ofObj =
+                            //    seq {
+                            //        for (p, getter) in ri.PositionalFields do
+                            //            yield p.Symbol.Name, useGetter getter
+                            //        for p in ri.OtherFields do
+                            //            match p with 
+                            //            | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                            //                yield pSymbol.Name, useGetter getter
+                            //            | CodeReader.CSharpRecordField (fSymbol, _) ->
+                            //                yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
+                            //    }    
+                            //let eq x y =
+                            //    let eqM =
+                            //        Hashed {
+                            //            MethodName = "Equals"
+                            //            Parameters = [ NonGenericType Definitions.Object ] 
+                            //            ReturnType = NonGenericType Definitions.Bool
+                            //            Generics = 0
+                            //        }
+                            //    Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
                             let ueq x y =
                                 Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedEquals, [x; y])    
                             match meth.Name with
@@ -760,14 +764,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Int
                                 } : CodeReader.CSharpMethod
                             | "<Clone>$" ->
-                                let b =
-                                    JSRuntime.Clone This |> Return
+                                let cloneCtor = 
+                                    Hashed {
+                                        CtorParameters = [ thisTyp ]
+                                    }
+                                let b = 
+                                    Ctor (NonGeneric def, cloneCtor, [This]) |> Return
                                 {
                                     IsStatic = false
                                     Parameters = []
                                     Body = b
                                     IsAsync = false
-                                    ReturnType = NonGenericType def
+                                    ReturnType = thisTyp
                                 } : CodeReader.CSharpMethod
                             | ".ctor" ->
                                 let isCloneCtor =
@@ -778,13 +786,25 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     )    
                                 
                                 if isCloneCtor then
-                                    // TODO is Runtime.Clone ok to use here?
+                                    let o = CodeReader.CSharpParameter.New ("o", thisTyp)
+                                    let baseCall =
+                                        match ri.BaseCall with
+                                        | None -> Empty
+                                        | Some (bTyp, _, _, _) ->
+                                            let bCtor = 
+                                                Hashed {
+                                                    CtorParameters = [ ConcreteType bTyp ]
+                                                }
+                                            ExprStatement (baseCtor This bTyp bCtor [ Var o.ParameterId ])
                                     let b =
-                                        JSRuntime.Clone This |> Return
+                                        ri.PositionalFields |> List.map (fun (_, getter) ->
+                                            let setter = CodeReader.setterOf (NonGeneric getter)
+                                            Call(Some This, NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
+                                        ) |> Sequential |> ExprStatement
                                     {
                                         IsStatic = false
-                                        Parameters = []
-                                        Body = b
+                                        Parameters = [ o ]
+                                        Body = CombineStatements [ b; baseCall ]
                                         IsAsync = false
                                         ReturnType = Unchecked.defaultof<Type>
                                     } : CodeReader.CSharpMethod
