@@ -312,7 +312,7 @@ let compileMain (argv: string[]) =
     let refs = ResizeArray()
     let resources = ResizeArray()
     let fscArgs = ResizeArray()
-    if not (argv.[0].EndsWith "fsc.exe") then
+    if not (argv.[0].EndsWith "fsc.exe" || argv.[0].EndsWith "fsc.dll") then
         fscArgs.Add "fsc.exe"   
 
     let cArgv =
@@ -423,7 +423,7 @@ let formatArgv (argv: string[]) =
     match argv with
     | [| a |] when a.StartsWith "@" ->
         File.ReadAllLines a.[1..]
-    | [| f; a |] when f.EndsWith "fsc.exe" && a.StartsWith "@" ->
+    | [| f; a |] when (f.EndsWith "fsc.exe" || f.EndsWith "fsc.dll") && a.StartsWith "@" ->
         Array.append [| f |] (File.ReadAllLines a.[1..])
     | _ -> argv
 
@@ -437,7 +437,7 @@ let main(argv) =
     try compileMain (formatArgv argv)
     with 
     | ArgumentError msg -> 
-        PrintGlobalError msg
+        PrintGlobalError (msg + " - args: " + (formatArgv argv |> String.concat " "))
         1    
     | e -> 
         PrintGlobalError (sprintf "Global error: %A" e)
