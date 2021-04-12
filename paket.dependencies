@@ -7,7 +7,7 @@ strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 3.8.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.9.0
 nuget System.CodeDom 4.4.0
 nuget System.Configuration.ConfigurationManager 4.4.0
 nuget System.Reflection.Emit.Lightweight 4.3.0
