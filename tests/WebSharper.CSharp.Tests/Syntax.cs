@@ -165,8 +165,11 @@ namespace WebSharper.CSharp.Tests
         public void LocalFunctions()
         {
             var one = 1;
-            int addOne(int x) => x + one;
-            Equal(addOne(1), 2);
+            int addOneLocal(int x) => x + one;
+            Equal(addOneLocal(1), 2);
+
+            int addOneThis(int x) => x + this.GetOne();
+            Equal(addOneThis(1), 2);
 
             static int add(int x, int y) { return x + y; }
             Equal(add(1, 2), 3);

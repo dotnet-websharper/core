@@ -111,7 +111,7 @@ namespace WebSharper.CSharp.Tests
         }
 
 #if NET50
-        [Test("Await Using/AsyncDisposable")]
+        [Test("Await Using/AsyncDisposable", TestKind.Skip)]
         public async Task AwaitUsing()
         {
             var a = new AsyncDisposableTest();
@@ -129,7 +129,7 @@ namespace WebSharper.CSharp.Tests
             yield return 2;
         }
 
-        [Test("Await Foreach/AsyncEnumerable")]
+        [Test("Await Foreach/AsyncEnumerable", TestKind.Skip)]
         public async Task AwaitForeach()
         {
             var res = new List<int>();
