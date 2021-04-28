@@ -83,6 +83,7 @@ type WsConfig =
         SingleNoJSErrors : bool
         ProxyTargetName : string option
         UseJavaScriptSymbol : bool
+        TargetProfile : string
     }
 
     member this.ProjectDir =
@@ -118,6 +119,7 @@ type WsConfig =
             SingleNoJSErrors = false
             ProxyTargetName = None
             UseJavaScriptSymbol = false
+            TargetProfile = "mscorlib"
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -343,6 +345,7 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
                     StrongNameKeyPath = snk
+                    IsNetStandard = match config.TargetProfile.ToLower() with "netstandard" | "netcore" -> true | _ -> false
             }
 
         let cmp = InterfaceGenerator.Compiler.Create()

@@ -320,6 +320,22 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
             let asm = resolveAsm ty.Assembly.FullName ty.FullName
             resolveTypeName asm ty.FullName
 
+        //let typeName = ty.FullName
+        //match resolvedTypes.TryGetValue(typeName) with
+        //| true, x -> x
+        //| false, _ ->
+        //    if not isNetStandard && AssemblyConventions.IsNetStandardType typeName then
+        //        try resolveTypeName corelib typeName
+        //        with _ ->
+        //            try resolveTypeName syscore typeName 
+        //            with _ ->
+        //                failwithf "Could not resolve type %s in either %A or %A" typeName corelib.Name syscore.Name   
+        //    elif AssemblyConventions.IsNetStandardType typeName then
+        //        failwithf "Why isNetStandard"
+        //    else
+        //        let asm = resolveAsm ty.Assembly.FullName typeName
+        //        resolveTypeName asm typeName
+
     let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
         if Seq.isEmpty args then
             def
@@ -704,6 +720,7 @@ type CompilerOptions =
         ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
+        IsNetStandard : bool
     }
 
     static member Default(name) =
@@ -718,6 +735,7 @@ type CompilerOptions =
             ProjectDir = "."
             ReferencePaths = Seq.empty
             StrongNameKeyPath = None
+            IsNetStandard = false
         }
 
     static member Parse args =
@@ -1429,10 +1447,13 @@ type Compiler() =
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
         let netStandardPath = 
-            options.ReferencePaths 
-            |> Seq.tryPick (fun p ->
-                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
-            )
+            if options.IsNetStandard then
+                options.ReferencePaths 
+                |> Seq.tryPick (fun p ->
+                    if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
+                )
+            else
+                None
         let tB = TypeBuilder(resolver, def, netStandardPath)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)

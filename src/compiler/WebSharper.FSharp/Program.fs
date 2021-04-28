@@ -371,6 +371,9 @@ let compileMain (argv: string[]) =
             fscArgs.Add a
         | StartsWith "--keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
+        | StartsWith "--targetprofile:" p ->
+            wsArgs := { !wsArgs with TargetProfile = p }
+            fscArgs.Add a
         | StartsWith "--nowarn:" w ->
             warn := { !warn with NoWarn = (!warn).NoWarn + parseWarnCodeSet w }
         | StartsWith "--warn:" l ->
@@ -387,9 +390,6 @@ let compileMain (argv: string[]) =
             warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
         | StartsWith "--preferreduilang:" _ ->
             () // not handled by FSC 16.0.2
-        | StartsWith "--langversion:" v ->
-            PrintGlobalWarning WarnSettings.Default ("Using language version " +  v)
-            fscArgs.Add a  
         | _ -> 
             fscArgs.Add a  
     wsArgs := 
