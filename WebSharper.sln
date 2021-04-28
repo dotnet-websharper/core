@@ -163,6 +163,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web.Net50", "tests\Web\Web.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web.Net4x", "tests\WebOld\Web.Net4x.csproj", "{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}"
 EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator.Tests.LatestFSharp", "tests\WebSharper.InterfaceGenerator.Tests.LatestFSharp\WebSharper.InterfaceGenerator.Tests.LatestFSharp.fsproj", "{75AD6A84-9F80-4ECE-9572-00D771A64374}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -301,6 +303,10 @@ Global
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -343,6 +349,7 @@ Global
 		{6DB7E533-6A1B-4960-B3E2-04CF03FE9075} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{F0DB4321-4786-4EA6-9352-657B92EF7253} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{75AD6A84-9F80-4ECE-9572-00D771A64374} = {7C8FF043-B608-42BD-930B-2249675BA666}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F8D55BB-6DB9-4B9C-9104-C9F5EFC53B01}

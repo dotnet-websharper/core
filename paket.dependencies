@@ -36,7 +36,7 @@ group includes
     nuget FSharp.Core ~> 5.0.0
 
 group fcs
-    framework: net461, netstandard2.0, net5.0
+    framework: net461, netstandard2.0, netstandard2.1, net5.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
