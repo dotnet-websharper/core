@@ -46,7 +46,5 @@ group fcs
     nuget FSharp.Core ~> 4.7.0
 
 group test
-    framework: net461, netstandard2.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget Chutzpah 4.4.7
-    nuget FSharp.Core ~> 5.0.1

@@ -906,7 +906,7 @@ RESTRICTION: || (== net46) (== net461) (== netcoreapp3.1) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
     FSharp.Core (4.7.2)
-    Microsoft.NETCore.Platforms (5.0.2)
+    Microsoft.NETCore.Platforms (5.0)
     Microsoft.Win32.Primitives (4.3) - restriction: || (== net46) (&& (== net461) (== netcoreapp3.1)) (&& (== net461) (== netstandard2.0)) (&& (== net461) (< net45)) (&& (== net461) (< netstandard1.4)) (&& (== net461) (>= uap10.0)) (&& (== netcoreapp3.1) (< netstandard1.4)) (&& (== netcoreapp3.1) (< netstandard1.5)) (&& (== netcoreapp3.1) (< netstandard1.6)) (&& (== netcoreapp3.1) (< netstandard2.0)) (&& (== netstandard2.0) (< netstandard1.4)) (&& (== netstandard2.0) (< netstandard1.5)) (&& (== netstandard2.0) (< netstandard1.6))
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
@@ -948,11 +948,9 @@ NUGET
     System.Xml.ReaderWriter (4.3.1) - restriction: || (== net46) (&& (== net461) (== netcoreapp3.1)) (&& (== net461) (== netstandard2.0)) (&& (== net461) (< net45)) (&& (== net461) (< netstandard1.4)) (&& (== net461) (< portable-net45+win8+wpa81)) (&& (== net461) (>= uap10.0)) (&& (== netcoreapp3.1) (< netstandard1.2)) (&& (== netcoreapp3.1) (< netstandard1.3)) (&& (== netcoreapp3.1) (< netstandard1.4)) (&& (== netcoreapp3.1) (< netstandard1.5)) (&& (== netcoreapp3.1) (< netstandard1.6)) (&& (== netcoreapp3.1) (< netstandard2.0)) (&& (== netcoreapp3.1) (< portable-net45+win8+wpa81)) (&& (== netstandard2.0) (< netstandard1.2)) (&& (== netstandard2.0) (< netstandard1.3)) (&& (== netstandard2.0) (< netstandard1.4)) (&& (== netstandard2.0) (< netstandard1.5)) (&& (== netstandard2.0) (< netstandard1.6)) (&& (== netstandard2.0) (< portable-net45+win8+wpa81))
 
 GROUP test
-RESTRICTION: || (== net461) (== netstandard2.0) (== netstandard2.1)
 NUGET
   remote: https://api.nuget.org/v3/index.json
     Chutzpah (4.4.7)
-    FSharp.Core (5.0.1)
 
 GROUP wsbuild
 
