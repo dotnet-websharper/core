@@ -1046,6 +1046,6 @@ let Tests =
                     o.Y <- 2
                 o.Z <- 3
                 o
-            jsEqual (createObj true) (JS.Inline "{X: 1, Y: 2, Z: 3}")
+            deepEqual (createObj true) (JS.Inline "{X: 1, Y: 2, Z: 3}")
         }
     }
