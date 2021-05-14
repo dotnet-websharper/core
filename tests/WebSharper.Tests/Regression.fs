@@ -510,6 +510,18 @@ module Bug1091 =
     let foo = [| (try (0).ToString() with e -> e.ToString()) |]
 
 [<JavaScript>]
+type Bug1126 [<Inline "{}">] () =
+    member x.X
+        with [<Inline "$x.X">] get() = X<int>
+        and [<Inline "void($x.X = $v)">] set (v: int) = X<unit>
+    member x.Y
+        with [<Inline "$x.Y">] get() = X<int>
+        and [<Inline "void($x.Y = $v)">] set (v: int) = X<unit>
+    member x.Z
+        with [<Inline "$x.Z">] get() = X<int>
+        and [<Inline "void($x.Z = $v)">] set (v: int) = X<unit>
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1024,5 +1036,16 @@ let Tests =
                     p, o
                 )
             equal mappedArr [|As [|1; As [|1; 2|]|]; As [|3; As [|3; 4|]|]|]  
+        }
+
+        Test "#1126 Optimizer dropping expression while creating object expression" {
+            let createObj b =
+                let o = Bug1126()
+                o.X <- 1
+                if b then
+                    o.Y <- 2
+                o.Z <- 3
+                o
+            jsEqual (createObj true) (JS.Inline "{X: 1, Y: 2, Z: 3}")
         }
     }

@@ -206,7 +206,7 @@ let (|ObjWithPropSetters|_|) expr =
             | PropSet (v, fv) when v = objVar -> 
                 getSetters objVar (fv :: acc) r
             | _ -> 
-                List.rev acc, CombineExpressions r
+                List.rev acc, CombineExpressions p
     match expr with 
     | Let (objVar, I.Object objFields, I.Sequential p) ->
         match getSetters objVar [] p with
@@ -252,6 +252,7 @@ let rec removeLets expr =
         when v = var && CountVarOccurence(var).Get(Sequential args) = 0 ->
             Application(value, args, p, l)
     | ObjWithPropSetters res ->
+        printfn "optimizer: %s -> %s" (Debug.PrintExpression expr) (Debug.PrintExpression res)
         res
     | Let(a, b, c) ->
         let optimizeTupled  =
