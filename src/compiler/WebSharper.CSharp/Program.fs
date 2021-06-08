@@ -28,11 +28,13 @@ open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler.LoggerBase
 module C = WebSharper.Compiler.Commands
 
 open ErrorPrinting
 
-let Compile config =
+let Compile config (logger: LoggerBase) =
+    let (StartTimer, TimedStage) = logger.TimedOut()
     StartTimer()
 
     if config.AssemblyFile = null then
@@ -87,7 +89,7 @@ let Compile config =
         argError "" // exits without printing more errors    
     | Some refMeta ->
 
-    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler(printfn "%s")
+    let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler()
 
     let referencedAsmNames =
         paths
@@ -125,7 +127,7 @@ let Compile config =
     else
 
     let comp =
-        compiler.Compile(refMeta, config)
+        compiler.Compile(refMeta, config, logger)
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors config.WarnOnly comp
@@ -136,7 +138,7 @@ let Compile config =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            let extraBundles = Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -145,10 +147,10 @@ let Compile config =
                 EraseAssemblyContents assem
                 TimedStage "Erasing assembly content for Proxy project"
 
-            let extraBundles = Bundling.AddExtraBundles config metas currentMeta refs comp (Choice2Of2 assem)
+            let extraBundles = Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
-                ModifyAssembly (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -183,8 +185,8 @@ let Compile config =
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         let currentJS =
-            lazy CreateBundleJSOutput refMeta currentMeta comp.EntryPoint
-        Bundling.Bundle config metas currentMeta comp currentJS sources refs extraBundles
+            lazy CreateBundleJSOutput logger refMeta currentMeta comp.EntryPoint
+        Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
@@ -194,7 +196,7 @@ let Compile config =
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
             let res =
-                match ExecuteCommands.Unpack webRoot config with
+                match ExecuteCommands.Unpack webRoot config logger with
                 | C.Ok -> 0
                 | C.Errors errors ->
                     if config.WarnOnly || config.DownloadResources = Some false then
@@ -209,9 +211,9 @@ let Compile config =
             PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
     | _ -> ()
 
-let rec compileMain (argv: string[]) =
+let rec compileMain (logger: LoggerBase) (argv: string[]) =
 
-    match HandleDefaultArgsAndCommands argv false with
+    match HandleDefaultArgsAndCommands logger argv false with
     | Some r -> r
     | _ ->
 
@@ -283,7 +285,7 @@ let rec compileMain (argv: string[]) =
                 }
 
     try
-        Compile !wsArgs
+        Compile !wsArgs logger
         0
     with _ ->
         let intermediaryOutput = (!wsArgs).AssemblyFile
@@ -301,8 +303,15 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+    let logger = {
+        new LoggerBase() with
+            override _.Error s = 
+                eprintfn "%s" s
+            override _.Out s =
+                printfn "%s" s
+        }
     try
-        compileMain (formatArgv argv)
+        compileMain logger (formatArgv argv) 
     with
     | ArgumentError "" -> 
         1    

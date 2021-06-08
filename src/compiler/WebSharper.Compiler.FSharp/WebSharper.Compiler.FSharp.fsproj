@@ -15,6 +15,7 @@
     <Compile Include="ProjectReader.fs" />
     <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Main.fs" />
+    <Compile Include="Compile.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

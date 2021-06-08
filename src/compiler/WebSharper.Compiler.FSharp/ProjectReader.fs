@@ -29,6 +29,7 @@ open WebSharper.Core.Metadata
 open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
 open WebSharper.Compiler.CommandTools
+open WebSharper.Compiler.LoggerBase
 
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader
@@ -996,9 +997,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         }
     )
 
-open WebSharper.Compiler.FrontEnd
-
-let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
+let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
+    let (_, TimedStage) = logger.TimedOut()
     comp.AssemblyName <- assemblyName
     comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1212,7 +1212,8 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
-        let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
+        let getStartupCodeClass (logger: LoggerBase, def: TypeDefinition, sc: StartupCode) =
+            
             let statements, fields = sc            
             let cctor = Function ([], Block (List.ofSeq statements))
             let members =
@@ -1244,7 +1245,8 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             }
             
         if sc.IsValueCreated then
-            getStartupCodeClass sc.Value |> comp.AddClass
+            let (typeDef, startupCode) = sc.Value
+            getStartupCodeClass (logger, typeDef, startupCode) |> comp.AddClass
     )
     
     TimedStage "Parsing with FCS"

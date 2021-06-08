@@ -21,6 +21,7 @@
 module WebSharper.Compiler.FrontEnd
 
 open WebSharper.Core
+open LoggerBase
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
 module P = WebSharper.PathConventions
@@ -30,19 +31,6 @@ type Content = WebSharper.Compiler.Content
 type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
-
-let StartTimer, TimedStage =
-    let mutable time = None
-
-    let start() = time <- Some System.DateTime.Now 
-    let timed name =
-        match time with
-        | Some t ->
-            let now = System.DateTime.Now
-            printfn "%s: %O" name (now - t)
-            time <- Some now
-        | _ -> ()
-    start, timed
 
 type ReadOptions =
     | FullMetadata
@@ -113,12 +101,13 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     else
         removeSourcePositionFromMetadata current, [||]
 
-let CreateBundleJSOutput refMeta current entryPoint =
+let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     let pkg = 
         Packager.packageAssembly refMeta current entryPoint Packager.EntryPointStyle.OnLoadIfExists
 
     if pkg = AST.Undefined then None else
+        let (_, TimedStage) = logger.TimedOut()
 
         let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
@@ -129,7 +118,8 @@ let CreateBundleJSOutput refMeta current entryPoint =
 
         Some (js, minJs)
 
-let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let (_, TimedStage) = logger.TimedOut()
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -144,7 +134,7 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
     let pkg =
         match comp, closures with
         | Some comp, Some moveToTop ->
-            let clPkg = pkg |> Closures.ExamineClosures(comp, moveToTop).TransformExpression 
+            let clPkg = pkg |> Closures.ExamineClosures(logger, comp, moveToTop).TransformExpression 
             TimedStage "Closure analyzation"
             clPkg
         | _ -> pkg
@@ -238,16 +228,16 @@ let CreateResources (comp: Compilation option) (refMeta: M.Info) (current: M.Inf
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources comp refMeta current sourceMap closures a
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources
 
-let ModifyAssembly (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
-    ModifyCecilAssembly comp refMeta current sourceMap closures assembly.Raw
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
+    ModifyCecilAssembly logger comp refMeta current sourceMap closures assembly.Raw
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

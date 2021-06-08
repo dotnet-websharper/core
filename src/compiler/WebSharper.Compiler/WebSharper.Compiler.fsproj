@@ -5,6 +5,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="LoggerBase.fs" />
     <Compile Include="Abbreviations.fs" />
     <Compile Include="AssemblyResolution.fsi" />
     <Compile Include="AssemblyResolution.fs" />

@@ -21,7 +21,7 @@
 namespace WebSharper.Compiler.FSharp
 
 open FSharp.Compiler.SourceCodeServices
-open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler.LoggerBase
 open WebSharper.Compiler.CommandTools
 open ErrorPrinting
 
@@ -42,7 +42,8 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
+    member this.Compile (logger: LoggerBase, prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
+        let (_, TimedStage) = logger.TimedOut()
         let path = config.ProjectFile
         
         printfn "WebSharper compilation arguments:"
@@ -84,12 +85,13 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
         if checkProjectResults.Errors |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
             if assemblyName = "WebSharper.Main" || config.ProjectType = Some BundleOnly then
-                PrintFSharpErrors this.WarnSettings checkProjectResults.Errors
+                PrintFSharpErrors this.WarnSettings logger checkProjectResults.Errors
             None
         else
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
                 assemblyName
                 config
@@ -104,7 +106,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
 
         Some comp
 
-    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig) =
+    static member Compile (logger, prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig) =
         let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
@@ -113,6 +115,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 assemblyName
                 (defaultArg config WsConfig.Empty)

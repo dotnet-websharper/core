@@ -26,6 +26,7 @@ open System.Reflection
 open WebSharper
 open WebSharper.Compiler
 open WebSharper.Core
+open LoggerBase
 
 exception ArgumentError of msg: string with
     override this.Message = this.msg
@@ -260,16 +261,20 @@ module ExecuteCommands =
             | None -> None
         | Some out -> Some out
 
-    let SendResult result =
+    let SendResult (logger: LoggerBase) result =
         match result with
         | Compiler.Commands.Ok -> true
         | Compiler.Commands.Errors errors ->
-            for e in errors do
-                eprintf "%s" e
+            System.String.Concat errors
+            |> logger.Error
+            // TODO: the previous implementation might missing an 'n' from eprintfn
+            //for e in errors do
+            //    eprintf "%s" e
             true
     
-    let Unpack webRoot settings =
-        printfn "unpacking into %s" webRoot
+    let Unpack webRoot settings (logger: LoggerBase) =
+        sprintf "unpacking into %s" webRoot
+        |> logger.Out
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))
             if not dir.Exists then
@@ -303,7 +308,7 @@ module ExecuteCommands =
         | None -> Path.Combine(settings.ProjectDir, "bin", "html")
         | Some dir -> dir
 
-    let Html settings =
+    let Html settings (logger: LoggerBase) =
         let main = settings.AssemblyFile
         let refs = List.ofArray settings.References
         let cfg =
@@ -318,7 +323,7 @@ module ExecuteCommands =
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
-        |> SendResult
+        |> SendResult logger
 
 let LoadInterfaceGeneratorAssembly (file: string) =
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
@@ -390,27 +395,34 @@ type private HelpKind =
     | UnpackHelp
     | HtmlHelp
 
-let HandleDefaultArgsAndCommands argv isFSharp =
+let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 
-    let printInfo helpKind = 
+    let printInfo (logger: LoggerBase) helpKind = 
         let lang = if isFSharp then "F#" else "C#"
         let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
         let compiler = if isFSharp then "fsc.exe" else "csc.exe"
-        printfn "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        sprintf "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        |> logger.Out
         if isFSharp then
-            printfn "(F# Compiler Service version %s)" AssemblyVersionInformation.FcsVersion
+            sprintf "(F# Compiler Service version %s)" AssemblyVersionInformation.FcsVersion
+            |> logger.Out
         else
-            printfn "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
-        printfn ""
-        printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
-        printfn ""
+            sprintf "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
+            |> logger.Out
+        logger.Out ""
+        sprintf "Usage: %s [WebSharper options] [%s options]" exe compiler
+        |> logger.Out
+        logger.Out ""
         match helpKind with
         | NoHelp ->
-            printfn "WebSharper options help: %s --help" exe
-            printfn "Unpack command help: %s unpack --help" exe
-            printfn "Html command help: %s html --help" exe
+            sprintf "WebSharper options help: %s --help" exe
+            |> logger.Out
+            sprintf "Unpack command help: %s unpack --help" exe
+            |> logger.Out
+            sprintf "Html command help: %s html --help" exe
+            |> logger.Out
         | WSHelp ->
-            printfn """WebSharper options:
+            sprintf """WebSharper options:
   --ws:<type>           Set WebSharper project type; one of:
                           library, site, bundle, bundleonly, html, extension
   --wig                 InterfaceGenerator project
@@ -446,17 +458,20 @@ let HandleDefaultArgsAndCommands argv isFSharp =
   --closures[+|-]       Enable JS closure analysis
                           default: false
   --closures:movetotop  Enable JS closure optimization"""
+            |> logger.Out
         | UnpackHelp ->
-            printfn "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            sprintf "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            |> logger.Out
         | HtmlHelp ->
-            printfn "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            sprintf "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            |> logger.Out
         Some 0
 
     match List.ofArray argv with
-    | [] -> printInfo NoHelp
-    | [ "--help" ] -> printInfo WSHelp
-    | [ "unpack"; "--help" ] -> printInfo UnpackHelp
-    | [ "html"; "--help" ] -> printInfo HtmlHelp
+    | [] -> printInfo logger NoHelp
+    | [ "--help" ] -> printInfo logger WSHelp
+    | [ "unpack"; "--help" ] -> printInfo logger UnpackHelp
+    | [ "html"; "--help" ] -> printInfo logger HtmlHelp
     | Cmd HtmlCommand.Instance r -> Some r
     | Cmd UnpackCommand.Instance r -> Some r
     | _ -> None

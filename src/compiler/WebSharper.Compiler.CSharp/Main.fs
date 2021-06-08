@@ -25,18 +25,19 @@ open System.IO
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp  
 open WebSharper.Compiler.ErrorPrinting
-open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler.LoggerBase
 open WebSharper.Compiler.CommandTools
 
 module M = WebSharper.Core.Metadata
         
 /// Creates WebSharper compilation for a C# project
-type WebSharperCSharpCompiler(logger) =
+type WebSharperCSharpCompiler() =
 
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (refMeta, config: WsConfig) =
+    member this.Compile (refMeta, config: WsConfig, logger: LoggerBase) =
+        let (_, TimedStage) = logger.TimedOut()
 
         let argv = config.CompilerArgs 
         let path = config.ProjectFile
