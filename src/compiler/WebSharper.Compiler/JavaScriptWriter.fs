@@ -292,6 +292,16 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | ExprStatement IgnoreSourcePos.Undefined -> ()
             | ExprStatement (IgnoreSourcePos.Sequential s) ->
                 sequentialE s |> List.iter add
+            | ExprStatement (IgnoreSourcePos.Conditional(a, b, c)) ->
+                match b, c with
+                | IgnoreSourcePos.Undefined, IgnoreSourcePos.Undefined ->
+                    ()
+                | IgnoreSourcePos.Undefined, _ ->
+                    If(a, Empty, ExprStatement c) |> add 
+                | _, IgnoreSourcePos.Undefined ->
+                    If(a, ExprStatement b, Empty) |> add 
+                | _ ->
+                    If(a, ExprStatement b, ExprStatement c) |> add
             | Return (IgnoreSourcePos.Sequential s) ->
                 sequential s Return |> List.iter add
             | Throw (IgnoreSourcePos.Sequential s) ->
