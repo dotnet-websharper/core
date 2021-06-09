@@ -23,7 +23,6 @@ module WebSharper.CSharp.Program
 open System
 open System.IO
 open System.Reflection
-open WebSharper
 open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
@@ -281,7 +280,7 @@ let rec compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
                 }
 
     try
-        Compile !wsArgs logger
+        Compile !wsArgs logger tryGetMetadata
         0
     with _ ->
         let intermediaryOutput = (!wsArgs).AssemblyFile

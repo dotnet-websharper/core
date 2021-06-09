@@ -29,7 +29,6 @@ open WebSharper.Core.Metadata
 open WebSharper.Compiler
 open WebSharper.Compiler.NotResolved
 open WebSharper.Compiler.CommandTools
-open WebSharper.Compiler.LoggerBase
 
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader

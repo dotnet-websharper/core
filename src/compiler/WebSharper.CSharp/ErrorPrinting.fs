@@ -23,7 +23,6 @@ module WebSharper.CSharp.ErrorPrinting
 open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
-open WebSharper.Compiler.LoggerBase
 
 let PrintGlobalError (logger: LoggerBase) err =
     sprintf "WebSharper error: %s" (NormalizeErrorString err)

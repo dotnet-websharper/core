@@ -22,13 +22,10 @@ module WebSharper.FSharp.Program
 
 open System.IO
 open WebSharper.Compiler
-open WebSharper.Compiler.CommandTools
 module C = WebSharper.Compiler.Commands
 
 open FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FSharp.Compile
-open WebSharper.Compiler.LoggerBase
-open WebSharper.Compiler.FSharp.ErrorPrinting
 
 let formatArgv (argv: string[]) =
     match argv with
