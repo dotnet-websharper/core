@@ -21,7 +21,7 @@
 namespace WebSharper.Compiler.FSharp
 
 open FSharp.Compiler.SourceCodeServices
-open WebSharper.Compiler.FrontEnd
+open WebSharper.Compiler
 open WebSharper.Compiler.CommandTools
 open ErrorPrinting
 
@@ -32,22 +32,22 @@ module M = WebSharper.Core.Metadata
 type internal FSIFD = FSharpImplementationFileDeclaration
 
 /// Creates WebSharper compilation for an F# project
-type WebSharperFSharpCompiler(logger, ?checker) =
-    let checker =
-        match checker with
-        | Some c -> c
-        | _ -> FSharpChecker.Create(keepAssemblyContents = true)
+type WebSharperFSharpCompiler(?checker) =
+    let checker = checker |> Option.defaultWith (fun () -> FSharpChecker.Create(keepAssemblyContents = true))
 
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
-    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase) = 
         let path = config.ProjectFile
+        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
         
-        printfn "WebSharper compilation arguments:"
-        argv |> Array.iter (printfn "    %s")
-        
+#if DEBUG
+        logger.Out "WebSharper compilation arguments:"
+        argv |> Array.iter (sprintf "    %s" >> logger.Out)
+#endif
+
         let argv =
             if argv.Length > 0 && argv.[0] = "fsc.exe" then argv.[1 ..] else argv
 
@@ -66,7 +66,7 @@ type WebSharperFSharpCompiler(logger, ?checker) =
             |> checker.ParseAndCheckProject 
             |> Async.RunSynchronously
 
-        TimedStage "Checking project"
+        logger.TimedStage "Checking project"
 
         try
             prevMeta.Wait()
@@ -80,16 +80,17 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         | None -> None
         | Some refMeta ->
 
-        TimedStage "Waiting on merged metadata"
+        logger.TimedStage "Waiting on merged metadata"
 
         if checkProjectResults.Errors |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
             if assemblyName = "WebSharper.Main" || config.ProjectType = Some BundleOnly then
-                PrintFSharpErrors this.WarnSettings checkProjectResults.Errors
+                PrintFSharpErrors this.WarnSettings logger checkProjectResults.Errors
             None
         else
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, this.UseGraphs, SingleNoJSErrors = config.SingleNoJSErrors))
                 assemblyName
                 config
@@ -100,19 +101,21 @@ type WebSharperFSharpCompiler(logger, ?checker) =
         if this.UseVerifier then
             comp.VerifyRPCs()
             
-        TimedStage "WebSharper translation"
+        logger.TimedStage "WebSharper translation"
 
         Some comp
 
-    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig) =
+    static member Compile (prevMeta, assemblyName, checkProjectResults: FSharpCheckProjectResults, ?useGraphs, ?config: WsConfig, ?logger: LoggerBase) =
         let useGraphs = defaultArg useGraphs true
         let refMeta =   
             match prevMeta with
             | None -> M.Info.Empty
             | Some dep -> dep  
+        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
         
         let comp = 
             WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+                logger
                 (WebSharper.Compiler.Compilation(refMeta, useGraphs, UseLocalMacros = false))
                 assemblyName
                 (defaultArg config WsConfig.Empty)

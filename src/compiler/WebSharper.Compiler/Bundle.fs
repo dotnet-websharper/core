@@ -77,7 +77,7 @@ module Bundling =
             AddError : option<SourcePos> -> string -> unit
         }
 
-    let private CreateBundle (o: BundleOptions) =
+    let private CreateBundle (o: BundleOptions) (logger: LoggerBase) =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
@@ -106,7 +106,8 @@ module Bundling =
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
         let concatScripts = not dce && not sourceMap
         if concatScripts then
-            printfn "Using pre-compiled JavaScript for bundling"
+            sprintf "Using pre-compiled JavaScript for bundling"
+            |> logger.Out
 
         let htmlHeadersContext : Res.Context =
             {
@@ -341,7 +342,7 @@ module Bundling =
     let private (==) s1 s2 =
         System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
 
-    let AddExtraBundles config refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
+    let AddExtraBundles config (logger: LoggerBase) refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
@@ -372,7 +373,9 @@ module Bundling =
             for KeyValue(bname, bundle) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
                 let jsExports = if bundle.IncludeJsExports then comp.JavaScriptExports else []
-                let bundle = CreateBundle {
+                let bundle =
+                    logger 
+                    |> CreateBundle {
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
@@ -458,12 +461,13 @@ module Bundling =
             | p ->
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
+    let Bundle (config: WsConfig) (logger: LoggerBase) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
         let entryPointStyle =
             if List.isEmpty comp.JavaScriptExports
             then Packager.EntryPointStyle.ForceOnLoad
             else Packager.EntryPointStyle.OnLoadIfExists
-        CreateBundle {
+        logger
+        |> CreateBundle {
             Config = config
             RefMetas = refMetas
             CurrentMeta = currentMeta

@@ -52,7 +52,7 @@ type Scope =
         CaptureSets : ResizeArray<Set<Id> * option<SourcePos>>
     }
 
-type ExamineClosures (comp: Compilation, moveNonCapturingFunctionsToTop) =
+type ExamineClosures (logger: LoggerBase, comp: Compilation, moveNonCapturingFunctionsToTop) =
     inherit TransformerWithSourcePos(comp)
 
     let mutable outerScope = true
@@ -60,7 +60,8 @@ type ExamineClosures (comp: Compilation, moveNonCapturingFunctionsToTop) =
     let topScopeVars = HashSet()
     let movedToTop = ResizeArray()
 
-    do printfn "analyzing closures"
+    do sprintf "analyzing closures"
+    |> logger.Out
 
     member this.EnterScope(args, body) =
         scopeChain <- 

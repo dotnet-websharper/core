@@ -996,9 +996,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         }
     )
 
-open WebSharper.Compiler.FrontEnd
-
-let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
+let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
     comp.AssemblyName <- assemblyName
     comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1213,6 +1211,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
+            
             let statements, fields = sc            
             let cctor = Function ([], Block (List.ofSeq statements))
             let members =
@@ -1247,14 +1246,14 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             getStartupCodeClass sc.Value |> comp.AddClass
     )
     
-    TimedStage "Parsing with FCS"
+    logger.TimedStage "Parsing with FCS"
 
     argCurrying.ResolveAll()
 
-    TimedStage "Analyzing function arguments"
+    logger.TimedStage "Analyzing function arguments"
 
     comp.Resolve()
 
-    TimedStage "Resolving names"
+    logger.TimedStage "Resolving names"
 
     comp

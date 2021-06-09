@@ -12,9 +12,11 @@
     <Compile Include="Continuation.fs" />
     <Compile Include="CodeReader.fs" />
     <Compile Include="ProjectReader.fs" />
+    <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Main.fs" />
     <None Include="Syntax.xml" />
     <None Include="genHelpers.fsx" />
+    <Compile Include="Compile.fs" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
