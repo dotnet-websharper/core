@@ -25,7 +25,6 @@ open System.IO
 open System.Reflection
 open WebSharper.Compiler
 
-open WebSharper.Compiler.LoggerBase
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands

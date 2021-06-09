@@ -21,7 +21,7 @@
 namespace WebSharper.Compiler.FSharp
 
 open FSharp.Compiler.SourceCodeServices
-open WebSharper.Compiler.LoggerBase
+open WebSharper.Compiler
 open WebSharper.Compiler.CommandTools
 open ErrorPrinting
 

@@ -28,12 +28,11 @@ open WebSharper.Compiler
 
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
-open WebSharper.Compiler.LoggerBase
 module C = WebSharper.Compiler.Commands
 
 open ErrorPrinting
 
-let Compile config (logger: LoggerBase) =
+let Compile config (logger: LoggerBase) tryGetMetadata =
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
@@ -57,7 +56,7 @@ let Compile config (logger: LoggerBase) =
     let mutable refError = false
     let wsRefs, metas = 
         refs |> List.choose (fun r -> 
-            match TryReadFromAssembly FullMetadata r with
+            match tryGetMetadata r with
             | None -> None
             | Some (Ok m) -> Some (r, m)
             | Some (Error e) ->
@@ -208,7 +207,7 @@ let Compile config (logger: LoggerBase) =
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
     | _ -> ()
 
-let rec compileMain (logger: LoggerBase) (argv: string[]) =
+let rec compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
 
     match HandleDefaultArgsAndCommands logger argv false with
     | Some r -> r
@@ -300,9 +299,10 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+    let tryGetMetadata = (WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata)
     let logger = ConsoleLogger()
     try
-        compileMain logger (formatArgv argv) 
+        compileMain (formatArgv argv) tryGetMetadata logger 
     with
     | ArgumentError "" -> 
         1    
