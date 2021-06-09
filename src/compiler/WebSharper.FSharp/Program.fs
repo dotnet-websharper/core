@@ -40,14 +40,13 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let checker = FSharpChecker.Create(keepAssemblyContents = true)
-    let checkerFactory = (fun () -> checker)
-    let tryGetMetadata = (WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata)
+    let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+    let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
     let logger = ConsoleLogger()   
 #if DEBUG
-    compileMain (formatArgv argv) checkerFactory tryGetMetadata logger 
+    compileMain (formatArgv argv) createChecker tryGetMetadata logger 
 #else
-    try compileMain (formatArgv argv) checkerFactory tryGetMetadata logger
+    try compileMain (formatArgv argv) createChecker tryGetMetadata logger
     with 
     | ArgumentError msg -> 
         PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
