@@ -24,7 +24,6 @@ open FSharp.Compiler.SourceCodeServices
 open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
-open WebSharper.Compiler.LoggerBase
 
 type WarnSettings =
     {

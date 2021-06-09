@@ -24,7 +24,6 @@ open System.IO
 
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp  
-open WebSharper.Compiler.ErrorPrinting
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler
 

@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.CSharp.ErrorPrinting
+module WebSharper.Compiler.CSharp.ErrorPrinting
 
 open WebSharper.Core
 open WebSharper.Compiler

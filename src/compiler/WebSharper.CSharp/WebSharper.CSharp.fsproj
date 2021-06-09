@@ -10,7 +10,6 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
     <Content Include="zafircs-netcore.cmd">

@@ -26,6 +26,8 @@ module C = WebSharper.Compiler.Commands
 
 open FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FSharp.Compile
+open WebSharper.Compiler.CommandTools
+open WebSharper.Compiler.FSharp.ErrorPrinting
 
 let formatArgv (argv: string[]) =
     match argv with
