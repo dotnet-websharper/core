@@ -2,22 +2,16 @@
 
 [<AbstractClass>]
 type LoggerBase() =
+    let mutable time = System.DateTime.Now     
+    
     abstract Error : string -> unit
     abstract Out : string -> unit
-    member x.TimedOut() =
-        let mutable time = None
+    member x.TimedStage name =
+        let now = System.DateTime.Now
+        sprintf "%s: %O" name (now - time)
+        |> x.Out
+        time <- now        
 
-        let start() = time <- Some System.DateTime.Now 
-        let timed name =
-            match time with
-            | Some t ->
-                let now = System.DateTime.Now
-                sprintf "%s: %O" name (now - t)
-                |> x.Out
-                time <- Some now
-            | _ -> ()
-        start, timed
-        
 type ConsoleLogger() =
     inherit LoggerBase()
     override x.Error s =
@@ -25,5 +19,3 @@ type ConsoleLogger() =
 
     override x.Out s =
         System.Console.Out.WriteLine(s)
-
-

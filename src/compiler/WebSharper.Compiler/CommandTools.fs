@@ -265,11 +265,8 @@ module ExecuteCommands =
         match result with
         | Compiler.Commands.Ok -> true
         | Compiler.Commands.Errors errors ->
-            System.String.Concat errors
-            |> logger.Error
-            // TODO: the previous implementation might missing an 'n' from eprintfn
-            //for e in errors do
-            //    eprintf "%s" e
+            for e in errors do
+                logger.Error e
             true
     
     let Unpack webRoot settings (logger: LoggerBase) =

@@ -12,10 +12,7 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.SourceCodeServices
 
-let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =
-    let (StartTimer, TimedStage) = logger.TimedOut()
-    StartTimer()
-    
+let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
     
@@ -43,7 +40,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     else
 
     let checker = checkerFactory()
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(logger.Out, checker)
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
     compiler.WarnSettings <- warnSettings
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
@@ -62,7 +59,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 if not (File.Exists config.AssemblyFile) then
                     argError "Output assembly not found"
 
-                TimedStage "F# compilation"
+                logger.TimedStage "F# compilation"
 
             exitCode
             
@@ -85,7 +82,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         aR.Wrap <| fun () ->
         try 
             RunInterfaceGenerator aR config.KeyFile config
-            TimedStage "WIG running time"
+            logger.TimedStage "WIG running time"
             0
         with e ->
             PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
@@ -225,23 +222,23 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     |> logger.Out
                 | _ -> ()
 
-            TimedStage "Erasing assembly content for Proxy project"
+            logger.TimedStage "Erasing assembly content for Proxy project"
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
-            TimedStage "Writing resources into assembly"
+            logger.TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some (js, _) ->
         File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
-        TimedStage ("Writing " + path)
+        logger.TimedStage ("Writing " + path)
     | _ -> ()
 
     match config.MinJSOutputPath, js with
     | Some path, Some (_, minjs) ->
         File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-        TimedStage ("Writing " + path)
+        logger.TimedStage ("Writing " + path)
     | _ -> ()
 
     match config.ProjectType with
@@ -255,11 +252,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let currentJS =
             lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
-        TimedStage "Bundling"
+        logger.TimedStage "Bundling"
         0
     | Some Html ->
         ExecuteCommands.Html config |> ignore
-        TimedStage "Writing offline sitelets"
+        logger.TimedStage "Writing offline sitelets"
         0
     | Some Website
     | _ when Option.isSome config.OutputDir ->
@@ -275,7 +272,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     else
                         errors |> List.iter (PrintGlobalError logger)
                         1
-            TimedStage "Unpacking"
+            logger.TimedStage "Unpacking"
             res
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
