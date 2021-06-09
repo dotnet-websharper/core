@@ -26,7 +26,6 @@ open System.Reflection
 open WebSharper
 open WebSharper.Compiler
 open WebSharper.Core
-open LoggerBase
 
 exception ArgumentError of msg: string with
     override this.Message = this.msg

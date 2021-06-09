@@ -22,7 +22,6 @@ namespace WebSharper.Compiler
 
 open System.Configuration
 open WebSharper.Core.AST
-open LoggerBase
 
 module CT = WebSharper.Core.ContentTypes
 module JS = WebSharper.Core.JavaScript.Syntax

@@ -24,7 +24,6 @@ open System.Collections.Generic
 
 open WebSharper.Core
 open WebSharper.Core.AST
-open LoggerBase
 
 module M = WebSharper.Core.Metadata
 
