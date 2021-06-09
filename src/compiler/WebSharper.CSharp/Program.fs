@@ -303,13 +303,7 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let logger = {
-        new LoggerBase() with
-            override _.Error s = 
-                eprintfn "%s" s
-            override _.Out s =
-                printfn "%s" s
-        }
+    let logger = ConsoleLogger()
     try
         compileMain logger (formatArgv argv) 
     with

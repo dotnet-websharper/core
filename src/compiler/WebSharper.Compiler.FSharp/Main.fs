@@ -42,9 +42,14 @@ type WebSharperFSharpCompiler(logger, ?checker) =
     member val UseVerifier = true with get, set
     member val WarnSettings = WarnSettings.Default with get, set
 
-    member this.Compile (logger: LoggerBase, prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName) = 
+    member this.Compile (prevMeta : System.Threading.Tasks.Task<option<M.Info>>, argv: string[], config: WsConfig, assemblyName, ?logger: LoggerBase) = 
         let (_, TimedStage) = logger.TimedOut()
         let path = config.ProjectFile
+
+        let logger =
+            match logger with
+            | Some l -> l
+            | _ -> ConsoleLogger() :> LoggerBase
         
         printfn "WebSharper compilation arguments:"
         argv |> Array.iter (printfn "    %s")

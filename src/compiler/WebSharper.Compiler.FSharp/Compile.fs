@@ -12,7 +12,7 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.SourceCodeServices
 
-let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checker: FSharpChecker) (compiler: FSharp.WebSharperFSharpCompiler) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =
+let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =
     let (StartTimer, TimedStage) = logger.TimedOut()
     StartTimer()
     
@@ -42,6 +42,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         0 
     else
 
+    let checker = checkerFactory()
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(logger.Out, checker)
     compiler.WarnSettings <- warnSettings
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
@@ -166,7 +168,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
 
     let comp =
-        compiler.Compile(logger, refMeta, compilerArgs, config, thisName)
+        compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
 
     match comp with
     | None ->        
@@ -281,7 +283,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     | _ ->
         0
 
-let compileMain (argv: string[]) checker compiler tryGetMetadata (logger: LoggerBase) =
+let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBase) =
 
     match HandleDefaultArgsAndCommands logger argv true with
     | Some r -> r
@@ -392,7 +394,7 @@ let compileMain (argv: string[]) checker compiler tryGetMetadata (logger: Logger
             PrintGlobalError logger "Failed to clean intermediate output!"
 
     try 
-        let exitCode = Compile !wsArgs !warn logger checker compiler tryGetMetadata
+        let exitCode = Compile !wsArgs !warn logger checkerFactory tryGetMetadata
         if exitCode <> 0 then clearOutput()
         exitCode            
     with _ ->

@@ -18,5 +18,12 @@ type LoggerBase() =
             | _ -> ()
         start, timed
         
+type ConsoleLogger() =
+    inherit LoggerBase()
+    override x.Error s =
+        System.Console.Error.WriteLine(s)
+
+    override x.Out s =
+        System.Console.Out.WriteLine(s)
 
 
