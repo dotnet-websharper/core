@@ -22,12 +22,13 @@ module WebSharper.FSharp.Program
 
 open System.IO
 open WebSharper.Compiler
-
+open WebSharper.Compiler.CommandTools
 module C = WebSharper.Compiler.Commands
 
 open FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.Compiler.LoggerBase
+open WebSharper.Compiler.FSharp.ErrorPrinting
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -41,15 +42,9 @@ let formatArgv (argv: string[]) =
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(printfn "%s", checker)
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
     let tryGetMetadata = (WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata)
-    let logger = {
-        new LoggerBase() with
-            override _.Error s = 
-                eprintfn "%s" s
-            override _.Out s =
-                printfn "%s" s
-        }
+    let logger = new ConsoleLogger()
     
 #if DEBUG
     compileMain (formatArgv argv) checker compiler tryGetMetadata logger 
@@ -57,10 +52,10 @@ let main(argv) =
     try compileMain (formatArgv argv) checker compiler tryGetMetadata logger
     with 
     | ArgumentError msg -> 
-        PrintGlobalError (msg + " - args: " + (formatArgv argv |> String.concat " "))
+        PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
         1    
     | e -> 
-        PrintGlobalError (sprintf "Global error: %A" e)
+        PrintGlobalError logger (sprintf "Global error: %A" e)
         1
 #endif
 

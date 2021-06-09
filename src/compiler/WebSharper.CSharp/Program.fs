@@ -34,9 +34,6 @@ module C = WebSharper.Compiler.Commands
 open ErrorPrinting
 
 let Compile config (logger: LoggerBase) =
-    let (StartTimer, TimedStage) = logger.TimedOut()
-    StartTimer()
-
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
@@ -82,7 +79,7 @@ let Compile config (logger: LoggerBase) =
                 PrintGlobalError (sprintf "Error merging WebSharper metadata: %A" e)
                 None
 
-    TimedStage "Loading referenced metadata"
+    logger.TimedStage "Loading referenced metadata"
 
     match refMeta with
     | None ->
@@ -123,7 +120,7 @@ let Compile config (logger: LoggerBase) =
 
     // remove for debugging
     if assem.IsSome && assem.Value.HasWebSharperMetadata then
-        TimedStage "WebSharper resources already exist, skipping"
+        logger.TimedStage "WebSharper resources already exist, skipping"
     else
 
     let comp =
@@ -145,7 +142,7 @@ let Compile config (logger: LoggerBase) =
 
             if config.ProjectType = Some Proxy then
                 EraseAssemblyContents assem
-                TimedStage "Erasing assembly content for Proxy project"
+                logger.TimedStage "Erasing assembly content for Proxy project"
 
             let extraBundles = Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
 
@@ -167,19 +164,19 @@ let Compile config (logger: LoggerBase) =
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
-            TimedStage "Writing resources into assembly"
+            logger.TimedStage "Writing resources into assembly"
             js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
     | Some path, Some (js, _) ->
         File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
-        TimedStage ("Writing " + path)
+        logger.TimedStage ("Writing " + path)
     | _ -> ()
 
     match config.MinJSOutputPath, js with
     | Some path, Some (_, minjs) ->
         File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-        TimedStage ("Writing " + path)
+        logger.TimedStage ("Writing " + path)
     | _ -> ()
 
     match config.ProjectType with
@@ -187,10 +184,10 @@ let Compile config (logger: LoggerBase) =
         let currentJS =
             lazy CreateBundleJSOutput logger refMeta currentMeta comp.EntryPoint
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
-        TimedStage "Bundling"
+        logger.TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config |> ignore
-        TimedStage "Writing offline sitelets"
+        logger.TimedStage "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
@@ -205,7 +202,7 @@ let Compile config (logger: LoggerBase) =
                     else
                         errors |> List.iter PrintGlobalError
                         1
-            TimedStage "Unpacking"
+            logger.TimedStage "Unpacking"
             if res = 1 then argError "" // exits without printing more errors    
         | None ->
             PrintGlobalError "Failed to unpack website project, no WebSharperOutputDir specified"
@@ -303,13 +300,7 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main argv =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let logger = {
-        new LoggerBase() with
-            override _.Error s = 
-                eprintfn "%s" s
-            override _.Out s =
-                printfn "%s" s
-        }
+    let logger = new ConsoleLogger()
     try
         compileMain logger (formatArgv argv) 
     with

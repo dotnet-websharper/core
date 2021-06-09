@@ -998,7 +998,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     )
 
 let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
-    let (_, TimedStage) = logger.TimedOut()
     comp.AssemblyName <- assemblyName
     comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1212,7 +1211,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
-        let getStartupCodeClass (logger: LoggerBase, def: TypeDefinition, sc: StartupCode) =
+        let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
             
             let statements, fields = sc            
             let cctor = Function ([], Block (List.ofSeq statements))
@@ -1245,18 +1244,17 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             }
             
         if sc.IsValueCreated then
-            let (typeDef, startupCode) = sc.Value
-            getStartupCodeClass (logger, typeDef, startupCode) |> comp.AddClass
+            getStartupCodeClass sc.Value |> comp.AddClass
     )
     
-    TimedStage "Parsing with FCS"
+    logger.TimedStage "Parsing with FCS"
 
     argCurrying.ResolveAll()
 
-    TimedStage "Analyzing function arguments"
+    logger.TimedStage "Analyzing function arguments"
 
     comp.Resolve()
 
-    TimedStage "Resolving names"
+    logger.TimedStage "Resolving names"
 
     comp

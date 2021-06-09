@@ -107,35 +107,32 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
         Packager.packageAssembly refMeta current entryPoint Packager.EntryPointStyle.OnLoadIfExists
 
     if pkg = AST.Undefined then None else
-        let (_, TimedStage) = logger.TimedOut()
-
         let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
         let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
-        TimedStage "Writing .js for bundle"
+        logger.TimedStage "Writing .js for bundle"
         let minJs, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
-        TimedStage "Writing .min.js for bundle"
+        logger.TimedStage "Writing .min.js for bundle"
 
         Some (js, minJs)
 
 let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
-    let (_, TimedStage) = logger.TimedOut()
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
     
-    TimedStage "Source position transformations"
+    logger.TimedStage "Source position transformations"
 
     let pkg = 
         Packager.packageAssembly refMeta current (comp |> Option.bind (fun c -> c.EntryPoint)) Packager.EntryPointStyle.OnLoadIfExists
 
-    TimedStage "Packaging assembly"
+    logger.TimedStage "Packaging assembly"
     
     let pkg =
         match comp, closures with
         | Some comp, Some moveToTop ->
             let clPkg = pkg |> Closures.ExamineClosures(logger, comp, moveToTop).TransformExpression 
-            TimedStage "Closure analyzation"
+            logger.TimedStage "Closure analyzation"
             clPkg
         | _ -> pkg
 
@@ -168,7 +165,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         for (p, d) in resToHash do
             current.ResourceHashes.Add(p, AST.StableHash.data d)
 
-        TimedStage "Hashing resources"
+        logger.TimedStage "Hashing resources"
 
         let meta =
             use s = new MemoryStream(8 * 1024)
@@ -177,7 +174,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         
         res.Add(EMBEDDED_METADATA, meta)
 
-        TimedStage "Serializing metadata"
+        logger.TimedStage "Serializing metadata"
 
     if pkg <> AST.Undefined then
         
@@ -193,12 +190,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addRes EMBEDDED_JS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
             addRes EMBEDDED_MAP None (Some (getBytes m)))
-        TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
+        logger.TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
         let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
         minMap |> Option.iter (fun m ->
             addRes EMBEDDED_MINMAP None (Some (getBytes m)))
-        TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
+        logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
 
         let isJSModule =
             match pkg with
