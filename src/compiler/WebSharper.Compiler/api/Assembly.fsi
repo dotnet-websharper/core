@@ -54,7 +54,7 @@ type Assembly =
     /// The full name of the assembly.
     member FullName : string
 
-    member internal LoadPath : option<string>
+    member LoadPath : option<string>
     member internal Raw : Mono.Cecil.AssemblyDefinition
 
     /// Returns the associated symbols, if any.

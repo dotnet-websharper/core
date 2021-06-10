@@ -32,6 +32,10 @@ type LoggerBase() =
         |> x.Out
         time <- now        
 
+    [<System.Diagnostics.Conditional "DEBUG">]
+    member _.DebugWrite x =
+        System.Diagnostics.Debug.WriteLine x
+
 type ConsoleLogger() =
     inherit LoggerBase()
     override x.Error s =

@@ -3,3 +3,5 @@ Mono.Cecil
 group fcs
   FSharp.Compiler.Service
   FSharp.Core
+  NLog
+  NLog.FSharp
