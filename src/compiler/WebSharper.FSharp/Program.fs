@@ -26,6 +26,7 @@ module C = WebSharper.Compiler.Commands
 
 open FSharp.Compiler.SourceCodeServices
 open WebSharper.Compiler.FSharp.Compile
+open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
 
@@ -39,20 +40,24 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
-    System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
-    let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
-    let logger = ConsoleLogger()   
+    let standaloneMode = argv |> Array.contains "--standalone"
+    let extension = argv |> Array.contains "--ws:extension"
+    let interfaceGenerator = argv |> Array.contains "--ws:interfaceGenerator"
+    let argv = argv |> Array.filter (fun x -> x <> "--standalone")
+    if standaloneMode || extension || interfaceGenerator then
+        System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
+        let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+        let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+        let logger = ConsoleLogger()   
 #if DEBUG
-    compileMain (formatArgv argv) createChecker tryGetMetadata logger 
+        compileMain (formatArgv argv) createChecker tryGetMetadata logger 
 #else
-    try compileMain (formatArgv argv) createChecker tryGetMetadata logger
-    with 
-    | ArgumentError msg -> 
-        PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
-        1    
-    | e -> 
-        PrintGlobalError logger (sprintf "Global error: %A" e)
-        1
+        try compileMain (formatArgv argv) createChecker tryGetMetadata logger
+        with 
+        | ArgumentError msg -> 
+            PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
+        | e -> 
+            PrintGlobalError logger (sprintf "Global error: %A" e)
 #endif
-
+    else
+        sendCompileCommand (formatArgv argv)

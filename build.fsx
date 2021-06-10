@@ -40,6 +40,7 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
+open System.Diagnostics
 
 let version = "4.7"
 let pre = None
@@ -196,6 +197,11 @@ Target.create "GenAppConfig" <| fun _ ->
     ==> "GenAppConfig"
     ==> "WS-Package"
 
+Target.create "Stop" <| fun _ ->
+    Process.GetProcessesByName("wsfscservice")
+    |> Array.iter (fun x -> x.Kill())
+    |> ignore
+
 let rm_rf x =
     if Directory.Exists(x) then
         // Fix access denied issue deleting a read-only *.idx file in .git
@@ -208,6 +214,9 @@ let rm_rf x =
 Target.create "Clean" <| fun _ ->
     rm_rf "netcore"
     rm_rf "netfx"
+
+"Stop" ==> "WS-Clean"
+
 "WS-Clean" ==> "Clean"
 
 Target.create "Run" <| fun _ ->
@@ -253,5 +262,5 @@ Target.create "RunTests" <| fun _ ->
     ?=> "WS-Package"
 "RunTests"
     ==> "CI-Release"
-
+    
 Target.runOrDefault "Build"

@@ -4,8 +4,11 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFrameworks>net461;net5.0</TargetFrameworks>
+    <Name>wsfscservice</Name>
+    <FSharpTool>True</FSharpTool>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <AssemblyName>wsfscservice</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <None Include="NLog.config">
