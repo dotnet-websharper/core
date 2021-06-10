@@ -41,6 +41,7 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
+open System.Diagnostics
 
 let version = "5.0"
 let pre = Some "preview1"

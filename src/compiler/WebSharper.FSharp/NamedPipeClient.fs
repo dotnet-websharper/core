@@ -22,6 +22,7 @@ module WebSharper.FSharp.NamedPipeClient
 
 open System.Diagnostics
 open System.IO.Pipes
+open System.Threading
 open System.Runtime.Serialization.Formatters.Binary
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
@@ -60,7 +61,7 @@ let sendCompileCommand args =
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
-            Process.GetProcessesByName("wsfscservice")
+        Process.GetProcessesByName("wsfscservice")
             |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
         with
         | e ->
@@ -93,24 +94,27 @@ let sendCompileCommand args =
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
+    use token = new CancellationTokenSource()
+    use waiter = new ManualResetEventSlim(false)
+    let mutable returnCode = 0
     let Write (bytes: byte array) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let unexpectedFinishErrorCode = -12211
             let write = async {
                 let printResponse (bytes: byte array) = 
                     async {
-                        let message = System.Text.Encoding.UTF8.GetString(bytes)
+                    let message = System.Text.Encoding.UTF8.GetString(bytes)
                         // messages on the service have n: e: or x: prefix for stdout stderr or error code kind of output
-                        match message with
+                    match message with
                         | StdOut n ->
                             printfn "%s" n
                             return None
                         | StdErr e ->
                             eprintfn "%s" e
                             return None
-                        | Finish i -> 
+                    | Finish i -> 
                             return i |> Some
-                        | x -> 
+                    | x -> 
                             let unrecognizedMessageErrorCode = -13311
                             nLogger.Error "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x
                             return unrecognizedMessageErrorCode |> Some

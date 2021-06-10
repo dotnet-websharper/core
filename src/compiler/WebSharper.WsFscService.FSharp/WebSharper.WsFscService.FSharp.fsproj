@@ -2,6 +2,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
+    <Name>wsfscservice</Name>
+    <FSharpTool>True</FSharpTool>
     <TargetFramework>net5.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
