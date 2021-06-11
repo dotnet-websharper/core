@@ -40,9 +40,11 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
-    let standaloneMode = argv |> Array.contains "--standalone"
-    let extension = argv |> Array.contains "--ws:extension"
-    let interfaceGenerator = argv |> Array.contains "--ws:interfaceGenerator"
+    let standaloneMode = argv |> Array.exists (fun x -> System.String.Equals(x, "--standalone", System.StringComparison.CurrentCultureIgnoreCase))
+    // --ws:extension and --ws:interfaceGenerator they are aliases
+    let extension = argv |> Array.exists (fun x -> System.String.Equals(x, "--ws:extension", System.StringComparison.CurrentCultureIgnoreCase))
+    let interfaceGenerator = argv |> Array.exists (fun x -> System.String.Equals(x, "--ws:interfaceGenerator", System.StringComparison.CurrentCultureIgnoreCase))
+
     let argv = argv |> Array.filter (fun x -> x <> "--standalone")
     if standaloneMode || extension || interfaceGenerator then
         System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
