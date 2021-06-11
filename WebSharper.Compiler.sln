@@ -49,7 +49,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.CSharp", "src\co
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.csproj", "{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.WsFscService.FSharp", "src\compiler\WebSharper.WsFscService.FSharp\WebSharper.WsFscService.FSharp.fsproj", "{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp.Service", "src\compiler\WebSharper.FSharp.Service\WebSharper.FSharp.Service.fsproj", "{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
