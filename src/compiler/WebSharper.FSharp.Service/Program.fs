@@ -96,7 +96,8 @@ let main _ =
             nLogger.ErrorException ex "Exception happened"
         }
 
-    let pipeName = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\WsFscServicePipe"
+    let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
     let rec pipeListener token = async {
         let serverPipe = new NamedPipeServerStream( 
                           pipeName, // name of the pipe,

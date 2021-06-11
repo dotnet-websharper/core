@@ -51,8 +51,9 @@ let (|Finish|_|) (str: string) =
 
 let sendCompileCommand args =
     let serverName = "." // local machine server name
-    let pipeName = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\WsFscServicePipe"
-    let fileNameOfService = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + "\\wsfscservice.exe"
+    let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
+    let fileNameOfService = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), "wsfscservice.exe")
     let runningServers =
         Process.GetProcessesByName("wsfscservice")
         |> Array.filter (fun x -> x.HasExited = false && x.MainModule.FileName = fileNameOfService)

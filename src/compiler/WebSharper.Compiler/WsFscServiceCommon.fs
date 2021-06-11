@@ -4,6 +4,9 @@ open System.IO.Pipes
 
 type ArgsType = {args: string array}
 
+let hashPipeName (fullPath: string) =
+    fullPath.Replace("/", "$").Replace("\\", "$")
+
 let readingMessages (pipe: PipeStream) = 
     // partial function (byte array -> Async<unit>)
     // keep reading incoming messages asynchronously

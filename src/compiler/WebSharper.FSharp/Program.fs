@@ -40,6 +40,7 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
+    let argv = formatArgv argv
     let standaloneMode = argv |> Array.exists (fun x -> x.IndexOf("--standalone", System.StringComparison.OrdinalIgnoreCase) >= 0)
     // --ws:extension and --ws:interfaceGenerator they are aliases
     let extension = argv |> Array.exists (fun x -> x.IndexOf("--ws:extension", System.StringComparison.OrdinalIgnoreCase) >= 0)
@@ -52,16 +53,16 @@ let main(argv) =
         let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
         let logger = ConsoleLogger()   
 #if DEBUG
-        compileMain (formatArgv argv) createChecker tryGetMetadata logger 
+        compileMain argv createChecker tryGetMetadata logger 
 #else
-        try compileMain (formatArgv argv) createChecker tryGetMetadata logger
+        try compileMain argv createChecker tryGetMetadata logger
         with 
         | ArgumentError msg -> 
-            PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
+            PrintGlobalError logger (msg + " - args: " + (argv |> String.concat " "))
             1
         | e -> 
             PrintGlobalError logger (sprintf "Global error: %A" e)
             1
 #endif
     else
-        sendCompileCommand (formatArgv argv)
+        sendCompileCommand argv
