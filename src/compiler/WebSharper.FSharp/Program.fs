@@ -56,8 +56,10 @@ let main(argv) =
         with 
         | ArgumentError msg -> 
             PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
+            1
         | e -> 
             PrintGlobalError logger (sprintf "Global error: %A" e)
+            1
 #endif
     else
         sendCompileCommand (formatArgv argv)
