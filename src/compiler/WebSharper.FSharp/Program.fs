@@ -40,10 +40,10 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
-    let standaloneMode = argv |> Array.exists (fun x -> System.String.Equals(x, "--standalone", System.StringComparison.CurrentCultureIgnoreCase))
+    let standaloneMode = argv |> Array.exists (fun x -> x.IndexOf("--standalone", System.StringComparison.OrdinalIgnoreCase) >= 0)
     // --ws:extension and --ws:interfaceGenerator they are aliases
-    let extension = argv |> Array.exists (fun x -> System.String.Equals(x, "--ws:extension", System.StringComparison.CurrentCultureIgnoreCase))
-    let interfaceGenerator = argv |> Array.exists (fun x -> System.String.Equals(x, "--ws:interfaceGenerator", System.StringComparison.CurrentCultureIgnoreCase))
+    let extension = argv |> Array.exists (fun x -> x.IndexOf("--ws:extension", System.StringComparison.OrdinalIgnoreCase) >= 0)
+    let interfaceGenerator = argv |> Array.exists (fun x -> x.IndexOf("--ws:interfaceGenerator", System.StringComparison.OrdinalIgnoreCase) >= 0)
 
     let argv = argv |> Array.filter (fun x -> x <> "--standalone")
     if standaloneMode || extension || interfaceGenerator then
