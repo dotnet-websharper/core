@@ -61,19 +61,34 @@ let sendCompileCommand args =
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
+    use waiter = new ManualResetEventSlim(false)
+    let mutable returnCode = 0
+    let mutable proc: Process = null
+    let disposedEventHandler = 
+        new System.EventHandler (fun _ _ -> 
+            if returnCode = 0 then
+                returnCode <- -12211
+            waiter.Set()
+            )
+    let exitedEventHandler =
+        new System.EventHandler (fun _ _ ->
+            if returnCode = 0 then
+                returnCode <- -12211
+            waiter.Set()
+            )
     if isServerNeeded then
         let startInfo = ProcessStartInfo(fileNameOfService)
         startInfo.CreateNoWindow <- true
         startInfo.UseShellExecute <- false
-        Process.Start(startInfo) |> ignore
+        proc <- Process.Start(startInfo)
+        proc.Disposed.AddHandler disposedEventHandler
+        proc.Exited.AddHandler exitedEventHandler
     use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
     use token = new CancellationTokenSource()
-    use waiter = new ManualResetEventSlim(false)
-    let mutable returnCode = 0
     let Write (bytes: byte array) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let write = async {
@@ -100,7 +115,8 @@ let sendCompileCommand args =
             try
                 Async.RunSynchronously(write, cancellationToken = token.Token)
             with
-            | _ -> () // Pokemon
+            | _ -> 
+                waiter.Set()
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
@@ -112,4 +128,7 @@ let sendCompileCommand args =
     clientPipe.ReadMode <- PipeTransmissionMode.Message
     Write data
     waiter.Wait()
+    if isServerNeeded then
+        proc.Disposed.RemoveHandler disposedEventHandler 
+        proc.Exited.RemoveHandler exitedEventHandler
     returnCode
