@@ -55,14 +55,33 @@ let main _ =
         else
             memCache.[r.FullName] :?> Result<WebSharper.Core.Metadata.Info, string> option
 
+    let agent = MailboxProcessor.Start(fun inbox ->
 
-    let handOverPipe (serverPipe: NamedPipeServerStream) (token: CancellationToken) = async {
-        try
-            let handleMessage (message: byte array) = async {
-                let ms = new MemoryStream(message)
-                ms.Position <- 0L
-                let bf = new BinaryFormatter()
-                let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
+        // the message processing function
+        let rec messageLoop () = async {
+
+            // read a message
+            let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
+            let tryGetDirectoryName (path: string) =
+                try
+                   System.IO.Path.GetDirectoryName path |> Some
+                with
+                | :? System.DivideByZeroException -> None
+
+            let switchTail (array: string array) =
+                match array with
+                | [||] -> None
+                | x -> System.String.Join(":", x) |> Some
+
+            let projectOption = 
+                deserializedMessage.args
+                |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                |> Option.bind (fun x -> x.Split(':') |> Array.tail |> switchTail)
+            let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
+            match projectDirOption with
+            | Some project -> 
+                System.Environment.CurrentDirectory <- project
+                nLogger.Info "Compiling %s" projectOption.Value
                 let send paramPrint str = async {
                     let newMessage: string = paramPrint str
                     nLogger.Info "Server sends: %s" newMessage
@@ -84,17 +103,38 @@ let main _ =
                                 |> sendErr
                             Async.Start(asyncValue, token)
                     }
-                    
+                        
                 let sendFinished = sprintf "x: %i" |> send
                 let returnValue = WebSharper.Compiler.FSharp.Compile.compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
                 do! sendFinished returnValue
-                }
-            do! readingMessages serverPipe handleMessage
-            nLogger.Error "wsfscservice.exe's listening exited abruptly"
-        with
-        | ex ->
-            nLogger.ErrorException ex "Exception happened"
-        }
+                serverPipe.WaitForPipeDrain()
+                serverPipe.Close()
+            | None ->
+                ()
+            // loop to top
+            return! messageLoop ()
+            }
+
+        // start the loop
+        messageLoop ()
+        )
+
+
+    let handOverPipe (serverPipe: NamedPipeServerStream) (token: CancellationToken) =
+        async {
+            try
+                let handleMessage (message: byte array) = async {
+                    let ms = new MemoryStream(message)
+                    ms.Position <- 0L
+                    let bf = new BinaryFormatter()
+                    let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
+                    agent.Post (deserializedMessage, serverPipe, token)
+                    }
+                do! readingMessages serverPipe handleMessage
+            with
+            | ex ->
+                nLogger.ErrorException ex "Exception happened"
+            }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName

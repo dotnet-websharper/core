@@ -53,10 +53,11 @@ let sendCompileCommand args =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
-    let fileNameOfService = System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), "wsfscservice.exe")
+    let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         Process.GetProcessesByName("wsfscservice")
-        |> Array.filter (fun x -> x.HasExited = false && x.MainModule.FileName = fileNameOfService)
+        |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
+
 
     let isServerNeeded =
         runningServers |> Array.isEmpty
@@ -77,12 +78,15 @@ let sendCompileCommand args =
             waiter.Set()
             )
     if isServerNeeded then
-        let startInfo = ProcessStartInfo(fileNameOfService)
-        startInfo.CreateNoWindow <- true
-        startInfo.UseShellExecute <- false
-        proc <- Process.Start(startInfo)
-        proc.Disposed.AddHandler disposedEventHandler
-        proc.Exited.AddHandler exitedEventHandler
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
+            let starterCmd = (location, "wsfscservice_start.cmd") |> Path.Combine
+            let startInfo = ProcessStartInfo(starterCmd)
+            startInfo.CreateNoWindow <- true
+            startInfo.UseShellExecute <- false
+            startInfo.WindowStyle <- ProcessWindowStyle.Hidden
+            proc <- Process.Start(startInfo)
+            proc.Disposed.AddHandler disposedEventHandler
+            proc.Exited.AddHandler exitedEventHandler
     use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // direction of the pipe 
@@ -109,7 +113,8 @@ let sendCompileCommand args =
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
                 clientPipe.Flush()
                 do! readingMessages clientPipe printResponse
-                returnCode <- -12211
+                if returnCode = 0 then
+                    returnCode <- -12211
                 waiter.Set()
                 }
             try

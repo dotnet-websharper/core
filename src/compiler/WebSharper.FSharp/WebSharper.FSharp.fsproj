@@ -10,7 +10,10 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="NamedPipeClient.fs" />
+    <Content Include="wsfscservice_start.cmd" />
+    <Compile Include="NamedPipeClient.fs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Compile>
     <Compile Include="Program.fs" />
     <Content Include="wsfsc.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
