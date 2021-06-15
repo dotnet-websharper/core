@@ -52,13 +52,29 @@ let (|Finish|_|) (str: string) =
 let sendCompileCommand args =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+#if DEBUG
+    printfn "location of wsfsc.exe and wsfscservice.exe: %s" location
+#endif
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
+#if DEBUG
+    printfn "pipeName is : %s" pipeName
+#endif
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
-        Process.GetProcessesByName("wsfscservice")
-        |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
+        try
+            Process.GetProcessesByName("wsfscservice")
+            |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
+        with
+        | e ->
+#if DEBUG
+            eprintfn "Could not read running processes of wsfscservice. Error : %s" e.Message
+#endif
+            [||]
 
 
+#if DEBUG
+    printfn "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
+#endif
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
@@ -68,19 +84,25 @@ let sendCompileCommand args =
     let disposedEventHandler = 
         new System.EventHandler (fun _ _ -> 
             if returnCode = 0 then
+#if DEBUG
+                eprintfn "Unhandled disposing of Process for wsfscservice"
+#endif
                 returnCode <- -12211
             waiter.Set()
             )
     let exitedEventHandler =
         new System.EventHandler (fun _ _ ->
             if returnCode = 0 then
+#if DEBUG
+                eprintfn "Unhandled exiting of Process for wsfscservice"
+#endif
                 returnCode <- -12211
             waiter.Set()
             )
     if isServerNeeded then
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
-            let starterCmd = (location, "wsfscservice_start.cmd") |> Path.Combine
-            let startInfo = ProcessStartInfo(starterCmd)
+            let cmdName = (location, "wsfscservice_start.cmd") |> System.IO.Path.Combine
+            let startInfo = ProcessStartInfo(cmdName) // ProcessStartInfo(fileNameOfService)
             startInfo.CreateNoWindow <- true
             startInfo.UseShellExecute <- false
             startInfo.WindowStyle <- ProcessWindowStyle.Hidden
@@ -103,10 +125,15 @@ let sendCompileCommand args =
                     | StdErr e -> eprintfn "%s" e
                     | Finish i -> 
                         returnCode <- i
+#if DEBUG
+                        printfn "wsfscservice.exe compiled in %s with error code: %i" location i
+#endif
                         waiter.Set()
                         token.Cancel()
                     | x -> 
+#if DEBUG
                         eprintfn "Unrecognizable message from server: %s" x
+#endif
                         waiter.Set()
                         token.Cancel()
                     async.Zero()
@@ -114,6 +141,9 @@ let sendCompileCommand args =
                 clientPipe.Flush()
                 do! readingMessages clientPipe printResponse
                 if returnCode = 0 then
+#if DEBUG
+                    eprintfn "Listening for server finished abruptly"
+#endif
                     returnCode <- -12211
                 waiter.Set()
                 }
@@ -125,6 +155,11 @@ let sendCompileCommand args =
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
+
+#if DEBUG
+    printfn "WebSharper compilation arguments:"
+    args |> Array.iter (printfn "    %s")
+#endif
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
     ms.Flush();

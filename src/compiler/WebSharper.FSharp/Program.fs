@@ -48,10 +48,12 @@ let main(argv) =
 
     let argv = argv |> Array.filter (fun x -> x <> "--standalone")
     if standaloneMode || extension || interfaceGenerator then
+        let logger = ConsoleLogger()   
+        let reason = if standaloneMode then "--standalone flag is present" else if extension then "--ws:extension flag is present" else "--ws:interfaceGenerator flag is present"
+        logger.DebugWrite <| sprintf "Start compilation in standalone mode. Reason: %s" reason
         System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
         let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
         let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
-        let logger = ConsoleLogger()   
 #if DEBUG
         compileMain argv createChecker tryGetMetadata logger 
 #else
@@ -65,4 +67,7 @@ let main(argv) =
             1
 #endif
     else
+#if DEBUG
+        printfn "Start compilation with wsfscservice"
+#endif
         sendCompileCommand argv

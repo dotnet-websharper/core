@@ -60,57 +60,61 @@ let main _ =
         // the message processing function
         let rec messageLoop () = async {
 
-            // read a message
-            let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
-            let tryGetDirectoryName (path: string) =
-                try
-                   System.IO.Path.GetDirectoryName path |> Some
-                with
-                | :? System.DivideByZeroException -> None
+            try
+                // read a message
+                let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
+                let tryGetDirectoryName (path: string) =
+                    try
+                       System.IO.Path.GetDirectoryName path |> Some
+                    with
+                    | :? System.DivideByZeroException -> None
 
-            let switchTail (array: string array) =
-                match array with
-                | [||] -> None
-                | x -> System.String.Join(":", x) |> Some
+                let switchTail (array: string array) =
+                    match array with
+                    | [||] -> None
+                    | x -> System.String.Join(":", x) |> Some
 
-            let projectOption = 
-                deserializedMessage.args
-                |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                |> Option.bind (fun x -> x.Split(':') |> Array.tail |> switchTail)
-            let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
-            match projectDirOption with
-            | Some project -> 
-                System.Environment.CurrentDirectory <- project
-                nLogger.Info "Compiling %s" projectOption.Value
-                let send paramPrint str = async {
-                    let newMessage: string = paramPrint str
-                    nLogger.Info "Server sends: %s" newMessage
-                    let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
-                    do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
-                    serverPipe.Flush()
-                }
-                let logger = { new LoggerBase() with
-                        override _.Out s =
-                            let sendOut = sprintf "n: %s" |> send
-                            let asyncValue = 
-                                s
-                                |> sendOut
-                            Async.Start(asyncValue, token)
-                        override _.Error s =
-                            let sendErr = sprintf "e: %s" |> send
-                            let asyncValue = 
-                                s
-                                |> sendErr
-                            Async.Start(asyncValue, token)
+                let projectOption = 
+                    deserializedMessage.args
+                    |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                    |> Option.bind (fun x -> x.Split(':') |> Array.tail |> switchTail)
+                let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
+                match projectDirOption with
+                | Some project -> 
+                    System.Environment.CurrentDirectory <- project
+                    nLogger.Info "Compiling %s" projectOption.Value
+                    let send paramPrint str = async {
+                        let newMessage: string = paramPrint str
+                        nLogger.Info "Server sends: %s" newMessage
+                        let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
+                        do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
+                        serverPipe.Flush()
                     }
-                        
-                let sendFinished = sprintf "x: %i" |> send
-                let returnValue = WebSharper.Compiler.FSharp.Compile.compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
-                do! sendFinished returnValue
-                serverPipe.WaitForPipeDrain()
-                serverPipe.Close()
-            | None ->
-                ()
+                    let logger = { new LoggerBase() with
+                            override _.Out s =
+                                let sendOut = sprintf "n: %s" |> send
+                                let asyncValue = 
+                                    s
+                                    |> sendOut
+                                Async.RunSynchronously(asyncValue, cancellationToken = token)
+                            override _.Error s =
+                                let sendErr = sprintf "e: %s" |> send
+                                let asyncValue = 
+                                    s
+                                    |> sendErr
+                                Async.RunSynchronously(asyncValue, cancellationToken = token)
+                        }
+                            
+                    let sendFinished = sprintf "x: %i" |> send
+                    let returnValue = WebSharper.Compiler.FSharp.Compile.compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
+                    do! sendFinished returnValue
+                    serverPipe.WaitForPipeDrain()
+                    serverPipe.Close()
+                | None ->
+                    ()
+            with 
+            | ex -> 
+                nLogger.ErrorException ex "Error in MailBoxProcessor loop"
             // loop to top
             return! messageLoop ()
             }
@@ -133,7 +137,7 @@ let main _ =
                 do! readingMessages serverPipe handleMessage
             with
             | ex ->
-                nLogger.ErrorException ex "Exception happened"
+                nLogger.ErrorException ex "Error in handleMessage loop"
             }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)

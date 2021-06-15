@@ -1,4 +1,5 @@
 ﻿@echo off
 
-dotnet "%~dp0wsfscservice.dll"
+start /d %~dp0 wsfscservice.exe
+:: dotnet "%~dp0WsFscService.dll"
 

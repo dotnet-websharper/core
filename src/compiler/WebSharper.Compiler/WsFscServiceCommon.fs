@@ -4,8 +4,16 @@ open System.IO.Pipes
 
 type ArgsType = {args: string array}
 
+let md5 = System.Security.Cryptography.MD5.Create()
+
 let hashPipeName (fullPath: string) =
-    fullPath.Replace("/", "$").Replace("\\", "$")
+    let data =
+        fullPath.ToLower()
+        |> Encoding.UTF8.GetBytes
+        |> md5.ComputeHash
+    (System.Text.StringBuilder(), data)
+    ||> Array.fold (fun sb b -> sb.Append(b.ToString("x2")))
+    |> string
 
 let readingMessages (pipe: PipeStream) = 
     // partial function (byte array -> Async<unit>)
