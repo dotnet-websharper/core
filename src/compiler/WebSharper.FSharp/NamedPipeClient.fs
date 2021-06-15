@@ -22,7 +22,6 @@ module WebSharper.FSharp.NamedPipeClient
 
 open System.Diagnostics
 open System.IO.Pipes
-open System.Threading
 open System.Runtime.Serialization.Formatters.Binary
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO

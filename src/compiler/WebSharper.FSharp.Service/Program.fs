@@ -63,7 +63,7 @@ let startListening() =
             // nLogger.Trace "Reading assembly: %s" x makes this compilation fail. No Tracing here.
             WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r
 
-    let agent = MailboxProcessor.Start(fun inbox ->
+        let agent = MailboxProcessor.Start(fun inbox ->
 
         // the message processing function
         // compilations are serialed by a MailboxProcessor
@@ -144,9 +144,9 @@ let startListening() =
             return! messageLoop ()
             }
 
-        // start the loop
-        messageLoop ()
-        )
+            // start the loop
+            messageLoop ()
+            )
 
 
     // start the reading/processing loop from that NamedPipeStream
