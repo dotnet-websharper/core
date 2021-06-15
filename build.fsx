@@ -218,6 +218,8 @@ Target.create "Clean" <| fun _ ->
     rm_rf "netfx"
 
 "Stop" ==> "WS-Clean"
+"Stop" ==> "WS-BuildDebug"
+"Stop" ==> "WS-BuildRelease"
 
 "WS-Clean" ==> "Clean"
 

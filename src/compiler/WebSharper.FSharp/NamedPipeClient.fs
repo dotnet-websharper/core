@@ -50,6 +50,7 @@ let (|Finish|_|) (str: string) =
         None
 
 let sendCompileCommand args =
+    printfn "Using WebSharper compiler service"
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
 #if DEBUG
@@ -78,18 +79,8 @@ let sendCompileCommand args =
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
-    use waiter = new ManualResetEventSlim(false)
     let mutable returnCode = 0
     let mutable proc: Process = null
-    let disposedEventHandler = 
-        new System.EventHandler (fun _ _ -> 
-            if returnCode = 0 then
-#if DEBUG
-                eprintfn "Unhandled disposing of Process for wsfscservice"
-#endif
-                returnCode <- -12211
-            waiter.Set()
-            )
     let exitedEventHandler =
         new System.EventHandler (fun _ _ ->
             if returnCode = 0 then
@@ -97,7 +88,6 @@ let sendCompileCommand args =
                 eprintfn "Unhandled exiting of Process for wsfscservice"
 #endif
                 returnCode <- -12211
-            waiter.Set()
             )
     if isServerNeeded then
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
@@ -107,51 +97,58 @@ let sendCompileCommand args =
             startInfo.UseShellExecute <- false
             startInfo.WindowStyle <- ProcessWindowStyle.Hidden
             proc <- Process.Start(startInfo)
-            proc.Disposed.AddHandler disposedEventHandler
-            proc.Exited.AddHandler exitedEventHandler
+            //proc.Exited.AddHandler exitedEventHandler
+
+// TODO: decide what is best, this starts proc directly:
+//#if DEBUG
+//        printfn "Starting service at %s" fileNameOfService
+//#endif
+//        let startInfo = ProcessStartInfo(fileNameOfService)
+//        startInfo.CreateNoWindow <- true
+//        startInfo.UseShellExecute <- true
+//        startInfo.WindowStyle <- ProcessWindowStyle.Hidden
+//        proc <- Process.Start(startInfo)
+//        proc.Exited.AddHandler exitedEventHandler
+//#if DEBUG
+//        printfn "Started service PID=%d" proc.Id
+//#endif
+
     use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
-    use token = new CancellationTokenSource()
     let Write (bytes: byte array) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let write = async {
                 let printResponse (bytes: byte array) = 
-                    let message = System.Text.Encoding.UTF8.GetString(bytes)
-                    match message with
-                    | StdOut n -> printfn "%s" n
-                    | StdErr e -> eprintfn "%s" e
-                    | Finish i -> 
-                        returnCode <- i
+                    async {
+                        let message = System.Text.Encoding.UTF8.GetString(bytes)
+                        match message with
+                        | StdOut n ->
+                            printfn "%s" n
+                            return false
+                        | StdErr e ->
+                            eprintfn "%s" e
+                            return false
+                        | Finish i -> 
+                            returnCode <- i
 #if DEBUG
-                        printfn "wsfscservice.exe compiled in %s with error code: %i" location i
+                            printfn "wsfscservice.exe compiled in %s with error code: %i" location i
 #endif
-                        waiter.Set()
-                        token.Cancel()
-                    | x -> 
-#if DEBUG
-                        eprintfn "Unrecognizable message from server: %s" x
-#endif
-                        waiter.Set()
-                        token.Cancel()
-                    async.Zero()
+                            return true
+                        | x -> 
+                            eprintfn "Unrecognizable message from server: %s" x
+                            return true
+                    }
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
                 clientPipe.Flush()
-                do! readingMessages clientPipe printResponse
-                if returnCode = 0 then
-#if DEBUG
+                let! ok = readingMessages clientPipe printResponse
+                if not ok then 
                     eprintfn "Listening for server finished abruptly"
-#endif
                     returnCode <- -12211
-                waiter.Set()
                 }
-            try
-                Async.RunSynchronously(write, cancellationToken = token.Token)
-            with
-            | _ -> 
-                waiter.Set()
+            Async.RunSynchronously(write)
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
@@ -167,8 +164,4 @@ let sendCompileCommand args =
     clientPipe.Connect()
     clientPipe.ReadMode <- PipeTransmissionMode.Message
     Write data
-    waiter.Wait()
-    if isServerNeeded then
-        proc.Disposed.RemoveHandler disposedEventHandler 
-        proc.Exited.RemoveHandler exitedEventHandler
     returnCode

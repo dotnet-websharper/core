@@ -15,32 +15,37 @@ let hashPipeName (fullPath: string) =
     ||> Array.fold (fun sb b -> sb.Append(b.ToString("x2")))
     |> string
 
-let readingMessages (pipe: PipeStream) = 
-    // partial function (byte array -> Async<unit>)
+let readingMessages (pipe: PipeStream) handleMessage = 
     // keep reading incoming messages asynchronously
     // notify the message triggering the OnMessageReceived event
-    let innerReadingMessages = 
-        let bufferResizable = new ResizeArray<byte>()                                            
-        let rec readingMessage (buffer: byte array) (handleMessage: byte[] -> Async<unit>) = async {
-            let! bytesRead = pipe.AsyncRead(buffer, 0, buffer.Length)
+    let buffer = Array.zeroCreate<byte> 0x1000
+    let bufferResizable = new ResizeArray<byte>()    
+    let rec readingMessage() =
+        async {
+            let! bytesRead = pipe.AsyncRead(buffer)
             if bytesRead = 0 then
-                ()
+                if pipe.IsConnected then
+                    return! readingMessage()
+                else
+                    return false
             else 
                 // add the bytes read to a "Resizable" collection 
                 bufferResizable.AddRange(buffer.[0..bytesRead - 1])
-              
+
                 if pipe.IsMessageComplete then 
                     // if the message is completed fire OnMessageReceived event
                     // including the total bytes part of the message
-                    let message = bufferResizable |> Seq.toArray
-                    do! handleMessage message
+                    let message = bufferResizable.ToArray()
+                    let! finish = handleMessage message
                     // clear the resizable collection to be ready for the next income message
                     bufferResizable.Clear()
-                    do! readingMessage buffer handleMessage
+                    if not finish then
+                        return! readingMessage()
+                    else
+                        return true
                 else
                     // the message is not completed, keep reading
-                    do! readingMessage buffer handleMessage
-            }
-        readingMessage
-    innerReadingMessages (Array.zeroCreate<byte> 0x1000)
+                    return! readingMessage ()
+        }
+    readingMessage ()
 

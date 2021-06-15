@@ -127,14 +127,17 @@ let main _ =
     let handOverPipe (serverPipe: NamedPipeServerStream) (token: CancellationToken) =
         async {
             try
-                let handleMessage (message: byte array) = async {
-                    let ms = new MemoryStream(message)
-                    ms.Position <- 0L
-                    let bf = new BinaryFormatter()
-                    let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
-                    agent.Post (deserializedMessage, serverPipe, token)
+                let handleMessage (message: byte array) = 
+                    async {
+                        let ms = new MemoryStream(message)
+                        ms.Position <- 0L
+                        let bf = new BinaryFormatter()
+                        let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
+                        agent.Post (deserializedMessage, serverPipe, token)
+                        return false
                     }
-                do! readingMessages serverPipe handleMessage
+                let! _ = readingMessages serverPipe handleMessage
+                nLogger.Debug "Client has disconnected"
             with
             | ex ->
                 nLogger.ErrorException ex "Error in handleMessage loop"

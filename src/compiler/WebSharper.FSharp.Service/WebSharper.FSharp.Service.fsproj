@@ -7,7 +7,7 @@
     <Name>wsfscservice</Name>
     <FSharpTool>True</FSharpTool>
     <WarnOn>3390;$(WarnOn)</WarnOn>
-    <Signed>false</Signed>
+    <Signed>False</Signed>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <AssemblyName>wsfscservice</AssemblyName>
   </PropertyGroup>
