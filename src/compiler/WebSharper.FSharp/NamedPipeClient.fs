@@ -22,7 +22,6 @@ module WebSharper.FSharp.NamedPipeClient
 
 open System.Diagnostics
 open System.IO.Pipes
-open System.Threading
 open System.Runtime.Serialization.Formatters.Binary
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
@@ -81,14 +80,6 @@ let sendCompileCommand args =
 
     let mutable returnCode = 0
     let mutable proc: Process = null
-    let exitedEventHandler =
-        new System.EventHandler (fun _ _ ->
-            if returnCode = 0 then
-#if DEBUG
-                eprintfn "Unhandled exiting of Process for wsfscservice"
-#endif
-                returnCode <- -12211
-            )
     if isServerNeeded then
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
             let cmdName = (location, "wsfscservice_start.cmd") |> System.IO.Path.Combine
@@ -97,7 +88,9 @@ let sendCompileCommand args =
             startInfo.UseShellExecute <- false
             startInfo.WindowStyle <- ProcessWindowStyle.Hidden
             proc <- Process.Start(startInfo)
-            //proc.Exited.AddHandler exitedEventHandler
+#if DEBUG
+            printfn "Started service PID=%d" proc.Id
+#endif
 
 // TODO: decide what is best, this starts proc directly:
 //#if DEBUG
@@ -138,7 +131,9 @@ let sendCompileCommand args =
 #endif
                             return true
                         | x -> 
+#if DEBUG
                             eprintfn "Unrecognizable message from server: %s" x
+#endif
                             return true
                     }
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
@@ -148,7 +143,10 @@ let sendCompileCommand args =
                     eprintfn "Listening for server finished abruptly"
                     returnCode <- -12211
                 }
-            Async.RunSynchronously(write)
+            try
+                Async.RunSynchronously(write)
+            with
+            | _ -> () // Pokemon
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
