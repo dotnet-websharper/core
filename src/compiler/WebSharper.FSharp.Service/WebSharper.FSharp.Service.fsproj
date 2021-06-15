@@ -6,6 +6,7 @@
     <FSharpTool>True</FSharpTool>
     <TargetFramework>net5.0</TargetFramework>
     <WarnOn>3390;$(WarnOn)</WarnOn>
+    <Signed>false</Signed>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <AssemblyName>wsfscservice</AssemblyName>
   </PropertyGroup>

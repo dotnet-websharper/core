@@ -58,6 +58,9 @@ let sendCompileCommand args =
     nLogger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
     nLogger.Debug "pipeName is : %s" pipeName
+#if DEBUG
+    printfn "pipeName is : %s" pipeName
+#endif
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
