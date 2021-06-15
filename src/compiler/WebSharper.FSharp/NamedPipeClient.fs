@@ -97,7 +97,6 @@ let sendCompileCommand args =
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
-    use token = new CancellationTokenSource()
     let Write (bytes: byte array) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let unexpectedFinishErrorCode = -12211
