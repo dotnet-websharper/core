@@ -133,6 +133,10 @@
       <Project>{4c826618-e150-40f7-b13a-9182f0c3eaca}</Project>
       <Name>WebSharper.InterfaceGenerator.Tests</Name>
     </ProjectReference>
+    <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj">
+      <Project>{a6c9340c-4bc5-4d88-a1b0-8540973a7be3}</Project>
+      <Name>WebSharper.Module.Tests</Name>
+    </ProjectReference>
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj">
       <Project>{bba692b3-ab48-4f2e-8a33-260b0dd09a9b}</Project>
       <Name>WebSharper.Sitelets.Tests</Name>
