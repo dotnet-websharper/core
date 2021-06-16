@@ -27,7 +27,7 @@ let readingMessages (pipe: PipeStream) handleMessage =
                 if pipe.IsConnected then
                     return! readingMessage()
                 else
-                    return false
+                    return None
             else 
                 // add the bytes read to a "Resizable" collection 
                 bufferResizable.AddRange(buffer.[0..bytesRead - 1])
@@ -39,10 +39,9 @@ let readingMessages (pipe: PipeStream) handleMessage =
                     let! finish = handleMessage message
                     // clear the resizable collection to be ready for the next income message
                     bufferResizable.Clear()
-                    if not finish then
-                        return! readingMessage()
-                    else
-                        return true
+                    match finish with
+                    | Some _ -> return finish
+                    | None -> return! readingMessage()
                 else
                     // the message is not completed, keep reading
                     return! readingMessage ()

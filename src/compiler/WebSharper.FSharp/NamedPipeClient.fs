@@ -77,8 +77,14 @@ let sendCompileCommand args =
 #endif
     let isServerNeeded =
         runningServers |> Array.isEmpty
+// TODO: decide what is best, this starts proc directly:
+//    let exitedEventHandler =
+//        new System.EventHandler (fun _ _ ->
+//#if DEBUG
+//                eprintfn "Unhandled exiting of Process for wsfscservice"
+//#endif
+//            )
 
-    let mutable returnCode = 0
     let mutable proc: Process = null
     if isServerNeeded then
         if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
@@ -120,33 +126,47 @@ let sendCompileCommand args =
                         match message with
                         | StdOut n ->
                             printfn "%s" n
-                            return false
+                            return None
                         | StdErr e ->
                             eprintfn "%s" e
-                            return false
+                            return None
                         | Finish i -> 
-                            returnCode <- i
 #if DEBUG
                             printfn "wsfscservice.exe compiled in %s with error code: %i" location i
 #endif
-                            return true
+                            return i |> Some
                         | x -> 
 #if DEBUG
                             eprintfn "Unrecognizable message from server: %s" x
 #endif
-                            return true
+                            return -13311 |> Some
                     }
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
                 clientPipe.Flush()
-                let! ok = readingMessages clientPipe printResponse
-                if not ok then 
+                let! errorCode = readingMessages clientPipe printResponse
+                match errorCode with
+                | Some x -> return x
+                | None -> 
+#if DEBUG
                     eprintfn "Listening for server finished abruptly"
-                    returnCode <- -12211
+#endif
+                    return -12211
                 }
             try
                 Async.RunSynchronously(write)
             with
-            | _ -> () // Pokemon
+            | _ -> 
+#if DEBUG
+                eprintfn "Listening for server finished abruptly"
+#endif
+                -12211
+        else
+#if DEBUG
+            eprintfn "ClientPipe cannot connect"
+#endif
+            -14411
+ 
+
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
@@ -162,4 +182,6 @@ let sendCompileCommand args =
     clientPipe.Connect()
     clientPipe.ReadMode <- PipeTransmissionMode.Message
     Write data
-    returnCode
+    //let returnCode = Write data
+    //if isServerNeeded then 
+    //    proc.Exited.RemoveHandler exitedEventHandler 

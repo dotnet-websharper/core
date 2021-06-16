@@ -93,7 +93,7 @@ let main _ =
                         System.Environment.CurrentDirectory <- project
                         nLogger.Info "Compiling %s" projectOption.Value
                         let send paramPrint str = async {
-                            let newMessage: string = paramPrint str
+                            let newMessage = paramPrint str
                             nLogger.Info "Server sends: %s" newMessage
                             let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
                             do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
@@ -117,8 +117,6 @@ let main _ =
                         let sendFinished = sprintf "x: %i" |> send
                         let returnValue = WebSharper.Compiler.FSharp.Compile.compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
                         do! sendFinished returnValue
-                        serverPipe.WaitForPipeDrain()
-                        serverPipe.Close()
                     | None ->
                         ()
                 with 
@@ -143,10 +141,11 @@ let main _ =
                             let bf = new BinaryFormatter()
                             let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
                             agent.Post (deserializedMessage, serverPipe, token)
-                            return false
+                            return None
                         }
                     let! _ = readingMessages serverPipe handleMessage
                     nLogger.Debug "Client has disconnected"
+                    serverPipe.Close()
                 with
                 | ex ->
                     nLogger.ErrorException ex "Error in handleMessage loop"
