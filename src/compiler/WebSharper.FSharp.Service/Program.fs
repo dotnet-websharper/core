@@ -28,6 +28,9 @@ open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
 open WebSharper.Compiler
 open NLog.FSharp
+open WebSharper.Compiler.FSharp.Compile
+open WebSharper.Compiler.FSharp.ErrorPrinting
+open WebSharper.Compiler.CommandTools
 
 [<EntryPoint>]
 let main _ =
@@ -91,10 +94,10 @@ let main _ =
                     match projectDirOption with
                     | Some project -> 
                         System.Environment.CurrentDirectory <- project
-                        nLogger.Info "Compiling %s" projectOption.Value
+                        nLogger.Debug "Compiling %s" projectOption.Value
                         let send paramPrint str = async {
                             let newMessage = paramPrint str
-                            nLogger.Info "Server sends: %s" newMessage
+                            nLogger.Debug "Server sends: %s" newMessage
                             let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
                             do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
                             serverPipe.Flush()
@@ -115,7 +118,20 @@ let main _ =
                             }
                                 
                         let sendFinished = sprintf "x: %i" |> send
-                        let returnValue = WebSharper.Compiler.FSharp.Compile.compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
+                        let compilationResultForDebugOrRelease() =
+#if DEBUG
+                            compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
+#else
+                            try compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
+                            with 
+                            | ArgumentError msg -> 
+                                PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
+                                1
+                            | e -> 
+                                PrintGlobalError logger (sprintf "Global error: %A" e)
+                                1
+#endif
+                        let returnValue = compilationResultForDebugOrRelease()
                         do! sendFinished returnValue
                     | None ->
                         ()

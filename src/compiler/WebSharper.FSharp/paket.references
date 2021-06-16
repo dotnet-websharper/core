@@ -1,6 +1,8 @@
 Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
+    exclude Mono.Cecil.Rocks.dll
 //Microsoft.NETCore.Platforms
 group fcs
-  FSharp.Compiler.Service
-  FSharp.Core
+    FSharp.Compiler.Service
+    FSharp.Core
+    NLog
+    NLog.FSharp

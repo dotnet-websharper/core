@@ -25,6 +25,7 @@ open System.IO.Pipes
 open System.Runtime.Serialization.Formatters.Binary
 open WebSharper.Compiler.WsFscServiceCommon
 open System.IO
+open NLog.FSharp
 
 let (|StdOut|_|) (str: string) =
     if str.StartsWith("n: ") then
@@ -49,16 +50,12 @@ let (|Finish|_|) (str: string) =
         None
 
 let sendCompileCommand args =
-    printfn "Using WebSharper compiler service"
+    let logger = Logger()
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-#if DEBUG
-    printfn "location of wsfsc.exe and wsfscservice.exe: %s" location
-#endif
+    logger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
-#if DEBUG
-    printfn "pipeName is : %s" pipeName
-#endif
+    logger.Debug "pipeName is : %s" pipeName
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
@@ -66,15 +63,11 @@ let sendCompileCommand args =
             |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
         with
         | e ->
-#if DEBUG
-            eprintfn "Could not read running processes of wsfscservice. Error : %s" e.Message
-#endif
+            logger.ErrorException e "Could not read running processes of wsfscservice."
             [||]
 
 
-#if DEBUG
-    printfn "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
-#endif
+    logger.Debug "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
     let isServerNeeded =
         runningServers |> Array.isEmpty
 // TODO: decide what is best, this starts proc directly:
@@ -94,23 +87,17 @@ let sendCompileCommand args =
             startInfo.UseShellExecute <- false
             startInfo.WindowStyle <- ProcessWindowStyle.Hidden
             proc <- Process.Start(startInfo)
-#if DEBUG
-            printfn "Started service PID=%d" proc.Id
-#endif
+            logger.Debug "Started service PID=%d" proc.Id
 
 // TODO: decide what is best, this starts proc directly:
-//#if DEBUG
-//        printfn "Starting service at %s" fileNameOfService
-//#endif
+//        logger.Debug "Starting service at %s" fileNameOfService
 //        let startInfo = ProcessStartInfo(fileNameOfService)
 //        startInfo.CreateNoWindow <- true
 //        startInfo.UseShellExecute <- true
 //        startInfo.WindowStyle <- ProcessWindowStyle.Hidden
 //        proc <- Process.Start(startInfo)
 //        proc.Exited.AddHandler exitedEventHandler
-//#if DEBUG
-//        printfn "Started service PID=%d" proc.Id
-//#endif
+//        logger.Debug "Started service PID=%d" proc.Id
 
     use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
@@ -119,6 +106,7 @@ let sendCompileCommand args =
                           ||| PipeOptions.Asynchronous)
     let Write (bytes: byte array) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
+            let unexpectedFinishErrorCode = -12211
             let write = async {
                 let printResponse (bytes: byte array) = 
                     async {
@@ -131,15 +119,11 @@ let sendCompileCommand args =
                             eprintfn "%s" e
                             return None
                         | Finish i -> 
-#if DEBUG
-                            printfn "wsfscservice.exe compiled in %s with error code: %i" location i
-#endif
                             return i |> Some
                         | x -> 
-#if DEBUG
-                            eprintfn "Unrecognizable message from server: %s" x
-#endif
-                            return -13311 |> Some
+                            let unrecognizedMessageErrorCode = -13311
+                            logger.Error "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x
+                            return unrecognizedMessageErrorCode |> Some
                     }
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
                 clientPipe.Flush()
@@ -147,41 +131,36 @@ let sendCompileCommand args =
                 match errorCode with
                 | Some x -> return x
                 | None -> 
-#if DEBUG
-                    eprintfn "Listening for server finished abruptly"
-#endif
-                    return -12211
+                    logger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
+                    return unexpectedFinishErrorCode
                 }
             try
                 Async.RunSynchronously(write)
             with
             | _ -> 
-#if DEBUG
-                eprintfn "Listening for server finished abruptly"
-#endif
-                -12211
+                logger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
+                unexpectedFinishErrorCode
         else
-#if DEBUG
-            eprintfn "ClientPipe cannot connect"
-#endif
-            -14411
+            let cannotConnectErrorCode = -14411
+            eprintfn "ClientPipe cannot connect (%i)" cannotConnectErrorCode
+            cannotConnectErrorCode
+            
  
 
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
 
-#if DEBUG
-    printfn "WebSharper compilation arguments:"
-    args |> Array.iter (printfn "    %s")
-#endif
+    logger.Debug "WebSharper compilation arguments:"
+    args |> Array.iter (logger.Debug "    %s")
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
     ms.Flush();
     let data = ms.ToArray();
     clientPipe.Connect()
     clientPipe.ReadMode <- PipeTransmissionMode.Message
-    Write data
-    //let returnCode = Write data
+    let returnCode = Write data
+    logger.Debug "wsfscservice.exe compiled in %s with error code: %i" location returnCode
     //if isServerNeeded then 
     //    proc.Exited.RemoveHandler exitedEventHandler 
+    returnCode

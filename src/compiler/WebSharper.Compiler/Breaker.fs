@@ -252,7 +252,9 @@ let rec removeLets expr =
         when v = var && CountVarOccurence(var).Get(Sequential args) = 0 ->
             Application(value, args, p, l)
     | ObjWithPropSetters res ->
+#if DEBUG
         printfn "optimizer: %s -> %s" (Debug.PrintExpression expr) (Debug.PrintExpression res)
+#endif
         res
     | Let(a, b, c) ->
         let optimizeTupled  =

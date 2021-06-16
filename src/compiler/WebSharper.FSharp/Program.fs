@@ -29,6 +29,7 @@ open WebSharper.Compiler.FSharp.Compile
 open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
+open NLog.FSharp
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -40,6 +41,7 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
+    let nLogger = Logger()
     let argv = formatArgv argv
     let standaloneMode = argv |> Array.exists (fun x -> x.IndexOf("--standalone", System.StringComparison.OrdinalIgnoreCase) >= 0)
     // --ws:extension and --ws:interfaceGenerator they are aliases
@@ -67,7 +69,5 @@ let main(argv) =
             1
 #endif
     else
-#if DEBUG
-        printfn "Start compilation with wsfscservice"
-#endif
+        nLogger.Debug "Start compilation with wsfscservice"
         sendCompileCommand argv
