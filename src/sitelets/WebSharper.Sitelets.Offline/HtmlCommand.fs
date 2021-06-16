@@ -28,6 +28,8 @@ open WebSharper.Compiler
 open WebSharper.Sitelets
 module C = WebSharper.Compiler.Commands
 module H = WebSharper.Compiler.HtmlCommand
+module D = WebSharper.Compiler.DownloadResources
+module PC = WebSharper.PathConventions
 
 /// Implements the WebSharper executable plugin for generating
 /// offline pages with sitelets. To use, run `WebSharper.exe sitelets`.
@@ -68,6 +70,12 @@ type HtmlCommand() =
                                 on the processed assembly: %s"
                                 file
                 let (sitelet, actions) = loadSite options.MainAssemblyPath
+
+                let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
+                for p in assemblies do
+                    if options.DownloadResources then
+                        D.UnpackResource p options.OutputDirectory
+
                 // Write site content.
                 Output.WriteSite aR {
                     Sitelet = sitelet
