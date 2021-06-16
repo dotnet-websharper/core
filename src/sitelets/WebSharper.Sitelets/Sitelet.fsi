@@ -155,6 +155,10 @@ module Sitelet =
     val InferPartialInUnion<'T1, 'T2 when 'T1 : equality and 'T2 : equality> :
         Expr<'T1 -> 'T2> -> (Context<'T2> -> 'T1 -> Async<Content<'T2>>) -> Sitelet<'T2>
 
+    val MapContext : (Context<'T> -> Context<'T>) -> Sitelet<'T> -> Sitelet<'T>
+
+    val WithSettings : seq<string * string> -> Sitelet<'T> -> Sitelet<'T>
+
 type RouteHandler<'T> = delegate of Context<obj> * 'T -> Task<CSharpContent> 
 
 [<CompiledName "Sitelet"; Class; Sealed>]

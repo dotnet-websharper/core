@@ -53,3 +53,6 @@ type Context =
 
     /// Map a context to a wrapping type.
     static member Map : ('T2 -> 'T1) -> Context<'T1> -> Context<'T2>
+
+    /// Define extra enviroment settings.
+    static member WithSettings : (seq<string * string>) -> Context<'T> -> Context<'T>

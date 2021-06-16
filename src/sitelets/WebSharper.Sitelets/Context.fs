@@ -66,3 +66,22 @@ type Context(ctx: Context<obj>) =
             UserSession = ctx.UserSession,
             Environment = ctx.Environment
         )
+
+    static member WithSettings (settings: seq<string * string>) (ctx: Context<'T>) : Context<'T> =
+        let settings = dict settings
+        let getSetting k =
+            match settings.TryGetValue(k) with
+            | true, x -> Some x
+            | false, _ -> ctx.ResourceContext.GetSetting k
+        Context<'T>(
+            ctx.ApplicationPath,
+            ctx.Link,
+            ctx.Json,
+            ctx.Metadata,
+            ctx.Dependencies,
+            { ctx.ResourceContext with GetSetting = getSetting },
+            ctx.Request,
+            ctx.RootFolder,
+            ctx.UserSession,
+            ctx.Environment
+        )
