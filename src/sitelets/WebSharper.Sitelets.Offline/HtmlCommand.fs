@@ -71,10 +71,10 @@ type HtmlCommand() =
                                 file
                 let (sitelet, actions) = loadSite options.MainAssemblyPath
 
-                let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
-                for p in assemblies do
-                    if options.DownloadResources then
-                        D.UnpackResource p options.OutputDirectory
+                if options.DownloadResources then
+                    let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
+                    for p in assemblies do
+                        D.DownloadResource p options.OutputDirectory
 
                 // Write site content.
                 Output.WriteSite aR {

@@ -152,7 +152,7 @@ module UnpackCommand =
                 String.concat " - " (messages e)
 
             if cmd.DownloadResources then
-                DownloadResources.UnpackResource p cmd.RootDirectory
+                DownloadResources.DownloadResource p cmd.RootDirectory
 
         if errors.Count = 0 then
             C.Ok

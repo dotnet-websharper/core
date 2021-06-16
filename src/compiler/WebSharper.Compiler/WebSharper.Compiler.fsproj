@@ -47,6 +47,7 @@
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
     <Compile Include="WIGCompile.fs" />
+    <Compile Include="commands\DownloadResources.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
     <Compile Include="commands/HtmlCommand.fsi" />
