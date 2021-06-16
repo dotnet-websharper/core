@@ -75,6 +75,13 @@ let sendCompileCommand args =
     nLogger.Debug "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
     let isServerNeeded =
         runningServers |> Array.isEmpty
+// TODO: decide what is best, this starts proc directly:
+//    let exitedEventHandler =
+//        new System.EventHandler (fun _ _ ->
+//#if DEBUG
+//                eprintfn "Unhandled exiting of Process for wsfscservice"
+//#endif
+//            )
 
     let mutable proc: Process = null
     if isServerNeeded then
