@@ -37,6 +37,7 @@ module HtmlCommand =
             ReferenceAssemblyPaths : list<string>
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            DownloadResources: bool
         }
 
         static member Create(mainAssemblyPath) =
@@ -48,6 +49,7 @@ module HtmlCommand =
                 ReferenceAssemblyPaths = []
                 UnpackSourceMap = false
                 UnpackTypeScript = false
+                DownloadResources = false
             }
 
     exception BadOptions of string
@@ -85,7 +87,7 @@ module HtmlCommand =
             let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
             let t = asm.GetType(tN, throwOnError = true)
             let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-            cmd.Execute(env, config)
+            cmd.Execute(env, config)        
 
     let Parse (args: list<string>) =
         let trim (s: string) =

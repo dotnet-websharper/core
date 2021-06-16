@@ -52,6 +52,8 @@ module HtmlCommand =
 
             /// Outputs TypeScript declaration files.
             UnpackTypeScript : bool
+
+            DownloadResources : bool
         }
 
         /// Configures with default options.

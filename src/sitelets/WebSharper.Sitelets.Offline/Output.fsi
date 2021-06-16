@@ -35,7 +35,6 @@ type Config =
         Options : H.Config
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
-        UnpackTypeScript : bool
     }
 
 /// Writes a site given the configuration options.
