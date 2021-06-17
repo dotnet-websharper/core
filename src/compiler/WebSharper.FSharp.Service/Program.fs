@@ -35,7 +35,8 @@ open WebSharper.Compiler.CommandTools
 [<EntryPoint>]
 let main _ =
     let location = System.Reflection.Assembly.GetEntryAssembly().Location
-    let mutexName = (location, "WsFscServiceMutex") |> System.IO.Path.Combine |> hashPipeName
+    let mutexHashedName = (location, "WsFscServiceMutex") |> System.IO.Path.Combine |> hashPipeName
+    let mutexName = "Global\\" + mutexHashedName
     let mutable mutex = null
     let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
     if mutexExists then
