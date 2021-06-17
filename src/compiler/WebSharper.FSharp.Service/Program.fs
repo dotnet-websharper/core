@@ -46,26 +46,27 @@ let main _ =
         let nLogger = Logger()
         let checker = FSharpChecker.Create(keepAssemblyContents = true)
         let checkerFactory() = checker
-        let dllFiles =
-            location
-            |> System.IO.Path.GetDirectoryName
-            |> Directory.EnumerateFiles
-            |> (fun x -> new System.Collections.Generic.List<string>(x))
 
+        nLogger.Debug "Initializing memory cache"
         let memCache = MemoryCache.Default
         let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
-            if memCache.[r.FullName] = null then
+            match r.LoadPath with
+            | Some x when memCache.[x] = null -> 
                 match WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r with
                 | None ->
                     None
                 | result ->
                     let policy = CacheItemPolicy()
-                    let monitor = new HostFileChangeMonitor(dllFiles)
+                    let monitor = new HostFileChangeMonitor([| x |])
                     policy.ChangeMonitors.Add monitor
-                    memCache.Set(r.FullName, result, policy)
-                    memCache.[r.FullName] :?> Result<WebSharper.Core.Metadata.Info, string> option
-            else
-                memCache.[r.FullName] :?> Result<WebSharper.Core.Metadata.Info, string> option
+                    memCache.Set(x, result, policy)
+                    nLogger.Trace "Storing assembly: %s" x
+                    memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
+            | Some x ->
+                nLogger.Trace "Reading assembly: %s" x
+                memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
+            | None ->
+                WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r
 
         let agent = MailboxProcessor.Start(fun inbox ->
 
@@ -97,7 +98,7 @@ let main _ =
                         nLogger.Debug "Compiling %s" projectOption.Value
                         let send paramPrint str = async {
                             let newMessage = paramPrint str
-                            nLogger.Debug "Server sends: %s" newMessage
+                            nLogger.Trace "Server sends: %s" newMessage
                             let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
                             do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
                             serverPipe.Flush()
