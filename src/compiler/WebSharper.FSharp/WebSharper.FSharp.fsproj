@@ -10,6 +10,7 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="wsfscservice_start.sh" />
     <None Include="NLog.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -70,4 +70,6 @@ let main(argv) =
 #endif
     else
         nLogger.Debug "Start compilation with wsfscservice"
+        // The #if DEBUG ... #else behavior is implemented in the service.
+        // NamedPipeService won't throw exception in the client.
         sendCompileCommand argv

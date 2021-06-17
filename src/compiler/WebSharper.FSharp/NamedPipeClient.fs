@@ -49,6 +49,7 @@ let (|Finish|_|) (str: string) =
     else
         None
 
+
 let sendCompileCommand args =
     let logger = Logger()
     let serverName = "." // local machine server name
@@ -63,42 +64,30 @@ let sendCompileCommand args =
             |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
         with
         | e ->
+            // If the processes cannot be queried, because of insufficient rights, the Mutex in service will handle
+            // not running 2 instances
             logger.ErrorException e "Could not read running processes of wsfscservice."
             [||]
-
 
     logger.Debug "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
     let isServerNeeded =
         runningServers |> Array.isEmpty
-// TODO: decide what is best, this starts proc directly:
-//    let exitedEventHandler =
-//        new System.EventHandler (fun _ _ ->
-//#if DEBUG
-//                eprintfn "Unhandled exiting of Process for wsfscservice"
-//#endif
-//            )
 
     let mutable proc: Process = null
     if isServerNeeded then
-        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows)) then
-            let cmdName = (location, "wsfscservice_start.cmd") |> System.IO.Path.Combine
-            let startInfo = ProcessStartInfo(cmdName) // ProcessStartInfo(fileNameOfService)
-            startInfo.CreateNoWindow <- true
-            startInfo.UseShellExecute <- false
-            startInfo.WindowStyle <- ProcessWindowStyle.Hidden
-            proc <- Process.Start(startInfo)
-            logger.Debug "Started service PID=%d" proc.Id
+        // start a detached wsfscservice.exe. Platform specific.
+        let cmdName = if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+                        "wsfscservice_start.cmd" else "wsfscservice_start.sh"
+        let cmdFullPath = (location, cmdName) |> System.IO.Path.Combine
+        let startInfo = ProcessStartInfo(cmdFullPath)
+        startInfo.CreateNoWindow <- true
+        startInfo.UseShellExecute <- false
+        startInfo.WindowStyle <- ProcessWindowStyle.Hidden
+        proc <- Process.Start(startInfo)
+        logger.Debug "Started service PID=%d" proc.Id
 
-// TODO: decide what is best, this starts proc directly:
-//        logger.Debug "Starting service at %s" fileNameOfService
-//        let startInfo = ProcessStartInfo(fileNameOfService)
-//        startInfo.CreateNoWindow <- true
-//        startInfo.UseShellExecute <- true
-//        startInfo.WindowStyle <- ProcessWindowStyle.Hidden
-//        proc <- Process.Start(startInfo)
-//        proc.Exited.AddHandler exitedEventHandler
-//        logger.Debug "Started service PID=%d" proc.Id
-
+    // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
+    // Call that with the compilation args for compilation.
     use clientPipe = new NamedPipeClientStream( serverName, //server name, local machine is .
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // direction of the pipe 
@@ -111,6 +100,7 @@ let sendCompileCommand args =
                 let printResponse (bytes: byte array) = 
                     async {
                         let message = System.Text.Encoding.UTF8.GetString(bytes)
+                        // messages on the service have n: e: or x: prefix for stdout stderr or error code kind of output
                         match message with
                         | StdOut n ->
                             printfn "%s" n
@@ -153,6 +143,7 @@ let sendCompileCommand args =
 
     logger.Debug "WebSharper compilation arguments:"
     args |> Array.iter (logger.Debug "    %s")
+    // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
     ms.Flush();
