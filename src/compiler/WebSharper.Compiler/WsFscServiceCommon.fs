@@ -6,7 +6,7 @@ type ArgsType = {args: string array}
 
 let md5 = System.Security.Cryptography.MD5.Create()
 
-let hashPipeName (fullPath: string) =
+let hashPath (fullPath: string) =
     let data =
         fullPath.ToLower()
         |> Encoding.UTF8.GetBytes
@@ -25,6 +25,10 @@ let readingMessages (pipe: PipeStream) handleMessage =
             let! bytesRead = pipe.AsyncRead(buffer)
             if bytesRead = 0 then
                 if pipe.IsConnected then
+                    // bytesRead = 0 should signal closed connection.
+                    // if connection is up, retry reading anyway.
+                    // without if pipe.IsConnected, it would be infinite loop when a connection is closed.
+                    // let! bytesRead = pipe.AsyncRead(buffer) doesn't block.
                     return! readingMessage()
                 else
                     return None

@@ -42,8 +42,8 @@ open Fake.IO.FileSystemOperators
 open WebSharper.Fake
 open System.Diagnostics
 
-let version = "4.7"
-let pre = None
+let version = "5.0"
+let pre = Some "preview1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x

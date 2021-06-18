@@ -55,7 +55,7 @@ let sendCompileCommand args =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
     logger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
+    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
     logger.Debug "pipeName is : %s" pipeName
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
@@ -152,6 +152,4 @@ let sendCompileCommand args =
     clientPipe.ReadMode <- PipeTransmissionMode.Message
     let returnCode = Write data
     logger.Debug "wsfscservice.exe compiled in %s with error code: %i" location returnCode
-    //if isServerNeeded then 
-    //    proc.Exited.RemoveHandler exitedEventHandler 
     returnCode

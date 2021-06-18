@@ -170,7 +170,7 @@ let startListening() =
             }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPipeName
+    let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
     // start listening. When Client connects, spawn a message processor and start another listen
     let rec pipeListener token = async {
         let serverPipe = new NamedPipeServerStream( 
@@ -198,8 +198,11 @@ let startListening() =
 let main _ =
     // One service should serve all compilations in a folder. Protect it with a global Mutex.
     let location = System.Reflection.Assembly.GetEntryAssembly().Location
-    let mutexHashedName = (location, "WsFscServiceMutex") |> System.IO.Path.Combine |> hashPipeName
-    let mutexName = "Global\\" + mutexHashedName
+    let mutexName =
+        (location, "WsFscServiceMutex")
+        |> System.IO.Path.Combine
+        |> hashPath
+        |> fun x -> "Global\\" + x
     let mutable mutex = null
     let mutexExists = Mutex.TryOpenExisting(mutexName, &mutex)
     if mutexExists then
