@@ -22,5 +22,11 @@ files
     ../build/Release/FSharp/net5.0/deploy/wsfsc.dll.config ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/wsfsc.sh ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/wsfsc.runtimeconfig.json ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/wsfscservice.exe ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/wsfscservice.dll.config ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/wsfscservice_start.cmd ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/wsfscservice_start.sh ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/wsfscservice.runtimeconfig.json ==> tools/net5.0
+    ../build/Release/FSharp/net5.0/deploy/NLog.config ==> tools/net5.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0
     ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools
