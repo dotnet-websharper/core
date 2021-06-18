@@ -131,6 +131,8 @@ module Content =
         if hasResources then tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
         w.ToString()
 
+    let mutable AutoFlushPageWriter = true
+    
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
         async {
             let! htmlPage = genPage context
@@ -145,11 +147,13 @@ module Content =
                     for elem in body do
                         elem.Write(context, tw)
                 // Create html writer from stream
-                use textWriter = new StreamWriter(stream)
-                textWriter.AutoFlush <- true
+                use textWriter = new StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+                textWriter.AutoFlush <- AutoFlushPageWriter
                 use htmlWriter = new HtmlTextWriter(textWriter, " ")
                 htmlPage.Renderer htmlPage.Doctype htmlPage.Title
                     renderHead renderBody htmlWriter
+                if not textWriter.AutoFlush then
+                    textWriter.Flush()
             return {
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
@@ -167,7 +171,7 @@ module Content =
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "application/json"]
                 WriteBody = fun s ->
-                    use tw = new StreamWriter(s)
+                    use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                     x
                     |> encoder.Encode
                     |> JsonProvider.Pack
@@ -183,7 +187,7 @@ module Content =
                     Status = Http.Status.Ok
                     Headers = [Http.Header.Custom "Content-Type" "application/json"]
                     WriteBody = fun s ->
-                        use tw = new StreamWriter(s)
+                        use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                         x
                         |> encoder.Encode
                         |> JsonProvider.Pack
@@ -430,7 +434,7 @@ type Content<'Endpoint> with
         let encoding = defaultArg encoding Content.defaultEncoding
         Content.Custom(
             WriteBody = fun s ->
-                use w = new System.IO.StreamWriter(s, encoding)
+                use w = new System.IO.StreamWriter(s, encoding, 1024, leaveOpen = true)
                 w.Write(text)
         )
 

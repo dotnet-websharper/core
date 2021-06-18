@@ -66,6 +66,9 @@ type Content<'Endpoint> =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
 
+    /// Allow streamed page responses, turn off for performance.
+    val mutable AutoFlushPageWriter : bool
+
     /// Creates Content that depends on the Sitelet context.
     val FromContext : (Context<'T> -> Async<Content<'T>>) -> Async<Content<'T>>
 
