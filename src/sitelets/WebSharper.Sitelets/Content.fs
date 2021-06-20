@@ -130,8 +130,6 @@ module Content =
         let hasResources = writeResources ctx controls (fun _ -> tw)
         if hasResources then tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
         w.ToString()
-
-    let mutable AutoFlushPageWriter = true
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
         async {
@@ -148,12 +146,10 @@ module Content =
                         elem.Write(context, tw)
                 // Create html writer from stream
                 use textWriter = new StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
-                textWriter.AutoFlush <- AutoFlushPageWriter
                 use htmlWriter = new HtmlTextWriter(textWriter, " ")
                 htmlPage.Renderer htmlPage.Doctype htmlPage.Title
                     renderHead renderBody htmlWriter
-                if not textWriter.AutoFlush then
-                    textWriter.Flush()
+                textWriter.Flush()
             return {
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
