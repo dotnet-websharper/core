@@ -1,21 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="Current">
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;net5.0</TargetFrameworks>
+    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
     <LangVersion>9.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Tests>True</Tests>
   </PropertyGroup>
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net5'))">
-    <DefineConstants>$(DefineConstants);NET50</DefineConstants>
-  </PropertyGroup>
   <ItemGroup>
     <None Include="paket.references" />
     <None Include="WebSharper.CSharp.Tests.ruleset" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

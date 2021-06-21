@@ -43,17 +43,21 @@
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
+  <PropertyGroup>
+    <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
+  </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\FSharp.Core.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\Mono.Cecil.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\Mono.Cecil.Mdb.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\Mono.Cecil.Pdb.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.Compiler.CSharp.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.Compiler.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.Core.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.Core.JavaScript.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.CSharp.Analyzer.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\netstandard2.0\WebSharper.InterfaceGenerator.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\FSharp.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\System.ValueTuple.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Mdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\Mono.Cecil.Pdb.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.CSharp.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Compiler.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.Core.JavaScript.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.CSharp.Analyzer.dll" />
+    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\WebSharper.InterfaceGenerator.dll" />
   </ItemGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
