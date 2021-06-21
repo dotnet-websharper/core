@@ -41,8 +41,8 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
 
-let version = "4.7"
-let pre = None
+let version = "5.0"
+let pre = Some "preview1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -253,5 +253,5 @@ Target.create "RunTests" <| fun _ ->
     ?=> "WS-Package"
 "RunTests"
     ==> "CI-Release"
-
+    
 Target.runOrDefault "Build"
