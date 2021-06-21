@@ -347,7 +347,6 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
                     StrongNameKeyPath = snk
-                    IsNetStandard = match config.TargetProfile.ToLower() with "netstandard" | "netcore" -> true | _ -> false
             }
 
         let cmp = InterfaceGenerator.Compiler.Create()

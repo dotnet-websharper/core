@@ -698,7 +698,6 @@ type CompilerOptions =
         ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
-        IsNetStandard : bool
     }
 
     static member Default(name) =
@@ -713,7 +712,6 @@ type CompilerOptions =
             ProjectDir = "."
             ReferencePaths = Seq.empty
             StrongNameKeyPath = None
-            IsNetStandard = false
         }
 
     static member Parse args =
@@ -1426,13 +1424,10 @@ type Compiler() =
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
         let netStandardPath = 
-            if options.IsNetStandard then
-                options.ReferencePaths 
-                |> Seq.tryPick (fun p ->
-                    if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
-                )
-            else
-                None
+            options.ReferencePaths 
+            |> Seq.tryPick (fun p ->
+                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
+            )
         let tB = TypeBuilder(resolver, def, netStandardPath)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)

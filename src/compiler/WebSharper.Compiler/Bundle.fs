@@ -355,7 +355,7 @@ module Bundling =
             | Choice1Of2 _ -> ignore
             | Choice2Of2 assem ->
             let strTy =
-                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard" || ar.Name == "mscorlib")
+                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard")
                 Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let webResourceTy =
                 let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")

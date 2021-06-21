@@ -38,7 +38,7 @@ module DownloadResources =
                     }
                 String.concat " - " (messages e)
 
-    let DownloadResource path root =
+    let DownloadResource (path: string) (root: string) =
         let errors = ResizeArray()
         let name = Path.GetFileNameWithoutExtension path
         try
