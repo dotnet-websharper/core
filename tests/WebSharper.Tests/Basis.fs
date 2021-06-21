@@ -653,34 +653,4 @@ let Tests =
             equal (a.[-2..(-1)]) [||]
             equal (s.[-2..(-1)]) ""
         }
-
-        Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "./WebSharper.Tests/sayHi.js")
-            equal (sayHi "World") "Hello, World!"
-        }
-
-        Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("./WebSharper.Tests/sayHi.js") |> Promise.AsAsync
-            let sayHi = As<string -> string>(sayHiModule?sayHi)
-            equal (sayHi "World") "Hello, World!"
-        }
-
-        Test "Applicative Computation Expression" {
-            let r1 = Ok 2
-            let r2 = Ok 3 // Error "fail!"
-            let r3 = Ok 4
-
-            equal (ApplicativeCE.run r1 r2 r3) "res1 is: 1"
-            equal (ApplicativeCE.run r1 (Result.Error "failure!") r3) "res1 is: failure!"
-
-        }
-
-        //Test "import" {
-        //    Console.Log("import all", importTestJsAll)
-        //    Console.Log("import all 2", importTestJsAll)
-        //    Console.Log("import", importTestJs)
-        //    Console.Log("import default", importTestJsDefault)
-        //    Console.Log("import inline", importInline)
-        //    expect 0
-        //}
     }

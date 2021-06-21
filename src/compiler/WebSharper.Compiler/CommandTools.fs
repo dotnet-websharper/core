@@ -316,6 +316,7 @@ module ExecuteCommands =
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
+                    DownloadResources = settings.DownloadResources |> Option.defaultValue false
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)

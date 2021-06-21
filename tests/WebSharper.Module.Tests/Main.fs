@@ -17,18 +17,17 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-namespace WebSharper.StaticHtml.Tests
 
-open WebSharper.Sitelets
+module WebSharper.Module.Tests.Main
 
-type WebsiteEntryPoint() =
-    inherit WebSharper.Tests.Website.WebsiteEntryPoint()
+open WebSharper
+open WebSharper.Testing
 
-    override this.Sitelet =
-        WebSharper.Tests.Website.Content.Main false
-        |> Sitelet.WithSettings [
-            "WebSharper.JQuery.Resources.JQuery", "https://code.jquery.com/jquery-3.6.0.min.js" 
-        ]
+[<assembly: JavaScript "WebSharper.Tests.Basis+TestOptionals">] // test for JavaScript "TypeName"
+do()
 
-[<assembly: Website(typeof<WebsiteEntryPoint>)>]
-do ()
+[<JavaScript>]
+let RunTests () =
+    Runner.RunTests [|
+        Import.Tests
+    |]
