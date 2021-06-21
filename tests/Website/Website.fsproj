@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;net5.0</TargetFrameworks>
+    <TargetFrameworks>net5.0</TargetFrameworks>
     <WebSharperProject>Library</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>

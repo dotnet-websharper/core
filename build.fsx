@@ -90,8 +90,8 @@ let targets = MakeTargets {
                 BuildAction.Custom <| fun mode ->
                     publishExe mode "net5.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
                     publishExe mode "net5.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
-                    publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false
-                    publishExe mode "net461" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" false
+                    publishExe mode "net472" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false
+                    publishExe mode "net472" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" false
                 buildSln "WebSharper.sln"
             ]
 }
@@ -162,8 +162,8 @@ targets.AddPrebuild "Prepare"
 // because Paket gets some versions wrong.
 Target.create "GenAppConfig" <| fun _ ->
     [
-        "build/Release/CSharp/net461/deploy", "ZafirCs.exe.config"
-        "build/Release/FSharp/net461/deploy", "wsfsc.exe.config"
+        "build/Release/CSharp/net472/deploy", "ZafirCs.exe.config"
+        "build/Release/FSharp/net472/deploy", "wsfsc.exe.config"
     ]
     |> List.iter (fun (dir, xmlFile) ->
         let xmlFullPath = dir </> xmlFile

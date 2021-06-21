@@ -54,7 +54,7 @@
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.exe</FscToolExe>
     <FscToolExe Condition="'$(OS)' == 'Unix'"      >wsfsc.sh</FscToolExe>
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(MSBuildThisFileDirectory)/../tools/net461</FscToolPath>
+    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(MSBuildThisFileDirectory)/../tools/net472</FscToolPath>
     <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(MSBuildThisFileDirectory)/../tools/net5.0</FscToolPath>
   </PropertyGroup>
 
