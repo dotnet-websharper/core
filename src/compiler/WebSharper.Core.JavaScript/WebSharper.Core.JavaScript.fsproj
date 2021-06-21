@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net472;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -21,9 +21,6 @@
     <EmbeddedResource Include="Runtime.js" />
     <EmbeddedResource Include="Runtime.min.js" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

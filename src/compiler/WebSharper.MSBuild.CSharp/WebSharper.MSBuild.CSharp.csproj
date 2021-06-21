@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net472;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <CSharpTool>True</CSharpTool>
   </PropertyGroup>
   <Import Project="..\..\..\msbuild\CSharp.targets" />

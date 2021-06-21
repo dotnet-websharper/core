@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net472;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <OutputPath>$(MSBuildThisFileDirectory)\..\..\..\build\$(Configuration)\FSharp\Offline</OutputPath>
   </PropertyGroup>
@@ -14,9 +14,6 @@
     <Compile Include="Extra.fs" />
     <Compile Include="HtmlCommand.fs" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
