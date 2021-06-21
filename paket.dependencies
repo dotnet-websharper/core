@@ -14,7 +14,6 @@ nuget System.Reflection.Emit.Lightweight 4.3.0
 nuget Microsoft.Build.Utilities.Core 16.8.0
 nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
-nuget Microsoft.Extensions.DependencyModel 2.0.0
 nuget Microsoft.CSharp 4.7.0
 
 nuget System.Net.Http ~> 4.3.0
@@ -30,7 +29,14 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net461, netstandard2.0
+    framework: net461, netstandard2.0, net5.0
+    source https://api.nuget.org/v3/index.json
+    nuget NETStandard.Library 
+    nuget FSharp.Core 5.0.2-beta.21102.10
+
+group includes
+    references: strict
+    framework: net46, net461, netstandard2.0, netcoreapp3.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library 
     nuget FSharp.Core ~> 5.0.0

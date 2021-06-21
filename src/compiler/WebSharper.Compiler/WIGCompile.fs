@@ -245,22 +245,17 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let main = out.MainModule
     let resolvedTypes = Dictionary()
     
-    let corelib, syscore, isNetStandard =
+    let corelib =
         match netStandardPath with
         | Some p ->
             let netstandard = AssemblyDefinition.ReadAssembly p
             assemblies.["netstandard"] <- netstandard
-            netstandard, null, true
+            netstandard
         | _ ->
-            let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
-            let mscorlib = resolve(typeof<int>.Assembly.FullName)
-            assemblies.["mscorlib"] <- mscorlib
-            let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
-            assemblies.["System.Core"] <- syscore
-            mscorlib, syscore, false
+            failwith "WIG project requires netstandard"
 
     let correctType (t: TypeReference) =
-        if isNetStandard && AssemblyConventions.IsNetStandardType t.FullName then
+        if AssemblyConventions.IsNetStandardType t.FullName then
             t.Scope <- corelib.Name
 
     let rec correctMethod (m: MethodReference) =
@@ -294,7 +289,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         | true, x -> x
         | false, _ ->
             let asm =
-                if isNetStandard && AssemblyConventions.IsNetStandardType typeName then corelib else
+                if AssemblyConventions.IsNetStandardType typeName then corelib else
                 aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
@@ -433,8 +428,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.Delegate args res =
         let tn = if Option.isSome res then "System.Func" else "System.Action"
-        let fromLib = if isNetStandard || List.length args <= 8 then corelib else syscore
-        commonType fromLib tn (args @ Option.toList res)
+        commonType corelib tn (args @ Option.toList res)
 
     member b.InteropDelegate this args pars res =
         let tn =
@@ -1294,6 +1288,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyTitleAttribute>
                 typeof<System.Reflection.AssemblyFileVersionAttribute>
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
+                typeof<System.Runtime.Versioning.TargetFrameworkAttribute>
             |]
         let getSystemTypeDef (t: Type) =
             tB.SystemAssembly.MainModule.GetType(t.FullName)
