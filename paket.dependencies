@@ -34,13 +34,6 @@ group includes
     nuget NETStandard.Library 
     nuget FSharp.Core 5.0.2-beta.21102.10
 
-group includes
-    references: strict
-    framework: net46, net461, netstandard2.0, netcoreapp3.1
-    source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 
-    nuget FSharp.Core ~> 5.0.0
-
 group fcs
     framework: net461, netstandard2.0, netstandard2.1, net5.0
     source https://api.nuget.org/v3/index.json
