@@ -263,7 +263,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     
     do
         assemblies.["netstandard"] <- netstandard
-        assemblies.["System.Private.CoreLib"] <- netstandard
+        assemblies.["System.Private.CoreLib"] <- corelib
 
     let correctType (t: TypeReference) =
         if AssemblyConventions.IsNetStandardType t.FullName then
@@ -384,7 +384,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
 
     member b.CorrectMethod m = correctMethod m; m
 
-    member b.NetStandardAssembly = netstandard
+    member b.CoreLib = corelib
 
     member b.Action ts =
         commonType corelib "System.Action" ts
@@ -620,7 +620,9 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.ImportReference (tB.CorrectMethod x)
+            | Some x ->
+                tB.CorrectMethod x
+                |> def.MainModule.ImportReference
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -1301,7 +1303,8 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Runtime.Versioning.TargetFrameworkAttribute>
             |]
         let getSystemTypeDef (t: Type) =
-            tB.NetStandardAssembly.MainModule.GetType(t.FullName)
+            tB.CoreLib.MainModule.GetType(t.FullName)
+            |> tB.CorrectType
             |> def.MainModule.ImportReference
         let stringTypeDef =
             getSystemTypeDef typeof<string>
