@@ -29,7 +29,7 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net5.0
+    framework: net5.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref
     nuget FSharp.Core ~> 5.0.0

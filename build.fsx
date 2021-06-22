@@ -66,6 +66,7 @@ let targets = MakeTargets {
                         DotNet.build (fun p ->
                             { p with
                                 Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                                DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                             }) sln
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
@@ -78,6 +79,7 @@ let targets = MakeTargets {
                         OutputPath = Some outputPath
                         NoRestore = true
                         Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                     }) input
                 if explicitlyCopyFsCore then
                     let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
@@ -190,6 +192,7 @@ Target.create "PublishTests" <| fun _ ->
                 OutputPath = Some publishPath
                 NoRestore = true
                 Configuration = DotNet.Release
+                DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
             }) "tests/Web/Web.Net50.csproj"
     | _ ->
         failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
