@@ -10,7 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D
 		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
 		msbuild\CSharp.targets = msbuild\CSharp.targets
 		msbuild\FSharp.targets = msbuild\FSharp.targets
-		msbuild\netfx.props = msbuild\netfx.props
 		msbuild\WebSharper.CSharp.Internal.targets = msbuild\WebSharper.CSharp.Internal.targets
 		msbuild\WebSharper.CSharp.targets = msbuild\WebSharper.CSharp.targets
 		msbuild\WebSharper.FSharp.Internal.targets = msbuild\WebSharper.FSharp.Internal.targets
