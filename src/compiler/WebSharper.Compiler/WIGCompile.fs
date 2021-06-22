@@ -263,7 +263,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     
     do
         assemblies.["netstandard"] <- netstandard
-        assemblies.["System.Private.CoreLib"] <- corelib
+        assemblies.["System.Private.CoreLib"] <- netstandard
 
     let correctType (t: TypeReference) =
         if AssemblyConventions.IsNetStandardType t.FullName then
@@ -346,6 +346,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
             | 0 -> baseName
             | k -> baseName + "`" + string k
         let tDef = resolveTypeName assembly name
+        correctType tDef
         genericInstance tDef ts
 
     // First resolve FSharp.Core without explicit version,
