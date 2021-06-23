@@ -272,6 +272,8 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         | :? GenericInstanceType as g ->
             for a in g.GenericArguments do
                 correctType a
+        | :? ArrayType as a ->
+            correctType a.ElementType
         | _ -> ()
         ()
 
@@ -310,11 +312,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         match assemblies.TryGetValue(AssemblyName(asmName).Name) with
         | true, x -> x
         | false, _ ->
-            let asm =
-                //if AssemblyConventions.IsNetStandardType typeName then 
-                //    netstandard 
-                //else
-                    aR.Resolve(asmName)
+            let asm = aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
 
