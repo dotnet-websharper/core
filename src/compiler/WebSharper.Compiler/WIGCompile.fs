@@ -329,9 +329,12 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
                     else
                         origAsmName + " loaded as " + asmName
                 failwithf "Could not resolve type %s in %A" typeName asmNameWithOrig
-            | ty when asm.Name = out.Name -> ty :> TypeReference
-            | ty -> main.ImportReference ty
-        correctType ty
+            | ty when asm.Name = out.Name ->
+                correctType ty
+                ty :> TypeReference
+            | ty -> 
+                correctType ty
+                main.ImportReference ty
         resolvedTypes.[typeName] <- ty
         ty
 
