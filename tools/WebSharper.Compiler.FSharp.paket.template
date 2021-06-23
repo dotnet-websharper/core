@@ -9,7 +9,5 @@ dependencies
     WebSharper.Compiler.Common == CURRENTVERSION
     FSharp.Compiler.Service >= LOCKEDVERSION
 files
-    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.dll ==> lib/net461
-    ../build/Release/FSharp/net461/WebSharper.Compiler.FSharp.xml ==> lib/net461
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll ==> lib/netstandard2.0
-    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.xml ==> lib/netstandard2.0
+    ../build/Release/FSharp/net5.0/WebSharper.Compiler.FSharp.dll ==> lib/net5.0
+    ../build/Release/FSharp/net5.0/WebSharper.Compiler.FSharp.xml ==> lib/net5.0

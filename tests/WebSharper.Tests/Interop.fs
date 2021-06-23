@@ -31,11 +31,8 @@ let Tests =
 
         Test "C# records" {
             let p1 = Person("A", "B")
-            let p1Clone = p1.``<Clone>$``()
-            equal p1Clone.FirstName "A"
-////#if NET50
-//            let p2 = PersonP("A", "B")
-//            p2.Deconstruct
-////#endif
+            p1.``<Clone>$``()
+            let p2 = PersonP("A", "B")
+            p2.Deconstruct
         }
     }

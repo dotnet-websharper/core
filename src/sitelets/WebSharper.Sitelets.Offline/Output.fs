@@ -277,7 +277,13 @@ let resourceContext (st: State) (level: int) : R.Context =
 
         ScriptBaseUrl = Some scriptsFolder
 
-        GetSetting = fun _ -> None
+        GetSetting = 
+            if st.Config.Options.DownloadResources then
+                function
+                | "UseDownloadedResources" -> Some "true"
+                | _ -> None
+            else  
+                fun _ -> None
 
         GetAssemblyRendering = fun aN ->
             st.UseAssembly(aN)

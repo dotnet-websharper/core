@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <OutputPath>$(MSBuildThisFileDirectory)\..\..\..\build\$(Configuration)\FSharp\Offline</OutputPath>
   </PropertyGroup>
@@ -15,9 +14,6 @@
     <Compile Include="HtmlCommand.fs" />
     <None Include="paket.references" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
-  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
@@ -30,8 +26,8 @@
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\netcoreapp2.0\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\net5.0\deploy" />
   </Target>
-  <Target Name="_CopyToTools" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net461'">
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\net461\deploy" />
+  <Target Name="_CopyToTools" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net472'">
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\net472\deploy" />
   </Target>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

@@ -1361,7 +1361,7 @@ module RouterOperators =
 
     /// Parse/write a DateTime in `YYYY-MM-DD-HH.mm.ss` format.
     let rDateTime : Router<System.DateTime> =
-        let pInt x =
+        let pInt (x: string) =
             match System.Int32.TryParse x with
             | true, i -> Some i
             | _ -> None

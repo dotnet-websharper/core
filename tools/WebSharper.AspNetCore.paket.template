@@ -8,10 +8,10 @@ description
 tags
     Web JavaScript F# C#
 files
-    ../build/Release/netstandard2.0/WebSharper.AspNetCore.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.AspNetCore.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.AspNetCore.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.AspNetCore.xml ==> lib/net5.0
 dependencies
-    framework: netstandard2.0
+    framework: net5.0
         WebSharper == CURRENTVERSION
         Microsoft.AspNetCore.Hosting.Abstractions >= LOCKEDVERSION
         Microsoft.AspNetCore.Authentication.Abstractions >= LOCKEDVERSION

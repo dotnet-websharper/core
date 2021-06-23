@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
@@ -48,6 +47,7 @@
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
     <Compile Include="WIGCompile.fs" />
+    <Compile Include="commands\DownloadResources.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
     <Compile Include="commands/HtmlCommand.fsi" />
@@ -57,10 +57,6 @@
     <Compile Include="CommandTools.fs" />
     <Compile Include="Bundle.fs" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
