@@ -68,7 +68,7 @@ let targets = MakeTargets {
                                 Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
                                 MSBuildParams = 
                                     { p.MSBuildParams with 
-                                        DisableInternalBinLog = true
+                                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                                     }
                             }) sln
             let dest mode lang =
@@ -84,7 +84,7 @@ let targets = MakeTargets {
                         Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
                         MSBuildParams = 
                             { p.MSBuildParams with 
-                                DisableInternalBinLog = true
+                                DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                             }
                     }) input
                 if explicitlyCopyFsCore then
@@ -200,7 +200,7 @@ Target.create "PublishTests" <| fun _ ->
                 Configuration = DotNet.Release
                 MSBuildParams = 
                     { p.MSBuildParams with 
-                        DisableInternalBinLog = true
+                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                     }
             }) "tests/Web/Web.Net50.csproj"
     | _ ->
