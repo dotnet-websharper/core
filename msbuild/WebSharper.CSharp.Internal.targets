@@ -48,7 +48,6 @@
   </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\FSharp.Core.dll" />
-    <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\System.ValueTuple.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\Mono.Cecil.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\Mono.Cecil.Mdb.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\Mono.Cecil.Pdb.dll" />

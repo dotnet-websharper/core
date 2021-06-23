@@ -11,29 +11,20 @@ dependencies
     WebSharper == CURRENTVERSION
     WebSharper.Testing == CURRENTVERSION
 files
-    ../build/Release/net472/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.CSharp.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.CSharp.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.CSharp.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Collections.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Collections.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Html5.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Html5.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Sitelets.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Sitelets.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Web.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Web.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Web.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Tests.dll ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Tests.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Tests.dll ==> lib/net5.0
 
-    ../build/Release/net472/Website.dll ==> lib/net472
-    ../build/Release/netstandard2.0/Website.dll ==> lib/netstandard2.0
+    ../build/Release/net5.0/Website.dll ==> lib/net5.0

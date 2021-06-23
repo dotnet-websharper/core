@@ -11,55 +11,35 @@ dependencies
     FSharp.Core >= LOCKEDVERSION
     System.Reflection.Emit.Lightweight >= LOCKEDVERSION
 files
-    ../build/Release/net472/WebSharper.Core.JavaScript.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Core.JavaScript.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Core.JavaScript.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Core.JavaScript.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Core.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Core.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Core.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Core.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.InterfaceGenerator.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.InterfaceGenerator.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.InterfaceGenerator.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.InterfaceGenerator.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Sitelets.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Sitelets.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Sitelets.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Sitelets.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Web.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Web.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Web.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Web.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Web.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Web.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Main.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Main.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Main.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Main.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Main.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Main.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Collections.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Collections.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Collections.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Collections.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Collections.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Collections.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.Control.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.Control.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.Control.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.Control.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.Control.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.Control.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.JavaScript.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.JavaScript.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.JavaScript.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.JavaScript.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.JavaScript.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.JavaScript.xml ==> lib/net5.0
 
-    ../build/Release/net472/WebSharper.JQuery.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.JQuery.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.JQuery.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.JQuery.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.JQuery.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.JQuery.xml ==> lib/net5.0
 
     ../docs ==> docs
     ../src/htmllib/tags.csv ==> tools

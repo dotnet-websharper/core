@@ -13,11 +13,7 @@ tags
 dependencies
     WebSharper == CURRENTVERSION
 files
-    ../build/Release/net472/WebSharper.MathJS.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.MathJS.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.MathJS.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.MathJS.xml ==> lib/netstandard2.0
-    ../build/Release/net472/WebSharper.MathJS.Extensions.dll ==> lib/net472
-    ../build/Release/net472/WebSharper.MathJS.Extensions.xml ==> lib/net472
-    ../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.xml ==> lib/netstandard2.0
+    ../build/Release/net5.0/WebSharper.MathJS.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.MathJS.xml ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.MathJS.Extensions.dll ==> lib/net5.0
+    ../build/Release/net5.0/WebSharper.MathJS.Extensions.xml ==> lib/net5.0
