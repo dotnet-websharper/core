@@ -325,10 +325,17 @@ type private ArrayProxy =
     [<Inline "$array.reverse()">]
     static member Reverse(array: System.Array) = X<unit>
 
+    [<Inline "$array.reverse()">]
+    static member Reverse<'T>(array: 'T[]) = X<unit>
+
     [<Name "WebSharper.Arrays.reverse">]
     static member Reverse(array: System.Array, offset: int, length: int) =
         let a = Array.rev (Array.sub (As array) offset length)
         Array.blit a 0 (As array) offset a.Length
+
+    [<Inline>]
+    static member Reverse(array: 'T[], offset: int, length: int) =
+        System.Array.Reverse(As<System.Array> array, offset, length)
 
     [<Inline>]
     member this.SetValue(v: obj, index: int) =
