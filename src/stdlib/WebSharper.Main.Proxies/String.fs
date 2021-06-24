@@ -409,8 +409,26 @@ type private StringProxy =
     member this.Trim() = Trim (As this)
 
     [<Inline>]
+    member this.Trim(t: char) = TrimEnd (TrimStart (As this) [| t |]) [| t |]
+
+    [<Inline>]
+    member this.Trim(t: char[]) = TrimEnd (TrimStart (As this) t) t
+
+    [<Inline>]
+    member this.TrimStart() = TrimStart (As this) null
+
+    [<Inline>]
+    member this.TrimStart(t: char) = TrimStart (As this) [| t |]
+
+    [<Inline>]
     member this.TrimStart(t: char[]) = TrimStart (As this) t
 
+    [<Inline>]
+    member this.TrimEnd() = TrimEnd (As this) null
+
+    [<Inline>]
+    member this.TrimEnd(t: char) = TrimEnd (As this) [| t |]
+    
     [<Inline>]
     member this.TrimEnd(t: char[]) = TrimEnd (As this) t
 

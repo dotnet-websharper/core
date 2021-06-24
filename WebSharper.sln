@@ -10,7 +10,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D
 		msbuild\AssemblyInfo.fs = msbuild\AssemblyInfo.fs
 		msbuild\CSharp.targets = msbuild\CSharp.targets
 		msbuild\FSharp.targets = msbuild\FSharp.targets
-		msbuild\netfx.props = msbuild\netfx.props
 		msbuild\WebSharper.CSharp.Internal.targets = msbuild\WebSharper.CSharp.Internal.targets
 		msbuild\WebSharper.CSharp.targets = msbuild\WebSharper.CSharp.targets
 		msbuild\WebSharper.FSharp.Internal.targets = msbuild\WebSharper.FSharp.Internal.targets
@@ -159,11 +158,11 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "ProxyProjectTest.Proxy", "t
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.AspNetCore", "src\sitelets\WebSharper.AspNetCore\WebSharper.AspNetCore.fsproj", "{6DB7E533-6A1B-4960-B3E2-04CF03FE9075}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web.Net50", "tests\Web\Web.Net50.csproj", "{F0DB4321-4786-4EA6-9352-657B92EF7253}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Web.Net4x", "tests\WebOld\Web.Net4x.csproj", "{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Web", "tests\Web\Web.csproj", "{F0DB4321-4786-4EA6-9352-657B92EF7253}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.InterfaceGenerator.Tests.LatestFSharp", "tests\WebSharper.InterfaceGenerator.Tests.LatestFSharp\WebSharper.InterfaceGenerator.Tests.LatestFSharp.fsproj", "{75AD6A84-9F80-4ECE-9572-00D771A64374}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Module.Tests", "tests\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj", "{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -299,14 +298,14 @@ Global
 		{F0DB4321-4786-4EA6-9352-657B92EF7253}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F0DB4321-4786-4EA6-9352-657B92EF7253}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F0DB4321-4786-4EA6-9352-657B92EF7253}.Release|Any CPU.Build.0 = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E}.Release|Any CPU.Build.0 = Release|Any CPU
 		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{75AD6A84-9F80-4ECE-9572-00D771A64374}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -348,8 +347,8 @@ Global
 		{25E7DAF6-E287-4E5F-B596-FE4517761463} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{6DB7E533-6A1B-4960-B3E2-04CF03FE9075} = {70FEE852-57E6-4910-B4A8-E1B6D0F159E3}
 		{F0DB4321-4786-4EA6-9352-657B92EF7253} = {7C8FF043-B608-42BD-930B-2249675BA666}
-		{28C9AC4E-E540-4802-9EEA-48382B3C0B8E} = {7C8FF043-B608-42BD-930B-2249675BA666}
 		{75AD6A84-9F80-4ECE-9572-00D771A64374} = {7C8FF043-B608-42BD-930B-2249675BA666}
+		{A6C9340C-4BC5-4D88-A1B0-8540973A7BE3} = {7C8FF043-B608-42BD-930B-2249675BA666}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {5F8D55BB-6DB9-4B9C-9104-C9F5EFC53B01}

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -91,9 +90,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

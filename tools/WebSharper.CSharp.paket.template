@@ -11,55 +11,23 @@ dependencies
     WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.CSharp.targets ==> build
-    ../build/Release/CSharp/net461/deploy/ZafirCs.exe ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/ZafirCs.exe.config ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/WebSharper.Compiler.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/WebSharper.Compiler.CSharp.dll ==> tools/net461
-    ../build/Release/CSharp/net461/WebSharper.MSBuild.CSharp.dll ==> tools/net461
-    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/WebSharper.Core.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/WebSharper.Core.JavaScript.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/WebSharper.InterfaceGenerator.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/FSharp.Core.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/Mono.Cecil.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/Mono.Cecil.Mdb.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/Mono.Cecil.Pdb.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/Microsoft.CodeAnalysis.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/Microsoft.CodeAnalysis.CSharp.dll ==> tools/net461
-    ../build/Release/CSharp/net461/netstandard.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Collections.Immutable.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Console.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.IO.Compression.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.IO.FileSystem.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.IO.FileSystem.Primitives.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Reflection.Metadata.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Security.Cryptography.Algorithms.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Security.Cryptography.Primitives.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Text.Encoding.CodePages.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.ValueTuple.dll ==> tools/net461
-    ../build/Release/CSharp/net461/deploy/System.Xml.XPath.XDocument.dll ==> tools/net461
     ../build/Release/CSharp/net5.0/deploy/*.dll ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/**/*.dll ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/ZafirCs.exe ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/ZafirCs.dll.config ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/ZafirCs.runtimeconfig.json ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/zafircs-netcore.sh ==> tools/net5.0
-    ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/net5.0
-    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/net5.0
+    ../build/Release/CSharp/net5.0/WebSharper.MSBuild.CSharp.dll ==> tools/net5.0
+    ../build/Release/FSharp/Offline/net5.0/WebSharper.Sitelets.Offline.dll ==> tools/net5.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0
-    ../src/compiler/WebSharper.CSharp.Analyzer/install.ps1 ==> tools/net461
-    ../src/compiler/WebSharper.CSharp.Analyzer/uninstall.ps1 ==> tools/net461
     ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools
-    ../build/Release/CSharp/net461/netstandard.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/Microsoft.Extensions.DependencyModel.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/Microsoft.DotNet.PlatformAbstractions.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
-    ../build/Release/CSharp/netstandard2.0/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/FSharp.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/Mono.Cecil.Pdb.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.Core.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.Core.JavaScript.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.InterfaceGenerator.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.Compiler.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.Compiler.CSharp.dll ==> analyzers/dotnet/cs
+    ../build/Release/CSharp/net5.0/WebSharper.CSharp.Analyzer.dll ==> analyzers/dotnet/cs

@@ -41,8 +41,8 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
 
-let version = "4.7"
-let pre = None
+let version = "5.0"
+let pre = Some "preview1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -66,6 +66,10 @@ let targets = MakeTargets {
                         DotNet.build (fun p ->
                             { p with
                                 Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                                MSBuildParams = 
+                                    { p.MSBuildParams with 
+                                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
+                                    }
                             }) sln
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
@@ -78,6 +82,10 @@ let targets = MakeTargets {
                         OutputPath = Some outputPath
                         NoRestore = true
                         Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                        MSBuildParams = 
+                            { p.MSBuildParams with 
+                                DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
+                            }
                     }) input
                 if explicitlyCopyFsCore then
                     let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
@@ -90,8 +98,6 @@ let targets = MakeTargets {
                 BuildAction.Custom <| fun mode ->
                     publishExe mode "net5.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
                     publishExe mode "net5.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
-                    publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false
-                    publishExe mode "net461" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" false
                 buildSln "WebSharper.sln"
             ]
 }
@@ -117,7 +123,7 @@ let MakeNetStandardTypesList() =
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
     if not f.Exists then
         let asm =
-            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
+            "packages/includes/NETStandard.Library.Ref/ref/netstandard2.1/netstandard.dll"
             |> Mono.Cecil.AssemblyDefinition.ReadAssembly
         use s = f.OpenWrite()
         use w = new StreamWriter(s)
@@ -157,43 +163,8 @@ Target.create "Prepare" <| fun _ ->
     AddToolVersions()
 targets.AddPrebuild "Prepare"
 "WS-GenAssemblyInfo" ==> "Prepare"
-
-// Generate App.config redirects from the actual assemblies being used,
-// because Paket gets some versions wrong.
-Target.create "GenAppConfig" <| fun _ ->
-    [
-        "build/Release/CSharp/net461/deploy", "ZafirCs.exe.config"
-        "build/Release/FSharp/net461/deploy", "wsfsc.exe.config"
-    ]
-    |> List.iter (fun (dir, xmlFile) ->
-        let xmlFullPath = dir </> xmlFile
-        let mgr = XmlNamespaceManager(NameTable())
-        mgr.AddNamespace("ac", "urn:schemas-microsoft-com:asm.v1")
-        let doc = XDocument.Load(xmlFullPath)
-        let e::rest = doc.XPathSelectElements("/configuration/runtime/ac:assemblyBinding", mgr) |> List.ofSeq
-        e.RemoveAll()
-        for e in rest do e.Remove()
-        let loadElt (s: string) =
-            let parserContext = XmlParserContext(null, mgr, null, XmlSpace.None)
-            use reader = new XmlTextReader(s, XmlNodeType.Element, parserContext)
-            XElement.Load(reader)
-        for asmFullPath in Directory.GetFiles(dir, "*.dll") do
-            if not (xmlFile.StartsWith(Path.GetFileName(asmFullPath))) then
-                let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(asmFullPath)
-                let token = asm.Name.PublicKeyToken
-                let token = String.init token.Length (fun i -> sprintf "%02x" token.[i])
-                sprintf """<ac:dependentAssembly>
-                        <ac:assemblyIdentity name="%s" publicKeyToken="%s" culture="neutral" />
-                        <ac:bindingRedirect oldVersion="0.0.0.0-65535.65535.65535.65535" newVersion="%A" />
-                    </ac:dependentAssembly>"""
-                    asm.Name.Name token asm.Name.Version
-                |> loadElt
-                |> e.Add
-        doc.Save(xmlFullPath)
-    )
     
 "WS-BuildRelease"
-    ==> "GenAppConfig"
     ==> "WS-Package"
 
 let rm_rf x =
@@ -227,6 +198,10 @@ Target.create "PublishTests" <| fun _ ->
                 OutputPath = Some publishPath
                 NoRestore = true
                 Configuration = DotNet.Release
+                MSBuildParams = 
+                    { p.MSBuildParams with 
+                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
+                    }
             }) "tests/Web/Web.Net50.csproj"
     | _ ->
         failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
@@ -253,5 +228,5 @@ Target.create "RunTests" <| fun _ ->
     ?=> "WS-Package"
 "RunTests"
     ==> "CI-Release"
-
+    
 Target.runOrDefault "Build"

@@ -1,16 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;net5.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   	<LangVersion>preview</LangVersion>
     <Tests>True</Tests>
-  </PropertyGroup>
-  <PropertyGroup Condition="$(TargetFramework.StartsWith('net5'))">
-    <DefineConstants>$(DefineConstants);NET50</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Collections.fs" />
@@ -64,7 +60,6 @@
     <Compile Include="Promise.fs" />
     <Compile Include="Compiler.fs" />
     <Compile Include="Main.fs" />
-    <EmbeddedResource Include="sayHi.js" />
     <None Include="QuotationTests.fsx" />
     <None Include="ASTTests.fsx" />
     <None Include="paket.references" />

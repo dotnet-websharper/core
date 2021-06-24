@@ -20,22 +20,25 @@
 module WebSharper.AspNetCore.Sitelets
 
 open System
+open System.IO
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Http.Features
 open WebSharper.Sitelets
 
-let private writeResponse (resp: Task<Http.Response>) (out: HttpResponse) =
-    resp.ContinueWith(fun (t: Task<Http.Response>) ->
-        let resp = t.Result
-        out.StatusCode <- resp.Status.Code
-        for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
-            let values =
-                [| for h in hs -> h.Value |]
-                |> Microsoft.Extensions.Primitives.StringValues
-            out.Headers.Append(name, values)
-        resp.WriteBody(out.Body)
-    )
+let private writeResponseAsync (resp: Http.Response) (out: HttpResponse) : Async<unit> =
+    async {
+        use memStr = new MemoryStream()
+        do
+            out.StatusCode <- resp.Status.Code
+            for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
+                let values =
+                    [| for h in hs -> h.Value |]
+                    |> Microsoft.Extensions.Primitives.StringValues
+                out.Headers.Append(name, values)
+            resp.WriteBody(memStr :> Stream)
+            memStr.Seek(0L, SeekOrigin.Begin) |> ignore
+        do! memStr.CopyToAsync(out.Body) |> Async.AwaitTask    
+    }
 
 let Middleware (options: WebSharperOptions) =
     let sitelet =
@@ -47,14 +50,14 @@ let Middleware (options: WebSharperOptions) =
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-            let syncIOFeature = httpCtx.Features.Get<IHttpBodyControlFeature>()
-            if not (isNull syncIOFeature) then
-                syncIOFeature.AllowSynchronousIO <- true
             let ctx = Context.GetOrMake httpCtx options
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
-                let content = sitelet.Controller.Handle endpoint
-                let response = Content.ToResponse content ctx |> Async.StartAsTask
-                writeResponse response httpCtx.Response
+                async {
+                    let content = sitelet.Controller.Handle endpoint
+                    let! response = Content.ToResponse content ctx
+                    do! writeResponseAsync response httpCtx.Response
+                }
+                |> Async.StartAsTask :> Task
             | None -> next.Invoke()
         )

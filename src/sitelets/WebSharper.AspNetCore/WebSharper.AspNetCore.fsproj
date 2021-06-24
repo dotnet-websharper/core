@@ -1,7 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>net5.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
