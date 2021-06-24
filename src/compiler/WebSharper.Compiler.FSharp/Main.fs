@@ -20,7 +20,8 @@
 
 namespace WebSharper.Compiler.FSharp
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
+open FSharp.Compiler.Diagnostics
 open WebSharper.Compiler
 open WebSharper.Compiler.CommandTools
 open ErrorPrinting
@@ -82,9 +83,9 @@ type WebSharperFSharpCompiler(?checker) =
 
         logger.TimedStage "Waiting on merged metadata"
 
-        if checkProjectResults.Errors |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
+        if checkProjectResults.Diagnostics |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
             if assemblyName = "WebSharper.Main" || config.ProjectType = Some BundleOnly then
-                PrintFSharpErrors this.WarnSettings logger checkProjectResults.Errors
+                PrintFSharpErrors this.WarnSettings logger checkProjectResults.Diagnostics
             None
         else
         

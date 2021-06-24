@@ -38,8 +38,8 @@ group fcs
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
-    nuget FSharp.Compiler.Service ~> 39.0
-    nuget FSharp.Core ~> 5.0.0
+    nuget FSharp.Compiler.Service ~> 40.0
+    nuget FSharp.Core ~> 5.0.2
 
 group test
     source https://api.nuget.org/v3/index.json
