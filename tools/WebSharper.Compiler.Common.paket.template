@@ -13,7 +13,7 @@ dependencies
     Mono.Cecil >= LOCKEDVERSION
     FSharp.Core >= LOCKEDVERSION
 files
-    ../build/Release/FSharp/net5.0/WebSharper.Compiler.dll ==> lib/net5.0
-    ../build/Release/FSharp/net5.0/WebSharper.Compiler.xml ==> lib/net5.0
-    ../build/Release/FSharp/Offline/net5.0/WebSharper.Sitelets.Offline.dll ==> lib/net5.0
-    ../build/Release/FSharp/Offline/net5.0/WebSharper.Sitelets.Offline.xml ==> lib/net5.0
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
+    ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
+    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0

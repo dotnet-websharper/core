@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <WebSharperProject>Library</WebSharperProject>
     <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
