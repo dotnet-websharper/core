@@ -28,10 +28,6 @@ module R = WebSharper.Core.AST.Reflection
 
 /// A server-side control that adds a runtime dependency on a given resource.
 type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
-#if NET461 // ASP.NET: Control
-    inherit System.Web.UI.Control()
-#endif
-
     let t = AST.Reflection.ReadTypeDefinition t
     let req = 
         [M.ResourceNode (t, 
@@ -45,15 +41,6 @@ type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
         member this.Encode(_, _) = []
         member this.Requires(_) = req :> _
 
-#if NET461 // ASP.NET: Control
-    override this.OnLoad _ =
-        this.ID <-
-            ScriptManager.Find(base.Page)
-                .Register(None, this, Shared.Metadata, Shared.Json)
-
-    override this.Render _ = ()
-#endif
-
 /// A server-side control that adds a runtime dependency on a given resource.
 type Require<'T when 'T :> Resources.IResource>() =
     inherit Require(typeof<'T>)
@@ -63,28 +50,13 @@ type Require<'T when 'T :> Resources.IResource>() =
 /// control in your application.
 [<AbstractClass>]
 type Control() =
-#if NET461 // ASP.NET: Control
-    inherit System.Web.UI.Control()
-#endif
-
     static let gen = System.Random()
     [<System.NonSerialized>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
-#if NET461 // ASP.NET: Control
-    override this.ID
-#else
     member this.ID
-#endif
         with get () = id
         and set x = id <- x
-
-#if NET461 // ASP.NET: Control
-    override this.OnLoad _ =
-        this.ID <-
-            ScriptManager.Find(base.Page)
-                .Register(Some id, this, Shared.Metadata, Shared.Json)
-#endif
 
     interface INode with
         member this.IsAttribute = false
@@ -112,11 +84,7 @@ type Control() =
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
-#if NET461 // ASP.NET: Control
-    override this.Render writer =
-#else
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
-#endif
         writer.WriteLine("<div id='{0}'></div>", this.ID)
 
 open WebSharper.JavaScript

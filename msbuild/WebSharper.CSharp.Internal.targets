@@ -39,9 +39,6 @@
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
-  <PropertyGroup>
-    <DefineConstants Condition="'$(VisualStudioVersion)' == '15.0'">$(DefineConstants);CSHARP7</DefineConstants>
-  </PropertyGroup>
   <ItemGroup Condition=" '$(Tests)' == 'True' ">
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\FSharp.Core.dll" />
     <Analyzer Include="$(Root)\build\$(Configuration)\CSharp\net5.0\Mono.Cecil.dll" />
