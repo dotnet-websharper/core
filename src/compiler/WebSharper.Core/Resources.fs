@@ -229,18 +229,6 @@ let thisAssemblyToken =
 
 let AllReferencedAssemblies = 
     lazy
-#if NET461 // ASP.NET: References from System.Web.Compilation.BuildManager
-    let fromWeb =
-        try
-            System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-            |> Seq.cast<System.Reflection.Assembly>
-            |> Seq.toList
-        with _ ->
-            []
-    match fromWeb with
-    | _::_ -> fromWeb
-    | [] ->
-#endif
     let trace =
         System.Diagnostics.TraceSource("WebSharper",
             System.Diagnostics.SourceLevels.All)

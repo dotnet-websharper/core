@@ -13,7 +13,6 @@
     <Compile Include="Shared.fs" />
     <Compile Include="ResourceContext.fs" />
     <Compile Include="RpcModule.fs" />
-    <Compile Include="ScriptManager.fs" />
     <Compile Include="Node.fs" />
     <Compile Include="Control.fs" />
     <None Include="paket.references" />

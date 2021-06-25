@@ -77,12 +77,3 @@ let DiscoverSitelet(assemblies: seq<Assembly>) =
     | _ ->
         Seq.tryPick TryLoadSiteB assemblies
         |> Option.map fst       
-
-#if NET461 // ASP.NET: Sitelets HttpModule
-/// Load a sitelet from the current ASP.NET application.
-let SiteletDefinition =
-    Timed "Initialized sitelets" <| fun () ->
-        System.Web.Compilation.BuildManager.GetReferencedAssemblies()
-        |> Seq.cast<Assembly>
-        |> DiscoverSitelet
-#endif
