@@ -20,7 +20,7 @@
 
 module internal WebSharper.Compiler.FSharp.CodeReader
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
  
 open WebSharper.Core
 open WebSharper.Core.AST
@@ -39,7 +39,7 @@ let rec getOrigDef (td: FSharpEntity) =
 module M = WebSharper.Core.Metadata
 module A = WebSharper.Compiler.AttributeReader
 module I = IgnoreSourcePos
-module P = BasicPatterns
+module P = FSharpExprPatterns
 
 let rec getOrigType (t: FSharpType) =
     if t.IsAbbreviation then getOrigType t.AbbreviatedType else t

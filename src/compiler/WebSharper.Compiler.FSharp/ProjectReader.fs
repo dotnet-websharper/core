@@ -20,7 +20,8 @@
 
 module WebSharper.Compiler.FSharp.ProjectReader
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.CodeAnalysis
 open System.Collections.Generic
 
 open WebSharper.Core
@@ -775,7 +776,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let usesNull =
                 cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
                 && cls.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
-                && cls.UnionCases |> Seq.exists (fun c -> c.UnionCaseFields.Count = 0)
+                && cls.UnionCases |> Seq.exists (fun c -> c.Fields.Count = 0)
 
             let mutable nullCase = usesNull 
 
@@ -794,7 +795,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             ConstantFSharpUnionCase (String "$$ERROR$$")
                     let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
-                        let argumentless = case.UnionCaseFields.Count = 0
+                        let argumentless = case.Fields.Count = 0
                         if nullCase && argumentless then
                             nullCase <- false
                             constantCase Null
@@ -812,7 +813,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 SingletonFSharpUnionCase
                             else
                                 NormalFSharpUnionCase (
-                                    case.UnionCaseFields
+                                    case.Fields
                                     |> Seq.map (fun f ->
                                         {
                                             Name = f.Name

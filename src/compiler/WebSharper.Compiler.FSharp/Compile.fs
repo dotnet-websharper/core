@@ -29,7 +29,7 @@ open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
