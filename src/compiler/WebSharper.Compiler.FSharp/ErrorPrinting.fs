@@ -20,7 +20,7 @@
 
 module WebSharper.Compiler.FSharp.ErrorPrinting
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Diagnostics
 open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
@@ -98,7 +98,7 @@ let PrintFSharpErrors (settings: WarnSettings) (logger: LoggerBase) (errs: FShar
                 let fn = err.FileName
                 if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
                     let file = fn.Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate (err.StartColumn + 1) err.EndLineAlternate (err.EndColumn + 1)
+                    sprintf "%s(%d,%d,%d,%d): " file err.StartLine (err.StartColumn + 1) err.EndLine (err.EndColumn + 1)
                 else ""
             let info =
                 sprintf "%s %s FS%04d: " err.Subcategory (if isError then "error" else "warning") err.ErrorNumber

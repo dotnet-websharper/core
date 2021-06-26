@@ -24,7 +24,7 @@ open System.IO
 open WebSharper.Compiler
 module C = WebSharper.Compiler.Commands
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting

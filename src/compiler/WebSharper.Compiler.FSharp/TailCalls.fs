@@ -22,11 +22,8 @@ module WebSharper.Compiler.FSharp.TailCalls
 
 open System.Collections.Generic
 
-open WebSharper.Core
 open WebSharper.Core.AST
-open WebSharper.Core.Metadata
 open WebSharper.Compiler
-open WebSharper.Compiler.NotResolved
 module I = IgnoreSourcePos
 
 type TailPos =
