@@ -682,6 +682,7 @@ module Router =
                 Seq.singleton { Route.Empty with Method = Some m }
         }
 
+    [<System.Obsolete("Do not use request body for routing.")>]
     let Body (deserialize: string -> option<'A>) (serialize: 'A -> string) : Router<'A> =
         {
             Parse = fun path ->
@@ -853,7 +854,7 @@ module Router =
     let Box (router: Router<'A>): Router<obj> =
         BoxImpl (function :? 'A as v -> Some v | _ -> None) router
 
-    [<Inline>]
+    [<Inline; System.Obsolete("Do not use request body for routing.")>]
     let Json<'T when 'T: equality> : Router<'T> =
         Body (fun s -> try Some (Json.Deserialize<'T> s) with _ -> None) Json.Serialize<'T>
 
@@ -1026,11 +1027,11 @@ type Router with
     static member Method(method:string) =
         Router.Method method
 
-    [<Inline>]
+    [<Inline; System.Obsolete("Do not use request body for routing.")>]
     static member Body(des:System.Func<string, 'T>, ser: System.Func<'T, string>) =
         Router.Body (fun s -> des.Invoke s |> Option.ofObj) ser.Invoke 
 
-    [<Inline>]
+    [<Inline; System.Obsolete("Do not use request body for routing.")>]
     static member Json<'T when 'T: equality>() =
         Router.Json<'T>
 
