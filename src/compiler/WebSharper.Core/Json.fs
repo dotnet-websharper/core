@@ -21,10 +21,12 @@
 module WebSharper.Core.Json
 
 open WebSharper
+open System
 open System.Collections.Generic
 open System.Reflection
 open Microsoft.FSharp.Quotations
 open Microsoft.FSharp.Quotations.Patterns
+open System.Linq.Expressions
 
 //module P = WebSharper.Core.JavaScript.Packager
 //module AST = WebSharper.Core.AST
@@ -1330,6 +1332,18 @@ let unmakeArrayMap<'K, 'T when 'K : comparison> (dK: obj -> Encoded) (dV: obj ->
             EncodedArray [ dK (box k); dV (box v) ]
     ]
 
+let compileFieldAccessor<'T> (fi: FieldInfo) (t: Type) =
+    let param = Expression.Parameter (typeof<obj>, "param")
+    let expr = 
+        Expression.Lambda<Func<obj, 'T>>(
+            Expression.Convert(Expression.Field(Expression.Convert(param, t), fi), typeof<'T>)
+        , param)    
+    expr.Compile()
+
+let compileFieldAccessorByName<'T> (f: string) (t: Type) =
+    let fi = t.GetField(f, fieldFlags)
+    compileFieldAccessor<'T> fi t
+
 let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
     let t = ta.Type
     let tg = t.GetGenericArguments()
@@ -1340,7 +1354,8 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
         else
             callGeneric2 <@ unmakeArrayMap @> dE ta tg.[0] tg.[1]
     else
-    let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
+    let treeFI = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
+    let treeF = t |> compileFieldAccessor<obj> treeFI
     let pair key value =
         EncodedObject [
             "Key", key
@@ -1348,28 +1363,35 @@ let mapEncoder dE (i: FormatSettings) (ta: TAttrs) =
         ]   
     let dK = dE (TAttrs.Get(i, tg.[0]))
     let dV = dE (TAttrs.Get(i, tg.[1]))
-    let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
-    let uR =
-        FST.GetUnionCases(treeF.FieldType, flags)
-        |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
+    let mapTreeTy = treeFI.FieldType
+    let heightF = mapTreeTy |> compileFieldAccessorByName<int> "h"
+    let keyF = mapTreeTy |> compileFieldAccessorByName<obj> "k"
+    let valueF = mapTreeTy |> compileFieldAccessorByName<obj> "v"
+    let mapTreeNodeTy =
+        mapTreeTy.Assembly.GetType("Microsoft.FSharp.Collections.MapTreeNode`2")
+            .MakeGenericType(mapTreeTy.GenericTypeArguments)
+    let leftF = mapTreeNodeTy |> compileFieldAccessorByName<obj> "left"
+    let rightF = mapTreeNodeTy |> compileFieldAccessorByName<obj> "right"
+
     fun (x: obj) ->
         let rec encNode v = 
             match v with
             | null -> None, 0
             | _ ->
-            match tR v with
-            | 0 -> None, 0
+            match heightF.Invoke(v) with
+            | 0 -> None, 0 
             | 1 ->
-                let u = uR.[1] v
-                Some (btree (pair (dK u.[0]) (dV u.[1])) None None "1" "1"), 1
-            | 2 ->
-                let u = uR.[2] v
-                let l, lc = encNode u.[2]
-                let r, rc = encNode u.[3]
+                let nk = keyF.Invoke(v)
+                let nv = valueF.Invoke(v)
+                Some (btree (pair (dK nk) (dV nv)) None None "1" "1"), 1
+            | h ->
+                let nk = keyF.Invoke(v)
+                let nv = valueF.Invoke(v)
+                let l, lc = encNode (leftF.Invoke(v))
+                let r, rc = encNode (rightF.Invoke(v))
                 let c = 1 + lc + rc
-                Some (btree (pair (dK u.[0]) (dV u.[1])) l r (string u.[4]) (string c)), c
-            | _ -> raise EncoderException     
-        match encNode (treeF.GetValue x) with
+                Some (btree (pair (dK nk) (dV nv)) l r (string h) (string c)), c
+        match encNode (treeF.Invoke(x)) with
         | Some tr, _ -> EncodedObject [ "tree", tr ]
         | None, _ -> EncodedObject []
         |> i.AddTag t
@@ -1442,29 +1464,34 @@ let setEncoder dE (i: FormatSettings) (ta: TAttrs) =
         callGeneric <@ unmakeSet @> dE ta tg.[0]
     else
     let dI = dE (TAttrs.Get(i, tg.[0]))
-    let treeF = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
-    let tR = FSV.PreComputeUnionTagReader(treeF.FieldType, flags)
-    let uR =
-        FST.GetUnionCases(treeF.FieldType, flags)
-        |> Array.map (fun c -> FSV.PreComputeUnionReader(c, flags))
+    let treeFI = t.GetFields(fieldFlags) |> Array.find (fun f -> f.Name.StartsWith "tree")
+    let treeF = t |> compileFieldAccessor<obj> treeFI
+    let setTreeTy = treeFI.FieldType
+    let heightF = setTreeTy |> compileFieldAccessorByName<int> "h"
+    let keyF = setTreeTy |> compileFieldAccessorByName<obj> "k"
+    let setTreeNodeTy =
+        setTreeTy.Assembly.GetType("Microsoft.FSharp.Collections.SetTreeNode`1")
+            .MakeGenericType(setTreeTy.GenericTypeArguments)
+    let leftF = setTreeNodeTy |> compileFieldAccessorByName<obj> "left"
+    let rightF = setTreeNodeTy |> compileFieldAccessorByName<obj> "right"
+
     fun (x: obj) ->
         let rec encNode v = 
             match v with
             | null -> None, 0
             | _ ->
-            match tR v with
+            match heightF.Invoke(v) with
             | 0 -> None, 0
             | 1 ->
-                let u = uR.[1] v
-                let l, lc = encNode u.[1]
-                let r, rc = encNode u.[2]
+                let nk = keyF.Invoke(v)
+                Some (btree (dI nk) None None "1" "1"), 1
+            | h ->
+                let nk = keyF.Invoke(v)
+                let l, lc = encNode (leftF.Invoke(v))
+                let r, rc = encNode (rightF.Invoke(v))
                 let c = 1 + lc + rc
-                Some (btree (dI u.[0]) l r (string u.[3]) (string c)), c
-            | 2 ->
-                let u = uR.[2] v
-                Some (btree (dI u.[0]) None None "1" "1"), 1
-            | _ -> raise EncoderException
-        match encNode (treeF.GetValue x) with
+                Some (btree (dI nk) l r (string h) (string c)), c
+        match encNode (treeF.Invoke(x)) with
         | Some tr, _ -> EncodedObject [ "tree", tr ]
         | None, _ -> EncodedObject []
         |> i.AddTag t

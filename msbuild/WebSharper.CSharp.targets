@@ -26,7 +26,7 @@
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/net5.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net5.0/zafircs.exe</ZafirToolPath>
     <ZafirToolPath Condition=" '$(ZafirToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net5.0/zafircs-netcore.sh</ZafirToolPath>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
