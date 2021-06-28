@@ -49,8 +49,7 @@ namespace WebSharper.CSharp.Tests
             Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
-#if NET50
-        [Test]
+        [Test("C# record with", TestKind.Skip)]
         public void WithExpression()
         {
             var person = new PersonP("Bill", "Wagner");
@@ -62,7 +61,7 @@ namespace WebSharper.CSharp.Tests
             NotStrictEqual(person, personClone);
         }
 
-        [Test]
+        [Test("C# record deconstruction", TestKind.Skip)]
         public void Deconstruct()
         {
             var person = new PersonP("Bill", "Wagner");
@@ -71,7 +70,7 @@ namespace WebSharper.CSharp.Tests
             Equal(firstName, "Wagner");
         }
 
-        [Test]
+        [Test("C# record inheritance", TestKind.Skip)]
         public void Inheritance()
         {
             var teacher = new TeacherP("Bill", "Wagner", "English");
@@ -89,7 +88,6 @@ namespace WebSharper.CSharp.Tests
             var person = new InitOnlyTest { Name = "Bill Wagner" };
             Equal(person.Name, "Bill Wagner");
         }
-#endif
     }
 
     [JavaScript]
@@ -110,7 +108,6 @@ namespace WebSharper.CSharp.Tests
             : base(first, last) => Subject = sub;
     }
 
-#if NET50
     [JavaScript]
     public record PersonP(string FirstName, string LastName); // positional record
 
@@ -132,5 +129,4 @@ namespace WebSharper.CSharp.Tests
     {
         public string Name { get; init; }
     }
-#endif
 }

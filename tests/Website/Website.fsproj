@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;net5.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <Tests>True</Tests>
   </PropertyGroup>
@@ -12,9 +11,6 @@
     <Compile Include="Content.fs" />
     <Compile Include="Main.fs" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
@@ -29,6 +25,7 @@
     <ProjectReference Include="..\WebSharper.CSharp.Sitelets.Tests\WebSharper.CSharp.Sitelets.Tests.csproj" />
     <ProjectReference Include="..\WebSharper.CSharp.Tests\WebSharper.CSharp.Tests.csproj" />
     <ProjectReference Include="..\WebSharper.Html5.Tests\WebSharper.Html5.Tests.fsproj" />
+    <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />

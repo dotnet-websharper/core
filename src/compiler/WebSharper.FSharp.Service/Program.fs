@@ -23,7 +23,7 @@ open System.IO.Pipes
 open System.Threading
 open System.IO
 open System.Runtime.Serialization.Formatters.Binary
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
 open WebSharper.Compiler
@@ -34,6 +34,8 @@ open WebSharper.Compiler.CommandTools
 
 let startListening() =
     let nLogger = Logger()
+    nLogger.Trace "Trace level is on"
+    nLogger.Debug "Debug level is on"
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
     let checkerFactory() = checker
 

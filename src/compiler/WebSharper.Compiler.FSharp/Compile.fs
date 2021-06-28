@@ -29,7 +29,7 @@ open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
 module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
@@ -52,7 +52,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             }
         let mainProxiesFile = mainProxiesFile()
         Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
-        File.WriteAllLines(mainProxiesFile, config.CompilerArgs)
+        let fixedArgs =
+            config.CompilerArgs 
+            |> Array.map (fun s -> 
+                s.Replace(@"net5.0\.NETCoreApp,Version=v5.0.AssemblyAttributes.fs", 
+                    @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs")
+            )
+        File.WriteAllLines(mainProxiesFile, fixedArgs)
         MakeDummyDll config.AssemblyFile thisName
         logger.Out "Written Proxies.args"
         0 

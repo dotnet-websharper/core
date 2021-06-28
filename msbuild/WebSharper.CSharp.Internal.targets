@@ -27,12 +27,8 @@
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <_WebSharperUseNetFxCompiler>$(WebSharperUseNetFxCompiler)</_WebSharperUseNetFxCompiler>
-    <_WebSharperUseNetFxCompiler Condition="'$(_WebSharperUseNetFxCompiler)' == '' AND ( $(TargetFramework.StartsWith('net4')) OR $(TargetFrameworkVersion.StartsWith('v4')) )">True</_WebSharperUseNetFxCompiler>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build/$(Configuration)/CSharp/net461/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)build\$(Configuration)\CSharp\net461\deploy\ZafirCs.exe</ZafirCsFullPath>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == '' AND '$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)build\$(Configuration)\CSharp\net5.0\deploy\zafircs.exe</ZafirCsFullPath>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
+    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == ''">$(Root)build\$(Configuration)\CSharp\net5.0\deploy\zafircs.exe</ZafirCsFullPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>

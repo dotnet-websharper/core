@@ -43,7 +43,6 @@ type CompilerOptions =
         ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
-        IsNetStandard : bool
     }
 
     static member Default : assemblyName: string -> CompilerOptions

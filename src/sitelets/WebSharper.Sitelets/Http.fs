@@ -26,6 +26,7 @@ module Http =
     open System.Collections.Generic
     open System.Collections.Specialized
     open System.IO
+    open System.Threading.Tasks
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -144,7 +145,7 @@ module Http =
     /// Represents HTTP requests.
     [<AbstractClass>]
     type Request() =
-        let mutable bodyText = null
+        let mutable bodyText = null : Task<string>
 
         abstract Method : Method 
         abstract Uri : System.Uri 
@@ -156,25 +157,19 @@ module Http =
         abstract Files : seq<IPostedFile>
         abstract Cookies : ParameterCollection
         
+        [<Obsolete("Use BodyTextAsync instead")>]
         member this.BodyText =
+            this.BodyTextAsync |> Async.RunSynchronously
+
+        member this.BodyTextAsync =
             if isNull bodyText then
                 let i = this.Body
                 if isNull i then
-                    bodyText <- ""    
+                    bodyText <- Task.FromResult ""    
                 else
-                    // We need to copy the stream because else StreamReader would close it.
-                    use m =
-                        if i.CanSeek then
-                            new System.IO.MemoryStream(int i.Length)
-                        else
-                            new System.IO.MemoryStream()
-                    i.CopyTo m
-                    if i.CanSeek then
-                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    use reader = new System.IO.StreamReader(m)
-                    bodyText <- reader.ReadToEnd()
-            bodyText
+                    let reader = new System.IO.StreamReader(i, System.Text.Encoding.UTF8, false, 1024, leaveOpen = true)
+                    bodyText <- reader.ReadToEndAsync()
+            bodyText |> Async.AwaitTask
 
         member this.WithUri(uri) =
             match this with

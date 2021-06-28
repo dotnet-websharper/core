@@ -312,6 +312,17 @@ module Sitelet =
         | Some (embed, unembed) -> InferPartial embed unembed mkContent
         | None -> failwith "Invalid union case in Sitelet.InferPartialInUnion"
 
+    let MapContext (f: Context<'T> -> Context<'T>) (sitelet: Sitelet<'T>) : Sitelet<'T> =
+        { sitelet with
+            Controller = { Handle = fun action ->
+                CustomContentAsync <| fun ctx ->
+                    C.ToResponse (sitelet.Controller.Handle action) (f ctx)
+            }
+        }
+
+    let WithSettings (settings: seq<string * string>) (sitelet: Sitelet<'T>) : Sitelet<'T> =
+        MapContext (Context.WithSettings settings) sitelet
+
 type RouteHandler<'T> = delegate of Context<obj> * 'T -> Task<CSharpContent> 
 
 [<CompiledName "Sitelet"; Sealed>]

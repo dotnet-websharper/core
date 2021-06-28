@@ -51,12 +51,12 @@ let (|Finish|_|) (str: string) =
 
 
 let sendCompileCommand args =
-    let logger = Logger()
+    let nLogger = Logger()
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    logger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
+    nLogger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
-    logger.Debug "pipeName is : %s" pipeName
+    nLogger.Debug "pipeName is : %s" pipeName
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
@@ -66,10 +66,10 @@ let sendCompileCommand args =
         | e ->
             // If the processes cannot be queried, because of insufficient rights, the Mutex in service will handle
             // not running 2 instances
-            logger.ErrorException e "Could not read running processes of wsfscservice."
+            nLogger.ErrorException e "Could not read running processes of wsfscservice."
             [||]
 
-    logger.Debug "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
+    nLogger.Debug "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
@@ -84,7 +84,7 @@ let sendCompileCommand args =
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden
         proc <- Process.Start(startInfo)
-        logger.Debug "Started service PID=%d" proc.Id
+        nLogger.Debug "Started service PID=%d" proc.Id
 
     // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
     // Call that with the compilation args for compilation.
@@ -112,7 +112,7 @@ let sendCompileCommand args =
                             return i |> Some
                         | x -> 
                             let unrecognizedMessageErrorCode = -13311
-                            logger.Error "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x
+                            nLogger.Error "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x
                             return unrecognizedMessageErrorCode |> Some
                     }
                 do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
@@ -121,14 +121,14 @@ let sendCompileCommand args =
                 match errorCode with
                 | Some x -> return x
                 | None -> 
-                    logger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
+                    nLogger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
                     return unexpectedFinishErrorCode
                 }
             try
                 Async.RunSynchronously(write)
             with
             | _ -> 
-                logger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
+                nLogger.Error "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode
                 unexpectedFinishErrorCode
         else
             let cannotConnectErrorCode = -14411
@@ -141,8 +141,8 @@ let sendCompileCommand args =
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
 
-    logger.Debug "WebSharper compilation arguments:"
-    args |> Array.iter (logger.Debug "    %s")
+    nLogger.Debug "WebSharper compilation arguments:"
+    args |> Array.iter (nLogger.Debug "    %s")
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
@@ -151,5 +151,5 @@ let sendCompileCommand args =
     clientPipe.Connect()
     clientPipe.ReadMode <- PipeTransmissionMode.Message
     let returnCode = Write data
-    logger.Debug "wsfscservice.exe compiled in %s with error code: %i" location returnCode
+    nLogger.Debug "wsfscservice.exe compiled in %s with error code: %i" location returnCode
     returnCode

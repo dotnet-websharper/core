@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
@@ -14,13 +13,9 @@
     <Compile Include="Shared.fs" />
     <Compile Include="ResourceContext.fs" />
     <Compile Include="RpcModule.fs" />
-    <Compile Include="ScriptManager.fs" />
     <Compile Include="Node.fs" />
     <Compile Include="Control.fs" />
     <None Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <Reference Include="System.Web" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

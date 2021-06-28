@@ -316,6 +316,7 @@ module ExecuteCommands =
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
+                    DownloadResources = settings.DownloadResources |> Option.defaultValue false
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
@@ -346,7 +347,6 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     ProjectDir = config.ProjectDir
                     ReferencePaths = config.References
                     StrongNameKeyPath = snk
-                    IsNetStandard = match config.TargetProfile.ToLower() with "netstandard" | "netcore" -> true | _ -> false
             }
 
         let cmp = InterfaceGenerator.Compiler.Create()

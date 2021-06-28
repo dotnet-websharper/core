@@ -24,7 +24,7 @@ open System.IO
 open WebSharper.Compiler
 module C = WebSharper.Compiler.Commands
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.CodeAnalysis
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
@@ -42,6 +42,8 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     let nLogger = Logger()
+    nLogger.Trace "Trace level is on"
+    nLogger.Debug "Debug level is on"
     let argv = formatArgv argv
     let standaloneMode = argv |> Array.exists (fun x -> x.IndexOf("--standalone", System.StringComparison.OrdinalIgnoreCase) >= 0)
     // --ws:extension and --ws:interfaceGenerator they are aliases

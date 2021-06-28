@@ -34,11 +34,6 @@ type IWebsite<'Action when 'Action : equality> =
 [<RequireQualifiedAccess>]
 type SinglePageAction = | Index
 
-#if NET461 // ASP.NET: HttpApplication
-type IHostedWebsite<'Action when 'Action : equality> =
-    abstract Build : HttpApplication -> IWebsite<'Action>
-#endif
-
 module internal Specialization =
     open System
 
@@ -62,18 +57,6 @@ module private Utils =
     module S = Specialization
 
     let GetSitelet : Type -> _ -> _ =
-#if NET461 // ASP.NET: HttpApplication
-        S.Specialize {
-            new S.IGeneric<obj * option<HttpApplication>,Sitelet<obj> * list<obj>> with
-                member this.Run<'T when 'T : equality>((website, app)) =
-                    let website =
-                        match app, website with
-                        | Some app, (:? IHostedWebsite<'T> as mk) -> mk.Build(app)
-                        | _, (:? IWebsite<'T> as website) -> website
-                        | _ -> failwith "Invalid type: IWebsite not implemented."
-                    (Sitelet.Box website.Sitelet, List.map box website.Actions)
-        }
-#else
         S.Specialize {
             new S.IGeneric<obj, Sitelet<obj> * list<obj>> with
                 member this.Run<'T when 'T : equality>(website) =
@@ -83,7 +66,6 @@ module private Utils =
                         | _ -> failwith "Invalid type: IWebsite not implemented."
                     (Sitelet.Box website.Sitelet, List.map box website.Actions)
         }
-#endif
 
 /// Mark an assembly that contains a Sitelets website, or a Sitelet static property.
 [<AttributeUsage(AttributeTargets.Assembly ||| AttributeTargets.Property)>]
@@ -116,16 +98,5 @@ type WebsiteAttribute private (arg: option<System.Type * obj>) =
     member this.Run() =
         match arg with
         | Some (t, website) ->
-#if NET461 // ASP.NET: HttpApplication
-            Utils.GetSitelet t (website, None)
-#else
             Utils.GetSitelet t website
-#endif
         | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
-
-#if NET461 // ASP.NET: HttpApplication
-    member this.Run(app: HttpApplication) =
-        match arg with
-        | Some (t, website) -> Utils.GetSitelet t (website, Some app)
-        | None -> failwith "Cannot Run() an argumentless WebsiteAttribute"
-#endif

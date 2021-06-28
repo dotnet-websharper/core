@@ -11,14 +11,6 @@ dependencies
     WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
-    ../build/Release/FSharp/net461/deploy/wsfsc.exe ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/wsfsc.exe.config ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/wsfscservice.exe ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/wsfscservice.exe.config ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/wsfscservice_start.cmd ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/wsfscservice_start.sh ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/NLog.config ==> tools/net461
-    ../build/Release/FSharp/net461/deploy/*.dll ==> tools/net461
     ../build/Release/FSharp/net5.0/deploy/*.dll ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/**/*.dll ==> tools/net5.0
     ../build/Release/FSharp/net5.0/deploy/wsfsc.exe ==> tools/net5.0
