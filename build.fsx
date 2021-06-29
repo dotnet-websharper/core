@@ -190,32 +190,36 @@ Target.create "Run" <| fun _ ->
 
 "Build" ==> "Run"
 
-Target.create "PublishTests" <| fun _ ->
-    match Environment.environVarOrNone "WS_TEST_FOLDER" with
-    | Some publishPath ->
-        DotNet.publish (fun p ->
-            { p with
-                OutputPath = Some publishPath
-                NoRestore = true
-                Configuration = DotNet.Release
-                MSBuildParams = 
-                    { p.MSBuildParams with 
-                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
-                    }
-            }) "tests/Web/Web.Net50.csproj"
-    | _ ->
-        failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
-
 Target.create "RunTests" <| fun _ ->
     match Environment.environVarOrNone "WS_TEST_URL" with
     | Some publishUrl ->
-        let res =
-            Shell.Exec(
-                "packages/test/Chutzpah/tools/chutzpah.console.exe",
-                publishUrl + "/consoletests /engine Chrome"
-            )
-        if res <> 0 then
-            failwith "Chutzpah test run failed"
+        use cancellationSource = new System.Threading.CancellationTokenSource()
+        let startAsync = async {
+            let dotnetRunResult = DotNet.exec (fun p ->
+                                    { p with
+                                        CustomParams = "" |> Some
+                                        WorkingDirectory = "tests/Web/"
+                                    }) "run" ""
+            if not dotnetRunResult.OK then
+                dotnetRunResult.Errors
+                |> String.concat System.Environment.NewLine
+                |> failwith
+            }
+        try
+            startAsync
+            |> fun x -> Async.Start (x, cancellationSource.Token)
+            System.TimeSpan.FromMinutes 4.
+            |> Async.Sleep
+            |> Async.RunSynchronously
+            let res =
+                Shell.Exec(
+                    "packages/test/Chutzpah/tools/chutzpah.console.exe",
+                    publishUrl + "/consoletests /engine Chrome"
+                )
+            if res <> 0 then
+                failwith "Chutzpah test run failed"
+        finally
+            cancellationSource.Cancel()
     | _ ->
         failwithf "Could not find WS_TEST_URL environment variable for running tests"
 
@@ -223,7 +227,6 @@ Target.create "RunTests" <| fun _ ->
     ==> "WS-Package"
     ==> "CI-Release"
 "WS-BuildRelease"
-    ==> "PublishTests"
     ==> "RunTests"
     ?=> "WS-Package"
 "RunTests"
