@@ -8,10 +8,11 @@ description
 tags
     Web JavaScript F# C#
 dependencies
-    WebSharper == CURRENTVERSION
-    System.Configuration.ConfigurationManager >= LOCKEDVERSION
-    Mono.Cecil >= LOCKEDVERSION
-    FSharp.Core >= LOCKEDVERSION
+    framework: netstandard2.0
+        WebSharper == CURRENTVERSION
+        System.Configuration.ConfigurationManager >= LOCKEDVERSION
+        Mono.Cecil >= LOCKEDVERSION
+        FSharp.Core >= LOCKEDVERSION
 files
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
