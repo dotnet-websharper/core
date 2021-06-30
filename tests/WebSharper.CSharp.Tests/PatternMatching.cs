@@ -89,7 +89,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 2);
         }
 
-        [Test]
+        [Test("Property", TestKind.Skip)]
         public void Property()
         {
             var o = new { X = 1 };
@@ -99,7 +99,6 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 1);
         }
 
-        [Test]
         public void Recursive()
         {
             var o = new { X = (1, 3) };
