@@ -99,6 +99,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 1);
         }
 
+        [Test("Recursive", TestKind.Skip)]
         public void Recursive()
         {
             var o = new { X = (1, 3) };

@@ -42,6 +42,7 @@ namespace WebSharper.CSharp.Tests
             IsFalse(person == student);
         }
 
+        [Test("ToStringTest", TestKind.Skip)]
         public void ToStringTest()
         {
             var person = new Person("Bill", "Wagner");
