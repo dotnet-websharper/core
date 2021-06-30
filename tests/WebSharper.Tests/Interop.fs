@@ -29,7 +29,7 @@ open WebSharper.CSharp.Tests
 let Tests =
     TestCategory "Interop" {
 
-        Test "C# records" {
+        Skip "C# records" {
             let p1 = Person("A", "B")
             equal p1.FirstName "A"
             equal p1.LastName "B"

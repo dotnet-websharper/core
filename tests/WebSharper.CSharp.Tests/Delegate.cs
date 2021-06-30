@@ -161,7 +161,7 @@ namespace WebSharper.CSharp.Tests
             Equal(f(), 5);
         }
 
-        [Test]
+        [Test("C# anonymous method", TestKind.Skip)]
         public void AnonymousMethod()
         {
             Func<int, int, int> sum = delegate (int a, int b) { return a + b; };

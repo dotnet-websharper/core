@@ -150,7 +150,7 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
 
-        [Test]
+        [Test("C# covariant inheritance", TestKind.Skip)]
         public void CovariantInheritance()
         {
             Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
@@ -195,7 +195,7 @@ namespace WebSharper.CSharp.Tests
             int Foo() => 2;
         }
 
-        [Test]
+        [Test("C# interface default implementations", TestKind.Skip)]
         public void InterfaceDefaultImplementations()
         {
             var o = new TestDefaultImpl();
