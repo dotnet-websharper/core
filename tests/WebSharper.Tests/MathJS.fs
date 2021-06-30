@@ -299,7 +299,7 @@ let Tests runServerSide =
             isTrue (y >= y)
         }
 
-        Skip "Decimal remoting" {
+        TestIf runServerSide "Decimal remoting" {
             let x = 18133887298.441562272235520m
             let! res = Add1ToDecimal x 
             equal res (x + 1m) 
