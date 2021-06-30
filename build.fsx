@@ -31,6 +31,7 @@ nuget NUglify //"
 #endif
 
 open System.IO
+open System.Diagnostics
 open System.Xml
 open System.Xml.Linq
 open System.Xml.XPath
@@ -190,46 +191,48 @@ Target.create "Run" <| fun _ ->
 
 "Build" ==> "Run"
 
-Target.create "RunTests" <| fun _ ->
-    match Environment.environVarOrNone "WS_TEST_URL" with
-    | Some publishUrl ->
-        use cancellationSource = new System.Threading.CancellationTokenSource()
-        let startAsync = async {
-            let dotnetRunResult = DotNet.exec (fun p ->
-                                    { p with
-                                        CustomParams = "" |> Some
-                                        WorkingDirectory = "tests/Web/"
-                                    }) "run" ""
-            if not dotnetRunResult.OK then
-                dotnetRunResult.Errors
-                |> String.concat System.Environment.NewLine
-                |> failwith
-            }
-        try
-            startAsync
-            |> fun x -> Async.Start (x, cancellationSource.Token)
-            System.TimeSpan.FromMinutes 4.
-            |> Async.Sleep
-            |> Async.RunSynchronously
-            let res =
-                Shell.Exec(
-                    "packages/test/Chutzpah/tools/chutzpah.console.exe",
-                    publishUrl + "/consoletests /engine Chrome"
-                )
-            if res <> 0 then
-                failwith "Chutzpah test run failed"
-        finally
-            cancellationSource.Cancel()
-    | _ ->
-        failwithf "Could not find WS_TEST_URL environment variable for running tests"
+Target.create "RunTestsRelease" <| fun _ ->
+    Trace.log "Starting Web test project"
+    let mutable startedOk = false
+    let started = Event<unit>()
+
+    use webTestsProc = new Process()
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net5.0\Web.exe"
+    webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
+    webTestsProc.StartInfo.UseShellExecute <- false
+    webTestsProc.StartInfo.RedirectStandardOutput <- true
+    
+    webTestsProc.OutputDataReceived.Add(fun d -> 
+        if not (isNull d) then
+            Trace.log d.Data
+            if d.Data.Contains("Application started.") then
+                startedOk <- true   
+                started.Trigger()
+    )
+    webTestsProc.Exited.Add(fun _ -> 
+        if not startedOk then
+            failwith "Starting Web test project failed"    
+    )
+
+    webTestsProc.Start()
+    webTestsProc.BeginOutputReadLine()
+    started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
+
+    let res =
+        Shell.Exec(
+            "packages/test/Chutzpah/tools/chutzpah.console.exe", "http://localhost:5000/consoletests /engine Chrome"
+        )
+    webTestsProc.Kill()
+    if res <> 0 then
+        failwith "Chutzpah test run failed"
 
 "WS-BuildRelease"
     ==> "WS-Package"
     ==> "CI-Release"
 "WS-BuildRelease"
-    ==> "RunTests"
+    ==> "RunTestsRelease"
     ?=> "WS-Package"
-"RunTests"
+"RunTestsRelease"
     ==> "CI-Release"
     
 Target.runOrDefault "Build"

@@ -5,6 +5,7 @@
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   	<LangVersion>preview</LangVersion>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Import.fs" />
