@@ -32,7 +32,7 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# records")]
     class Records : TestCategory
     {
-        [Test("Equality", TestKind.Skip)]
+        [Test("C# record equality", TestKind.Skip)]
         public void Equality()
         {
             var person = new Person("Bill", "Wagner");
@@ -42,7 +42,7 @@ namespace WebSharper.CSharp.Tests
             IsFalse(person == student);
         }
 
-        [Test("ToStringTest", TestKind.Skip)]
+        [Test("C# record ToString", TestKind.Skip)]
         public void ToStringTest()
         {
             var person = new Person("Bill", "Wagner");

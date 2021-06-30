@@ -161,7 +161,7 @@ namespace WebSharper.CSharp.Tests
             Equal(x, 6);
         }
 
-        [Test("LocalFunctions", TestKind.Skip)]
+        [Test("C# local functions", TestKind.Skip)]
         public void LocalFunctions()
         {
             var one = 1;
@@ -237,7 +237,7 @@ namespace WebSharper.CSharp.Tests
             Equal(arr[1], 2);
         }
 
-        [Test("SwitchExpression", TestKind.Skip)]
+        [Test("C# switch expression", TestKind.Skip)]
         public void SwitchExpression()
         {
             var arr = new List<int>();
@@ -670,7 +670,7 @@ namespace WebSharper.CSharp.Tests
             Equal(r.ToArray(), new[] { 5 }, "expression variable in query");
         }
 
-        [Test("TargetTypedNew", TestKind.Skip)]
+        [Test("C# target-typed new", TestKind.Skip)]
         public void TargetTypedNew()
         {
             string[] strings = { "5" };
@@ -687,7 +687,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 3);
         }
 
-        [Test("IndexTest", TestKind.Skip)]
+        [Test("C# Index", TestKind.Skip)]
         public void IndexTest()
         {
             string[] strings = { "0", "1", "2", "3", "4" };
@@ -699,7 +699,7 @@ namespace WebSharper.CSharp.Tests
             Equal(strings[j], "3");
         }
 
-        [Test("RangeTest", TestKind.Skip)]
+        [Test("C# Range", TestKind.Skip)]
         public void RangeTest()
         {
             int[] someArray = new int[5] { 1, 2, 3, 4, 5 };
