@@ -702,7 +702,7 @@ module ClientSideJson =
                 equal (List.ofSeq res2) [34; 5; 58]
             }
 
-            Test "obj" {
+            Skip "obj" {
                 equalMsgAsync (echoObj jsonBaseUri null) null "null"
                 property (fun (x: int) -> Do { equalMsgAsync (echoObj jsonBaseUri x) x "int" })
                 property (fun (x: float) -> Do { approxEqualMsgAsync (echoObj jsonBaseUri x) x "float" })
