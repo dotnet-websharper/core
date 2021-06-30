@@ -8,7 +8,8 @@ description
 tags
     Web JavaScript F#
 dependencies
-    WebSharper == CURRENTVERSION
+    framework: netstandard2.0
+        WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
     ../build/Release/FSharp/net5.0/deploy/*.dll ==> tools/net5.0

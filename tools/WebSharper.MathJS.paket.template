@@ -11,7 +11,8 @@ description
 tags
     Web JavaScript F# C#
 dependencies
-    WebSharper == CURRENTVERSION
+    framework: netstandard2.0
+        WebSharper == CURRENTVERSION
 files
     ../build/Release/netstandard2.0/WebSharper.MathJS.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.MathJS.xml ==> lib/netstandard2.0
