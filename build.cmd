@@ -2,6 +2,7 @@
 setlocal
 
 dotnet tool restore
+dotnet paket update -g wsbuild --no-install
 
 call paket-files\wsbuild\github.com\dotnet-websharper\build-script\update.cmd
 
