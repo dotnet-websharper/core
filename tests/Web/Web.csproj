@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />
