@@ -24,7 +24,7 @@ nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Security.Cryptography.Csp ~> 4.3.0
 
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script dotnettool
+    git https://github.com/dotnet-websharper/build-script websharper50
 
 group includes
     references: strict

@@ -162,34 +162,6 @@ Target.create "Prepare" <| fun _ ->
     Minify()
     MakeNetStandardTypesList()
     AddToolVersions()
-targets.AddPrebuild "Prepare"
-"WS-GenAssemblyInfo" ==> "Prepare"
-    
-"WS-BuildRelease"
-    ==> "WS-Package"
-
-let rm_rf x =
-    if Directory.Exists(x) then
-        // Fix access denied issue deleting a read-only *.idx file in .git
-        for git in Directory.EnumerateDirectories(x, ".git", SearchOption.AllDirectories) do
-            for f in Directory.EnumerateFiles(git, "*.*", SearchOption.AllDirectories) do
-                File.SetAttributes(f, FileAttributes.Normal)
-        Directory.Delete(x, true)
-    elif File.Exists(x) then File.Delete(x)
-
-Target.create "Clean" <| fun _ ->
-    rm_rf "netcore"
-    rm_rf "netfx"
-"WS-Clean" ==> "Clean"
-
-Target.create "Run" <| fun _ ->
-    Shell.Exec(
-        @"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe",
-        "/r WebSharper.sln"
-    )
-    |> ignore
-
-"Build" ==> "Run"
 
 Target.create "RunTestsRelease" <| fun _ ->
     Trace.log "Starting Web test project"
@@ -220,18 +192,18 @@ Target.create "RunTestsRelease" <| fun _ ->
 
     let res =
         Shell.Exec(
-            "packages/test/Chutzpah/tools/chutzpah.console.exe", "http://localhost:5000/consoletests /engine Chrome"
+            "packages/test/Chutzpah/tools/chutzpah.console.exe", "http://localhost:5000/consoletests /engine Chrome /silent"
         )
     webTestsProc.Kill()
     if res <> 0 then
         failwith "Chutzpah test run failed"
 
-"WS-BuildRelease"
-    ==> "WS-Package"
-    ==> "CI-Release"
+targets.AddPrebuild "Prepare"
+
 "WS-BuildRelease"
     ==> "RunTestsRelease"
     ?=> "WS-Package"
+
 "RunTestsRelease"
     ==> "CI-Release"
     
