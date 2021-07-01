@@ -1,12 +1,15 @@
 type file
 id WebSharper.FSharp
 authors IntelliFactory
-licenseUrl http://websharper.com/licensing
-projectUrl http://websharper.com
+projectUrl https://websharper.com/
+repositoryUrl https://github.com/dotnet-websharper/core
+licenseUrl https://github.com/dotnet-websharper/core/blob/master/LICENSE.md
+licenseExpression Apache-2.0
+iconUrl https://github.com/dotnet-websharper/core/raw/master/tools/WebSharper.png
 description
     F#-to-JavaScript compiler
 tags
-    Web JavaScript F#
+    WebSharper JavaScript FSharp
 dependencies
     framework: netstandard2.0
         WebSharper == CURRENTVERSION
