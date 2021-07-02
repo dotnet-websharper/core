@@ -266,6 +266,20 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage ("Writing " + path)
     | _ -> ()
 
+    let handleCommandResult stageName cmdRes =  
+        let res =
+            match cmdRes with
+            | C.Ok -> 0
+            | C.Errors errors ->
+                if config.WarnOnly || config.DownloadResources = Some false then
+                    errors |> List.iter (PrintGlobalWarning warnSettings logger)
+                    0
+                else
+                    errors |> List.iter (PrintGlobalError logger)
+                    1
+        logger.TimedStage stageName
+        res
+    
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         // comp.Graph does not have graph of dependencies and we need full graph here for bundling
@@ -280,25 +294,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage "Bundling"
         0
     | Some Html ->
-        ExecuteCommands.Html config |> ignore
-        logger.TimedStage "Writing offline sitelets"
-        0
+        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            let res =
-                match ExecuteCommands.Unpack webRoot config logger with
-                | C.Ok -> 0
-                | C.Errors errors ->
-                    if config.WarnOnly || config.DownloadResources = Some false then
-                        errors |> List.iter (PrintGlobalWarning warnSettings logger)
-                        0
-                    else
-                        errors |> List.iter (PrintGlobalError logger)
-                        1
-            logger.TimedStage "Unpacking"
-            res
+            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
             1

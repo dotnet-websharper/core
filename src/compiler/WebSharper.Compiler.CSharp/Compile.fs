@@ -177,6 +177,20 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         logger.TimedStage ("Writing " + path)
     | _ -> ()
 
+    let handleCommandResult stageName cmdRes =  
+        let res =
+            match cmdRes with
+            | C.Ok -> 0
+            | C.Errors errors ->
+                if config.WarnOnly || config.DownloadResources = Some false then
+                    errors |> List.iter (PrintGlobalWarning logger)
+                    0
+                else
+                    errors |> List.iter (PrintGlobalError logger)
+                    1
+        logger.TimedStage stageName
+        if res = 1 then argError "" // exits without printing more errors    
+
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         let currentJS =
@@ -184,24 +198,12 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
     | Some Html ->
-        ExecuteCommands.Html config |> ignore
-        logger.TimedStage "Writing offline sitelets"
+        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            let res =
-                match ExecuteCommands.Unpack webRoot config logger with
-                | C.Ok -> 0
-                | C.Errors errors ->
-                    if config.WarnOnly || config.DownloadResources = Some false then
-                        errors |> List.iter (PrintGlobalWarning logger)
-                        0
-                    else
-                        errors |> List.iter (PrintGlobalError logger)
-                        1
-            logger.TimedStage "Unpacking"
-            if res = 1 then argError "" // exits without printing more errors    
+            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
     | _ -> ()

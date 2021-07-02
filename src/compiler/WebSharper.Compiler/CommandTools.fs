@@ -260,16 +260,8 @@ module ExecuteCommands =
             | None -> None
         | Some out -> Some out
 
-    let SendResult (logger: LoggerBase) result =
-        match result with
-        | Compiler.Commands.Ok -> true
-        | Compiler.Commands.Errors errors ->
-            for e in errors do
-                logger.Error e
-            true
-    
     let Unpack webRoot settings (logger: LoggerBase) =
-        sprintf "unpacking into %s" webRoot
+        sprintf "Unpacking into %s" webRoot
         |> logger.Out
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))
@@ -305,13 +297,16 @@ module ExecuteCommands =
         | Some dir -> dir
 
     let Html settings (logger: LoggerBase) =
+        let outputDir = HtmlOutputDirectory settings
+        sprintf "Generating static site into %s" outputDir
+        |> logger.Out
         let main = settings.AssemblyFile
         let refs = List.ofArray settings.References
         let cfg =
             {
                 Compiler.HtmlCommand.Config.Create(main) with
                     Mode = if settings.IsDebug then Compiler.HtmlCommand.Debug else Compiler.HtmlCommand.Release
-                    OutputDirectory = HtmlOutputDirectory settings
+                    OutputDirectory = outputDir
                     ProjectDirectory = settings.ProjectDir
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
@@ -320,7 +315,6 @@ module ExecuteCommands =
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
-        |> SendResult logger
 
 let LoadInterfaceGeneratorAssembly (file: string) =
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
