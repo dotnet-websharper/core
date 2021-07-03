@@ -17,19 +17,13 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-#I __SOURCE_DIRECTORY__
-#r "../../build/Release/FSharp/net5.0/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Pdb.dll"
-#r "System.Configuration.dll"
-#r "System.Core.dll"
-#r "System.Data.dll"
-#r "System.dll"
-#r "System.Numerics.dll"
-#r "System.Web.dll"
-#r "System.Xml.dll"
-#r "System.Xml.Linq.dll"
+
+#r "../../build/Release/FSharp/net5.0/deploy/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net5.0/deploy/WebSharper.Compiler.dll"
+#r "../../build/Release/FSharp/net5.0/deploy/WebSharper.Compiler.FSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -39,8 +33,6 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Sitelets.dll"
-#r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.dll"
-#r "../../build/Release/FSharp/net5.0/WebSharper.Compiler.FSharp.dll"
 
 fsi.ShowDeclarationValues <- false
 
@@ -48,7 +40,10 @@ open System
 open System.IO
 open System.Collections.Generic
 open FSharp.Compiler
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.CodeAnalysis
+
+module P = FSharpExprPatterns
 
 // Create an interactive checker instance 
 let checker = FSharpChecker.Create(keepAssemblyContents=true)
@@ -57,61 +52,61 @@ let checker = FSharpChecker.Create(keepAssemblyContents=true)
 module Utils = 
     let rec printExpr low (e:FSharpExpr) = 
         match e with 
-        | BasicPatterns.AddressOf(e1) -> "&"+printExpr 0 e1
-        | BasicPatterns.AddressSet(e1,e2) -> printExpr 0 e1 + " <- " + printExpr 0 e2
-        | BasicPatterns.Application(f,tyargs,args) -> quote low (printExpr 10 f + printTyargs tyargs + " " + printCurriedArgs args)
-        | BasicPatterns.BaseValue(_) -> "base"
-        | BasicPatterns.Call(Some obj,v,tyargs1,tyargs2,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL
-        | BasicPatterns.Call(None,v,tyargs1,tyargs2,argsL) -> v.DeclaringEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
-        | BasicPatterns.Coerce(ty1,e1) -> quote low (printExpr 10 e1 + " :> " + printTy ty1)
-        | BasicPatterns.DefaultValue(ty1) -> "dflt"
-        | BasicPatterns.FastIntegerForLoop _ -> "for-loop"
-        | BasicPatterns.ILAsm(s,tyargs,args) -> s + printTupledArgs args 
-        | BasicPatterns.ILFieldGet _ -> "ILFieldGet"
-        | BasicPatterns.ILFieldSet _ -> "ILFieldSet"
-        | BasicPatterns.IfThenElse (a,b,c) -> "(if " + printExpr 0 a + " then " + printExpr 0 b + " else " + printExpr 0 c + ")"
-        | BasicPatterns.Lambda(v,e1) -> "fun " + v.CompiledName + " -> " + printExpr 0 e1
-        | BasicPatterns.Let((v,e1),b) -> "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
-        | BasicPatterns.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
-        | BasicPatterns.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
-        | BasicPatterns.NewDelegate(ty,es) -> "new-delegate" 
-        | BasicPatterns.NewObject(v,tys,args) -> "new " + v.DeclaringEntity.Value.CompiledName + printTyargs tys + printTupledArgs args 
-        | BasicPatterns.NewRecord(v,args) -> 
+        | P.AddressOf(e1) -> "&"+printExpr 0 e1
+        | P.AddressSet(e1,e2) -> printExpr 0 e1 + " <- " + printExpr 0 e2
+        | P.Application(f,tyargs,args) -> quote low (printExpr 10 f + printTyargs tyargs + " " + printCurriedArgs args)
+        | P.BaseValue(_) -> "base"
+        | P.Call(Some obj,v,tyargs1,tyargs2,argsL) -> printObjOpt (Some obj) + v.CompiledName  + printTyargs tyargs2 + printTupledArgs argsL
+        | P.Call(None,v,tyargs1,tyargs2,argsL) -> v.DeclaringEntity.Value.CompiledName + printTyargs tyargs1 + "." + v.CompiledName  + printTyargs tyargs2 + " " + printTupledArgs argsL
+        | P.Coerce(ty1,e1) -> quote low (printExpr 10 e1 + " :> " + printTy ty1)
+        | P.DefaultValue(ty1) -> "dflt"
+        | P.FastIntegerForLoop _ -> "for-loop"
+        | P.ILAsm(s,tyargs,args) -> s + printTupledArgs args 
+        | P.ILFieldGet _ -> "ILFieldGet"
+        | P.ILFieldSet _ -> "ILFieldSet"
+        | P.IfThenElse (a,b,c) -> "(if " + printExpr 0 a + " then " + printExpr 0 b + " else " + printExpr 0 c + ")"
+        | P.Lambda(v,e1) -> "fun " + v.CompiledName + " -> " + printExpr 0 e1
+        | P.Let((v,e1),b) -> "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
+        | P.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
+        | P.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
+        | P.NewDelegate(ty,es) -> "new-delegate" 
+        | P.NewObject(v,tys,args) -> "new " + v.DeclaringEntity.Value.CompiledName + printTyargs tys + printTupledArgs args 
+        | P.NewRecord(v,args) -> 
             let fields = v.TypeDefinition.FSharpFields
             "{" + ((fields, args) ||> Seq.map2 (fun f a -> f.Name + " = " + printExpr 0 a) |> String.concat "; ") + "}" 
-        | BasicPatterns.NewAnonRecord(v,args) -> 
+        | P.NewAnonRecord(v,args) -> 
             "{| ... |}"
             //let fields = v.TypeDefinition.FSharpFields
             //"{|" + ((fields, args) ||> Seq.map2 (fun f a -> f.Name + " = " + printExpr 0 a) |> String.concat "; ") + "|}" 
-        | BasicPatterns.NewTuple(v,args) -> printTupledArgs args 
-        | BasicPatterns.NewUnionCase(ty,uc,args) -> uc.CompiledName + printTupledArgs args 
-        | BasicPatterns.Quote(e1) -> "quote" + printTupledArgs [e1]
-        | BasicPatterns.FSharpFieldGet(obj, ty,f) -> printObjOpt obj + "." + f.Name 
-        | BasicPatterns.FSharpFieldSet(obj, ty,f,arg) -> printObjOpt obj + f.Name + " <- " + printExpr 0 arg
-        | BasicPatterns.AnonRecordGet(obj, ty, index) -> printExpr 10 obj + "." + ty.AnonRecordTypeDetails.SortedFieldNames.[index] 
-        | BasicPatterns.Sequential(e1,e2) -> "(" + printExpr 0 e1 + "; " + printExpr 0 e2 + ")"
-        | BasicPatterns.ThisValue _ -> "this"
-        | BasicPatterns.TryFinally(e1,e2) -> "try " + printExpr 0 e1 + " finally " + printExpr 0 e2
-        | BasicPatterns.TryWith(e1,_,_,vC,eC) -> "try " + printExpr 0 e1 + " with " + vC.CompiledName + " -> " + printExpr 0 eC
-        | BasicPatterns.TupleGet(ty,n,e1) -> printExpr 10 e1 + ".Item" + string n
-        | BasicPatterns.DecisionTree(dtree,targets) -> "match " + printExpr 10 dtree + " targets ..."
-        | BasicPatterns.DecisionTreeSuccess (tg,es) -> "$" + string tg
-        | BasicPatterns.TypeLambda(gp1,e1) -> "FUN ... -> " + printExpr 0 e1 
-        | BasicPatterns.TypeTest(ty,e1) -> printExpr 10 e1 + " :? " + printTy ty
-        | BasicPatterns.UnionCaseSet(obj,ty,uc,f1,e1) -> printExpr 10 obj + "." + f1.Name + " <- " + printExpr 0 e1
-        | BasicPatterns.UnionCaseGet(obj,ty,uc,f1) -> printExpr 10 obj + "." + f1.Name
-        | BasicPatterns.UnionCaseTest(obj,ty,f1) -> printExpr 10 obj + ".Is" + f1.Name
-        | BasicPatterns.UnionCaseTag(obj,ty) -> printExpr 10 obj + ".Tag" 
-        | BasicPatterns.ObjectExpr(ty,basecall,overrides,iimpls) -> "{ " + printExpr 10 basecall + " with " + printOverrides overrides + " " + printIimpls iimpls + " }"
-        | BasicPatterns.TraitCall(tys,nm,_,argtys,tinst,args) -> "trait call " + nm + printTupledArgs args
-        | BasicPatterns.Const(obj,ty) -> 
+        | P.NewTuple(v,args) -> printTupledArgs args 
+        | P.NewUnionCase(ty,uc,args) -> uc.CompiledName + printTupledArgs args 
+        | P.Quote(e1) -> "quote" + printTupledArgs [e1]
+        | P.FSharpFieldGet(obj, ty,f) -> printObjOpt obj + "." + f.Name 
+        | P.FSharpFieldSet(obj, ty,f,arg) -> printObjOpt obj + f.Name + " <- " + printExpr 0 arg
+        | P.AnonRecordGet(obj, ty, index) -> printExpr 10 obj + "." + ty.AnonRecordTypeDetails.SortedFieldNames.[index] 
+        | P.Sequential(e1,e2) -> "(" + printExpr 0 e1 + "; " + printExpr 0 e2 + ")"
+        | P.ThisValue _ -> "this"
+        | P.TryFinally(e1,e2) -> "try " + printExpr 0 e1 + " finally " + printExpr 0 e2
+        | P.TryWith(e1,_,_,vC,eC) -> "try " + printExpr 0 e1 + " with " + vC.CompiledName + " -> " + printExpr 0 eC
+        | P.TupleGet(ty,n,e1) -> printExpr 10 e1 + ".Item" + string n
+        | P.DecisionTree(dtree,targets) -> "match " + printExpr 10 dtree + " targets ..."
+        | P.DecisionTreeSuccess (tg,es) -> "$" + string tg
+        | P.TypeLambda(gp1,e1) -> "FUN ... -> " + printExpr 0 e1 
+        | P.TypeTest(ty,e1) -> printExpr 10 e1 + " :? " + printTy ty
+        | P.UnionCaseSet(obj,ty,uc,f1,e1) -> printExpr 10 obj + "." + f1.Name + " <- " + printExpr 0 e1
+        | P.UnionCaseGet(obj,ty,uc,f1) -> printExpr 10 obj + "." + f1.Name
+        | P.UnionCaseTest(obj,ty,f1) -> printExpr 10 obj + ".Is" + f1.Name
+        | P.UnionCaseTag(obj,ty) -> printExpr 10 obj + ".Tag" 
+        | P.ObjectExpr(ty,basecall,overrides,iimpls) -> "{ " + printExpr 10 basecall + " with " + printOverrides overrides + " " + printIimpls iimpls + " }"
+        | P.TraitCall(tys,nm,_,argtys,tinst,args) -> "trait call " + nm + printTupledArgs args
+        | P.Const(obj,ty) -> 
             match obj with 
             | :? string  as s -> "\"" + s + "\""
             | null -> "()"
             | _ -> string obj
-        | BasicPatterns.Value(v) -> v.CompiledName
-        | BasicPatterns.ValueSet(v,e1) -> quote low (v.CompiledName + " <- " + printExpr 0 e1)
-        | BasicPatterns.WhileLoop(e1,e2) -> "while " + printExpr 0 e1 + " do " + printExpr 0 e2 + " done"
+        | P.Value(v) -> v.CompiledName
+        | P.ValueSet(v,e1) -> quote low (v.CompiledName + " <- " + printExpr 0 e1)
+        | P.WhileLoop(e1,e2) -> "while " + printExpr 0 e1 + " do " + printExpr 0 e2 + " done"
         | _ -> failwith (sprintf "unrecognized %+A" e)
 
     and quote low s = if low > 0 then "(" + s + ")" else s
@@ -145,9 +140,9 @@ module Utils =
                     //printfn "%s" v.CompiledName
 //                 try
                     if v.IsMember then 
-                        sprintf "member %s%s = %s @ %s" v.CompiledName (printCurriedParams vs)  (printExpr 0 e) (e.Range.ToShortString())
+                        sprintf "member %s%s = %s @ %s" v.CompiledName (printCurriedParams vs)  (printExpr 0 e) (e.Range.ToString())
                     else 
-                        sprintf "let %s%s = %s @ %s" v.CompiledName (printCurriedParams vs) (printExpr 0 e) (e.Range.ToShortString())
+                        sprintf "let %s%s = %s @ %s" v.CompiledName (printCurriedParams vs) (printExpr 0 e) (e.Range.ToString())
 //                 with e -> 
 //                     printfn "FAILURE STACK: %A" e
 //                     sprintf "!!!!!!!!!! FAILED on %s @ %s, message: %s" v.CompiledName (v.DeclarationLocation.ToString()) e.Message
@@ -210,49 +205,49 @@ module Utils =
 
     let rec collectMembers (e:FSharpExpr) = 
         match e with 
-        | BasicPatterns.AddressOf(e) -> collectMembers e
-        | BasicPatterns.AddressSet(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
-        | BasicPatterns.Application(f,_,args) -> Seq.append (collectMembers f) (Seq.collect collectMembers args)
-        | BasicPatterns.BaseValue(_) -> Seq.empty
-        | BasicPatterns.Call(Some obj,v,_,_,argsL) -> Seq.concat [ collectMembers obj; Seq.singleton v; Seq.collect collectMembers argsL ]
-        | BasicPatterns.Call(None,v,_,_,argsL) -> Seq.concat [ Seq.singleton v; Seq.collect collectMembers argsL ]
-        | BasicPatterns.Coerce(_,e) -> collectMembers e
-        | BasicPatterns.DefaultValue(_) -> Seq.empty
-        | BasicPatterns.FastIntegerForLoop (fromArg, toArg, body, _) -> Seq.collect collectMembers [ fromArg; toArg; body ]
-        | BasicPatterns.ILAsm(_,_,args) -> Seq.collect collectMembers args 
-        | BasicPatterns.ILFieldGet (Some e,_,_) -> collectMembers e
-        | BasicPatterns.ILFieldGet _ -> Seq.empty
-        | BasicPatterns.ILFieldSet (Some e,_,_,v) -> Seq.append (collectMembers e) (collectMembers v)
-        | BasicPatterns.ILFieldSet _ -> Seq.empty
-        | BasicPatterns.IfThenElse (a,b,c) -> Seq.collect collectMembers [ a; b; c ]
-        | BasicPatterns.Lambda(v,e1) -> collectMembers e1
-        | BasicPatterns.Let((v,e1),b) -> Seq.append (collectMembers e1) (collectMembers b)
-        | BasicPatterns.LetRec(vse,b) -> Seq.append (vse |> Seq.collect (snd >> collectMembers)) (collectMembers b)
-        | BasicPatterns.NewArray(_,es) -> Seq.collect collectMembers es
-        | BasicPatterns.NewDelegate(ty,es) -> collectMembers es
-        | BasicPatterns.NewObject(v,tys,args) -> Seq.append (Seq.singleton v) (Seq.collect collectMembers args)
-        | BasicPatterns.NewRecord(v,args) -> Seq.collect collectMembers args
-        | BasicPatterns.NewTuple(v,args) -> Seq.collect collectMembers args
-        | BasicPatterns.NewUnionCase(ty,uc,args) -> Seq.collect collectMembers args
-        | BasicPatterns.Quote(e1) -> collectMembers e1
-        | BasicPatterns.FSharpFieldGet(Some obj, _,_) -> collectMembers obj
-        | BasicPatterns.FSharpFieldGet _ -> Seq.empty
-        | BasicPatterns.FSharpFieldSet(Some obj,_,_,arg) -> Seq.append (collectMembers obj) (collectMembers arg)
-        | BasicPatterns.FSharpFieldSet(None,_,_,arg) -> collectMembers arg
-        | BasicPatterns.Sequential(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
-        | BasicPatterns.ThisValue _ -> Seq.empty
-        | BasicPatterns.TryFinally(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
-        | BasicPatterns.TryWith(e1,_,f,_,eC) -> Seq.collect collectMembers [ e1; f; eC ]
-        | BasicPatterns.TupleGet(ty,n,e1) -> collectMembers e1
-        | BasicPatterns.DecisionTree(dtree,targets) -> Seq.append (collectMembers dtree) (targets |> Seq.collect (snd >> collectMembers))
-        | BasicPatterns.DecisionTreeSuccess (tg,es) -> Seq.collect collectMembers es
-        | BasicPatterns.TypeLambda(gp1,e1) -> collectMembers e1
-        | BasicPatterns.TypeTest(ty,e1) -> collectMembers e1
-        | BasicPatterns.UnionCaseSet(obj,ty,uc,f1,e1) -> Seq.append (collectMembers obj) (collectMembers e1)
-        | BasicPatterns.UnionCaseGet(obj,ty,uc,f1) -> collectMembers obj
-        | BasicPatterns.UnionCaseTest(obj,ty,f1) -> collectMembers obj
-        | BasicPatterns.UnionCaseTag(obj,ty) -> collectMembers obj
-        | BasicPatterns.ObjectExpr(ty,basecall,overrides,iimpls) -> 
+        | P.AddressOf(e) -> collectMembers e
+        | P.AddressSet(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
+        | P.Application(f,_,args) -> Seq.append (collectMembers f) (Seq.collect collectMembers args)
+        | P.BaseValue(_) -> Seq.empty
+        | P.Call(Some obj,v,_,_,argsL) -> Seq.concat [ collectMembers obj; Seq.singleton v; Seq.collect collectMembers argsL ]
+        | P.Call(None,v,_,_,argsL) -> Seq.concat [ Seq.singleton v; Seq.collect collectMembers argsL ]
+        | P.Coerce(_,e) -> collectMembers e
+        | P.DefaultValue(_) -> Seq.empty
+        | P.FastIntegerForLoop (fromArg, toArg, body, _) -> Seq.collect collectMembers [ fromArg; toArg; body ]
+        | P.ILAsm(_,_,args) -> Seq.collect collectMembers args 
+        | P.ILFieldGet (Some e,_,_) -> collectMembers e
+        | P.ILFieldGet _ -> Seq.empty
+        | P.ILFieldSet (Some e,_,_,v) -> Seq.append (collectMembers e) (collectMembers v)
+        | P.ILFieldSet _ -> Seq.empty
+        | P.IfThenElse (a,b,c) -> Seq.collect collectMembers [ a; b; c ]
+        | P.Lambda(v,e1) -> collectMembers e1
+        | P.Let((v,e1),b) -> Seq.append (collectMembers e1) (collectMembers b)
+        | P.LetRec(vse,b) -> Seq.append (vse |> Seq.collect (snd >> collectMembers)) (collectMembers b)
+        | P.NewArray(_,es) -> Seq.collect collectMembers es
+        | P.NewDelegate(ty,es) -> collectMembers es
+        | P.NewObject(v,tys,args) -> Seq.append (Seq.singleton v) (Seq.collect collectMembers args)
+        | P.NewRecord(v,args) -> Seq.collect collectMembers args
+        | P.NewTuple(v,args) -> Seq.collect collectMembers args
+        | P.NewUnionCase(ty,uc,args) -> Seq.collect collectMembers args
+        | P.Quote(e1) -> collectMembers e1
+        | P.FSharpFieldGet(Some obj, _,_) -> collectMembers obj
+        | P.FSharpFieldGet _ -> Seq.empty
+        | P.FSharpFieldSet(Some obj,_,_,arg) -> Seq.append (collectMembers obj) (collectMembers arg)
+        | P.FSharpFieldSet(None,_,_,arg) -> collectMembers arg
+        | P.Sequential(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
+        | P.ThisValue _ -> Seq.empty
+        | P.TryFinally(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
+        | P.TryWith(e1,_,f,_,eC) -> Seq.collect collectMembers [ e1; f; eC ]
+        | P.TupleGet(ty,n,e1) -> collectMembers e1
+        | P.DecisionTree(dtree,targets) -> Seq.append (collectMembers dtree) (targets |> Seq.collect (snd >> collectMembers))
+        | P.DecisionTreeSuccess (tg,es) -> Seq.collect collectMembers es
+        | P.TypeLambda(gp1,e1) -> collectMembers e1
+        | P.TypeTest(ty,e1) -> collectMembers e1
+        | P.UnionCaseSet(obj,ty,uc,f1,e1) -> Seq.append (collectMembers obj) (collectMembers e1)
+        | P.UnionCaseGet(obj,ty,uc,f1) -> collectMembers obj
+        | P.UnionCaseTest(obj,ty,f1) -> collectMembers obj
+        | P.UnionCaseTag(obj,ty) -> collectMembers obj
+        | P.ObjectExpr(ty,basecall,overrides,iimpls) -> 
             seq {
                 yield! collectMembers basecall
                 for o in overrides do
@@ -261,11 +256,11 @@ module Utils =
                     for o in i do
                         yield! collectMembers o.Body
             }
-        | BasicPatterns.TraitCall(tys,nm,_,argtys,tinst,args) -> Seq.collect collectMembers args
-        | BasicPatterns.Const(obj,ty) -> Seq.empty
-        | BasicPatterns.Value(v) -> Seq.singleton v
-        | BasicPatterns.ValueSet(v,e1) -> Seq.append (Seq.singleton v) (collectMembers e1)
-        | BasicPatterns.WhileLoop(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2) 
+        | P.TraitCall(tys,nm,_,argtys,tinst,args) -> Seq.collect collectMembers args
+        | P.Const(obj,ty) -> Seq.empty
+        | P.Value(v) -> Seq.singleton v
+        | P.ValueSet(v,e1) -> Seq.append (Seq.singleton v) (collectMembers e1)
+        | P.WhileLoop(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2) 
         | _ -> failwith (sprintf "unrecognized %+A" e)
 
     let rec printMembersOfDeclatations ds = 
@@ -283,7 +278,7 @@ module Utils =
 
 let wsRefs =
     let wsLib x = 
-        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\net5.0", x + ".dll")
+        Path.Combine(__SOURCE_DIRECTORY__, @"..\..\build\Release\netstandard2.0", x + ".dll")
     List.map wsLib [
         "WebSharper.Core.JavaScript"
         "WebSharper.Core"
@@ -294,7 +289,6 @@ let wsRefs =
         "WebSharper.Control"
         "WebSharper.Web"
         //"WebSharper.Sitelets"
-        "FSharp.Core"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
     ]
@@ -357,16 +351,19 @@ let translate source =
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
     if wholeProjectResults.HasCriticalErrors then
-        for err in wholeProjectResults.Errors |> Seq.filter (fun e -> e.Severity = FSharpDiagnosticSeverity.Error) do
-            printfn "F# Error: %d:%d-%d:%d %s" err.StartLineAlternate err.StartColumn err.EndLineAlternate err.EndColumn err.Message
+        for err in wholeProjectResults.Diagnostics |> Seq.filter (fun e -> e.Severity = Diagnostics.FSharpDiagnosticSeverity.Error) do
+            printfn "F# Error: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
     else
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
 
     let fsDeclarations = 
          file1.Declarations |> Utils.printDeclarations None |> List.ofSeq
 
+    let logger = WebSharper.Compiler.ConsoleLogger()
+
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
+            logger
             (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
             "TestProject"
             WebSharper.Compiler.CommandTools.WsConfig.Empty
@@ -420,89 +417,6 @@ let translate source =
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
 
-translate """
-module M
-
-open WebSharper
-
-[<JavaScript>]
-let matchArray() = 
-    let arr = [| obj() |]
-    match arr with
-    | [||] -> false
-    | _ -> true
-"""
-
-translate """
-module M
-
-open WebSharper
-
-[<JavaScript>]
-let anonymousRecord() = 
-    let r = {| A = 42 |}
-    r.A
-"""
-
-translate """
-module M
-
-open WebSharper
-
-[<JavaScript>]
-let stringInterpolation() = 
-    //sprintf "x=%d %d" 5 6
-    //$"x={(5, 5)}" 
-    $"x=%d{5}" 
-"""
-
-translate """
-module M
-
-open WebSharper
-
-[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
-let testImport () = ()
-
-[<JavaScript>]
-let useImport() = 
-    testImport ()
-"""
-
-
-translate """
-module M
-
-open WebSharper
-
-[<Inline>]
-let tailRecSingleInline n =
-    let rec f n =
-        if n > 0 then f (n - 1) else 0
-    f n
-"""
-
-translate """
-module M
-
-open WebSharper
-
-module Bug923 =
-    type V2<[<Measure>] 'u> =
-        struct
-            val x : float<'u>
-            val y : float<'u>
-            new (x, y) = {x=x; y=y}
-        end
-
-        static member (+) (a : V2<_>, b : V2<_>) = 
-            V2 (a.x + b.x, a.y + b.y)
-
-    [<JavaScript>]
-    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
-
-    """
-
 let translateQ q =
     let comp = 
         WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false)
@@ -541,7 +455,90 @@ let getBody expr =
         let _, expr = cls.StaticConstructor |> Option.get
         expr
 
-getBody <@ JS.Document.Cookie <- X<_> @>
-|> WebSharper.Core.AST.Debug.PrintExpression
+translate """
+module M
 
-let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata
+open WebSharper
+
+[<JavaScript>]
+let matchArray() = 
+    let arr = [| obj() |]
+    match arr with
+    | [||] -> false
+    | _ -> true
+"""
+
+//translate """
+//module M
+
+//open WebSharper
+
+//[<JavaScript>]
+//let anonymousRecord() = 
+//    let r = {| A = 42 |}
+//    r.A
+//"""
+
+//translate """
+//module M
+
+//open WebSharper
+
+//[<JavaScript>]
+//let stringInterpolation() = 
+//    //sprintf "x=%d %d" 5 6
+//    //$"x={(5, 5)}" 
+//    $"x=%d{5}" 
+//"""
+
+//translate """
+//module M
+
+//open WebSharper
+
+//[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
+//let testImport () = ()
+
+//[<JavaScript>]
+//let useImport() = 
+//    testImport ()
+//"""
+
+
+//translate """
+//module M
+
+//open WebSharper
+
+//[<Inline>]
+//let tailRecSingleInline n =
+//    let rec f n =
+//        if n > 0 then f (n - 1) else 0
+//    f n
+//"""
+
+//translate """
+//module M
+
+//open WebSharper
+
+//module Bug923 =
+//    type V2<[<Measure>] 'u> =
+//        struct
+//            val x : float<'u>
+//            val y : float<'u>
+//            new (x, y) = {x=x; y=y}
+//        end
+
+//        static member (+) (a : V2<_>, b : V2<_>) = 
+//            V2 (a.x + b.x, a.y + b.y)
+
+//    [<JavaScript>]
+//    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
+
+//    """
+
+//getBody <@ JS.Document.Cookie <- X<_> @>
+//|> WebSharper.Core.AST.Debug.PrintExpression
+
+//let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata
