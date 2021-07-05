@@ -57,13 +57,10 @@ let sendCompileCommand args =
     nLogger.Debug "location of wsfsc.exe and wsfscservice.exe: %s" location
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
     nLogger.Debug "pipeName is : %s" pipeName
-#if DEBUG
-    printfn "pipeName is : %s" pipeName
-#endif
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
-        Process.GetProcessesByName("wsfscservice")
+            Process.GetProcessesByName("wsfscservice")
             |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
         with
         | e ->
@@ -102,18 +99,18 @@ let sendCompileCommand args =
             let write = async {
                 let printResponse (bytes: byte array) = 
                     async {
-                    let message = System.Text.Encoding.UTF8.GetString(bytes)
+                        let message = System.Text.Encoding.UTF8.GetString(bytes)
                         // messages on the service have n: e: or x: prefix for stdout stderr or error code kind of output
-                    match message with
+                        match message with
                         | StdOut n ->
                             printfn "%s" n
                             return None
                         | StdErr e ->
                             eprintfn "%s" e
                             return None
-                    | Finish i -> 
+                        | Finish i -> 
                             return i |> Some
-                    | x -> 
+                        | x -> 
                             let unrecognizedMessageErrorCode = -13311
                             nLogger.Error "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x
                             return unrecognizedMessageErrorCode |> Some
@@ -135,7 +132,7 @@ let sendCompileCommand args =
                 unexpectedFinishErrorCode
         else
             let cannotConnectErrorCode = -14411
-            eprintfn "ClientPipe cannot connect (%i)" cannotConnectErrorCode
+            nLogger.Error "ClientPipe cannot connect (%i)" cannotConnectErrorCode
             cannotConnectErrorCode
             
  
