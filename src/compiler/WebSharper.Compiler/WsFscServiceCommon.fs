@@ -51,3 +51,4 @@ let readingMessages (pipe: PipeStream) handleMessage =
                     return! readingMessage ()
         }
     readingMessage ()
+

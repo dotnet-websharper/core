@@ -1,5 +1,5 @@
 Mono.Cecil
-  exclude Mono.Cecil.Rocks.dll
+exclude Mono.Cecil.Rocks.dll
 group fcs
   FSharp.Compiler.Service
   FSharp.Core

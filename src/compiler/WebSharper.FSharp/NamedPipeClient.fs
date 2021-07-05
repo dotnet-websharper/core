@@ -60,7 +60,7 @@ let sendCompileCommand args =
     let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
     let runningServers =
         try
-        Process.GetProcessesByName("wsfscservice")
+            Process.GetProcessesByName("wsfscservice")
             |> Array.filter (fun x -> System.String.Equals(x.MainModule.FileName, fileNameOfService, System.StringComparison.OrdinalIgnoreCase))
         with
         | e ->
