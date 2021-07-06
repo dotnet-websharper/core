@@ -120,18 +120,24 @@ let startListening() =
                             
                     let sendFinished = sprintf "x: %i" |> send
                     // use the same differentiation like --standalone
+
                     let compilationResultForDebugOrRelease() =
+                        let parsedOptions = ParseOptions deserializedMessage.args logger
+                        match parsedOptions with
+                        | HelpOrCommand r ->
+                            r // unexpected, wsfsc.exe should handle this
+                        | ParsedOptions (wsConfig, warnSettings) ->
 #if DEBUG
-                        compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
+                            Compile wsConfig warnSettings checkerFactory tryGetMetadata logger
 #else
-                        try compileMain deserializedMessage.args checkerFactory tryGetMetadata logger
-                        with 
-                        | ArgumentError msg -> 
-                            PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
-                            1
-                        | e -> 
-                            PrintGlobalError logger (sprintf "Global error: %A" e)
-                            1
+                            try Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+                            with 
+                            | ArgumentError msg -> 
+                                PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
+                                1
+                            | e -> 
+                                PrintGlobalError logger (sprintf "Global error: %A" e)
+                                1
 #endif
                     let returnValue = compilationResultForDebugOrRelease()
                     do! sendFinished returnValue

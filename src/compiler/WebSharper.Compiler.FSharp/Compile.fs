@@ -314,10 +314,15 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
     | _ ->
         0
 
-let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBase) =
+type ParseOptionsResult =
+    | HelpOrCommand of int
+    | ParsedOptions of WsConfig * WarnSettings
+
+let ParseOptions (argv: string[]) (logger: LoggerBase) = 
 
     match HandleDefaultArgsAndCommands logger argv true with
-    | Some r -> r
+    | Some r -> 
+        HelpOrCommand r
     | _ ->
     
     let wsArgs = ref WsConfig.Empty
@@ -414,20 +419,23 @@ let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBa
     wsArgs := SetDefaultProjectFile !wsArgs true
     wsArgs := SetScriptBaseUrl !wsArgs
 
+
+    ParsedOptions (!wsArgs, !warn)
+
+let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
     let clearOutput() =
         try
-            let intermediaryOutput = (!wsArgs).AssemblyFile
+            let intermediaryOutput = config.AssemblyFile
             if File.Exists intermediaryOutput then 
                 let failedOutput = intermediaryOutput + ".failed"
                 if File.Exists failedOutput then File.Delete failedOutput
                 File.Move (intermediaryOutput, failedOutput)
         with _ ->
             PrintGlobalError logger "Failed to clean intermediate output!"
-
     try 
         let exitCode = 
-            match Compile !wsArgs !warn logger checkerFactory tryGetMetadata with
-            | 0 -> UnpackOrWIG !wsArgs !warn logger
+            match Compile config warnSettings logger checkerFactory tryGetMetadata with
+            | 0 -> UnpackOrWIG config warnSettings logger
             | e -> e
         if exitCode <> 0 then 
             clearOutput()
