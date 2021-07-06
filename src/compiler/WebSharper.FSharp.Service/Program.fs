@@ -217,6 +217,7 @@ let main _ =
         exit(1)
     mutex <- new Mutex(false, mutexName)
     mutex.WaitOne() |> ignore // should always instantly continue
+    System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     try
         startListening()
     // killing the task from Task Manager on Windows 10 will dispose the Mutex

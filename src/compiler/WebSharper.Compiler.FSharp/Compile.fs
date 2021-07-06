@@ -44,6 +44,28 @@ let createAssemblyResolver (config : WsConfig) =
             .SearchDirectories([compilerDir])
     aR, paths
 
+let addAssemblyResolver paths =
+    let referencedAsmNames =
+        paths
+        |> Seq.map (fun i -> 
+            let n = Path.GetFileNameWithoutExtension(i)
+            n, i
+        )
+        |> Map.ofSeq
+
+    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
+            let assemblyName = AssemblyName(e.Name).Name
+            match Map.tryFind assemblyName referencedAsmNames with
+            | None -> null
+            | Some p -> 
+                if assemblyName = "FSharp.Core" then
+                    typeof<option<_>>.Assembly
+                else
+                    Assembly.Load(File.ReadAllBytes(p))
+        )
+
+    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -138,28 +160,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     None
         )
     
-    let referencedAsmNames =
-        paths
-        |> Seq.map (fun i -> 
-            let n = Path.GetFileNameWithoutExtension(i)
-            n, i
-        )
-        |> Map.ofSeq
-
-    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
-            let assemblyName = AssemblyName(e.Name).Name
-            match Map.tryFind assemblyName referencedAsmNames with
-            | None -> null
-            | Some p -> 
-                if assemblyName = "FSharp.Core" then
-                    typeof<option<_>>.Assembly
-                elif assemblyName = thisName then
-                    Assembly.Load(File.ReadAllBytes(p))
-                else
-                    Assembly.LoadFrom(p)
-        )
-
-    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+    addAssemblyResolver paths
 
     let compilerArgs =
         if thisName = "WebSharper.Main" then
@@ -290,9 +291,11 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
         logger.TimedStage stageName
         res
 
+    let aR, paths = createAssemblyResolver config
+    addAssemblyResolver paths
+
     match config.ProjectType with
     | Some WIG ->
-        let aR, _ = createAssemblyResolver config
         aR.Wrap <| fun () ->
         try 
             RunInterfaceGenerator aR config.KeyFile config
