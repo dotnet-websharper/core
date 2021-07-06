@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+    <SignAssembly>false</SignAssembly>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="example1.abc.fs" />
+    <Compile Include="Site.fs" />
+    <Compile Include="Startup.fs" />
+    <Content Include="Main.html" CopyToPublishDirectory="Always" />
+    <None Include="wsconfig.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.JQuery\WebSharper.JQuery.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS\WebSharper.MathJS.fsproj" />
+    <ProjectReference Include="..\..\src\stdlib\WebSharper.Testing\WebSharper.Testing.fsproj" />
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
+    <ProjectReference Include="..\..\src\sitelets\WebSharper.AspNetCore\WebSharper.AspNetCore.fsproj" />
+    <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
+  </ItemGroup>
+
+</Project>
