@@ -202,6 +202,16 @@ Target.create "RunTestsRelease" <| fun _ ->
 
 targets.AddPrebuild "Prepare"
 
+Target.create "Stop" <| fun _ ->
+    try
+        Process.GetProcessesByName("wsfscservice")
+        |> Array.iter (fun x -> x.Kill())
+        |> ignore
+    with
+    | _ -> ()
+
+"Stop" ==> "WS-Clean"
+
 "WS-BuildRelease"
     ==> "RunTestsRelease"
     ?=> "WS-Package"
