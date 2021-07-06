@@ -27,6 +27,7 @@ module C = WebSharper.Compiler.Commands
 open FSharp.Compiler.CodeAnalysis
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.FSharp.NamedPipeClient
+open WebSharper.Compiler.WsFscServiceCommon
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open NLog.FSharp
@@ -57,11 +58,42 @@ let main(argv) =
         logger.DebugWrite <| sprintf "Start compilation in standalone mode. Reason: %s" reason
         System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
         let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
-        let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
-#if DEBUG
-        compileMain argv createChecker tryGetMetadata logger 
-#else
-        try compileMain argv createChecker tryGetMetadata logger
+#if !DEBUG
+        try
+#endif
+        let compilationResultBeforeWIG, compilerOption = compileMain argv createChecker logger
+        let callWIGPart (config: WsConfig) = 
+            let compilerDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location)
+            let paths =
+                [
+                    for r in config.References -> Path.GetFullPath r
+                    yield Path.GetFullPath config.AssemblyFile
+                ]
+            let aR = 
+                AssemblyResolver.Create()
+                    .SearchPaths(paths)
+                    .SearchDirectories([compilerDir])
+            WIGPart config logger aR
+            |> Option.defaultValue 
+                (match compilerOption with
+                | Some compiler -> 
+                    let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+                    let compilationOption = PartAfterWIG config logger compiler tryGetMetadata paths aR
+                    match compilationOption with
+                    | Some x -> 
+                        WIGSiteletHTMLBundleOperations config compiler.WarnSettings logger compilationResultBeforeWIG x
+                    | None ->
+                        1
+                | None ->
+                    failwith "If we proceed after WIG, we must need a compiler"
+                )
+        match compilationResultBeforeWIG with
+        | { IsProxy = true } -> 0
+        | { WSConfig = conf; IsBundleOnly = true } -> callWIGPart conf 
+        | { WSConfig = conf; IsBundleOnly = false; CheckerErrorCode = Some 0 } -> callWIGPart conf
+        | { IsBundleOnly = false; CheckerErrorCode = Some x } -> x
+        | { CheckerErrorCode = None } -> failwith "Global error: !isBundleOnly must have checker result"
+#if !DEBUG
         with 
         | ArgumentError msg -> 
             PrintGlobalError logger (msg + " - args: " + (argv |> String.concat " "))

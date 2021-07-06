@@ -24,6 +24,7 @@ open System
 open System.IO
 open System.Reflection
 open WebSharper.Compiler
+open WebSharper.Compiler.WsFscServiceCommon
 
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FrontEnd
@@ -31,89 +32,118 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
 
-let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
-    if config.AssemblyFile = null then
-        argError "You must provide assembly output path."
-    
-    if config.ProjectType <> Some WIG && config.ProjectFile = null then
-        argError "You must provide project file path."
 
-    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
-
-    let mainProxiesFile() =
-        "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
-
-    if thisName = "WebSharper.Main.Proxies" then
-        let config =
-            { config with
-                References =
-                    config.References
-                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.Main.Proxies.dll"))
-            }
-        let mainProxiesFile = mainProxiesFile()
-        Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
-        let fixedArgs =
-            config.CompilerArgs 
-            |> Array.map (fun s -> 
-                s.Replace(@"net5.0\.NETCoreApp,Version=v5.0.AssemblyAttributes.fs", 
-                    @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs")
-            )
-        File.WriteAllLines(mainProxiesFile, fixedArgs)
-        MakeDummyDll config.AssemblyFile thisName
-        logger.Out "Written Proxies.args"
-        0 
+let WIGSiteletHTMLBundleOperations (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (compilationResultBeforeWIG: CompilationResultBeforeWIG) (comp: Compilation) =
+    let isBundleOnly = compilationResultBeforeWIG.IsBundleOnly
+    if not (List.isEmpty comp.Errors || config.WarnOnly) then        
+        PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
+        1
     else
+        let getRefMeta() =
+            match wsRefsMeta.Result with 
+            | Some (_, _, m) -> m 
+            | _ -> WebSharper.Core.Metadata.Info.Empty
 
-    let checker = checkerFactory()
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
-    compiler.WarnSettings <- warnSettings
+        let getRefMetas() =
+            match wsRefsMeta.Result with 
+            | Some (_, m, _) -> m 
+            | _ -> []
 
-    let isBundleOnly = config.ProjectType = Some BundleOnly
-    
-    let exitCode = 
-        if isBundleOnly then
-            MakeDummyDll config.AssemblyFile thisName
+        let js, currentMeta, sources, extraBundles =
+            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
+            if isBundleOnly then
+                let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
+                let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                None, currentMeta, sources, extraBundles
+            else
+                let assem = loader.LoadFile config.AssemblyFile
+
+                if config.ProjectType = Some Proxy then
+                    EraseAssemblyContents assem
+
+                let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
+        
+                let js, currentMeta, sources =
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
+
+                match config.ProjectType with
+                | Some (Bundle | Website) ->
+                    let wsRefs =
+                        match wsRefsMeta.Result with 
+                        | Some (r, _, m) -> r 
+                        | _ -> []
+                    AddExtraAssemblyReferences wsRefs assem
+                | _ -> ()
+
+                PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
+                
+                if config.PrintJS then
+                    match js with 
+                    | Some (js, _) ->
+                        sprintf "%s" js
+                        |> logger.Out
+                    | _ -> ()
+
+                logger.TimedStage "Erasing assembly content for Proxy project"
+
+                assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+
+                logger.TimedStage "Writing resources into assembly"
+                js, currentMeta, sources, extraBundles
+
+        match config.JSOutputPath, js with
+        | Some path, Some (js, _) ->
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
+            logger.TimedStage ("Writing " + path)
+        | _ -> ()
+
+        match config.MinJSOutputPath, js with
+        | Some path, Some (_, minjs) ->
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
+            logger.TimedStage ("Writing " + path)
+        | _ -> ()
+
+        let handleCommandResult stageName cmdRes =  
+            let res =
+                match cmdRes with
+                | C.Ok -> 0
+                | C.Errors errors ->
+                    if config.WarnOnly || config.DownloadResources = Some false then
+                        errors |> List.iter (PrintGlobalWarning warnSettings logger)
+                        0
+                    else
+                        errors |> List.iter (PrintGlobalError logger)
+                        1
+            logger.TimedStage stageName
+            res
+        
+        match config.ProjectType with
+        | Some (Bundle | BundleOnly) ->
+            // comp.Graph does not have graph of dependencies and we need full graph here for bundling
+            let metas =
+                match wsRefsMeta.Result with
+                | Some (_, metas, _) -> metas
+                | _ -> []
+
+            let currentJS =
+                lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
+            Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+            logger.TimedStage "Bundling"
             0
-        else
-            let errors, exitCode = 
-                checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
-    
-            PrintFSharpErrors warnSettings logger errors
-    
-            if exitCode = 0 then 
-                if not (File.Exists config.AssemblyFile) then
-                    argError "Output assembly not found"
-
-                logger.TimedStage "F# compilation"
-
-            exitCode
-            
-    if exitCode <> 0 then 
-        exitCode
-    else
-
-    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let paths =
-        [
-            for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
-        ]        
-    let aR =
-        AssemblyResolver.Create()
-            .SearchPaths(paths)
-            .SearchDirectories([compilerDir])
-
-    if config.ProjectType = Some WIG then  
-        aR.Wrap <| fun () ->
-        try 
-            RunInterfaceGenerator aR config.KeyFile config
-            logger.TimedStage "WIG running time"
+        | Some Html ->
+            ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
+        | Some Website
+        | _ when Option.isSome config.OutputDir ->
+            match ExecuteCommands.GetWebRoot config with
+            | Some webRoot ->
+                ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
+            | None ->
+                PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+                1
+        | _ ->
             0
-        with e ->
-            PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
-            1
-    
-    else    
+
+let PartAfterWIG config (logger: LoggerBase) (compiler: WebSharperFSharpCompiler) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) paths aR =
     let loader = Loader.Create aR logger.Out
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
@@ -154,6 +184,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         )
         |> Map.ofSeq
 
+    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+
     let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
             let assemblyName = AssemblyName(e.Name).Name
             match Map.tryFind assemblyName referencedAsmNames with
@@ -168,6 +200,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         )
 
     System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
+    let mainProxiesFile() =
+        "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
 
     let compilerArgs =
         if thisName = "WebSharper.Main" then
@@ -189,238 +224,199 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         else
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
 
-    let comp =
-        compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
+    compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
 
-    match comp with
-    | None ->        
-        1
-    | Some comp ->
+let WIGPart config (logger: LoggerBase) (aR: AssemblyResolver) =
 
-    if not (List.isEmpty comp.Errors || config.WarnOnly) then        
-        PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-        1
+    if config.ProjectType = Some WIG then  
+        aR.Wrap <| fun () ->
+        try 
+            RunInterfaceGenerator aR config.KeyFile config
+            logger.TimedStage "WIG running time"
+            0 |> Some
+        with e ->
+            PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
+            1 |> Some
     else
+        None
+
+
+let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) =    
+    if config.AssemblyFile = null then
+        argError "You must provide assembly output path."
     
-    let getRefMeta() =
-        match wsRefsMeta.Result with 
-        | Some (_, _, m) -> m 
-        | _ -> WebSharper.Core.Metadata.Info.Empty
+    if config.ProjectType <> Some WIG && config.ProjectFile = null then
+        argError "You must provide project file path."
 
-    let getRefMetas() =
-        match wsRefsMeta.Result with 
-        | Some (_, m, _) -> m 
-        | _ -> []
+    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
 
-    let js, currentMeta, sources, extraBundles =
-        let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
-        if isBundleOnly then
-            let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
-            None, currentMeta, sources, extraBundles
-        else
-            let assem = loader.LoadFile config.AssemblyFile
+    let mainProxiesFile() =
+        "../../../build/" + (if config.IsDebug then "Debug" else "Release") + "/Proxies.args"    
 
-            if config.ProjectType = Some Proxy then
-                EraseAssemblyContents assem
+    if thisName = "WebSharper.Main.Proxies" then
+        let config =
+            { config with
+                References =
+                    config.References
+                    |> Array.filter (fun r -> not (r.EndsWith "WebSharper.Main.Proxies.dll"))
+            }
+        let mainProxiesFile = mainProxiesFile()
+        Directory.CreateDirectory(Path.GetDirectoryName(mainProxiesFile)) |> ignore
+        let fixedArgs =
+            config.CompilerArgs 
+            |> Array.map (fun s -> 
+                s.Replace(@"net5.0\.NETCoreApp,Version=v5.0.AssemblyAttributes.fs", 
+                    @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs")
+            )
+        File.WriteAllLines(mainProxiesFile, fixedArgs)
+        MakeDummyDll config.AssemblyFile thisName
+        logger.Out "Written Proxies.args"
+        ({ emptyCompilationResultBeforeWIG with WSConfig = config; IsProxy = true }, None)
+    else
 
-            let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
-    
-            let js, currentMeta, sources =
-                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
+        let checker = checkerFactory()
+        let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
+        compiler.WarnSettings <- warnSettings
 
-            match config.ProjectType with
-            | Some (Bundle | Website) ->
-                let wsRefs =
-                    match wsRefsMeta.Result with 
-                    | Some (r, _, m) -> r 
-                    | _ -> []
-                AddExtraAssemblyReferences wsRefs assem
-            | _ -> ()
+        let isBundleOnly = config.ProjectType = Some BundleOnly
+        
+        let exitCode = 
+            if isBundleOnly then
+                MakeDummyDll config.AssemblyFile thisName
+                ({ emptyCompilationResultBeforeWIG with WSConfig = config; IsBundleOnly = true }, compiler |> Some)
+            else
+                let errors, exitCode = 
+                    checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
+        
+                PrintFSharpErrors warnSettings logger errors
+        
+                if exitCode = 0 then 
+                    if not (File.Exists config.AssemblyFile) then
+                        argError "Output assembly not found"
 
-            PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-            
-            if config.PrintJS then
-                match js with 
-                | Some (js, _) ->
-                    sprintf "%s" js
-                    |> logger.Out
-                | _ -> ()
+                    logger.TimedStage "F# compilation"
+                ({ emptyCompilationResultBeforeWIG with WSConfig = config; CheckerErrorCode = (exitCode |> Some) }, compiler |> Some)
+                
+        exitCode
 
-            logger.TimedStage "Erasing assembly content for Proxy project"
 
-            assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
-
-            logger.TimedStage "Writing resources into assembly"
-            js, currentMeta, sources, extraBundles
-
-    match config.JSOutputPath, js with
-    | Some path, Some (js, _) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
-        logger.TimedStage ("Writing " + path)
-    | _ -> ()
-
-    match config.MinJSOutputPath, js with
-    | Some path, Some (_, minjs) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-        logger.TimedStage ("Writing " + path)
-    | _ -> ()
-
-    let handleCommandResult stageName cmdRes =  
-        let res =
-            match cmdRes with
-            | C.Ok -> 0
-            | C.Errors errors ->
-                if config.WarnOnly || config.DownloadResources = Some false then
-                    errors |> List.iter (PrintGlobalWarning warnSettings logger)
-                    0
-                else
-                    errors |> List.iter (PrintGlobalError logger)
-                    1
-        logger.TimedStage stageName
-        res
-    
-    match config.ProjectType with
-    | Some (Bundle | BundleOnly) ->
-        // comp.Graph does not have graph of dependencies and we need full graph here for bundling
-        let metas =
-            match wsRefsMeta.Result with
-            | Some (_, metas, _) -> metas
-            | _ -> []
-
-        let currentJS =
-            lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
-        Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
-        logger.TimedStage "Bundling"
-        0
-    | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
-    | Some Website
-    | _ when Option.isSome config.OutputDir ->
-        match ExecuteCommands.GetWebRoot config with
-        | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
-        | None ->
-            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
-            1
-    | _ ->
-        0
-
-let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBase) =
+let compileMain (argv: string[]) checkerFactory (logger: LoggerBase) =
 
     match HandleDefaultArgsAndCommands logger argv true with
-    | Some r -> r
+    | Some r -> ({ emptyCompilationResultBeforeWIG with DefaultArgumentResult = r |> Some }, None)
     | _ ->
     
-    let wsArgs = ref WsConfig.Empty
-    let warn = ref WarnSettings.Default
-    let refs = ResizeArray()
-    let resources = ResizeArray()
-    let fscArgs = ResizeArray()
-    if not (argv.[0].EndsWith "fsc.exe" || argv.[0].EndsWith "fsc.dll") then
-        fscArgs.Add "fsc.exe"   
+        let wsArgs = ref WsConfig.Empty
+        let warn = ref WarnSettings.Default
+        let refs = ResizeArray()
+        let resources = ResizeArray()
+        let fscArgs = ResizeArray()
+        if not (argv.[0].EndsWith "fsc.exe" || argv.[0].EndsWith "fsc.dll") then
+            fscArgs.Add "fsc.exe"   
 
-    let cArgv =
-        [|
-            let isRNext = ref false
-            for a in argv do
-                match a with
-                | "-r" ->
-                    isRNext := true
-                | _ ->
-                    if !isRNext then
-                        isRNext := false   
-                        yield "-r:" + a
-                    else
-                        yield a
-        |]
+        let cArgv =
+            [|
+                let isRNext = ref false
+                for a in argv do
+                    match a with
+                    | "-r" ->
+                        isRNext := true
+                    | _ ->
+                        if !isRNext then
+                            isRNext := false   
+                            yield "-r:" + a
+                        else
+                            yield a
+            |]
 
-    let fsCodeRE = System.Text.RegularExpressions.Regex(@"^(?:FS)?([0-9]+)$")
+        let fsCodeRE = System.Text.RegularExpressions.Regex(@"^(?:FS)?([0-9]+)$")
 
-    let parseWarnCodeSet (s: string) =
-        s.Split(',')
-        |> Seq.choose (fun s ->
-            let m = fsCodeRE.Match(s)
-            if m.Success then
-                Some (int m.Groups.[1].Value)
-            else
-                None
-        )
-        |> Set
-    
-    for a in cArgv do
-        match RecognizeWebSharperArg a !wsArgs with
-        | Some na -> wsArgs := na
-        | _ ->
-        match a with
-        | "--vserrors" ->
-            wsArgs := { !wsArgs with VSStyleErrors = true }
-            fscArgs.Add a
-        | StartsWith "--doc:" d ->
-            wsArgs := { !wsArgs with Documentation = Some d }
-            fscArgs.Add a
-        | StartsWith "-o:" o | StartsWith "--out:" o ->
-            wsArgs := { !wsArgs with AssemblyFile = o }
-            fscArgs.Add a
-        | StartsWith "-r:" r | StartsWith "--reference:" r ->
-            refs.Add r
-            fscArgs.Add a
-        | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
-            wsArgs := { !wsArgs with IsDebug = true }
-            fscArgs.Add a
-        | StartsWith "--resource:" r ->
-            match r.Split(',') with 
-            | [| res |] -> resources.Add (res, None)
-            | [| res; fullName |] -> resources.Add (res, Some fullName)
-            | _ -> argError ("Unexpected value --resource:" + r)
-            fscArgs.Add a
-        | StartsWith "--keyfile:" k ->
-            wsArgs := { !wsArgs with KeyFile = Some k }
-        | StartsWith "--targetprofile:" p ->
-            wsArgs := { !wsArgs with TargetProfile = p }
-            fscArgs.Add a
-        | StartsWith "--nowarn:" w ->
-            warn := { !warn with NoWarn = (!warn).NoWarn + parseWarnCodeSet w }
-        | StartsWith "--warn:" l ->
-            warn := { !warn with WarnLevel = int l }
-        | StartsWith "--warnon:" w ->
-            warn := { !warn with NoWarn = (!warn).NoWarn - parseWarnCodeSet w }
-        | "--warnaserror+" ->
-            warn := { !warn with AllWarnAsError = true }
-        | "--warnaserror-" ->
-            warn := { !warn with AllWarnAsError = false }
-        | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
-            warn := { !warn with WarnAsError = (!warn).WarnAsError + parseWarnCodeSet w }
-        | StartsWith "--warnaserror-:" w ->
-            warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
-        | StartsWith "--preferreduilang:" _ ->
-            () // not handled by FSC 16.0.2
-        | _ -> 
-            fscArgs.Add a  
-    wsArgs := 
-        { !wsArgs with 
-            References = refs |> Seq.distinct |> Array.ofSeq
-            Resources = resources.ToArray()
-            CompilerArgs = fscArgs.ToArray() 
-        }
-    wsArgs := SetDefaultProjectFile !wsArgs true
-    wsArgs := SetScriptBaseUrl !wsArgs
+        let parseWarnCodeSet (s: string) =
+            s.Split(',')
+            |> Seq.choose (fun s ->
+                let m = fsCodeRE.Match(s)
+                if m.Success then
+                    Some (int m.Groups.[1].Value)
+                else
+                    None
+            )
+            |> Set
+        
+        for a in cArgv do
+            match RecognizeWebSharperArg a !wsArgs with
+            | Some na -> wsArgs := na
+            | _ ->
+            match a with
+            | "--vserrors" ->
+                wsArgs := { !wsArgs with VSStyleErrors = true }
+                fscArgs.Add a
+            | StartsWith "--doc:" d ->
+                wsArgs := { !wsArgs with Documentation = Some d }
+                fscArgs.Add a
+            | StartsWith "-o:" o | StartsWith "--out:" o ->
+                wsArgs := { !wsArgs with AssemblyFile = o }
+                fscArgs.Add a
+            | StartsWith "-r:" r | StartsWith "--reference:" r ->
+                refs.Add r
+                fscArgs.Add a
+            | "--debug" | "--debug+" | "--debug:full" | "-g" | "-g+" | "-g:full" ->
+                wsArgs := { !wsArgs with IsDebug = true }
+                fscArgs.Add a
+            | StartsWith "--resource:" r ->
+                match r.Split(',') with 
+                | [| res |] -> resources.Add (res, None)
+                | [| res; fullName |] -> resources.Add (res, Some fullName)
+                | _ -> argError ("Unexpected value --resource:" + r)
+                fscArgs.Add a
+            | StartsWith "--keyfile:" k ->
+                wsArgs := { !wsArgs with KeyFile = Some k }
+            | StartsWith "--targetprofile:" p ->
+                wsArgs := { !wsArgs with TargetProfile = p }
+                fscArgs.Add a
+            | StartsWith "--nowarn:" w ->
+                warn := { !warn with NoWarn = (!warn).NoWarn + parseWarnCodeSet w }
+            | StartsWith "--warn:" l ->
+                warn := { !warn with WarnLevel = int l }
+            | StartsWith "--warnon:" w ->
+                warn := { !warn with NoWarn = (!warn).NoWarn - parseWarnCodeSet w }
+            | "--warnaserror+" ->
+                warn := { !warn with AllWarnAsError = true }
+            | "--warnaserror-" ->
+                warn := { !warn with AllWarnAsError = false }
+            | StartsWith "--warnaserror:" w | StartsWith "--warnaserror+:" w ->
+                warn := { !warn with WarnAsError = (!warn).WarnAsError + parseWarnCodeSet w }
+            | StartsWith "--warnaserror-:" w ->
+                warn := { !warn with DontWarnAsError = (!warn).DontWarnAsError + parseWarnCodeSet w }
+            | StartsWith "--preferreduilang:" _ ->
+                () // not handled by FSC 16.0.2
+            | _ -> 
+                fscArgs.Add a  
+        wsArgs := 
+            { !wsArgs with 
+                References = refs |> Seq.distinct |> Array.ofSeq
+                Resources = resources.ToArray()
+                CompilerArgs = fscArgs.ToArray() 
+            }
+        wsArgs := SetDefaultProjectFile !wsArgs true
+        wsArgs := SetScriptBaseUrl !wsArgs
 
-    let clearOutput() =
-        try
-            let intermediaryOutput = (!wsArgs).AssemblyFile
-            if File.Exists intermediaryOutput then 
-                let failedOutput = intermediaryOutput + ".failed"
-                if File.Exists failedOutput then File.Delete failedOutput
-                File.Move (intermediaryOutput, failedOutput)
+        let clearOutput() =
+            try
+                let intermediaryOutput = (!wsArgs).AssemblyFile
+                if File.Exists intermediaryOutput then 
+                    let failedOutput = intermediaryOutput + ".failed"
+                    if File.Exists failedOutput then File.Delete failedOutput
+                    File.Move (intermediaryOutput, failedOutput)
+            with _ ->
+                PrintGlobalError logger "Failed to clean intermediate output!"
+
+        try 
+            let exitCode = Compile !wsArgs !warn logger checkerFactory
+            // exitCode <> 0
+            let compilationResultBeforeWIG = fst exitCode 
+            if not compilationResultBeforeWIG.IsBundleOnly && not compilationResultBeforeWIG.IsProxy && compilationResultBeforeWIG.CheckerErrorCode.Value <> 0 then clearOutput()
+            exitCode
         with _ ->
-            PrintGlobalError logger "Failed to clean intermediate output!"
-
-    try 
-        let exitCode = Compile !wsArgs !warn logger checkerFactory tryGetMetadata
-        if exitCode <> 0 then clearOutput()
-        exitCode            
-    with _ ->
-        clearOutput()
-        reraise()
+            clearOutput()
+            reraise()
 

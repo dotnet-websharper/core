@@ -1,8 +1,13 @@
 ﻿module WebSharper.Compiler.WsFscServiceCommon
 
 open System.IO.Pipes
+open WebSharper.Compiler.CommandTools
 
 type ArgsType = {args: string array}
+
+type CompilationResultBeforeWIG = { WSConfig: WsConfig; IsProxy: bool; IsBundleOnly: bool; CheckerErrorCode: int option; DefaultArgumentResult: int option }
+
+let emptyCompilationResultBeforeWIG = { WSConfig = WsConfig.Empty; IsProxy = false; IsBundleOnly = false; CheckerErrorCode = None; DefaultArgumentResult = None }
 
 let md5 = System.Security.Cryptography.MD5.Create()
 
