@@ -45,12 +45,15 @@ module Implemetnation =
         }
 
         member r.ResolveAssembly(bD: string, dom: AppDomain, loadContext: AssemblyLoadContext, name: AssemblyName) =
-            match tryFindAssembly dom name with
-            | None ->
-                match r.ResolvePath name with
-                | None -> None
-                | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
-            | r -> r
+            //match tryFindAssembly dom name with
+            //| None ->
+            //    match r.ResolvePath name with
+            //    | None -> None
+            //    | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
+            //| r -> r
+            match r.ResolvePath name with
+            | None -> None
+            | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
 
     let combine a b =
         {

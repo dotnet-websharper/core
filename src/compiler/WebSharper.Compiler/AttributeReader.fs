@@ -569,4 +569,6 @@ let reflectCustomType (typ : TypeDefinition) =
                 HasNull = usesNull && cases |> List.exists (fun c -> c.Kind = M.ConstantFSharpUnionCase Null) 
             }
         else M.NotCustomType
-    with _ -> M.NotCustomType
+    with e -> 
+        printfn "WARNING: Error during reflectCustomType: %A" e
+        M.NotCustomType

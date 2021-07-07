@@ -86,13 +86,13 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
     let compiler = WebSharper.Compiler.CSharp.WebSharperCSharpCompiler()
 
-    let referencedAsmNames =
-        paths
-        |> Seq.map (fun i -> 
-            let n = Path.GetFileNameWithoutExtension(i)
-            n, i
-        )
-        |> Map.ofSeq
+    //let referencedAsmNames =
+    //    paths
+    //    |> Seq.map (fun i -> 
+    //        let n = Path.GetFileNameWithoutExtension(i)
+    //        n, i
+    //    )
+    //    |> Map.ofSeq
 
     //let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
 
