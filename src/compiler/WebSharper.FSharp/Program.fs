@@ -47,16 +47,13 @@ let main(argv) =
     nLogger.Debug "Debug level is on"
     let argv = formatArgv argv
     let logger = ConsoleLogger()   
-    let standaloneMode = argv |> Array.exists (fun x -> x.IndexOf("--standalone", System.StringComparison.OrdinalIgnoreCase) >= 0)
-    let argv = argv |> Array.filter (fun x -> x <> "--standalone")
     let parsedOptions = ParseOptions argv logger
     match parsedOptions with
     | HelpOrCommand r ->
         r
     | ParsedOptions (wsConfig, warnSettings) ->
-        if standaloneMode then
-            let reason = "--standalone flag is present"
-            logger.DebugWrite <| sprintf "Start compilation in standalone mode. Reason: %s" reason
+        if wsConfig.Standalone then
+            logger.DebugWrite <| sprintf "Start compilation in standalone mode."
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG
