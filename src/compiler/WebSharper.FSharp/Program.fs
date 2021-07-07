@@ -53,7 +53,15 @@ let main(argv) =
         r
     | ParsedOptions (wsConfig, warnSettings) ->
         if wsConfig.Standalone then
-            logger.DebugWrite <| sprintf "Start compilation in standalone mode."
+            let reason =
+                if System.Environment.GetEnvironmentVariables()
+                    |> Seq.cast<System.Collections.DictionaryEntry>
+                    |> Seq.exists (fun x -> (x.Key :?> string).ToLower() = "websharperbuildservice" && (x.Value :?> string).ToLower() = "false")
+                then
+                    "WebSharperBuildService environment variable is set to false"
+                else
+                    "--standalone compile flag is set or WebSharperStandalone targets variable set"
+            logger.DebugWrite <| sprintf "Start compilation in standalone mode because %s." reason
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG

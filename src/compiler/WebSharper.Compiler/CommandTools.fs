@@ -121,7 +121,9 @@ type WsConfig =
             ProxyTargetName = None
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
-            Standalone = false
+            Standalone = System.Environment.GetEnvironmentVariables()
+                |> Seq.cast<System.Collections.DictionaryEntry>
+                |> Seq.exists (fun x -> (x.Key :?> string).ToLower() = "websharperbuildservice" && (x.Value :?> string).ToLower() = "false")
         }
 
     static member ParseAnalyzeClosures(c: string) =
