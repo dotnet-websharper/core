@@ -41,6 +41,7 @@ let formatArgv (argv: string[]) =
 
 [<EntryPoint>]
 let main(argv) =
+    //System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
     let nLogger = Logger()
     nLogger.Trace "Trace level is on"
     nLogger.Debug "Debug level is on"
@@ -55,7 +56,6 @@ let main(argv) =
         let logger = ConsoleLogger()   
         let reason = if standaloneMode then "--standalone flag is present" else if extension then "--ws:extension flag is present" else "--ws:interfaceGenerator flag is present"
         logger.DebugWrite <| sprintf "Start compilation in standalone mode. Reason: %s" reason
-        System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
         let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
         let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG

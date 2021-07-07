@@ -81,9 +81,9 @@ module HtmlCommand =
         let assemblyName =
             let n = typeof<IHtmlCommand>.Assembly.GetName()
             n.Name <- "WebSharper.Sitelets.Offline"
-            n
+            n.FullName
         aR.Wrap <| fun () ->
-            let asm = System.Reflection.Assembly.Load(assemblyName)
+            let asm = WebSharper.Core.Reflection.LoadAssembly(assemblyName)
             let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
             let t = asm.GetType(tN, throwOnError = true)
             let cmd = Activator.CreateInstance(t) :?> IHtmlCommand

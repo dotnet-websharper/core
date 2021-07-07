@@ -97,6 +97,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         [
             for r in config.References -> Path.GetFullPath r
             yield Path.GetFullPath config.AssemblyFile
+            if config.ProjectType = Some WIG then
+                yield Path.GetFullPath (Path.ChangeExtension(config.AssemblyFile, ".Generator.dll"))
         ]        
     let aR =
         AssemblyResolver.Create()

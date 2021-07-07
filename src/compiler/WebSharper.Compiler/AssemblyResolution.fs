@@ -39,24 +39,60 @@ module Implemetnation =
             a.GetName()
             |> isCompatible name)
 
+    let loadInto (baseDir: string) (dom: AppDomain) (path: string) =
+        File.ReadAllBytes path
+        |> dom.Load
+
     type AssemblyResolution =
         {
+            Cache : ConcurrentDictionary<string, option<Assembly>>
             ResolvePath : AssemblyName -> option<string>
         }
 
-        member r.ResolveAssembly(bD: string, dom: AppDomain, loadContext: AssemblyLoadContext, name: AssemblyName) =
-            //match tryFindAssembly dom name with
-            //| None ->
-            //    match r.ResolvePath name with
-            //    | None -> None
-            //    | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
-            //| r -> r
-            match r.ResolvePath name with
-            | None -> None
-            | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
+        member r.ResolveAssembly(bD: string, dom: AppDomain, loadContext: option<AssemblyLoadContext>, asmNameOrPath: string) =
+            let resolve (x: string) =
+                if x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
+                    let p = Path.GetFullPath x
+                    let asm =
+                        match loadContext with
+                        | Some alc ->
+                                printfn "LoadFromAssemblyPath: %s" p
+                                alc.LoadFromAssemblyPath(p)
+                        | None ->
+                                printfn "AppDomain.Load: %s" p
+                                loadInto bD dom p
+                    for ref in asm.GetReferencedAssemblies() do
+                        printfn "Assembly load reference : %s -> %s" x ref.FullName
+                        try r.ResolveAssembly(bD, dom, loadContext, ref.FullName) |> ignore
+                        with _ -> ()
+                    Some asm
+                else
+                    let name = AssemblyName(x)
+                    match tryFindAssembly dom name with
+                    | None ->
+                        match r.ResolvePath name with
+                        | None -> None
+                        | Some p -> 
+                            let asm =
+                                match loadContext with
+                                | Some alc ->
+                                     printfn "LoadFromAssemblyPath: %s" p
+                                     alc.LoadFromAssemblyPath(p)
+                                | None ->
+                                     printfn "AppDomain.Load: %s" p
+                                     loadInto bD dom p
+                            for ref in asm.GetReferencedAssemblies() do
+                                printfn "Assembly load reference : %s -> %s" x ref.FullName
+                                try r.ResolveAssembly(bD, dom, loadContext, ref.FullName) |> ignore
+                                with _ -> ()
+                            Some asm
+                    | r -> r
+
+            r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
 
     let combine a b =
         {
+            Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
                 match a.ResolvePath name with
                 | None -> b.ResolvePath name
@@ -80,6 +116,7 @@ module Implemetnation =
             |> Seq.map Path.GetFullPath
             |> Seq.toArray
         {
+            Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
                 seq {
                     for path in paths do
@@ -97,6 +134,7 @@ module Implemetnation =
             |> Seq.map Path.GetFullPath
             |> Seq.toArray
         {
+            Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
                 seq {
                     for dir in dirs do
@@ -108,49 +146,66 @@ module Implemetnation =
                 |> first
         }
 
-    let memoize getKey f =
-        let cache = ConcurrentDictionary()
-        fun x -> cache.GetOrAdd(getKey x, valueFactory = Func<_,_>(fun _ -> f x))
+    //let memoize f =
+    //    let cache = ConcurrentDictionary()
+    //    fun x -> cache.GetOrAdd(x, valueFactory = Func<_,_>(fun _ -> f x))
 
-    let memoizeResolution (r: AssemblyResolution) =
-        let key (n: AssemblyName) = (n.Name, string n.Version)
-        { ResolvePath = memoize key r.ResolvePath }
+    //let memoizeResolution (r: AssemblyResolution) =
+    //    let key (n: AssemblyName) = (n.Name, string n.Version)
+    //    { ResolvePath = memoize key r.ResolvePath }
 
     let zero =
-        { ResolvePath = fun name -> None }
+        { Cache = ConcurrentDictionary(); ResolvePath = fun name -> None }
 
     let inline ( ++ ) a b = combine a b
+
+type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
+    inherit AssemblyLoadContext()
+
+    override this.Load(asmName) =
+        match reso.ResolveAssembly(baseDir, dom, Some (this :> AssemblyLoadContext), asmName.FullName) with
+        | None -> null
+        | Some r -> r
 
 /// An utility for resolving assemblies from non-standard contexts.
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
-    let reso = memoizeResolution reso
-
     let loadContext =
-        // hack to create a .NET 5 AssemblyLoadContext
-        // probably we will need some fallback for analyzers
-        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
-        ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
+        //// hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
+        //let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+        //if isNull ctor then
+        //    None
+        //else
+        //    Some (ctor.Invoke([| null; true |]) :?> AssemblyLoadContext)
+        MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
+        |> Some
 
     let unload() =
         let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
         meth.Invoke(loadContext, [||]) |> ignore
 
-    let resolve (x: obj) (a: ResolveEventArgs) =
-        let name = AssemblyName(a.Name)
-        match reso.ResolveAssembly(baseDir, dom, loadContext, name) with
-        | None -> null
-        | Some r -> r
+    //let resolve (x: obj) (a: ResolveEventArgs) =
+    //    let name = AssemblyName(a.Name)
+    //    match reso.ResolveAssembly(baseDir, dom, loadContext, name) with
+    //    | None -> null
+    //    | Some r -> r
 
-    let handler = ResolveEventHandler(resolve)
+    //let handler = ResolveEventHandler(resolve)
 
     member r.Install() =
-        dom.add_AssemblyResolve(handler)
+        //dom.add_AssemblyResolve(handler)
+        let resolve x =
+            match reso.ResolveAssembly(baseDir, dom, loadContext, x) with
+            | None -> null
+            | Some r -> r
+        WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
+            Some resolve
 
     member r.Remove() =
-        dom.remove_AssemblyResolve(handler)
-        unload()
+        WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
+        //dom.remove_AssemblyResolve(handler)
+        //unload()
 
     member r.Wrap(action: unit -> 'T) =
         try

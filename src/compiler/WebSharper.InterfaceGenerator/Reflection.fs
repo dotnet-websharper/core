@@ -159,8 +159,8 @@ type TypeDefinition =
     override this.ToString() =
         this.FullName
 
-    member this.Load() =
-        System.Type.GetType(this.AssemblyQualifiedName, true)
+    //member this.Load() =
+    //    System.Type.GetType(this.AssemblyQualifiedName, true)
 
     static member FromType(t: System.Type) =
         let t =
@@ -328,10 +328,10 @@ type Type =
         | GenericType _ ->
             raise (InvalidType "Cannot load generic type")    
     
-    member this.Load(?allowGeneric) =
-        if allowGeneric.IsNone || not allowGeneric.Value then
-            this.CheckNonGeneric()
-        System.Type.GetType(this.AssemblyQualifiedName, true)
+    //member this.Load(?allowGeneric) =
+    //    if allowGeneric.IsNone || not allowGeneric.Value then
+    //        this.CheckNonGeneric()
+    //    System.Type.GetType(this.AssemblyQualifiedName, true)
 
     static member FromType(t: System.Type) =
         if t.IsArray then
@@ -461,40 +461,40 @@ type Method =
         let d = TypeDefinition.FromType m.DeclaringType
         Method.Create d m.Name c s r
 
-    member this.Load(generics: Generics option) =
-        let typeGenerics =
-            generics
-            |> Option.map (fun g ->
-                Seq.take this.DeclaringType.GenericsCount g
-                |> Seq.toList)
-        let methodGenerics =
-            generics
-            |> Option.map (fun g ->
-                Seq.skip this.DeclaringType.GenericsCount g
-                |> Seq.toList)
-        let ty =
-            if typeGenerics.IsSome then
-                ConcreteType(this.DeclaringType, typeGenerics.Value).Load()
-            else
-                this.DeclaringType.Load()
-        let m =
-            try
-                match ty.GetMethod(this.Name, Flags) with
-                | null -> raise MethodBindingException
-                | m -> m
-            with :? System.Reflection.AmbiguousMatchException ->
-                let m =
-                    ty.GetMethods Flags
-                    |> Seq.tryFind (fun m ->
-                        m.Name = this.Name
-                        && Method.Parse m = this)
-                match m with
-                | None -> raise MethodBindingException
-                | Some m -> m
-        if methodGenerics.IsSome then
-            m.MakeGenericMethod [| for t in methodGenerics.Value -> t.Load() |]
-        else
-            m
+    //member this.Load(generics: Generics option) =
+    //    let typeGenerics =
+    //        generics
+    //        |> Option.map (fun g ->
+    //            Seq.take this.DeclaringType.GenericsCount g
+    //            |> Seq.toList)
+    //    let methodGenerics =
+    //        generics
+    //        |> Option.map (fun g ->
+    //            Seq.skip this.DeclaringType.GenericsCount g
+    //            |> Seq.toList)
+    //    let ty =
+    //        if typeGenerics.IsSome then
+    //            ConcreteType(this.DeclaringType, typeGenerics.Value).Load()
+    //        else
+    //            this.DeclaringType.Load()
+    //    let m =
+    //        try
+    //            match ty.GetMethod(this.Name, Flags) with
+    //            | null -> raise MethodBindingException
+    //            | m -> m
+    //        with :? System.Reflection.AmbiguousMatchException ->
+    //            let m =
+    //                ty.GetMethods Flags
+    //                |> Seq.tryFind (fun m ->
+    //                    m.Name = this.Name
+    //                    && Method.Parse m = this)
+    //            match m with
+    //            | None -> raise MethodBindingException
+    //            | Some m -> m
+    //    if methodGenerics.IsSome then
+    //        m.MakeGenericMethod [| for t in methodGenerics.Value -> t.Load() |]
+    //    else
+    //        m
 
     override this.ToString() =
         System.String.Format("{0}(..) [{1}]",

@@ -320,7 +320,7 @@ let LoadInterfaceGeneratorAssembly (file: string) =
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
     File.Copy(file, genFile)
-    let asm = Assembly.Load(File.ReadAllBytes(genFile))
+    let asm = WebSharper.Core.Reflection.LoadAssembly(genFile)
     let name = asm.GetName()
     match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
     | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
