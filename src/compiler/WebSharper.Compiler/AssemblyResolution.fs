@@ -25,6 +25,7 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 open System.IO
 open System.Reflection
+open System.Runtime.Loader
 
 [<AutoOpen>]
 module Implemetnation =
@@ -38,21 +39,17 @@ module Implemetnation =
             a.GetName()
             |> isCompatible name)
 
-    let loadInto (baseDir: string) (dom: AppDomain) (path: string) =
-        File.ReadAllBytes path
-        |> dom.Load
-
     type AssemblyResolution =
         {
             ResolvePath : AssemblyName -> option<string>
         }
 
-        member r.ResolveAssembly(bD: string, dom: AppDomain, name: AssemblyName) =
+        member r.ResolveAssembly(bD: string, dom: AppDomain, loadContext: AssemblyLoadContext, name: AssemblyName) =
             match tryFindAssembly dom name with
             | None ->
                 match r.ResolvePath name with
                 | None -> None
-                | Some r -> Some (loadInto bD dom r)
+                | Some r -> Some (loadContext.LoadFromAssemblyPath(r))
             | r -> r
 
     let combine a b =
@@ -127,11 +124,19 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
 
     let reso = memoizeResolution reso
 
-    static let get (x: AssemblyResolver) : AssemblyResolution = x.Resolution
+    let loadContext =
+        // hack to create a .NET 5 AssemblyLoadContext
+        // probably we will need some fallback for analyzers
+        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<bool> |])
+        ctor.Invoke([| true |]) :?> AssemblyLoadContext
+
+    let unload() =
+        let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
+        meth.Invoke(loadContext, [||]) |> ignore
 
     let resolve (x: obj) (a: ResolveEventArgs) =
         let name = AssemblyName(a.Name)
-        match reso.ResolveAssembly(baseDir, dom, name) with
+        match reso.ResolveAssembly(baseDir, dom, loadContext, name) with
         | None -> null
         | Some r -> r
 
@@ -142,6 +147,7 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
 
     member r.Remove() =
         dom.remove_AssemblyResolve(handler)
+        unload()
 
     member r.Wrap(action: unit -> 'T) =
         try
@@ -152,9 +158,6 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
 
     member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
     member r.SearchPaths ps = AssemblyResolver(baseDir, dom, reso ++ searchPaths ps)
-    member r.Resolve name = reso.ResolveAssembly(baseDir, dom, name)
-    member r.ResolvePath name = reso.ResolvePath name
-    member r.Resolution = reso
     member r.WithBaseDirectory bD = AssemblyResolver(Path.GetFullPath bD, dom, reso)
 
     static member Create(?domain) =

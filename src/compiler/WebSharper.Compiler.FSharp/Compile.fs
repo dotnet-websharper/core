@@ -146,28 +146,28 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     None
         )
     
-    let referencedAsmNames =
-        paths
-        |> Seq.map (fun i -> 
-            let n = Path.GetFileNameWithoutExtension(i)
-            n, i
-        )
-        |> Map.ofSeq
+    //let referencedAsmNames =
+    //    paths
+    //    |> Seq.map (fun i -> 
+    //        let n = Path.GetFileNameWithoutExtension(i)
+    //        n, i
+    //    )
+    //    |> Map.ofSeq
 
-    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
-            let assemblyName = AssemblyName(e.Name).Name
-            match Map.tryFind assemblyName referencedAsmNames with
-            | None -> null
-            | Some p -> 
-                if assemblyName = "FSharp.Core" then
-                    typeof<option<_>>.Assembly
-                elif assemblyName = thisName then
-                    Assembly.Load(File.ReadAllBytes(p))
-                else
-                    Assembly.LoadFrom(p)
-        )
+    //let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
+    //        let assemblyName = AssemblyName(e.Name).Name
+    //        match Map.tryFind assemblyName referencedAsmNames with
+    //        | None -> null
+    //        | Some p -> 
+    //            if assemblyName = "FSharp.Core" then
+    //                typeof<option<_>>.Assembly
+    //            elif assemblyName = thisName then
+    //                Assembly.Load(File.ReadAllBytes(p))
+    //            else
+    //                Assembly.LoadFrom(p)
+    //    )
 
-    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+    //System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
     let compilerArgs =
         if thisName = "WebSharper.Main" then
@@ -190,7 +190,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
 
     let comp =
-        compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
+        aR.Wrap <| fun () ->
+            compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
 
     match comp with
     | None ->        

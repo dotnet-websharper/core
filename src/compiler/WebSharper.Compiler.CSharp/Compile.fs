@@ -94,22 +94,22 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         )
         |> Map.ofSeq
 
-    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+    //let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
 
-    let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
-            let assemblyName = AssemblyName(e.Name).Name
-            match Map.tryFind assemblyName referencedAsmNames with
-            | None -> null
-            | Some p -> 
-                if assemblyName = "FSharp.Core" then
-                    typeof<option<_>>.Assembly
-                elif assemblyName = thisName then
-                    Assembly.Load(File.ReadAllBytes(p))
-                else
-                    Assembly.LoadFrom(p)
-        )
+    //let assemblyResolveHandler = ResolveEventHandler(fun _ e ->
+    //        let assemblyName = AssemblyName(e.Name).Name
+    //        match Map.tryFind assemblyName referencedAsmNames with
+    //        | None -> null
+    //        | Some p -> 
+    //            if assemblyName = "FSharp.Core" then
+    //                typeof<option<_>>.Assembly
+    //            elif assemblyName = thisName then
+    //                Assembly.Load(File.ReadAllBytes(p))
+    //            else
+    //                Assembly.LoadFrom(p)
+    //    )
 
-    System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+    //System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
     if config.ProjectFile = null then
         argError "You must provide project file path."
@@ -122,7 +122,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     else
 
     let comp =
-        compiler.Compile(refMeta, config, logger)
+        aR.Wrap <| fun () ->
+            compiler.Compile(refMeta, config, logger)
     
     if not (List.isEmpty comp.Errors || config.WarnOnly) then        
         PrintWebSharperErrors logger config.WarnOnly comp

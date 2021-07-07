@@ -36,12 +36,6 @@ type AssemblyResolver =
     /// Wraps an action in `Install/Remove` on the `AppDomain`.
     member Wrap : (unit -> 'T) -> 'T
 
-    /// Resolves an assembly.
-    member Resolve : AssemblyName  -> option<Assembly>
-
-    /// Resolves a full path to the assembly.
-    member ResolvePath : AssemblyName -> option<string>
-
     /// Adds search directories.
     member SearchDirectories : searchPaths: seq<string> -> AssemblyResolver
 
