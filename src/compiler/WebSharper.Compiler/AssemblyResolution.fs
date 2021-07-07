@@ -127,8 +127,8 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
     let loadContext =
         // hack to create a .NET 5 AssemblyLoadContext
         // probably we will need some fallback for analyzers
-        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<bool> |])
-        ctor.Invoke([| true |]) :?> AssemblyLoadContext
+        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+        ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
 
     let unload() =
         let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
@@ -158,6 +158,7 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
 
     member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
     member r.SearchPaths ps = AssemblyResolver(baseDir, dom, reso ++ searchPaths ps)
+    member r.ResolvePath name = reso.ResolvePath name
     member r.WithBaseDirectory bD = AssemblyResolver(Path.GetFullPath bD, dom, reso)
 
     static member Create(?domain) =
