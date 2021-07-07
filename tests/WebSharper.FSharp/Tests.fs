@@ -6,6 +6,7 @@ open System.IO
 open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler
+open WebSharper.Compiler.FSharp.Compile
 
 [<SetUp>]
 let Setup () =
@@ -418,12 +419,19 @@ let ``Compilation test`` () =
                 eprintfn "%s" s
             }
 
-    WebSharper.Compiler.FSharp.Compile.compileMain args checkerFactory tryGetMetadata logger
-    |> should equal 0
+    let parsedOptions = ParseOptions args logger
+    match parsedOptions with
+    | HelpOrCommand _ ->
+        failwith "it shouldn't be help or command"
+    | ParsedOptions (wsConfig, warnSettings) ->
+        let compile() = 
+            StandAloneCompile wsConfig warnSettings logger checkerFactory tryGetMetadata
+        compile()
+        |> should equal 0
 
-    let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-    WebSharper.Compiler.FSharp.Compile.compileMain args checkerFactory tryGetMetadata logger
-    |> should equal 0
-    stopWatch.Stop()
+        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+        compile()
+        |> should equal 0
+        stopWatch.Stop()
 
-    stopWatch.Elapsed |> should lessThan (System.TimeSpan.FromSeconds(4.0))
+        stopWatch.Elapsed |> should lessThan (System.TimeSpan.FromSeconds(4.0))
