@@ -190,8 +190,20 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
         //    )
         //    alc.add_Resolving resolve
         //    Some alc
-        MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
-        |> Some
+        let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
+        Some alc
+
+    let mutable entered : IDisposable = null
+
+    let enterContextualReflection() =
+        let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection")
+        if not (isNull meth) then
+            printfn "Calling EnterContextualReflection"
+            entered <- meth.Invoke(loadContext, [||]) :?> IDisposable
+
+    let exitContextualReflection() =
+        if not (isNull entered) then
+            entered.Dispose()
 
     let unload() =
         let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
@@ -213,9 +225,11 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
             | Some r -> r
         WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
             Some resolve
+        enterContextualReflection()
 
     member r.Remove() =
         WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
+        exitContextualReflection()
         //dom.remove_AssemblyResolve(handler)
         //unload()
 
