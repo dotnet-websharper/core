@@ -52,6 +52,7 @@ let main(argv) =
     //let interfaceGenerator = argv |> Array.exists (fun x -> x.IndexOf("--ws:interfaceGenerator", System.StringComparison.OrdinalIgnoreCase) >= 0)
 
     let argv = argv |> Array.filter (fun x -> x <> "--standalone")
+    let standaloneMode = true
     if standaloneMode then
         let logger = ConsoleLogger()   
         let reason = "--standalone flag is present"

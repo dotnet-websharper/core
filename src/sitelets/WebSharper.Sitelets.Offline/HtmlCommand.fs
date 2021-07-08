@@ -55,12 +55,11 @@ type HtmlCommand() =
             aR.Wrap <| fun () ->
                 // Load the sitelet
                 let loadSite (file: string) =
-                    let assemblyName = AssemblyName.GetAssemblyName(file)
-                    let assembly = aR.Resolve(assemblyName)
+                    let assembly = WebSharper.Core.Reflection.LoadAssembly file
                     match assembly with
-                    | None ->
+                    | null ->
                         failwithf "Failed to load %s" file
-                    | Some assembly ->
+                    | assembly ->
                         let aT = typeof<WebsiteAttribute>
                         match Attribute.GetCustomAttribute(assembly, aT) with
                         | :? WebsiteAttribute as attr ->

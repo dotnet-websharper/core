@@ -177,29 +177,29 @@ type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolu
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
     let loadContext =
-        //// hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
-        //let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
-        //if isNull ctor then
-        //    None
-        //else
-        //    let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
-        //    let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
-        //        match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
-        //        | None -> null
-        //        | Some r -> r
-        //    )
-        //    alc.add_Resolving resolve
-        //    Some alc
-        let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
-        Some alc
+        // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
+        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+        if isNull ctor then
+            None
+        else
+            let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
+            let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
+                match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
+                | None -> null
+                | Some r -> r
+            )
+            alc.add_Resolving resolve
+            Some alc
+        //let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
+        //Some alc
 
     let mutable entered : IDisposable = null
 
     let enterContextualReflection() =
-        let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection")
+        let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
         if not (isNull meth) then
             printfn "Calling EnterContextualReflection"
-            entered <- meth.Invoke(loadContext, [||]) :?> IDisposable
+            entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
 
     let exitContextualReflection() =
         if not (isNull entered) then
@@ -209,29 +209,34 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
         let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
         meth.Invoke(loadContext, [||]) |> ignore
 
-    //let resolve (x: obj) (a: ResolveEventArgs) =
-    //    let name = AssemblyName(a.Name)
-    //    match reso.ResolveAssembly(baseDir, dom, loadContext, name) with
-    //    | None -> null
-    //    | Some r -> r
+    let domResolve (x: obj) (a: ResolveEventArgs) =
+        match reso.ResolveAssembly(dom, loadContext, a.Name) with
+        | None -> null
+        | Some r -> r
 
-    //let handler = ResolveEventHandler(resolve)
+    let domHandler = ResolveEventHandler(domResolve)
 
     member r.Install() =
-        //dom.add_AssemblyResolve(handler)
         let resolve x =
             match reso.ResolveAssembly(dom, loadContext, x) with
             | None -> null
             | Some r -> r
         WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
             Some resolve
-        enterContextualReflection()
+        match loadContext with
+        | Some _ ->
+            enterContextualReflection()
+        | _ ->
+            dom.add_AssemblyResolve(domHandler)    
 
     member r.Remove() =
         WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
-        exitContextualReflection()
-        //dom.remove_AssemblyResolve(handler)
-        //unload()
+        match loadContext with
+        | Some _ ->
+            exitContextualReflection()
+            //unload()
+        | _ ->
+            dom.remove_AssemblyResolve(domHandler)    
 
     member r.Wrap(action: unit -> 'T) =
         try

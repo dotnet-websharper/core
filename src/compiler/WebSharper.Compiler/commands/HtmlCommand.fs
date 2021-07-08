@@ -70,24 +70,21 @@ module HtmlCommand =
 
     let Exec env config =
         // this is a forward declaration - actual logic in the Sitelets assembly
-        let baseDir =
-            typeof<IHtmlCommand>.Assembly.Location
-            |> Path.GetDirectoryName
-        // install resolution rules specifically to work on Mono
-        let aR =
-            AssemblyResolver.Create()
-                .WithBaseDirectory(baseDir)
-                .SearchDirectories([baseDir])
-        let assemblyName =
-            let n = typeof<IHtmlCommand>.Assembly.GetName()
-            n.Name <- "WebSharper.Sitelets.Offline"
-            n.FullName
-        aR.Wrap <| fun () ->
-            let asm = WebSharper.Core.Reflection.LoadAssembly(assemblyName)
-            let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
-            let t = asm.GetType(tN, throwOnError = true)
-            let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-            cmd.Execute(env, config)        
+        //let baseDir =
+        //    typeof<IHtmlCommand>.Assembly.Location
+        //    |> Path.GetDirectoryName
+        //let aR =
+        //    AssemblyResolver.Create()
+        //        .WithBaseDirectory(baseDir)
+        //        .SearchDirectories([baseDir])
+        let assemblyPath =
+            let thisPath = typeof<IHtmlCommand>.Assembly.Location
+            Path.Combine(Path.GetDirectoryName(thisPath), "WebSharper.Sitelets.Offline.dll")
+        let asm = System.Reflection.Assembly.LoadFrom(assemblyPath)
+        let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
+        let t = asm.GetType(tN, throwOnError = true)
+        let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+        cmd.Execute(env, config)        
 
     let Parse (args: list<string>) =
         let trim (s: string) =
