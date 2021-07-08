@@ -1138,8 +1138,109 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             let clsTparams =
                 lazy 
                 entity.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-            if entity.IsFSharpUnion then
+            if entity.IsDelegate then
 
+                //let inv = t.GetMethod("Invoke") |> Reflection.ReadMethod |> Hashed.Get
+                //M.DelegateInfo {
+                //    DelegateArgs = inv.Parameters 
+                //    ReturnType = inv.ReturnType
+                //} 
+                let tparams = 
+                    entity.GenericParameters
+                    |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+                let inv = entity.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
+                DelegateInfo {
+                    DelegateArgs =
+                        inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> sr.ReadType tparams p.Type) |> List.ofSeq
+                    ReturnType = sr.ReadType tparams inv.ReturnParameter.Type
+                }
+            else if entity.IsEnum then
+                //M.EnumInfo (Reflection.ReadTypeDefinition (t.GetEnumUnderlyingType()))
+                CustomTypeInfo.EnumInfo typeDef
+            else if entity.IsFSharpRecord then
+                //let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
+            
+                //FST.GetRecordFields(t, Reflection.AllMethodsFlags)
+                //|> Seq.map (fun f ->
+                //    let annot = attrReader.GetMemberAnnot(tAnnot, f.GetCustomAttributesData()) 
+                //    let isOpt = 
+                //        annot.Kind = Some MemberKind.OptionalField 
+                //        && f.PropertyType.IsGenericType 
+                //        && f.PropertyType.GetGenericTypeDefinition() = typedefof<option<_>>
+                //    {
+                //        Name = f.Name
+                //        JSName = match annot.Name with Some n -> n | _ -> f.Name
+                //        RecordFieldType = Reflection.ReadType f.PropertyType
+                //        DateTimeFormat = annot.DateTimeFormat |> List.tryHead |> Option.map snd
+                //        Optional = isOpt
+                //        IsMutable = f.CanWrite
+                //    } : M.FSharpRecordFieldInfo
+                //)
+                //|> List.ofSeq |> M.FSharpRecordInfo
+                entity.FSharpFields |> Seq.map (fun f ->
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(rootTypeAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                    {
+                        Name = f.Name
+                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
+                        RecordFieldType = fTyp
+                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                        Optional = isOpt
+                        IsMutable = f.IsMutable
+                    }
+                )
+                |> List.ofSeq |> FSharpRecordInfo    
+            else if entity.IsFSharpUnion then
+                //let tAnnot = attrReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
+                //let usesNull = 
+                //    t.GetCustomAttributesData()
+                //    |> Seq.exists (fun a ->
+                //        a.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute>
+                //        && obj.Equals(a.ConstructorArguments.[0].Value, CompilationRepresentationFlags.UseNullAsTrueValue)
+                //    )
+                //    && (FST.GetUnionCases(t, Reflection.AllMethodsFlags)).Length < 4
+                //let cases =
+                //    FST.GetUnionCases(t, Reflection.AllMethodsFlags)
+                //    |> Seq.map (fun c ->
+                //        let annot = attrReader.GetMemberAnnot(tAnnot, c.GetCustomAttributesData()) 
+                //        let kind =
+                //            match annot.Kind with
+                //            | Some (MemberKind.Constant v) -> M.ConstantFSharpUnionCase v
+                //            | _ ->
+                //                c.GetFields()
+                //                |> Array.map (fun f ->
+                //                    let fName = f.Name
+                //                    {
+                //                        Name = fName
+                //                        UnionFieldType = Reflection.ReadType f.PropertyType
+                //                        DateTimeFormat =
+                //                            annot.DateTimeFormat |> List.tryFind (fun (n, _) -> n = Some fName) |> Option.map snd 
+                //                    } : M.UnionCaseFieldInfo 
+                //                )
+                //                |> List.ofArray |> M.NormalFSharpUnionCase  
+                //        let staticIs =
+                //            not usesNull || not (
+                //                c.GetCustomAttributesData()
+                //                |> Seq.exists (fun a ->
+                //                    a.Constructor.DeclaringType = typeof<CompilationRepresentationAttribute>
+                //                    && obj.Equals(a.ConstructorArguments.[0].Value, CompilationRepresentationFlags.Instance)
+                //                )
+                //            )
+                //        {
+                //            Name = c.Name
+                //            JsonName = annot.Name
+                //            Kind = kind
+                //            StaticIs = staticIs
+                //        } : M.FSharpUnionCaseInfo
+                //    )
+                //    |> List.ofSeq
+                //M.FSharpUnionInfo {
+                //    Cases = cases
+                //    NamedUnionCases = tAnnot.NamedUnionCases
+                //    HasNull = usesNull && cases |> List.exists (fun c -> c.Kind = M.ConstantFSharpUnionCase Null) 
+                //}
+                let tAnnot = rootTypeAnnot //sr.AttributeReader.GetTypeAnnot(TypeAnnotation.Empty, t.GetCustomAttributesData())
                 let usesNull =
                     entity.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
                     && entity.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
@@ -1157,7 +1258,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                                 ConstantFSharpUnionCase v
                             else
                                 ConstantFSharpUnionCase (String "$$ERROR$$")
-                        let cAnnot = sr.AttributeReader.GetMemberAnnot(rootTypeAnnot, case.Attributes)
+                        let cAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, case.Attributes)
                         let kind =
                             let argumentless = case.Fields.Count = 0
                             if nullCase && argumentless then
@@ -1168,22 +1269,19 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                             | Some (A.MemberKind.Constant v) -> 
                                 constantCase v
                             | _ ->
-                                if argumentless then
-                                    SingletonFSharpUnionCase
-                                else
-                                    NormalFSharpUnionCase (
-                                        case.Fields
-                                        |> Seq.map (fun f ->
-                                            {
-                                                Name = f.Name
-                                                UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
-                                                DateTimeFormat = 
-                                                    cAnnot.DateTimeFormat 
-                                                    |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
-                                            }
-                                        )
-                                        |> List.ofSeq
+                                NormalFSharpUnionCase (
+                                    case.Fields
+                                    |> Seq.map (fun f ->
+                                        {
+                                            Name = f.Name
+                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            DateTimeFormat = 
+                                                cAnnot.DateTimeFormat 
+                                                |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                                        }
                                     )
+                                    |> List.ofSeq
+                                )
                         let staticIs =
                             not usesNull || not (
                                 case.Attributes
@@ -1203,42 +1301,6 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     NamedUnionCases = rootTypeAnnot.NamedUnionCases
                     HasNull = constants.Contains(Null)
                 }
-            else if entity.IsFSharpRecord then
-                entity.FSharpFields |> Seq.map (fun f ->
-                    let fAnnot = sr.AttributeReader.GetMemberAnnot(rootTypeAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
-
-                    {
-                        Name = f.Name
-                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
-                        RecordFieldType = fTyp
-                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                        Optional = isOpt
-                        IsMutable = f.IsMutable
-                    }
-                )
-                |> List.ofSeq |> FSharpRecordInfo    
-            else if entity.IsEnum then
-                CustomTypeInfo.EnumInfo typeDef
-            else if entity.IsDelegate then
-                let tparams = 
-                    entity.GenericParameters
-                    |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
-                try 
-                    let sign = entity.FSharpDelegateSignature
-                    DelegateInfo {
-                        DelegateArgs =
-                            sign.DelegateArguments |> Seq.map (snd >> sr.ReadType tparams) |> List.ofSeq
-                        ReturnType = sr.ReadType tparams sign.DelegateReturnType
-                    }
-                with _ ->
-                    let inv = entity.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
-                    DelegateInfo {
-                        DelegateArgs =
-                            inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> sr.ReadType tparams p.Type) |> List.ofSeq
-                        ReturnType = sr.ReadType tparams inv.ReturnParameter.Type
-                    }
             else
                 CustomTypeInfo.NotCustomType 
 
@@ -1246,7 +1308,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         |> Option.map branchOnType
         |> Option.defaultValue CustomTypeInfo.NotCustomType
 
-    comp.CustomTypesReflector <- reflectCustomType
+    let tryReflectCustomType typeDef =
+        try
+            reflectCustomType typeDef
+        with
+        | _ -> CustomTypeInfo.NotCustomType
+
+    comp.CustomTypesReflector <- tryReflectCustomType
     comp.LookupTypeAttributes <- lookupTypeAttributes
     comp.LookupFieldAttributes <- lookupFieldAttributes 
     comp.LookupMethodAttributes <- lookupMethodAttributes
