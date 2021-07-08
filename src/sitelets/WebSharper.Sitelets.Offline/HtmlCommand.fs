@@ -66,7 +66,7 @@ type HtmlCommand() =
                         | :? WebsiteAttribute as attr ->
                             attr.Run ()
                         |_  ->
-                            failwithf "Failed to find WebSiteAttribute \
+                            failwithf "Failed to find WebsiteAttribute \
                                 on the processed assembly: %s"
                                 file
                 let (sitelet, actions) = loadSite options.MainAssemblyPath

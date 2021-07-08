@@ -384,54 +384,12 @@ let ``Compilation test`` () =
     let args = mkProjectCommandLineArgs (@"bin\example1.abc.dll", fileNames)
 
     System.Environment.CurrentDirectory <- Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\")
-    let memCache = MemoryCache.Default
+    WebSharper.FSharp.Program.main args
+    |> should equal 0
 
+    let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+    WebSharper.FSharp.Program.main args
+    |> should equal 0
+    stopWatch.Stop()
 
-    let checker = FSharpChecker.Create(keepAssemblyContents = true)
-    let checkerFactory() = checker
-
-    let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
-        match r.LoadPath with
-        // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
-        | Some x when memCache.[x] = null -> 
-            match WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r with
-            | None ->
-                None
-            | result ->
-                let policy = CacheItemPolicy()
-                let monitor = new HostFileChangeMonitor([| x |])
-                policy.ChangeMonitors.Add monitor
-                memCache.Set(x, result, policy)
-                memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
-        | Some x ->
-            memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
-        | None ->
-            // in-memory assembly may have no path. nLogger. 
-            // nLogger.Trace "Reading assembly: %s" x makes this compilation fail. No Tracing here.
-            WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r
-
-
-    let logger = {
-        new LoggerBase() with 
-            member _.Out s =
-                printfn "%s" s
-            member _.Error s =
-                eprintfn "%s" s
-            }
-
-    let parsedOptions = ParseOptions args logger
-    match parsedOptions with
-    | HelpOrCommand _ ->
-        failwith "it shouldn't be help or command"
-    | ParsedOptions (wsConfig, warnSettings) ->
-        let compile() = 
-            StandAloneCompile wsConfig warnSettings logger checkerFactory tryGetMetadata
-        compile()
-        |> should equal 0
-
-        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-        compile()
-        |> should equal 0
-        stopWatch.Stop()
-
-        stopWatch.Elapsed |> should lessThan (System.TimeSpan.FromSeconds(4.0))
+    stopWatch.Elapsed |> should lessThan (System.TimeSpan.FromSeconds(4.0))

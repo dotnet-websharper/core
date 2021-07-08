@@ -294,28 +294,28 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
     let aR, paths = createAssemblyResolver config
     addAssemblyResolver paths
 
-    match config.ProjectType with
-    | Some WIG ->
-        aR.Wrap <| fun () ->
-        try 
-            RunInterfaceGenerator aR config.KeyFile config
-            logger.TimedStage "WIG running time"
+    aR.Wrap <| fun () ->
+        match config.ProjectType with
+        | Some WIG ->
+            try 
+                RunInterfaceGenerator aR config.KeyFile config
+                logger.TimedStage "WIG running time"
+                0
+            with e ->
+                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
+                1
+        | Some Html ->
+            ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
+        | Some Website
+        | _ when Option.isSome config.OutputDir ->
+            match ExecuteCommands.GetWebRoot config with
+            | Some webRoot ->
+                ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
+            | None ->
+                PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+                1
+        | _ ->
             0
-        with e ->
-            PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
-            1
-    | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
-    | Some Website
-    | _ when Option.isSome config.OutputDir ->
-        match ExecuteCommands.GetWebRoot config with
-        | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
-        | None ->
-            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
-            1
-    | _ ->
-        0
 
 type ParseOptionsResult =
     | HelpOrCommand of int
