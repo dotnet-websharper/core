@@ -40,12 +40,15 @@ module Implemetnation =
             |> isCompatible name)
 
     let loadIntoAppDomain (dom: AppDomain) (path: string) =
+        printfn "loadIntoAppDomain: %s" path
         File.ReadAllBytes path
         |> dom.Load
 
     let loadIntoAssemblyLoadContext (loadContext: AssemblyLoadContext) (path: string) =
+        printfn "loadIntoAssemblyLoadContext: %s" path
         let fs = new MemoryStream (File.ReadAllBytes path)
         loadContext.LoadFromStream fs 
+        //loadContext.LoadFromAssemblyPath path
 
     type AssemblyResolution =
         {
@@ -62,10 +65,8 @@ module Implemetnation =
                     let asm =
                         match loadContext with
                         | Some alc ->
-                                printfn "LoadFromAssemblyPath: %s" p
                                 loadIntoAssemblyLoadContext alc p
                         | None ->
-                                printfn "AppDomain.Load: %s" p
                                 loadIntoAppDomain dom p
                     for ref in asm.GetReferencedAssemblies() do
                         printfn "Assembly load reference : %s -> %s" x ref.FullName
@@ -82,10 +83,8 @@ module Implemetnation =
                             let asm =
                                 match loadContext with
                                 | Some alc ->
-                                     printfn "LoadFromAssemblyPath: %s" p
                                      loadIntoAssemblyLoadContext alc p
                                 | None ->
-                                     printfn "AppDomain.Load: %s" p
                                      loadIntoAppDomain dom p
                             for ref in asm.GetReferencedAssemblies() do
                                 printfn "Assembly load reference : %s -> %s" x ref.FullName
@@ -165,34 +164,34 @@ module Implemetnation =
 
     let inline ( ++ ) a b = combine a b
 
-//type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
-//    inherit AssemblyLoadContext()
+type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
+    inherit AssemblyLoadContext()
 
-//    override this.Load(asmName) =
-//        match reso.ResolveAssembly(dom, Some (this :> AssemblyLoadContext), asmName.FullName) with
-//        | None -> null
-//        | Some r -> r
+    override this.Load(asmName) =
+        match reso.ResolveAssembly(dom, Some (this :> AssemblyLoadContext), asmName.FullName) with
+        | None -> null
+        | Some r -> r
 
 /// An utility for resolving assemblies from non-standard contexts.
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
     let loadContext =
-        // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
-        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
-        if isNull ctor then
-            None
-        else
-            let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
-            let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
-                match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
-                | None -> null
-                | Some r -> r
-            )
-            alc.add_Resolving resolve
-            Some alc
-        //MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
-        //|> Some
+        //// hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
+        //let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+        //if isNull ctor then
+        //    None
+        //else
+        //    let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
+        //    let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
+        //        match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
+        //        | None -> null
+        //        | Some r -> r
+        //    )
+        //    alc.add_Resolving resolve
+        //    Some alc
+        MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
+        |> Some
 
     let unload() =
         let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")

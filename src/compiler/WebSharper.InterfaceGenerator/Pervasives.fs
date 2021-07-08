@@ -36,9 +36,9 @@ module Pervasives =
     type ExtensionAttribute(t: Type) =
         inherit Attribute()
 
-        member attr.GetAssembly() =
-            let e = Activator.CreateInstance(t) :?> IExtension
-            e.Assembly
+        //member attr.GetAssembly() =
+        //    let e = Activator.CreateInstance(t) :?> IExtension
+        //    e.Assembly
 
     /// Constructs a new assembly.
     let Assembly namespaces : Code.Assembly =
