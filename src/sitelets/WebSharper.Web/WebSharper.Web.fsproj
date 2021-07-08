@@ -24,6 +24,9 @@
     <ProjectReference Include="..\..\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
   </ItemGroup>
+  <Target Name="_CopyToDeploy" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Web.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\deploy" />
+  </Target>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

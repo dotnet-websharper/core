@@ -75,23 +75,27 @@ module Implemetnation =
                     Some asm
                 else
                     let name = AssemblyName(x)
-                    match tryFindAssembly dom name with
-                    | None ->
-                        match r.ResolvePath name with
-                        | None -> None
-                        | Some p -> 
-                            let asm =
-                                match loadContext with
-                                | Some alc ->
-                                     loadIntoAssemblyLoadContext alc p
-                                | None ->
-                                     loadIntoAppDomain dom p
-                            for ref in asm.GetReferencedAssemblies() do
-                                printfn "Assembly load reference : %s -> %s" x ref.FullName
-                                try r.ResolveAssembly(dom, loadContext, ref.FullName) |> ignore
-                                with _ -> ()
-                            Some asm
-                    | r -> r
+                    if name.Name = "FSharp.Core" then
+                        let asm = typeof<unit>.Assembly
+                        Some asm
+                    else
+                        match tryFindAssembly dom name with
+                        | None ->
+                            match r.ResolvePath name with
+                            | None -> None
+                            | Some p -> 
+                                let asm =
+                                    match loadContext with
+                                    | Some alc ->
+                                         loadIntoAssemblyLoadContext alc p
+                                    | None ->
+                                         loadIntoAppDomain dom p
+                                for ref in asm.GetReferencedAssemblies() do
+                                    printfn "Assembly load reference : %s -> %s" x ref.FullName
+                                    try r.ResolveAssembly(dom, loadContext, ref.FullName) |> ignore
+                                    with _ -> ()
+                                Some asm
+                        | r -> r
 
             r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
 

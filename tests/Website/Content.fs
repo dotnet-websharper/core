@@ -38,7 +38,7 @@ type FullAction =
     | PerformanceTests of PerformanceTests.Action
     | DateTimeFormatTest of DateTimeFormatInfer.EndPoint
 
-let HomePage (ctx: Context<_>) =
+let HomePage (ctx: Context<FullAction>) =
     Content.Page(
         Title = "WebSharper tests",
         Body = [
