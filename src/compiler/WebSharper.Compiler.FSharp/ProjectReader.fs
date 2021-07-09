@@ -1043,24 +1043,22 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
     let typeImplLookup = Dictionary<TypeDefinition, FSharpEntity>()
     
     let lookupTypeDefinition (typ: TypeDefinition) =
-        let t = typ.Value
-        let path = t.FullName.Split('+')
-        let mutable res =
-            lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
-                match e.TryFullName with
-                | Some fn when fn = path.[0] -> true
-                | _ -> false
-            )
-        for i = 1 to path.Length - 1 do
-            if res.IsSome then
-                res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
+        match typeImplLookup.TryGetValue(typ) with
+        | true, ores -> Some ores
+        | _ ->
+            let t = typ.Value
+            let path = t.FullName.Split('+')
+            let mutable res =
+                lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
+                    match e.TryFullName with
+                    | Some fn when fn = path.[0] -> true
+                    | _ -> false
+                )
+            for i = 1 to path.Length - 1 do
+                if res.IsSome then
+                    res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
         
-        match res with
-        | Some td when td.IsOpaque ->
-            match typeImplLookup.TryGetValue(typ) with
-            | true, ores -> Some ores
-            | _ -> None
-        | _ -> res
+            res
 
     let readAttribute (a: FSharpAttribute) =
         try
