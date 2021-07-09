@@ -325,21 +325,21 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
         parts.Length - 1
     let resContext = resourceContext st level
     let genResp = C.ToResponse content
+    let context =
+        new Context<_>(
+            Json = st.Json,
+            Link = link,
+            ApplicationPath = ".",
+            Metadata = st.Metadata,
+            Dependencies = st.Dependencies,
+            ResourceContext = resContext,
+            Request = Http.Request.Empty locationString,
+            RootFolder = projectFolder,
+            UserSession = IUserSession.NotAvailable,
+            Environment = Map []
+        )
     async {
-        let! response =
-            new Context<_>(
-                Json = st.Json,
-                Link = link,
-                ApplicationPath = ".",
-                Metadata = st.Metadata,
-                Dependencies = st.Dependencies,
-                ResourceContext = resContext,
-                Request = Http.Request.Empty locationString,
-                RootFolder = projectFolder,
-                UserSession = IUserSession.NotAvailable,
-                Environment = Map []
-            )
-            |> genResp
+        let! response = genResp context
         let path =
             let ext =
                 response.Headers

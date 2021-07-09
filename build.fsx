@@ -70,6 +70,7 @@ let targets = MakeTargets {
                                 Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
                                 MSBuildParams = 
                                     { p.MSBuildParams with 
+                                        MaxCpuCount = Some (Some 1)
                                         DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
                                     }
                             }) sln

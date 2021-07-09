@@ -30,25 +30,37 @@ open System.Runtime.Loader
 [<AutoOpen>]
 module Implemetnation =
 
+    let forceNonCompatible (ref: AssemblyName) =
+        match ref.Name with
+        | "FSharp.Core" 
+        | "System.Runtime"
+        | "netstandard"
+            -> true
+        | _ -> false
+    
     let isCompatible (ref: AssemblyName) (def: AssemblyName) =
-        ref.Name = def.Name && (ref.Version = null || def.Version = null || ref.Version = def.Version)
+        ref.Name = def.Name && 
+            (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
-        dom.GetAssemblies()
+        printfn "Looking for assembly: %s" name.FullName
+        let asmList = dom.GetAssemblies()
+        printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
+        asmList
         |> Seq.tryFind (fun a ->
             a.GetName()
             |> isCompatible name)
 
     let loadIntoAppDomain (dom: AppDomain) (path: string) =
         printfn "loadIntoAppDomain: %s" path
-        File.ReadAllBytes path
-        |> dom.Load
+        try File.ReadAllBytes path |> dom.Load
+        with :? System.BadImageFormatException -> null
 
     let loadIntoAssemblyLoadContext (loadContext: AssemblyLoadContext) (path: string) =
         printfn "loadIntoAssemblyLoadContext: %s" path
         let fs = new MemoryStream (File.ReadAllBytes path)
-        loadContext.LoadFromStream fs 
-        //loadContext.LoadFromAssemblyPath path
+        try loadContext.LoadFromStream fs 
+        with :? System.BadImageFormatException -> null
 
     type AssemblyResolution =
         {
@@ -61,13 +73,14 @@ module Implemetnation =
                 if x = "netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51" then
                     None
                 elif x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
+                    printfn "Loading by path: %s" x
                     let p = Path.GetFullPath x
                     let asm =
                         match loadContext with
                         | Some alc ->
-                                loadIntoAssemblyLoadContext alc p
+                            loadIntoAssemblyLoadContext alc p
                         | None ->
-                                loadIntoAppDomain dom p
+                            loadIntoAppDomain dom p
                     for ref in asm.GetReferencedAssemblies() do
                         printfn "Assembly load reference : %s -> %s" x ref.FullName
                         try r.ResolveAssembly(dom, loadContext, ref.FullName) |> ignore
@@ -75,27 +88,28 @@ module Implemetnation =
                     Some asm
                 else
                     let name = AssemblyName(x)
-                    if name.Name = "FSharp.Core" then
-                        let asm = typeof<unit>.Assembly
-                        Some asm
-                    else
-                        match tryFindAssembly dom name with
-                        | None ->
-                            match r.ResolvePath name with
-                            | None -> None
-                            | Some p -> 
-                                let asm =
-                                    match loadContext with
-                                    | Some alc ->
-                                         loadIntoAssemblyLoadContext alc p
-                                    | None ->
-                                         loadIntoAppDomain dom p
+                    match tryFindAssembly dom name with
+                    | None ->
+                        match r.ResolvePath name with
+                        | None -> None
+                        | Some p -> 
+                            let asm =
+                                match loadContext with
+                                | Some alc ->
+                                        loadIntoAssemblyLoadContext alc p
+                                | None ->
+                                        loadIntoAppDomain dom p
+                            match asm with
+                            | null -> None
+                            | _ ->
                                 for ref in asm.GetReferencedAssemblies() do
                                     printfn "Assembly load reference : %s -> %s" x ref.FullName
                                     try r.ResolveAssembly(dom, loadContext, ref.FullName) |> ignore
                                     with _ -> ()
                                 Some asm
-                        | r -> r
+                    | r -> 
+                        printfn "Assembly found in main context: %s" x
+                        r
 
             r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
 
@@ -244,10 +258,12 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
 
     member r.Wrap(action: unit -> 'T) =
         try
+            printfn "AssemblyResolver.Wrap begin"
             r.Install()
             action ()
         finally
             r.Remove()
+            printfn "AssemblyResolver.Wrap end"
 
     member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
     member r.SearchPaths ps = AssemblyResolver(baseDir, dom, reso ++ searchPaths ps)

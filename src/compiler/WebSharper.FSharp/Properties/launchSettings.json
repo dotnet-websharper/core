@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "WebSharper.FSharp": {
+      "commandName": "Project",
+      "commandLineArgs": "@C:\\Users\\andra\\Desktop\\notes\\wsargs.txt",
+      "workingDirectory": "H:\\websharper\\tests\\WebSharper.StaticHtml.Tests"
+    }
+  }
+}

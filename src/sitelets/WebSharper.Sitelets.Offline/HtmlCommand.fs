@@ -55,7 +55,7 @@ type HtmlCommand() =
             aR.Wrap <| fun () ->
                 // Load the sitelet
                 let loadSite (file: string) =
-                    let assembly = WebSharper.Core.Reflection.LoadAssembly(file)
+                    let assembly = System.Reflection.Assembly.LoadFrom(file)
                     match assembly with
                     | null ->
                         failwithf "Failed to load %s" file
@@ -71,27 +71,24 @@ type HtmlCommand() =
                                 else
                                     None
                             )
-                        let aT = typeof<WebsiteAttribute>
                         match siteletType with
                         | Some a ->
                             let typeName = (a.Value :?> Type).AssemblyQualifiedName
                             let ty = WebSharper.Core.Reflection.LoadType typeName
-                            
-                            let innerType =
+                            let websiteEntryPoint = Activator.CreateInstance(ty)
+                            let iwebsiteAttr =
                                 ty.GetInterfaces()
                                 |> Seq.tryPick (fun iT ->
-                                    if iT.IsGenericType
-                                       && iT.GetGenericTypeDefinition() = typedefof<IWebsite<_>> then
+                                    if iT.FullName.StartsWith("WebSharper.Sitelets.IWebsite`1") then
                                         Some (iT.GetGenericArguments().[0])
                                     else
                                         None)
                             let innerType =
-                                match innerType with
+                                match iwebsiteAttr with
                                 | Some t -> t
                                 | None -> failwith "Type is not implementing IWebsite"
-                            let website = Activator.CreateInstance(ty)
 
-                            WebSharper.Sitelets.Utils.GetSitelet innerType website
+                            WebSharper.Sitelets.Utils.GetSitelet innerType websiteEntryPoint
 
                         | None ->
                             failwithf "Failed to find Website attribute with an IWebsite parameter on the processed assembly: %s" file

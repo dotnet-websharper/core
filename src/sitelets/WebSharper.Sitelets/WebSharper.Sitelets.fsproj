@@ -37,9 +37,6 @@
     <ProjectReference Include="..\..\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
-  <Target Name="_CopyToDeploy" AfterTargets="Build">
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\deploy" />
-  </Target>
   <Import Project="..\..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

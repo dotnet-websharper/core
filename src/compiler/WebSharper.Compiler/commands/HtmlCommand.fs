@@ -68,23 +68,111 @@ module HtmlCommand =
     type IHtmlCommand =
         abstract Execute : C.Environment * Config -> C.Result
 
-    let Exec env config =
-        // this is a forward declaration - actual logic in the Sitelets assembly
-        //let baseDir =
-        //    typeof<IHtmlCommand>.Assembly.Location
-        //    |> Path.GetDirectoryName
-        //let aR =
-        //    AssemblyResolver.Create()
-        //        .WithBaseDirectory(baseDir)
-        //        .SearchDirectories([baseDir])
-        let assemblyPath =
-            let thisPath = typeof<IHtmlCommand>.Assembly.Location
-            Path.Combine(Path.GetDirectoryName(thisPath), "WebSharper.Sitelets.Offline.dll")
-        let asm = System.Reflection.Assembly.LoadFrom(assemblyPath)
-        let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
-        let t = asm.GetType(tN, throwOnError = true)
-        let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-        cmd.Execute(env, config)        
+    let mutable implementationInstance = None : IHtmlCommand option
+    
+    let Exec env (config: Config) =
+        
+        //let assemblyResolveHandler = 
+        //    System.ResolveEventHandler(fun _ e ->
+
+        //        let assemblyName = AssemblyName(e.Name).Name
+        //         These are the dependencies of WebSharper.Offline.Sitelets
+        //         They must be exact versions by strict nuget dependency
+        //        match assemblyName with 
+        //        | "WebSharper.JavaScript" 
+        //        | "WebSharper.Main" 
+        //        | "WebSharper.Collections"
+        //        | "WebSharper.Web"
+        //        | "WebSharper.Sitelets"
+        //            ->
+        //            let path =
+        //                config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
+        //                    Path.GetFileNameWithoutExtension(r) = assemblyName
+        //                )   
+        //            match path with
+        //            | Some p ->
+        //                printfn "Loaded from project refs: %s" p
+        //                System.Reflection.Assembly.Load(File.ReadAllBytes(p))
+        //                System.Reflection.Assembly.LoadFile(p)
+
+        //            | None ->
+        //                failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
+        //        | _ -> 
+        //            let p = Path.Combine(compilerDir, assemblyName + ".dll")
+        //            if File.Exists(p) then
+        //                printfn "Loaded from combpiler folder: %s" p
+        //                System.Reflection.Assembly.LoadFile(p)
+        //            else
+        //                printfn "Tried to load but not found: %s" p
+        //                null
+        //    )
+
+        let cmd =
+            match implementationInstance with
+            | Some cmd -> cmd
+            | None ->
+        
+                let referencedAsmNames =
+                    config.ReferenceAssemblyPaths
+                    |> Seq.map (fun i -> 
+                        let n = Path.GetFileNameWithoutExtension(i)
+                        n, i
+                    )
+                    |> dict
+                
+                let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
+                printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
+
+                [|
+                    "WebSharper.JavaScript" 
+                    "WebSharper.Main" 
+                    "WebSharper.Collections"
+                    "WebSharper.Web"
+                    "WebSharper.Sitelets"
+                |]
+                |> Array.iter (fun assemblyName ->
+                    match referencedAsmNames.TryGetValue assemblyName with
+                    | true, p ->
+                        printfn "Loaded from project refs: %s" p
+                        //System.Reflection.Assembly.Load(File.ReadAllBytes(p)) |> ignore
+                        System.Reflection.Assembly.LoadFile(p) |> ignore   
+                    | _ ->
+                        failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName   
+                )
+
+                //let thisAsm = typeof<IHtmlCommand>.Assembly
+                //let compilerDir = Path.GetDirectoryName(thisAsm.Location)
+
+                let cmdAssemblyPath =
+                    let thisPath = typeof<IHtmlCommand>.Assembly.Location
+                    Path.Combine(Path.GetDirectoryName(thisPath), "WebSharper.Sitelets.Offline.dll")
+                let asm = System.Reflection.Assembly.LoadFile(cmdAssemblyPath)
+
+                //let offlineSiteletsAsm =
+                //    let n = thisAsm.GetName()
+                //    n.Name <- "WebSharper.Sitelets.Offline"
+                //    n.FullName
+
+                //let asm = System.Reflection.Assembly.Load(offlineSiteletsAsm)
+                let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
+                let t = asm.GetType(tN, throwOnError = true)
+                    
+                let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+
+                let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
+                printfn "And now: %A" (asmList |> Array.map (fun a -> a.FullName))
+
+                implementationInstance <- Some cmd
+
+                cmd
+
+        //System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
+        let res = cmd.Execute(env, config)   
+        
+        //System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+
+        res
 
     let Parse (args: list<string>) =
         let trim (s: string) =
