@@ -53,6 +53,7 @@ group test
 group nunit
     framework: net5.0
     source https://api.nuget.org/v3/index.json
+    storage: none
     nuget NUnit ~> 3.13.2
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
