@@ -9,6 +9,8 @@
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FromUI/AppendList.fsi" />
+    <Compile Include="FromUI/AppendList.fs" />
     <Compile Include="Collections.fs" />
     <Compile Include="Dependencies.fs" />
     <Compile Include="AddressOf.fs" />

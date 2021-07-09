@@ -18,12 +18,12 @@
 //
 // $end{copyright}
 
-#r "../../build/Release/FSharp/net5.0/deploy/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net5.0/deploy/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/FSharp/net5.0/deploy/WebSharper.Compiler.dll"
-#r "../../build/Release/FSharp/net5.0/deploy/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/FSharp/net5.0/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll"
+#r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -337,16 +337,18 @@ metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" 
 
 open System.IO
 
-let translate source = 
+let translate fsiSource source = 
 
-    let fileName1 = Path.ChangeExtension(Path.GetTempFileName(), ".fs")
+    let tempFileName = Path.GetTempFileName()
+    let fileName1 = Path.ChangeExtension(tempFileName, ".fsi")    
+    let fileName2 = Path.ChangeExtension(tempFileName, ".fs")
     let base2 = Path.GetTempFileName()
     let dllName = Path.ChangeExtension(base2, ".dll")
     let projFileName = Path.ChangeExtension(base2, ".fsproj")
-    let fileSource1 = source
-    File.WriteAllText(fileName1, fileSource1)
+    File.WriteAllText(fileName1, fsiSource)
+    File.WriteAllText(fileName2, source)
 
-    let args = mkProjectCommandLineArgs (dllName, [fileName1])
+    let args = mkProjectCommandLineArgs (dllName, [fileName1; fileName2])
     let options =  checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
@@ -455,17 +457,40 @@ let getBody expr =
         let _, expr = cls.StaticConstructor |> Option.get
         expr
 
-translate """
-module M
+translate """ 
+namespace WebSharper.UI
+
+/// A list that does not punish too much for appending.
+type internal AppendList<'T>
+
+/// Operations on append-lists.
+module internal AppendList =
+
+    /// The type synonym.
+    type T<'T> = AppendList<'T>
+
+    /// The empty list.
+    val Empty<'T> : T<'T>
+
+""" """
+namespace WebSharper.UI
 
 open WebSharper
+open System.Collections.Generic
+
+type internal AppendList<'T> =
+    | AL0
+    | AL1 of 'T
+    | AL2 of AppendList<'T> * AppendList<'T>
+    | AL3 of 'T []
 
 [<JavaScript>]
-let matchArray() = 
-    let arr = [| obj() |]
-    match arr with
-    | [||] -> false
-    | _ -> true
+module AppendList =
+
+    type T<'T> = AppendList<'T>
+
+    let Empty<'T> : AppendList<'T> = AL0
+
 """
 
 //translate """

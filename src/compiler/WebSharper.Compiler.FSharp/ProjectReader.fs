@@ -76,15 +76,16 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
-let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
     let thisDef = sr.ReadTypeDefinition cls
     let annot =
         sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
     d.Add(cls, (thisDef, annot))
+    t.Add(thisDef, cls)
     for m in members do
         match m with
         | SourceEntity (ent, nmembers) ->
-            collectClassAnnotations d sr annot ent nmembers
+            collectClassAnnotations d t sr annot ent nmembers
         | _ -> ()
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
@@ -1039,6 +1040,8 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 yield r.SimpleName, r.Contents 
         ]
 
+    let typeImplLookup = Dictionary<TypeDefinition, FSharpEntity>()
+    
     let lookupTypeDefinition (typ: TypeDefinition) =
         let t = typ.Value
         let path = t.FullName.Split('+')
@@ -1051,7 +1054,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         for i = 1 to path.Length - 1 do
             if res.IsSome then
                 res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
-        res 
+        
+        match res with
+        | Some td when td.IsOpaque ->
+            match typeImplLookup.TryGetValue(typ) with
+            | true, ores -> Some ores
+            | _ -> None
+        | _ -> res
 
     let readAttribute (a: FSharpAttribute) =
         try
@@ -1287,7 +1296,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         for t in topLevelTypes do
             match t with
             | SourceEntity (c, m) ->
-                collectClassAnnotations classAnnotations sr rootTypeAnnot c m
+                collectClassAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
             | _ -> ()
 
         // register all proxies for signature redirection
