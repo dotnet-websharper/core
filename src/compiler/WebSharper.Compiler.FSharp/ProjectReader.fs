@@ -1151,8 +1151,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             else if entity.IsEnum then
                 CustomTypeInfo.EnumInfo typeDef
             else if entity.IsFSharpRecord then
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
                 entity.FSharpFields |> Seq.map (fun f ->
-                    let fAnnot = sr.AttributeReader.GetMemberAnnot(rootTypeAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
                     let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
                     let fTyp = sr.ReadType clsTparams.Value f.FieldType
                     {
@@ -1166,7 +1167,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 )
                 |> List.ofSeq |> FSharpRecordInfo    
             else if entity.IsFSharpUnion then
-                let tAnnot = rootTypeAnnot
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes)
                 let usesNull =
                     entity.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
                     && entity.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
@@ -1210,7 +1211,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 
                 FSharpUnionInfo {
                     Cases = cases
-                    NamedUnionCases = rootTypeAnnot.NamedUnionCases
+                    NamedUnionCases = tAnnot.NamedUnionCases
                     HasNull = usesNull && cases |> List.exists (fun c -> c.Kind = ConstantFSharpUnionCase Null) 
                 }
             else
