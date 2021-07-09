@@ -1172,28 +1172,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     && entity.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
                     && entity.UnionCases |> Seq.exists (fun c -> c.Fields.Count = 0)
 
-                let mutable nullCase = usesNull 
-
-                let constants = HashSet() 
-
                 let cases =
                     entity.UnionCases
                     |> Seq.map (fun case ->
-                        let constantCase v =
-                            if constants.Add(v) then
-                                ConstantFSharpUnionCase v
-                            else
-                                ConstantFSharpUnionCase (String "$$ERROR$$")
                         let cAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, case.Attributes)
                         let kind =
-                            let argumentless = case.Fields.Count = 0
-                            if nullCase && argumentless then
-                                nullCase <- false
-                                constantCase Null
-                            else
                             match cAnnot.Kind with
                             | Some (A.MemberKind.Constant v) -> 
-                                constantCase v
+                                ConstantFSharpUnionCase v
                             | _ ->
                                 NormalFSharpUnionCase (
                                     case.Fields
@@ -1225,7 +1211,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 FSharpUnionInfo {
                     Cases = cases
                     NamedUnionCases = rootTypeAnnot.NamedUnionCases
-                    HasNull = constants.Contains(Null)
+                    HasNull = usesNull && cases |> List.exists (fun c -> c.Kind = ConstantFSharpUnionCase Null) 
                 }
             else
                 CustomTypeInfo.NotCustomType 
