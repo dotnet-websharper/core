@@ -295,15 +295,15 @@ type Compilation(meta: Info, ?hasGraph) =
                 maybe {
                     let! mt =
                         try                                                             
-                            match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
+                            match WebSharper.Core.Reflection.LoadType(macro.Value.AssemblyQualifiedName) with
                             | null ->
                                 if this.UseLocalMacros then
-                                    this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.FullName))
+                                    this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.AssemblyQualifiedName))
                                 None
                             | t -> Some t
                         with e -> 
                             if this.UseLocalMacros then
-                                this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
+                                this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %A" macro.Value.FullName e))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([||]) with
@@ -316,7 +316,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         try mctor.Invoke(arg) |> Some
                         with e ->
                             if this.UseLocalMacros then
-                                this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
+                                this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %A" macro.Value.FullName e))
                             None
                     match inv with 
                     | :? WebSharper.Core.Macro as m -> 
@@ -340,7 +340,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 maybe {
                     let! mt =
                         try                                                             
-                            match System.Type.GetType(gen.Value.AssemblyQualifiedName, true) with
+                            match WebSharper.Core.Reflection.LoadType(gen.Value.AssemblyQualifiedName) with
                             | null ->
                                 if this.UseLocalMacros then
                                     this.AddError(None, SourceError(sprintf "Failed to find generator type: '%s'" gen.Value.FullName))

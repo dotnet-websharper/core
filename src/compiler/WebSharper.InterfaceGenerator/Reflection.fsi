@@ -92,9 +92,6 @@ type TypeDefinition =
     /// The namespace, if any.
     member Namespace : option<Namespace>
 
-    /// Tries to load the type. Throws exceptions on failure.
-    member Load : unit -> System.Type
-
     /// Parses type definitions. Throws exceptions on failure.
     static member FromType : System.Type -> TypeDefinition
 
@@ -127,9 +124,6 @@ type Type =
 
     /// The name, such as Queue`1.
     member Name : Name
-
-    /// Tries to load the class. Throws exceptions on failure.
-    member Load : ?allowGeneric: bool -> System.Type
 
     /// Parses types. Throws exceptions on failure.
     static member FromType : System.Type -> Type
@@ -171,9 +165,6 @@ type Method =
 
     /// The name.
     member Name : Name
-
-    /// Tries to load the method definition. Throws exceptions on failure.
-    member Load : option<Generics> -> System.Reflection.MethodInfo
 
     /// Parses the method.
     static member Parse : System.Reflection.MethodInfo -> Method

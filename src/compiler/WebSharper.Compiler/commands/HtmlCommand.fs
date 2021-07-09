@@ -68,26 +68,94 @@ module HtmlCommand =
     type IHtmlCommand =
         abstract Execute : C.Environment * Config -> C.Result
 
-    let Exec env config =
-        // this is a forward declaration - actual logic in the Sitelets assembly
-        let baseDir =
-            typeof<IHtmlCommand>.Assembly.Location
-            |> Path.GetDirectoryName
-        // install resolution rules specifically to work on Mono
-        let aR =
-            AssemblyResolver.Create()
-                .WithBaseDirectory(baseDir)
-                .SearchDirectories([baseDir])
-        let assemblyName =
-            let n = typeof<IHtmlCommand>.Assembly.GetName()
-            n.Name <- "WebSharper.Sitelets.Offline"
-            n
-        aR.Wrap <| fun () ->
-            let asm = System.Reflection.Assembly.Load(assemblyName)
-            let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
-            let t = asm.GetType(tN, throwOnError = true)
-            let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-            cmd.Execute(env, config)        
+    let mutable implementationInstance = None : IHtmlCommand option
+    
+    let Exec env (config: Config) =
+        
+        let thisPath = typeof<IHtmlCommand>.Assembly.Location
+        let compilerDir = Path.GetDirectoryName(thisPath)
+
+        let loadAsm (path: string) =
+            let cdom = System.AppDomain.CurrentDomain
+            let asmList = cdom.GetAssemblies()
+            let refname = Path.GetFileNameWithoutExtension(path)
+            let alreadyLoaded =
+                asmList
+                |> Seq.tryFind (fun a ->
+                    a.GetName().Name = refname)
+            match alreadyLoaded with
+            | Some asm -> 
+                asm 
+            | None ->
+                try 
+                    System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
+                with :? System.BadImageFormatException -> 
+                    null
+
+        let assemblyResolveHandler = 
+            System.ResolveEventHandler(fun _ e ->
+
+                let assemblyName = AssemblyName(e.Name).Name
+                // These are the dependencies of WebSharper.Offline.Sitelets
+                // They must be exact versions by strict nuget dependency
+                match assemblyName with 
+                | "WebSharper.JavaScript" 
+                | "WebSharper.Main" 
+                | "WebSharper.Collections"
+                | "WebSharper.Web"
+                | "WebSharper.Sitelets"
+                | "WebSharper.Core"
+                | "WebSharper.Core.JavaScript"
+                    ->
+                    let path =
+                        config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
+                            Path.GetFileNameWithoutExtension(r) = assemblyName
+                        )   
+                    match path with
+                    | Some p ->
+                        loadAsm p
+                    | None ->
+                        failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
+                | _ -> 
+                    let p = Path.Combine(compilerDir, assemblyName + ".dll")
+                    if File.Exists(p) then
+                        loadAsm p
+                    else
+                        null
+            )
+
+        System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+
+        let cmd =
+            match implementationInstance with
+            | Some cmd -> cmd
+            | None ->
+        
+                let referencedAsmNames =
+                    config.ReferenceAssemblyPaths
+                    |> Seq.map (fun i -> 
+                        let n = Path.GetFileNameWithoutExtension(i)
+                        n, i
+                    )
+                    |> dict
+                
+                let cmdAssemblyPath =
+                    Path.Combine(compilerDir, "WebSharper.Sitelets.Offline.dll")
+                let asm = loadAsm cmdAssemblyPath
+                let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
+                let t = asm.GetType(tN, throwOnError = true)
+                    
+                let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+
+                implementationInstance <- Some cmd
+
+                cmd
+
+        let res = cmd.Execute(env, config)   
+        
+        System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+
+        res
 
     let Parse (args: list<string>) =
         let trim (s: string) =

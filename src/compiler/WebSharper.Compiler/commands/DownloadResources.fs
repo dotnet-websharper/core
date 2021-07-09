@@ -51,7 +51,7 @@ module DownloadResources =
                     null
                 else
                     try
-                        System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension path)
+                        WebSharper.Core.Reflection.LoadAssembly (Path.GetFileNameWithoutExtension path)
                     with e ->
                         if e.HResult <> 0x80131058 then
                             errors.Add <| sprintf "Failed to load assembly for unpacking local resources: %s - %s" path (printError e)     

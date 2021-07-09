@@ -52,60 +52,41 @@ type HtmlCommand() =
                 |> Seq.map Path.GetDirectoryName
                 |> Seq.append [Path.GetDirectoryName(options.MainAssemblyPath)]
                 |> aR.SearchDirectories
-            aR.Wrap <| fun () ->
-                // Load the sitelet
-                let loadSite (file: string) =
-                    let assemblyName = AssemblyName.GetAssemblyName(file)
-                    let assembly = aR.Resolve(assemblyName)
-                    match assembly with
-                    | None ->
-                        failwithf "Failed to load %s" file
-                    | Some assembly ->
-                        let siteletType =
-                            assembly.CustomAttributes |> Seq.tryPick (fun a ->
-                                if a.AttributeType.FullName = "WebSharper.Sitelets.WebsiteAttribute" then
-                                    let args = a.ConstructorArguments
-                                    if args.Count = 1 then 
-                                        Some a.ConstructorArguments.[0]
-                                    else
-                                        None
-                                else
-                                    None
-                            )
-                        let aT = typeof<WebsiteAttribute>
-                        match siteletType with
-                        | Some a ->
-                            let typeName = (a.Value :?> Type).AssemblyQualifiedName
-                            let ty = System.Type.GetType(typeName, true)
-                            
-                            let website = Activator.CreateInstance(ty)
-                            let innerTypeOpt =
-                                ty.GetInterfaces()
-                                |> Seq.tryPick (fun iT ->
-                                    if iT.FullName.StartsWith("WebSharper.Sitelets.IWebsite`1") then
-                                        Some (iT.GetGenericArguments().[0])
-                                    else
-                                        None)
-                            let innerType =
-                                match innerTypeOpt with
-                                | Some t -> t
-                                | None -> failwith "Type is not implementing IWebsite"
+            
+            aR.Install()
 
-                            WebSharper.Sitelets.Utils.GetSitelet innerType website
-                let (sitelet, actions) = loadSite options.MainAssemblyPath
+            // Load the sitelet
+            let loadSite (file: string) =
+                let assembly = WebSharper.Core.Reflection.LoadAssembly file
+                match assembly with
+                | null ->
+                    failwithf "Failed to load %s" file
+                | assembly ->
+                    let aT = typeof<WebsiteAttribute>
+                    match Attribute.GetCustomAttribute(assembly, aT) with
+                    | :? WebsiteAttribute as attr ->
+                        attr.Run ()
+                    |_  ->
+                        failwithf "Failed to find WebSiteAttribute \
+                            on the processed assembly: %s"
+                            file
+            let (sitelet, actions) = loadSite options.MainAssemblyPath
 
-                if options.DownloadResources then
-                    let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
-                    for p in assemblies do
-                        D.DownloadResource p options.OutputDirectory
+            if options.DownloadResources then
+                let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
+                for p in assemblies do
+                    D.DownloadResource p options.OutputDirectory
 
-                // Write site content.
-                Output.WriteSite aR {
-                    Sitelet = sitelet
-                    Options = options
-                    Actions = actions
-                    UnpackSourceMap = options.UnpackSourceMap
-                    UnpackTypeScript = options.UnpackTypeScript
-                }
-                |> Async.RunSynchronously
-                C.Ok
+            // Write site content.
+            Output.WriteSite aR {
+                Sitelet = sitelet
+                Options = options
+                Actions = actions
+                UnpackSourceMap = options.UnpackSourceMap
+                UnpackTypeScript = options.UnpackTypeScript
+            }
+            |> Async.RunSynchronously
+            
+            aR.Remove()
+
+            C.Ok

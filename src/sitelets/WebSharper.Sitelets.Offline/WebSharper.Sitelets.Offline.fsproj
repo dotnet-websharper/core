@@ -2,7 +2,6 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <OutputPath>$(MSBuildThisFileDirectory)\..\..\..\build\$(Configuration)\FSharp\Offline</OutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="PathUtility.fsi" />
@@ -22,8 +21,8 @@
     <ProjectReference Include="..\WebSharper.Sitelets\WebSharper.Sitelets.fsproj" />
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
-  <Target Name="_CopyToDeploy" AfterTargets="Build" >
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\..\net5.0\deploy" />
+  <Target Name="_CopyToDeploy" AfterTargets="Build">
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\deploy" />
   </Target>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />

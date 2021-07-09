@@ -324,14 +324,25 @@ let LoadInterfaceGeneratorAssembly (file: string) =
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
     File.Copy(file, genFile)
-    let asm = Assembly.Load(File.ReadAllBytes(genFile))
+    let asm = WebSharper.Core.Reflection.LoadAssembly(genFile)
     let name = asm.GetName()
-    match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
-    | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
-        name, attr.GetAssembly(), asm
-    | _ ->
+    let typedArg =
+        asm.CustomAttributes |> Seq.tryPick (fun a ->
+            if a.AttributeType.FullName = "WebSharper.InterfaceGenerator.Pervasives+ExtensionAttribute" then
+                Some a.ConstructorArguments.[0]
+            else
+                None
+        )
+    match typedArg with 
+    | Some a ->
+        let typeName = (a.Value :?> Type).AssemblyQualifiedName
+        let t = WebSharper.Core.Reflection.LoadType typeName
+        let e = Activator.CreateInstance(t) :?> WebSharper.InterfaceGenerator.Pervasives.IExtension
+        let asmDef = e.Assembly
+        name, asmDef, asm
+    | None ->
         failwith "No ExtensionAttribute set on the input assembly"
-
+    
 let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
     aR.Wrap <| fun () ->
         let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile
