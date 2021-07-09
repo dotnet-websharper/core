@@ -16,3 +16,4 @@ dependencies
     framework: netstandard2.0
         WebSharper.Compiler.FSharp == CURRENTVERSION
         WebSharper.Compiler.CSharp == CURRENTVERSION
+        System.Runtime.Loader >= LOCKEDVERSION

@@ -75,6 +75,29 @@ module HtmlCommand =
         let thisPath = typeof<IHtmlCommand>.Assembly.Location
         let compilerDir = Path.GetDirectoryName(thisPath)
 
+        let loadAsm (path: string) =
+            let cdom = System.AppDomain.CurrentDomain
+            let asmList = cdom.GetAssemblies()
+            let refname = Path.GetFileNameWithoutExtension(path)
+            let alreadyLoaded =
+                asmList
+                |> Seq.tryFind (fun a ->
+                    a.GetName().Name = refname)
+            match alreadyLoaded with
+            | Some asm -> 
+                printfn "Already loaded for HtmlCommand resolver: %s" refname
+                asm 
+            | None ->
+                printfn "Needed loading by HtmlCommand resolver: %s" path
+                //System.Reflection.Assembly.LoadFile(path)
+                try 
+                    //File.ReadAllBytes path |> cdom.Load
+                    System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
+                    //System.Reflection.Assembly.LoadFrom path
+                with :? System.BadImageFormatException -> 
+                    printfn "Reference assembly skipped by HtmlCommand resolver: %s " path
+                    null
+
         let assemblyResolveHandler = 
             System.ResolveEventHandler(fun _ e ->
 
@@ -90,10 +113,10 @@ module HtmlCommand =
                 // more
                 | "WebSharper.Core"
                 | "WebSharper.Core.JavaScript"
-                | "System.Reflection.Emit.Lightweight"
-                | "System.Reflection.Emit.ILGeneration"
-                | "System.Reflection.Primitives"
-                | "System.Reflection"
+                //| "System.Reflection.Emit.Lightweight"
+                //| "System.Reflection.Emit.ILGeneration"
+                //| "System.Reflection.Primitives"
+                //| "System.Reflection"
                     ->
                     let path =
                         config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
@@ -102,7 +125,8 @@ module HtmlCommand =
                     match path with
                     | Some p ->
                         printfn "Loaded from project refs: %s" p
-                        System.Reflection.Assembly.Load(File.ReadAllBytes(p))
+                        loadAsm p
+                        //System.Reflection.Assembly.Load(File.ReadAllBytes(p))
                         //System.Reflection.Assembly.LoadFile(p)
 
                     | None ->
@@ -111,7 +135,8 @@ module HtmlCommand =
                     let p = Path.Combine(compilerDir, assemblyName + ".dll")
                     if File.Exists(p) then
                         printfn "Loaded from combpiler folder: %s" p
-                        System.Reflection.Assembly.LoadFile(p)
+                        //System.Reflection.Assembly.LoadFile(p)
+                        loadAsm p
                     else
                         printfn "Tried to load but not found: %s" p
                         null
@@ -132,19 +157,6 @@ module HtmlCommand =
                 
                 //let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
                 //printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
-
-                let loadAsm (path: string) =
-                    let cdom = System.AppDomain.CurrentDomain
-                    let asmList = cdom.GetAssemblies()
-                    let refname = Path.GetFileNameWithoutExtension(path)
-                    let alreadyLoaded =
-                        asmList
-                        |> Seq.tryFind (fun a ->
-                            a.GetName().Name = refname)
-                    match alreadyLoaded with
-                    | Some asm -> asm 
-                    | None ->
-                        File.ReadAllBytes path |> cdom.Load
 
                 //[|
                 //    "System.Reflection.Emit.Lightweight"
@@ -215,11 +227,11 @@ module HtmlCommand =
 
                 cmd
 
-        //System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+        System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
 
         let res = cmd.Execute(env, config)   
         
-        //System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
+        System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
 
         res
 

@@ -64,7 +64,7 @@ module Implemetnation =
 
     let isCompatibleForInherit (ref: AssemblyName) (def: AssemblyName) =
         ref.Name = def.Name && 
-            not (forceReload ref) && 
+            //not (forceReload ref) && 
             (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
@@ -223,9 +223,12 @@ type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolu
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
-    member r.Wrap(action: unit -> 'T) =
-        
-        let loadContext =
+    let mutable loadContext = None
+    let mutable entered = null
+    let mutable domHandler = null 
+
+    member r.Install() =
+        loadContext <-
             // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
             let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
             if isNull ctor then
@@ -243,28 +246,18 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
             //let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
             //Some alc
 
-        let mutable entered : IDisposable = null
-
         let enterContextualReflection() =
             let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
             if not (isNull meth) then
                 printfn "Calling EnterContextualReflection"
                 entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
 
-        let exitContextualReflection() =
-            if not (isNull entered) then
-                entered.Dispose()
-
-        let unload() =
-            let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
-            meth.Invoke(loadContext, [||]) |> ignore
-
         let domResolve (x: obj) (a: ResolveEventArgs) =
             match reso.ResolveAssembly(dom, loadContext, a.Name) with
             | None -> null
             | Some r -> r
 
-        let domHandler = ResolveEventHandler(domResolve)
+        domHandler <- ResolveEventHandler(domResolve)
 
         let install() =
             let resolve x =
@@ -290,22 +283,34 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
             | _ ->
                 dom.add_AssemblyResolve(domHandler)    
 
-        let remove() =
-            WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
-            match loadContext with
-            | Some _ ->
-                exitContextualReflection()
-                //unload()
-            | _ ->
-                dom.remove_AssemblyResolve(domHandler)    
-        
+        printfn "AssemblyResolver.Install"
+        install()
+
+    member r.Remove() =
+        let exitContextualReflection() =
+            if not (isNull entered) then
+                entered.Dispose()
+
+        let unload() =
+            let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
+            meth.Invoke(loadContext, [||]) |> ignore
+
+        WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
+        match loadContext with
+        | Some _ ->
+            exitContextualReflection()
+            //unload()
+        | _ ->
+            dom.remove_AssemblyResolve(domHandler)    
+
+        printfn "AssemblyResolver.Remove"
+
+    member r.Wrap(action: unit -> 'T) =
         try
-            printfn "AssemblyResolver.Wrap begin"
-            install()
+            r.Install()
             action ()
         finally
-            remove()
-            printfn "AssemblyResolver.Wrap end"
+            r.Remove()
 
     member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
     member r.SearchPaths ps = AssemblyResolver(baseDir, dom, reso ++ searchPaths ps)

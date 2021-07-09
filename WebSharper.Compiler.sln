@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{E8624E6F-F8E9-4295-B9E0-6D1A79BAD0D5}"
+	ProjectSection(SolutionItems) = preProject
+		msbuild\FSharp.targets = msbuild\FSharp.targets
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "msbuild", "msbuild", "{B80D54C3-23BE-4087-9DAC-119986649CC4}"
 	ProjectSection(SolutionItems) = preProject
