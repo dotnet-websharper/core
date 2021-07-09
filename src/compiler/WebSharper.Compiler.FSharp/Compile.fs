@@ -291,11 +291,11 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
         logger.TimedStage stageName
         res
 
-    let aR, paths = createAssemblyResolver config
-    addAssemblyResolver paths
-
     match config.ProjectType with
     | Some WIG ->
+        let aR, paths = createAssemblyResolver config
+        addAssemblyResolver paths
+
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config
