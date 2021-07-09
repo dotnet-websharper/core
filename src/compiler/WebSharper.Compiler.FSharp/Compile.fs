@@ -419,6 +419,11 @@ let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBa
         with _ ->
             PrintGlobalError logger "Failed to clean intermediate output!"
 
+#if DEBUG
+    let exitCode = Compile !wsArgs !warn logger checkerFactory tryGetMetadata
+    if exitCode <> 0 then clearOutput()
+    exitCode            
+#else
     try 
         let exitCode = Compile !wsArgs !warn logger checkerFactory tryGetMetadata
         if exitCode <> 0 then clearOutput()
@@ -426,4 +431,4 @@ let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBa
     with _ ->
         clearOutput()
         reraise()
-
+#endif

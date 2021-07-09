@@ -72,40 +72,50 @@ module HtmlCommand =
     
     let Exec env (config: Config) =
         
-        //let assemblyResolveHandler = 
-        //    System.ResolveEventHandler(fun _ e ->
+        let thisPath = typeof<IHtmlCommand>.Assembly.Location
+        let compilerDir = Path.GetDirectoryName(thisPath)
 
-        //        let assemblyName = AssemblyName(e.Name).Name
-        //         These are the dependencies of WebSharper.Offline.Sitelets
-        //         They must be exact versions by strict nuget dependency
-        //        match assemblyName with 
-        //        | "WebSharper.JavaScript" 
-        //        | "WebSharper.Main" 
-        //        | "WebSharper.Collections"
-        //        | "WebSharper.Web"
-        //        | "WebSharper.Sitelets"
-        //            ->
-        //            let path =
-        //                config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
-        //                    Path.GetFileNameWithoutExtension(r) = assemblyName
-        //                )   
-        //            match path with
-        //            | Some p ->
-        //                printfn "Loaded from project refs: %s" p
-        //                System.Reflection.Assembly.Load(File.ReadAllBytes(p))
-        //                System.Reflection.Assembly.LoadFile(p)
+        let assemblyResolveHandler = 
+            System.ResolveEventHandler(fun _ e ->
 
-        //            | None ->
-        //                failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
-        //        | _ -> 
-        //            let p = Path.Combine(compilerDir, assemblyName + ".dll")
-        //            if File.Exists(p) then
-        //                printfn "Loaded from combpiler folder: %s" p
-        //                System.Reflection.Assembly.LoadFile(p)
-        //            else
-        //                printfn "Tried to load but not found: %s" p
-        //                null
-        //    )
+                let assemblyName = AssemblyName(e.Name).Name
+                // These are the dependencies of WebSharper.Offline.Sitelets
+                // They must be exact versions by strict nuget dependency
+                match assemblyName with 
+                | "WebSharper.JavaScript" 
+                | "WebSharper.Main" 
+                | "WebSharper.Collections"
+                | "WebSharper.Web"
+                | "WebSharper.Sitelets"
+                // more
+                | "WebSharper.Core"
+                | "WebSharper.Core.JavaScript"
+                | "System.Reflection.Emit.Lightweight"
+                | "System.Reflection.Emit.ILGeneration"
+                | "System.Reflection.Primitives"
+                | "System.Reflection"
+                    ->
+                    let path =
+                        config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
+                            Path.GetFileNameWithoutExtension(r) = assemblyName
+                        )   
+                    match path with
+                    | Some p ->
+                        printfn "Loaded from project refs: %s" p
+                        System.Reflection.Assembly.Load(File.ReadAllBytes(p))
+                        //System.Reflection.Assembly.LoadFile(p)
+
+                    | None ->
+                        failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
+                | _ -> 
+                    let p = Path.Combine(compilerDir, assemblyName + ".dll")
+                    if File.Exists(p) then
+                        printfn "Loaded from combpiler folder: %s" p
+                        System.Reflection.Assembly.LoadFile(p)
+                    else
+                        printfn "Tried to load but not found: %s" p
+                        null
+            )
 
         let cmd =
             match implementationInstance with
@@ -120,22 +130,60 @@ module HtmlCommand =
                     )
                     |> dict
                 
-                let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
-                printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
+                //let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
+                //printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
 
+                let loadAsm (path: string) =
+                    let cdom = System.AppDomain.CurrentDomain
+                    let asmList = cdom.GetAssemblies()
+                    let refname = Path.GetFileNameWithoutExtension(path)
+                    let alreadyLoaded =
+                        asmList
+                        |> Seq.tryFind (fun a ->
+                            a.GetName().Name = refname)
+                    match alreadyLoaded with
+                    | Some asm -> asm 
+                    | None ->
+                        File.ReadAllBytes path |> cdom.Load
+
+                //[|
+                //    "System.Reflection.Emit.Lightweight"
+                //    "System.Reflection.Emit.ILGeneration"
+                //    "System.Reflection.Primitives"
+                //    "System.Reflection"                
+                //|]
+                //|> Array.iter (fun assemlyName ->
+                //    System.Reflection.Assembly.Load
+                
+                //)
+                
                 [|
                     "WebSharper.JavaScript" 
                     "WebSharper.Main" 
                     "WebSharper.Collections"
                     "WebSharper.Web"
                     "WebSharper.Sitelets"
+                    // more
+                    "WebSharper.Core"
+                    "WebSharper.Core.JavaScript"
                 |]
                 |> Array.iter (fun assemblyName ->
                     match referencedAsmNames.TryGetValue assemblyName with
                     | true, p ->
                         printfn "Loaded from project refs: %s" p
                         //System.Reflection.Assembly.Load(File.ReadAllBytes(p)) |> ignore
-                        System.Reflection.Assembly.LoadFile(p) |> ignore   
+                        //System.Reflection.Assembly.LoadFile(p) |> ignore   
+                        
+                        
+                        let asm = loadAsm p
+
+                        if assemblyName = "WebSharper.Core" then
+                            printfn "Loading references of %s" assemblyName
+                            asm.GetReferencedAssemblies() |> Array.iter (fun r ->
+                                printfn "Ref: %s" r.FullName
+                                System.Reflection.Assembly.Load(r.FullName) |> ignore
+                            )
+
                     | _ ->
                         failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName   
                 )
@@ -144,9 +192,10 @@ module HtmlCommand =
                 //let compilerDir = Path.GetDirectoryName(thisAsm.Location)
 
                 let cmdAssemblyPath =
-                    let thisPath = typeof<IHtmlCommand>.Assembly.Location
-                    Path.Combine(Path.GetDirectoryName(thisPath), "WebSharper.Sitelets.Offline.dll")
-                let asm = System.Reflection.Assembly.LoadFile(cmdAssemblyPath)
+                    //let thisPath = typeof<IHtmlCommand>.Assembly.Location
+                    Path.Combine(compilerDir, "WebSharper.Sitelets.Offline.dll")
+                //let asm = System.Reflection.Assembly.LoadFile(cmdAssemblyPath)
+                let asm = loadAsm cmdAssemblyPath
 
                 //let offlineSiteletsAsm =
                 //    let n = thisAsm.GetName()
@@ -159,8 +208,8 @@ module HtmlCommand =
                     
                 let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
 
-                let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
-                printfn "And now: %A" (asmList |> Array.map (fun a -> a.FullName))
+                //let asmList = System.AppDomain.CurrentDomain.GetAssemblies()
+                //printfn "And now: %A" (asmList |> Array.map (fun a -> a.FullName))
 
                 implementationInstance <- Some cmd
 

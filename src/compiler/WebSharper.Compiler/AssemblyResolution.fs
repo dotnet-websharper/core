@@ -30,26 +30,51 @@ open System.Runtime.Loader
 [<AutoOpen>]
 module Implemetnation =
 
+    let forceReload (ref: AssemblyName) =
+        match ref.Name with
+        | "WebSharper.Core"
+        | "WebSharper.Core.JavaScript"
+        | "WebSharper.JavaScript" 
+        | "WebSharper.Main" 
+        | "WebSharper.Collections"
+        | "WebSharper.Web"
+        | "WebSharper.Sitelets"
+            -> true
+        | _ -> false
+
     let forceNonCompatible (ref: AssemblyName) =
         match ref.Name with
         | "FSharp.Core" 
         | "System.Runtime"
         | "netstandard"
+        //// these should not be needed
+        //| "WebSharper.Core"
+        //| "WebSharper.Core.JavaScript"
+        //| "WebSharper.JavaScript" 
+        //| "WebSharper.Main" 
+        //| "WebSharper.Collections"
+        //| "WebSharper.Web"
+        //| "WebSharper.Sitelets"
             -> true
         | _ -> false
     
-    let isCompatible (ref: AssemblyName) (def: AssemblyName) =
+    let isCompatibleForLoad (ref: AssemblyName) (def: AssemblyName) =
         ref.Name = def.Name && 
+            (ref.Version = null || def.Version = null || ref.Version = def.Version)
+
+    let isCompatibleForInherit (ref: AssemblyName) (def: AssemblyName) =
+        ref.Name = def.Name && 
+            not (forceReload ref) && 
             (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
         printfn "Looking for assembly: %s" name.FullName
         let asmList = dom.GetAssemblies()
-        printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
+        //printfn "In main context: %A" (asmList |> Array.map (fun a -> a.FullName))
         asmList
         |> Seq.tryFind (fun a ->
             a.GetName()
-            |> isCompatible name)
+            |> isCompatibleForInherit name)
 
     let loadIntoAppDomain (dom: AppDomain) (path: string) =
         printfn "loadIntoAppDomain: %s" path
@@ -60,7 +85,9 @@ module Implemetnation =
         printfn "loadIntoAssemblyLoadContext: %s" path
         let fs = new MemoryStream (File.ReadAllBytes path)
         try loadContext.LoadFromStream fs 
-        with :? System.BadImageFormatException -> null
+        with :? System.BadImageFormatException -> 
+            printfn "Reference assembly skipped: %s " path
+            null
 
     type AssemblyResolution =
         {
@@ -91,14 +118,16 @@ module Implemetnation =
                     match tryFindAssembly dom name with
                     | None ->
                         match r.ResolvePath name with
-                        | None -> None
+                        | None -> 
+                            printfn "ResolvePath failed for: %s" x
+                            None
                         | Some p -> 
                             let asm =
                                 match loadContext with
                                 | Some alc ->
-                                        loadIntoAssemblyLoadContext alc p
+                                    loadIntoAssemblyLoadContext alc p
                                 | None ->
-                                        loadIntoAppDomain dom p
+                                    loadIntoAppDomain dom p
                             match asm with
                             | null -> None
                             | _ ->
@@ -130,7 +159,7 @@ module Implemetnation =
         let f = FileInfo path
         if f.Exists then
             let n = AssemblyName.GetAssemblyName f.FullName
-            isCompatible n name
+            isCompatibleForLoad n name
         else false
 
     let searchPaths (paths: seq<string>) =
@@ -194,75 +223,88 @@ type MyAssemblyLoadContext(baseDir: string, dom: AppDomain, reso: AssemblyResolu
 [<Sealed>]
 type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
 
-    let loadContext =
-        // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
-        let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
-        if isNull ctor then
-            None
-        else
-            let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
-            let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
-                match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
-                | None -> null
-                | Some r -> r
-            )
-            alc.add_Resolving resolve
-            Some alc
-        //let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
-        //Some alc
+    member r.Wrap(action: unit -> 'T) =
+        
+        let loadContext =
+            // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
+            let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+            if isNull ctor then
+                None
+            else
+                let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
+                let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
+                    match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
+                    | None -> null
+                    | Some r -> r
+                )
+                alc.add_Resolving resolve
+                            
+                Some alc
+            //let alc = MyAssemblyLoadContext(baseDir, dom, reso) :> AssemblyLoadContext
+            //Some alc
 
-    let mutable entered : IDisposable = null
+        let mutable entered : IDisposable = null
 
-    let enterContextualReflection() =
-        let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
-        if not (isNull meth) then
-            printfn "Calling EnterContextualReflection"
-            entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
+        let enterContextualReflection() =
+            let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
+            if not (isNull meth) then
+                printfn "Calling EnterContextualReflection"
+                entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
 
-    let exitContextualReflection() =
-        if not (isNull entered) then
-            entered.Dispose()
+        let exitContextualReflection() =
+            if not (isNull entered) then
+                entered.Dispose()
 
-    let unload() =
-        let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
-        meth.Invoke(loadContext, [||]) |> ignore
+        let unload() =
+            let meth = typeof<AssemblyLoadContext>.GetMethod("Unload")
+            meth.Invoke(loadContext, [||]) |> ignore
 
-    let domResolve (x: obj) (a: ResolveEventArgs) =
-        match reso.ResolveAssembly(dom, loadContext, a.Name) with
-        | None -> null
-        | Some r -> r
-
-    let domHandler = ResolveEventHandler(domResolve)
-
-    member r.Install() =
-        let resolve x =
-            match reso.ResolveAssembly(dom, loadContext, x) with
+        let domResolve (x: obj) (a: ResolveEventArgs) =
+            match reso.ResolveAssembly(dom, loadContext, a.Name) with
             | None -> null
             | Some r -> r
-        WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
-            Some resolve
-        match loadContext with
-        | Some _ ->
-            enterContextualReflection()
-        | _ ->
-            dom.add_AssemblyResolve(domHandler)    
 
-    member r.Remove() =
-        WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
-        match loadContext with
-        | Some _ ->
-            exitContextualReflection()
-            //unload()
-        | _ ->
-            dom.remove_AssemblyResolve(domHandler)    
+        let domHandler = ResolveEventHandler(domResolve)
 
-    member r.Wrap(action: unit -> 'T) =
+        let install() =
+            let resolve x =
+                match reso.ResolveAssembly(dom, loadContext, x) with
+                | None -> null
+                | Some r -> r
+            WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
+                Some resolve
+            match loadContext with
+            | Some _ ->
+                enterContextualReflection()
+
+                printfn "Load shared libraries"
+                // load shared libraries 
+                for a in dom.GetAssemblies() do
+                    let an = a.GetName()
+                    if an.Name.StartsWith "WebSharper." && not (an.Name.StartsWith "WebSharper.Compiler") then
+                        printfn "Resolving shared asm %s" an.Name
+                        let sharedAsm = resolve an.FullName
+                        if isNull sharedAsm then
+                            printfn "Failed to resolve shared asm %s" an.Name
+
+            | _ ->
+                dom.add_AssemblyResolve(domHandler)    
+
+        let remove() =
+            WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
+            match loadContext with
+            | Some _ ->
+                exitContextualReflection()
+                //unload()
+            | _ ->
+                dom.remove_AssemblyResolve(domHandler)    
+        
         try
             printfn "AssemblyResolver.Wrap begin"
-            r.Install()
+            install()
             action ()
         finally
-            r.Remove()
+            remove()
             printfn "AssemblyResolver.Wrap end"
 
     member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
