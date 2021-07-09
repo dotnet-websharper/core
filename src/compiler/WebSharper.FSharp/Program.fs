@@ -52,16 +52,18 @@ let main(argv) =
     | HelpOrCommand r ->
         r
     | ParsedOptions (wsConfig, warnSettings) ->
-        if wsConfig.Standalone then
+        if wsConfig.Standalone || (wsConfig.ProjectType.IsSome &&  wsConfig.ProjectType.Value = ProjectType.Html) then
             let reason =
                 if System.Environment.GetEnvironmentVariables()
                     |> Seq.cast<System.Collections.DictionaryEntry>
                     |> Seq.exists (fun x -> (x.Key :?> string).ToLower() = "websharperbuildservice" && (x.Value :?> string).ToLower() = "false")
                 then
                     "WebSharperBuildService environment variable is set to false"
-                else
-                    "--standalone compile flag is set or WebSharperStandalone targets variable set"
-            logger.DebugWrite <| sprintf "Start compilation in standalone mode because %s." reason
+                else if (wsConfig.ProjectType.IsSome &&  wsConfig.ProjectType.Value = ProjectType.Html) then
+                    "Offline Sitelets are built standalone"
+                    else
+                        "--standalone compile flag is set or WebSharperStandalone targets variable set"
+            nLogger.Debug "Start compilation in standalone mode because %s." reason
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG
