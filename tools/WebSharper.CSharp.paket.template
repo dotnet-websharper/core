@@ -23,7 +23,6 @@ files
     ../build/Release/CSharp/net5.0/deploy/ZafirCs.runtimeconfig.json ==> tools/net5.0
     ../build/Release/CSharp/net5.0/deploy/zafircs-netcore.sh ==> tools/net5.0
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
-    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> tools/net5.0
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0
     ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools
     ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
