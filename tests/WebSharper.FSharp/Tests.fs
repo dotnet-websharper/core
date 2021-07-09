@@ -3,10 +3,6 @@ module Compiler.Tests
 open NUnit.Framework
 open FsUnit
 open System.IO
-open FSharp.Compiler.CodeAnalysis
-open System.Runtime.Caching
-open WebSharper.Compiler
-open WebSharper.Compiler.FSharp.Compile
 
 [<SetUp>]
 let Setup () =
@@ -61,19 +57,19 @@ let ``Compilation test`` () =
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Localization.dll"
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Localization.Routing.dll"
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Metadata.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Abstractions.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.ApiExplorer.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Core.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Cors.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.DataAnnotations.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Formatters.Json.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Formatters.Xml.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Localization.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Razor.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.RazorPages.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.TagHelpers.dll"
-                    //@"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.ViewFeatures.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Abstractions.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.ApiExplorer.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Core.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Cors.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.DataAnnotations.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Formatters.Json.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Formatters.Xml.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Localization.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.Razor.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.RazorPages.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.TagHelpers.dll"
+                    @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Mvc.ViewFeatures.dll"
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Razor.dll"
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.Razor.Runtime.dll"
                     @"c:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\5.0.0\ref\net5.0\Microsoft.AspNetCore.ResponseCaching.Abstractions.dll"
@@ -313,7 +309,17 @@ let ``Compilation test`` () =
                     @"fsharp.core\5.0.0\lib\netstandard2.0\FSharp.Core.dll"
                     @"htmlagilitypack\1.11.0\lib\netstandard2.0\HtmlAgilityPack.dll"
                     @"system.xml.xpath.xmldocument\4.3.0\ref\netstandard1.3\System.Xml.XPath.XmlDocument.dll"
+                    @"mono.cecil\0.11.4\lib\netstandard2.0\Mono.Cecil.dll"
+                    @"mono.cecil\0.11.4\lib\netstandard2.0\Mono.Cecil.Mdb.dll"
+                    @"mono.cecil\0.11.4\lib\netstandard2.0\Mono.Cecil.Pdb.dll"
+                    @"mono.cecil\0.11.4\lib\netstandard2.0\Mono.Cecil.Rocks.dll"
+                    @"system.codedom\4.4.0\ref\netstandard2.0\System.CodeDom.dll"
+                    @"system.configuration.configurationmanager\4.4.0\ref\netstandard2.0\System.Configuration.ConfigurationManager.dll"
+                    @"system.security.cryptography.protecteddata\4.4.0\ref\netstandard2.0\System.Security.Cryptography.ProtectedData.dll"
                 ]
+
+            for n in nugets do
+                yield @"-r:" + System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) + @"\.nuget\packages\" + n
 
             yield "-g"
             yield "--debug:portable"
@@ -343,9 +349,8 @@ let ``Compilation test`` () =
             yield "--nocopyfsharpcore"
             yield "--deterministic+"
             yield "--simpleresolution"
-
-            for n in nugets do
-                yield @"-r:" + System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile) + @"\.nuget\packages\" + n
+            yield "--nowarn:3186"
+            yield "--jsmap"
 
 
             let projRefs =
@@ -376,7 +381,8 @@ let ``Compilation test`` () =
 
     let fileNames =
         [
-            Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\obj\Debug\net5.0\Preview.AssemblyInfo.fs")
+            Path.Combine(__SOURCE_DIRECTORY__, @"obj\Debug\net5.0\.NETCoreApp,Version=v5.0.AssemblyAttributes.fs")
+            Path.Combine(__SOURCE_DIRECTORY__, @"..\..\msbuild\AssemblyInfo.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\example1.abc.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\Site.fs")
             Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\Startup.fs")
