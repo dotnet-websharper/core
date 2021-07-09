@@ -41,6 +41,7 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
+open System.Diagnostics
 
 let version = "5.0"
 let pre = Some "preview1"
@@ -98,6 +99,7 @@ let targets = MakeTargets {
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->
                     publishExe mode "net5.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+                    publishExe mode "net5.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
                     publishExe mode "net5.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
                 buildSln "WebSharper.sln"
             ]
@@ -200,6 +202,17 @@ Target.create "RunTestsRelease" <| fun _ ->
 
 targets.AddPrebuild "Prepare"
 
+Target.create "Stop" <| fun _ ->
+    try
+        Process.GetProcessesByName("wsfscservice")
+        |> Array.iter (fun x -> x.Kill())
+        |> ignore
+    with
+    | _ -> ()
+
+"Stop" ==> "WS-Clean"
+"Stop" ==> "WS-Restore"
+
 "WS-BuildRelease"
     ==> "RunTestsRelease"
     ?=> "WS-Package"
@@ -207,4 +220,4 @@ targets.AddPrebuild "Prepare"
 "RunTestsRelease"
     ==> "CI-Release"
     
-Target.runOrDefault "Build"
+Target.runOrDefaultWithArguments "Build"

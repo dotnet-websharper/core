@@ -55,6 +55,7 @@
     <Compile Include="commands/UnpackCommand.fsi" />
     <Compile Include="commands/UnpackCommand.fs" />
     <Compile Include="CommandTools.fs" />
+    <Compile Include="WsFscServiceCommon.fs" />
     <Compile Include="Bundle.fs" />
     <None Include="paket.references" />
   </ItemGroup>

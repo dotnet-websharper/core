@@ -9,6 +9,19 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="wsfscservice_start.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="wsfscservice_start.cmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wsfscservice_start.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Compile Include="NamedPipeClient.fs" />
     <Compile Include="Program.fs" />
     <Content Include="wsfsc.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -27,6 +40,7 @@
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.FSharp.Service\WebSharper.FSharp.Service.fsproj" />
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />

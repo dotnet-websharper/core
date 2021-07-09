@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks>net5.0</TargetFrameworks>
+    <Name>wsfscservice</Name>
+    <FSharpTool>True</FSharpTool>
+    <TargetFramework>net5.0</TargetFramework>
+    <WarnOn>3390;$(WarnOn)</WarnOn>
+    <Signed>False</Signed>
+    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <AssemblyName>wsfscservice</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Compile Include="Program.fs" />
+    <None Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />
+  </ItemGroup>
+  <Import Project="..\..\..\msbuild\FSharp.targets" />
+  <Target Name="CopyToOutput" AfterTargets="Build;Publish" Condition="$(TargetFramework.StartsWith('net4'))">
+    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="$(OutputPath)\netstandard.dll" />
+  </Target>
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>

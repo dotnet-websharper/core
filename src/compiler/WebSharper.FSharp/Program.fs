@@ -26,8 +26,10 @@ module C = WebSharper.Compiler.Commands
 
 open FSharp.Compiler.CodeAnalysis
 open WebSharper.Compiler.FSharp.Compile
+open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
+open NLog.FSharp
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -40,19 +42,46 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
-    let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+    let nLogger = Logger()
+    nLogger.Trace "Trace level is on"
+    nLogger.Debug "Debug level is on"
+    let argv = formatArgv argv
     let logger = ConsoleLogger()   
+    let parsedOptions = ParseOptions argv logger
+    match parsedOptions with
+    | HelpOrCommand r ->
+        r
+    | ParsedOptions (wsConfig, warnSettings) ->
+        if wsConfig.Standalone then
+            let reason =
+                if System.Environment.GetEnvironmentVariables()
+                    |> Seq.cast<System.Collections.DictionaryEntry>
+                    |> Seq.exists (fun x -> (x.Key :?> string).ToLower() = "websharperbuildservice" && (x.Value :?> string).ToLower() = "false")
+                then
+                    "WebSharperBuildService environment variable is set to false"
+                else
+                    "--standalone compile flag is set or WebSharperStandalone targets variable set"
+            nLogger.Debug "Start compilation in standalone mode because %s." reason
+            let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
+            let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG
-    compileMain (formatArgv argv) createChecker tryGetMetadata logger 
+            StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata  
 #else
-    try compileMain (formatArgv argv) createChecker tryGetMetadata logger
-    with 
-    | ArgumentError msg -> 
-        PrintGlobalError logger (msg + " - args: " + (formatArgv argv |> String.concat " "))
-        1    
-    | e -> 
-        PrintGlobalError logger (sprintf "Global error: %A" e)
-        1
+            try StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata
+            with 
+            | ArgumentError msg -> 
+                PrintGlobalError logger (msg + " - args: " + (argv |> String.concat " "))
+                1
+            | e -> 
+                PrintGlobalError logger (sprintf "Global error: %A" e)
+                1
 #endif
-
+        else
+            nLogger.Debug "Start compilation with wsfscservice"
+            // The #if DEBUG ... #else behavior is implemented in the service.
+            // NamedPipeService won't throw exception in the client.
+            let serviceExitCode = sendCompileCommand argv
+            if serviceExitCode = 0 then
+                UnpackOrWIG wsConfig warnSettings logger    
+            else
+                serviceExitCode

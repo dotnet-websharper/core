@@ -31,6 +31,20 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
 
+let createAssemblyResolver (config : WsConfig) =
+    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
+    let paths =
+        [
+            for r in config.References -> Path.GetFullPath r
+            yield Path.GetFullPath config.AssemblyFile
+        ]        
+    let aR =
+        AssemblyResolver.Create()
+            .SearchPaths(paths)
+            .SearchDirectories([compilerDir])
+    aR, paths
+
+
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
@@ -92,28 +106,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         exitCode
     else
 
-    let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
-    let paths =
-        [
-            for r in config.References -> Path.GetFullPath r
-            yield Path.GetFullPath config.AssemblyFile
-        ]        
-    let aR =
-        AssemblyResolver.Create()
-            .SearchPaths(paths)
-            .SearchDirectories([compilerDir])
-
-    if config.ProjectType = Some WIG then  
-        aR.Wrap <| fun () ->
-        try 
-            RunInterfaceGenerator aR config.KeyFile config
-            logger.TimedStage "WIG running time"
-            0
-        with e ->
-            PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
-            1
-    
-    else    
+    let aR, paths = createAssemblyResolver config
     let loader = Loader.Create aR logger.Out
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
@@ -266,20 +259,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage ("Writing " + path)
     | _ -> ()
 
-    let handleCommandResult stageName cmdRes =  
-        let res =
-            match cmdRes with
-            | C.Ok -> 0
-            | C.Errors errors ->
-                if config.WarnOnly || config.DownloadResources = Some false then
-                    errors |> List.iter (PrintGlobalWarning warnSettings logger)
-                    0
-                else
-                    errors |> List.iter (PrintGlobalError logger)
-                    1
-        logger.TimedStage stageName
-        res
-    
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
         // comp.Graph does not have graph of dependencies and we need full graph here for bundling
@@ -293,6 +272,36 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
         0
+    | _ ->
+        0
+
+let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) =    
+
+    let handleCommandResult stageName cmdRes =  
+        let res =
+            match cmdRes with
+            | C.Ok -> 0
+            | C.Errors errors ->
+                if config.WarnOnly || config.DownloadResources = Some false then
+                    errors |> List.iter (PrintGlobalWarning warnSettings logger)
+                    0
+                else
+                    errors |> List.iter (PrintGlobalError logger)
+                    1
+        logger.TimedStage stageName
+        res
+
+    match config.ProjectType with
+    | Some WIG ->
+        let aR, _ = createAssemblyResolver config
+        aR.Wrap <| fun () ->
+            try 
+                RunInterfaceGenerator aR config.KeyFile config
+                logger.TimedStage "WIG running time"
+                0
+            with e ->
+                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
+                1
     | Some Html ->
         ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
     | Some Website
@@ -306,10 +315,15 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     | _ ->
         0
 
-let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBase) =
+type ParseOptionsResult =
+    | HelpOrCommand of int
+    | ParsedOptions of WsConfig * WarnSettings
+
+let ParseOptions (argv: string[]) (logger: LoggerBase) = 
 
     match HandleDefaultArgsAndCommands logger argv true with
-    | Some r -> r
+    | Some r -> 
+        HelpOrCommand r
     | _ ->
     
     let wsArgs = ref WsConfig.Empty
@@ -406,19 +420,26 @@ let compileMain (argv: string[]) checkerFactory tryGetMetadata (logger: LoggerBa
     wsArgs := SetDefaultProjectFile !wsArgs true
     wsArgs := SetScriptBaseUrl !wsArgs
 
+
+    ParsedOptions (!wsArgs, !warn)
+
+let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
     let clearOutput() =
         try
-            let intermediaryOutput = (!wsArgs).AssemblyFile
+            let intermediaryOutput = config.AssemblyFile
             if File.Exists intermediaryOutput then 
                 let failedOutput = intermediaryOutput + ".failed"
                 if File.Exists failedOutput then File.Delete failedOutput
                 File.Move (intermediaryOutput, failedOutput)
         with _ ->
             PrintGlobalError logger "Failed to clean intermediate output!"
-
     try 
-        let exitCode = Compile !wsArgs !warn logger checkerFactory tryGetMetadata
-        if exitCode <> 0 then clearOutput()
+        let exitCode = 
+            match Compile config warnSettings logger checkerFactory tryGetMetadata with
+            | 0 -> UnpackOrWIG config warnSettings logger
+            | e -> e
+        if exitCode <> 0 then 
+            clearOutput()
         exitCode            
     with _ ->
         clearOutput()

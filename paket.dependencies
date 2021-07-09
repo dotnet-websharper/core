@@ -38,9 +38,25 @@ group fcs
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
+    nuget System.Runtime.Caching ~> 5.0.0
+    nuget System.Configuration.ConfigurationManager ~> 5.0.0
+    nuget NLog ~> 4.7.10
+    nuget NLog.FSharp ~> 4.5.3
     nuget FSharp.Compiler.Service ~> 40.0
-    nuget FSharp.Core ~> 5.0.2
+    nuget FSharp.Core ~> 5.0.0
 
 group test
     source https://api.nuget.org/v3/index.json
     nuget Chutzpah 4.4.7
+
+group nunit
+    framework: net5.0
+    source https://api.nuget.org/v3/index.json
+    nuget NUnit ~> 3.13.2
+    nuget NUnit3TestAdapter ~> 4.0.0
+    nuget Microsoft.NET.Test.Sdk ~> 16.10.0
+    nuget FSUnit ~> 4.0.4
+    nuget FSharp.Core ~> 5.0.2
+    nuget Microsoft.NETCore.Platforms ~> 5.0.2
+    nuget System.Runtime.Caching ~> 5.0.0
+    nuget FSharp.Compiler.Service ~> 40.0
