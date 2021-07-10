@@ -72,59 +72,32 @@ module HtmlCommand =
     
     let Exec env (config: Config) =
         
-        let thisPath = typeof<IHtmlCommand>.Assembly.Location
-        let compilerDir = Path.GetDirectoryName(thisPath)
-
         let loadAsm (path: string) =
-            let cdom = System.AppDomain.CurrentDomain
-            let asmList = cdom.GetAssemblies()
-            let refname = Path.GetFileNameWithoutExtension(path)
-            let alreadyLoaded =
-                asmList
-                |> Seq.tryFind (fun a ->
-                    a.GetName().Name = refname)
-            match alreadyLoaded with
-            | Some asm -> 
-                asm 
+            try 
+                System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
+            with :? System.BadImageFormatException -> 
+                null
+
+        // force load shared assemblies
+        [|
+            "WebSharper.JavaScript" 
+            "WebSharper.Main" 
+            "WebSharper.Collections"
+            "WebSharper.Web"
+            "WebSharper.Sitelets"
+            "WebSharper.Core"
+            "WebSharper.Core.JavaScript"
+        |] |> Array.iter (fun assemblyName ->
+            let path =
+                config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
+                    Path.GetFileNameWithoutExtension(r) = assemblyName
+                )   
+            match path with
+            | Some p ->
+                loadAsm p |> ignore
             | None ->
-                try 
-                    System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
-                with :? System.BadImageFormatException -> 
-                    null
-
-        let assemblyResolveHandler = 
-            System.ResolveEventHandler(fun _ e ->
-
-                let assemblyName = AssemblyName(e.Name).Name
-                // These are the dependencies of WebSharper.Offline.Sitelets
-                // They must be exact versions by strict nuget dependency
-                match assemblyName with 
-                | "WebSharper.JavaScript" 
-                | "WebSharper.Main" 
-                | "WebSharper.Collections"
-                | "WebSharper.Web"
-                | "WebSharper.Sitelets"
-                | "WebSharper.Core"
-                | "WebSharper.Core.JavaScript"
-                    ->
-                    let path =
-                        config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
-                            Path.GetFileNameWithoutExtension(r) = assemblyName
-                        )   
-                    match path with
-                    | Some p ->
-                        loadAsm p
-                    | None ->
-                        failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
-                | _ -> 
-                    let p = Path.Combine(compilerDir, assemblyName + ".dll")
-                    if File.Exists(p) then
-                        loadAsm p
-                    else
-                        null
-            )
-
-        System.AppDomain.CurrentDomain.add_AssemblyResolve(assemblyResolveHandler)
+                failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
+        )
 
         let cmd =
             match implementationInstance with
@@ -139,6 +112,8 @@ module HtmlCommand =
                     )
                     |> dict
                 
+                let thisPath = typeof<IHtmlCommand>.Assembly.Location
+                let compilerDir = Path.GetDirectoryName(thisPath)
                 let cmdAssemblyPath =
                     Path.Combine(compilerDir, "WebSharper.Sitelets.Offline.dll")
                 let asm = loadAsm cmdAssemblyPath
@@ -151,11 +126,7 @@ module HtmlCommand =
 
                 cmd
 
-        let res = cmd.Execute(env, config)   
-        
-        System.AppDomain.CurrentDomain.remove_AssemblyResolve(assemblyResolveHandler)
-
-        res
+        cmd.Execute(env, config)   
 
     let Parse (args: list<string>) =
         let trim (s: string) =

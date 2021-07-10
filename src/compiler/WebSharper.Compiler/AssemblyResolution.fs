@@ -47,8 +47,7 @@ module Implemetnation =
             (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
-        let asmList = dom.GetAssemblies()
-        asmList
+        dom.GetAssemblies()
         |> Seq.tryFind (fun a ->
             a.GetName()
             |> isCompatibleForInherit name)
@@ -64,15 +63,15 @@ module Implemetnation =
 
     type AssemblyResolution =
         {
-            Cache : ConcurrentDictionary<string, option<Assembly>>
+            Cache : ConcurrentDictionary<string, Assembly>
             ResolvePath : AssemblyName -> option<string>
         }
 
         member r.ResolveAssembly(dom: AppDomain, loadContext: option<AssemblyLoadContext>, asmNameOrPath: string) =
             let resolve (x: string) =
-                if x = "netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51" then
-                    None
-                elif x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
+                //if x = "netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51" then
+                //    null
+                if x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
                     let p = Path.GetFullPath x
                     let asm =
                         match loadContext with
@@ -80,26 +79,21 @@ module Implemetnation =
                             loadIntoAssemblyLoadContext alc p
                         | None ->
                             loadIntoAppDomain dom p
-                    Some asm
+                    asm
                 else
                     let name = AssemblyName(x)
                     match tryFindAssembly dom name with
                     | None ->
                         match r.ResolvePath name with
                         | None -> 
-                            None
+                            null
                         | Some p -> 
-                            let asm =
-                                match loadContext with
-                                | Some alc ->
-                                    loadIntoAssemblyLoadContext alc p
-                                | None ->
-                                    loadIntoAppDomain dom p
-                            match asm with
-                            | null -> None
-                            | _ ->
-                                Some asm
-                    | r -> 
+                            match loadContext with
+                            | Some alc ->
+                                loadIntoAssemblyLoadContext alc p
+                            | None ->
+                                loadIntoAppDomain dom p
+                    | Some r -> 
                         r
 
             r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
@@ -182,9 +176,7 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
             else
                 let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
                 let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
-                    match reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName) with
-                    | None -> null
-                    | Some r -> r
+                    reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName)
                 )
                 alc.add_Resolving resolve
                             
@@ -196,17 +188,13 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
                 entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
 
         let domResolve (x: obj) (a: ResolveEventArgs) =
-            match reso.ResolveAssembly(dom, loadContext, a.Name) with
-            | None -> null
-            | Some r -> r
+            reso.ResolveAssembly(dom, loadContext, a.Name)
 
         domHandler <- ResolveEventHandler(domResolve)
 
         let install() =
             let resolve x =
-                match reso.ResolveAssembly(dom, loadContext, x) with
-                | None -> null
-                | Some r -> r
+                reso.ResolveAssembly(dom, loadContext, x)
             WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
                 Some resolve
             match loadContext with
