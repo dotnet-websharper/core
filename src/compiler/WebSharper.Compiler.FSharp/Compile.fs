@@ -44,7 +44,21 @@ let createAssemblyResolver (config : WsConfig) =
         AssemblyResolver.Create()
             .SearchPaths(paths)
             .SearchDirectories([compilerDir])
-    aR, paths
+    aR
+
+let handleCommandResult logger config warnSettings stageName cmdRes =  
+    let res =
+        match cmdRes with
+        | C.Ok -> 0
+        | C.Errors errors ->
+            if config.WarnOnly || config.DownloadResources = Some false then
+                errors |> List.iter (PrintGlobalWarning warnSettings logger)
+                0
+            else
+                errors |> List.iter (PrintGlobalError logger)
+                1
+    logger.TimedStage stageName
+    res
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
     if config.AssemblyFile = null then
@@ -105,9 +119,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             
     if exitCode <> 0 then 
         exitCode
-    else
+    elif config.ProjectType = Some WIG then  
+        0
+    else 
 
-    let aR, paths = createAssemblyResolver config
+    let aR = createAssemblyResolver config
     let loader = Loader.Create aR logger.Out
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
@@ -251,28 +267,22 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
         0
+    | Some Website
+    | _ when Option.isSome config.OutputDir ->
+        match ExecuteCommands.GetWebRoot config with
+        | Some webRoot ->
+            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult logger config warnSettings "Unpacking"
+        | None ->
+            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+            1
     | _ ->
         0
 
 let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) =    
 
-    let handleCommandResult stageName cmdRes =  
-        let res =
-            match cmdRes with
-            | C.Ok -> 0
-            | C.Errors errors ->
-                if config.WarnOnly || config.DownloadResources = Some false then
-                    errors |> List.iter (PrintGlobalWarning warnSettings logger)
-                    0
-                else
-                    errors |> List.iter (PrintGlobalError logger)
-                    1
-        logger.TimedStage stageName
-        res
-
     match config.ProjectType with
     | Some WIG ->
-        let aR, _ = createAssemblyResolver config
+        let aR = createAssemblyResolver config
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config
@@ -282,15 +292,7 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
                 PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
                 1
     | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
-    | Some Website
-    | _ when Option.isSome config.OutputDir ->
-        match ExecuteCommands.GetWebRoot config with
-        | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
-        | None ->
-            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
-            1
+        ExecuteCommands.Html config logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
     | _ ->
         0
 

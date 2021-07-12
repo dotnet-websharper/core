@@ -69,8 +69,6 @@ module Implemetnation =
 
         member r.ResolveAssembly(dom: AppDomain, loadContext: option<AssemblyLoadContext>, asmNameOrPath: string) =
             let resolve (x: string) =
-                //if x = "netstandard, Version=2.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51" then
-                //    null
                 if x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
                     let p = Path.GetFullPath x
                     let asm =
