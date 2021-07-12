@@ -120,6 +120,9 @@ type internal DecimalProxy =
     static member Add(n1 : decimal, n2 : decimal) : decimal = DecimalProxy.mul WSDecimalMath.Add n1 n2
 
     [<Inline>]
+    static member Ceiling(d: decimal) : decimal = DecimalProxy.un WSDecimalMath.Ceil d
+
+    [<Inline>]
     static member Compare(n1 : decimal, n2 : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare n1 n2 |> float |> As<int>
 
     [<Inline>]
@@ -136,6 +139,9 @@ type internal DecimalProxy =
 
     [<Inline>]
     static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b |> As<bool>
+
+    [<Inline>]
+    static member Floor(d: decimal) : decimal = DecimalProxy.un WSDecimalMath.Floor d
 
     [<Inline>]
     static member internal Max(n1 : decimal, n2 : decimal): decimal =
@@ -213,3 +219,9 @@ type private MathProxyForDecimals =
 
     [<Inline>]
     static member Min(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Min(n1, n2)
+
+    [<Inline>]
+    static member Ceiling(d: decimal) = DecimalProxy.Ceiling d
+
+    [<Inline>]
+    static member Floor(d: decimal) = DecimalProxy.Floor d

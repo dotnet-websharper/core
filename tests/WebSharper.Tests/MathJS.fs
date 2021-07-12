@@ -273,15 +273,19 @@ let Tests runServerSide =
         }
 
         Test "Decimal functions" {
-            equal (abs 5m) 5m
+            let x = 18133887298.441562272235520m
+            equal (abs x) x
             equal (abs -6m) 6m
             equal (System.Math.Abs -7m) 7m
             equal (sign 3m) 1
             equal (sign -3m) -1
-            let x = 18133887298.441562272235520m
             let y = x + 1m
             equal (max x y) y
             equal (min x y) x
+            equal (System.Math.Ceiling x) 18133887299m
+            equal (System.Math.Floor x) 18133887298m
+            equal (ceil x) 18133887299m
+            equal (floor x) 18133887298m
         }
 
         TestIf runServerSide "Decimal remoting" {
