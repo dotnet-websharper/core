@@ -264,7 +264,7 @@ module ExecuteCommands =
             | None -> None
         | Some out -> Some out
 
-    let Unpack webRoot settings (logger: LoggerBase) =
+    let Unpack webRoot settings loader (logger: LoggerBase) =
         sprintf "Unpacking into %s" webRoot
         |> logger.Out
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
@@ -291,6 +291,7 @@ module ExecuteCommands =
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = Option.isSome settings.DownloadResources
+                    Loader = Some loader
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.UnpackCommand.Instance.Execute(env, cfg)

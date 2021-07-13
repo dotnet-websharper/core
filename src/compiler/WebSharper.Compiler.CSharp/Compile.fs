@@ -179,7 +179,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult "Unpacking"
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult "Unpacking"
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
     | _ -> ()

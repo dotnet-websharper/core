@@ -271,7 +271,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config logger |> handleCommandResult logger config warnSettings "Unpacking"
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking"
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
             1

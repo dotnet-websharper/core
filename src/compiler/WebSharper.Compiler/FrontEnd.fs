@@ -66,7 +66,7 @@ let ReadFromAssembly options a =
 let ReadFromFile options (path: string) =
     let aR = AssemblyResolver.Create().SearchPaths([path])
     let loader = Loader.Create aR ignore
-    loader.LoadFile(path) |> ReadFromAssembly options
+    loader.LoadFile(path, false) |> ReadFromAssembly options
 
 let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->

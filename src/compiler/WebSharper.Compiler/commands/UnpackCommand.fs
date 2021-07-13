@@ -33,6 +33,7 @@ module UnpackCommand =
             UnpackSourceMap : bool
             UnpackTypeScript : bool
             DownloadResources : bool
+            Loader : option<Loader>
         }
 
         static member Create() =
@@ -42,6 +43,7 @@ module UnpackCommand =
                 UnpackSourceMap = false
                 UnpackTypeScript = false
                 DownloadResources = false
+                Loader = None
             }
 
     let GetErrors config =
@@ -84,21 +86,25 @@ module UnpackCommand =
     let private localResTyp = typeof<Re.IDownloadableResource>
 
     let Exec env cmd =
-        let baseDir =
-            let pathToSelf = typeof<Config>.Assembly.Location
-            Path.GetDirectoryName(pathToSelf)
-        let aR =
-            AssemblyResolver.Create()
-                .WithBaseDirectory(baseDir)
-                .SearchDirectories([baseDir])
+        let loader = 
+            match cmd.Loader with
+            | Some l -> l
+            | _ ->
+                let baseDir =
+                    let pathToSelf = typeof<Config>.Assembly.Location
+                    Path.GetDirectoryName(pathToSelf)
+                let aR =
+                    AssemblyResolver.Create()
+                        .WithBaseDirectory(baseDir)
+                        .SearchDirectories([baseDir])
+                let aR = aR.SearchPaths(cmd.Assemblies)
+                Loader.Create aR stderr.WriteLine
+        let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
         let writeTextFile (output, text) =
             Content.Text(text).WriteFile(output)
         let writeBinaryFile (output, bytes) =
             Binary.FromBytes(bytes).WriteFile(output)
         System.IO.Directory.CreateDirectory cmd.RootDirectory |> ignore
-        let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
-        let aR = aR.SearchPaths(cmd.Assemblies)
-        let loader = Loader.Create aR stderr.WriteLine
         let emit text path =
             match text with
             | Some text -> writeTextFile (path, text)
@@ -118,7 +124,7 @@ module UnpackCommand =
         let content = PC.ResourceKind.Content
         let errors = ResizeArray()
         for p in cmd.Assemblies do
-            match (try loader.LoadFile p |> Some with _ -> None) with 
+            match (try loader.LoadFile(p, false) |> Some with _ -> None) with 
             | None -> () 
             | Some a ->
             let aid = PC.AssemblyId.Create(a.Name)
