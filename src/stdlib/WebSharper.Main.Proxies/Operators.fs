@@ -170,6 +170,7 @@ let Atan2 (x: 'T1) (y: 'T1) = X<'T2>
 [<Inline "$x">]
 let Box (x: 'T) = X<obj>
 
+[<Macro(typeof<M.Ceiling>)>]
 [<Inline "Math.ceil($x)">]
 let Ceiling (x: 'T) = X<'T>
 
@@ -223,6 +224,7 @@ let FailWith (msg: string) : 'T = raise (exn msg)
 [<Macro(typeof<M.Conversion>)>]
 let ToFloat (x: 'T) = X<float>
 
+[<Macro(typeof<M.Floor>)>]
 [<Inline "Math.floor($x)">]
 let Floor (x: 'T) = X<'T>
 
@@ -364,6 +366,7 @@ let inline Tan (x: 'T) = X<'T>
 [<Inline "(Math.exp(2*$x)-1)/(Math.exp(2*$x)+1)">]
 let Tanh (x: 'T) = X<'T>
 
+[<Inline>]
 let inline Truncate<'T> (x: 'T) =
     if x <. 0 then Ceiling x else Floor x
 
