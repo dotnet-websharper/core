@@ -288,6 +288,17 @@ let Tests runServerSide =
             equal (floor x) 18133887298m
         }
 
+        Test "Decimal comparison" {
+            let x = 18133887298.441562272235520m
+            let y = 18133887298.441562272237357m
+            isTrue (x < y)
+            isFalse (x > y)
+            isTrue (x <= y)
+            isTrue (x <= x)
+            isFalse (x >= y)
+            isTrue (y >= y)
+        }
+
         TestIf runServerSide "Decimal remoting" {
             let x = 18133887298.441562272235520m
             let! res = Add1ToDecimal x 

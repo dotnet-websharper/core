@@ -141,6 +141,12 @@ type internal DecimalProxy =
     static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b |> As<bool>
 
     [<Inline>]
+    static member GreaterThan(a: decimal, b: decimal): bool = DecimalProxy.bin WSDecimalMath.Larger a b |> As<bool>
+
+    [<Inline>]
+    static member LessThan(a: decimal, b: decimal): bool = DecimalProxy.bin WSDecimalMath.Smaller a b |> As<bool>
+
+    [<Inline>]
     static member Floor(d: decimal) : decimal = DecimalProxy.un WSDecimalMath.Floor d
 
     [<Inline>]
@@ -183,6 +189,18 @@ type internal DecimalProxy =
 
     [<Inline>]
     static member op_Inequality(n1 : decimal, n2 : decimal): bool = not <| DecimalProxy.Equals (n1,n2)
+
+    [<Inline>]
+    static member op_GreaterThan(n1:decimal, n2:decimal): bool = DecimalProxy.GreaterThan (n1, n2)
+
+    [<Inline>]
+    static member op_LessThan(n1:decimal, n2:decimal): bool = DecimalProxy.LessThan (n1, n2)
+
+    [<Inline>]
+    static member op_GreaterThanOrEqual(n1:decimal, n2:decimal): bool = not <| DecimalProxy.LessThan (n1, n2)
+
+    [<Inline>]
+    static member op_LessThanOrEqual(n1:decimal, n2:decimal): bool = not <| DecimalProxy.GreaterThan (n1, n2)
 
     [<Inline>]
     static member op_Modulus(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Mod n1 n2
