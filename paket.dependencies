@@ -48,7 +48,7 @@ group fcs
 
 group test
     source https://api.nuget.org/v3/index.json
-    nuget Chutzpah 4.4.7
+    nuget Chutzpah ~> 4.4.11
 
 group nunit
     framework: net5.0

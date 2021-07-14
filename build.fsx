@@ -178,14 +178,15 @@ Target.create "RunTestsRelease" <| fun _ ->
     
     webTestsProc.OutputDataReceived.Add(fun d -> 
         if not (isNull d) then
-            Trace.log d.Data
+            if not startedOk then            
+                Trace.log d.Data
             if d.Data.Contains("Application started.") then
                 startedOk <- true   
                 started.Trigger()
     )
     webTestsProc.Exited.Add(fun _ -> 
         if not startedOk then
-            failwith "Starting Web test project failed"    
+            failwith "Starting Web test project failed."    
     )
 
     webTestsProc.Start()
@@ -194,7 +195,8 @@ Target.create "RunTestsRelease" <| fun _ ->
 
     let res =
         Shell.Exec(
-            "packages/test/Chutzpah/tools/chutzpah.console.exe", "http://localhost:5000/consoletests /engine Chrome /silent"
+            "packages/test/Chutzpah/tools/chutzpah.console.exe", 
+            "http://localhost:5000/consoletests /engine Chrome /silent /failOnError /showFailureReport"
         )
     webTestsProc.Kill()
     if res <> 0 then
