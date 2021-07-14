@@ -37,6 +37,7 @@ module PC = WebSharper.PathConventions
 type HtmlCommand() =
     interface H.IHtmlCommand with
         member this.Execute(env, options) =
+            let errors = ResizeArray()
             let aR = AssemblyResolver.Create()
             Directory.CreateDirectory options.OutputDirectory |> ignore
             // process extra.files
@@ -75,7 +76,7 @@ type HtmlCommand() =
             if options.DownloadResources then
                 let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
                 for p in assemblies do
-                    D.DownloadResource p options.OutputDirectory
+                    D.DownloadResource p options.OutputDirectory |> errors.AddRange
 
             // Write site content.
             Output.WriteSite aR {
@@ -89,4 +90,7 @@ type HtmlCommand() =
             
             aR.Remove()
 
-            C.Ok
+            if errors.Count = 0 then
+                C.Ok
+            else
+                C.Errors (List.ofSeq errors)

@@ -124,7 +124,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     else 
 
     let aR = createAssemblyResolver config
-    let loader = Loader.Create aR logger.Out
+    let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
         System.Threading.Tasks.Task.Run(fun () ->
@@ -266,6 +266,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
         Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
+        0
+    | Some Html ->
         0
     | Some Website
     | _ when Option.isSome config.OutputDir ->

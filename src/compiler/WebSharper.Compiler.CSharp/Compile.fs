@@ -50,7 +50,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         AssemblyResolver.Create()
             .SearchPaths(paths)
 
-    let loader = Loader.Create aR logger.Out
+    let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let mutable refError = false
     let wsRefs, metas = 

@@ -71,3 +71,5 @@ module DownloadResources =
                             errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)   
         with e ->
             errors.Add <| sprintf "Failed to unpack local resources from %s: %s" name (printError e)
+
+        errors.ToArray()

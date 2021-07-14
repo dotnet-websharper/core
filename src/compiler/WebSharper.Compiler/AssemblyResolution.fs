@@ -159,7 +159,7 @@ module Implemetnation =
 
 /// An utility for resolving assemblies from non-standard contexts.
 [<Sealed>]
-type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution) =
+type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
 
     let mutable loadContext = None
     let mutable entered = null
@@ -228,11 +228,10 @@ type AssemblyResolver(baseDir: string, dom: AppDomain, reso: AssemblyResolution)
         finally
             r.Remove()
 
-    member r.SearchDirectories ds = AssemblyResolver(baseDir, dom, reso ++ searchDirs ds)
-    member r.SearchPaths ps = AssemblyResolver(baseDir, dom, reso ++ searchPaths ps)
+    member r.SearchDirectories ds = AssemblyResolver(dom, reso ++ searchDirs ds)
+    member r.SearchPaths ps = AssemblyResolver(dom, reso ++ searchPaths ps)
     member r.ResolvePath name = reso.ResolvePath name
-    member r.WithBaseDirectory bD = AssemblyResolver(Path.GetFullPath bD, dom, reso)
 
     static member Create(?domain) =
         let dom = defaultArg domain AppDomain.CurrentDomain
-        AssemblyResolver(dom.BaseDirectory, dom, zero)
+        AssemblyResolver(dom, zero)

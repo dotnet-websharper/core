@@ -70,10 +70,8 @@ module LoaderUtility =
                 def.Dispose()
 
 [<Sealed>]
-type Loader(aR: AssemblyResolver, log: string -> unit) =
+type Loader(aR: AssemblyResolver, log: string -> unit, cache: ConcurrentDictionary<string, Assembly>) =
 
-    let cache = ConcurrentDictionary<string, Assembly>()
-    
     let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
         let str = new MemoryStream(bytes)
         let par = Mono.Cecil.ReaderParameters()
@@ -93,7 +91,11 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
         Assembly.Create(def, ?loadPath = flp, ?symbols = symbols)
 
     static member Create(res: AssemblyResolver)(log) =
-        Loader(res, log)
+        let cache = ConcurrentDictionary<string, Assembly>()
+        Loader(res, log, cache)
+
+    member this.WithAssemblyResolver(res: AssemblyResolver) =
+        Loader(res, log, cache)
 
     member this.LoadRaw(bytes)(symbols) =
         load None bytes symbols aR

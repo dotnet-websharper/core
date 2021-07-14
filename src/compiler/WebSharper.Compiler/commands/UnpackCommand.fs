@@ -86,19 +86,20 @@ module UnpackCommand =
     let private localResTyp = typeof<Re.IDownloadableResource>
 
     let Exec env cmd =
+        let errors = ResizeArray()
+        let baseDir =
+            let pathToSelf = typeof<Config>.Assembly.Location
+            Path.GetDirectoryName(pathToSelf)
+        let aR =
+            AssemblyResolver.Create()
+                .SearchDirectories([baseDir])
+                .SearchPaths(cmd.Assemblies)
         let loader = 
             match cmd.Loader with
-            | Some l -> l
+            | Some l ->
+                l.WithAssemblyResolver(aR)
             | _ ->
-                let baseDir =
-                    let pathToSelf = typeof<Config>.Assembly.Location
-                    Path.GetDirectoryName(pathToSelf)
-                let aR =
-                    AssemblyResolver.Create()
-                        .WithBaseDirectory(baseDir)
-                        .SearchDirectories([baseDir])
-                let aR = aR.SearchPaths(cmd.Assemblies)
-                Loader.Create aR stderr.WriteLine
+                Loader.Create aR errors.Add
         let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
         let writeTextFile (output, text) =
             Content.Text(text).WriteFile(output)
@@ -122,44 +123,49 @@ module UnpackCommand =
                 emit text path
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
-        let errors = ResizeArray()
-        for p in cmd.Assemblies do
-            match (try loader.LoadFile(p, false) |> Some with _ -> None) with 
-            | None -> () 
-            | Some a ->
-            let aid = PC.AssemblyId.Create(a.Name)
-            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
-                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
-            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
-                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
-            if cmd.UnpackTypeScript then
-                emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
-            let writeText k fn c =
-                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                writeTextFile (p, c)
-            let writeBinary k fn c =
-                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                writeBinaryFile (p, c)
-            for r in a.GetScripts() do
-                writeText script r.FileName r.Content
-            for r in a.GetContents() do
-                writeBinary content r.FileName (r.GetContentData())
+        let doUnpack () =
+            for p in cmd.Assemblies do
+                match (try loader.LoadFile (p, false) |> Some with _ -> None) with 
+                | None -> () 
+                | Some a ->
+                let aid = PC.AssemblyId.Create(a.Name)
+                emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+                    a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+                emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+                    a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+                if cmd.UnpackTypeScript then
+                    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+                let writeText k fn c =
+                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                    writeTextFile (p, c)
+                let writeBinary k fn c =
+                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                    writeBinaryFile (p, c)
+                for r in a.GetScripts() do
+                    writeText script r.FileName r.Content
+                for r in a.GetContents() do
+                    writeBinary content r.FileName (r.GetContentData())
 
-            let printError (e: exn) =
-                let rec messages (e: exn) =
-                    seq {
-                        yield e.Message
-                        match e with
-                        | :? System.Reflection.ReflectionTypeLoadException as e ->
-                            yield! Seq.collect messages e.LoaderExceptions
-                        | e when isNull e.InnerException -> ()
-                        | e -> yield! messages e.InnerException
-                    }
-                String.concat " - " (messages e)
+                let printError (e: exn) =
+                    let rec messages (e: exn) =
+                        seq {
+                            yield e.Message
+                            match e with
+                            | :? System.Reflection.ReflectionTypeLoadException as e ->
+                                yield! Seq.collect messages e.LoaderExceptions
+                            | e when isNull e.InnerException -> ()
+                            | e -> yield! messages e.InnerException
+                        }
+                    String.concat " - " (messages e)
 
-            if cmd.DownloadResources then
-                DownloadResources.DownloadResource p cmd.RootDirectory
+                if cmd.DownloadResources then
+                    DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
 
+        if cmd.DownloadResources then
+            aR.Wrap doUnpack
+        else
+            doUnpack ()
+        
         if errors.Count = 0 then
             C.Ok
         else
