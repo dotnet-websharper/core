@@ -519,7 +519,7 @@ let WebWorkerTests =
         //    equal res "The worker replied: [worker2] Hello world!"
         //}
 
-        Test "With Dependencies" {
+        Skip "With Dependencies" {
             let worker = new Worker(fun self ->
                 self.Onmessage <- fun e ->
                     MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
