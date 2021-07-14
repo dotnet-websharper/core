@@ -120,6 +120,9 @@ type internal DecimalProxy =
     static member Add(n1 : decimal, n2 : decimal) : decimal = DecimalProxy.mul WSDecimalMath.Add n1 n2
 
     [<Inline>]
+    static member Ceiling(d: decimal) : decimal = DecimalProxy.un WSDecimalMath.Ceil d
+
+    [<Inline>]
     static member Compare(n1 : decimal, n2 : decimal) : int = DecimalProxy.bin WSDecimalMath.Compare n1 n2 |> float |> As<int>
 
     [<Inline>]
@@ -136,6 +139,15 @@ type internal DecimalProxy =
 
     [<Inline>]
     static member Equals(a: decimal, b : decimal): bool = DecimalProxy.bin WSDecimalMath.Equal a b |> As<bool>
+
+    [<Inline>]
+    static member GreaterThan(a: decimal, b: decimal): bool = DecimalProxy.bin WSDecimalMath.Larger a b |> As<bool>
+
+    [<Inline>]
+    static member LessThan(a: decimal, b: decimal): bool = DecimalProxy.bin WSDecimalMath.Smaller a b |> As<bool>
+
+    [<Inline>]
+    static member Floor(d: decimal) : decimal = DecimalProxy.un WSDecimalMath.Floor d
 
     [<Inline>]
     static member internal Max(n1 : decimal, n2 : decimal): decimal =
@@ -179,6 +191,18 @@ type internal DecimalProxy =
     static member op_Inequality(n1 : decimal, n2 : decimal): bool = not <| DecimalProxy.Equals (n1,n2)
 
     [<Inline>]
+    static member op_GreaterThan(n1:decimal, n2:decimal): bool = DecimalProxy.GreaterThan (n1, n2)
+
+    [<Inline>]
+    static member op_LessThan(n1:decimal, n2:decimal): bool = DecimalProxy.LessThan (n1, n2)
+
+    [<Inline>]
+    static member op_GreaterThanOrEqual(n1:decimal, n2:decimal): bool = not <| DecimalProxy.LessThan (n1, n2)
+
+    [<Inline>]
+    static member op_LessThanOrEqual(n1:decimal, n2:decimal): bool = not <| DecimalProxy.GreaterThan (n1, n2)
+
+    [<Inline>]
     static member op_Modulus(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Mod n1 n2
 
     [<Inline>]
@@ -213,3 +237,9 @@ type private MathProxyForDecimals =
 
     [<Inline>]
     static member Min(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Min(n1, n2)
+
+    [<Inline>]
+    static member Ceiling(d: decimal) = DecimalProxy.Ceiling d
+
+    [<Inline>]
+    static member Floor(d: decimal) = DecimalProxy.Floor d

@@ -25,9 +25,9 @@ open WebSharper.InterfaceGenerator
 module Definition =
     open System.Numerics
 
-    let Vector = Type.ArrayOf T<float>
+    let Vector = !| T<float>
 
-    let Matrix = Type.ArrayOf Vector
+    let Matrix = !| Vector
     
     let BaseNumber =
         Class "MathNumber"
@@ -81,6 +81,17 @@ module Definition =
             |> WithInline "$a"
         ]
 
+    let UnitJSON =
+        Class "UnitJSON"
+        |+> Pattern.RequiredFields [
+            "value", T<float> + T<int>
+            "unit", T<string>            
+        ]
+        |+> Pattern.OptionalFields [
+            "mathjs", T<string>
+            "fixPrefix", T<bool>
+        ]
+
     let Unit =
         Class "MathUnit"
         |=> Inherits BaseNumber
@@ -120,6 +131,12 @@ module Definition =
             "formatUnits" => T<unit> ^-> T<string>
 
             "format" => T<obj> ^-> T<string>
+
+            "fromJSON" => UnitJSON ^-> TSelf
+
+            "splitUnits" => !| T<string> ^-> T<string>
+
+            "toSI" => T<unit> ^-> TSelf
         ]
 
     let AllValues = 
@@ -197,7 +214,7 @@ module Definition =
         Class "Parser"
         |+> Instance [
             "clear" => T<unit> ^-> T<unit>
-            "eval" => T<string> ^-> BaseNumber
+            "evaluate" => T<string> ^-> BaseNumber
             "get" => T<string> ^-> BaseNumber + T<JavaScript.Function>
             "getAll" => T<unit> ^-> T<obj>
             "remove" => T<string> ^-> T<unit>
@@ -217,8 +234,31 @@ module Definition =
     let OperatorNode            = Class "math.expression.node.operatornode"
     let ParenthesisNode         = Class "math.expression.node.parenthesisnode"
     let RangeNode               = Class "math.expression.node.rangenode"
+    let RelationalNode          = Class "math.expression.node.relationalnode"
     let SymbolNode              = Class "math.expression.node.symbolnode"
-    let UpdateNode              = Class "math.expression.node.updatenode"
+
+    let ParenthesisOptions =
+        Pattern.EnumStrings "ParenthesisOptions" [
+            "keep"
+            "auto"
+            "all"
+        ]
+
+    let ImplicitOptions =
+        Pattern.EnumStrings "ImplicitOptions" [
+            "hide"
+            "show"
+        ]
+
+    let OutputOptions =
+        Pattern.Config "HtmlOptions" {
+            Required = []
+            Optional = [
+                "parenthesis", ParenthesisOptions.Type
+                "handler", T<JavaScript.Function>
+                "implicit", ImplicitOptions.Type
+            ]
+        }
 
     let Node =
         Class "Node"
@@ -229,19 +269,21 @@ module Definition =
 
             "compile" => T<unit> ^-> T<obj>
 
-            "eval" => !? Scope ^-> BaseNumber
+            "evaluate" => !? Scope ^-> BaseNumber
 
             "equals" => TSelf ^-> T<bool>
 
-            "filter" => T<JavaScript.Function> ^-> Type.ArrayOf TSelf
+            "filter" => T<JavaScript.Function> ^-> !| TSelf
 
-            "forEach" => T<JavaScript.Function> ^-> Type.ArrayOf TSelf
+            "forEach" => T<JavaScript.Function> ^-> !| TSelf
 
-            "map" => T<JavaScript.Function> ^-> Type.ArrayOf TSelf
+            "map" => T<JavaScript.Function> ^-> !| TSelf
 
-            "toString" => T<unit> ^-> T<string>
+            "toHtml" => (T<unit> + OutputOptions.Type) ^-> T<string>
 
-            "toTex" => T<unit> ^-> T<string>
+            "toString" => (T<unit> + OutputOptions.Type) ^-> T<string>
+
+            "toTex" => (T<unit> + OutputOptions.Type) ^-> T<string>
 
             "transform" => T<JavaScript.Function> ^-> TSelf
 
@@ -253,6 +295,10 @@ module Definition =
 
             "type" =? T<string>
         ]
+
+    let NullValue = Pattern.EnumInlines "NullValue" ["null", "null"]
+
+    let NaNValue = Pattern.EnumInlines "NaNValue" ["naN", "NaN"]
 
     AccessorNode
         |=> Inherits Node
@@ -284,7 +330,7 @@ module Definition =
 
             "value" =? Node
 
-            "index" =? IndexNode
+            "index" =? IndexNode + NullValue
 
             "name" =? T<string>
         ]
@@ -315,10 +361,9 @@ module Definition =
     ConstantNode
         |=> Inherits Node
         |+> Instance [
-            Constructor (BaseNumber * !? T<string>)
+            Constructor T<obj>
 
-            "value" =? BaseNumber
-            "valueType" =? T<string>
+            "value" =? T<obj>
         ]
         |> ignore
 
@@ -367,9 +412,13 @@ module Definition =
         |+> Instance [
             Constructor (T<string> * T<string> * !| Node)
 
+            "isUnary" => T<unit> ^-> T<bool>
+            "isBinary" => T<unit> ^-> T<bool>
+
             "op" =? T<string>
             "fn" =? T<string>
             "args" =? !| Node
+            "implicit" =? T<bool>
         ]
         |> ignore
 
@@ -393,6 +442,16 @@ module Definition =
         ]
         |> ignore
 
+    RelationalNode
+        |=> Inherits Node
+        |+> Instance [
+            Constructor ((!| T<string>) * (!| Node))
+
+            "conditionals" =? !| T<string>
+            "params" =? !| Node
+        ]
+        |> ignore
+
     SymbolNode
         |=> Inherits Node
         |+> Instance [
@@ -402,18 +461,13 @@ module Definition =
         ]
         |> ignore
 
-    UpdateNode
-        |=> Inherits Node
-        |+> Instance [
-            // not documented
-        ]
-        |> ignore
-
     let Index =
         Class "index"
         |+> Instance [
-            Constructor (T<string> + T<int> + Vector + Matrix)
+            Constructor (T<string> + T<int> + BaseNumber)
         ]
+
+    
 
     let mathOps: CodeModel.IClassMember list =
         [
@@ -423,13 +477,16 @@ module Definition =
             "chain" => WithTypes AllValues (fun t -> !? t ^-> Chain.Type)
             |> WithComment "Chain functions."
 
-            "import" => (Type.ArrayOf T<string * JavaScript.Function> + Type.ArrayOf T<JavaScript.Function>) * !? Options.Type
+            "import" => (!| T<string * JavaScript.Function> + !| T<JavaScript.Function>) * !? Options.Type
             |> WithComment "Import custom function and values."
 
             "typed" => !? T<string> * T<obj> ^-> T<JavaScript.Function>
             |> WithComment "Creates a typed function."
 
-            //constuction
+            "factory" => T<string> * !| T<string> * T<JavaScript.Function> * !? T<obj> ^-> T<JavaScript.Function>
+            |> WithComment "Creates a factory function"
+
+            //construction
             "bignumber" => WithTypes AllValues (fun t -> (t ^-> T<bigint>) + (T<string> ^-> T<bigint>))
 
             "boolean" => WithTypes AllValues (fun t -> (t ^-> T<bool>) + T<string> ^-> T<bool>)
@@ -450,41 +507,61 @@ module Definition =
         
             "sparse" => WithTypes AllValues (fun t -> !? t * !? T<string> ^-> Matrix)
 
-            "splitUnit" => Unit * Type.ArrayOf T<string> ^-> Vector
+            "splitUnit" => Unit * !| T<string> ^-> Vector
 
             "string" => WithTypes AllValues (fun t -> t ^-> T<string>)
 
             "unit" => WithTypes AllValues (fun t -> t * T<string> ^-> Unit.Type) + (T<string> ^-> Unit.Type)
 
             //expression
-            "compile" => T<string> ^-> T<obj>
+            "compile" => (T<string> + !| T<string>) ^-> T<obj>
 
-            "compile" => !| T<string> ^-> !| T<obj>
-
-            "eval" => WithTypes AllValues (fun t -> (T<string> ^-> t) + (T<string> * Scope ^-> t) + (Type.ArrayOf T<string> ^-> t) + (Type.ArrayOf T<string> * Scope ^-> t))
+            "evaluate" => WithTypes AllValues (fun t -> (T<string> ^-> t) + (T<string> * Scope ^-> t) + (!| T<string> ^-> t) + (!| T<string> * Scope ^-> t))
 
             "help" => (T<JavaScript.Function> + T<string> + T<obj>) ^-> T<obj>
 
-            "parse" =>(T<string> * !? Scope ^-> Node.Type) + (Type.ArrayOf T<string> * !? Scope ^-> Node.Type) + (Matrix ^-> Node.Type) + (BaseNumber.Type ^-> Node.Type)
+            "parse" => (T<string> + !| T<string>) ^-> T<obj>
 
-            "parser" => T<unit> ^-> Parser.Type
+            // parser customization
+
+            "parse.isAlpha" => T<string> * T<string> * T<string> ^-> T<bool>
+
+            "parse.isValidLatinOrGreek" => T<string> ^-> T<bool>
+
+            "parse.isValidMathSymbol" => T<string> * T<string> ^-> T<bool>
+
+            "parse.isWhitespace" => T<string> * T<int> ^-> T<bool>
+
+            "parse.isDecimalMark" => T<string> * T<string> ^-> T<bool>
+
+            "parse.isDigitDot" => T<string> ^-> T<bool>
+
+            "parse.isDigit" => T<string> ^-> T<bool>
+
+            "parse.isHexDigit" => T<string> ^-> T<bool>
 
             //algebra
             "derivative" => (Node + T<string>) * (SymbolNode + T<string>) * !? DerivativeOption ^-> Node
 
-            "lsolve" => (Matrix + Vector) * (Matrix + Vector) ^-> (Matrix + Vector)
+            "lsolve" => BaseNumber * BaseNumber ^-> BaseNumber
 
-            "lup" => (Matrix + Vector) ^-> (Vector * Vector * Vector)
+            "lsolveAll" => BaseNumber * BaseNumber ^-> BaseNumber
 
-            "lusolve" => (Matrix + Vector + T<obj>) * (Matrix + Vector) ^-> (Matrix + Vector)
+            "lup" => BaseNumber ^-> (Vector * Vector * Vector)
 
-            "qr" => (Matrix + Vector) ^-> (Matrix * Matrix) + (Vector * Vector)
+            "lusolve" => (Matrix + Vector + T<obj>) * BaseNumber ^-> BaseNumber
+
+            "qr" => BaseNumber ^-> (Matrix * Matrix) + (Vector * Vector)
+
+            "rationalize" => (Node + T<string>) * !? (T<bool> + T<obj>) * !? T<bool> ^-> Node + T<obj>
 
             "simplify" => (Node + T<string>) * !? (T<string * string> + T<string> + T<JavaScript.Function>) ^-> Node
 
             "slu" => Matrix * T<float> * T<float> ^-> T<obj>
 
-            "usolve" => (Matrix + Vector) * (Matrix + Vector) ^-> (Matrix + Vector)
+            "usolve" => BaseNumber * BaseNumber ^-> BaseNumber
+
+            "usolveAll" => BaseNumber * BaseNumber ^-> BaseNumber
 
             //arithmetic
             "abs" => WithTypes AllValues (fun t -> t ^-> t)
@@ -507,6 +584,8 @@ module Definition =
 
             "exp" => WithTypes AllValues (fun t -> t ^-> t)
 
+            "expm1" => WithTypes AllValues (fun t -> t ^-> t)
+
             "fix" => WithTypes AllValues (fun t -> t ^-> t)
 
             "floor" => WithTypes AllValues (fun t -> t ^-> t)
@@ -521,6 +600,10 @@ module Definition =
 
             "log10" => WithTypes AllValues (fun t -> t ^-> t)
 
+            "log1p" => WithTypes AllValues (fun t -> t ^-> t)
+
+            "log2" => WithTypes AllValues (fun t -> t ^-> t)
+
             "mod" => WithTypes AllValues (fun t -> t * t ^-> t)
 
             "multiply" => (WithTypes Numbers (fun t -> (t * t *+ t) ^-> t)) + (Vector * Vector *+ Vector ^-> T<float>) + (Matrix * Vector *+ Vector ^-> Vector) + (Matrix * Matrix *+ Matrix ^-> Matrix)
@@ -528,6 +611,8 @@ module Definition =
             "norm" =>  WithTypes AllValues (fun t -> t * !? t ^-> t)
 
             "nthRoot" =>  WithTypes AllValues (fun t -> t * !? t ^-> t)
+
+            "nthRoots" => WithTypes AllValues (fun t -> t * !? t ^-> !| t)
 
             "pow" =>  WithTypes AllValues (fun t -> t * t ^-> t)
 
@@ -595,17 +680,29 @@ module Definition =
             "xor" => WithTypes AllValues (fun t -> t * t ^-> t)
 
             //matrix
+            "apply" => (BaseNumber) * T<int> * T<JavaScript.Function> ^-> (BaseNumber)
+
+            "column" => (BaseNumber) * T<int> ^-> (BaseNumber)
+
+            "count" => (BaseNumber + T<string>) ^-> T<int>
+
             "concat" => WithTypes Matrices (fun t -> !| t ^-> t)
 
             "cross" => WithTypes Matrices (fun t -> t * t ^-> t)
+
+            "ctranspose" => (BaseNumber) ^-> (BaseNumber)
 
             "det" => WithTypes Matrices (fun t -> t ^-> T<float>)
 
             "diag" => WithTypes Matrices (fun t -> t * !?  (WithTypes Numbers (fun f -> f)) * !? T<string> ^-> t)
 
-            "dot" => WithTypes Matrices (fun t -> t * t ^-> T<float>)
+            "diff" => (BaseNumber) * !? T<int> ^-> (BaseNumber)
 
-            "eye" => WithTypes Matrices (fun t -> T<int> * T<int> ^-> (t + T<int>))
+            "dot" => WithTypes Matrices (fun t -> t * t ^-> T<float>)            
+
+            "eigs" => (BaseNumber) * BaseNumber ^-> T<obj>
+
+            "expm" => Matrix ^-> Matrix
 
             "filter" => WithTypes Matrices (fun t -> t * (T<JavaScript.Function> + T<string>) ^-> t)
 
@@ -613,11 +710,21 @@ module Definition =
 
             "forEach" => WithTypes Matrices (fun t -> t * T<JavaScript.Function> ^-> T<unit>)
 
+            "getMatrixDataType" => (!| Matrix + Vector) ^-> T<string>
+
+            "identity" => WithTypes Matrices (fun t -> T<int> * T<int> ^-> (t + T<int>))
+
             "inv" => WithTypes AllValues (fun t -> t)
 
             "kron" => WithTypes Matrices (fun t -> t * t ^-> t)
 
             "map" => WithTypes Matrices (fun t -> t * T<JavaScript.Function> ^-> t)
+
+            "matrixFromColumns" => !+ BaseNumber ^-> BaseNumber
+
+            "matrixFromFunction" => (BaseNumber) * ((T<JavaScript.Function> * !? T<string> * !? T<string>) + (T<string> * !? T<string> * T<JavaScript.Function>)) ^-> (BaseNumber)            
+
+            "matrixFromRows" => !+ BaseNumber ^-> BaseNumber
 
             "ones" => WithTypes Matrices (fun t -> !+ T<int> ^-> t + T<int>)
 
@@ -629,9 +736,17 @@ module Definition =
 
             "resize" => WithTypes Matrices (fun t -> t * t * !? (T<int> + T<string>) ^-> t)
 
+            "rotate" => (BaseNumber) * BaseNumber * !? (BaseNumber) ^-> (BaseNumber)
+
+            "rotationMatrix" => BaseNumber * !? (BaseNumber) * !? T<string> ^-> (BaseNumber)
+
+            "row" => (BaseNumber) * T<int> ^-> (BaseNumber)
+
             "size" => WithTypes Matrices (fun t -> WithTypes AllValues (fun f -> f) ^-> t)
 
             "sort" => WithTypes Matrices (fun t -> t * (T<string> + T<JavaScript.Function>) ^-> t)
+
+            "sqrtm" => (BaseNumber) ^-> (BaseNumber)
 
             "squeeze" => WithTypes Matrices (fun t -> t ^-> Matrix)
 
@@ -644,7 +759,9 @@ module Definition =
             "zeros" => WithTypes Matrices (fun t -> !+ T<int> ^-> t)
 
             //probability
-            "combination" => (T<int> + T<bigint>) * (T<int> + T<bigint>) ^-> (T<int> + T<bigint>)
+            "combinations" => (T<int> + T<bigint>) * (T<int> + T<bigint>) ^-> (T<int> + T<bigint>)
+
+            "combinationsWithRep" => (T<int> + T<bigint>) * (T<int> + T<bigint>) ^-> (T<int> + T<bigint>)
 
             "factorial" => WithTypes Numbers (fun t -> t ^-> t)
 
@@ -667,9 +784,15 @@ module Definition =
             //relational
             "compare" => WithTypes AllValues (fun t -> t * t ^-> t)
 
+            "compareNatural" => WithTypes AllValues (fun t -> t * t ^-> t)
+
+            "compareText" => (T<string> + BaseNumber) ^-> T<int> + BaseNumber
+
             "deepEqual" => WithTypes AllValues (fun t -> t * t ^-> t)
 
             "equal" => WithTypes AllValues (fun t -> t * t ^-> t)
+
+            "equalText" => (T<string> + BaseNumber) ^-> T<int> + BaseNumber
 
             "larger" => WithTypes AllValues (fun t -> t * t ^-> t)
 
@@ -680,6 +803,27 @@ module Definition =
             "smallerEq" => WithTypes AllValues (fun t -> t * t ^-> t)
 
             "unequal" => WithTypes AllValues (fun t -> t * t ^-> t)
+
+            //set functions
+            "setCartesian" => (BaseNumber) * (BaseNumber) ^-> (BaseNumber)
+
+            "setDifference" => (BaseNumber) * (BaseNumber) ^-> (BaseNumber)
+
+            "setDistinct" => (BaseNumber) ^-> (BaseNumber)
+
+            "setIntersect" => (BaseNumber) * (BaseNumber) ^-> (BaseNumber)
+
+            "setIsSubset" => (BaseNumber) * (BaseNumber) ^-> T<bool>
+
+            "setMultiplicity" => BaseNumber * (BaseNumber) ^-> T<int>
+
+            "setPowerset" => (BaseNumber) ^-> !| (BaseNumber)
+
+            "setSize" => (BaseNumber) ^-> T<int>
+
+            "setSymDifference" => (BaseNumber) * (BaseNumber) ^-> (BaseNumber)
+
+            "setUnion" => (BaseNumber) * (BaseNumber) ^-> (BaseNumber)
 
             //special
             "erf" => WithTypes Matrices (fun t -> (T<int> + t) ^-> (T<int> + t))
@@ -705,10 +849,16 @@ module Definition =
             
             "sum" => WithTypes Matrices (fun t -> t ^-> T<float>)
 
-            "var" => WithTypes Matrices (fun t -> t ^-> T<float>) 
+            "variance" => WithTypes Matrices (fun t -> t ^-> T<float>) 
 
             //string
+            "bin" => T<string> * !? T<int> ^-> T<string>
+
             "format" => WithTypes AllValues (fun t -> t * !? T<int> * !? T<JavaScript.Function> ^-> T<string>)
+
+            "hex" => T<string> * !? T<int> ^-> T<string>
+
+            "oct" => T<string> * !? T<int> ^-> T<string>
 
             "print" =>  WithTypes AllValues (fun t -> T<string> * !| t * !? T<int> ^-> T<string>)
 
@@ -764,10 +914,12 @@ module Definition =
             "tanh" => WithTypes AllValues (fun t -> t ^-> t)
 
             //unit
-            "to" => (Unit.Type + Vector + Matrix) * (Unit.Type + Vector + Matrix) ^-> (Unit.Type + Vector + Matrix)
+            "to" => (Unit.Type + BaseNumber) * (Unit.Type + BaseNumber) ^-> (Unit.Type + BaseNumber)
 
             //utils
             "clone" => WithTypes AllValues (fun t -> t ^-> t)
+
+            "hasNumericValue" => T<obj> ^-> T<bool>
 
             "isInteger" => WithTypes AllValues (fun t -> t ^-> T<bool>)
             
@@ -782,8 +934,10 @@ module Definition =
             "isPrime" => WithTypes AllValues (fun t -> t ^-> T<bool>)
             
             "isZero" => WithTypes AllValues (fun t -> t ^-> T<bool>)
+
+            "numeric" => T<string> + BaseNumber * !? T<string> ^-> BaseNumber
             
-            "typeof" => T<obj> ^-> T<string>
+            "typeOf" => T<obj> ^-> T<string>
         ]
 
     let mathProps: CodeModel.IClassMember list =
@@ -801,6 +955,10 @@ module Definition =
             "LOG2E" =? T<float>
             
             "LOG10E" =? T<float>
+
+            "NaN" =? NaNValue
+
+            "null" =? NullValue
             
             "phi" =? T<float>
             
@@ -814,7 +972,7 @@ module Definition =
 
             "tau" =? T<float>
 
-            "unitialized" =? T<obj>
+            "undefined" =? T<obj>
 
             "version" =? T<string>   
         ]
@@ -843,19 +1001,27 @@ module Definition =
     Chain
         |+> Instance [
             //algebra
-            "lsolve" => (Matrix + Vector) ^-> Chain.Type
+            "derivative" => (SymbolNode + T<string>) * !? DerivativeOption ^-> Chain.Type
+
+            "lsolve" => BaseNumber ^-> Chain.Type
+
+            "lsolveAll" => BaseNumber ^-> Chain.Type
 
             "lup" => T<unit> ^-> Chain.Type
 
-            "lusolve" => (Matrix + Vector) ^-> Chain.Type
+            "lusolve" => BaseNumber ^-> Chain.Type
 
             "qr" => T<unit> ^-> Chain.Type
+
+            "rationalize" => !? (T<bool> + T<obj>) * !? T<bool> ^-> Chain.Type
 
             "simplify" => !? (T<string * string> + T<string> + T<JavaScript.Function>) ^-> Chain.Type
 
             "slu" => T<float> * T<float> ^-> Chain.Type
 
-            "usolve" => (Matrix + Vector) ^-> Chain.Type
+            "usolve" => BaseNumber ^-> Chain.Type
+
+            "usolveAll" => BaseNumber ^-> Chain.Type
 
             //arithmetic
             "abs" => T<unit> ^-> Chain.Type
@@ -878,6 +1044,8 @@ module Definition =
 
             "exp" => T<unit> ^-> Chain.Type
 
+            "expm1" => T<unit> ^-> Chain.Type
+
             "fix" => T<unit> ^-> Chain.Type
 
             "floor" => T<unit> ^-> Chain.Type
@@ -892,6 +1060,10 @@ module Definition =
 
             "log10" => T<unit> ^-> Chain.Type
 
+            "log1p" => T<unit> ^-> Chain.Type
+
+            "log2" => T<unit> ^-> Chain.Type
+
             "mod" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
             "multiply" => WithTypes AllValues (fun t -> t *+ t ^-> Chain.Type)
@@ -899,6 +1071,8 @@ module Definition =
             "norm" =>  WithTypes AllValues (fun t -> !? t ^-> Chain.Type)
 
             "nthRoot" =>  WithTypes AllValues (fun t -> !? t ^-> Chain.Type)
+
+            "nthRoots" =>  WithTypes AllValues (fun t -> !? t ^-> Chain.Type)
 
             "pow" =>  WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
@@ -966,17 +1140,29 @@ module Definition =
             "xor" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
             //matrix
+            "apply" => T<int> * T<JavaScript.Function> ^-> Chain.Type
+
+            "column" => T<int> ^-> Chain.Type
+
+            "count" => T<unit> ^-> Chain.Type
+
             "concat" => WithTypes Matrices (fun t -> !+ t ^-> Chain.Type)
 
             "cross" => WithTypes Matrices (fun t -> t ^-> Chain.Type)
+
+            "ctranspose" => T<unit> ^-> Chain.Type
 
             "det" => T<unit> ^-> Chain.Type
 
             "diag" => WithTypes Numbers (fun t -> !? t * !? T<string> ^-> Chain.Type)
 
+            "diff" => !? T<int> ^-> Chain.Type
+
             "dot" => WithTypes Matrices (fun t -> t ^-> Chain.Type)
 
-            "eye" => T<int> ^-> Chain.Type
+            "eigs" => BaseNumber ^-> Chain.Type
+
+            "expm" => T<unit> ^-> Chain.Type
 
             "filter" => T<JavaScript.Function> + T<string> ^-> Chain.Type
 
@@ -984,11 +1170,21 @@ module Definition =
 
             "forEach" => T<JavaScript.Function> ^-> Chain.Type
 
+            "getMatrixDataType" => T<unit> ^-> Chain.Type
+
+            "identity" => T<int> ^-> Chain.Type
+
             "inv" => T<unit> ^-> Chain.Type
 
             "kron" => WithTypes Matrices (fun t -> t ^-> Chain.Type)
 
             "map" => T<JavaScript.Function> ^-> Chain.Type
+
+            "matrixFromColumns" => T<unit> ^-> Chain.Type
+
+            "matrixFromFunction" => ((T<JavaScript.Function> * !? T<string> * !? T<string>) + (T<string> * !? T<string> * T<JavaScript.Function>)) ^-> Chain.Type
+
+            "matrixFromRows" => T<unit> ^-> Chain.Type
 
             "ones" => !+ T<int> ^-> Chain.Type
 
@@ -1000,9 +1196,17 @@ module Definition =
 
             "resize" => WithTypes Matrices (fun t -> t * !? (T<int> + T<string>) ^-> Chain.Type)
 
+            "rotate" => BaseNumber * !? (BaseNumber) ^-> Chain.Type
+
+            "rotationMatrix" => !? (BaseNumber) * !? T<string> ^-> Chain.Type
+
+            "row" => T<int> ^-> Chain.Type
+
             "size" => WithTypes AllValues (fun f -> f ^-> Chain.Type)
 
             "sort" => T<string> + T<JavaScript.Function> ^-> Chain.Type
+
+            "sqrtm" => T<unit> ^-> Chain.Type
 
             "squeeze" => T<unit> ^-> Chain.Type
 
@@ -1015,7 +1219,9 @@ module Definition =
             "zeros" => !+ T<int> ^-> Chain.Type
 
             //probability
-            "combination" => (T<int> + T<bigint>) ^-> Chain.Type
+            "combinations" => (T<int> + T<bigint>) ^-> Chain.Type
+
+            "combinationsWithRep" => (T<int> + T<bigint>) ^-> Chain.Type
 
             "factorial" => T<unit> ^-> Chain.Type
 
@@ -1036,9 +1242,15 @@ module Definition =
             //relational
             "compare" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
+            "compareNatural" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
+
+            "compareText" => T<unit> ^-> Chain.Type
+
             "deepEqual" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
             "equal" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
+
+            "equalText" => T<unit> ^-> Chain.Type
 
             "larger" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
@@ -1049,6 +1261,27 @@ module Definition =
             "smallerEq" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
 
             "unequal" => WithTypes AllValues (fun t -> t ^-> Chain.Type)
+
+            //set functions
+            "setCartesian" => (BaseNumber) ^-> Chain.Type
+
+            "setDifference" => (BaseNumber) ^-> Chain.Type
+
+            "setDistinct" => T<unit> ^-> Chain.Type
+
+            "setIntersect" => (BaseNumber) ^-> Chain.Type
+
+            "setIsSubset" => (BaseNumber) ^-> Chain.Type
+
+            "setMultiplicity" => (BaseNumber) ^-> Chain.Type
+
+            "setPowerset" => T<unit> ^-> Chain.Type
+
+            "setSize" => T<unit> ^-> Chain.Type
+
+            "setSymDifference" => (BaseNumber) ^-> Chain.Type
+
+            "setUnion" => (BaseNumber) ^-> Chain.Type
 
             //special
             "erf" => T<unit> ^-> Chain.Type
@@ -1074,10 +1307,16 @@ module Definition =
             
             "sum" => T<unit> ^-> Chain.Type
 
-            "var" => T<unit> ^-> Chain.Type 
+            "variance" => T<unit> ^-> Chain.Type 
 
             //string
+            "bin" => !? T<int> ^-> Chain.Type
+
             "format" => !? T<int> * !? T<JavaScript.Function> ^-> Chain.Type
+
+            "hex" => !? T<int> ^-> Chain.Type
+
+            "oct" => !? T<int> ^-> Chain.Type
 
             "print" =>  WithTypes AllValues (fun t -> T<string> * !| t * !? T<int> ^-> Chain.Type)
 
@@ -1133,10 +1372,12 @@ module Definition =
             "tanh" => T<unit> ^-> Chain.Type
 
             //unit
-            "to" => (Unit.Type + Vector + Matrix) ^-> Chain.Type
+            "to" => (Unit.Type + BaseNumber) ^-> Chain.Type
 
             //utils
             "clone" => T<unit> ^-> Chain.Type
+
+            "hasNumericValue" => T<unit> ^-> Chain.Type
 
             "isInteger" => T<unit> ^-> Chain.Type
             
@@ -1152,6 +1393,8 @@ module Definition =
             
             "isZero" => T<unit> ^-> Chain.Type
 
+            "numeric" => !? T<string> ^-> Chain.Type
+
             //chain
             "done" => T<unit> ^-> Chain.Type
 
@@ -1164,7 +1407,7 @@ module Definition =
     let Assembly =
         Assembly [
             Namespace "WebSharper.MathJS.Resources" [
-                (Resource "Js" "https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.13.3/math.js")
+                (Resource "Js" "https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.4/math.js")
                 |> AssemblyWide
             ]
             Namespace "WebSharper.MathJS" [
@@ -1172,9 +1415,13 @@ module Definition =
                 MathInstance
                 Index
                 Chain
+                UnitJSON
                 Unit
                 BaseNumber
                 DerivativeOption
+                ParenthesisOptions
+                ImplicitOptions
+                OutputOptions
                 Node
                 AccessorNode          
                 ArrayNode             
@@ -1188,12 +1435,14 @@ module Definition =
                 ObjectNode            
                 OperatorNode          
                 ParenthesisNode       
-                RangeNode             
-                SymbolNode            
-                UpdateNode
+                RangeNode
+                RelationalNode
+                SymbolNode
                 Config
                 Options
                 Parser
+                NullValue
+                NaNValue
             ]
         ]
 

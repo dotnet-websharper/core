@@ -111,17 +111,17 @@ let Tests runServerSide =
         }
 
         Test "MathJS Expressions" {
-            equalMsg (MathJS.Math.Eval("sqrt(3^2 + 4^2)").ToString()) "5" "Eval(sqrt(3^2 + 4^2)) = 5"
-            equalMsg (MathJS.Math.Eval("2 inch to cm").ToString()) "5.08 cm" "Eval(2 inch to cm) = 5.08 cm"
+            equalMsg (MathJS.Math.Evaluate("sqrt(3^2 + 4^2)").ToString()) "5" "Evaluate(sqrt(3^2 + 4^2)) = 5"
+            equalMsg (MathJS.Math.Evaluate("2 inch to cm").ToString()) "5.08 cm" "Evaluate(2 inch to cm) = 5.08 cm"
         }
 
         Test "MathJS Det" {
             equalMsg (MathJS.Math.Det(MathNumber([| [| 2.; 1. |]; [| 1.; 2. |] |]))) 3. "MathJS.Math.Det([| [| 2.; 1. |]; [| 1.; 2. |] |]) = 3."
         }
 
-        Test "MathJS Eval with Scope" {
+        Test "MathJS Evaluate with Scope" {
             let scope = New ["a", 3. :> obj; "b", 4. :> obj]
-            equalMsg (MathJS.Math.Eval("a * b", scope).ToString()) "12" "Eval(a * b where a = 3, b = 4) = 12"
+            equalMsg (MathJS.Math.Evaluate("a * b", scope).ToString()) "12" "Evaluate(a * b where a = 3, b = 4) = 12"
         }
 
         Test "MathJS factorial" {
@@ -139,6 +139,13 @@ let Tests runServerSide =
             let a = MathNumber([| [| 1.; 2.; 3. |] |])
             let b = MathNumber([| [| 4. |]; [| 5. |]; [| 6. |] |])
             equalMsg (MathJS.Math.Cross(a, b)) (MathNumber([| [| -3.; 6.; -3. |] |])) "Cross([[1,2,3]],[[4],[5],[6]]) = [[-3,6,-3]]"
+        }
+
+        Test "MathJS matrixFromRows/Columns" {
+            let v1 = MathNumber([|1.; 2.|])
+            let v2 = MathNumber([|3.; 4.|])
+            equal (MathJS.Math.MatrixFromRows(v1, v2)) (MathNumber([| [|1.; 2.|]; [|3.; 4.|] |]))
+            equal (MathJS.Math.MatrixFromColumns(v1, v2)) (MathNumber([| [|1.; 3.|]; [|2.; 4.|] |]))
         }
 
         Test "MathJS insanity check" {
@@ -273,15 +280,30 @@ let Tests runServerSide =
         }
 
         Test "Decimal functions" {
-            equal (abs 5m) 5m
+            let x = 18133887298.441562272235520m
+            equal (abs x) x
             equal (abs -6m) 6m
             equal (System.Math.Abs -7m) 7m
             equal (sign 3m) 1
             equal (sign -3m) -1
-            let x = 18133887298.441562272235520m
             let y = x + 1m
             equal (max x y) y
             equal (min x y) x
+            equal (System.Math.Ceiling x) 18133887299m
+            equal (System.Math.Floor x) 18133887298m
+            equal (ceil x) 18133887299m
+            equal (floor x) 18133887298m
+        }
+
+        Test "Decimal comparison" {
+            let x = 18133887298.441562272235520m
+            let y = 18133887298.441562272237357m
+            isTrue (x < y)
+            isFalse (x > y)
+            isTrue (x <= y)
+            isTrue (x <= x)
+            isFalse (x >= y)
+            isTrue (y >= y)
         }
 
         TestIf runServerSide "Decimal remoting" {

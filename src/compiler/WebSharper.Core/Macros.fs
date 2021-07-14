@@ -530,6 +530,58 @@ type Abs() =
                 MacroError (sprintf "Abs macro error, type not supported: %O" t)
 
 [<Sealed>]
+type Ceiling() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let ceilMeth =
+                        Method {
+                            MethodName = "Ceiling"
+                            Parameters = [t]
+                            ReturnType = t
+                            Generics = 0      
+                        }
+                    Call(None, ct, NonGeneric ceilMeth, [x]) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Ceiling macro error, type not supported: %O" t)
+
+[<Sealed>]
+type Floor() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let floorMeth =
+                        Method {
+                            MethodName = "Floor"
+                            Parameters = [t]
+                            ReturnType = t
+                            Generics = 0      
+                        }
+                    Call(None, ct, NonGeneric floorMeth, [x]) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Floor macro error, type not supported: %O" t)
+
+[<Sealed>]
 type Sign() =
     inherit Macro()
     override this.TranslateCall(c) =
