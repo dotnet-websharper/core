@@ -234,7 +234,7 @@ Target.create "RunTests" <| fun _ ->
         let res =
             Shell.Exec(
                 "packages/test/Chutzpah/tools/chutzpah.console.exe",
-                publishUrl + "/consoletests /engine Chrome"
+                publishUrl + "/consoletests /engine Chrome /silent /failOnError /showFailureReport"
             )
         if res <> 0 then
             failwith "Chutzpah test run failed"
@@ -251,4 +251,4 @@ Target.create "RunTests" <| fun _ ->
 "RunTests"
     ==> "CI-Release"
 
-Target.runOrDefault "Build"
+Target.runOrDefaultWithArguments "Build"
