@@ -16,6 +16,7 @@
     <Compile Include="Array2D.fs" />
     <Compile Include="Async.fs" />
     <Compile Include="Basis.fs" />
+    <Compile Include="BigInt.fs" />
     <Compile Include="Char.fs" />
     <Compile Include="Conversions.fs" />
     <Compile Include="DateTime.fs" />
