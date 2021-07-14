@@ -190,6 +190,22 @@ module Definition =
                 "prototype" =? TSelf
             ]
 
+    let EcmaBigint =
+        Class "BigInt"
+        |=> Inherits EcmaObject
+        |+> Static [
+            Constructor T<string>
+            Constructor T<int>
+
+            "asIntN" => T<int> * T<bigint> ^-> T<int>
+            "asUIntN" => T<int> * T<bigint> ^-> T<uint32>
+        ]
+        |+> Instance [
+            "toLocaleString" => !? T<string> * !? T<obj> ^-> T<string>
+            "toString" => !? T<int> ^-> T<string>
+            "valueOf" => T<unit> ^-> TSelf
+        ]
+
     let EcmaArray =
         Class "Array"
         |+> Static [
