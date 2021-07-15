@@ -46,6 +46,29 @@ let Tests =
             equal (c - b) a
             equal (c % b) a
             equal (a * b) (BI(20000))
+            equal (b / a) (BI(2))
+            equal (c / b) (BI(1))
             // equal (d ** e) f
+        }
+
+        Test "BigInt comparison" {
+            let a = BI(100)
+            let b = BI(200)
+
+            isFalse (a > b)
+            isFalse (a >= b)
+            isTrue (a < b)
+            isTrue (a <= b)
+            isTrue (a >= (BI(100)))
+            isTrue (a <= (BI(100)))
+        }
+
+        Test "BigInt constructors" {
+            let a = BI(1000)
+
+            // not int
+            equal a (BI(1000.5))
+            // from byte arr
+            equal a (BI([|232uy; 3uy; 0uy; 0uy|]))
         }
     }

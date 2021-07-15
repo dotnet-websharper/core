@@ -194,8 +194,8 @@ module Definition =
         Class "BigInt"
         |=> Inherits EcmaObject
         |+> Static [
-            Constructor T<string>
-            Constructor T<int>
+            Constructor T<string> |> WithInline "BigInt($0)"
+            Constructor T<int> |> WithInline "BigInt($0)"
 
             "asIntN" => T<int> * T<bigint> ^-> T<int>
             "asUIntN" => T<int> * T<bigint> ^-> T<uint32>
@@ -440,6 +440,7 @@ module Definition =
                 EcmaObject
                 EcmaObjectG
                 EcmaNumber
+                EcmaBigint
                 EcmaString
                 EcmaArray
                 EcmaArrayG
