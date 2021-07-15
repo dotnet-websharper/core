@@ -48,7 +48,7 @@ let Tests =
             equal (a * b) (BI(20000))
             equal (b / a) (BI(2))
             equal (c / b) (BI(1))
-            // equal (d ** e) f
+            equal (d ** 3) f
         }
 
         Test "BigInt comparison" {

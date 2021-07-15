@@ -103,6 +103,7 @@ type Symbol =
     | ``&=`` = 45
     | ``|=`` = 46
     | ``^=`` = 47
+    | ``**`` = 48
 
 type Lexeme =
     | EndOfInput
@@ -713,6 +714,9 @@ let lexToken s =
             | '=' ->
                 skip s |> ignore
                 Punctuator Symbol.``*=``
+            | '*' ->
+                skip s |> ignore
+                Punctuator Symbol.``**``
             | _ ->
                 Punctuator Symbol.``*``
         | Kind.``+`` ->

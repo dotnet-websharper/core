@@ -87,10 +87,10 @@ type private BigIntegerProxy =
     static member op_Division(n1 : bigint, n2 : bigint) = X<bigint>
 
     [<Inline "$n1 << $n2">]
-    static member op_LeftShift(n1 : bigint, n2 : bigint) = X<bigint>
+    static member op_LeftShift(n1 : bigint, n2 : int) = X<bigint>
 
     [<Inline "$n1 >> $n2">]
-    static member op_RightShift(n1 : bigint, n2 : bigint) = X<bigint>
+    static member op_RightShift(n1 : bigint, n2 : int) = X<bigint>
 
     [<Inline "$n1 > $n2">]
     static member op_GreaterThan(n1 : bigint, n2 : bigint) = X<bool>
@@ -104,5 +104,5 @@ type private BigIntegerProxy =
     [<Inline "$n1 <= $n2">]
     static member op_LessThanOrEqual(n1 : bigint, n2 : bigint) = X<bool>
 
-    // [<Inline "$n1 ** $n2">]
-    // static member Pow(n1 : bigint, n2 : bigint) = X<bigint>
+    [<Inline "$n1 ** BigInt($n2)">]
+    static member Pow(n1 : bigint, n2 : int) = X<bigint>

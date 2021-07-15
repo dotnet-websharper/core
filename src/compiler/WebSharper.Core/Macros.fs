@@ -530,6 +530,32 @@ type Abs() =
                 MacroError (sprintf "Abs macro error, type not supported: %O" t)
 
 [<Sealed>]
+type Pow() =
+    inherit Macro()
+    override this.TranslateCall(c) =
+        let m = c.Method
+        let x = c.Arguments.Head
+        let t = m.Generics.Head
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else
+            match t with
+            | ConcreteType ct ->
+                if scalarTypes.Contains ct.Entity.Value.FullName then
+                    MacroFallback
+                else
+                    let powMeth =
+                        Method {
+                            MethodName = "Pow"
+                            Parameters = m.Generics
+                            ReturnType = t
+                            Generics = 0      
+                        }
+                    Call(None, ct, NonGeneric powMeth, c.Arguments) |> MacroOk
+            | _ ->
+                MacroError (sprintf "Pow macro error, type not supported: %O" t)
+
+[<Sealed>]
 type Ceiling() =
     inherit Macro()
     override this.TranslateCall(c) =
