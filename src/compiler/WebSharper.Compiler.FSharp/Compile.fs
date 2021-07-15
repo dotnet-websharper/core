@@ -204,7 +204,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            let extraBundles =
+                aR.Wrap <| fun () ->
+                    Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
             let assem = loader.LoadFile config.AssemblyFile
@@ -212,7 +214,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             if config.ProjectType = Some Proxy then
                 EraseAssemblyContents assem
 
-            let extraBundles = Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
+            let extraBundles = 
+                aR.Wrap <| fun () ->
+                    Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
     
             let js, currentMeta, sources =
                 ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
@@ -264,7 +268,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
         let currentJS =
             lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
-        Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+        aR.Wrap <| fun () ->
+            Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
         0
     | Some Html ->
