@@ -321,7 +321,7 @@ module ExecuteCommands =
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
 
-let LoadInterfaceGeneratorAssembly (file: string) =
+let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
     File.Copy(file, genFile)
@@ -339,14 +339,16 @@ let LoadInterfaceGeneratorAssembly (file: string) =
         let typeName = (a.Value :?> Type).AssemblyQualifiedName
         let t = WebSharper.Core.Reflection.LoadType typeName
         let e = Activator.CreateInstance(t) :?> WebSharper.InterfaceGenerator.Pervasives.IExtension
+        logger.TimedStage "Loading IExtension implementation"
         let asmDef = e.Assembly
+        logger.TimedStage "Getting Assembly definition"
         name, asmDef, asm
     | None ->
         failwith "No ExtensionAttribute set on the input assembly"
     
-let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
+let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
     aR.Wrap <| fun () ->
-        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile
+        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
         let cfg =
             {
                 InterfaceGenerator.CompilerOptions.Default(name.Name) with
@@ -358,10 +360,10 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
                     ReferencePaths = config.References
                     StrongNameKeyPath = snk
             }
-
-        let cmp = InterfaceGenerator.Compiler.Create()
+        let cmp = InterfaceGenerator.Compiler.Create(logger)
         let out = cmp.Compile(cfg, asmDef, asm)
         out.Save config.AssemblyFile
+        logger.TimedStage "Writing final dll"
 
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then

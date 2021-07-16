@@ -1360,7 +1360,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 | _ -> ()
 
 [<Sealed>]
-type Compiler() =
+type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
     let iG = InlineGenerator()
 
@@ -1491,6 +1491,7 @@ type Compiler() =
 
     member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
         let (def, comments, mB, tB) = buildAssembly resolver options assembly
+        logger.TimedStage "Built assembly"
         for f in options.EmbeddedResources do
             try
                 EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
@@ -1513,6 +1514,7 @@ type Compiler() =
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
         WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
+        logger.TimedStage "Creating WebSharper metadata"
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options, tB)
@@ -1549,5 +1551,5 @@ type Compiler() =
     member c.Start(args, assembly, original, ?resolver) =
         c.StartProgram(args, assembly, ?resolver = resolver, originalAssembly = original)
 
-    static member Create() =
-        Compiler()
+    static member Create(logger) =
+        Compiler(logger)

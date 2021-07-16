@@ -292,8 +292,7 @@ let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: Logger
         let aR = createAssemblyResolver config
         aR.Wrap <| fun () ->
             try 
-                RunInterfaceGenerator aR config.KeyFile config
-                logger.TimedStage "WIG running time"
+                RunInterfaceGenerator aR config.KeyFile config logger
                 0
             with e ->
                 PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
