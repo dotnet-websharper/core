@@ -109,7 +109,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles = Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+            let extraBundles = 
+                aR.Wrap <| fun () ->
+                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice1Of2 comp.AssemblyName)
             None, currentMeta, sources, extraBundles
         else
             let assem = assem.Value
@@ -118,7 +120,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 EraseAssemblyContents assem
                 logger.TimedStage "Erasing assembly content for Proxy project"
 
-            let extraBundles = Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
+            let extraBundles = 
+                aR.Wrap <| fun () ->
+                    Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
 
             let js, currentMeta, sources =
                 ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
@@ -171,7 +175,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | Some (Bundle | BundleOnly) ->
         let currentJS =
             lazy CreateBundleJSOutput logger refMeta currentMeta comp.EntryPoint
-        Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+        aR.Wrap <| fun () ->
+            Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
     | Some Html ->
         ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
