@@ -54,41 +54,43 @@ type HtmlCommand() =
                 |> Seq.append [Path.GetDirectoryName(options.MainAssemblyPath)]
                 |> aR.SearchDirectories
             
-            aR.Install()
+            try
+                aR.Install()
 
-            // Load the sitelet
-            let loadSite (file: string) =
-                let assembly = WebSharper.Core.Reflection.LoadAssembly file
-                match assembly with
-                | null ->
-                    failwithf "Failed to load %s" file
-                | assembly ->
-                    let aT = typeof<WebsiteAttribute>
-                    match Attribute.GetCustomAttribute(assembly, aT) with
-                    | :? WebsiteAttribute as attr ->
-                        attr.Run ()
-                    |_  ->
-                        failwithf "Failed to find WebSiteAttribute \
-                            on the processed assembly: %s"
-                            file
-            let (sitelet, actions) = loadSite options.MainAssemblyPath
+                // Load the sitelet
+                let loadSite (file: string) =
+                    let assembly = WebSharper.Core.Reflection.LoadAssembly file
+                    match assembly with
+                    | null ->
+                        failwithf "Failed to load %s" file
+                    | assembly ->
+                        let aT = typeof<WebsiteAttribute>
+                        match Attribute.GetCustomAttribute(assembly, aT) with
+                        | :? WebsiteAttribute as attr ->
+                            attr.Run ()
+                        |_  ->
+                            failwithf "Failed to find WebSiteAttribute \
+                                on the processed assembly: %s"
+                                file
+                let (sitelet, actions) = loadSite options.MainAssemblyPath
 
-            if options.DownloadResources then
-                let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
-                for p in assemblies do
-                    D.DownloadResource p options.OutputDirectory |> errors.AddRange
+                if options.DownloadResources then
+                    let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
+                    for p in assemblies do
+                        D.DownloadResource p options.OutputDirectory |> errors.AddRange
 
-            // Write site content.
-            Output.WriteSite aR {
-                Sitelet = sitelet
-                Options = options
-                Actions = actions
-                UnpackSourceMap = options.UnpackSourceMap
-                UnpackTypeScript = options.UnpackTypeScript
-            }
-            |> Async.RunSynchronously
+                // Write site content.
+                Output.WriteSite aR {
+                    Sitelet = sitelet
+                    Options = options
+                    Actions = actions
+                    UnpackSourceMap = options.UnpackSourceMap
+                    UnpackTypeScript = options.UnpackTypeScript
+                }
+                |> Async.RunSynchronously
             
-            aR.Remove()
+            finally
+                aR.Remove()
 
             if errors.Count = 0 then
                 C.Ok

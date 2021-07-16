@@ -322,10 +322,10 @@ module ExecuteCommands =
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
 
 let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
+    let asm = WebSharper.Core.Reflection.LoadAssembly(file)
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
-    File.Copy(file, genFile)
-    let asm = WebSharper.Core.Reflection.LoadAssembly(genFile)
+    File.Move(file, genFile)
     let name = asm.GetName()
     let typedArg =
         asm.CustomAttributes |> Seq.tryPick (fun a ->
@@ -336,34 +336,37 @@ let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
         )
     match typedArg with 
     | Some a ->
-        let typeName = (a.Value :?> Type).AssemblyQualifiedName
-        let t = WebSharper.Core.Reflection.LoadType typeName
-        let e = Activator.CreateInstance(t) :?> WebSharper.InterfaceGenerator.Pervasives.IExtension
+        let typeName = (a.Value :?> Type).FullName
+        let t = asm.GetType(typeName)
+        let e = Activator.CreateInstance(t)
         logger.TimedStage "Loading IExtension implementation"
-        let asmDef = e.Assembly
+        let assemblyGetter =
+            let intfMap = t.GetInterfaceMap(typeof<WebSharper.InterfaceGenerator.Pervasives.IExtension>)
+            intfMap.InterfaceMethods.[0]
+        let asmDefObj = assemblyGetter.Invoke(e, [||])
+        let asmDef = asmDefObj :?> WebSharper.InterfaceGenerator.CodeModel.Assembly
         logger.TimedStage "Getting Assembly definition"
         name, asmDef, asm
     | None ->
         failwith "No ExtensionAttribute set on the input assembly"
-    
+
 let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
-    aR.Wrap <| fun () ->
-        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
-        let cfg =
-            {
-                InterfaceGenerator.CompilerOptions.Default(name.Name) with
-                    AssemblyResolver = Some aR
-                    AssemblyVersion = name.Version
-                    DocPath = config.Documentation
-                    EmbeddedResources = config.Resources |> Seq.map fst
-                    ProjectDir = config.ProjectDir
-                    ReferencePaths = config.References
-                    StrongNameKeyPath = snk
-            }
-        let cmp = InterfaceGenerator.Compiler.Create(logger)
-        let out = cmp.Compile(cfg, asmDef, asm)
-        out.Save config.AssemblyFile
-        logger.TimedStage "Writing final dll"
+    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
+    let cfg =
+        {
+            InterfaceGenerator.CompilerOptions.Default(name.Name) with
+                AssemblyResolver = Some aR
+                AssemblyVersion = name.Version
+                DocPath = config.Documentation
+                EmbeddedResources = config.Resources |> Seq.map fst
+                ProjectDir = config.ProjectDir
+                ReferencePaths = config.References
+                StrongNameKeyPath = snk
+        }
+    let cmp = InterfaceGenerator.Compiler.Create(logger)
+    let out = cmp.Compile(cfg, asmDef, asm)
+    out.Save config.AssemblyFile
+    logger.TimedStage "Writing final dll"
 
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then

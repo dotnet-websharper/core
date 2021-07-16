@@ -21,9 +21,16 @@
 namespace WebSharper.Compiler
 
 [<AbstractClass>]
-type LoggerBase() =
+type LoggerBase() as self =
     let mutable time = System.DateTime.Now     
     
+#if DEBUG
+    static let mutable currentLogger = Unchecked.defaultof<LoggerBase>
+
+    do 
+        currentLogger <- self
+#endif
+
     abstract Error : string -> unit
     abstract Out : string -> unit
     member x.TimedStage name =
@@ -35,6 +42,12 @@ type LoggerBase() =
     [<System.Diagnostics.Conditional "DEBUG">]
     member _.DebugWrite x =
         System.Diagnostics.Debug.WriteLine x
+
+#if DEBUG
+    static member Current
+        with get() = currentLogger
+        and set l = currentLogger <- l
+#endif
 
 type ConsoleLogger() =
     inherit LoggerBase()

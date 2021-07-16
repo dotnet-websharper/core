@@ -37,8 +37,6 @@ let createAssemblyResolver (config : WsConfig) =
         [
             for r in config.References -> Path.GetFullPath r
             yield Path.GetFullPath config.AssemblyFile
-            if config.ProjectType = Some WIG then
-                yield Path.GetFullPath (Path.ChangeExtension(config.AssemblyFile, ".Generator.dll"))
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -94,11 +92,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     else
 
     let checker = checkerFactory()
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
-    compiler.WarnSettings <- warnSettings
-
-    let isBundleOnly = config.ProjectType = Some BundleOnly
     
+    let isBundleOnly = config.ProjectType = Some BundleOnly
+
     let exitCode = 
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
@@ -120,7 +116,14 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     if exitCode <> 0 then 
         exitCode
     elif config.ProjectType = Some WIG then  
-        0
+        let aR = createAssemblyResolver config
+        aR.Wrap <| fun () ->
+            try 
+                RunInterfaceGenerator aR config.KeyFile config logger
+                0
+            with e ->
+                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
+                1
     else 
 
     let aR = createAssemblyResolver config
@@ -175,6 +178,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             compilerArgs
         else
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
+
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
+    compiler.WarnSettings <- warnSettings
 
     let comp =
         aR.Wrap <| fun () ->
@@ -273,7 +279,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage "Bundling"
         0
     | Some Html ->
-        0
+        ExecuteCommands.Html config logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
@@ -282,23 +288,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
             1
-    | _ ->
-        0
-
-let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) =    
-
-    match config.ProjectType with
-    | Some WIG ->
-        let aR = createAssemblyResolver config
-        aR.Wrap <| fun () ->
-            try 
-                RunInterfaceGenerator aR config.KeyFile config logger
-                0
-            with e ->
-                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
-                1
-    | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
     | _ ->
         0
 
@@ -377,6 +366,7 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
             fscArgs.Add a
         | StartsWith "--keyfile:" k ->
             wsArgs := { !wsArgs with KeyFile = Some k }
+            fscArgs.Add a
         | StartsWith "--targetprofile:" p ->
             wsArgs := { !wsArgs with TargetProfile = p }
             fscArgs.Add a
@@ -422,9 +412,7 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
             PrintGlobalError logger "Failed to clean intermediate output!"
     try 
         let exitCode = 
-            match Compile config warnSettings logger checkerFactory tryGetMetadata with
-            | 0 -> UnpackOrWIG config warnSettings logger
-            | e -> e
+            Compile config warnSettings logger checkerFactory tryGetMetadata
         if exitCode <> 0 then 
             clearOutput()
         exitCode            

@@ -80,8 +80,4 @@ let main(argv) =
             nLogger.Debug "Start compilation with wsfscservice"
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
-            let serviceExitCode = sendCompileCommand argv
-            if serviceExitCode = 0 then
-                UnpackOrWIG wsConfig warnSettings logger    
-            else
-                serviceExitCode
+            sendCompileCommand argv

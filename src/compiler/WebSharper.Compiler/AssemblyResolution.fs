@@ -47,7 +47,9 @@ module Implemetnation =
             (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
 
     let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
-        dom.GetAssemblies()
+        let asmsProp = typeof<AssemblyLoadContext>.GetProperty("Assemblies", [||])
+        let assemblies = asmsProp.GetMethod.Invoke(AssemblyLoadContext.Default, [||])
+        assemblies :?> seq<Assembly>
         |> Seq.tryFind (fun a ->
             a.GetName()
             |> isCompatibleForInherit name)
@@ -71,6 +73,9 @@ module Implemetnation =
             let resolve (x: string) =
                 if x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
                     let p = Path.GetFullPath x
+#if DEBUG
+                    LoggerBase.Current.Out <| sprintf "AssemblyResolver loading assembly as collectible from path: %s" p
+#endif
                     let asm =
                         match loadContext with
                         | Some alc ->
@@ -84,14 +89,23 @@ module Implemetnation =
                     | None ->
                         match r.ResolvePath name with
                         | None -> 
+#if DEBUG
+                            LoggerBase.Current.Out <| sprintf "AssemblyResolver could not resolve assembly: %s" x
+#endif
                             null
                         | Some p -> 
+#if DEBUG
+                            LoggerBase.Current.Out <| sprintf "AssemblyResolver loading assembly as collectible: %s" x
+#endif
                             match loadContext with
                             | Some alc ->
                                 loadIntoAssemblyLoadContext alc p
                             | None ->
                                 loadIntoAppDomain dom p
                     | Some r -> 
+#if DEBUG
+                        LoggerBase.Current.Out <| sprintf "AssemblyResolver resolved assembly from main context: %s" x
+#endif
                         r
 
             r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
@@ -166,43 +180,40 @@ type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
     let mutable domHandler = null 
 
     member r.Install() =
-        loadContext <-
-            // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
-            let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
-            if isNull ctor then
-                None
-            else
-                let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
-                let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
-                    reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName)
-                )
-                alc.add_Resolving resolve
+        if Option.isNone loadContext then
+            loadContext <-
+                // hack to create a .NET 5 AssemblyLoadContext if we are on .NET 5
+                let ctor = typeof<AssemblyLoadContext>.GetConstructor([| typeof<string>; typeof<bool> |])
+                if isNull ctor then
+                    None
+                else
+                    let alc = ctor.Invoke([| null; true |]) :?> AssemblyLoadContext
+                    let resolve = Func<_,_,_>(fun (thisAlc: AssemblyLoadContext) (assemblyName: AssemblyName) -> 
+                        reso.ResolveAssembly(dom, Some thisAlc, assemblyName.FullName)
+                    )
+                    alc.add_Resolving resolve
                             
-                Some alc
+                    Some alc
 
         let enterContextualReflection() =
-            let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
-            if not (isNull meth) then
-                entered <- meth.Invoke(loadContext.Value, [||]) :?> IDisposable
+            match loadContext with
+            | Some alc ->
+                let meth = typeof<AssemblyLoadContext>.GetMethod("EnterContextualReflection", [||])
+                if not (isNull meth) then
+                    entered <- meth.Invoke(alc, [||]) :?> IDisposable
+            | _ -> ()
 
         let domResolve (x: obj) (a: ResolveEventArgs) =
             reso.ResolveAssembly(dom, loadContext, a.Name)
 
         domHandler <- ResolveEventHandler(domResolve)
 
-        let install() =
-            let resolve x =
-                reso.ResolveAssembly(dom, loadContext, x)
-            WebSharper.Core.Reflection.OverrideAssemblyResolve <- 
-                Some resolve
-            match loadContext with
-            | Some _ ->
-                enterContextualReflection()
-
-            | _ ->
-                dom.add_AssemblyResolve(domHandler)    
-
-        install()
+        let resolve x =
+            reso.ResolveAssembly(dom, loadContext, x)
+        
+        WebSharper.Core.Reflection.OverrideAssemblyResolve <-  Some resolve
+        enterContextualReflection()
+        dom.add_AssemblyResolve(domHandler)    
 
     member r.Remove() =
         let exitContextualReflection() =
@@ -214,12 +225,8 @@ type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
             meth.Invoke(loadContext.Value, [||]) |> ignore
 
         WebSharper.Core.Reflection.OverrideAssemblyResolve <- None
-        match loadContext with
-        | Some _ ->
-            exitContextualReflection()
-            //unload()
-        | _ ->
-            dom.remove_AssemblyResolve(domHandler)    
+        exitContextualReflection()
+        dom.remove_AssemblyResolve(domHandler)    
 
     member r.Wrap(action: unit -> 'T) =
         try
