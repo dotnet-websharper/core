@@ -321,6 +321,7 @@ and logicalExprTail allowIn i e =
     let app a o b = S.Binary (a, o, b)
     let rec add b o2 stack =
         match stack with
+        | _ when o2 = B.``**`` -> (b, o2) :: stack
         | (a, o1) :: rest when prec o1 <= prec o2 -> add (app a o1 b) o2 rest
         | _ -> (b, o2) :: stack
     let rec reduce b stack =
