@@ -37,8 +37,6 @@ let createAssemblyResolver (config : WsConfig) =
         [
             for r in config.References -> Path.GetFullPath r
             yield Path.GetFullPath config.AssemblyFile
-            if config.ProjectType = Some WIG then
-                yield Path.GetFullPath (Path.ChangeExtension(config.AssemblyFile, ".Generator.dll"))
         ]        
     let aR =
         AssemblyResolver.Create()
@@ -94,11 +92,50 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     else
 
     let checker = checkerFactory()
-    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
-    compiler.WarnSettings <- warnSettings
+    
+    if config.ProjectType = Some WIG then  
+        let aR = createAssemblyResolver config
+        try
+            try 
+                aR.Install()
+
+                let opts =
+                    checker.GetProjectOptionsFromCommandLineArgs(config.ProjectFile, config.CompilerArgs)
+
+                let checkProjectResults = 
+                    checker.ParseAndCheckProject(opts) |> Async.RunSynchronously
+
+                let asmVersion =
+                    checkProjectResults.AssemblySignature.Attributes
+                    |> Seq.tryPick (fun a ->
+                        if a.AttributeType.FullName = "System.Reflection.AssemblyVersionAttribute" then
+                            let _, name = a.ConstructorArguments.Item(0)
+                            Some (Version(name :?> string))
+                        else
+                            None
+                    )
+                    |> Option.defaultValue (Version())
+
+                let errors, exitCode, asm = 
+                    checker.CompileToDynamicAssembly(config.CompilerArgs, None) |> Async.RunSynchronously
+
+                PrintFSharpErrors warnSettings logger errors
+    
+                if exitCode = 0 then 
+                    logger.TimedStage "Dynamic F# compilation"
+
+                    RunInterfaceGenerator aR asm.Value asmVersion config.KeyFile config logger
+
+                exitCode
+            with e ->
+                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
+                1
+        finally
+            aR.Remove()
+
+    else
 
     let isBundleOnly = config.ProjectType = Some BundleOnly
-    
     let exitCode = 
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
@@ -119,8 +156,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             
     if exitCode <> 0 then 
         exitCode
-    elif config.ProjectType = Some WIG then  
-        0
     else 
 
     let aR = createAssemblyResolver config
@@ -175,6 +210,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             compilerArgs
         else
             Array.append compilerArgs [|"--define:JAVASCRIPT"|]
+
+    let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
+    compiler.WarnSettings <- warnSettings
 
     let comp =
         aR.Wrap <| fun () ->
@@ -288,15 +326,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 let UnpackOrWIG (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) =    
 
     match config.ProjectType with
-    | Some WIG ->
-        let aR = createAssemblyResolver config
-        aR.Wrap <| fun () ->
-            try 
-                RunInterfaceGenerator aR config.KeyFile config logger
-                0
-            with e ->
-                PrintGlobalError logger (sprintf "Error running WIG assembly: %A" e)
-                1
     | Some Html ->
         ExecuteCommands.Html config logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
     | _ ->

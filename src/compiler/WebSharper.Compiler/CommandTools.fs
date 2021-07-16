@@ -321,11 +321,7 @@ module ExecuteCommands =
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
 
-let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
-    let genFile = Path.ChangeExtension(file, ".Generator.dll")
-    if File.Exists genFile then File.Delete genFile
-    File.Copy(file, genFile)
-    let asm = WebSharper.Core.Reflection.LoadAssembly(genFile)
+let LoadInterfaceGeneratorAssembly (asm: System.Reflection.Assembly) (logger: LoggerBase) =
     let name = asm.GetName()
     let typedArg =
         asm.CustomAttributes |> Seq.tryPick (fun a ->
@@ -342,28 +338,27 @@ let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
         logger.TimedStage "Loading IExtension implementation"
         let asmDef = e.Assembly
         logger.TimedStage "Getting Assembly definition"
-        name, asmDef, asm
+        name, asmDef
     | None ->
         failwith "No ExtensionAttribute set on the input assembly"
     
-let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
-    aR.Wrap <| fun () ->
-        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
-        let cfg =
-            {
-                InterfaceGenerator.CompilerOptions.Default(name.Name) with
-                    AssemblyResolver = Some aR
-                    AssemblyVersion = name.Version
-                    DocPath = config.Documentation
-                    EmbeddedResources = config.Resources |> Seq.map fst
-                    ProjectDir = config.ProjectDir
-                    ReferencePaths = config.References
-                    StrongNameKeyPath = snk
-            }
-        let cmp = InterfaceGenerator.Compiler.Create(logger)
-        let out = cmp.Compile(cfg, asmDef, asm)
-        out.Save config.AssemblyFile
-        logger.TimedStage "Writing final dll"
+let RunInterfaceGenerator (aR: AssemblyResolver) (asm: System.Reflection.Assembly) asmVersion snk config (logger: LoggerBase) =
+    let (name, asmDef) = LoadInterfaceGeneratorAssembly asm logger        
+    let cfg =
+        {
+            InterfaceGenerator.CompilerOptions.Default(name.Name) with
+                AssemblyResolver = Some aR
+                AssemblyVersion = asmVersion
+                DocPath = config.Documentation
+                EmbeddedResources = config.Resources |> Seq.map fst
+                ProjectDir = config.ProjectDir
+                ReferencePaths = config.References
+                StrongNameKeyPath = snk
+        }
+    let cmp = InterfaceGenerator.Compiler.Create(logger)
+    let out = cmp.Compile(cfg, asmDef, asm)
+    out.Save config.AssemblyFile
+    logger.TimedStage "Writing final dll"
 
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then
