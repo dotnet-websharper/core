@@ -58,6 +58,7 @@ let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 [<Macro(typeof<M.Arith>)>]
 let ( * ) (a: 'T1) (b: 'T2) = X<'T3>
 
+[<Macro(typeof<M.Pow>)>]
 [<Inline "Math.pow($a, $b)">]
 let ( ** ) (a: 'T1) (b: 'T2) = X<'T1>
 

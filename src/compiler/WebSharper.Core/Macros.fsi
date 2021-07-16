@@ -54,6 +54,11 @@ type Abs =
     inherit Macro
 
 [<Sealed>]
+type Pow =
+    new : unit -> Pow
+    inherit Macro
+
+[<Sealed>]
 type Ceiling =
     new : unit -> Ceiling
     inherit Macro

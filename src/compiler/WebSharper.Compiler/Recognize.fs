@@ -309,6 +309,7 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | SB.``&&``     -> Binary(trE a, BinaryOperator.``&&``, trE c)
         | SB.``&=``     -> mbin a MutatingBinaryOperator.``&=`` c
         | SB.``*``      -> Binary(trE a, BinaryOperator.``*``, trE c)
+        | SB.``**``     -> Binary(trE a, BinaryOperator.``**``, trE c)
         | SB.``*=``     -> mbin a MutatingBinaryOperator.``*=`` c
         | SB.``+``      -> Binary(trE a, BinaryOperator.``+``, trE c)
         | SB.``+=``     -> mbin a MutatingBinaryOperator.``+=`` c

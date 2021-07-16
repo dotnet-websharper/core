@@ -128,6 +128,9 @@
     <Compile Include="..\WebSharper.Tests\Basis.fs">
       <Link>Basis.fs</Link>
     </Compile>
+    <Compile Include="..\WebSharper.Tests\BigInt.fs">
+      <Link>BigInt.fs</Link>
+    </Compile>
     <Compile Include="..\WebSharper.Tests\Char.fs">
       <Link>Char.fs</Link>
     </Compile>

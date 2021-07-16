@@ -178,6 +178,7 @@ and Expression =
     static member (^&&) (a, b) = Binary (a, BinaryOperator.``&&``, b)
     static member (^&) (a, b) = Binary (a, BinaryOperator.``&``, b)
     static member (^*) (a, b) = Binary (a, BinaryOperator.``*``, b)
+    static member (^**) (a, b) = Binary (a, BinaryOperator.``**``, b)
     static member (^+) (a, b) = Binary (a, BinaryOperator.``+``, b)
     static member (^-) (a, b) = Binary (a, BinaryOperator.``-``, b)
     static member (^/) (a, b) = Binary (a, BinaryOperator.``/``, b)
