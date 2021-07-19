@@ -81,11 +81,14 @@ let Tests =
             let int32test2 = BI(100)
             let int64test1 = 255486129307I
             let int64test2 = BI(255486129307L)
+            let fromstringtest1 = 10000000000000000000I
+            let fromstringtest2 = BI(5000000000000000000L + 5000000000000000000L)
 
             equal zero1 zero2
             equal one1 one2
             equal zero1 zero2
             equal int32test1 int32test2
             equal int64test1 int64test2
+            equal fromstringtest1 fromstringtest2
         }
     }
