@@ -77,6 +77,7 @@ type BinaryOperator =
     | ``|=`` = 34
     | ``|`` = 35
     | ``||`` = 36
+    | ``**`` = 37
 
 type B = BinaryOperator
 
@@ -129,6 +130,7 @@ and Expression =
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)
     static member ( * ) (a, b) = Binary (a, B.``*``, b)
+    static member ( ** ) (a, b) = Binary (a, B.``**``, b)
     static member ( / ) (a, b) = Binary (a, B.``/``, b)
     static member ( % ) (a, b) = Binary (a, B.``%``, b)
 

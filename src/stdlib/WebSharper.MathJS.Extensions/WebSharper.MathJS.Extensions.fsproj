@@ -9,7 +9,6 @@
     <NoWarn>FS0864</NoWarn>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="BigInteger.fs" />
     <Compile Include="Complex.fs" />
     <Compile Include="Decimal.fs" />
     <None Include="paket.references" />
