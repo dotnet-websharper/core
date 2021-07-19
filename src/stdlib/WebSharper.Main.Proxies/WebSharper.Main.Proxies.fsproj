@@ -38,6 +38,7 @@
     <Compile Include="../WebSharper.Main.Proxies/Array2DModule.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Async.fs" />
     <Compile Include="../WebSharper.Main.Proxies/AsyncBuilder.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/BigInt.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Char.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Choice.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Console.fs" />

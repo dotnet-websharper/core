@@ -172,7 +172,8 @@ type BinaryOperator =
     | InstanceOf         = 20
     | BitwiseOr          = 21
     | Or                 = 22
-    | Coalesce           = 23
+    | Exponentiation     = 23
+    | Coalesce           = 24
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module BinaryOperator =
@@ -182,6 +183,7 @@ module BinaryOperator =
     let [<Literal>] ``&&``     = BinaryOperator.And               
     let [<Literal>] ``&``      = BinaryOperator.BitwiseAnd        
     let [<Literal>] ``*``      = BinaryOperator.Multiply          
+    let [<Literal>] ``**``     = BinaryOperator.Exponentiation          
     let [<Literal>] ``+``      = BinaryOperator.Add               
     let [<Literal>] ``-``      = BinaryOperator.Substract         
     let [<Literal>] ``/``      = BinaryOperator.Divide            

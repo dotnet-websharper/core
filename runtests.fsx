@@ -22,6 +22,7 @@ printf "Loading WebSharper.Tests..."; stdout.Flush()
 #load "tests/WebSharper.Tests/Array2D.fs"
 #load "tests/WebSharper.Tests/Async.fs"
 #load "tests/WebSharper.Tests/Basis.fs"
+#load "tests/WebSharper.Tests/BigInt.fs"
 #load "tests/WebSharper.Tests/Char.fs"
 #load "tests/WebSharper.Tests/DateTime.fs"
 #load "tests/WebSharper.Tests/Double.fs"

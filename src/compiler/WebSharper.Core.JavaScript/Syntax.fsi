@@ -86,8 +86,9 @@ type BinaryOperator =
     | ``|=`` = 34
     | ``|`` = 35
     | ``||`` = 36
-    | ``??`` = 37
-    | ``??=`` = 38
+    | ``**`` = 37
+    | ``??`` = 38
+    | ``??=`` = 39
 
 type SourcePos =
     {
@@ -133,6 +134,7 @@ and Expression =
     static member ( + ) : E * E -> E
     static member ( - ) : E * E -> E
     static member ( * ) : E * E -> E
+    static member ( ** ) : E * E -> E
     static member ( / ) : E * E -> E
     static member ( % ) : E * E -> E
     static member ( ^= ) : E * E -> E

@@ -39,6 +39,7 @@ let RunTests runServerSide autoStart =
         Array2D.Tests
         Async.Tests
         Basis.Tests
+        BigInt.Tests
         Char.Tests
         Conversions.Tests
         DateTime.Tests
