@@ -106,3 +106,30 @@ type private BigIntegerProxy =
 
     [<Inline "$n1 ** BigInt($n2)">]
     static member Pow(n1 : bigint, n2 : int) = X<bigint>
+
+[<Proxy
+    "Microsoft.FSharp.Core.NumericLiterals+NumericLiteralI, \
+     FSharp.Core, Culture=neutral, \
+     PublicKeyToken=b03f5f7f11d50a3a">]
+module private NumericLiteralIProxy =
+    
+    [<Inline "BigInt(0)">]
+    let FromZero<'T>() = X<'T>
+
+    [<Inline "BigInt(1)">]
+    let FromOne<'T>() = X<'T>
+
+    [<Inline "BigInt($v)">]
+    let FromInt32<'T>(v: int32) = X<'T>
+
+    [<Inline "BigInt($v)">]
+    let FromInt64<'T>(v: int64) = X<'T>
+
+    [<Inline "BigInt($v)">]
+    let FromString<'T>(v: string) = X<'T>
+
+    [<Inline "BigInt($v)">]
+    let FromInt64Dynamic(v: int64) = X<obj>
+
+    [<Inline "BigInt($v)">]
+    let FromStringDynamic(v: string) = X<obj>

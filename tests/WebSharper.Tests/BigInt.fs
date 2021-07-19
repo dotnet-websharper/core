@@ -71,4 +71,21 @@ let Tests =
             // from byte arr
             equal a (BI([|232uy; 3uy; 0uy; 0uy|]))
         }
+
+        Test "FSharp bigint literals" {
+            let zero1 = 0I
+            let zero2 = BI(0)
+            let one1 = 1I
+            let one2 = BI(1)
+            let int32test1 = 100I
+            let int32test2 = BI(100)
+            let int64test1 = 255486129307I
+            let int64test2 = BI(255486129307L)
+
+            equal zero1 zero2
+            equal one1 one2
+            equal zero1 zero2
+            equal int32test1 int32test2
+            equal int64test1 int64test2
+        }
     }
