@@ -397,6 +397,7 @@ let compileMain (argv: string[]) =
             References = refs |> Seq.distinct |> Array.ofSeq
             Resources = resources.ToArray()
             CompilerArgs = fscArgs.ToArray() 
+            VSStyleErrors = true
         }
     wsArgs := SetDefaultProjectFile !wsArgs true
     wsArgs := SetScriptBaseUrl !wsArgs

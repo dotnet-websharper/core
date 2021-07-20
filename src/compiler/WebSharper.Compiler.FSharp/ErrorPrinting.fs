@@ -52,7 +52,7 @@ type WarnSettings =
         || (this.AllWarnAsError && this.DontWarnAsError.Contains(c))
 
 let PrintGlobalError err =
-    eprintfn "WebSharper error FS9001: %s" (NormalizeErrorString err)
+    eprintfn "WebSharper error WS9001: %s" (NormalizeErrorString err)
 
 let PrintGlobalWarning (warnSettings: WarnSettings) err =
     if warnSettings.CheckNoWarn(9002) then
@@ -60,7 +60,7 @@ let PrintGlobalWarning (warnSettings: WarnSettings) err =
     elif warnSettings.CheckWarnAsError(9002) then
         PrintGlobalError err
     else
-        eprintfn "WebSharper warning FS9002: %s" (NormalizeErrorString err)
+        eprintfn "WebSharper warning WS9002: %s" (NormalizeErrorString err)
 
 // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L380
 let private Level5Warnings =
@@ -116,9 +116,9 @@ let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSetting
         else
             let severity =
                 if (isError && not warnOnly) || (not isError && warnSettings.CheckWarnAsError(9002)) then 
-                    "error FS9001" 
+                    "error WS9001" 
                 else 
-                    "warning FS9002"
+                    "warning WS9002"
             match pos with
             | Some pos ->
                 eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 

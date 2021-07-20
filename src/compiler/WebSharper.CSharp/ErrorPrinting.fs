@@ -32,7 +32,7 @@ let PrintGlobalWarning err =
 
 let PrintWebSharperErrors warnOnly (comp: Compilation) =
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError && not warnOnly then "error" else "warning"
+        let severity = if isError && not warnOnly then "error WS9001" else "warning WS9002"
         match pos with
         | Some pos ->
             eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
