@@ -82,13 +82,6 @@ let Tests runServerSide =
         //    equalMsg (MathJS.Math.Multiply(MathNumber(a), MathNumber(b))) c "a*b"
         //}
 
-        Test "MathJS add (bignum)" {
-            let a = BigInteger(100)
-            let b = BigInteger(200)
-            let c = MathNumber((a + b))
-            equalMsg (MathJS.Math.Add(MathNumber(a), MathNumber(b))) c "MathJS.Math.Add(BigNumber(100), BigNumber(200)) = BigNumber(300)"
-        }
-
         Test "MathJS Complex" {
             isTrueMsg ((MathNumber(MathJS.Math.Complex("2.0 + 6.0i"))).JS.Equals(MathNumber(MathJS.Math.Complex(2., "6.")))) "Complex(\"2.0 + 6.0i\") = Complex(2., \"6.\")"
         }

@@ -104,6 +104,7 @@ type Symbol =
     | ``&=`` = 45
     | ``|=`` = 46
     | ``^=`` = 47
+    | ``**`` = 48
 
 /// Represents lexemes: identifiers, literals, keywords and so on.
 type Lexeme =

@@ -141,12 +141,16 @@ let Run () =
         let ( ! ) x = S.Var x
         let ( +. ) a b = S.Binary (a, S.BinaryOperator.``+``, b)
         let ( *. ) a b = S.Binary (a, S.BinaryOperator.``*``, b)
+        let ( **. ) a b = S.Binary (a, S.BinaryOperator.``**``, b)
         p "a + b * (c + d)" =? !"a" +. !"b" *. (!"c" +. !"d")
         p "-a" =? S.Unary (S.UnaryOperator.``-``, !"a")
         p "a++" =? S.Postfix (!"a", S.PostfixOperator.``++``)
         p "a, b + c" =? S.Binary (!"a", S.BinaryOperator.``,``, !"b" +. !"c")
         p "a ? b : c ? d : e" =?
             S.Conditional (!"a", !"b", S.Conditional (!"c", !"d", !"e"))
+        p "a ** b" =? S.Binary (!"a", S.BinaryOperator.``**``, !"b")
+        p "a ** b ** c" =? S.Binary (!"a", S.BinaryOperator.``**``, S.Binary (!"b", S.BinaryOperator.``**``, !"c"))
+        p "a ** b + c" =? S.Binary (S.Binary (!"a", S.BinaryOperator.``**``, !"b"), S.BinaryOperator.``+``, !"c")
     }
 
     Test "block" {
