@@ -8,6 +8,7 @@
     <Compile Include="Main.fs" />
     <EmbeddedResource Include="WIGtest.js" />
     <EmbeddedResource Include="WIGtest2.js" />
+    <EmbeddedResource Include="WIGtest3.js" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

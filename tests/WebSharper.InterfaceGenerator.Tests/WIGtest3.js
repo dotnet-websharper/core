@@ -1,0 +1,1 @@
+﻿var WIGtest3 = "ok"

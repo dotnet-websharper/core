@@ -156,6 +156,20 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     let interfaces = Dictionary()
     let classes = Dictionary()
 
+    let getMethodAttributes (typ: Mono.Cecil.TypeDefinition) (meth: Mono.Cecil.MethodDefinition) = 
+        let propOpt =
+            if meth.IsGetter then
+                typ.Properties |> Seq.tryFind (fun p -> p.GetMethod = meth)
+            elif meth.IsSetter then
+                typ.Properties |> Seq.tryFind (fun p -> p.SetMethod = meth)
+            else
+                None
+        match propOpt with
+        | Some prop ->
+            Seq.append prop.CustomAttributes meth.CustomAttributes
+        | _ ->
+            meth.CustomAttributes :> seq<_>
+
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
         if not (intfAsClass || typ.IsClass) then () else
 
@@ -190,20 +204,21 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         let mutable hasInstanceMethod = false
          
         for meth in typ.Methods do
-            let macros = getMacros meth.CustomAttributes
-            let inlAttr = getInline meth.CustomAttributes 
-            let name = getName meth.CustomAttributes 
+            let customAttributes = getMethodAttributes typ meth
+            let macros = getMacros customAttributes
+            let inlAttr = getInline customAttributes
+            let name = getName customAttributes 
 
             let opts =
                 {
                     IsPure =
-                        meth.CustomAttributes
+                        customAttributes
                         |>  Seq.exists (fun a -> 
                             a.AttributeType.FullName = "WebSharper.PureAttribute" 
                         )
                     FuncArgs = None
                     Warn = 
-                        meth.CustomAttributes
+                        customAttributes
                         |> Seq.tryPick (fun a -> 
                             if a.AttributeType.FullName = "WebSharper.WarnAttribute" then
                                 Some (unbox (a.ConstructorArguments.[0].Value))
@@ -241,7 +256,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let cNode = graph.AddOrLookupNode(ConstructorNode (def, cdef))
                     graph.AddEdge(cNode, clsNodeIndex)
-                    for req in getRequires meth.CustomAttributes do
+                    for req in getRequires customAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
@@ -259,7 +274,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let mNode = graph.AddOrLookupNode(MethodNode (def, mdef))
                     graph.AddEdge(mNode, clsNodeIndex)
-                    for req in getRequires meth.CustomAttributes do
+                    for req in getRequires customAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
@@ -312,8 +327,9 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             isTSasm ||
             typ.Methods 
             |> Seq.exists (fun meth -> 
-                Option.isSome (getInline meth.CustomAttributes)
-                || not (List.isEmpty (getMacros meth.CustomAttributes))
+                let customAttributes = getMethodAttributes typ meth 
+                Option.isSome (getInline customAttributes)
+                || not (List.isEmpty (getMacros customAttributes))
             )
         if intfAsClass then transformClass true typ else   
         let def = getTypeDefinition typ 
@@ -339,7 +355,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                                     Generics   = meth.GenericParameters |> Seq.length
                                 }
                             let name =
-                                match getName meth.CustomAttributes with
+                                match getName (getMethodAttributes typ meth) with
                                 | Some n -> n
                                 | _ -> meth.Name
                             yield mdef, name
