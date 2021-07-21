@@ -34,7 +34,7 @@ let PrintGlobalWarning (logger: LoggerBase) err =
 
 let PrintWebSharperErrors (logger: LoggerBase) warnOnly (comp: Compilation) =
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
-        let severity = if isError && not warnOnly then "error" else "warning"
+        let severity = if isError && not warnOnly then "error WS9001" else "warning WS9002"
         match pos with
         | Some pos ->
             sprintf "%s(%d,%d,%d,%d): WebSharper %s: %s" 

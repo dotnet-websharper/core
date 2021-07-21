@@ -38,6 +38,7 @@ module CodeModel =
         val mutable Name : string
         val mutable SourceName : option<string>
         val mutable Type : T
+        val mutable DependsOn : list<Dependency>
         val mutable Comment : option<string>
         val mutable ObsoleteStatus : ObsoleteStatus
 
@@ -46,6 +47,7 @@ module CodeModel =
                 Name = name
                 SourceName = None
                 Type = t
+                DependsOn = []
                 Comment = None
                 ObsoleteStatus = NotObsolete
             }
@@ -318,6 +320,12 @@ module CodeModel =
             member this.AddTo x = this.AddTo x
             member this.SetIsStatic s = this :> _
 
+        interface IResourceDependable<Constructor> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    x.DependsOn <- res @ x.DependsOn)
+            member this.GetRequires() = this.DependsOn
+
     and Method =
         inherit MethodBase
         val mutable Generics : list<TypeParameter>
@@ -352,6 +360,12 @@ module CodeModel =
                     |> Entity.Update (fun x -> x.IsStatic <- false)
                 m.Add x
 
+        interface IResourceDependable<Method> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    x.DependsOn <- res @ x.DependsOn)
+            member this.GetRequires() = this.DependsOn
+
     and Property =
         inherit Member
         val mutable HasGetter : bool
@@ -384,6 +398,12 @@ module CodeModel =
                     |> Entity.Update (fun x -> x.IsStatic <- false)
                 m.Add x
 
+        interface IResourceDependable<Property> with
+            member this.AddRequires res =
+                this |> Entity.Update (fun x ->
+                    x.DependsOn <- res @ x.DependsOn)
+            member this.GetRequires() = this.DependsOn
+
     and IClassMember =
         abstract member AddTo : Class -> Class
         abstract member SetIsStatic: bool -> IClassMember 
@@ -410,14 +430,12 @@ module CodeModel =
 
     and [<AbstractClass>] NamespaceEntity =
         inherit Entity
-        val mutable DependsOn : list<Dependency>
         val mutable Id : Type.Id
 
         internal new (name) =
             let id = Type.Id name
             {
                 inherit Entity(name, Type.DeclaredType id)
-                DependsOn = []
                 Id = id
             }
 

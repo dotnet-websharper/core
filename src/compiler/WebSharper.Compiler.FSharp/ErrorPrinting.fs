@@ -52,7 +52,7 @@ type WarnSettings =
         || (this.AllWarnAsError && this.DontWarnAsError.Contains(c))
 
 let PrintGlobalError (logger: LoggerBase) err =
-    sprintf "WebSharper error FS9001: %s" (NormalizeErrorString err)
+    sprintf "WebSharper error WS9001: %s" (NormalizeErrorString err)
     |> logger.Error
 
 let PrintGlobalWarning (warnSettings: WarnSettings) (logger: LoggerBase) err =
@@ -61,7 +61,7 @@ let PrintGlobalWarning (warnSettings: WarnSettings) (logger: LoggerBase) err =
     elif warnSettings.CheckWarnAsError(9002) then
         PrintGlobalError logger err
     else
-        sprintf "WebSharper warning FS9002: %s" (NormalizeErrorString err)
+        sprintf "WebSharper warning WS9002: %s" (NormalizeErrorString err)
         |> logger.Error
 
 // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L380
@@ -119,9 +119,9 @@ let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSetting
         else
             let severity =
                 if (isError && not warnOnly) || (not isError && warnSettings.CheckWarnAsError(9002)) then 
-                    "error FS9001" 
+                    "error WS9001" 
                 else 
-                    "warning FS9002"
+                    "warning WS9002"
             match pos with
             | Some pos ->
                 sprintf "%s(%d,%d,%d,%d): WebSharper %s: %s" 
