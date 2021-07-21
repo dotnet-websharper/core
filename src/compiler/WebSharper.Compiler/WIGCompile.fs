@@ -846,6 +846,17 @@ type MemberConverter
         | :? Code.Property as p when p.IsOverride -> overrideMethodAttributes
         | _ -> instanceMethodAttributes
 
+    let addDependencies (ent: Code.IResourceDependable) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        for d in ent.GetRequires() do
+            match d with
+            | Code.LocalDependency d ->
+                match types.TryGetValue(d) with
+                | true, t -> attrs.Add(requireAttribute t)
+                | _ -> ()
+            | Code.ExternalDependency ty ->
+                let t = tC.TypeReference (ty, Unchecked.defaultof<_>)
+                attrs.Add(requireAttribute t)
+
     let addConstructor (dT: TypeDefinition) (td: Code.TypeDeclaration) (x: Code.Constructor) =
         let overloads =
             x.Type
@@ -874,6 +885,7 @@ type MemberConverter
                 setObsoleteAttribute x cD.CustomAttributes
                 setPureAttribute x cD.CustomAttributes
                 setWarnAttribute x cD.CustomAttributes
+                addDependencies x cD.CustomAttributes
                 dT.Methods.Add(cD)
                 do
                     match x.Comment with
@@ -935,6 +947,7 @@ type MemberConverter
             dT.Methods.Add mD
             pD.SetMethod <- mD
         setObsoleteAttribute p pD.CustomAttributes
+        addDependencies p pD.CustomAttributes
         dT.Properties.Add pD
 
     let withGenerics (generics: Code.TypeParameter list, td: Code.TypeDeclaration, owner) =
@@ -1032,6 +1045,7 @@ type MemberConverter
             setPureAttribute x mD.CustomAttributes
             setWarnAttribute x mD.CustomAttributes
         setObsoleteAttribute x mD.CustomAttributes
+        addDependencies x mD.CustomAttributes
         dT.Methods.Add mD
 
     member private c.AddTypeMembers<'T when 'T :> Code.TypeDeclaration and 'T :> Code.IResourceDependable<'T>>
@@ -1043,18 +1057,10 @@ type MemberConverter
             let name = iG.GetPropertySourceName p
             if not (propNames.Add name) then failwithf "Duplicate property definition: %s on %s" name x.Name
             addProperty tD x name p
-        c.AddDependencies(x, tD)
-
+        addDependencies x tD.CustomAttributes
+    
     member d.AddDependencies(ent: Code.IResourceDependable, prov: ICustomAttributeProvider) =
-        for d in ent.GetRequires() do
-            match d with
-            | Code.LocalDependency d ->
-                match types.TryGetValue(d) with
-                | true, t -> prov.CustomAttributes.Add(requireAttribute t)
-                | _ -> ()
-            | Code.ExternalDependency ty ->
-                let t = tC.TypeReference (ty, Unchecked.defaultof<_>)
-                prov.CustomAttributes.Add(requireAttribute t)
+        addDependencies ent prov.CustomAttributes
 
     member c.Class(x: Code.Class) =
         genericType x (fun c tD -> c.Class(x, tD))
@@ -1112,7 +1118,7 @@ type MemberConverter
                             EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
                             |> def.MainModule.Resources.Add
                 | _ -> ()
-            c.AddDependencies(r, tD)
+            addDependencies r tD.CustomAttributes
             if r.IsAssemblyWide then
                 def.CustomAttributes.Add(requireAttribute tD)
             match r.Paths with
