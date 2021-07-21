@@ -248,6 +248,10 @@ let Tests =
             equal WIGtest2.SumTest 6    
         }
 
+        Test "Property Require" {
+            equal WIGtest3.Ok "ok"
+        }
+
         Test "Type test" {
             let el = WebSharper.JavaScript.JS.Document.CreateElement("div") |> box
             isTrue (el :? Dom.Element)

@@ -911,6 +911,7 @@ type MemberConverter
         let isMixin = isInterface && not (p.GetterInline.IsSome || p.HasSetter || p.IndexerType.IsSome)
         if p.HasGetter then
             let mD = MethodDefinition("get_" + name, methodAttributes dT p, ty)
+            mD.IsGetter <- true
             if isMixin then
                 p.Name 
                 |> nameAttribute
@@ -929,6 +930,7 @@ type MemberConverter
             pD.GetMethod <- mD
         if p.HasSetter then
             let mD = MethodDefinition("set_" + name, methodAttributes dT p, tB.Void)
+            mD.IsSetter <- true
             if isMixin then
                 p.Name
                 |> nameAttribute

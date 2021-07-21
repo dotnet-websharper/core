@@ -102,6 +102,14 @@ module Definition =
             "SumTest" =? Int
         ]
 
+    let res3 = Resource "WIGTestJs3" "WIGtest3.js"
+
+    let WIGtest3 =
+        Class "WIGtest3"
+        |+> Static [
+            "Ok" =? String |> WithGetterInline "WIGtest3" |> Requires [ res3 ]
+        ]
+
     let WIGtestGeneric =
         Generic + [ "T"; "U" ] -- fun a b ->
             Class "WIGtestGeneric"
@@ -218,6 +226,7 @@ module Definition =
                  WIGtestInstance
                  WIGtest
                  WIGtest2
+                 WIGtest3
                  WIGtestGeneric
                  ConfigObj
                  OneBasedArr
@@ -228,6 +237,7 @@ module Definition =
                  ConcCls
                  res1 |> AssemblyWide
                  Resource "WIGTestJs2" "WIGtest2.js" |> Requires [ res1 ] |> AssemblyWide
+                 res3
             ]
             Namespace "WebSharper.InterfaceGenerator.Tests.Regression1010" [
                 Regression1010.A
