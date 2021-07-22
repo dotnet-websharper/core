@@ -311,7 +311,7 @@ type Rendering with
                 Some (defaultArg (ctx.GetSetting "WebSharper.StdlibCdnFormat") def)
             else None
         |> Option.map (fun urlFormat ->
-            let asm = WebSharper.Core.Reflection.LoadAssembly(fullAsmName)
+            let asm = Assembly.Load(fullAsmName)
             let ver =
                 asm.GetCustomAttributes(typeof<AssemblyFileVersionAttribute>, false)
                 |> Array.tryPick (fun x ->

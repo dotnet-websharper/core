@@ -859,11 +859,11 @@ module Reflection =
         | _ -> None
 
     let LoadType (t: Type) =
-        try WebSharper.Core.Reflection.LoadType(t.AssemblyQualifiedName)  
+        try System.Type.GetType(t.AssemblyQualifiedName, true)  
         with e -> failwithf "Failed to load type %s: %O" t.AssemblyQualifiedName e
 
     let LoadTypeDefinition (td: TypeDefinition) =
-        try WebSharper.Core.Reflection.LoadType(td.Value.AssemblyQualifiedName)   
+        try System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
         with e -> failwithf "Failed to load type %s from assembly %s: %O" td.Value.FullName td.Value.Assembly e
 
     let [<Literal>] AllMethodsFlags = 
