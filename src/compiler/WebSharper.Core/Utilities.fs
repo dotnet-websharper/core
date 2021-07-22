@@ -181,19 +181,3 @@ module Reflection =
         | None ->
             try System.Reflection.Assembly.Load(assemblyNameOrPath)  
             with e -> failwithf "Failed to load assembly %s: %O" assemblyNameOrPath e
-
-    let LoadType (assemblyQualifiedName: string) =
-        match OverrideAssemblyResolve with
-        | Some oar ->
-            let typeName, asmName = 
-                match assemblyQualifiedName.Split([|','|], 2) with
-                | [| tn; an |] -> tn, an
-                | _ -> failwithf "Failed get assembly name of type: %s" assemblyQualifiedName
-            let asm = 
-                try oar asmName
-                with e -> failwithf "Failed to load assembly %s from reference: %O" asmName e
-            try asm.GetType(typeName)
-            with e -> failwithf "Failed to load type %s from reference: %O" assemblyQualifiedName e
-        | None ->
-            try System.Type.GetType(assemblyQualifiedName, true)  
-            with e -> failwithf "Failed to load type %s: %O" assemblyQualifiedName e
