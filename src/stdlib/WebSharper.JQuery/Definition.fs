@@ -349,6 +349,7 @@ module Definition =
             Generic - fun t -> "prop" => T<string> ^-> t
             Generic - fun t -> "prop" => T<string> * t ^-> TSelf
             "prop" => T<obj> ^-> TSelf
+            "prop" => T<string> * (T<int> * T<obj> ^-> T<obj>) ^-> TSelf
             "removeAttr" => T<string> ^-> TSelf
             "removeClass" => T<string> ^-> TSelf
             "removeClass" => (T<int> * T<obj> ^-> T<string>) ^-> TSelf
