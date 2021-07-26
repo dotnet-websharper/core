@@ -763,7 +763,7 @@ module Definition =
             "each" => (T<obj>) * (T<string> * T<obj> ^-> T<unit>) ^-> T<obj>
             "extend" => T<obj> *+ T<obj> ^-> T<obj>
             "extend" => T<bool> * T<obj> * T<obj> *+ T<obj> ^-> T<obj>
-            "globalEval" => T<string> * !? NonceOptions * T<Dom.Document> ^-> T<unit>
+            "globalEval" => T<string> * !? NonceOptions * !? T<Dom.Document> ^-> T<unit>
             |> WithComment "Execute some JavaScript code globally"
             "grep" => (T<obj> + !| T<obj>) * (T<obj> * T<int> ^-> T<bool>) * T<bool> ^-> !| T<obj>
             "inArray" => T<obj> * !| T<obj> * !?T<int> ^-> T<int>
