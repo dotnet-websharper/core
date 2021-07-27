@@ -83,31 +83,31 @@ module ClientServerTests =
                 )
             }
 
-            TestIf runServerTests "Router.Ajax" {
-                let settings ep =
-                    let s = JQuery.AjaxSettings()
-                    match ep with
-                    | UCors _ -> corsBaseUri |> Option.iter (fun uri -> s.Url <- uri)
-                    | _ -> ()
-                    s
-                let! serverResults = GetTestValues()
-                let! ajaxResults =
-                    async {
-                        let arr = ResizeArray()
-                        for testValue, _, _ in serverResults do
-                            try
-                                do! Expect testValue
-                                let! res = Router.AjaxWith (settings testValue) ShiftedRouter testValue
-                                arr.Add (res)
-                            with e ->
-                                arr.Add (e.StackTrace)
-                        return arr.ToArray()
-                    }
-                let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
-                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) -> Do {
-                    equalMsg r v (sprintf "Ajax call for: " + string v)
-                })
-            }
+            // TestIf runServerTests "Router.Ajax" {
+            //     let settings ep =
+            //         let s = JQuery.AjaxSettings()
+            //         match ep with
+            //         | UCors _ -> corsBaseUri |> Option.iter (fun uri -> s.Url <- uri)
+            //         | _ -> ()
+            //         s
+            //     let! serverResults = GetTestValues()
+            //     let! ajaxResults =
+            //         async {
+            //             let arr = ResizeArray()
+            //             for testValue, _, _ in serverResults do
+            //                 try
+            //                     do! Expect testValue
+            //                     let! res = Router.AjaxWith (settings testValue) ShiftedRouter testValue
+            //                     arr.Add (res)
+            //                 with e ->
+            //                     arr.Add (e.StackTrace)
+            //             return arr.ToArray()
+            //         }
+            //     let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
+            //     forEach (Array.zip ajaxResults expectedResults) (fun (r, v) -> Do {
+            //         equalMsg r v (sprintf "Ajax call for: " + string v)
+            //     })
+            // }
 
             TestIf runServerTests "Router.Fetch" {
                 let baseUri ep =

@@ -30,6 +30,18 @@ open WebSharper.JQuery
 
 #nowarn "64" // type parameter renaming warnings 
 
+type XHRConfig =
+    {
+        mutable ResponseT : XMLHttpRequestResponseType
+        mutable Content : Dom.Document
+        mutable Url : string
+        IsAsync : bool
+        Username : string
+        Password : string
+        Timeout : int
+        WithCredentials : bool
+    }
+
 /// Indicates the "Access-Control-Xyz" headers to send.
 type CorsAllows =
     {
@@ -723,45 +735,60 @@ module Router =
         | Some p -> p.ToLink()
         | None -> ""
 
-    let AjaxWith (settings: AjaxSettings) (router: Router<'A>) endpoint =
-        let settings = if As settings then settings else AjaxSettings()
+    let XHRWith (conf: XHRConfig) (router: Router<'A>) endpoint =
+        let xhr = XMLHttpRequest()
         match Write router endpoint with
         | Some path ->
-            if settings.DataType ===. JS.Undefined then
-                settings.DataType <- DataType.Text
-            settings.Type <-
+            if conf.ResponseT ===. JS.Undefined then
+                conf.ResponseT <- XMLHttpRequestResponseType.Text
+            let method = 
                 match path.Method with
                 | Some m -> As m
-                | None -> RequestType.POST
+                | None -> "POST"
             match path.Body.Value with
             | null ->
                 if not (Map.isEmpty path.FormData) then
                     let fd = JavaScript.FormData()
                     path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
-                    settings.ContentType <- Union1Of2 false
-                    settings.Data <- fd
-                    settings.ProcessData <- false
+                    conf.Content <- fd
             | b ->
-                settings.ContentType <- Union2Of2 "application/json"
-                settings.Data <- b
-                settings.ProcessData <- false
+                conf.Content <- b
             Async.FromContinuations (fun (ok, err, cc) ->
-                settings.Success <- fun res _ _ -> ok (As<string> res) 
-                settings.Error <- fun _ _ msg -> err (exn msg)
+                xhr.Onload <- fun _ -> ok xhr.Response
+                xhr.Onerror <- fun _ -> err <| exn xhr.StatusText
                 // todo: cancellation
                 let url = path.ToLink()
-                settings.Url <-
-                    if As settings.Url then
-                        settings.Url.TrimEnd('/') + url
+                conf.Url <-
+                    if As conf.Url then
+                        conf.Url.TrimEnd('/') + url
                     else
                         url
-                JQuery.Ajax(settings) |> ignore
+                if conf.Username <> "" && conf.Password <> "" then
+                    xhr.Open(method, conf.Url, conf.IsAsync, conf.Username, conf.Password)
+                else
+                    xhr.Open(method, conf.Url, conf.IsAsync)
+                if conf.Timeout <> 0 then
+                    xhr.Timeout <- conf.Timeout
+                if conf.WithCredentials then
+                    xhr.WithCredentials <- conf.WithCredentials
+                xhr.Send(conf.Content) |> ignore
             )
         | _ -> 
             failwith "Failed to map endpoint to request" 
 
-    let Ajax router endpoint =
-        AjaxWith (AjaxSettings()) router endpoint
+    let XHR router endpoint =
+        let defaultXHRConfig =
+            {
+                ResponseT = XMLHttpRequestResponseType.Text
+                Content = endpoint
+                Url = ""
+                IsAsync = true
+                Username = ""
+                Password = ""
+                Timeout = 0
+                WithCredentials = false
+            }
+        XHRWith defaultXHRConfig router endpoint
 
     let FetchWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Promise<Response> =
         let options = if As options then options else RequestOptions()
@@ -1086,8 +1113,8 @@ type Router<'T when 'T: equality> with
         Router.FormData this
 
     [<Inline>]
-    member this.Ajax(endpoint, [<Optional>] settings) =
-        Router.AjaxWith settings this endpoint |> Async.StartAsTask
+    member this.XHR(endpoint, [<Optional>] settings) =
+        Router.XHRWith settings this endpoint |> Async.StartAsTask
 
     [<Inline>]
     member this.Fetch(endpoint, [<Optional>] baseUrl, [<Optional>] settings) =
