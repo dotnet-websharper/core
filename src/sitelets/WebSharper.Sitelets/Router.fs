@@ -26,20 +26,18 @@ open System.Runtime.InteropServices
 open System.Text
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 
 #nowarn "64" // type parameter renaming warnings 
 
 type XHRConfig =
     {
         mutable ResponseT : XMLHttpRequestResponseType
-        mutable Content : Dom.Document
         mutable Url : string
         IsAsync : bool
         Username : string
         Password : string
-        Timeout : int
-        WithCredentials : bool
+        mutable Timeout : int
+        mutable WithCredentials : bool
     }
 
 /// Indicates the "Access-Control-Xyz" headers to send.
@@ -745,16 +743,8 @@ module Router =
                 match path.Method with
                 | Some m -> As m
                 | None -> "POST"
-            match path.Body.Value with
-            | null ->
-                if not (Map.isEmpty path.FormData) then
-                    let fd = JavaScript.FormData()
-                    path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
-                    conf.Content <- fd
-            | b ->
-                conf.Content <- b
             Async.FromContinuations (fun (ok, err, cc) ->
-                xhr.Onload <- fun _ -> ok xhr.Response
+                xhr.Onload <- fun _ -> ok (As<string> xhr.Response)
                 xhr.Onerror <- fun _ -> err <| exn xhr.StatusText
                 // todo: cancellation
                 let url = path.ToLink()
@@ -771,7 +761,16 @@ module Router =
                     xhr.Timeout <- conf.Timeout
                 if conf.WithCredentials then
                     xhr.WithCredentials <- conf.WithCredentials
-                xhr.Send(conf.Content) |> ignore
+                match path.Body.Value with
+                | null ->
+                    if not (Map.isEmpty path.FormData) then
+                        let fd = JavaScript.FormData()
+                        path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
+                        xhr.Send(fd)
+                    else
+                        xhr.Send()
+                | b ->
+                    xhr.Send(b)
             )
         | _ -> 
             failwith "Failed to map endpoint to request" 
@@ -780,7 +779,6 @@ module Router =
         let defaultXHRConfig =
             {
                 ResponseT = XMLHttpRequestResponseType.Text
-                Content = endpoint
                 Url = ""
                 IsAsync = true
                 Username = ""

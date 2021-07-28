@@ -95,9 +95,6 @@
     <Reference Include="WebSharper.JavaScript">
       <HintPath>..\..\build\Release\WebSharper.JavaScript.dll</HintPath>
     </Reference>
-    <Reference Include="WebSharper.JQuery">
-      <HintPath>..\..\build\Release\WebSharper.JQuery.dll</HintPath>
-    </Reference>
     <Reference Include="WebSharper.Main">
       <HintPath>..\..\build\Release\WebSharper.Main.dll</HintPath>
     </Reference>

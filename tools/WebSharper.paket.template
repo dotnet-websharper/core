@@ -35,8 +35,6 @@ files
     ../build/Release/netstandard2.0/WebSharper.Control.xml ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JavaScript.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JavaScript.xml ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.JQuery.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.JQuery.xml ==> lib/netstandard2.0
     ../docs ==> docs
     ../src/htmllib/tags.csv ==> tools
     !../tools/*

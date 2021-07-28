@@ -362,7 +362,6 @@ let ``Compilation test`` () =
                     @"..\..\build\Debug\netstandard2.0\WebSharper.Core.JavaScript.dll"
                     @"..\..\build\Debug\netstandard2.0\WebSharper.InterfaceGenerator.dll"
                     @"..\..\build\Debug\netstandard2.0\WebSharper.JavaScript.dll"
-                    @"..\..\build\Debug\netstandard2.0\WebSharper.JQuery.dll"
                     @"..\..\build\Debug\netstandard2.0\WebSharper.Main.dll"
                     @"..\..\build\Debug\netstandard2.0\WebSharper.MathJS.dll"
                     @"..\..\build\Debug\netstandard2.0\WebSharper.MathJS.Extensions.dll"

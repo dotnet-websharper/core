@@ -26,7 +26,6 @@ namespace WebSharper.Web.Tests
 open System.Collections.Generic
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 open WebSharper.Testing
 open WebSharper.Sitelets.Tests.Json.Types
 
@@ -514,18 +513,13 @@ module ClientSideJson =
 
     let baseEcho (url: string) (serializedArg: string) (decode: obj -> 't) : Async<'t> =
         Async.FromContinuations <| fun (ok, ko, _) ->
-            JQuery.Ajax(
-                JQuery.AjaxSettings(
-                    Url = url,
-                    Type = JQuery.RequestType.POST,
-                    ContentType = Union2Of2("application/json"),
-                    DataType = JQuery.DataType.Json,
-                    Data = serializedArg,
-                    Success = (fun data _ _ -> ok (decode data)),
-                    Error = (fun jqXHR _ _ -> ko (System.Exception(jqXHR.ResponseText)))
-                )
-            )
-            |> ignore
+            let xhr = XMLHttpRequest()
+            xhr.Open("POST", url)
+            xhr.SetRequestHeader("Content-Type", "application/json")
+            xhr.ResponseType <- XMLHttpRequestResponseType.Json
+            xhr.Onload <- fun _ -> ok (decode xhr.Response)
+            xhr.Onerror <- fun _ -> ko <| (System.Exception xhr.StatusText)
+            xhr.Send(serializedArg)
 
     let echoObj jsonBaseUri (r: 'T) : Async<'T> =
         baseEcho (jsonBaseUri + "Object") (Json.Stringify r) (Json.Decode<obj> >> unbox)

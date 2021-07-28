@@ -22,7 +22,6 @@ namespace WebSharper.Sitelets.Tests
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 open WebSharper.Testing
 
 [<JavaScript>]
@@ -32,47 +31,36 @@ module ApiTests =
     let Tests apiBaseUri =
         let getPerson id =
             Async.FromContinuations <| fun (ok, ko, _) ->
-                JQuery.Ajax(
-                    JQuery.AjaxSettings(
-                        Url = apiBaseUri + "person?id=" + string id,
-                        Type = JQuery.RequestType.GET,
-                        ContentType = Union2Of2("application/json"),
-                        Success = (fun data _ _ -> 
-                            try 
-                                match Json.Decode<Result<PersonDataNoDates>> (As<string> data) with
-                                | Result.Success p -> ok p
-                                | Result.Failure e -> ko (exn e)
-                            with e -> ko e),
-                        Error = (fun jqXHR _ _ -> ko (exn jqXHR.ResponseText))
-                    )
-                )
-                |> ignore
+                let xhr = XMLHttpRequest()
+                xhr.Open("GET", (apiBaseUri + "person?id=" + string id))
+                xhr.SetRequestHeader("Content-Type", "application/json")
+                xhr.Onload <- fun _ ->
+                    try
+                        match Json.Decode<Result<PersonDataNoDates>> (As<string> xhr.ResponseText) with
+                        | Result.Success p -> ok p
+                        | Result.Failure e -> ko (exn e)
+                    with e -> ko e
+                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.Send()
 
         let updatePerson id person =
             Async.FromContinuations <| fun (ok, ko, _) ->
-                JQuery.Ajax(
-                    JQuery.AjaxSettings(
-                        Url = apiBaseUri + "update-person?id=" + string id,
-                        Type = JQuery.RequestType.POST,
-                        ContentType = Union2Of2("application/json"),
-                        DataType = JQuery.DataType.Json,
-                        Data = Json.Serialize<PersonDataNoDates> person,
-                        Success = (fun _ _ _ -> ok ()),
-                        Error = (fun jqXHR _ _ -> ko (exn jqXHR.ResponseText))
-                    )
-                )
-                |> ignore
+                let xhr = XMLHttpRequest()
+                xhr.Open("POST", (apiBaseUri + "update-person?id=" + string id))
+                xhr.SetRequestHeader("Content-Type", "application/json")
+                xhr.ResponseType <- XMLHttpRequestResponseType.Json
+                let data = Json.Serialize<PersonDataNoDates> person
+                xhr.Onload <- fun _ -> ok ()
+                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.Send(data)
 
         let testDateTime date =
             Async.FromContinuations <| fun (ok, ko, _) ->
-                JQuery.Ajax(
-                    JQuery.AjaxSettings(
-                        Url = apiBaseUri + "test-datetime-format/" + date,
-                        Type = JQuery.RequestType.GET,
-                        Success = (fun _ reply _ -> ok reply),
-                        Error = (fun jqXHR _ _ -> ko (exn jqXHR.ResponseText))
-                    )
-                )
+                let xhr = XMLHttpRequest()
+                xhr.Open("GET", (apiBaseUri + "test-datetime-format/" + date))
+                xhr.Onload <- fun _ -> ok (As<string> xhr.Response)
+                xhr.Onerror <- fun _ -> ko <| exn xhr.StatusText
+                xhr.Send()
                 |> ignore
 
         TestCategory "Sitelets JSON API" {
