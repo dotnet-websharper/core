@@ -34,9 +34,10 @@ module ApiTests =
                 let xhr = XMLHttpRequest()
                 xhr.Open("GET", (apiBaseUri + "person?id=" + string id))
                 xhr.SetRequestHeader("Content-Type", "application/json")
+                xhr.ResponseType <- XMLHttpRequestResponseType.Json
                 xhr.Onload <- fun _ ->
                     try
-                        match Json.Decode<Result<PersonDataNoDates>> (As<string> xhr.ResponseText) with
+                        match Json.Decode<Result<PersonDataNoDates>> (As<string> xhr.Response) with
                         | Result.Success p -> ok p
                         | Result.Failure e -> ko (exn e)
                     with e -> ko e
