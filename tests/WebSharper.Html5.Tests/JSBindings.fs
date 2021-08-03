@@ -22,7 +22,6 @@ module WebSharper.Html5.Tests.JSBindings
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 open WebSharper.Testing
 
 
