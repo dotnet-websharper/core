@@ -23,8 +23,13 @@ namespace WebSharper.Tests
 
 open WebSharper
 
+[<Sealed>]
+type JQueryResource() =
+    inherit Resources.BaseResource("https://code.jquery.com/jquery-3.6.0.min.js")
+
 /// Declare how to load Twitter Bootstrap resources from the CDN.
 /// Declare that Twitter Bootstrap depends on jQuery (so that jQuery is included first).
+[<Require(typeof<JQueryResource>)>]
 [<Sealed>]
 type TwitterBootstrap() =
     inherit Resources.BaseResource("//netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/",
