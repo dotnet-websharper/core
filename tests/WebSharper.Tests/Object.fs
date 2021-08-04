@@ -201,6 +201,12 @@ type AlwaysEqual (x) =
 type IA<'T> =
     abstract member Get : unit -> 'T
 
+[<JavaScript>]
+type MyType() =
+    member __.M() = ()
+
+    interface WebSharper.CSharp.Tests.IFoo
+
 //[<JavaScript>]
 //type MultipleIntf() =
 //    interface IA<int> with
@@ -497,12 +503,22 @@ let Tests =
             equal y.SR2b "a"
         }
 
-        //Test "Interfaces with multiple generic implementations" {
+        Skip "Default interface member consumption" {
+            // let a = MyType() :> WebSharper.CSharp.Tests.IFoo
+            // let b = { new WebSharper.CSharp.Tests.IFoo }
+
+            // equal a.Bar 0
+            // equal b.Bar 0
+            equal 1 1
+        }
+
+        Skip "Interfaces with multiple generic implementations" {
         //    let mc = MultipleIntf()
         //    let iaInt = mc :> IA<int>
         //    let iaString = mc :> IA<string>
         //    equal (iaInt.Get()) 1
         //    equal (iaString.Get()) "hello"
-        //}
+            equal 1 1
+        }
 
     }

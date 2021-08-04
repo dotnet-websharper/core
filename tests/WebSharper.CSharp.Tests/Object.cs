@@ -379,4 +379,9 @@ namespace WebSharper.CSharp.Tests
             return PartialMethodRelaxed();
         }
     }
+
+    [JavaScript]
+    public interface IFoo {
+        public int Bar => 0;
+    }
 }
