@@ -46,3 +46,6 @@ type Application =
 
     /// Create a single-page HTML application.
     static member SinglePage : Func<Context<SPA.EndPoint>, Task<Content<SPA.EndPoint>>> -> Sitelet<SPA.EndPoint>
+
+    /// Create a single-page application that returns text.
+    static member Text : Func<Context<SPA.EndPoint>, string> -> Sitelet<SPA.EndPoint>
