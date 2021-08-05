@@ -58,3 +58,6 @@ type Application =
 
     static member MultiPage (f: Func<Context<'EndPoint>, 'EndPoint, Task<Content<'EndPoint>>>) : Sitelet<'EndPoint> =
         Application.MultiPage (fun ctx ep -> f.Invoke(ctx, ep) |> Async.AwaitTask)
+
+    static member Text (f: Func<Context<SPA.EndPoint>, string>) : Sitelet<SPA.EndPoint> =
+        Application.SinglePage (fun context -> Content.Text (f.Invoke context))
