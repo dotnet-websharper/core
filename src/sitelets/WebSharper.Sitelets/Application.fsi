@@ -39,7 +39,7 @@ type Application =
     static member SinglePage : (Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) -> Sitelet<SPA.EndPoint>
 
     /// Create a single-page application that returns text.
-    static member Text : (Context<SPA.EndPoint> -> string) -> Sitelet<SPA.EndPoint>
+    // static member Text : (Context<SPA.EndPoint> -> string) -> Sitelet<SPA.EndPoint>
 
     /// Create a multi-page application.
     static member MultiPage : Func<Context<'EndPoint>, 'EndPoint, Task<Content<'EndPoint>>> -> Sitelet<'EndPoint>
