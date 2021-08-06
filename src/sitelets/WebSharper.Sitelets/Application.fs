@@ -50,8 +50,8 @@ type Application =
                 }
         }
 
-    static member Text (t: Context<SPA.EndPoint> -> string) : Sitelet<SPA.EndPoint> =
-        Application.SinglePage (fun context -> Content.Text (t context))
+    // static member Text (t: Context<SPA.EndPoint> -> string) : Sitelet<SPA.EndPoint> =
+    //     Application.SinglePage (fun context -> Content.Text (t context))
 
     static member SinglePage (f: Func<Context<SPA.EndPoint>, Task<Content<SPA.EndPoint>>>) : Sitelet<SPA.EndPoint> =
         Application.SinglePage (fun ctx -> f.Invoke ctx |> Async.AwaitTask)
