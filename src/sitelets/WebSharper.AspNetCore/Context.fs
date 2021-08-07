@@ -180,7 +180,7 @@ type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
 let private makeEnv (httpCtx: HttpContext) (options: WebSharperOptions) =
     dict [|
         "WebSharper.AspNetCore.HttpContext", box httpCtx
-        "WebSharper.AspNetCore.Services", box options.Services
+        "WebSharper.AspNetCore.Services", box httpCtx.Services
     |]
 
 let Make (httpCtx: HttpContext) (options: WebSharperOptions) =
