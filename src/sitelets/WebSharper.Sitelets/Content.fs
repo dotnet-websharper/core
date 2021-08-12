@@ -21,13 +21,52 @@
 namespace WebSharper.Sitelets
 
 open System.IO
+open System.Threading
+open System.Threading.Tasks
 open WebSharper
+open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Mvc
+
 module CT = WebSharper.Core.ContentTypes
+
+module private ContentHelper =
+
+    let writeResponseAsync (resp: Http.Response) (out: HttpResponse) : Async<unit> =
+        async {
+            use memStr = new MemoryStream()
+            do
+                out.StatusCode <- resp.Status.Code
+                for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
+                    let values =
+                        [| for h in hs -> h.Value |]
+                        |> Microsoft.Extensions.Primitives.StringValues
+                    out.Headers.Append(name, values)
+                resp.WriteBody(memStr :> Stream)
+                memStr.Seek(0L, SeekOrigin.Begin) |> ignore
+            do! memStr.CopyToAsync(out.Body) |> Async.AwaitTask    
+        }
 
 [<CompiledName "FSharpContent">]
 type Content<'Endpoint> =
     | CustomContent of (Context<'Endpoint> -> Http.Response)
     | CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
+
+    static member ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
+        match c with
+        | CustomContent x -> async.Return (x ctx)
+        | CustomContentAsync x -> x ctx
+
+    static member ExecuteResultAsync (context: ActionContext) : Task =
+        async {
+            let ctx = context.HttpContext.Items.["WebSharper.Sitelets.Context"] :?> Context<_>
+            let content = context.HttpContext.Items.["WebSharper.Sitelets.Content"] :?> Content<_>
+            let! rsp = Content<'EndPoint>.ToResponse content ctx
+            do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
+        } |> Async.StartAsTask :> Task
+
+    interface IActionResult with
+        member x.ExecuteResultAsync (context: ActionContext) : Task =
+            Content<'EndPoint>.ExecuteResultAsync context
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
@@ -41,7 +80,7 @@ module Content =
 
     module M = WebSharper.Core.Metadata
 //    module R = WebSharper.Core.Reflection
-    module J = WebSharper.Core.Json
+    module J = WebSharper.Core.Json    
 
     let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
@@ -192,23 +231,21 @@ module Content =
             }
 
     let ToResponse<'T> (c: Content<'T>) (ctx: Context<'T>) : Async<Http.Response> =
-        match c with
-        | CustomContent x -> async.Return (x ctx)
-        | CustomContentAsync x -> x ctx
+        Content<_>.ToResponse c ctx
 
     let FromContext f =
         Content.CustomContentAsync (fun ctx -> async {
             let! content = f ctx
-            return! ToResponse content ctx
+            return! Content<_>.ToResponse content ctx
         })
         |> async.Return
 
-    let ToResponseAsync c ctx = ToResponse c ctx
+    let ToResponseAsync c ctx = Content<_>.ToResponse c ctx
 
     let FromAsync ac =
         CustomContentAsync <| fun ctx -> async {
             let! c = ac
-            return! ToResponse c ctx
+            return! Content<_>.ToResponse c ctx
         }
 
     let delay1 f =
@@ -278,7 +315,7 @@ module Content =
     let Redirect<'T> (endpoint: 'T) =
         CustomContentAsync <| fun ctx ->
             let resp = RedirectToUrl (ctx.Link endpoint)
-            ToResponse resp ctx
+            Content<_>.ToResponse resp ctx
 
     let RedirectPermanentToUrl url = RedirectToUrl url |> async.Return
     let RedirectPermanent endpoint = Redirect endpoint |> async.Return
@@ -297,7 +334,7 @@ module Content =
     let RedirectTemporary<'T> (endpoint: 'T) : Async<Content<'T>> =
         CustomContentAsync <| fun ctx -> async {
             let! content = RedirectTemporaryToUrl (ctx.Link endpoint)
-            return! ToResponse content ctx
+            return! Content<_>.ToResponse content ctx
         }
         |> async.Return
 

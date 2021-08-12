@@ -23,22 +23,10 @@ open System
 open System.IO
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Routing
+open Microsoft.AspNetCore.Mvc
+open Microsoft.AspNetCore.Mvc.Abstractions
 open WebSharper.Sitelets
-
-let private writeResponseAsync (resp: Http.Response) (out: HttpResponse) : Async<unit> =
-    async {
-        use memStr = new MemoryStream()
-        do
-            out.StatusCode <- resp.Status.Code
-            for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
-                let values =
-                    [| for h in hs -> h.Value |]
-                    |> Microsoft.Extensions.Primitives.StringValues
-                out.Headers.Append(name, values)
-            resp.WriteBody(memStr :> Stream)
-            memStr.Seek(0L, SeekOrigin.Begin) |> ignore
-        do! memStr.CopyToAsync(out.Body) |> Async.AwaitTask    
-    }
 
 let Middleware (options: WebSharperOptions) =
     let sitelet =
@@ -53,11 +41,10 @@ let Middleware (options: WebSharperOptions) =
             let ctx = Context.GetOrMake httpCtx options
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
-                async {
-                    let content = sitelet.Controller.Handle endpoint
-                    let! response = Content.ToResponse content ctx
-                    do! writeResponseAsync response httpCtx.Response
-                }
-                |> Async.StartAsTask :> Task
+                httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
+                let content = sitelet.Controller.Handle endpoint
+                httpCtx.Items.Add("WebSharper.Sitelets.Content", content)
+                let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
+                Content.ExecuteResultAsync actionCtx
             | None -> next.Invoke()
         )

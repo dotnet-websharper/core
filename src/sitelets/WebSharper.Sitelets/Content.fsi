@@ -21,7 +21,9 @@
 namespace WebSharper.Sitelets
 
 open System
+open System.Threading.Tasks
 open WebSharper
+open Microsoft.AspNetCore.Mvc
 
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
@@ -31,6 +33,12 @@ type Content<'Endpoint> =
       CustomContent of (Context<'Endpoint> -> Http.Response)
     | [<Obsolete "Use Content.Custom">]
       CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
+    interface IActionResult
+
+    /// Generates an HTTP response.
+    static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>    
+
+    static member ExecuteResultAsync: context:ActionContext -> Task
 
     /// Creates a JSON content from the given object.
     static member Json : 'U -> Async<Content<'Endpoint>>
@@ -61,7 +69,7 @@ type Content<'Endpoint> =
         * ?Headers: seq<Http.Header>
         * ?WriteBody: (System.IO.Stream -> unit)
         -> Async<Content<'Endpoint>>
-
+    
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
