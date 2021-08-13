@@ -35,10 +35,7 @@ type Content<'Endpoint> =
       CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
 
     /// Generates an HTTP response.
-    static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>    
-
-    interface IActionResult
-        override ExecuteResultAsync: context:ActionContext -> Task
+    static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>        
 
     /// Creates a JSON content from the given object.
     static member Json : 'U -> Async<Content<'Endpoint>>
@@ -70,6 +67,8 @@ type Content<'Endpoint> =
         * ?WriteBody: (System.IO.Stream -> unit)
         -> Async<Content<'Endpoint>>
     
+    interface IActionResult
+
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =

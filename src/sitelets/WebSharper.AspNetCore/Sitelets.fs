@@ -43,6 +43,7 @@ let Middleware (options: WebSharperOptions) =
             | Some endpoint ->
                 httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
                 let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
-                Content.ExecuteResultAsync actionCtx
+                let content = sitelet.Controller.Handle endpoint
+                (content:>IActionResult).ExecuteResultAsync actionCtx
             | None -> next.Invoke()
         )
