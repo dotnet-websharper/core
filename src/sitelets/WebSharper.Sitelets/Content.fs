@@ -58,11 +58,15 @@ type Content<'Endpoint> =
 
     interface IActionResult with
         member x.ExecuteResultAsync (context: ActionContext) : Task =
-            async {
-                let ctx = context.HttpContext.Items.["WebSharper.Sitelets.Context"] :?> Context<_>
-                let! rsp = Content<'EndPoint>.ToResponse x ctx
-                do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
-            } |> Async.StartAsTask :> Task
+            let ctx = context.HttpContext.Items.TryGetValue("WebSharper.Sitelets.Context")
+            match ctx with
+            | true, o ->
+                async {
+                    let! rsp = Content<_>.ToResponse x (o:?>Context<_>)
+                    do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
+                } |> Async.StartAsTask :> Task
+            | false, _ ->
+                failwith ""
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =

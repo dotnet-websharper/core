@@ -39,9 +39,9 @@ let Middleware (options: WebSharperOptions) =
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
             let ctx = Context.GetOrMake httpCtx options
+            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
-                httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
                 let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
                 let content = sitelet.Controller.Handle endpoint
                 (content:>IActionResult).ExecuteResultAsync actionCtx
