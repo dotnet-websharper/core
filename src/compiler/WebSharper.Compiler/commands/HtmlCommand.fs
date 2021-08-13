@@ -87,6 +87,7 @@ module HtmlCommand =
             "WebSharper.Sitelets"
             "WebSharper.Core"
             "WebSharper.Core.JavaScript"
+            "Microsoft.AspNetCore.Mvc.Abstractions"
         |] |> Array.iter (fun assemblyName ->
             let path =
                 config.ReferenceAssemblyPaths |> List.tryFind (fun r ->

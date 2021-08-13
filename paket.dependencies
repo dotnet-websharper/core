@@ -17,7 +17,7 @@ nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
 nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
 nuget Microsoft.Extensions.DependencyModel 2.0.0
 nuget Microsoft.CSharp 4.7.0
-nuget Microsoft.AspNetCore.Mvc.Abstractions 2.1.0
+nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 
 nuget System.Net.Http ~> 4.3.0
 nuget FSharp.Core 5.0.0

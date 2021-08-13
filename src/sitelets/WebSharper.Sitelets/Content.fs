@@ -236,16 +236,16 @@ module Content =
     let FromContext f =
         Content.CustomContentAsync (fun ctx -> async {
             let! content = f ctx
-            return! Content<_>.ToResponse content ctx
+            return! ToResponse content ctx
         })
         |> async.Return
 
-    let ToResponseAsync c ctx = Content<_>.ToResponse c ctx
+    let ToResponseAsync c ctx = ToResponse c ctx
 
     let FromAsync ac =
         CustomContentAsync <| fun ctx -> async {
             let! c = ac
-            return! Content<_>.ToResponse c ctx
+            return! ToResponse c ctx
         }
 
     let delay1 f =
@@ -315,7 +315,7 @@ module Content =
     let Redirect<'T> (endpoint: 'T) =
         CustomContentAsync <| fun ctx ->
             let resp = RedirectToUrl (ctx.Link endpoint)
-            Content<_>.ToResponse resp ctx
+            ToResponse resp ctx
 
     let RedirectPermanentToUrl url = RedirectToUrl url |> async.Return
     let RedirectPermanent endpoint = Redirect endpoint |> async.Return
@@ -334,7 +334,7 @@ module Content =
     let RedirectTemporary<'T> (endpoint: 'T) : Async<Content<'T>> =
         CustomContentAsync <| fun ctx -> async {
             let! content = RedirectTemporaryToUrl (ctx.Link endpoint)
-            return! Content<_>.ToResponse content ctx
+            return! ToResponse content ctx
         }
         |> async.Return
 
