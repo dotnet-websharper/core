@@ -33,12 +33,12 @@ type Content<'Endpoint> =
       CustomContent of (Context<'Endpoint> -> Http.Response)
     | [<Obsolete "Use Content.Custom">]
       CustomContentAsync of (Context<'Endpoint> -> Async<Http.Response>)
-    interface IActionResult
 
     /// Generates an HTTP response.
     static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>    
 
-    static member ExecuteResultAsync: context:ActionContext -> Task
+    interface IActionResult
+        override ExecuteResultAsync: context:ActionContext -> Task
 
     /// Creates a JSON content from the given object.
     static member Json : 'U -> Async<Content<'Endpoint>>

@@ -56,17 +56,13 @@ type Content<'Endpoint> =
         | CustomContent x -> async.Return (x ctx)
         | CustomContentAsync x -> x ctx
 
-    static member ExecuteResultAsync (context: ActionContext) : Task =
-        async {
-            let ctx = context.HttpContext.Items.["WebSharper.Sitelets.Context"] :?> Context<_>
-            let content = context.HttpContext.Items.["WebSharper.Sitelets.Content"] :?> Content<_>
-            let! rsp = Content<'EndPoint>.ToResponse content ctx
-            do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
-        } |> Async.StartAsTask :> Task
-
     interface IActionResult with
         member x.ExecuteResultAsync (context: ActionContext) : Task =
-            Content<'EndPoint>.ExecuteResultAsync context
+            async {
+                let ctx = context.HttpContext.Items.["WebSharper.Sitelets.Context"] :?> Context<_>
+                let! rsp = Content<'EndPoint>.ToResponse x ctx
+                do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
+            } |> Async.StartAsTask :> Task
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
