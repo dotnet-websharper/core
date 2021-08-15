@@ -51,13 +51,30 @@ let Middleware (options: WebSharperOptions) =
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
             let ctx = Context.GetOrMake httpCtx options
-            match sitelet.Router.Route ctx.Request with
-            | Some endpoint ->
+            
+            let handleRouterResult r =
+                match r with
+                | Some endpoint ->
+                    async {
+                        let content = sitelet.Controller.Handle endpoint
+                        let! response = Content.ToResponse content ctx
+                        do! writeResponseAsync response httpCtx.Response
+                    }
+                    |> Async.StartAsTask :> Task
+                | None -> next.Invoke()
+
+            let routeWithoutBody =
+                try
+                    Some (sitelet.Router.Route ctx.Request)
+                with :? Router.BodyTextNeededForRoute ->
+                    None 
+
+            match routeWithoutBody with
+            | Some r -> handleRouterResult r
+            | None ->
                 async {
-                    let content = sitelet.Controller.Handle endpoint
-                    let! response = Content.ToResponse content ctx
-                    do! writeResponseAsync response httpCtx.Response
+                    do! ctx.Request.BodyTextAsync |> Async.Ignore
+                    do! handleRouterResult (sitelet.Router.Route ctx.Request) |> Async.AwaitTask  
                 }
                 |> Async.StartAsTask :> Task
-            | None -> next.Invoke()
         )

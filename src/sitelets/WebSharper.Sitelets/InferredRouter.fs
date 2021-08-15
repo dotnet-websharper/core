@@ -49,7 +49,7 @@ module internal ServerInferredOperators =
             QueryArgs : Http.ParameterCollection
             FormData : Http.ParameterCollection
             Method : option<string> 
-            Body : Lazy<string>
+            Body : option<string>
             mutable Result: ParseResult 
         }
     
@@ -59,7 +59,7 @@ module internal ServerInferredOperators =
                 QueryArgs = Http.EmptyParameters
                 FormData = Http.EmptyParameters
                 Method = None
-                Body = Lazy.CreateFromValue null
+                Body = Some null
                 Result = StrictMode
             }
 
@@ -97,7 +97,11 @@ module internal ServerInferredOperators =
                 QueryArgs = r.Get
                 FormData = r.Post
                 Method = Some (r.Method.ToString())
-                Body = lazy r.BodyText
+                Body =
+                    if r.IsBodyTextCompleted then
+                        None
+                    else
+                        Some r.BodyText.Result
                 Result = StrictMode
             }
 
@@ -133,7 +137,7 @@ module internal ServerInferredOperators =
                     if isNull q then Map.empty else Route.ParseQuery (q.ToString())
                 FormData = Map.empty
                 Method = None
-                Body = Lazy.CreateFromValue null
+                Body = Some null
             }
 
         member this.ToLink() =
@@ -556,9 +560,10 @@ module internal ServerInferredOperators =
     let IJson<'T when 'T: equality> : InferredRouter =
         {
             IParse = fun path ->                
-                match path.Body.Value with
-                | null -> error InvalidJson path
-                | b ->
+                match path.Body with
+                | None -> raise (Router.BodyTextNeededForRoute())
+                | Some null -> error InvalidJson path
+                | Some b ->
                     try Some (Json.Deserialize<'T> b |> box)
                     with _ -> error InvalidJson path
             IWrite = ignore

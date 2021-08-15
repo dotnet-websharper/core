@@ -288,7 +288,7 @@ type MethodAttribute([<ParamArray>] methodName: string[]) =
 
 /// Indicates that a field or a union case argument must be parsed
 /// from the request body as JSON, rather than from the URL path.
-[<Sealed; U(T.Property ||| T.Field, AllowMultiple = false); Obsolete("Do not use request body for routing.")>]
+[<Sealed; U(T.Property ||| T.Field, AllowMultiple = false)>]
 type JsonAttribute =
     inherit A
 

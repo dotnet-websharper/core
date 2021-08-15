@@ -157,11 +157,7 @@ module Http =
         abstract Files : seq<IPostedFile>
         abstract Cookies : ParameterCollection
         
-        [<Obsolete("Use BodyTextAsync instead")>]
         member this.BodyText =
-            this.BodyTextAsync |> Async.RunSynchronously
-
-        member this.BodyTextAsync =
             if isNull bodyText then
                 let i = this.Body
                 if isNull i then
@@ -169,7 +165,13 @@ module Http =
                 else
                     let reader = new System.IO.StreamReader(i, System.Text.Encoding.UTF8, false, 1024, leaveOpen = true)
                     bodyText <- reader.ReadToEndAsync()
-            bodyText |> Async.AwaitTask
+            bodyText
+
+        member this.IsBodyTextCompleted = 
+            not (isNull bodyText) && bodyText.IsCompleted
+        
+        member this.BodyTextAsync =
+            this.BodyText |> Async.AwaitTask
 
         member this.WithUri(uri) =
             match this with
