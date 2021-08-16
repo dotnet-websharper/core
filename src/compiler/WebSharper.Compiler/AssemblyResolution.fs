@@ -119,15 +119,16 @@ module Implemetnation =
                 | r -> r
         }
 
-    let first xs =
-        xs
-        |> Seq.tryFind (fun x -> true)
-
     let isMatchingFile name path =
         let f = FileInfo path
         if f.Exists then
             let n = AssemblyName.GetAssemblyName f.FullName
-            isCompatibleForLoad n name
+            let isCompat = isCompatibleForLoad n name
+#if DEBUG
+            if isCompat && n.Version > name.Version then
+                LoggerBase.Current.Out <| sprintf "AssemblyResolver loading higher version: %A instead of %A" n.Version name.Version 
+#endif
+            isCompat
         else false
 
     let searchPaths (paths: seq<string>) =
@@ -135,6 +136,10 @@ module Implemetnation =
             paths
             |> Seq.map Path.GetFullPath
             |> Seq.toArray
+#if DEBUG
+        for path in paths do
+            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search path: %s" path
+#endif
         {
             Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
@@ -145,7 +150,7 @@ module Implemetnation =
                                 if isMatchingFile name path then
                                     yield path
                 }
-                |> first
+                |> Seq.tryHead
         }
 
     let searchDirs (dirs: seq<string>) =
@@ -153,6 +158,10 @@ module Implemetnation =
             dirs
             |> Seq.map Path.GetFullPath
             |> Seq.toArray
+#if DEBUG
+        for dir in dirs do
+            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search dirs: %s" dir
+#endif
         {
             Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
@@ -163,7 +172,7 @@ module Implemetnation =
                             if isMatchingFile name p then
                                 yield p
                 }
-                |> first
+                |> Seq.tryHead
         }
 
     let zero =
