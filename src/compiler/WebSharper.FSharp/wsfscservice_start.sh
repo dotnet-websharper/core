@@ -1,3 +1,3 @@
 ﻿#!/usr/bin/env bash
 
-exec "$(dirname "$BASH_SOURCE")/wsfscservice"
+dotnet exec "$(dirname "$BASH_SOURCE")/wsfscservice.dll"
