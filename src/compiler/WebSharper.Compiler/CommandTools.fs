@@ -294,6 +294,7 @@ module ExecuteCommands =
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = Option.isSome settings.DownloadResources
                     Loader = Some loader
+                    Logger = logger
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.UnpackCommand.Instance.Execute(env, cfg)
