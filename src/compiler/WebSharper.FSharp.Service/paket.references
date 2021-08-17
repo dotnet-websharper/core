@@ -4,4 +4,3 @@ group fcs
 	System.Runtime.Caching
 	System.Configuration.ConfigurationManager
 	NLog
-	NLog.FSharp

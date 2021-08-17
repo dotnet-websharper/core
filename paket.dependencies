@@ -43,7 +43,6 @@ group fcs
     nuget System.Runtime.Caching ~> 5.0.0
     nuget System.Configuration.ConfigurationManager ~> 5.0.0
     nuget NLog ~> 4.7.10
-    nuget NLog.FSharp ~> 4.5.3
     nuget FSharp.Compiler.Service ~> 40.0
     nuget FSharp.Core ~> 5.0.0
 

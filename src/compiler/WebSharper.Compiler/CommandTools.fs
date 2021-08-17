@@ -121,9 +121,7 @@ type WsConfig =
             ProxyTargetName = None
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
-            Standalone = System.Environment.GetEnvironmentVariables()
-                |> Seq.cast<System.Collections.DictionaryEntry>
-                |> Seq.exists (fun x -> (x.Key :?> string).ToLower() = "websharperbuildservice" && (x.Value :?> string).ToLower() = "false")
+            Standalone = System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -230,6 +228,8 @@ type WsConfig =
                 res <- { res with ProxyTargetName = Some (getString k v) }
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = getBool k v }
+            | "standalone" ->
+                res <- { res with Standalone = getBool k v }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         res
