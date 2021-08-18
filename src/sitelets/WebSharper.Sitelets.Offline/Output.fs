@@ -385,20 +385,20 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
 let trimPath (path: string) =
     path.TrimStart('/')
 
-let WriteSite (aR: AssemblyResolver) (conf: Config) =
-    let st = State(conf)
+let WriteSite (aR: AssemblyResolver) (config: Config) =
+    let st = State(config)
     let actionTable = Dictionary()
     let urlTable = Dictionary()
-    let projectFolder = conf.Options.ProjectDirectory
-    let rootFolder = conf.Options.OutputDirectory
+    let projectFolder = config.Options.ProjectDirectory
+    let rootFolder = config.Options.OutputDirectory
     let contents () =
         async {
             let res = ResizeArray()
-            for action in conf.Actions do
-                match conf.Sitelet.Router.Link(action) with
+            for action in config.Actions do
+                match config.Sitelet.Router.Link(action) with
                 | Some location ->
-                    let content = conf.Sitelet.Controller.Handle(action)
-                    let link action = conf.Sitelet.Router.Link(action).Value.ToString()
+                    let content = config.Sitelet.Controller.Handle(action)
+                    let link action = config.Sitelet.Router.Link(action).Value.ToString()
                     let! rC = resolveContent projectFolder rootFolder st location link content
                     do actionTable.[action] <- rC.Path
                     do urlTable.[location] <- rC.Path
@@ -421,7 +421,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                         | true, p -> rC.RelativePath + P.ShowPath p
                         | false, _ ->
                             // Otherwise, link to the action using the router
-                            match conf.Sitelet.Router.Link action with
+                            match config.Sitelet.Router.Link action with
                             | Some loc ->
                                 match urlTable.TryGetValue(loc) with
                                 | true, p -> rC.RelativePath + P.ShowPath p
@@ -439,8 +439,8 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Environment = Map []
                 )
             let! response = rC.Respond context
-            use stream = createFile conf rC.Path
+            use stream = createFile config rC.Path
             return response.WriteBody(stream)
         // Write resources determined to be necessary.
-        return writeResources aR st conf.UnpackSourceMap conf.UnpackTypeScript
+        return writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
     }

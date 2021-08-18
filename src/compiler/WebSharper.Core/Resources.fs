@@ -27,7 +27,7 @@ open System.Reflection
 
 module CT = ContentTypes
     
-type HtmlTextWriter(w: TextWriter, indentString: string) =
+type HtmlTextWriter(w: TextWriter, indent: string) =
     inherit System.IO.TextWriter(w.FormatProvider)
 
     let mutable tagStack = System.Collections.Generic.Stack()
@@ -323,16 +323,16 @@ type Rendering with
             |> RenderLink
         )
 
-    static member TryGetCdn(ctx: Context, asm: Assembly, filename: string) =
-        Rendering.TryGetCdn(ctx, asm.FullName, filename)
+    static member TryGetCdn(ctx: Context, assembly: Assembly, filename: string) =
+        Rendering.TryGetCdn(ctx, assembly.FullName, filename)
 
-    static member GetWebResourceRendering(ctx: Context, t: Type, filename: string) =
-        match Rendering.TryGetCdn(ctx, t.Assembly, filename) with
+    static member GetWebResourceRendering(ctx: Context, resource: Type, filename: string) =
+        match Rendering.TryGetCdn(ctx, resource.Assembly, filename) with
         | Some r -> r
-        | None -> ctx.GetWebResourceRendering t filename
+        | None -> ctx.GetWebResourceRendering resource filename
 
-    static member RenderCached(ctx: Context, res: IResource, getWriter) =
-        let render = ctx.RenderingCache.GetOrAdd(res, valueFactory = System.Func<_,_>(fun (res: IResource) -> res.Render ctx))
+    static member RenderCached(ctx: Context, resource: IResource, getWriter) =
+        let render = ctx.RenderingCache.GetOrAdd(resource, valueFactory = System.Func<_,_>(fun (res: IResource) -> res.Render ctx))
         render getWriter
 
 type Kind =

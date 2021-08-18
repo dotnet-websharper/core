@@ -10,6 +10,7 @@
     <Signed>False</Signed>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <AssemblyName>wsfscservice</AssemblyName>
+    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
   </PropertyGroup>
   <ItemGroup>
     <None Include="NLog.config">

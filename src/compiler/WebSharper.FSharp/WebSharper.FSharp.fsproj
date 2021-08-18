@@ -7,6 +7,7 @@
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="wsfscservice_start.sh">

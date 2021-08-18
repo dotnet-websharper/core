@@ -60,11 +60,11 @@ module PathConventions =
             Name : string
         }
 
-        static member Create(kind, id, name) =
+        static member Create(kind, id, resourceName) =
             {
                 Id = id
                 Kind = kind
-                Name = name
+                Name = resourceName
             }
 
     let private joinWithSlash (a: string) (b: string) =
@@ -127,12 +127,12 @@ module PathConventions =
             | ContentResource -> content ++ r.Id.ShortName ++ r.Name
             | ScriptResource -> scripts ++ r.Id.ShortName ++ r.Name
 
-        static member FileSystem(root) =
-            PathUtility(root, fun a b -> Path.Combine(a, b))
+        static member FileSystem(rootDirectory) =
+            PathUtility(rootDirectory, fun a b -> Path.Combine(a, b))
 
-        static member VirtualPaths(root) =
+        static member VirtualPaths(virtualPathRoot) =
             let root =
-                match root with
+                match virtualPathRoot with
                 | "" | null -> "/"
-                | _ -> root
+                | _ -> virtualPathRoot
             PathUtility(root, joinWithSlash)
