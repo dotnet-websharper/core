@@ -21,7 +21,6 @@
 namespace WebSharper.Compiler
 
 open System
-open System.Collections.Generic
 open System.Collections.Concurrent
 open System.IO
 open System.Reflection
@@ -76,6 +75,9 @@ module Implemetnation =
             sysRuntimeAsm.Location
         let sysRuntimeDir = DirectoryInfo(Path.GetDirectoryName(sysRuntimePath))
         let runtimeVersion = sysRuntimeDir.Name
+#if DEBUG
+        LoggerBase.Current.Out <| sprintf "where are we now: %s" sysRuntimeDir.Parent.Parent.FullName
+#endif
         sysRuntimeDir.Parent.Parent.GetDirectories()
         |> Seq.choose (fun fwdir ->
             fwdir.GetDirectories() |> Seq.tryFind (fun vdir -> vdir.Name = runtimeVersion)
@@ -119,6 +121,12 @@ module Implemetnation =
         }
 
         member r.ResolveAssembly(dom: AppDomain, loadContext: option<AssemblyLoadContext>, asmNameOrPath: string) =
+            let dict = System.Collections.Generic.Dictionary<AppDomain * AssemblyName, Assembly option>()
+            let tryFindAssembly dom name =
+                if dict.ContainsKey(dom, name) |> not then
+                    let res = tryFindAssembly dom name 
+                    dict.Add((dom, name), res)
+                dict.[dom, name]
             let resolve (x: string) =
                 let isFilePath =
                    x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) 
