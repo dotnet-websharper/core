@@ -92,8 +92,8 @@ module UnpackCommand =
             Path.GetDirectoryName(pathToSelf)
         let aR =
             AssemblyResolver.Create()
-                .SearchPaths(cmd.Assemblies)
                 .SearchDirectories([baseDir])
+                .SearchPaths(cmd.Assemblies)
         let loader = 
             match cmd.Loader with
             | Some l ->
