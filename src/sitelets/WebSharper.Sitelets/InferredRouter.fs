@@ -99,9 +99,9 @@ module internal ServerInferredOperators =
                 Method = Some (r.Method.ToString())
                 Body =
                     if r.IsBodyTextCompleted then
-                        None
-                    else
                         Some r.BodyText.Result
+                    else
+                        None
                 Result = StrictMode
             }
 

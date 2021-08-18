@@ -425,9 +425,9 @@ type Route =
             Method = Some (r.Method.ToString())
             Body =
                 if r.IsBodyTextCompleted then
-                    None
-                else
                     Some r.BodyText.Result
+                else
+                    None
         }
 
     static member FromHash(path: string, ?strict: bool) =
