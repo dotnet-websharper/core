@@ -75,9 +75,6 @@ module Implemetnation =
             sysRuntimeAsm.Location
         let sysRuntimeDir = DirectoryInfo(Path.GetDirectoryName(sysRuntimePath))
         let runtimeVersion = sysRuntimeDir.Name
-#if DEBUG
-        LoggerBase.Current.Out <| sprintf "where are we now: %s" sysRuntimeDir.Parent.Parent.FullName
-#endif
         sysRuntimeDir.Parent.Parent.GetDirectories()
         |> Seq.choose (fun fwdir ->
             fwdir.GetDirectories() |> Seq.tryFind (fun vdir -> vdir.Name = runtimeVersion)
