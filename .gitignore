@@ -26,3 +26,4 @@
 /.paket/fake.exe
 /.paket/.store/
 /.ionide
+/tests/StressTesting/reports/
