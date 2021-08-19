@@ -276,10 +276,12 @@ module ExecuteCommands =
                 match settings.OutputDir with
                 | None | Some "" -> Path.Combine(webRoot, "bin")
                 | Some p -> p
+            let rootDir = Path.GetDirectoryName(settings.ProjectFile)
+            let fullDir = Path.Combine(rootDir, dir)
             [
-                yield! Directory.EnumerateFiles(dir, "*.dll")
-                yield! Directory.EnumerateFiles(dir, "*.exe")
-                yield settings.AssemblyFile
+                yield! Directory.EnumerateFiles(fullDir, "*.dll")
+                yield! Directory.EnumerateFiles(fullDir, "*.exe")
+                yield Path.Combine(rootDir, settings.AssemblyFile)
                 yield! settings.References
             ]        
             |> List.distinct

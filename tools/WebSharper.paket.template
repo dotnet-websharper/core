@@ -16,6 +16,7 @@ dependencies
         FSharp.Core >= LOCKEDVERSION
         System.Reflection.Emit.Lightweight >= LOCKEDVERSION
         System.Configuration.ConfigurationManager >= LOCKEDVERSION
+        Microsoft.AspNetCore.Mvc.Abstractions >= LOCKEDVERSION
 files
     ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.xml ==> lib/netstandard2.0
