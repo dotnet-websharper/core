@@ -42,17 +42,55 @@ module Implemetnation =
         ref.Name = def.Name && 
             (ref.Version = null || def.Version = null || ref.Version = def.Version)
 
+    let isCompatibleRuntimeForLoad (ref: AssemblyName) (def: AssemblyName) =
+        ref.Name = def.Name && 
+            (ref.Version = null || def.Version = null || ref.Version >= def.Version)
+
     let isCompatibleForInherit (ref: AssemblyName) (def: AssemblyName) =
         ref.Name = def.Name && 
             (forceNonCompatible ref || ref.Version = null || def.Version = null || ref.Version = def.Version)
+            
+    let isMatchingRuntimeFile name path =
+        let n = AssemblyName.GetAssemblyName path
+        let isCompat = isCompatibleRuntimeForLoad n name
+#if DEBUG
+        if isCompat && n.Version > name.Version then
+            LoggerBase.Current.Out <| sprintf "AssemblyResolver loading higher version from runtime: %A instead of %A" n name
+#endif
+        isCompat
 
-    let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
-        let asmsProp = typeof<AssemblyLoadContext>.GetProperty("Assemblies", [||])
-        let assemblies = asmsProp.GetMethod.Invoke(AssemblyLoadContext.Default, [||])
-        assemblies :?> seq<Assembly>
-        |> Seq.tryFind (fun a ->
-            a.GetName()
-            |> isCompatibleForInherit name)
+    let asmsProp = typeof<AssemblyLoadContext>.GetProperty("Assemblies", [||])
+
+    let amsToDictByName paths =
+        paths
+        |> Seq.choose (fun path ->
+            let asmName = 
+                try
+                    Some (AssemblyName.GetAssemblyName path)
+                with _ -> None
+            match asmName with
+            | None -> None
+            | Some n -> Some (n.Name, path)
+        )
+        |> dict
+
+    let runtimeAsmDict =
+        let sysRuntimePath =
+            let assemblies = asmsProp.GetMethod.Invoke(AssemblyLoadContext.Default, [||])
+            let sysRuntimeAsm =
+                assemblies :?> seq<Assembly>
+                |> Seq.find (fun a -> a.GetName().Name = "System.Runtime")    
+            sysRuntimeAsm.Location
+        let sysRuntimeDir = DirectoryInfo(Path.GetDirectoryName(sysRuntimePath))
+        let runtimeVersion = sysRuntimeDir.Name
+        sysRuntimeDir.Parent.Parent.GetDirectories()
+        |> Seq.choose (fun fwdir ->
+            fwdir.GetDirectories() |> Seq.tryFind (fun vdir -> vdir.Name = runtimeVersion)
+        )
+        |> Seq.collect (fun vdir ->
+            vdir.EnumerateFiles("*.dll") |> Seq.map (fun fi -> fi.FullName)
+        )
+        |> amsToDictByName
 
     let loadIntoAppDomain (dom: AppDomain) (path: string) =
         try File.ReadAllBytes path |> dom.Load
@@ -63,6 +101,25 @@ module Implemetnation =
         try loadContext.LoadFromStream fs 
         with :? System.BadImageFormatException -> null
 
+    let tryFindAssembly (dom: AppDomain) (name: AssemblyName) =
+        let assemblies = asmsProp.GetMethod.Invoke(AssemblyLoadContext.Default, [||])
+        let inMainContext =
+            assemblies :?> seq<Assembly>
+            |> Seq.tryFind (fun a ->
+                a.GetName()
+                |> isCompatibleForInherit name)
+        match inMainContext with
+        | None -> 
+            match runtimeAsmDict.TryGetValue(name.Name) with
+            | true, p when isMatchingRuntimeFile name p -> 
+#if DEBUG
+                LoggerBase.Current.Out <| sprintf "AssemblyResolver loading assembly as collectible from runtime: %s" p
+#endif
+                loadIntoAppDomain dom p |> Some 
+            | _ ->
+                None
+        | res -> res
+
     type AssemblyResolution =
         {
             Cache : ConcurrentDictionary<string, Assembly>
@@ -71,22 +128,29 @@ module Implemetnation =
 
         member r.ResolveAssembly(dom: AppDomain, loadContext: option<AssemblyLoadContext>, asmNameOrPath: string) =
             let resolve (x: string) =
-                if x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) then
-                    let p = Path.GetFullPath x
+                let isFilePath =
+                   x.EndsWith(".dll", StringComparison.InvariantCultureIgnoreCase) 
+                   || x.EndsWith(".exe", StringComparison.InvariantCultureIgnoreCase) 
+                let name =
+                    if isFilePath then
+                        AssemblyName(Path.GetFileNameWithoutExtension x)
+                    else
+                        AssemblyName(x)
+                match tryFindAssembly dom name with
+                | None ->
+                    if isFilePath then
+                        let p = Path.GetFullPath x
 #if DEBUG
-                    LoggerBase.Current.Out <| sprintf "AssemblyResolver loading assembly as collectible from path: %s" p
+                        LoggerBase.Current.Out <| sprintf "AssemblyResolver loading assembly as collectible from path: %s" p
 #endif
-                    let asm =
-                        match loadContext with
-                        | Some alc ->
-                            loadIntoAssemblyLoadContext alc p
-                        | None ->
-                            loadIntoAppDomain dom p
-                    asm
-                else
-                    let name = AssemblyName(x)
-                    match tryFindAssembly dom name with
-                    | None ->
+                        let asm =
+                            match loadContext with
+                            | Some alc ->
+                                loadIntoAssemblyLoadContext alc p
+                            | None ->
+                                loadIntoAppDomain dom p
+                        asm
+                    else
                         match r.ResolvePath name with
                         | None -> 
 #if DEBUG
@@ -102,11 +166,11 @@ module Implemetnation =
                                 loadIntoAssemblyLoadContext alc p
                             | None ->
                                 loadIntoAppDomain dom p
-                    | Some r -> 
+                | Some r -> 
 #if DEBUG
-                        LoggerBase.Current.Out <| sprintf "AssemblyResolver resolved assembly from main context: %s" x
+                    LoggerBase.Current.Out <| sprintf "AssemblyResolver resolved assembly from main context: %s" x
 #endif
-                        r
+                    r
 
             r.Cache.GetOrAdd(asmNameOrPath, valueFactory = Func<_,_>(resolve))
 
@@ -119,52 +183,45 @@ module Implemetnation =
                 | r -> r
         }
 
-    let first xs =
-        xs
-        |> Seq.tryFind (fun x -> true)
-
     let isMatchingFile name path =
         let f = FileInfo path
         if f.Exists then
             let n = AssemblyName.GetAssemblyName f.FullName
-            isCompatibleForLoad n name
+            let isCompat = isCompatibleForLoad n name
+#if DEBUG
+            if isCompat && n.Version > name.Version then
+                LoggerBase.Current.Out <| sprintf "AssemblyResolver loading higher version: %A instead of %A" n.Version name.Version 
+#endif
+            isCompat
         else false
 
     let searchPaths (paths: seq<string>) =
-        let paths =
-            paths
-            |> Seq.map Path.GetFullPath
-            |> Seq.toArray
+        let asmsDict = amsToDictByName paths
+#if DEBUG
+        for path in paths do
+            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search path: %s" path
+#endif
         {
             Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
-                seq {
-                    for path in paths do
-                        for ext in [".dll"; ".exe"] do
-                            if String.Equals(Path.GetFileName(path), name.Name + ext, StringComparison.OrdinalIgnoreCase) then
-                                if isMatchingFile name path then
-                                    yield path
-                }
-                |> first
+                match asmsDict.TryGetValue(name.Name) with
+                | true, path when isMatchingFile name path ->
+                    Some path
+                | _ ->
+                    None
         }
 
     let searchDirs (dirs: seq<string>) =
-        let dirs =
+        let paths =
             dirs
-            |> Seq.map Path.GetFullPath
-            |> Seq.toArray
-        {
-            Cache = ConcurrentDictionary()
-            ResolvePath = fun name ->
-                seq {
-                    for dir in dirs do
-                        for ext in [".dll"; ".exe"] do
-                            let p = Path.Combine(dir, name.Name + ext)
-                            if isMatchingFile name p then
-                                yield p
-                }
-                |> first
-        }
+            |> Seq.collect (fun dir ->
+                Seq.append (Directory.EnumerateFiles(dir, "*.dll")) (Directory.EnumerateFiles(dir, "*.exe"))
+            )
+#if DEBUG
+        for dir in dirs do
+            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search dirs: %s" dir
+#endif
+        searchPaths paths
 
     let zero =
         { Cache = ConcurrentDictionary(); ResolvePath = fun name -> None }
