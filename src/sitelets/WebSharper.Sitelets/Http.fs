@@ -145,8 +145,6 @@ module Http =
     /// Represents HTTP requests.
     [<AbstractClass>]
     type Request() =
-        let mutable bodyText = null : Task<string>
-
         abstract Method : Method 
         abstract Uri : System.Uri 
         abstract Headers : seq<Header> 
@@ -156,23 +154,10 @@ module Http =
         abstract Body : Stream
         abstract Files : seq<IPostedFile>
         abstract Cookies : ParameterCollection
+        abstract BodyText : Task<string>
+        abstract IsBodyTextCompleted : bool
+        abstract BodyTextAsync : Async<string>
         
-        member this.BodyText =
-            if isNull bodyText then
-                let i = this.Body
-                if isNull i then
-                    bodyText <- Task.FromResult ""    
-                else
-                    let reader = new System.IO.StreamReader(i, System.Text.Encoding.UTF8, false, 1024, leaveOpen = true)
-                    bodyText <- reader.ReadToEndAsync()
-            bodyText
-
-        member this.IsBodyTextCompleted = 
-            not (isNull bodyText) && bodyText.IsCompleted
-        
-        member this.BodyTextAsync =
-            this.BodyText |> Async.AwaitTask
-
         member this.WithUri(uri) =
             match this with
             | :? RequestWithUri as req ->
@@ -191,6 +176,9 @@ module Http =
                 override x.Body = Stream.Null
                 override x.Files = Seq.empty
                 override x.Cookies = EmptyParameters
+                override x.BodyText = Task.FromResult ""
+                override x.IsBodyTextCompleted = true
+                override x.BodyTextAsync = async.Return ""
             }
 
     // optimized wrapper around Request, used for IRouter.Shift
@@ -206,6 +194,9 @@ module Http =
         override x.Body = req.Body
         override x.Files = req.Files
         override x.Cookies = req.Cookies
+        override x.BodyText = req.BodyText
+        override x.IsBodyTextCompleted = req.IsBodyTextCompleted
+        override x.BodyTextAsync = req.BodyTextAsync
 
     /// Represents the status of HTTP responses.
     /// TODO

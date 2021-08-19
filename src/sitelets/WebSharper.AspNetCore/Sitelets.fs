@@ -46,7 +46,7 @@ let Middleware (options: WebSharperOptions) =
                 | Some endpoint ->
                     let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
                     let content = sitelet.Controller.Handle endpoint
-                    (content:>IActionResult).ExecuteResultAsync actionCtx
+                    (content :> IActionResult).ExecuteResultAsync actionCtx
                 | None -> next.Invoke()
 
             let routeWithoutBody =
@@ -60,7 +60,8 @@ let Middleware (options: WebSharperOptions) =
             | None ->
                 async {
                     do! ctx.Request.BodyTextAsync |> Async.Ignore
-                    do! handleRouterResult (sitelet.Router.Route ctx.Request) |> Async.AwaitTask  
+                    let routeWithBody = sitelet.Router.Route ctx.Request
+                    do! handleRouterResult routeWithBody |> Async.AwaitTask  
                 }
                 |> Async.StartAsTask :> Task
         )
