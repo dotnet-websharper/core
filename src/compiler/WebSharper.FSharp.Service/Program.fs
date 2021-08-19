@@ -102,8 +102,12 @@ let startListening() =
                     let send paramPrint str = async {
                         let newMessage = paramPrint str
                         nLogger.Trace(sprintf "Server sends: %s" newMessage)
-                        let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
-                        do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
+                        let bf = new BinaryFormatter()
+                        use ms = new MemoryStream()
+                        bf.Serialize(ms, newMessage)
+                        ms.Flush()
+                        ms.Position <- 0L
+                        do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
                         serverPipe.Flush()
                     }
                     // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
@@ -164,13 +168,9 @@ let startListening() =
     let handOverPipe (serverPipe: NamedPipeServerStream) (token: CancellationToken) =
         async {
             try
-                let handleMessage (message: byte array) = 
+                let handleMessage (message: obj) = 
                     async {
-                        let ms = new MemoryStream(message)
-                        ms.Position <- 0L
-                        let bf = new BinaryFormatter()
-                        let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
-                        agent.Post (deserializedMessage, serverPipe, token)
+                        agent.Post (message :?> ArgsType, serverPipe, token)
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
@@ -190,7 +190,7 @@ let startListening() =
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
                           -1, // max number of server instances
-                          PipeTransmissionMode.Message, // Transmissione Mode
+                          PipeTransmissionMode.Byte, // Transmissione Mode
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
@@ -203,7 +203,9 @@ let startListening() =
     nLogger.Debug(sprintf "Server listening started on %s pipeName" pipeName)
     Async.Start (pipeListener tokenSource.Token)
     // client starts the service without window. You have to shut down the service from Task Manager/ kill command.
-    Console.ReadLine() |> ignore
+    use locker = new AutoResetEvent(false)
+    locker.WaitOne() |> ignore
+
     tokenSource.Cancel()
 
 [<assembly: System.Reflection.AssemblyTitleAttribute("WebSharper Booster " + AssemblyVersionInformation.AssemblyFileVersion)>]

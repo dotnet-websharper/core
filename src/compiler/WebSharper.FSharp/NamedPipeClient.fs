@@ -62,7 +62,12 @@ let sendCompileCommand args =
     nLogger.Debug(sprintf "location of wsfsc.exe and wsfscservice.exe: %s" location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
     nLogger.Debug(sprintf "pipeName is : %s" pipeName)
-    let fileNameOfService = (location, "wsfscservice.exe") |> System.IO.Path.Combine
+    let exeName =
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
+            "wsfscservice.exe"
+        else 
+            "wsfscservice"
+    let fileNameOfService = (location, exeName) |> System.IO.Path.Combine
     let runningServers =
         try
             Process.GetProcessesByName("wsfscservice")
@@ -98,15 +103,14 @@ let sendCompileCommand args =
                           PipeDirection.InOut, // direction of the pipe 
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
-    let Write (bytes: byte array) =
+    let Write (ms: MemoryStream) =
         if clientPipe.IsConnected && clientPipe.CanWrite then
             let unexpectedFinishErrorCode = -12211
             let write = async {
-                let printResponse (bytes: byte array) = 
+                let printResponse (message: obj) = 
                     async {
-                        let message = System.Text.Encoding.UTF8.GetString(bytes)
                         // messages on the service have n: e: or x: prefix for stdout stderr or error code kind of output
-                        match message with
+                        match message :?> string with
                         | StdOut n ->
                             printfn "%s" n
                             return None
@@ -120,7 +124,7 @@ let sendCompileCommand args =
                             nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
-                do! clientPipe.AsyncWrite(bytes, 0, bytes.Length)
+                do! ms.CopyToAsync(clientPipe) |> Async.AwaitTask
                 clientPipe.Flush()
                 let! errorCode = readingMessages clientPipe printResponse
                 match errorCode with
@@ -152,9 +156,8 @@ let sendCompileCommand args =
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
     ms.Flush();
-    let data = ms.ToArray();
+    ms.Position <- 0L
     clientPipe.Connect()
-    clientPipe.ReadMode <- PipeTransmissionMode.Message
-    let returnCode = Write data
+    let returnCode = Write ms
     nLogger.Debug(sprintf "wsfscservice.exe compiled in %s with error code: %i" location returnCode)
     returnCode
