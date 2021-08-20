@@ -196,7 +196,7 @@ Target.create "RunTestsRelease" <| fun _ ->
     let res =
         Shell.Exec(
             "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "http://localhost:5000/consoletests /engine Chrome /silent /failOnError /showFailureReport"
+            "http://localhost:3091/consoletests /engine Chrome /silent /failOnError /showFailureReport"
         )
     webTestsProc.Kill()
     if res <> 0 then
