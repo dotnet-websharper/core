@@ -11,36 +11,50 @@ open System.Net.Http.Json
 
 let endpointUrl = "https://localhost:44336/"
 
-type RecTest =
-    {
-        A : string
-        B : int
-        C : bool
-    }
-
 [<EntryPoint>]
 let main argv =        
 
     let httpFactory = HttpClientFactory.create()
 
-    let jsonObj = { A = "hello"; B = 123; C = false }
-    let json = """{"A":"hello","B":123,"C":false}"""
+    let siteletTest = 
+        Step.create(
+            "sitelet_home",
+            clientFactory = httpFactory, 
+            timeout = seconds 10,
+            execute = fun context ->
+                Http.createRequest "GET" (endpointUrl + "sitelet-tests")
+                |> Http.send context
+    )
 
+    let json = """{"A":"hello","B":123,"C":false}"""
     let jsonPost = 
         Step.create(
-            "json_testing",
-            clientFactory = httpFactory,
+            "json_post",
+            clientFactory = httpFactory, 
+            timeout = seconds 10,
             execute = fun context ->
                 Http.createRequest "POST" (endpointUrl + "perf-tests/json-input")
-                //|> Http.withHeader "Accept" "text/html"
-                //|> Http.withBody (JsonContent.Create(jsonObj))
                 |> Http.withBody (new StringContent(json))
                 |> Http.send context
     )
 
-    Scenario.create "post_to_engine" [jsonPost]    
+    let jsonGet = 
+        Step.create(
+            "json_get",
+            clientFactory = httpFactory, 
+            timeout = seconds 10,
+            execute = fun context ->
+                Http.createRequest "GET" (endpointUrl + "sitelet-tests/api/person?id=1")
+                |> Http.send context
+    )
+
+    Scenario.create "sitelets_testing" [
+        siteletTest
+        jsonPost
+        jsonGet
+    ]    
     |> Scenario.withWarmUpDuration(seconds 10)
-    |> Scenario.withLoadSimulations [InjectPerSec(rate = 5, during = seconds 20)]
+    |> Scenario.withLoadSimulations [InjectPerSec(rate = 100, during = minutes 1)]
     |> NBomberRunner.registerScenario
     |> NBomberRunner.run
     |> ignore
