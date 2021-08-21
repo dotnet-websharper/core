@@ -22,6 +22,7 @@ module WebSharper.AspNetCore.Context
 open System
 open System.Collections.Generic
 open System.Collections.Specialized
+open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Authentication
 open WebSharper.Sitelets
@@ -59,6 +60,7 @@ type private AspNetCoreRequest(req: HttpRequest) =
     let mutable post = null
     let mutable get = null
     let mutable cookies = null
+    let mutable bodyText = null : Task<string>
 
     override this.Method = method
     override this.Uri = uri                                     
@@ -133,6 +135,17 @@ type private AspNetCoreRequest(req: HttpRequest) =
                         ]    
                 }
         cookies
+    override this.BodyText =
+        this.BodyTextAsync |> Async.RunSynchronously
+    override this.BodyTextAsync =
+        if isNull bodyText then
+            let i = this.Body
+            if isNull i then
+                bodyText <- Task.FromResult ""    
+            else
+                let reader = new System.IO.StreamReader(i, System.Text.Encoding.UTF8, false, 1024, leaveOpen = true)
+                bodyText <- reader.ReadToEndAsync()
+        bodyText |> Async.AwaitTask
 
 let private buildRequest (req: HttpRequest) =
     AspNetCoreRequest req :> Http.Request

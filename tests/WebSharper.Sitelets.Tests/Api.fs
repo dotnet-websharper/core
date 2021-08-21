@@ -122,7 +122,7 @@ module Api =
             Content.Json (ApplicationLogic.deletePerson id)
         | UpdatePerson id ->
             async {
-                let! data = (new System.IO.StreamReader(ctx.Request.Body)).ReadToEndAsync() |> Async.AwaitTask
+                let! data = ctx.Request.BodyTextAsync
                 let p = Json.Deserialize<PersonDataNoDates> data
                 let personData =
                     { 
