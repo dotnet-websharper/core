@@ -121,7 +121,11 @@ type WsConfig =
             ProxyTargetName = None
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
-            Standalone = System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
+            Standalone = 
+                try
+                    System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
+                with
+                | _ -> false
         }
 
     static member ParseAnalyzeClosures(c: string) =

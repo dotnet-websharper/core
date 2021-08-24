@@ -32,7 +32,7 @@
   </PropertyGroup>
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net5.0\deploy\</FscToolPath>
+    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net5.0\$(NETCoreSdkRuntimeIdentifier)\deploy\</FscToolPath>
     <FscToolExe>wsfsc.exe</FscToolExe>
     <FscBoosterCmd>wsfscservice_start.cmd</FscBoosterCmd>
   </PropertyGroup>
