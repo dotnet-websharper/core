@@ -183,7 +183,9 @@ let startListening() =
             }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
     // start listening. When Client connects, spawn a message processor and start another listen
     let rec pipeListener token = async {
         let serverPipe = new NamedPipeServerStream( 
