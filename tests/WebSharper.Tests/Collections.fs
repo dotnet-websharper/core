@@ -168,10 +168,9 @@ type DictTest<'T, 'U when 'T : equality and 'U : equality>() =
             | Some (_, av) ->
                 v <- av
                 true
-        member this.Item with
-                get ind = innerCollection |> List.find (fun (k, _) -> ind = k) |> snd
-            and
-                set ind v = innerCollection <- (innerCollection |> List.map (fun (k, ov) -> if k = ind then k,v else k,ov))
+        member this.Item
+            with get ind = innerCollection |> List.find (fun (k, _) -> ind = k) |> snd
+            and set ind v = innerCollection <- (innerCollection |> List.map (fun (k, ov) -> if k = ind then k,v else k,ov))
         member this.Keys =
             (innerCollection |> List.map (fst) |> List.toArray) :> System.Collections.Generic.ICollection<'T>
         member this.Values =
@@ -241,10 +240,9 @@ type DictTest() =
         member this.IsFixedSize = false
         member this.SyncRoot = null
         member this.IsSynchronized = false
-        member this.Item with
-                get ind = innerCollection |> Array.find (fun (k, _) -> ind = k) |> snd
-            and
-                set ind v = innerCollection <- (innerCollection |> Array.map (fun (k, ov) -> if k = ind then k,v else k,ov))
+        member this.Item
+            with get ind = innerCollection |> Array.find (fun (k, _) -> ind = k) |> snd
+            and set ind v = innerCollection <- (innerCollection |> Array.map (fun (k, ov) -> if k = ind then k,v else k,ov))
         member this.Keys =
             (innerCollection |> Array.map (fst)) :> System.Collections.ICollection
         member this.Values =

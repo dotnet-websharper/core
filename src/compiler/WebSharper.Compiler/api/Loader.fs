@@ -90,12 +90,12 @@ type Loader(aR: AssemblyResolver, log: string -> unit, cache: ConcurrentDictiona
         let def = Mono.Cecil.AssemblyDefinition.ReadAssembly(str, par)
         Assembly.Create(def, ?loadPath = flp, ?symbols = symbols)
 
-    static member Create(res: AssemblyResolver)(log) =
+    static member Create(resolver: AssemblyResolver)(log) =
         let cache = ConcurrentDictionary<string, Assembly>()
-        Loader(res, log, cache)
+        Loader(resolver, log, cache)
 
-    member this.WithAssemblyResolver(res: AssemblyResolver) =
-        Loader(res, log, cache)
+    member this.WithAssemblyResolver(resolver: AssemblyResolver) =
+        Loader(resolver, log, cache)
 
     member this.LoadRaw(bytes)(symbols) =
         load None bytes symbols aR

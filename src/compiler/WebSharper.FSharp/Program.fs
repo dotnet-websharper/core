@@ -29,7 +29,6 @@ open WebSharper.Compiler.FSharp.Compile
 open WebSharper.FSharp.NamedPipeClient
 open WebSharper.Compiler.CommandTools
 open WebSharper.Compiler.FSharp.ErrorPrinting
-open NLog.FSharp
 
 let formatArgv (argv: string[]) =
     match argv with
@@ -42,7 +41,13 @@ let formatArgv (argv: string[]) =
 [<EntryPoint>]
 let main(argv) =
     System.Runtime.GCSettings.LatencyMode <- System.Runtime.GCLatencyMode.Batch
-    let nLogger = Logger()
+    let nLogger = 
+        let callerType = 
+            System.Diagnostics.StackTrace(0, false)
+                .GetFrames().[0]
+                .GetMethod()
+                .DeclaringType
+        NLog.LogManager.GetLogger(callerType.Name)
     nLogger.Trace "Trace level is on"
     nLogger.Debug "Debug level is on"
     let argv = formatArgv argv
@@ -61,7 +66,7 @@ let main(argv) =
                     "WebSharperBuildService environment variable is set to false"
                 else
                     "--standalone compile flag is set or WebSharperStandalone targets variable set"
-            nLogger.Debug "Start compilation in standalone mode because %s." reason
+            nLogger.Debug(sprintf "Start compilation in standalone mode because %s." reason)
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
             let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
 #if DEBUG

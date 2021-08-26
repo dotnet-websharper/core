@@ -27,13 +27,18 @@ open FSharp.Compiler.CodeAnalysis
 open System.Runtime.Caching
 open WebSharper.Compiler.WsFscServiceCommon
 open WebSharper.Compiler
-open NLog.FSharp
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open WebSharper.Compiler.CommandTools
 
 let startListening() =
-    let nLogger = Logger()
+    let nLogger = 
+        let callerType = 
+            System.Diagnostics.StackTrace(0, false)
+                .GetFrames().[0]
+                .GetMethod()
+                .DeclaringType
+        NLog.LogManager.GetLogger(callerType.Name)
     nLogger.Trace "Trace level is on"
     nLogger.Debug "Debug level is on"
     let checker = FSharpChecker.Create(keepAssemblyContents = true)
@@ -53,10 +58,10 @@ let startListening() =
                 let monitor = new HostFileChangeMonitor([| x |])
                 policy.ChangeMonitors.Add monitor
                 memCache.Set(x, result, policy)
-                nLogger.Trace "Storing assembly: %s" x
+                nLogger.Trace(sprintf "Storing assembly: %s" x)
                 memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | Some x ->
-            nLogger.Trace "Reading assembly: %s" x
+            nLogger.Trace(sprintf "Reading assembly: %s" x)
             memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | None ->
             // in-memory assembly may have no path. nLogger. 
@@ -93,12 +98,16 @@ let startListening() =
                 match projectDirOption with
                 | Some project -> 
                     System.Environment.CurrentDirectory <- project
-                    nLogger.Debug "Compiling %s" projectOption.Value
+                    nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
                     let send paramPrint str = async {
                         let newMessage = paramPrint str
-                        nLogger.Trace "Server sends: %s" newMessage
-                        let bytes = System.Text.Encoding.UTF8.GetBytes(newMessage)
-                        do! serverPipe.WriteAsync(bytes, 0, bytes.Length, token) |> Async.AwaitTask
+                        nLogger.Trace(sprintf "Server sends: %s" newMessage)
+                        let bf = new BinaryFormatter()
+                        use ms = new MemoryStream()
+                        bf.Serialize(ms, newMessage)
+                        ms.Flush()
+                        ms.Position <- 0L
+                        do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
                         serverPipe.Flush()
                     }
                     // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
@@ -145,7 +154,7 @@ let startListening() =
                     ()
             with 
             | ex -> 
-                nLogger.ErrorException ex "Error in MailBoxProcessor loop"
+                nLogger.Error(ex, "Error in MailBoxProcessor loop")
             // loop to top
             return! messageLoop ()
             }
@@ -159,13 +168,9 @@ let startListening() =
     let handOverPipe (serverPipe: NamedPipeServerStream) (token: CancellationToken) =
         async {
             try
-                let handleMessage (message: byte array) = 
+                let handleMessage (message: obj) = 
                     async {
-                        let ms = new MemoryStream(message)
-                        ms.Position <- 0L
-                        let bf = new BinaryFormatter()
-                        let deserializedMessage: ArgsType = bf.Deserialize(ms) :?> ArgsType
-                        agent.Post (deserializedMessage, serverPipe, token)
+                        agent.Post (message :?> ArgsType, serverPipe, token)
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
@@ -174,31 +179,35 @@ let startListening() =
                 serverPipe.Close()
             with
             | ex ->
-                nLogger.ErrorException ex "Error in handleMessage loop"
+                nLogger.Error(ex, "Error in handleMessage loop")
             }
 
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
+    nLogger.Debug(sprintf "location of wsfscservice is: %s (server side)" location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
+    nLogger.Debug(sprintf "pipename is: %s (server side)" location)
     // start listening. When Client connects, spawn a message processor and start another listen
     let rec pipeListener token = async {
         let serverPipe = new NamedPipeServerStream( 
                           pipeName, // name of the pipe,
                           PipeDirection.InOut, // diretcion of the pipe 
                           -1, // max number of server instances
-                          PipeTransmissionMode.Message, // Transmissione Mode
+                          PipeTransmissionMode.Byte, // Transmissione Mode
                           PipeOptions.WriteThrough // the operation will not return the control until the write is completed
                           ||| PipeOptions.Asynchronous)
         do! serverPipe.WaitForConnectionAsync(token) |> Async.AwaitTask
-        nLogger.Debug "Client connected on %s pipeName" pipeName
+        nLogger.Debug(sprintf "Client connected on %s pipeName" pipeName)
         Async.Start (handOverPipe serverPipe token, token)
         do! pipeListener token
         }
 
     let tokenSource = new CancellationTokenSource()
-    nLogger.Debug "Server listening started on %s pipeName" pipeName
+    nLogger.Debug(sprintf "Server listening started on %s pipeName" pipeName)
     Async.Start (pipeListener tokenSource.Token)
     // client starts the service without window. You have to shut down the service from Task Manager/ kill command.
-    Console.ReadLine() |> ignore
+    use locker = new AutoResetEvent(false)
+    locker.WaitOne() |> ignore
+
     tokenSource.Cancel()
 
 [<assembly: System.Reflection.AssemblyTitleAttribute("WebSharper Booster " + AssemblyVersionInformation.AssemblyFileVersion)>]

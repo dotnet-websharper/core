@@ -53,10 +53,12 @@
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.exe</FscToolExe>
     <FscToolExe Condition="'$(OS)' == 'Unix'"      >wsfsc.sh</FscToolExe>
-    <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net5.0</FscToolPath>
+    <FscToolPath>$(MSBuildThisFileDirectory)/../tools/net5.0/$(NETCoreSdkRuntimeIdentifier)/</FscToolPath>
+    <FscBoosterCmd Condition="'$(OS)' != 'Windows_NT'">wsfscservice_start.sh</FscBoosterCmd>
   </PropertyGroup>
 
   <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(OS)' != 'Windows_NT'">
     <Exec Command="chmod u+x '$(FscToolPath)/$(FscToolExe)'" />
+    <Exec Command="chmod u+x '$(FscToolPath)/$(FscBoosterCmd)'" />
   </Target>
 </Project>

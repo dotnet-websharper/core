@@ -68,33 +68,28 @@ let targets = MakeTargets {
                         DotNet.build (fun p ->
                             { p with
                                 Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
-                                MSBuildParams = 
-                                    { p.MSBuildParams with 
-                                        DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
-                                    }
                             }) sln
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
             let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
-                let outputPath =
-                    __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> "deploy"
-                DotNet.publish (fun p ->
-                    { p with
-                        Framework = Some fw
-                        OutputPath = Some outputPath
-                        NoRestore = true
-                        Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
-                        MSBuildParams = 
-                            { p.MSBuildParams with 
-                                DisableInternalBinLog = true // workaround for https://github.com/fsharp/FAKE/issues/2515
-                            }
-                    }) input
-                if explicitlyCopyFsCore then
-                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
-                    [ 
-                        fsharpCoreLib </> "FSharp.Core.dll" 
-                    ] 
-                    |> Shell.copy outputPath                
+                for rid in [ "win-x64"; "linux-x64"; "linux-musl-x64" ] do
+                    let outputPath =
+                        __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> rid </> "deploy"
+                    DotNet.publish (fun p ->
+                        { p with
+                            Framework = Some fw
+                            OutputPath = Some outputPath
+                            NoRestore = true
+                            SelfContained = false |> Some
+                            Runtime = rid |> Some
+                            Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                        }) input
+                    if explicitlyCopyFsCore then
+                        let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
+                        [ 
+                            fsharpCoreLib </> "FSharp.Core.dll" 
+                        ] 
+                        |> Shell.copy outputPath                
             BuildAction.Multiple [
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->

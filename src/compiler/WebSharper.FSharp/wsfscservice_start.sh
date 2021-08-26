@@ -1,3 +1,3 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 
-exec "$(dirname "$BASH_SOURCE")/wsfscservice"
+nohup "$(dirname "$BASH_SOURCE")/wsfscservice" >/dev/null 2>&1 &

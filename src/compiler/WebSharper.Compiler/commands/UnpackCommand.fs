@@ -34,6 +34,7 @@ module UnpackCommand =
             UnpackTypeScript : bool
             DownloadResources : bool
             Loader : option<Loader>
+            Logger : LoggerBase
         }
 
         static member Create() =
@@ -44,6 +45,7 @@ module UnpackCommand =
                 UnpackTypeScript = false
                 DownloadResources = false
                 Loader = None
+                Logger = ConsoleLogger()
             }
 
     let GetErrors config =
@@ -123,48 +125,34 @@ module UnpackCommand =
                 emit text path
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
-        let doUnpack () =
-            for p in cmd.Assemblies do
-                match (try loader.LoadFile (p, false) |> Some with _ -> None) with 
-                | None -> () 
-                | Some a ->
-                let aid = PC.AssemblyId.Create(a.Name)
-                emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
-                    a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
-                emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
-                    a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
-                if cmd.UnpackTypeScript then
-                    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
-                let writeText k fn c =
-                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                    writeTextFile (p, c)
-                let writeBinary k fn c =
-                    let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
-                    writeBinaryFile (p, c)
-                for r in a.GetScripts() do
-                    writeText script r.FileName r.Content
-                for r in a.GetContents() do
-                    writeBinary content r.FileName (r.GetContentData())
-
-                let printError (e: exn) =
-                    let rec messages (e: exn) =
-                        seq {
-                            yield e.Message
-                            match e with
-                            | :? System.Reflection.ReflectionTypeLoadException as e ->
-                                yield! Seq.collect messages e.LoaderExceptions
-                            | e when isNull e.InnerException -> ()
-                            | e -> yield! messages e.InnerException
-                        }
-                    String.concat " - " (messages e)
-
-                if cmd.DownloadResources then
-                    DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
 
         if cmd.DownloadResources then
-            aR.Wrap doUnpack
-        else
-            doUnpack ()
+            aR.Wrap <| fun () ->
+                for p in cmd.Assemblies do
+                    DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
+            cmd.Logger.TimedStage "Download Resource"
+
+        for p in cmd.Assemblies do
+            match (try loader.LoadFile (p, false) |> Some with _ -> None) with 
+            | None -> () 
+            | Some a ->
+            let aid = PC.AssemblyId.Create(a.Name)
+            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+            if cmd.UnpackTypeScript then
+                emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+            let writeText k fn c =
+                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                writeTextFile (p, c)
+            let writeBinary k fn c =
+                let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
+                writeBinaryFile (p, c)
+            for r in a.GetScripts() do
+                writeText script r.FileName r.Content
+            for r in a.GetContents() do
+                writeBinary content r.FileName (r.GetContentData())
         
         if errors.Count = 0 then
             C.Ok

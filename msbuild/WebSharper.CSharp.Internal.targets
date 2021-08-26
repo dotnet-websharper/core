@@ -28,7 +28,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == ''">$(Root)build\$(Configuration)\CSharp\net5.0\deploy\zafircs.exe</ZafirCsFullPath>
+    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == ''">$(Root)build\$(Configuration)\CSharp\net5.0\$(NETCoreSdkRuntimeIdentifier)\deploy\zafircs.exe</ZafirCsFullPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>

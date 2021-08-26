@@ -292,8 +292,8 @@ type AssemblyResolver(dom: AppDomain, reso: AssemblyResolution) =
         finally
             r.Remove()
 
-    member r.SearchDirectories ds = AssemblyResolver(dom, reso ++ searchDirs ds)
-    member r.SearchPaths ps = AssemblyResolver(dom, reso ++ searchPaths ps)
+    member r.SearchDirectories searchPaths = AssemblyResolver(dom, reso ++ searchDirs searchPaths)
+    member r.SearchPaths (searchPaths: seq<string>) = AssemblyResolver(dom, reso ++ Implemetnation.searchPaths searchPaths)
     member r.ResolvePath name = reso.ResolvePath name
 
     static member Create(?domain) =

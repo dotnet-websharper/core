@@ -61,19 +61,19 @@ let EnsureTextFile (fullPath: string) (contents: string) : bool =
 type Binary =
     private { data: byte [] }
 
-    member b.EnsureFile(p) = EnsureBinaryFile p b.data
+    member b.EnsureFile(fullPath) = EnsureBinaryFile fullPath b.data
     member b.GetBytes() = Array.copy b.data
     member b.Read() = new MemoryStream(b.data, false) :> Stream
     member b.Write(s: Stream) = s.Write(b.data, 0, b.data.Length)
-    member b.WriteFile(p) = b.EnsureFile(p) |> ignore
+    member b.WriteFile(fullPath) = b.EnsureFile(fullPath) |> ignore
     static member FromBytes(bytes) = { data = Array.copy bytes }
     static member ReadFile(fullPath) = { data = File.ReadAllBytes(fullPath) }
 
-    static member ReadStream(s: Stream) =
+    static member ReadStream(stream: Stream) =
         use m = new MemoryStream()
         let buf = Array.zeroCreate (8 * 1024)
         let rec loop () =
-            let k = s.Read(buf, 0, buf.Length)
+            let k = stream.Read(buf, 0, buf.Length)
             if k > 0 then
                 m.Write(buf, 0, k)
                 loop ()
@@ -84,22 +84,22 @@ type Content =
     | BinaryContent of Binary
     | TextContent of string
 
-    member c.EnsureFile p =
+    member c.EnsureFile fullPath =
         match c with
-        | BinaryContent b -> b.EnsureFile p
-        | TextContent s -> EnsureTextFile p s
+        | BinaryContent b -> b.EnsureFile fullPath
+        | TextContent s -> EnsureTextFile fullPath s
 
-    member c.WriteFile p =
-        c.EnsureFile p |> ignore
+    member c.WriteFile fullPath =
+        c.EnsureFile fullPath |> ignore
 
     static member Binary b =
         BinaryContent b
 
-    static member ReadBinaryFile(p) =
-        BinaryContent (Binary.ReadFile p)
+    static member ReadBinaryFile(fullPath) =
+        BinaryContent (Binary.ReadFile fullPath)
 
-    static member ReadTextFile(p) =
-        File.ReadAllText(p, DefaultEncoding)
+    static member ReadTextFile(fullPath) =
+        File.ReadAllText(fullPath, DefaultEncoding)
         |> TextContent
 
     static member Text t =

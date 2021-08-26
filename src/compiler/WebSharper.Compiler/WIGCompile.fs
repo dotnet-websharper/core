@@ -739,9 +739,9 @@ type CompilerOptions =
         StrongNameKeyPath : option<string>
     }
 
-    static member Default(name) =
+    static member Default(assemblyName) =
         {
-            AssemblyName = name
+            AssemblyName = assemblyName
             AssemblyResolver = None
             AssemblyVersion = Version(0, 0)
             DocPath = None
@@ -1537,9 +1537,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         | Some docPath -> doc.Generate docPath
         r
 
-    member c.Compile(options, assembly, ?originalAssembly) =
+    member c.Compile(options, assembly, ?original) =
         let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
+        c.Compile(resolver, options, assembly, ?originalAssembly = original)
 
     member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
