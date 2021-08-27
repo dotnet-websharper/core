@@ -115,7 +115,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
         Some (js, minJs)
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -173,6 +173,20 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         
         res.Add(EMBEDDED_METADATA, meta)
 
+        match runtimeMeta, comp with
+        | Some rm, Some comp ->
+            let rMeta =
+                M.Info.UnionWithoutDependencies()
+                comp.ToCurrentMetadata
+
+            let erMeta = 
+                use s = new MemoryStream(8 * 1024)
+                M.IO.Encode s currentPosFixed
+                s.ToArray()
+
+            res.Add(EMBEDDED_RUNTIME_METADATA, erMeta)
+        | None -> ()
+
         logger.TimedStage "Serializing metadata"
 
     if pkg <> AST.Undefined then
@@ -224,8 +238,8 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures a
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures isWeb (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures isWeb a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
