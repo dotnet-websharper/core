@@ -68,7 +68,7 @@ let main(argv) =
                     "--standalone compile flag is set or WebSharperStandalone targets variable set"
             nLogger.Debug(sprintf "Start compilation in standalone mode because %s." reason)
             let createChecker() = FSharpChecker.Create(keepAssemblyContents = true)
-            let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+            let tryGetMetadata = WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata
 #if DEBUG
             StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata  
 #else

@@ -38,6 +38,7 @@ module HtmlCommand =
             UnpackSourceMap : bool
             UnpackTypeScript : bool
             DownloadResources: bool
+            Metadata : WebSharper.Core.Metadata.Info
         }
 
         static member Create(mainAssemblyPath) =
@@ -50,6 +51,7 @@ module HtmlCommand =
                 UnpackSourceMap = false
                 UnpackTypeScript = false
                 DownloadResources = false
+                Metadata = WebSharper.Core.Metadata.Info.Empty
             }
 
     exception BadOptions of string

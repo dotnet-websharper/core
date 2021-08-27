@@ -430,6 +430,19 @@ type Info =
         this.MacroEntries.Count = 0 &&
         this.SiteletDefinition.IsNone
 
+type MetadataOptions =
+    | FullMetadata
+    | DiscardExpressions
+    | DiscardInlineExpressions
+    | DiscardNotInlineExpressions
+
+let ApplyMetadataOptions options (m: Info) =
+    match options with
+    | FullMetadata -> m
+    | DiscardExpressions -> m.DiscardExpressions() 
+    | DiscardInlineExpressions -> m.DiscardInlineExpressions()
+    | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
+
 module internal Utilities = 
  
     let ignoreMacro m =

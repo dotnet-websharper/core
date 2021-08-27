@@ -65,34 +65,11 @@ type Config =
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool
+        Metadata: M.Info
     }
 
     member this.OutputDirectory =
         this.Options.OutputDirectory
-
-/// Collects metadata from all assemblies in referenced folders.
-let getMetadata conf =
-
-    let resolver =
-        let r = AssemblyResolver.Create()
-        Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
-        |> Seq.distinctBy (fun assemblyFile ->
-            AssemblyName.GetAssemblyName(assemblyFile).Name)
-        |> Seq.map Path.GetDirectoryName
-        |> Seq.distinct
-        |> r.SearchDirectories
-
-    let loader = Loader.Create resolver ignore
-
-    let metas =
-        Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
-        |> Seq.distinctBy (fun assemblyFile ->
-            AssemblyName.GetAssemblyName(assemblyFile).Name)
-        |> Seq.map loader.LoadFile
-        |> Seq.choose (FrontEnd.ReadFromAssembly FrontEnd.FullMetadata)
-        |> List.ofSeq
-    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas,
-    WebSharper.Core.DependencyGraph.Graph.FromData (metas |> List.map (fun m -> m.Dependencies))
 
 /// Generates unique file names.
 [<Sealed>]
@@ -131,7 +108,8 @@ type EmbeddedResource =
 /// The mutable state of the processing.
 [<Sealed>]
 type State(conf: Config) =
-    let metadata, dependencies = getMetadata conf
+    let metadata = conf.Metadata
+    let dependencies = Graph.FromData metadata.Dependencies
     let json = J.Provider.CreateTyped(metadata)
     let unique = UniqueFileNameGenerator()
     let usedAssemblies = HashSet<string>()

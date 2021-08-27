@@ -50,7 +50,7 @@ let startListening() =
         match r.LoadPath with
         // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
         | Some x when memCache.[x] = null -> 
-            match WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r with
+            match WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata r with
             | None ->
                 None
             | result ->
@@ -66,7 +66,7 @@ let startListening() =
         | None ->
             // in-memory assembly may have no path. nLogger. 
             // nLogger.Trace "Reading assembly: %s" x makes this compilation fail. No Tracing here.
-            WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata r
+            WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata r
 
     let agent = MailboxProcessor.Start(fun inbox ->
 

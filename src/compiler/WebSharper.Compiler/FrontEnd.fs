@@ -31,12 +31,6 @@ type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
 
-type ReadOptions =
-    | FullMetadata
-    | DiscardExpressions
-    | DiscardInlineExpressions
-    | DiscardNotInlineExpressions
-
 let TryReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
     |> Seq.tryPick (function
@@ -48,13 +42,7 @@ let TryReadFromAssembly options (a: Assembly) =
         let m = 
             try Ok (M.IO.Decode s)
             with e -> Error (sprintf "Failed to deserialize metadata for %s. Error: %s" a.FullName e.Message)
-        m |> Result.map (fun m ->
-            match options with
-            | FullMetadata -> m
-            | DiscardExpressions -> m.DiscardExpressions() 
-            | DiscardInlineExpressions -> m.DiscardInlineExpressions()
-            | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
-        )
+        m |> Result.map (M.ApplyMetadataOptions options)
     )
 
 let ReadFromAssembly options a =
@@ -176,16 +164,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         match runtimeMeta, comp with
         | Some rm, Some comp ->
             let rMeta =
-                M.Info.UnionWithoutDependencies()
-                comp.ToCurrentMetadata
+                comp.ToRuntimeMetadata()
+                |> M.ApplyMetadataOptions rm
 
             let erMeta = 
                 use s = new MemoryStream(8 * 1024)
-                M.IO.Encode s currentPosFixed
+                M.IO.Encode s rMeta
                 s.ToArray()
 
             res.Add(EMBEDDED_RUNTIME_METADATA, erMeta)
-        | None -> ()
+        | _ -> ()
 
         logger.TimedStage "Serializing metadata"
 
@@ -238,16 +226,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures isWeb (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures isWeb a
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures runtimeMeta a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (assembly : Assembly) =
-    ModifyCecilAssembly logger comp refMeta current sourceMap closures assembly.Raw
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (assembly : Assembly) =
+    ModifyCecilAssembly logger comp refMeta current sourceMap closures runtimeMeta assembly.Raw
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

@@ -124,8 +124,13 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger metas currentMeta refs comp (Choice2Of2 assem)
 
+            let runtimeMeta =
+                match config.ProjectType with
+                | Some (Bundle | Website) -> Some config.RuntimeMetadata
+                | _ -> None
+
             let js, currentMeta, sources =
-                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly logger (Some comp) refMeta currentMeta config.SourceMap config.AnalyzeClosures runtimeMeta assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -179,7 +184,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
     | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult "Writing offline sitelets"
+        let runtimeMeta = comp.ToRuntimeMetadata()
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with

@@ -85,6 +85,7 @@ type WsConfig =
         UseJavaScriptSymbol : bool
         TargetProfile : string
         Standalone : bool
+        RuntimeMetadata : Metadata.MetadataOptions
     }
 
     member this.ProjectDir =
@@ -126,6 +127,7 @@ type WsConfig =
                     System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
                 with
                 | _ -> false
+            RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -234,6 +236,15 @@ type WsConfig =
                 res <- { res with UseJavaScriptSymbol = getBool k v }
             | "standalone" ->
                 res <- { res with Standalone = getBool k v }
+            | "runtimemetadata" ->
+                let runtimeMetadata =
+                    match (getString k v).ToLower() with
+                    | "inlines" -> Metadata.MetadataOptions.DiscardNotInlineExpressions 
+                    | "notinlines" -> Metadata.MetadataOptions.DiscardInlineExpressions 
+                    | "full" -> Metadata.MetadataOptions.FullMetadata 
+                    | "noexpressions" -> Metadata.MetadataOptions.DiscardExpressions
+                    | _ -> argError (sprintf "Invalid value in %s for RuntimeMetadata, expecting 'noexpressions'/'inlines'/'notinlines'/'full'." fileName) 
+                res <- { res with RuntimeMetadata = runtimeMetadata }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         res
@@ -308,7 +319,7 @@ module ExecuteCommands =
         | None -> Path.Combine(settings.ProjectDir, "bin", "html")
         | Some dir -> dir
 
-    let Html settings (logger: LoggerBase) =
+    let Html settings meta (logger: LoggerBase) =
         let outputDir = HtmlOutputDirectory settings
         sprintf "Generating static site into %s" outputDir
         |> logger.Out
@@ -324,6 +335,7 @@ module ExecuteCommands =
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = settings.DownloadResources |> Option.defaultValue false
+                    Metadata = meta
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)

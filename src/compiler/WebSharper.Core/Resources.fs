@@ -224,6 +224,9 @@ let inlineScript (html: HtmlTextWriter) isModule (text: string) =
         html.Write(text)
         html.RenderEndTag()
 
+let thisAssemblyToken =
+    typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
+
 type Rendering with
 
     member r.Emit(mkHtml: RenderLocation -> HtmlTextWriter, mt, ?defaultToHttp) =
@@ -249,11 +252,11 @@ type Rendering with
             if assemblyName.Contains "," then
                 assemblyName.Split(',').[0]
             else
-                shortName
+                assemblyName
         match ctx.GetSetting ("WebSharper.CdnFormat." + shortName) with
         | Some urlFormat -> Some urlFormat
         | None ->
-            let isStdlib = AssemblyName(fullAsmName).GetPublicKeyToken() = thisAssemblyToken
+            let isStdlib = AssemblyName(assemblyName).GetPublicKeyToken() = thisAssemblyToken
             if isStdlib &&
                 (defaultArg (ctx.GetSetting "WebSharper.StdlibUseCdn") "false").ToLowerInvariant() = "true"
             then

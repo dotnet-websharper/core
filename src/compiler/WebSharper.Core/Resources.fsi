@@ -43,8 +43,6 @@ type HtmlTextWriter =
     member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
     static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
 
-val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
-
 type MediaType =
     | Css
     | Js

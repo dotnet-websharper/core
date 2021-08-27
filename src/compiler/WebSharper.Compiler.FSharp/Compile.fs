@@ -224,8 +224,13 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
     
+            let runtimeMeta =
+                match config.ProjectType with
+                | Some (Bundle | Website) -> Some config.RuntimeMetadata
+                | _ -> None
+
             let js, currentMeta, sources =
-                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures assem
+                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures runtimeMeta assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->
@@ -279,7 +284,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage "Bundling"
         0
     | Some Html ->
-        ExecuteCommands.Html config logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
+        let runtimeMeta = comp.ToRuntimeMetadata()
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
