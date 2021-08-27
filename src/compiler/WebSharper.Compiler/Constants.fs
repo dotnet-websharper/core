@@ -27,6 +27,9 @@ module internal Constants =
     let EMBEDDED_METADATA = "WebSharper.meta"
 
     [<Literal>]
+    let EMBEDDED_RUNTIME_METADATA = "WebSharper.runtime.meta"
+
+    [<Literal>]
     let EMBEDDED_JS = "WebSharper.js"
 
     [<Literal>]

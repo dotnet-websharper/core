@@ -86,6 +86,7 @@ type HtmlCommand() =
                     Actions = actions
                     UnpackSourceMap = options.UnpackSourceMap
                     UnpackTypeScript = options.UnpackTypeScript
+                    Metadata = options.Metadata
                 }
                 |> Async.RunSynchronously
             

@@ -402,6 +402,19 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.CurrentExtraBundles
         }    
 
+    member this.ToRuntimeMetadata() =
+        {
+            SiteletDefinition = this.SiteletDefinition 
+            Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
+            Interfaces = interfaces
+            Classes = classes
+            CustomTypes = customTypes
+            MacroEntries = Map.empty
+            Quotations = quotations
+            ResourceHashes = Dictionary()
+            ExtraBundles = this.CurrentExtraBundles
+        }    
+
     member this.AddProxy(tProxy, tTarget) =
         proxies.Add(tProxy, tTarget)  
 

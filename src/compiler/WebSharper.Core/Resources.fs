@@ -227,45 +227,6 @@ let inlineScript (html: HtmlTextWriter) isModule (text: string) =
 let thisAssemblyToken =
     typeof<Rendering>.Assembly.GetName().GetPublicKeyToken()
 
-let AllReferencedAssemblies = 
-    lazy
-    let trace =
-        System.Diagnostics.TraceSource("WebSharper",
-            System.Diagnostics.SourceLevels.All)
-
-    let d = System.Collections.Generic.Dictionary<string, System.Reflection.Assembly>()
-    let rec loop (asm: System.Reflection.Assembly) =
-        asm.GetReferencedAssemblies()
-        |> Array.iter (fun asmName ->
-            if not (d.ContainsKey asmName.Name) then
-                try
-                    let asm = System.AppDomain.CurrentDomain.Load(asmName)
-                    if not asm.IsDynamic then
-                        d.Add(asmName.Name, asm)
-                        loop asm
-                with _ ->
-                    trace.TraceEvent(System.Diagnostics.TraceEventType.Warning, 1,
-                        "Failed to load referenced assembly for metadata: ", asmName.FullName))
-    let asms =
-        System.AppDomain.CurrentDomain.GetAssemblies()
-        |> Array.filter (fun asm -> not asm.IsDynamic)
-    asms |> Array.iter (fun asm -> 
-        let name = asm.GetName().Name
-        match d.TryGetValue(name) with
-        | true, prevAsm ->
-            let n = "WebSharper.meta"
-            if Array.exists ((=) n) (asm.GetManifestResourceNames()) && 
-                prevAsm.GetName().Version <> asm.GetName().Version
-            then
-                failwithf "WebSharper assembly referenced with multiple times with different versions: %s" name
-        | _ ->
-            d.Add(name, asm)
-    )
-    asms |> Array.iter loop
-    d
-    |> Seq.map (fun (KeyValue(_, v)) -> v)
-    |> List.ofSeq
-
 type Rendering with
 
     member r.Emit(mkHtml: RenderLocation -> HtmlTextWriter, mt, ?defaultToHttp) =
@@ -287,23 +248,15 @@ type Rendering with
         | Rendering.Skip -> ()
 
     static member TryGetCdn(ctx: Context, assemblyName: string, filename: string) =
-        let fullAsmName, shortName = 
+        let shortName = 
             if assemblyName.Contains "," then
-                Some assemblyName, assemblyName.Split(',').[0]
+                assemblyName.Split(',').[0]
             else
-                let fullAsmName =
-                    AllReferencedAssemblies.Value
-                    |> List.tryPick (fun a -> 
-                        if a.FullName.StartsWith (assemblyName + ",") then Some (a.FullName) else None          
-                    )
-                fullAsmName, assemblyName
-        match fullAsmName with
-        | None -> None
-        | Some fullAsmName ->
+                assemblyName
         match ctx.GetSetting ("WebSharper.CdnFormat." + shortName) with
         | Some urlFormat -> Some urlFormat
         | None ->
-            let isStdlib = AssemblyName(fullAsmName).GetPublicKeyToken() = thisAssemblyToken
+            let isStdlib = AssemblyName(assemblyName).GetPublicKeyToken() = thisAssemblyToken
             if isStdlib &&
                 (defaultArg (ctx.GetSetting "WebSharper.StdlibUseCdn") "false").ToLowerInvariant() = "true"
             then
@@ -311,15 +264,12 @@ type Rendering with
                 Some (defaultArg (ctx.GetSetting "WebSharper.StdlibCdnFormat") def)
             else None
         |> Option.map (fun urlFormat ->
-            let asm = Assembly.Load(fullAsmName)
-            let ver =
-                asm.GetCustomAttributes(typeof<AssemblyFileVersionAttribute>, false)
-                |> Array.tryPick (fun x ->
-                    Some (x :?> AssemblyFileVersionAttribute).Version)
+            let asmName = AssemblyName(assemblyName)
+            let version = asmName.Version.ToString()
             urlFormat
                 .Replace("{assembly}", shortName)
                 .Replace("{filename}", filename)
-                .Replace("{version}", defaultArg ver "latest")
+                .Replace("{version}", version)
             |> RenderLink
         )
 

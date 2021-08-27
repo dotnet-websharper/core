@@ -38,25 +38,20 @@ let private loadMetadata () =
     | Some "none" ->
         M.Info.Empty, Graph.Empty
     | _ ->
-        let filterExpressions : M.Info -> M.Info =
-            match metadataSetting with
-            | Some "inlines" -> fun m -> m.DiscardNotInlineExpressions()
-            | Some "notinlines" -> fun m -> m.DiscardInlineExpressions()
-            | Some "full" | None -> id
-            | _ -> fun m -> m.DiscardExpressions()
-        let metas =
-            WebSharper.Core.Resources.AllReferencedAssemblies.Value
-            |> Seq.choose M.IO.LoadReflected
-            |> Seq.map filterExpressions
-            |> Seq.toList
-        let after = System.DateTime.UtcNow
-        trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-            (after-before).TotalSeconds)
-        if List.isEmpty metas then 
+        let runtimeMeta =
+            System.Reflection.Assembly.GetEntryAssembly()
+            |> M.IO.LoadRuntimeMetadata
+        match runtimeMeta with
+        | None ->
+            trace.TraceInformation("Runtime WebSharper metadata not found.")
             M.Info.Empty, Graph.Empty 
-        else 
-            let graph = Graph.FromData (metas |> Seq.map (fun m -> m.Dependencies))
-            { M.Info.UnionWithoutDependencies metas with M.Dependencies = graph.GetData() }, graph
+        | Some meta ->
+            let after = System.DateTime.UtcNow
+            let res =
+                meta, Graph.FromData meta.Dependencies
+            trace.TraceInformation("Initialized WebSharper in {0} seconds.",
+                (after-before).TotalSeconds)
+            res
 
 let Metadata, Dependencies = loadMetadata () 
 
