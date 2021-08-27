@@ -43,7 +43,7 @@ module Definition =
 
     let IMixinTest =
         Interface "IMixinTest"
-        |++> [
+        |+> [
             "callMixin" => O ^-> String |> WithInline "$this.callMixin('called through mixin')"
             "x" =@ Int
         ]
