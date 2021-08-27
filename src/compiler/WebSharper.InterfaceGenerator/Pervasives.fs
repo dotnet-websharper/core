@@ -204,10 +204,6 @@ module Pervasives =
 
     /// Constructs a new property setter.
     let ( =! ) name ty = Setter name ty
-                 
-    /// Add mixed methods and properties on interfaces.
-    let ( |++> ) (intf: Code.Interface) (xs: list<Code.IInterfaceMember>) = 
-        intf |+> xs
 
     /// Constructs a new property with a getter and a setter.
     [<Obsolete "Use the equivalent =@ operator">]
