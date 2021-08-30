@@ -2669,7 +2669,7 @@ module EventSource =
         Class "EventSource"
         |=> Inherits Dom.Interfaces.EventTarget
         |+> Static [
-            Constructor (T<string>?url * EventSourceOptions?options)
+            Constructor (T<string>?url * !? EventSourceOptions?options)
         ]
         |+> Instance [
             // Properties
