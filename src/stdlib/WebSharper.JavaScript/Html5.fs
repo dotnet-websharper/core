@@ -2647,8 +2647,6 @@ module WebSockets =
             ]
 
 module EventSource =
-
-    let private eh = Dom.Interfaces.Event ^-> T<unit>
     
     let ReadyState =
         Pattern.EnumInlines "ReadyState" [
@@ -2678,9 +2676,9 @@ module EventSource =
             "withCredentials" =? T<bool>
 
             // Event handlers
-            "onerror" =@ eh
-            "onmessage" =@ eh
-            "onopen" =@ eh
+            "onerror" =@ General.ErrorEvent ^-> T<unit>
+            "onmessage" =@ General.MessageEvent ^-> T<unit>
+            "onopen" =@ Dom.Interfaces.Event ^-> T<unit>
 
             // Methods
             "close" => T<unit> ^-> T<unit>
