@@ -2646,6 +2646,44 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
+module EventSource =
+    
+    let ReadyState =
+        Pattern.EnumInlines "ReadyState" [
+            "connecting", "0"
+            "open", "1"
+            "closed", "2"
+        ]
+
+    let EventSourceOptions =
+        Pattern.Config "EventSourceOptions" {
+            Required = []
+            Optional = [
+                "withCredentials", T<bool>
+            ]
+        }
+
+    let EventSource =
+        Class "EventSource"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Static [
+            Constructor (T<string>?url * !? EventSourceOptions?options)
+        ]
+        |+> Instance [
+            // Properties
+            "readyState" =? ReadyState
+            "url" =? T<string>
+            "withCredentials" =? T<bool>
+
+            // Event handlers
+            "onerror" =@ General.ErrorEvent ^-> T<unit>
+            "onmessage" =@ General.MessageEvent ^-> T<unit>
+            "onopen" =@ Dom.Interfaces.Event ^-> T<unit>
+
+            // Methods
+            "close" => T<unit> ^-> T<unit>
+        ]
+
 module Definition =
 
     let Namespaces =
@@ -2700,6 +2738,9 @@ module Definition =
                 Elements.HTMLSlotElement
                 Elements.HTMLTextAreaElement
                 Elements.SelectionMode
+                EventSource.ReadyState
+                EventSource.EventSourceOptions
+                EventSource.EventSource
                 File.BinaryFileReader
                 File.Blob
                 File.BlobPropertyBag
