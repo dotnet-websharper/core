@@ -103,7 +103,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
         Some (js, minJs)
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
@@ -143,14 +143,33 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         | None ->
             res.Add(name, [||])
 
+    let rMeta =
+        match runtimeMeta, comp with
+        | Some (rm, refMetas), Some comp ->
+            let trimmed = comp.ToRuntimeMetadata() |> M.ApplyMetadataOptions rm 
+            {
+                trimmed with
+                    Dependencies = 
+                        DependencyGraph.Graph.FromData(
+                            refMetas |> Seq.map (fun m -> m.Dependencies)
+                            |> Seq.append [ trimmed.Dependencies ]
+                        ).GetData()
+            }
+            
+            |> Some
+        | _ -> None
+
     let addMeta() =
+        
         for r in Assembly.GetAllResources a do
             let p = assemblyName + "/" + r.FileName
             let d = r.GetContentData()
             current.ResourceHashes.Add(p, AST.StableHash.data d)
+            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         for (p, d) in resToHash do
             current.ResourceHashes.Add(p, AST.StableHash.data d)
+            rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         logger.TimedStage "Hashing resources"
 
@@ -161,15 +180,11 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         
         res.Add(EMBEDDED_METADATA, meta)
 
-        match runtimeMeta, comp with
-        | Some rm, Some comp ->
-            let rMeta =
-                comp.ToRuntimeMetadata()
-                |> M.ApplyMetadataOptions rm
-
+        match rMeta with
+        | Some rm ->
             let erMeta = 
                 use s = new MemoryStream(8 * 1024)
-                M.IO.Encode s rMeta
+                M.IO.Encode s rm
                 s.ToArray()
 
             res.Add(EMBEDDED_RUNTIME_METADATA, erMeta)
@@ -177,6 +192,14 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
 
         logger.TimedStage "Serializing metadata"
 
+    let setAssemblyNode (i: M.Info) =
+        i.Dependencies.Nodes |> Array.tryFindIndex (function
+            | M.AssemblyNode (n, _, _) when n = assemblyName -> true
+            | _ -> false
+        ) |> Option.iter (fun asmNodeIndex ->
+            i.Dependencies.Nodes.[asmNodeIndex] <- M.AssemblyNode (assemblyName, true, true)
+        )
+    
     if pkg <> AST.Undefined then
         
         let getCodeWriter() = 

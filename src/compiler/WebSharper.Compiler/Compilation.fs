@@ -411,8 +411,8 @@ type Compilation(meta: Info, ?hasGraph) =
             CustomTypes = customTypes
             MacroEntries = Map.empty
             Quotations = quotations
-            ResourceHashes = Dictionary()
-            ExtraBundles = this.CurrentExtraBundles
+            ResourceHashes = MergedDictionary meta.ResourceHashes
+            ExtraBundles = this.AllExtraBundles
         }    
 
     member this.AddProxy(tProxy, tTarget) =

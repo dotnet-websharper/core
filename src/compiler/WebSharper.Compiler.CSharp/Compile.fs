@@ -126,7 +126,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let runtimeMeta =
                 match config.ProjectType with
-                | Some (Bundle | Website) -> Some config.RuntimeMetadata
+                | Some (Bundle | Website) -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
             let js, currentMeta, sources =
@@ -184,7 +184,15 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
         logger.TimedStage "Bundling"
     | Some Html ->
-        let runtimeMeta = comp.ToRuntimeMetadata()
+        let rm = comp.ToRuntimeMetadata()
+        let runtimeMeta = 
+            { rm with
+                Dependencies = 
+                    WebSharper.Core.DependencyGraph.Graph.FromData(
+                        metas |> Seq.map (fun m -> m.Dependencies)
+                        |> Seq.append [ rm.Dependencies ]
+                    ).GetData()
+            }
         ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult "Writing offline sitelets"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
