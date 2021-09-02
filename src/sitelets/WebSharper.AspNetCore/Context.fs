@@ -201,7 +201,7 @@ let private makeEnv (httpCtx: HttpContext) (options: WebSharperOptions) =
 let Make (httpCtx: HttpContext) (options: WebSharperOptions) =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
-    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath
+    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata
     let link =
         match options.Sitelet with
         | None ->
@@ -229,7 +229,7 @@ let Make (httpCtx: HttpContext) (options: WebSharperOptions) =
 let MakeSimple (httpCtx: HttpContext) (options: WebSharperOptions) =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
-    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath
+    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata
     let uri = RequestUri httpCtx.Request
     { new WebSharper.Web.Context() with
         member this.ApplicationPath = appPath

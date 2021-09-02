@@ -32,7 +32,7 @@ let Middleware (options: WebSharperOptions) =
     let sitelet =
         match options.Sitelet with
         | Some s -> Some s
-        | None -> Loading.DiscoverSitelet options.Assemblies
+        | None -> Loading.DiscoverSitelet [ options.SiteletAssembly ]
     match sitelet with
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
