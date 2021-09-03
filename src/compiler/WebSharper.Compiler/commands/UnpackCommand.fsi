@@ -30,6 +30,8 @@ module UnpackCommand =
             UnpackSourceMap : bool
             UnpackTypeScript : bool
             DownloadResources : bool
+            Loader : option<Loader>
+            Logger : LoggerBase
         }
 
         static member Create : unit -> Config

@@ -1260,6 +1260,44 @@ module AppCache =
 
 module Fetch =
 
+    let FormDataEntryValue = T<string> + File.File
+
+    let FormData =
+        Class "FormData"
+        |+> Instance [
+            Constructor(!? Elements.HTMLFormElement?form)
+            "append" => T<string>?names * T<string>?value ^-> T<unit> 
+            "append" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "delete" => T<string>?name ^-> T<unit> 
+            "get" => T<string>?name ^-> FormDataEntryValue
+            "getAll" => T<string>?name ^-> !|FormDataEntryValue
+            "has"  => T<string>?name ^-> T<bool>
+            "set" => T<string>?names * T<string>?value ^-> T<unit> 
+            "set" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
+            "" =@ FormDataEntryValue |> Indexed T<string> 
+            // TODO: entries iterator
+            // TODO: keys iterator
+            // TODO: values iterator
+        ]
+
+    let URLSearchParams =
+        Class "URLSearchParams"
+        |+> Static [
+            Constructor T<string>
+            Constructor T<(string * string)[]>
+            Constructor T<string[]>
+            Constructor EcmaObjectG.[T<string>]
+        ]
+        |+> Instance [
+            "append" => T<string>?key * T<string>?value ^-> T<unit>
+            "delete" => T<string>?key ^-> T<unit>
+            "get" => T<string>?key ^-> T<string>
+            "getAll" => T<string>?key ^-> T<string[]>
+            "has" => T<string>?key ^-> T<bool>
+            "set" => T<string>?key * T<string>?value ^-> T<unit>
+            "sort" => T<unit> ^-> T<unit>
+        ]
+
     let XMLHttpRequestResponseType =
         Pattern.EnumStrings "XMLHttpRequestResponseType" [
             "arraybuffer"
@@ -1316,7 +1354,7 @@ module Fetch =
             "timeout" =@ T<int>
             "withCredentials" =@ T<bool>
             "upload" =? XMLHttpRequestUpload
-            "send" => !?Dom.Interfaces.Document?body ^-> T<unit>
+            "send" => !? (Dom.Interfaces.Document + T<string> + FormData + URLSearchParams + File.Blob + TypedArrays.ArrayBuffer)?body ^-> T<unit>
             "abort" => T<unit> ^-> T<unit>
 
             // response
@@ -1330,44 +1368,6 @@ module Fetch =
             "response" =? T<obj>
             "responseText" =? T<string>
             "responseXML" =? Dom.Interfaces.Document
-        ]
-
-    let FormDataEntryValue = T<string> + File.File
-
-    let FormData =
-        Class "FormData"
-        |+> Instance [
-            Constructor(!? Elements.HTMLFormElement?form)
-            "append" => T<string>?names * T<string>?value ^-> T<unit> 
-            "append" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
-            "delete" => T<string>?name ^-> T<unit> 
-            "get" => T<string>?name ^-> FormDataEntryValue
-            "getAll" => T<string>?name ^-> !|FormDataEntryValue
-            "has"  => T<string>?name ^-> T<bool>
-            "set" => T<string>?names * T<string>?value ^-> T<unit> 
-            "set" => T<string>?names * File.Blob?blobValue * !? T<string>?filename ^-> T<unit> 
-            "" =@ FormDataEntryValue |> Indexed T<string> 
-            // TODO: entries iterator
-            // TODO: keys iterator
-            // TODO: values iterator
-        ]
-
-    let URLSearchParams =
-        Class "URLSearchParams"
-        |+> Static [
-            Constructor T<string>
-            Constructor T<(string * string)[]>
-            Constructor T<string[]>
-            Constructor EcmaObjectG.[T<string>]
-        ]
-        |+> Instance [
-            "append" => T<string>?key * T<string>?value ^-> T<unit>
-            "delete" => T<string>?key ^-> T<unit>
-            "get" => T<string>?key ^-> T<string>
-            "getAll" => T<string>?key ^-> T<string[]>
-            "has" => T<string>?key ^-> T<bool>
-            "set" => T<string>?key * T<string>?value ^-> T<unit>
-            "sort" => T<unit> ^-> T<unit>
         ]
 
     let URL =
@@ -2646,6 +2646,44 @@ module WebSockets =
                 Constructor (T<string> * T<string[]>)
             ]
 
+module EventSource =
+    
+    let ReadyState =
+        Pattern.EnumInlines "ReadyState" [
+            "connecting", "0"
+            "open", "1"
+            "closed", "2"
+        ]
+
+    let EventSourceOptions =
+        Pattern.Config "EventSourceOptions" {
+            Required = []
+            Optional = [
+                "withCredentials", T<bool>
+            ]
+        }
+
+    let EventSource =
+        Class "EventSource"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Static [
+            Constructor (T<string>?url * !? EventSourceOptions?options)
+        ]
+        |+> Instance [
+            // Properties
+            "readyState" =? ReadyState
+            "url" =? T<string>
+            "withCredentials" =? T<bool>
+
+            // Event handlers
+            "onerror" =@ General.ErrorEvent ^-> T<unit>
+            "onmessage" =@ General.MessageEvent ^-> T<unit>
+            "onopen" =@ Dom.Interfaces.Event ^-> T<unit>
+
+            // Methods
+            "close" => T<unit> ^-> T<unit>
+        ]
+
 module Definition =
 
     let Namespaces =
@@ -2700,6 +2738,9 @@ module Definition =
                 Elements.HTMLSlotElement
                 Elements.HTMLTextAreaElement
                 Elements.SelectionMode
+                EventSource.ReadyState
+                EventSource.EventSourceOptions
+                EventSource.EventSource
                 File.BinaryFileReader
                 File.Blob
                 File.BlobPropertyBag

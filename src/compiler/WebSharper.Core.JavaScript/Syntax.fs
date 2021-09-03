@@ -78,6 +78,8 @@ type BinaryOperator =
     | ``|`` = 35
     | ``||`` = 36
     | ``**`` = 37
+    | ``??`` = 38
+    | ``??=`` = 39
 
 type B = BinaryOperator
 

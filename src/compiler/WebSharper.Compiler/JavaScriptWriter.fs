@@ -74,8 +74,8 @@ let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 let transformId (env: Environment) (id: Id) =
     try Map.find id env.ScopeIds
     with _ -> 
-        //"MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
-        failwithf "Undefined variable during writing JavaScript: %s" (string id)
+        "MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
+        //failwithf "Undefined variable during writing JavaScript: %s" (string id)
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
@@ -222,6 +222,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | BinaryOperator.``instanceof`` -> J.Binary(trE x, J.BinaryOperator.``instanceof``, trE z)
         | BinaryOperator.``|``          -> J.Binary(trE x, J.BinaryOperator.``|``         , trE z)
         | BinaryOperator.``||``         -> J.Binary(trE x, J.BinaryOperator.``||``        , trE z)
+        | BinaryOperator.``??``         -> J.Binary(trE x, J.BinaryOperator.``??``        , trE z)
         | _ -> failwith "invalid BinaryOperator enum value"
     | ItemSet(x, y, z) -> (trE x).[trE y] ^= trE z
     | MutatingBinary(x, y, z) ->
@@ -238,6 +239,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``<<=``  -> J.Binary(trE x, J.BinaryOperator.``<<=``  , trE z)
         | MutatingBinaryOperator.``>>=``  -> J.Binary(trE x, J.BinaryOperator.``>>=``  , trE z)
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
+        | MutatingBinaryOperator.``??=``  -> J.Binary(trE x, J.BinaryOperator.``??=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
     | New (x, y) -> J.New(trE x, y |> List.map trE)

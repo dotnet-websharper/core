@@ -198,6 +198,22 @@ type AlwaysEqual (x) =
     override this.Equals(o) = true
     override this.GetHashCode() = 0
 
+type IA<'T> =
+    abstract member Get : unit -> 'T
+
+[<JavaScript>]
+type MyType() =
+    member __.M() = ()
+
+    interface WebSharper.CSharp.Tests.IFoo
+
+//[<JavaScript>]
+//type MultipleIntf() =
+//    interface IA<int> with
+//        member x.Get() = 1
+//    interface IA<string> with
+//        member x.Get() = "hello"
+
 [<JavaScript>]
 let Tests =
     TestCategory "Object" {
@@ -485,6 +501,24 @@ let Tests =
             let y = { SR2 = 1; SR2b = "a" }
             equal y.SR2 1
             equal y.SR2b "a"
+        }
+
+        Skip "Default interface member consumption" {
+            // let a = MyType() :> WebSharper.CSharp.Tests.IFoo
+            // let b = { new WebSharper.CSharp.Tests.IFoo }
+
+            // equal a.Bar 0
+            // equal b.Bar 0
+            equal 1 1
+        }
+
+        Skip "Interfaces with multiple generic implementations" {
+        //    let mc = MultipleIntf()
+        //    let iaInt = mc :> IA<int>
+        //    let iaString = mc :> IA<string>
+        //    equal (iaInt.Get()) 1
+        //    equal (iaString.Get()) "hello"
+            equal 1 1
         }
 
     }

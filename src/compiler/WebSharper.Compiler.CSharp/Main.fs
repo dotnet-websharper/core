@@ -24,20 +24,18 @@ open System.IO
 
 open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp  
-open WebSharper.Compiler.ErrorPrinting
-open WebSharper.Compiler.FrontEnd
 open WebSharper.Compiler.CommandTools
+open WebSharper.Compiler
 
 module M = WebSharper.Core.Metadata
         
 /// Creates WebSharper compilation for a C# project
-type WebSharperCSharpCompiler(logger) =
+type WebSharperCSharpCompiler() =
 
     member val UseGraphs = true with get, set
     member val UseVerifier = true with get, set
 
-    member this.Compile (refMeta, config: WsConfig) =
-
+    member this.Compile (refMeta, config: WsConfig, ?logger: LoggerBase) =
         let argv = config.CompilerArgs 
         let path = config.ProjectFile
 
@@ -83,7 +81,8 @@ type WebSharperCSharpCompiler(logger) =
             failwithf "C# compilation resulted in errors: %s" (err.GetMessage())
         | _ -> ()
 
-        TimedStage "Creating Roslyn compilation" 
+        let logger = logger |> Option.defaultWith (fun () -> upcast ConsoleLogger())
+        logger.TimedStage "Creating Roslyn compilation" 
             
         let comp = 
             WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
@@ -91,14 +90,14 @@ type WebSharperCSharpCompiler(logger) =
                 config
                 compilation
 
-        TimedStage "Parsing with Roslyn"
+        logger.TimedStage "Parsing with Roslyn"
 
         WebSharper.Compiler.Translator.DotNetToJavaScript.CompileFull comp
             
         if this.UseVerifier then
             comp.VerifyRPCs()
 
-        TimedStage "WebSharper translation"
+        logger.TimedStage "WebSharper translation"
 
         comp
 

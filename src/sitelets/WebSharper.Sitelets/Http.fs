@@ -26,6 +26,7 @@ module Http =
     open System.Collections.Generic
     open System.Collections.Specialized
     open System.IO
+    open System.Threading.Tasks
 
     /// Represents HTTP methods.
     /// See: http://www.w3.org/Protocols/rfc2616/rfc2616-sec9.html.
@@ -144,8 +145,6 @@ module Http =
     /// Represents HTTP requests.
     [<AbstractClass>]
     type Request() =
-        let mutable bodyText = null
-
         abstract Method : Method 
         abstract Uri : System.Uri 
         abstract Headers : seq<Header> 
@@ -155,27 +154,9 @@ module Http =
         abstract Body : Stream
         abstract Files : seq<IPostedFile>
         abstract Cookies : ParameterCollection
+        abstract BodyText : string
+        abstract BodyTextAsync : Async<string>
         
-        member this.BodyText =
-            if isNull bodyText then
-                let i = this.Body
-                if isNull i then
-                    bodyText <- ""    
-                else
-                    // We need to copy the stream because else StreamReader would close it.
-                    use m =
-                        if i.CanSeek then
-                            new System.IO.MemoryStream(int i.Length)
-                        else
-                            new System.IO.MemoryStream()
-                    i.CopyTo m
-                    if i.CanSeek then
-                        i.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    m.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
-                    use reader = new System.IO.StreamReader(m)
-                    bodyText <- reader.ReadToEnd()
-            bodyText
-
         member this.WithUri(uri) =
             match this with
             | :? RequestWithUri as req ->
@@ -194,6 +175,8 @@ module Http =
                 override x.Body = Stream.Null
                 override x.Files = Seq.empty
                 override x.Cookies = EmptyParameters
+                override x.BodyText = ""
+                override x.BodyTextAsync = async.Return ""
             }
 
     // optimized wrapper around Request, used for IRouter.Shift
@@ -209,6 +192,8 @@ module Http =
         override x.Body = req.Body
         override x.Files = req.Files
         override x.Cookies = req.Cookies
+        override x.BodyText = req.BodyText
+        override x.BodyTextAsync = req.BodyTextAsync
 
     /// Represents the status of HTTP responses.
     /// TODO

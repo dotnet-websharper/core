@@ -430,6 +430,19 @@ type Info =
         this.MacroEntries.Count = 0 &&
         this.SiteletDefinition.IsNone
 
+type MetadataOptions =
+    | FullMetadata
+    | DiscardExpressions
+    | DiscardInlineExpressions
+    | DiscardNotInlineExpressions
+
+let ApplyMetadataOptions options (m: Info) =
+    match options with
+    | FullMetadata -> m
+    | DiscardExpressions -> m.DiscardExpressions() 
+    | DiscardInlineExpressions -> m.DiscardInlineExpressions()
+    | DiscardNotInlineExpressions -> m.DiscardNotInlineExpressions()
+
 module internal Utilities = 
  
     let ignoreMacro m =
@@ -503,19 +516,18 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "4.7"
+    let CurrentVersion = "5.0-preview1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
 
-    let LoadReflected(a: System.Reflection.Assembly) =
-        if a.FullName.StartsWith "System" then None else
-            let n = "WebSharper.meta"
-            if Array.exists ((=) n) (a.GetManifestResourceNames()) then
-                use s = a.GetManifestResourceStream n
-                try
-                    Some (Decode s)
-                with e ->
-                    failwithf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message
-            else
-                None
+    let LoadRuntimeMetadata(a: System.Reflection.Assembly) =
+        let n = "WebSharper.runtime.meta"
+        if Array.exists ((=) n) (a.GetManifestResourceNames()) then
+            use s = a.GetManifestResourceStream n
+            try
+                Some (Decode s)
+            with e ->
+                failwithf "Failed to load metadata for: %s. Error: %s" a.FullName e.Message
+        else
+            None

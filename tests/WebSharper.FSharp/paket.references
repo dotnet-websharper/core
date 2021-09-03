@@ -1,0 +1,8 @@
+﻿group nunit
+   NUnit
+   NUnit3TestAdapter
+   Microsoft.NET.Test.Sdk
+   FSUnit
+   System.Runtime.Caching
+   FSharp.Core
+   FSharp.Compiler.Service

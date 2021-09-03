@@ -115,6 +115,7 @@ type MutatingBinaryOperator =
     | LeftShiftAssign          = 9
     | RightShiftAssign         = 10
     | UnsignedRightShiftAssign = 11
+    | CoalesceAssign           = 12
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module MutatingBinaryOperator =
@@ -130,6 +131,7 @@ module MutatingBinaryOperator =
     let [<Literal>] ``<<=``  = MutatingBinaryOperator.LeftShiftAssign         
     let [<Literal>] ``>>=``  = MutatingBinaryOperator.RightShiftAssign        
     let [<Literal>] ``>>>=`` = MutatingBinaryOperator.UnsignedRightShiftAssign
+    let [<Literal>] ``??=``  = MutatingBinaryOperator.CoalesceAssign
 
 type MutatingUnaryOperator =
     | PreIncrement  = 0
@@ -171,6 +173,7 @@ type BinaryOperator =
     | BitwiseOr          = 21
     | Or                 = 22
     | Exponentiation     = 23
+    | Coalesce           = 24
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module BinaryOperator =
@@ -198,6 +201,7 @@ module BinaryOperator =
     let [<Literal>] instanceof = BinaryOperator.InstanceOf            
     let [<Literal>] ``|``      = BinaryOperator.BitwiseOr         
     let [<Literal>] ``||``     = BinaryOperator.Or  
+    let [<Literal>] ``??``     = BinaryOperator.Coalesce  
 
 type UnaryOperator =
     | Not        = 0

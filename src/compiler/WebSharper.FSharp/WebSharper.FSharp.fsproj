@@ -1,15 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="wsfscservice_start.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="NLog.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <Content Include="wsfscservice_start.cmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="wsfscservice_start.sh">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Compile Include="NamedPipeClient.fs" />
     <Compile Include="Program.fs" />
     <Content Include="wsfsc.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -28,11 +42,9 @@
     <ProjectReference Include="..\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\WebSharper.Core\WebSharper.Core.fsproj" />
+    <ProjectReference Include="..\WebSharper.FSharp.Service\WebSharper.FSharp.Service.fsproj" />
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
-  <Target Name="CopyToOutput" AfterTargets="Build;Publish" Condition="$(TargetFramework.StartsWith('net4'))">
-    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="$(OutputPath)\netstandard.dll" />
-  </Target>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

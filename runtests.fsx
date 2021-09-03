@@ -4,7 +4,6 @@
 #r "build/Release/WebSharper.JavaScript.dll"
 #r "build/Release/WebSharper.Collections.dll"
 #r "build/Release/WebSharper.Control.dll"
-#r "build/Release/WebSharper.JQuery.dll"
 #r "build/Release/WebSharper.Main.dll"
 #r "build/Release/WebSharper.Html.Client.dll"
 #r "build/Release/WebSharper.Html.Server.dll"

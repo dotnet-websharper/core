@@ -38,6 +38,7 @@ module HtmlCommand =
             UnpackSourceMap : bool
             UnpackTypeScript : bool
             DownloadResources: bool
+            Metadata : WebSharper.Core.Metadata.Info
         }
 
         static member Create(mainAssemblyPath) =
@@ -50,6 +51,7 @@ module HtmlCommand =
                 UnpackSourceMap = false
                 UnpackTypeScript = false
                 DownloadResources = false
+                Metadata = WebSharper.Core.Metadata.Info.Empty
             }
 
     exception BadOptions of string
@@ -68,26 +70,65 @@ module HtmlCommand =
     type IHtmlCommand =
         abstract Execute : C.Environment * Config -> C.Result
 
-    let Exec env config =
-        // this is a forward declaration - actual logic in the Sitelets assembly
-        let baseDir =
-            typeof<IHtmlCommand>.Assembly.Location
-            |> Path.GetDirectoryName
-        // install resolution rules specifically to work on Mono
-        let aR =
-            AssemblyResolver.Create()
-                .WithBaseDirectory(baseDir)
-                .SearchDirectories([baseDir])
-        let assemblyName =
-            let n = typeof<IHtmlCommand>.Assembly.GetName()
-            n.Name <- "WebSharper.Sitelets.Offline"
-            n
-        aR.Wrap <| fun () ->
-            let asm = System.Reflection.Assembly.Load(assemblyName)
-            let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
-            let t = asm.GetType(tN, throwOnError = true)
-            let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
-            cmd.Execute(env, config)        
+    let mutable implementationInstance = None : IHtmlCommand option
+    
+    let Exec env (config: Config) =
+        
+        let loadAsm (path: string) =
+            try 
+                System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
+            with :? System.BadImageFormatException -> 
+                null
+
+        // force load shared assemblies
+        [|
+            "WebSharper.JavaScript" 
+            "WebSharper.Main" 
+            "WebSharper.Collections"
+            "WebSharper.Web"
+            "WebSharper.Sitelets"
+            "WebSharper.Core"
+            "WebSharper.Core.JavaScript"
+        |] |> Array.iter (fun assemblyName ->
+            let path =
+                config.ReferenceAssemblyPaths |> List.tryFind (fun r ->
+                    Path.GetFileNameWithoutExtension(r) = assemblyName
+                )   
+            match path with
+            | Some p ->
+                loadAsm p |> ignore
+            | None ->
+                failwithf "Assembly not referenced, needed for Html projects: %s" assemblyName
+        )
+
+        let cmd =
+            match implementationInstance with
+            | Some cmd -> cmd
+            | None ->
+        
+                let referencedAsmNames =
+                    config.ReferenceAssemblyPaths
+                    |> Seq.map (fun i -> 
+                        let n = Path.GetFileNameWithoutExtension(i)
+                        n, i
+                    )
+                    |> dict
+                
+                let thisPath = typeof<IHtmlCommand>.Assembly.Location
+                let compilerDir = Path.GetDirectoryName(thisPath)
+                let cmdAssemblyPath =
+                    Path.Combine(compilerDir, "WebSharper.Sitelets.Offline.dll")
+                let asm = loadAsm cmdAssemblyPath
+                let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
+                let t = asm.GetType(tN, throwOnError = true)
+                    
+                let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+
+                implementationInstance <- Some cmd
+
+                cmd
+
+        cmd.Execute(env, config)   
 
     let Parse (args: list<string>) =
         let trim (s: string) =

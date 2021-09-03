@@ -33,6 +33,8 @@ module UnpackCommand =
             UnpackSourceMap : bool
             UnpackTypeScript : bool
             DownloadResources : bool
+            Loader : option<Loader>
+            Logger : LoggerBase
         }
 
         static member Create() =
@@ -42,6 +44,8 @@ module UnpackCommand =
                 UnpackSourceMap = false
                 UnpackTypeScript = false
                 DownloadResources = false
+                Loader = None
+                Logger = ConsoleLogger()
             }
 
     let GetErrors config =
@@ -84,21 +88,26 @@ module UnpackCommand =
     let private localResTyp = typeof<Re.IDownloadableResource>
 
     let Exec env cmd =
+        let errors = ResizeArray()
         let baseDir =
             let pathToSelf = typeof<Config>.Assembly.Location
             Path.GetDirectoryName(pathToSelf)
         let aR =
             AssemblyResolver.Create()
-                .WithBaseDirectory(baseDir)
                 .SearchDirectories([baseDir])
+                .SearchPaths(cmd.Assemblies)
+        let loader = 
+            match cmd.Loader with
+            | Some l ->
+                l.WithAssemblyResolver(aR)
+            | _ ->
+                Loader.Create aR errors.Add
+        let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
         let writeTextFile (output, text) =
             Content.Text(text).WriteFile(output)
         let writeBinaryFile (output, bytes) =
             Binary.FromBytes(bytes).WriteFile(output)
         System.IO.Directory.CreateDirectory cmd.RootDirectory |> ignore
-        let pc = PC.PathUtility.FileSystem(cmd.RootDirectory)
-        let aR = aR.SearchPaths(cmd.Assemblies)
-        let loader = Loader.Create aR stderr.WriteLine
         let emit text path =
             match text with
             | Some text -> writeTextFile (path, text)
@@ -116,9 +125,15 @@ module UnpackCommand =
                 emit text path
         let script = PC.ResourceKind.Script
         let content = PC.ResourceKind.Content
-        let errors = ResizeArray()
+
+        if cmd.DownloadResources then
+            aR.Wrap <| fun () ->
+                for p in cmd.Assemblies do
+                    DownloadResources.DownloadResource p cmd.RootDirectory |> errors.AddRange
+            cmd.Logger.TimedStage "Download Resource"
+
         for p in cmd.Assemblies do
-            match (try loader.LoadFile p |> Some with _ -> None) with 
+            match (try loader.LoadFile (p, false) |> Some with _ -> None) with 
             | None -> () 
             | Some a ->
             let aid = PC.AssemblyId.Create(a.Name)
@@ -138,22 +153,7 @@ module UnpackCommand =
                 writeText script r.FileName r.Content
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
-
-            let printError (e: exn) =
-                let rec messages (e: exn) =
-                    seq {
-                        yield e.Message
-                        match e with
-                        | :? System.Reflection.ReflectionTypeLoadException as e ->
-                            yield! Seq.collect messages e.LoaderExceptions
-                        | e when isNull e.InnerException -> ()
-                        | e -> yield! messages e.InnerException
-                    }
-                String.concat " - " (messages e)
-
-            if cmd.DownloadResources then
-                DownloadResources.DownloadResource p cmd.RootDirectory
-
+        
         if errors.Count = 0 then
             C.Ok
         else

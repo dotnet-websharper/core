@@ -77,13 +77,12 @@ module Bundling =
             AddError : option<SourcePos> -> string -> unit
         }
 
-    let private CreateBundle (o: BundleOptions) =
+    let private CreateBundle (o: BundleOptions) (logger: LoggerBase) =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
         let sourceMap = o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
-        let appConfig = None
         
         let graph =
             o.RefMetas |> Seq.map (fun m -> m.Dependencies)
@@ -104,30 +103,18 @@ module Bundling =
         let mutable map = None
         let mutable minmap = None
 
-        let getSetting =
-            match appConfig with
-            | None -> fun _ -> None
-            | Some p ->
-                let conf =
-                    ConfigurationManager.OpenMappedExeConfiguration(
-                        ExeConfigurationFileMap(ExeConfigFilename = p),
-                        ConfigurationUserLevel.None)
-                fun name ->
-                    match conf.AppSettings.Settings.[name] with
-                    | null -> None
-                    | x -> Some x.Value
-
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
         let concatScripts = not dce && not sourceMap
         if concatScripts then
-            printfn "Using pre-compiled JavaScript for bundling"
+            sprintf "Using pre-compiled JavaScript for bundling"
+            |> logger.Out
 
         let htmlHeadersContext : Res.Context =
             {
                 DebuggingEnabled = false
                 DefaultToHttp = false
                 ScriptBaseUrl = o.Config.ScriptBaseUrl
-                GetSetting = getSetting
+                GetSetting = fun _ -> None
                 GetAssemblyRendering = fun _ -> Res.Skip
                 GetWebResourceRendering = fun _ _-> Res.Skip
                 WebRoot = "/"
@@ -205,7 +192,7 @@ module Bundling =
                                     Res.Skip
                             | _ ->
                                 fun _ -> Res.Skip
-                        GetSetting = getSetting
+                        GetSetting = fun _ -> None
                         GetWebResourceRendering = fun ty name ->
                             let (c, cT) = Utility.ReadWebResource ty name
                             renderWebResource cT c
@@ -355,7 +342,7 @@ module Bundling =
     let private (==) s1 s2 =
         System.String.Equals(s1, s2, System.StringComparison.OrdinalIgnoreCase)
 
-    let AddExtraBundles config refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
+    let AddExtraBundles config (logger: LoggerBase) refMetas (currentMeta: M.Info) (refAssemblies: list<Assembly>) (comp: Compilation) (assem: Choice<string, Assembly>) =
         let config =
             { config with
                 SourceMap = false // TODO make SourceMap work with this
@@ -368,7 +355,7 @@ module Bundling =
             | Choice1Of2 _ -> ignore
             | Choice2Of2 assem ->
             let strTy =
-                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard" || ar.Name == "mscorlib")
+                let std = refAssemblies |> List.find (fun ar -> ar.Name == "netstandard")
                 Mono.Cecil.TypeReference("System", "String", std.Raw.MainModule, std.Raw.MainModule) |> assem.Raw.MainModule.ImportReference
             let webResourceTy =
                 let wsCoreJs = refAssemblies |> List.find (fun ar -> ar.Name == "WebSharper.Core.JavaScript")
@@ -386,7 +373,9 @@ module Bundling =
             for KeyValue(bname, bundle) in comp.CompiledExtraBundles do
                 let bname = assemName + "." + bname
                 let jsExports = if bundle.IncludeJsExports then comp.JavaScriptExports else []
-                let bundle = CreateBundle {
+                let bundle =
+                    logger 
+                    |> CreateBundle {
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
@@ -472,12 +461,13 @@ module Bundling =
             | p ->
                 failwithf "Bunlding called for unexpected project type: %s. Use with \"Bundle\" or \"BundleOnly\"." (p |> Option.map string |> Option.defaultValue "None")
 
-    let Bundle (config: WsConfig) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
+    let Bundle (config: WsConfig) (logger: LoggerBase) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
         let entryPointStyle =
             if List.isEmpty comp.JavaScriptExports
             then Packager.EntryPointStyle.ForceOnLoad
             else Packager.EntryPointStyle.OnLoadIfExists
-        CreateBundle {
+        logger
+        |> CreateBundle {
             Config = config
             RefMetas = refMetas
             CurrentMeta = currentMeta

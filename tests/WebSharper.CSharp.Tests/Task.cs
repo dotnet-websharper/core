@@ -110,6 +110,35 @@ namespace WebSharper.CSharp.Tests
             Raises(() => new Task<int>(() => 2).Result);
         }
 
+        [Test("Await Using/AsyncDisposable", TestKind.Skip)]
+        public async Task AwaitUsing()
+        {
+            var a = new AsyncDisposableTest();
+            await using (a)
+            {
+                IsFalse(a.IsDisposed);
+            }
+            IsTrue(a.IsDisposed);
+        }
+
+        public async IAsyncEnumerable<int> TestAsyncEnumerable()
+        {
+            yield return 1;
+            await Task.Delay(100);
+            yield return 2;
+        }
+
+        [Test("Await Foreach/AsyncEnumerable", TestKind.Skip)]
+        public async Task AwaitForeach()
+        {
+            var res = new List<int>();
+            await foreach (var a in TestAsyncEnumerable())
+            {
+                res.Add(a);
+            }
+            Equal(res.ToArray(), new[] { 1, 2 });
+        }
+
         [Test]
         public async Task WebWorker()
         {
@@ -129,6 +158,18 @@ namespace WebSharper.CSharp.Tests
             var res = await t.Task;
             worker.Terminate();
             Equal(res, "The worker replied: [worker] Hello world!");
+        }
+    }
+
+    [JavaScript]
+    public class AsyncDisposableTest : IAsyncDisposable
+    {
+        public bool IsDisposed { get; set; }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Task.Delay(100);
+            IsDisposed = true;
         }
     }
 

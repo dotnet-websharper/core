@@ -40,6 +40,26 @@
           return o;
         },
 
+      PrintObject:
+        function (obj) {
+          var res = obj.constructor.name + " { ";
+          var empty = true;
+          for (field in obj) {
+            if (empty) {
+              empty = false;
+            } else {
+              res += ", ";
+            }
+            res += field + " = " + obj[field];
+          }
+          if (empty) {
+            res += "}";
+          } else {
+            res += " }";
+          }
+          return res;
+        },
+
       DeleteEmptyFields:
         function (obj, fields) {
           for (var i = 0; i < fields.length; i++) {

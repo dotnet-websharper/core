@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netcoreapp3.1</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Name>ZafirCs</Name>
     <Signed>False</Signed>
     <CSharpTool>True</CSharpTool>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="ErrorPrinting.fs" />
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
     <Content Include="zafircs-netcore.cmd">
@@ -29,8 +28,5 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator\WebSharper.InterfaceGenerator.fsproj" />
   </ItemGroup>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
-  <Target Name="CopyToOutput" AfterTargets="Build;Publish" Condition="$(TargetFramework.StartsWith('net4'))">
-    <Copy SourceFiles="..\..\..\packages\includes\NETStandard.Library\build\netstandard2.0\ref\netstandard.dll" DestinationFiles="$(OutputPath)\netstandard.dll" />
-  </Target>
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>

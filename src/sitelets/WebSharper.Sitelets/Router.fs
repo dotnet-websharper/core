@@ -26,9 +26,19 @@ open System.Runtime.InteropServices
 open System.Text
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 
 #nowarn "64" // type parameter renaming warnings 
+
+type XHRConfig =
+    {
+        mutable ResponseT : XMLHttpRequestResponseType
+        mutable Url : string
+        IsAsync : bool
+        Username : string
+        Password : string
+        mutable Timeout : int
+        mutable WithCredentials : bool
+    }
 
 /// Indicates the "Access-Control-Xyz" headers to send.
 type CorsAllows =
@@ -722,45 +732,60 @@ module Router =
         | Some p -> p.ToLink()
         | None -> ""
 
-    let AjaxWith (settings: AjaxSettings) (router: Router<'A>) endpoint =
-        let settings = if As settings then settings else AjaxSettings()
+    let XHRWith (conf: XHRConfig) (router: Router<'A>) endpoint =
+        let xhr = XMLHttpRequest()
         match Write router endpoint with
         | Some path ->
-            if settings.DataType ===. JS.Undefined then
-                settings.DataType <- DataType.Text
-            settings.Type <-
+            if conf.ResponseT ===. JS.Undefined then
+                conf.ResponseT <- XMLHttpRequestResponseType.Text
+            let method = 
                 match path.Method with
                 | Some m -> As m
-                | None -> RequestType.POST
-            match path.Body.Value with
-            | null ->
-                if not (Map.isEmpty path.FormData) then
-                    let fd = JavaScript.FormData()
-                    path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
-                    settings.ContentType <- Union1Of2 false
-                    settings.Data <- fd
-                    settings.ProcessData <- false
-            | b ->
-                settings.ContentType <- Union2Of2 "application/json"
-                settings.Data <- b
-                settings.ProcessData <- false
+                | None -> "POST"
             Async.FromContinuations (fun (ok, err, cc) ->
-                settings.Success <- fun res _ _ -> ok (As<string> res) 
-                settings.Error <- fun _ _ msg -> err (exn msg)
+                xhr.Onload <- fun _ -> ok (As<string> xhr.Response)
+                xhr.Onerror <- fun _ -> err <| exn xhr.StatusText
                 // todo: cancellation
                 let url = path.ToLink()
-                settings.Url <-
-                    if As settings.Url then
-                        settings.Url.TrimEnd('/') + url
+                conf.Url <-
+                    if As conf.Url then
+                        conf.Url.TrimEnd('/') + url
                     else
                         url
-                JQuery.Ajax(settings) |> ignore
+                if conf.Username <> "" && conf.Password <> "" then
+                    xhr.Open(method, conf.Url, conf.IsAsync, conf.Username, conf.Password)
+                else
+                    xhr.Open(method, conf.Url, conf.IsAsync)
+                if conf.Timeout <> 0 then
+                    xhr.Timeout <- conf.Timeout
+                if conf.WithCredentials then
+                    xhr.WithCredentials <- conf.WithCredentials
+                match path.Body.Value with
+                | null ->
+                    if not (Map.isEmpty path.FormData) then
+                        let fd = JavaScript.FormData()
+                        path.FormData |> Map.iter (fun k v -> fd.Append(k, v))
+                        xhr.Send(fd)
+                    else
+                        xhr.Send()
+                | b ->
+                    xhr.Send(b)
             )
         | _ -> 
             failwith "Failed to map endpoint to request" 
 
-    let Ajax router endpoint =
-        AjaxWith (AjaxSettings()) router endpoint
+    let XHR router endpoint =
+        let defaultXHRConfig =
+            {
+                ResponseT = XMLHttpRequestResponseType.Text
+                Url = ""
+                IsAsync = true
+                Username = ""
+                Password = ""
+                Timeout = 0
+                WithCredentials = false
+            }
+        XHRWith defaultXHRConfig router endpoint
 
     let FetchWith (baseUrl: option<string>) (options: RequestOptions) (router: Router<'A>) endpoint : Promise<Response> =
         let options = if As options then options else RequestOptions()
@@ -1085,8 +1110,8 @@ type Router<'T when 'T: equality> with
         Router.FormData this
 
     [<Inline>]
-    member this.Ajax(endpoint, [<Optional>] settings) =
-        Router.AjaxWith settings this endpoint |> Async.StartAsTask
+    member this.XHR(endpoint, [<Optional>] settings) =
+        Router.XHRWith settings this endpoint |> Async.StartAsTask
 
     [<Inline>]
     member this.Fetch(endpoint, [<Optional>] baseUrl, [<Optional>] settings) =
@@ -1361,7 +1386,7 @@ module RouterOperators =
 
     /// Parse/write a DateTime in `YYYY-MM-DD-HH.mm.ss` format.
     let rDateTime : Router<System.DateTime> =
-        let pInt x =
+        let pInt (x: string) =
             match System.Int32.TryParse x with
             | true, i -> Some i
             | _ -> None
@@ -1511,22 +1536,22 @@ module RouterOperators =
         | _ -> true
 
     let internal JSUnion (t: obj) (cases: (option<obj> * (option<string> * string[])[] * Router<obj>[])[]) : Router<obj> = 
-        let getTag value = 
+        let getTag (value: obj) : int = 
             let constIndex =
-                cases |> Seq.tryFindIndex (
-                    function
+                cases |> Seq.tryFindIndex (fun case ->
+                    match case with
                     | Some c, _, _ -> value = c
                     | _ -> false
                 )
             match constIndex with
             | Some i -> i
             | _ -> value?("$") 
-        let readFields tag value =
+        let readFields (tag: int) (value: obj) : obj[] =
             let _, _, fields = cases.[tag]
             Array.init fields.Length (fun i ->
                 value?("$" + string i)
             )
-        let createCase tag fieldValues =
+        let createCase (tag: int) (fieldValues: obj[]) : obj =
             let o = if isNull t then New [] else JS.New t
             match cases.[tag] with
             | Some constant, _, _ -> constant
@@ -1540,6 +1565,7 @@ module RouterOperators =
             cases |> Seq.indexed |> Seq.collect (fun (i, (_, eps, fields)) ->
                 eps |> Seq.map (fun (m, p) -> i, m, p, fields)    
             )
+            |> Array.ofSeq
         {                                                    
             Parse = fun path ->
                 parseCases |> Seq.collect (fun (i, m, s, fields) ->
@@ -1563,14 +1589,14 @@ module RouterOperators =
                 let _, eps, fields = cases.[tag]
                 let method, path = eps.[0]
                 let casePath = Seq.singleton (Route.Segment (List.ofArray path, method))
-                match fields with
-                | [||] -> Some casePath
-                | _ ->
+                if Array.isEmpty fields then
+                    Some casePath
+                else
                     let fieldParts =
                         (readFields tag value, fields) ||> Array.map2 (fun v f -> f.Write v)
                     if Array.forall Option.isSome fieldParts then
                         Some (Seq.append casePath (fieldParts |> Seq.collect Option.get))
-                    else None                      
+                    else None    
         }
 
     let internal JSClass (ctor: unit -> obj) (fields: (string * bool * Router<obj>)[]) (endpoints: (option<string> * Union<string, int>[])[]) (subClasses: Router<obj>[]) : Router<obj> =

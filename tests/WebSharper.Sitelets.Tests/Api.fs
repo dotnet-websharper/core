@@ -121,16 +121,18 @@ module Api =
         | DeletePerson id ->
             Content.Json (ApplicationLogic.deletePerson id)
         | UpdatePerson id ->
-            let data = (new System.IO.StreamReader(ctx.Request.Body)).ReadToEnd()
-            let p = Json.Deserialize<PersonDataNoDates> data
-            let personData =
-                { 
-                    firstName = p.firstName
-                    lastName = p.lastName
-                    born = System.DateTime()
-                    died = None
-                }
-            Content.Json (ApplicationLogic.putPerson (defaultArg id 1) personData)
+            async {
+                let! data = ctx.Request.BodyTextAsync
+                let p = Json.Deserialize<PersonDataNoDates> data
+                let personData =
+                    { 
+                        firstName = p.firstName
+                        lastName = p.lastName
+                        born = System.DateTime()
+                        died = None
+                    }
+                return! Content.Json (ApplicationLogic.putPerson (defaultArg id 1) personData)
+            }
         | TestDateTimeFormat date ->
             Content.Text (string date)
 

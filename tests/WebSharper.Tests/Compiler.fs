@@ -20,8 +20,6 @@
 
 module WebSharper.Tests.Compiler
 
-#if NET461
-
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
@@ -33,11 +31,13 @@ module Server =
     module P = Patterns
 
     let getCompiled a =
+        let ctx = WebSharper.Web.Remoting.GetContext()
         match a with
         | P.Call(_, mi, _) ->
             let typ = Reflection.ReadTypeDefinition mi.DeclaringType
             let meth = Reflection.ReadMethod mi
-            let _, _, expr = WebSharper.Web.Shared.Metadata.Classes.[typ].Methods.[meth]
+            let _, _, expr = 
+                ctx.Metadata.Classes.[typ].Methods.[meth]
             expr, meth.Value.MethodName
         | _ -> failwith "expected a Call pattern"
 
@@ -123,5 +123,3 @@ let Tests =
             )
         }
     }
-
-#endif

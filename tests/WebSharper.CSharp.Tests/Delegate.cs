@@ -50,6 +50,19 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void StaticDelegates()
+        {
+            Equal(F1(static () => 41), 41, "static Func<T> lambda invocation");
+            Equal(F2(static x => x + 41), 42, "static Func<T,U> lambda invocation");
+        }
+
+        [Test]
+        public void LambdaDiscard()
+        {
+            Equal(F2(static _ => 42), 42, "Func<T,U> lambda invocation with discard");
+        }
+
+        [Test]
         public async void AsyncLambda()
         {
             var x = 0;
@@ -147,6 +160,17 @@ namespace WebSharper.CSharp.Tests
             Equal(f(3), 3);
             Equal(f(), 5);
         }
+
+        [Test("C# anonymous method", TestKind.Skip)]
+        public void AnonymousMethod()
+        {
+            Func<int, int, int> sum = delegate (int a, int b) { return a + b; };
+            Equal(sum(3, 4), 7);
+
+            Func<int, int, int> sumStatic = static delegate (int a, int b) { return a + b; };
+            Equal(sumStatic(3, 4), 7);
+        }
+
 
         public event Action MyEvent;
 

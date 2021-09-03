@@ -1,0 +1,21 @@
+type file
+id WebSharper.AspNetCore
+authors IntelliFactory
+projectUrl https://websharper.com/
+repositoryType git
+repositoryUrl https://github.com/dotnet-websharper/core/
+licenseUrl https://github.com/dotnet-websharper/core/blob/master/LICENSE.md
+licenseExpression Apache-2.0
+iconUrl https://github.com/dotnet-websharper/core/raw/websharper50/tools/WebSharper.png
+description
+    Wrappers for hosting WebSharper sitelets and remoting components in ASP.NET Core projects
+tags
+    WebSharper Web JavaScript FSharp CSharp AspNetCore
+dependencies
+    framework: netstandard2.0
+        WebSharper == CURRENTVERSION
+        Microsoft.AspNetCore.Hosting.Abstractions >= LOCKEDVERSION
+        Microsoft.AspNetCore.Authentication.Abstractions >= LOCKEDVERSION
+files
+    ../build/Release/netstandard2.0/WebSharper.AspNetCore.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.AspNetCore.xml ==> lib/netstandard2.0

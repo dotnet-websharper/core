@@ -1,39 +1,27 @@
 type file
 id WebSharper.Tests
 authors IntelliFactory
-licenseUrl http://websharper.com/licensing
-projectUrl http://websharper.com
+projectUrl https://websharper.com/
+repositoryType git
+repositoryUrl https://github.com/dotnet-websharper/core/
+licenseUrl https://github.com/dotnet-websharper/core/blob/master/LICENSE.md
+licenseExpression Apache-2.0
+iconUrl https://github.com/dotnet-websharper/core/raw/websharper50/tools/WebSharper.png
 description
     Test suite for WebSharper
 tags
-    Web JavaScript F# C#
+    WebSharper Web JavaScript FSharp CSharp Tests
 dependencies
-    WebSharper == CURRENTVERSION
-    WebSharper.Testing == CURRENTVERSION
+    framework: net5.0
+        WebSharper == CURRENTVERSION
+        WebSharper.Testing == CURRENTVERSION
 files
-    ../build/Release/net461/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.CSharp.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.CSharp.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Collections.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Html5.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Sitelets.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.Sitelets.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Web.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.Web.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Tests.dll ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.Tests.dll ==> lib/netstandard2.0
-
-    ../build/Release/net461/Website.dll ==> lib/net461
-    ../build/Release/netstandard2.0/Website.dll ==> lib/netstandard2.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.CSharp.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/WebSharper.Sitelets.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.Web.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/Website.dll ==> lib/net5.0

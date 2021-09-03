@@ -36,17 +36,17 @@ let SliceStart (s: 'T) (st: int) = X<'T>
 [<Name "string">]
 let GetStringSlice (source: string) (start: int option) (finish: int option) =
     match start, finish with
-    | Some s, Some f -> Slice source s (f + 1)
+    | Some s, Some f -> if f < 0 then "" else Slice source s (f + 1)
     | Some s, None -> SliceStart source s
-    | None, Some f -> Slice source 0 (f + 1)
+    | None, Some f -> if f < 0 then "" else Slice source 0 (f + 1)
     | _ -> ""
 
 [<Name "array">]
 let GetArraySlice<'T> (source: 'T[]) (start: int option) (finish: int option) =
     match start, finish with
-    | Some s, Some f -> Slice source s (f + 1)
+    | Some s, Some f -> if f < 0 then [||] else Slice source s (f + 1)
     | Some s, None -> SliceStart source s
-    | None, Some f -> Slice source 0 (f + 1)
+    | None, Some f -> if f < 0 then [||] else Slice source 0 (f + 1)
     | _ -> [||]
 
 module F = WebSharper.IntrinsicFunctionProxy

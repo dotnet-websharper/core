@@ -37,6 +37,7 @@ module PC = WebSharper.PathConventions
 type HtmlCommand() =
     interface H.IHtmlCommand with
         member this.Execute(env, options) =
+            let errors = ResizeArray()
             let aR = AssemblyResolver.Create()
             Directory.CreateDirectory options.OutputDirectory |> ignore
             // process extra.files
@@ -52,15 +53,17 @@ type HtmlCommand() =
                 |> Seq.map Path.GetDirectoryName
                 |> Seq.append [Path.GetDirectoryName(options.MainAssemblyPath)]
                 |> aR.SearchDirectories
-            aR.Wrap <| fun () ->
+            
+            try
+                aR.Install()
+
                 // Load the sitelet
                 let loadSite (file: string) =
-                    let assemblyName = AssemblyName.GetAssemblyName(file)
-                    let assembly = aR.Resolve(assemblyName)
+                    let assembly = WebSharper.Core.Reflection.LoadAssembly file
                     match assembly with
-                    | None ->
+                    | null ->
                         failwithf "Failed to load %s" file
-                    | Some assembly ->
+                    | assembly ->
                         let aT = typeof<WebsiteAttribute>
                         match Attribute.GetCustomAttribute(assembly, aT) with
                         | :? WebsiteAttribute as attr ->
@@ -74,7 +77,7 @@ type HtmlCommand() =
                 if options.DownloadResources then
                     let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
                     for p in assemblies do
-                        D.DownloadResource p options.OutputDirectory
+                        D.DownloadResource p options.OutputDirectory |> errors.AddRange
 
                 // Write site content.
                 Output.WriteSite aR {
@@ -83,6 +86,14 @@ type HtmlCommand() =
                     Actions = actions
                     UnpackSourceMap = options.UnpackSourceMap
                     UnpackTypeScript = options.UnpackTypeScript
+                    Metadata = options.Metadata
                 }
                 |> Async.RunSynchronously
+            
+            finally
+                aR.Remove()
+
+            if errors.Count = 0 then
                 C.Ok
+            else
+                C.Errors (List.ofSeq errors)

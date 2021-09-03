@@ -197,12 +197,4 @@ let Tests =
             equal (String.filter (fun _ -> true) "") ""
             equal (String.filter ((=) 'a') "abba") "aa"
         }
-
-#if PREVIEW
-        Test "String interpolation" {
-            let x = 5
-            equal $"x={x}" "x"
-            equal $"x=%d{x}" "x"
-        }
-#endif
     }

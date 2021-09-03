@@ -1,50 +1,64 @@
 references: strict
 redirects: on
 
-framework: net46, net461, netstandard2.0, netcoreapp3.1
+framework: net5.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
-nuget Microsoft.CSharp ~> 4.4.0
-nuget Microsoft.Extensions.DependencyModel ~> 2.0.0
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.Build.Utilities.Core ~> 15.3.0
-nuget System.Configuration.ConfigurationManager ~> 4.4.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 2.8.0
-nuget System.CodeDom ~> 4.4.0
-nuget System.Reflection.Emit.Lightweight ~> 4.3.0
-nuget System.Net.Http ~> 4.3.0
-nuget System.ValueTuple ~> 4.4.0
-nuget FSharp.Core 4.2.3
+nuget Microsoft.CodeAnalysis.CSharp ~> 3.9.0
+nuget System.CodeDom 4.4.0
+nuget System.Configuration.ConfigurationManager 5.0.0
+nuget System.Runtime.Loader 4.3.0
+nuget System.Reflection.Emit.Lightweight 4.7.0
+nuget Microsoft.Build.Utilities.Core 16.8.0
+nuget Microsoft.AspNetCore.Hosting.Abstractions 2.0.0
+nuget Microsoft.AspNetCore.Authentication.Abstractions 2.0.0
+nuget Microsoft.Extensions.DependencyModel 2.0.0
+nuget Microsoft.CSharp 4.7.0
+nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 
-nuget Microsoft.NETCore.Platforms ~> 2.0.0
-nuget NETStandard.Library ~> 2.0.0
+nuget System.Net.Http ~> 4.3.0
+nuget FSharp.Core 5.0.0
+
 nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Security.Cryptography.Csp ~> 4.3.0
 
-// fixed for analyzer to work
-nuget System.Collections.Immutable 1.3.1
-nuget System.Reflection.Metadata 1.4.2
-
 group wsbuild
-    git https://github.com/dotnet-websharper/build-script dotnettool
+    git https://github.com/dotnet-websharper/build-script websharper50
 
 group includes
     references: strict
-    framework: net46, net461, netstandard2.0, netcoreapp3.1
+    framework: net5.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
-    nuget NETStandard.Library 2.0.3
-    nuget FSharp.Core ~> 4.7.0
+    nuget NETStandard.Library.Ref
+    nuget FSharp.Core ~> 5.0.0
 
 group fcs
-    framework: net46, net461, netstandard2.0, netcoreapp3.1
+    framework: net5.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
     strategy: min
     storage: none
-    nuget FSharp.Compiler.Service ~> 37.0
-    nuget FSharp.Core ~> 4.7.0
+    nuget System.Runtime.Caching ~> 5.0.0
+    nuget System.Configuration.ConfigurationManager ~> 5.0.0
+    nuget NLog ~> 4.7.10
+    nuget FSharp.Compiler.Service ~> 40.0
+    nuget FSharp.Core ~> 5.0.0
 
 group test
     source https://api.nuget.org/v3/index.json
     nuget Chutzpah ~> 4.4.11
+
+group nunit
+    framework: net5.0
+    source https://api.nuget.org/v3/index.json
+    storage: none
+    nuget NUnit ~> 3.13.2
+    nuget NUnit3TestAdapter ~> 4.0.0
+    nuget Microsoft.NET.Test.Sdk ~> 16.10.0
+    nuget FSUnit ~> 4.0.4
+    nuget FSharp.Core ~> 5.0.2
+    nuget Microsoft.NETCore.Platforms ~> 5.0.2
+    nuget System.Runtime.Caching ~> 5.0.0
+    nuget FSharp.Compiler.Service ~> 40.0

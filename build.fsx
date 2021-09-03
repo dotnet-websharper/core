@@ -31,6 +31,7 @@ nuget NUglify //"
 #endif
 
 open System.IO
+open System.Diagnostics
 open System.Xml
 open System.Xml.Linq
 open System.Xml.XPath
@@ -40,9 +41,10 @@ open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
+open System.Diagnostics
 
-let version = "4.7"
-let pre = None
+let version = "5.0"
+let pre = Some "preview1"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
@@ -70,30 +72,30 @@ let targets = MakeTargets {
             let dest mode lang =
                 __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
             let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
-                let outputPath =
-                    __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> "deploy"
-                DotNet.publish (fun p ->
-                    { p with
-                        Framework = Some fw
-                        OutputPath = Some outputPath
-                        NoRestore = true
-                        Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
-                    }) input
-                if explicitlyCopyFsCore then
-                    let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
-                    [ 
-                        fsharpCoreLib </> "FSharp.Core.dll" 
-                        fsharpCoreLib </> "FSharp.Core.sigdata" 
-                        fsharpCoreLib </> "FSharp.Core.optdata" 
-                    ] 
-                    |> Shell.copy outputPath                
+                for rid in [ "win-x64"; "linux-x64"; "linux-musl-x64" ] do
+                    let outputPath =
+                        __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> rid </> "deploy"
+                    DotNet.publish (fun p ->
+                        { p with
+                            Framework = Some fw
+                            OutputPath = Some outputPath
+                            NoRestore = true
+                            SelfContained = false |> Some
+                            Runtime = rid |> Some
+                            Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
+                        }) input
+                    if explicitlyCopyFsCore then
+                        let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
+                        [ 
+                            fsharpCoreLib </> "FSharp.Core.dll" 
+                        ] 
+                        |> Shell.copy outputPath                
             BuildAction.Multiple [
                 buildSln "WebSharper.Compiler.sln"
                 BuildAction.Custom <| fun mode ->
-                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-                    publishExe mode "netcoreapp3.1" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
-                    publishExe mode "net461" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" false
-                    publishExe mode "net461" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" false
+                    publishExe mode "net5.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+                    publishExe mode "net5.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
+                    publishExe mode "net5.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
                 buildSln "WebSharper.sln"
             ]
 }
@@ -119,7 +121,7 @@ let MakeNetStandardTypesList() =
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
     if not f.Exists then
         let asm =
-            "packages/includes/NETStandard.Library/build/netstandard2.0/ref/netstandard.dll"
+            "packages/includes/NETStandard.Library.Ref/ref/netstandard2.1/netstandard.dll"
             |> Mono.Cecil.AssemblyDefinition.ReadAssembly
         use s = f.OpenWrite()
         use w = new StreamWriter(s)
@@ -157,98 +159,62 @@ Target.create "Prepare" <| fun _ ->
     Minify()
     MakeNetStandardTypesList()
     AddToolVersions()
-targets.AddPrebuild "Prepare"
-"WS-GenAssemblyInfo" ==> "Prepare"
 
-// Generate App.config redirects from the actual assemblies being used,
-// because Paket gets some versions wrong.
-Target.create "GenAppConfig" <| fun _ ->
-    [
-        "build/Release/CSharp/net461/deploy", "ZafirCs.exe.config"
-        "build/Release/FSharp/net461/deploy", "wsfsc.exe.config"
-    ]
-    |> List.iter (fun (dir, xmlFile) ->
-        let xmlFullPath = dir </> xmlFile
-        let mgr = XmlNamespaceManager(NameTable())
-        mgr.AddNamespace("ac", "urn:schemas-microsoft-com:asm.v1")
-        let doc = XDocument.Load(xmlFullPath)
-        let e::rest = doc.XPathSelectElements("/configuration/runtime/ac:assemblyBinding", mgr) |> List.ofSeq
-        e.RemoveAll()
-        for e in rest do e.Remove()
-        let loadElt (s: string) =
-            let parserContext = XmlParserContext(null, mgr, null, XmlSpace.None)
-            use reader = new XmlTextReader(s, XmlNodeType.Element, parserContext)
-            XElement.Load(reader)
-        for asmFullPath in Directory.GetFiles(dir, "*.dll") do
-            if not (xmlFile.StartsWith(Path.GetFileName(asmFullPath))) then
-                let asm = Mono.Cecil.AssemblyDefinition.ReadAssembly(asmFullPath)
-                let token = asm.Name.PublicKeyToken
-                let token = String.init token.Length (fun i -> sprintf "%02x" token.[i])
-                sprintf """<ac:dependentAssembly>
-                        <ac:assemblyIdentity name="%s" publicKeyToken="%s" culture="neutral" />
-                        <ac:bindingRedirect oldVersion="0.0.0.0-65535.65535.65535.65535" newVersion="%A" />
-                    </ac:dependentAssembly>"""
-                    asm.Name.Name token asm.Name.Version
-                |> loadElt
-                |> e.Add
-        doc.Save(xmlFullPath)
-    )
+Target.create "RunTestsRelease" <| fun _ ->
+    Trace.log "Starting Web test project"
+    let mutable startedOk = false
+    let started = Event<unit>()
+
+    use webTestsProc = new Process()
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net5.0\Web.exe"
+    webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
+    webTestsProc.StartInfo.UseShellExecute <- false
+    webTestsProc.StartInfo.RedirectStandardOutput <- true
     
-"WS-BuildRelease"
-    ==> "GenAppConfig"
-    ==> "WS-Package"
-
-let rm_rf x =
-    if Directory.Exists(x) then
-        // Fix access denied issue deleting a read-only *.idx file in .git
-        for git in Directory.EnumerateDirectories(x, ".git", SearchOption.AllDirectories) do
-            for f in Directory.EnumerateFiles(git, "*.*", SearchOption.AllDirectories) do
-                File.SetAttributes(f, FileAttributes.Normal)
-        Directory.Delete(x, true)
-    elif File.Exists(x) then File.Delete(x)
-
-Target.create "Clean" <| fun _ ->
-    rm_rf "netcore"
-    rm_rf "netfx"
-"WS-Clean" ==> "Clean"
-
-Target.create "Run" <| fun _ ->
-    Shell.Exec(
-        @"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7\IDE\devenv.exe",
-        "/r WebSharper.sln"
+    webTestsProc.OutputDataReceived.Add(fun d -> 
+        if not (isNull d) then
+            if not startedOk then            
+                Trace.log d.Data
+            if d.Data.Contains("Application started.") then
+                startedOk <- true   
+                started.Trigger()
     )
-    |> ignore
+    webTestsProc.Exited.Add(fun _ -> 
+        if not startedOk then
+            failwith "Starting Web test project failed."    
+    )
 
-"Build" ==> "Run"
+    webTestsProc.Start()
+    webTestsProc.BeginOutputReadLine()
+    started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
 
-Target.create "PublishTests" <| fun _ ->
-    match Environment.environVarOrNone "WS_TEST_FOLDER" with
-    | Some publishPath ->
-        Shell.copyDir publishPath "tests/Web" (fun _ -> true)
-    | _ ->
-        failwithf "Could not find WS_TEST_FOLDER environment variable for publishing test project"
+    let res =
+        Shell.Exec(
+            "packages/test/Chutzpah/tools/chutzpah.console.exe", 
+            "http://localhost:5000/consoletests /engine Chrome /silent /failOnError /showFailureReport"
+        )
+    webTestsProc.Kill()
+    if res <> 0 then
+        failwith "Chutzpah test run failed"
 
-Target.create "RunTests" <| fun _ ->
-    match Environment.environVarOrNone "WS_TEST_URL" with
-    | Some publishUrl ->
-        let res =
-            Shell.Exec(
-                "packages/test/Chutzpah/tools/chutzpah.console.exe",
-                publishUrl + "/consoletests /engine Chrome /silent /failOnError /showFailureReport"
-            )
-        if res <> 0 then
-            failwith "Chutzpah test run failed"
-    | _ ->
-        failwithf "Could not find WS_TEST_URL environment variable for running tests"
+targets.AddPrebuild "Prepare"
+
+Target.create "Stop" <| fun _ ->
+    try
+        Process.GetProcessesByName("wsfscservice")
+        |> Array.iter (fun x -> x.Kill())
+        |> ignore
+    with
+    | _ -> ()
+
+"Stop" ==> "WS-Clean"
+"Stop" ==> "WS-Restore"
 
 "WS-BuildRelease"
-    ==> "WS-Package"
-    ==> "CI-Release"
-"WS-BuildRelease"
-    ==> "PublishTests"
-    ==> "RunTests"
+    ==> "RunTestsRelease"
     ?=> "WS-Package"
-"RunTests"
-    ==> "CI-Release"
 
+"RunTestsRelease"
+    ==> "CI-Release"
+    
 Target.runOrDefaultWithArguments "Build"

@@ -1,67 +1,41 @@
 type file
 id WebSharper
 authors IntelliFactory
-licenseUrl http://websharper.com/licensing
-projectUrl http://websharper.com
+projectUrl https://websharper.com/
+repositoryType git
+repositoryUrl https://github.com/dotnet-websharper/core/
+licenseUrl https://github.com/dotnet-websharper/core/blob/master/LICENSE.md
+licenseExpression Apache-2.0
+iconUrl https://github.com/dotnet-websharper/core/raw/websharper50/tools/WebSharper.png
 description
     .NET-to-JavaScript compiler and web application framework
 tags
-    Web JavaScript F# C#
+    WebSharper Web JavaScript FSharp CSharp
 dependencies
-    FSharp.Core >= LOCKEDVERSION
-    System.Reflection.Emit.Lightweight >= LOCKEDVERSION
+    framework: netstandard2.0
+        FSharp.Core >= LOCKEDVERSION
+        System.Reflection.Emit.Lightweight >= LOCKEDVERSION
+        System.Configuration.ConfigurationManager >= LOCKEDVERSION
+        Microsoft.AspNetCore.Mvc.Abstractions >= LOCKEDVERSION
 files
-    ../build/Release/net461/WebSharper.Core.JavaScript.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Core.JavaScript.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Core.JavaScript.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Core.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Core.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Core.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Core.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.InterfaceGenerator.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.InterfaceGenerator.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.InterfaceGenerator.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Sitelets.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Sitelets.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Sitelets.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Sitelets.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Web.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Web.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Web.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Web.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Main.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Main.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Main.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Main.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Collections.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Collections.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Collections.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Collections.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.Control.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.Control.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.Control.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.Control.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.JavaScript.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.JavaScript.xml ==> lib/net461
     ../build/Release/netstandard2.0/WebSharper.JavaScript.dll ==> lib/netstandard2.0
     ../build/Release/netstandard2.0/WebSharper.JavaScript.xml ==> lib/netstandard2.0
-
-    ../build/Release/net461/WebSharper.JQuery.dll ==> lib/net461
-    ../build/Release/net461/WebSharper.JQuery.xml ==> lib/net461
-    ../build/Release/netstandard2.0/WebSharper.JQuery.dll ==> lib/netstandard2.0
-    ../build/Release/netstandard2.0/WebSharper.JQuery.xml ==> lib/netstandard2.0
-
     ../docs ==> docs
     ../src/htmllib/tags.csv ==> tools
-
     !../tools/*

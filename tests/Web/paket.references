@@ -1,2 +1,2 @@
-group includes
-   FSharp.Core
+group fcs
+	FSharp.Core

@@ -54,6 +54,8 @@ module HtmlCommand =
             UnpackTypeScript : bool
 
             DownloadResources : bool
+
+            Metadata : WebSharper.Core.Metadata.Info
         }
 
         /// Configures with default options.

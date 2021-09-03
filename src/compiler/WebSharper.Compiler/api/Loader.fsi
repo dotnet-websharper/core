@@ -27,6 +27,9 @@ type Loader =
     /// Creates a new loader. Accepts an assembly resolver.
     static member Create : resolver: AssemblyResolver -> log: (string -> unit) -> Loader
 
+    /// Changes assembly resolver, while keeping the load cache.
+    member WithAssemblyResolver : resolver: AssemblyResolver -> Loader 
+
     /// Loads an assembly from raw data.
     member LoadRaw : byte [] -> option<Symbols> -> Assembly
 

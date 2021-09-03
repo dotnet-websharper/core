@@ -65,34 +65,11 @@ type Config =
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool
+        Metadata: M.Info
     }
 
     member this.OutputDirectory =
         this.Options.OutputDirectory
-
-/// Collects metadata from all assemblies in referenced folders.
-let getMetadata conf =
-
-    let resolver =
-        let r = AssemblyResolver.Create()
-        Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
-        |> Seq.distinctBy (fun assemblyFile ->
-            AssemblyName.GetAssemblyName(assemblyFile).Name)
-        |> Seq.map Path.GetDirectoryName
-        |> Seq.distinct
-        |> r.SearchDirectories
-
-    let loader = Loader.Create resolver ignore
-
-    let metas =
-        Seq.append [conf.Options.MainAssemblyPath] conf.Options.ReferenceAssemblyPaths
-        |> Seq.distinctBy (fun assemblyFile ->
-            AssemblyName.GetAssemblyName(assemblyFile).Name)
-        |> Seq.map loader.LoadFile
-        |> Seq.choose (FrontEnd.ReadFromAssembly FrontEnd.FullMetadata)
-        |> List.ofSeq
-    WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas,
-    WebSharper.Core.DependencyGraph.Graph.FromData (metas |> List.map (fun m -> m.Dependencies))
 
 /// Generates unique file names.
 [<Sealed>]
@@ -131,7 +108,8 @@ type EmbeddedResource =
 /// The mutable state of the processing.
 [<Sealed>]
 type State(conf: Config) =
-    let metadata, dependencies = getMetadata conf
+    let metadata = conf.Metadata
+    let dependencies = Graph.FromData metadata.Dependencies
     let json = J.Provider.CreateTyped(metadata)
     let unique = UniqueFileNameGenerator()
     let usedAssemblies = HashSet<string>()
@@ -325,21 +303,21 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
         parts.Length - 1
     let resContext = resourceContext st level
     let genResp = C.ToResponse content
+    let context =
+        new Context<_>(
+            Json = st.Json,
+            Link = link,
+            ApplicationPath = ".",
+            Metadata = st.Metadata,
+            Dependencies = st.Dependencies,
+            ResourceContext = resContext,
+            Request = Http.Request.Empty locationString,
+            RootFolder = projectFolder,
+            UserSession = IUserSession.NotAvailable,
+            Environment = Map []
+        )
     async {
-        let! response =
-            new Context<_>(
-                Json = st.Json,
-                Link = link,
-                ApplicationPath = ".",
-                Metadata = st.Metadata,
-                Dependencies = st.Dependencies,
-                ResourceContext = resContext,
-                Request = Http.Request.Empty locationString,
-                RootFolder = projectFolder,
-                UserSession = IUserSession.NotAvailable,
-                Environment = Map []
-            )
-            |> genResp
+        let! response = genResp context
         let path =
             let ext =
                 response.Headers
@@ -385,20 +363,20 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
 let trimPath (path: string) =
     path.TrimStart('/')
 
-let WriteSite (aR: AssemblyResolver) (conf: Config) =
-    let st = State(conf)
+let WriteSite (aR: AssemblyResolver) (config: Config) =
+    let st = State(config)
     let actionTable = Dictionary()
     let urlTable = Dictionary()
-    let projectFolder = conf.Options.ProjectDirectory
-    let rootFolder = conf.Options.OutputDirectory
+    let projectFolder = config.Options.ProjectDirectory
+    let rootFolder = config.Options.OutputDirectory
     let contents () =
         async {
             let res = ResizeArray()
-            for action in conf.Actions do
-                match conf.Sitelet.Router.Link(action) with
+            for action in config.Actions do
+                match config.Sitelet.Router.Link(action) with
                 | Some location ->
-                    let content = conf.Sitelet.Controller.Handle(action)
-                    let link action = conf.Sitelet.Router.Link(action).Value.ToString()
+                    let content = config.Sitelet.Controller.Handle(action)
+                    let link action = config.Sitelet.Router.Link(action).Value.ToString()
                     let! rC = resolveContent projectFolder rootFolder st location link content
                     do actionTable.[action] <- rC.Path
                     do urlTable.[location] <- rC.Path
@@ -421,7 +399,7 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                         | true, p -> rC.RelativePath + P.ShowPath p
                         | false, _ ->
                             // Otherwise, link to the action using the router
-                            match conf.Sitelet.Router.Link action with
+                            match config.Sitelet.Router.Link action with
                             | Some loc ->
                                 match urlTable.TryGetValue(loc) with
                                 | true, p -> rC.RelativePath + P.ShowPath p
@@ -439,8 +417,8 @@ let WriteSite (aR: AssemblyResolver) (conf: Config) =
                     Environment = Map []
                 )
             let! response = rC.Respond context
-            use stream = createFile conf rC.Path
+            use stream = createFile config rC.Path
             return response.WriteBody(stream)
         // Write resources determined to be necessary.
-        return writeResources aR st conf.UnpackSourceMap conf.UnpackTypeScript
+        return writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
     }

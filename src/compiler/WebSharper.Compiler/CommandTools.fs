@@ -84,6 +84,8 @@ type WsConfig =
         ProxyTargetName : string option
         UseJavaScriptSymbol : bool
         TargetProfile : string
+        Standalone : bool
+        RuntimeMetadata : Metadata.MetadataOptions
     }
 
     member this.ProjectDir =
@@ -120,6 +122,12 @@ type WsConfig =
             ProxyTargetName = None
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
+            Standalone = 
+                try
+                    System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
+                with
+                | _ -> false
+            RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -226,6 +234,17 @@ type WsConfig =
                 res <- { res with ProxyTargetName = Some (getString k v) }
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = getBool k v }
+            | "standalone" ->
+                res <- { res with Standalone = getBool k v }
+            | "runtimemetadata" ->
+                let runtimeMetadata =
+                    match (getString k v).ToLower() with
+                    | "inlines" -> Metadata.MetadataOptions.DiscardNotInlineExpressions 
+                    | "notinlines" -> Metadata.MetadataOptions.DiscardInlineExpressions 
+                    | "full" -> Metadata.MetadataOptions.FullMetadata 
+                    | "noexpressions" -> Metadata.MetadataOptions.DiscardExpressions
+                    | _ -> argError (sprintf "Invalid value in %s for RuntimeMetadata, expecting 'noexpressions'/'inlines'/'notinlines'/'full'." fileName) 
+                res <- { res with RuntimeMetadata = runtimeMetadata }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
         res
@@ -260,16 +279,9 @@ module ExecuteCommands =
             | None -> None
         | Some out -> Some out
 
-    let SendResult result =
-        match result with
-        | Compiler.Commands.Ok -> true
-        | Compiler.Commands.Errors errors ->
-            for e in errors do
-                eprintf "%s" e
-            true
-    
-    let Unpack webRoot settings =
-        printfn "unpacking into %s" webRoot
+    let Unpack webRoot settings loader (logger: LoggerBase) =
+        sprintf "Unpacking into %s" webRoot
+        |> logger.Out
         for d in ["Scripts/WebSharper"; "Content/WebSharper"] do
             let dir = DirectoryInfo(Path.Combine(webRoot, d))
             if not dir.Exists then
@@ -279,10 +291,12 @@ module ExecuteCommands =
                 match settings.OutputDir with
                 | None | Some "" -> Path.Combine(webRoot, "bin")
                 | Some p -> p
+            let rootDir = Path.GetDirectoryName(settings.ProjectFile)
+            let fullDir = Path.Combine(rootDir, dir)
             [
-                yield! Directory.EnumerateFiles(dir, "*.dll")
-                yield! Directory.EnumerateFiles(dir, "*.exe")
-                yield settings.AssemblyFile
+                yield! Directory.EnumerateFiles(fullDir, "*.dll")
+                yield! Directory.EnumerateFiles(fullDir, "*.exe")
+                yield Path.Combine(rootDir, settings.AssemblyFile)
                 yield! settings.References
             ]        
             |> List.distinct
@@ -294,6 +308,8 @@ module ExecuteCommands =
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = Option.isSome settings.DownloadResources
+                    Loader = Some loader
+                    Logger = logger
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.UnpackCommand.Instance.Execute(env, cfg)
@@ -303,55 +319,73 @@ module ExecuteCommands =
         | None -> Path.Combine(settings.ProjectDir, "bin", "html")
         | Some dir -> dir
 
-    let Html settings =
+    let Html settings meta (logger: LoggerBase) =
+        let outputDir = HtmlOutputDirectory settings
+        sprintf "Generating static site into %s" outputDir
+        |> logger.Out
         let main = settings.AssemblyFile
         let refs = List.ofArray settings.References
         let cfg =
             {
                 Compiler.HtmlCommand.Config.Create(main) with
                     Mode = if settings.IsDebug then Compiler.HtmlCommand.Debug else Compiler.HtmlCommand.Release
-                    OutputDirectory = HtmlOutputDirectory settings
+                    OutputDirectory = outputDir
                     ProjectDirectory = settings.ProjectDir
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = settings.DownloadResources |> Option.defaultValue false
+                    Metadata = meta
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)
-        |> SendResult
 
-let LoadInterfaceGeneratorAssembly (file: string) =
+let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
+    let asm = WebSharper.Core.Reflection.LoadAssembly(file)
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
-    File.Copy(file, genFile)
-    let asm = Assembly.Load(File.ReadAllBytes(genFile))
+    File.Move(file, genFile)
     let name = asm.GetName()
-    match Attribute.GetCustomAttribute(asm, typeof<InterfaceGenerator.Pervasives.ExtensionAttribute>) with
-    | :? InterfaceGenerator.Pervasives.ExtensionAttribute as attr ->
-        name, attr.GetAssembly(), asm
-    | _ ->
+    let typedArg =
+        asm.CustomAttributes |> Seq.tryPick (fun a ->
+            if a.AttributeType.FullName = "WebSharper.InterfaceGenerator.Pervasives+ExtensionAttribute" then
+                Some a.ConstructorArguments.[0]
+            else
+                None
+        )
+    match typedArg with 
+    | Some a ->
+        let typeName = (a.Value :?> Type).FullName
+        let t = asm.GetType(typeName)
+        let e = Activator.CreateInstance(t)
+        logger.TimedStage "Loading IExtension implementation"
+        let assemblyGetter =
+            let intfMap = t.GetInterfaceMap(typeof<WebSharper.InterfaceGenerator.Pervasives.IExtension>)
+            intfMap.InterfaceMethods.[0]
+        let asmDefObj = assemblyGetter.Invoke(e, [||])
+        let asmDef = asmDefObj :?> WebSharper.InterfaceGenerator.CodeModel.Assembly
+        logger.TimedStage "Getting Assembly definition"
+        name, asmDef, asm
+    | None ->
         failwith "No ExtensionAttribute set on the input assembly"
 
-let RunInterfaceGenerator (aR: AssemblyResolver) snk config =
-    aR.Wrap <| fun () ->
-        let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile
-        let cfg =
-            {
-                InterfaceGenerator.CompilerOptions.Default(name.Name) with
-                    AssemblyResolver = Some aR
-                    AssemblyVersion = name.Version
-                    DocPath = config.Documentation
-                    EmbeddedResources = config.Resources |> Seq.map fst
-                    ProjectDir = config.ProjectDir
-                    ReferencePaths = config.References
-                    StrongNameKeyPath = snk
-                    IsNetStandard = match config.TargetProfile.ToLower() with "netstandard" | "netcore" -> true | _ -> false
-            }
-
-        let cmp = InterfaceGenerator.Compiler.Create()
-        let out = cmp.Compile(cfg, asmDef, asm)
-        out.Save config.AssemblyFile
+let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase) =
+    let (name, asmDef, asm) = LoadInterfaceGeneratorAssembly config.AssemblyFile logger        
+    let cfg =
+        {
+            InterfaceGenerator.CompilerOptions.Default(name.Name) with
+                AssemblyResolver = Some aR
+                AssemblyVersion = name.Version
+                DocPath = config.Documentation
+                EmbeddedResources = config.Resources |> Seq.map fst
+                ProjectDir = config.ProjectDir
+                ReferencePaths = config.References
+                StrongNameKeyPath = snk
+        }
+    let cmp = InterfaceGenerator.Compiler.Create(logger)
+    let out = cmp.Compile(cfg, asmDef, asm)
+    out.Save config.AssemblyFile
+    logger.TimedStage "Writing final dll"
 
 let (|StartsWith|_|) (start: string) (input: string) =    
     if input.StartsWith start then
@@ -391,27 +425,34 @@ type private HelpKind =
     | UnpackHelp
     | HtmlHelp
 
-let HandleDefaultArgsAndCommands argv isFSharp =
+let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 
-    let printInfo helpKind = 
+    let printInfo (logger: LoggerBase) helpKind = 
         let lang = if isFSharp then "F#" else "C#"
         let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
         let compiler = if isFSharp then "fsc.exe" else "csc.exe"
-        printfn "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        sprintf "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
+        |> logger.Out
         if isFSharp then
-            printfn "(F# Compiler Service version %s)" AssemblyVersionInformation.FcsVersion
+            sprintf "(F# Compiler Service version %s)" AssemblyVersionInformation.FcsVersion
+            |> logger.Out
         else
-            printfn "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
-        printfn ""
-        printfn "Usage: %s [WebSharper options] [%s options]" exe compiler
-        printfn ""
+            sprintf "(Roslyn version %s)" AssemblyVersionInformation.RoslynVersion
+            |> logger.Out
+        logger.Out ""
+        sprintf "Usage: %s [WebSharper options] [%s options]" exe compiler
+        |> logger.Out
+        logger.Out ""
         match helpKind with
         | NoHelp ->
-            printfn "WebSharper options help: %s --help" exe
-            printfn "Unpack command help: %s unpack --help" exe
-            printfn "Html command help: %s html --help" exe
+            sprintf "WebSharper options help: %s --help" exe
+            |> logger.Out
+            sprintf "Unpack command help: %s unpack --help" exe
+            |> logger.Out
+            sprintf "Html command help: %s html --help" exe
+            |> logger.Out
         | WSHelp ->
-            printfn """WebSharper options:
+            sprintf """WebSharper options:
   --ws:<type>           Set WebSharper project type; one of:
                           library, site, bundle, bundleonly, html, extension
   --wig                 InterfaceGenerator project
@@ -446,18 +487,23 @@ let HandleDefaultArgsAndCommands argv isFSharp =
   --project:<path>      Location of project file
   --closures[+|-]       Enable JS closure analysis
                           default: false
-  --closures:movetotop  Enable JS closure optimization"""
+  --closures:movetotop  Enable JS closure optimization
+  --standalone[+|-]     Use WebSharper compilation outside the service
+                          default: false"""
+            |> logger.Out
         | UnpackHelp ->
-            printfn "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            sprintf "%s" (UnpackCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            |> logger.Out
         | HtmlHelp ->
-            printfn "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            sprintf "%s" (HtmlCommand.Instance.Usage.Replace("WebSharper.exe", exe))    
+            |> logger.Out
         Some 0
 
     match List.ofArray argv with
-    | [] -> printInfo NoHelp
-    | [ "--help" ] -> printInfo WSHelp
-    | [ "unpack"; "--help" ] -> printInfo UnpackHelp
-    | [ "html"; "--help" ] -> printInfo HtmlHelp
+    | [] -> printInfo logger NoHelp
+    | [ "--help" ] -> printInfo logger WSHelp
+    | [ "unpack"; "--help" ] -> printInfo logger UnpackHelp
+    | [ "html"; "--help" ] -> printInfo logger HtmlHelp
     | Cmd HtmlCommand.Instance r -> Some r
     | Cmd UnpackCommand.Instance r -> Some r
     | _ -> None
@@ -500,6 +546,7 @@ let RecognizeWebSharperArg a wsArgs =
             Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c))
         else 
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
+    | Flag "--standalone" v -> Some { wsArgs with Standalone = v }
     | _ -> 
         None
 

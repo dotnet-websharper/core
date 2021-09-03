@@ -26,9 +26,9 @@ type WebsiteEntryPoint() =
 
     override this.Sitelet =
         WebSharper.Tests.Website.Content.Main false
-        |> Sitelet.WithSettings [
-            "WebSharper.JQuery.Resources.JQuery", "https://code.jquery.com/jquery-3.6.0.min.js" 
-        ]
+        // |> Sitelet.WithSettings [
+        //     "WebSharper.JQuery.Resources.JQuery", "https://code.jquery.com/jquery-3.6.0.min.js" 
+        // ]
 
 [<assembly: Website(typeof<WebsiteEntryPoint>)>]
 do ()

@@ -20,6 +20,8 @@
 
 namespace WebSharper.Compiler
 
+open System.Collections.Concurrent
+
 [<AutoOpen>]
 module LoaderUtility =
 
@@ -68,7 +70,7 @@ module LoaderUtility =
                 def.Dispose()
 
 [<Sealed>]
-type Loader(aR: AssemblyResolver, log: string -> unit) =
+type Loader(aR: AssemblyResolver, log: string -> unit, cache: ConcurrentDictionary<string, Assembly>) =
 
     let load flp (bytes: byte[]) (symbols: option<Symbols>) (aR: AssemblyResolver) =
         let str = new MemoryStream(bytes)
@@ -88,37 +90,47 @@ type Loader(aR: AssemblyResolver, log: string -> unit) =
         let def = Mono.Cecil.AssemblyDefinition.ReadAssembly(str, par)
         Assembly.Create(def, ?loadPath = flp, ?symbols = symbols)
 
-    static member Create(res: AssemblyResolver)(log) =
-        Loader(res, log)
+    static member Create(resolver: AssemblyResolver)(log) =
+        let cache = ConcurrentDictionary<string, Assembly>()
+        Loader(resolver, log, cache)
+
+    member this.WithAssemblyResolver(resolver: AssemblyResolver) =
+        Loader(resolver, log, cache)
 
     member this.LoadRaw(bytes)(symbols) =
         load None bytes symbols aR
 
     member this.LoadFile(path: string, ?loadSymbols) =
+        // we are assuming that only assembly to write to is called with loadSymbols=true
+        // and so the same one is not already cached with loadSymbols=false 
         let loadSymbols = defaultArg loadSymbols true
-        let bytes = File.ReadAllBytes path
-        let p ext = Path.ChangeExtension(path, ext)
-        let ex x = File.Exists(p x)
-        let rd x = File.ReadAllBytes(p x)
-        let symbolsPath =
-            if loadSymbols then
-                if ex ".pdb" then Some (p ".pdb")
-                elif ex ".mdb" then Some (p ".mdb")
+        
+        let loadFile path =
+            let bytes = File.ReadAllBytes path
+            let p ext = Path.ChangeExtension(path, ext)
+            let ex x = File.Exists(p x)
+            let rd x = File.ReadAllBytes(p x)
+            let symbolsPath =
+                if loadSymbols then
+                    if ex ".pdb" then Some (p ".pdb")
+                    elif ex ".mdb" then Some (p ".mdb")
+                    else None
                 else None
-            else None
-        let symbols =
-            if loadSymbols then
-                if ex ".pdb" then Some (Pdb (rd ".pdb"))
-                elif ex ".mdb" then Some (Mdb (rd ".mdb"))
+            let symbols =
+                if loadSymbols then
+                    if ex ".pdb" then Some (Pdb (rd ".pdb"))
+                    elif ex ".mdb" then Some (Mdb (rd ".mdb"))
+                    else None
                 else None
-            else None
-        let aR = aR.SearchPaths [path]
-        let fP = Some (Path.GetFullPath path)
-        try
-            load fP bytes symbols aR
-        with _ ->
-            if symbolsPath.IsSome then
-                "Failed to load symbols: " + symbolsPath.Value
-                |> log
-                load fP bytes None aR
-            else reraise()
+            let aR = aR.SearchPaths [path]
+            let fP = Some (Path.GetFullPath path)
+            try
+                load fP bytes symbols aR
+            with _ ->
+                if symbolsPath.IsSome then
+                    "Failed to load symbols: " + symbolsPath.Value
+                    |> log
+                    load fP bytes None aR
+                else reraise()
+
+        cache.GetOrAdd(path, loadFile)

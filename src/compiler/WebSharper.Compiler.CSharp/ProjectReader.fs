@@ -116,6 +116,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         let md = 
             match sr.ReadMember m with
             | Member.Method (_, md) -> md
+            | Member.Override (_, md) -> md
             | _ -> failwith "invalid interface member"
         methodNames.Add(md, mAnnot.Name)
     Some (def, 
@@ -132,6 +133,28 @@ let initDef =
         Parameters = []
         ReturnType = VoidType
         Generics = 0
+    }
+
+let uncheckedMdl =
+    TypeDefinition {
+        FullName = "Microsoft.FSharp.Core.Operators+Unchecked"
+        Assembly = "FSharp.Core"
+    }
+
+let uncheckedEquals =
+    Method {
+        MethodName = "Equals"
+        Parameters = [ TypeParameter 0; TypeParameter 0 ]
+        ReturnType = NonGenericType Definitions.Bool
+        Generics = 1
+    }
+
+let uncheckedHash =
+    Method { 
+        MethodName = "Hash"
+        Parameters = [ TypeParameter 0 ]
+        ReturnType = NonGenericType Definitions.Int
+        Generics = 1
     }
 
 type HasYieldVisitor() =
@@ -180,7 +203,7 @@ let baseCtor thisExpr (t: Concrete<TypeDefinition>) c a =
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (thisDef: TypeDefinition) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
     if cls.TypeKind <> TypeKind.Class && not isStruct then None else
-
+    
     if isResourceType sr cls then
         if comp.HasGraph then
             let thisRes = comp.Graph.AddOrLookupNode(ResourceNode (thisDef, None))
@@ -193,6 +216,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         CodeReader.RoslynTransformer(CodeReader.Environment.New(model, comp, sr))
 
     let clsMembers = ResizeArray()
+
+    let isRecord =
+        cls.DeclaringSyntaxReferences |> Seq.exists (fun x -> (x.SyntaxTree.GetRoot().FindNode(x.Span) :? RecordDeclarationSyntax))
 
     let def, proxied =
         match annot.ProxyOf with
@@ -215,6 +241,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
+
+    let thisTyp =
+        GenericType def (List.init cls.TypeParameters.Length TypeParameter)
 
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
@@ -310,40 +339,60 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         | :? IPropertySymbol as p ->
             if p.IsAbstract || p.IsIndexer then () else
             let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
+            let jsFieldName() = Value (String ("$" + p.Name))
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
                 let decls = p.DeclaringSyntaxReferences
                 if decls.Length = 0 then () else
                 let syntax = decls.[0].GetSyntax()
                 let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
-                let data =
-                    syntax :?> PropertyDeclarationSyntax
-                    |> RoslynHelpers.PropertyDeclarationData.FromNode
-                let cdef = NonGeneric def
-                let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
-                    a.Body.IsSome || a.ExpressionBody.IsSome
-                match data.AccessorList with
-                | None -> ()
-                | Some acc when hasBody(Seq.head acc.Accessors) -> ()
-                | _ ->
-                let b = 
-                    match data.Initializer with
-                    | Some i ->
-                        i |> (cs model).TransformEqualsValueClause
-                    | None -> 
-                        DefaultValueOf (sr.ReadType p.Type)
-                match p.SetMethod with
-                | null ->
-                    if p.IsStatic then
-                        staticInits.Add <| ItemSet(Self, Value (String ("$" + p.Name)), b )
-                    else
-                        inits.Add <| ItemSet(This, Value (String ("$" + p.Name)), b )
-                | setMeth ->
-                    let setter = sr.ReadMethod setMeth
-                    if p.IsStatic then
-                        staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
-                    else
-                        inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
+                match syntax with
+                | :? PropertyDeclarationSyntax as pdSyntax ->
+                    let data =
+                        pdSyntax |> RoslynHelpers.PropertyDeclarationData.FromNode
+                    let cdef = NonGeneric def
+                    let hasBody (a : RoslynHelpers.AccessorDeclarationData) =
+                        a.Body.IsSome || a.ExpressionBody.IsSome
+                    match data.AccessorList with
+                    | None -> ()
+                    | Some acc when hasBody(Seq.head acc.Accessors) -> ()
+                    | _ ->
+                    let b = 
+                        match data.Initializer with
+                        | Some i ->
+                            i |> (cs model).TransformEqualsValueClause
+                        | None -> 
+                            DefaultValueOf (sr.ReadType p.Type)
+                    
+                    match p.SetMethod with
+                    | null ->
+                        if p.IsStatic then
+                            staticInits.Add <| ItemSet(Self, jsFieldName(), b )
+                        else
+                            inits.Add <| ItemSet(This, jsFieldName(), b )
+                        // auto-add init methods
+                        let getter = sr.ReadMethod p.GetMethod
+                        let setter = CodeReader.setterOf (NonGeneric getter)
+                        let v = Id.New()
+                        let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+                        addMethod None pAnnot setter.Entity N.Inline false body
+                    | setMeth ->
+                        let setter = sr.ReadMethod setMeth
+                        if p.IsStatic then
+                            staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
+                        else
+                            inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
+                | :? ParameterSyntax as pSyntax ->  // positional record property
+                    let data =
+                        pSyntax |> RoslynHelpers.ParameterData.FromNode
+                    match data.Default with
+                    | Some def ->
+                        let b =
+                            def |> (cs model).TransformEqualsValueClause     
+                        inits.Add <| ItemSet(This, jsFieldName(), b )   
+                    | None ->
+                        () 
+                | _ -> failwithf "Unexpected property declaration kind: %s" (System.Enum.GetName(typeof<SyntaxKind>, syntax.Kind))
             | _ -> ()
         | :? IFieldSymbol as f -> 
             let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
@@ -414,6 +463,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let error m = comp.AddError(sourcePos(), SourceError m)
         let warn m = comp.AddWarning(sourcePos(), SourceWarning m)
         
+        let skipCompGen = 
+            meth.IsImplicitlyDeclared &&
+                match meth.Name with
+                | "PrintMembers" -> true
+                | _ -> false
+
+        if skipCompGen then () else
+
+        let mutable recordInfo = None
+
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
             hasStubMember <- true
@@ -579,6 +638,226 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> RoslynHelpers.ConversionOperatorDeclarationData.FromNode 
                             |> (cs model).TransformConversionOperatorDeclaration
                             |> fixMethod
+                        | :? RecordDeclarationSyntax as syntax ->
+                            let ri =
+                                match recordInfo with
+                                | Some x -> x
+                                | None ->
+                                    syntax    
+                                    |> RoslynHelpers.RecordDeclarationData.FromNode 
+                                    |> (cs model).TransformRecordDeclaration
+                            let useGetter getter = Call(Some This, NonGeneric def, NonGeneric getter, [])
+                            //let cString s = Value (String s) 
+                            //let getAllValues ofObj =
+                            //    seq {
+                            //        for (p, getter) in ri.PositionalFields do
+                            //            yield p.Symbol.Name, useGetter getter
+                            //        for p in ri.OtherFields do
+                            //            match p with 
+                            //            | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                            //                yield pSymbol.Name, useGetter getter
+                            //            | CodeReader.CSharpRecordField (fSymbol, _) ->
+                            //                yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
+                            //    }    
+                            //let eq x y =
+                            //    let eqM =
+                            //        Hashed {
+                            //            MethodName = "Equals"
+                            //            Parameters = [ NonGenericType Definitions.Object ] 
+                            //            ReturnType = NonGenericType Definitions.Bool
+                            //            Generics = 0
+                            //        }
+                            //    Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
+                            let ueq x y =
+                                Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedEquals, [x; y])    
+                            match meth.Name with
+                            | "Deconstruct" ->
+                                let b =
+                                    ri.PositionalFields |> List.map (fun (p, getter) ->
+                                        SetRef (Var p.ParameterId) (useGetter getter)
+                                    ) |> Sequential |> ExprStatement
+                                {
+                                    IsStatic = false
+                                    Parameters = ri.PositionalFields |> List.map fst
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = Type.VoidType
+                                } : CodeReader.CSharpMethod
+                            | "ToString" ->
+                                let b =
+                                    JSRuntime.PrintObject This |> Return
+                                    //let vals =
+                                    //    getAllValues This
+                                    //    |> Seq.indexed
+                                    //    |> Array.ofSeq
+                                    //seq {
+                                    //    cString cls.Name 
+                                    //    cString " { "
+                                    //    for i, (name, v) in vals do
+                                    //        cString name  
+                                    //        cString " = "
+                                    //        v
+                                    //        if i < vals.Length - 1 then
+                                    //            cString ", "
+                                    //    cString " }"
+                                    //} |> Seq.reduce (^+)
+                                    //|> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "op_Inequality" ->
+                                let x = CodeReader.CSharpParameter.New "x"
+                                let y = CodeReader.CSharpParameter.New "y"
+                                let b =
+                                    Unary(UnaryOperator.Not, ueq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                    //Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                {
+                                    IsStatic = true
+                                    Parameters = [ x; y ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod                                
+                            | "op_Equality" ->
+                                let x = CodeReader.CSharpParameter.New "x"
+                                let y = CodeReader.CSharpParameter.New "y"
+                                let b =
+                                    ueq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                    //eq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                {
+                                    IsStatic = true
+                                    Parameters = [ x; y ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "Equals" ->
+                                let p = CodeReader.CSharpParameter.New "other"
+                                let b =
+                                    ueq This (Var p.ParameterId) |> Return
+                                    //let o = Var p.ParameterId
+                                    //seq {
+                                    //    Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
+                                    //    for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
+                                    //        v ^== vo     
+                                    //} |> Seq.reduce (^&&)
+                                    //|> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = [ p ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.String
+                                } : CodeReader.CSharpMethod
+                            | "GetHashCode" ->
+                                let b =
+                                    Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedHash, [ This ]) |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = NonGenericType Definitions.Int
+                                } : CodeReader.CSharpMethod
+                            | "<Clone>$" ->
+                                let cloneCtor = 
+                                    Hashed {
+                                        CtorParameters = [ thisTyp ]
+                                    }
+                                let b = 
+                                    Ctor (NonGeneric def, cloneCtor, [This]) |> Return
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = thisTyp
+                                } : CodeReader.CSharpMethod
+                            | ".ctor" ->
+                                let isCloneCtor =
+                                    meth.Parameters.Length = 1 && (
+                                        match sr.ReadType meth.Parameters.[0].Type with
+                                        | ConcreteType ct -> ct.Entity = def
+                                        | _ -> false
+                                    )    
+                                
+                                if isCloneCtor then
+                                    let o = CodeReader.CSharpParameter.New ("o", thisTyp)
+                                    let baseCall =
+                                        match ri.BaseCall with
+                                        | None -> Empty
+                                        | Some (bTyp, _, _, _) ->
+                                            let bCtor = 
+                                                Hashed {
+                                                    CtorParameters = [ ConcreteType bTyp ]
+                                                }
+                                            ExprStatement (baseCtor This bTyp bCtor [ Var o.ParameterId ])
+                                    let b =
+                                        ri.PositionalFields |> List.map (fun (_, getter) ->
+                                            let setter = CodeReader.setterOf (NonGeneric getter)
+                                            Call(Some This, NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
+                                        ) |> Sequential |> ExprStatement
+                                    {
+                                        IsStatic = false
+                                        Parameters = [ o ]
+                                        Body = CombineStatements [ b; baseCall ]
+                                        IsAsync = false
+                                        ReturnType = Unchecked.defaultof<Type>
+                                    } : CodeReader.CSharpMethod
+                                else
+                                    let baseCall =
+                                        match ri.BaseCall with
+                                        | None -> Empty
+                                        | Some (bTyp, bCtor, args, reorder) ->
+                                            ExprStatement (baseCtor This bTyp bCtor args |> reorder)
+                                    let b =
+                                        ri.PositionalFields |> List.map (fun (p, getter) ->
+                                            let setter = CodeReader.setterOf (NonGeneric getter)
+                                            Call(Some This, NonGeneric def, setter, [Var p.ParameterId])
+                                        ) |> Sequential |> ExprStatement
+                                    {
+                                        IsStatic = false
+                                        Parameters = ri.PositionalFields |> List.map fst
+                                        Body = CombineStatements [ b; baseCall ]
+                                        IsAsync = false
+                                        ReturnType = Unchecked.defaultof<Type>
+                                    } : CodeReader.CSharpMethod
+                            | mname ->
+                                failwithf "Not recognized record method: %s" mname    
+                        | :? ParameterSyntax as syntax ->
+                            let p =
+                                try
+                                    syntax
+                                    |> RoslynHelpers.ParameterData.FromNode 
+                                    |> (cs model).TransformParameter
+                                with _ ->
+                                    failwithf "Failed to parse parameter"
+                            if meth.Name.StartsWith "get_" then
+                                let b =
+                                    Return (FieldGet (Some This, NonGeneric def, p.ParameterId.Name.Value))
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = sr.ReadType meth.ReturnType
+                                } : CodeReader.CSharpMethod
+                            elif meth.Name.StartsWith "set_" then
+                                let b =
+                                    Return (FieldSet (Some This, NonGeneric def, p.ParameterId.Name.Value, Var p.ParameterId))
+                                {
+                                    IsStatic = false
+                                    Parameters = [ p ]
+                                    Body = b
+                                    IsAsync = false
+                                    ReturnType = VoidType
+                                } : CodeReader.CSharpMethod
+                            else 
+                                failwithf "Not recognized generated method of record"
                         | _ -> failwithf "Not recognized method syntax kind: %A" (syntax.Kind()) 
                     with e ->
                         comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
@@ -589,72 +868,83 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             IsAsync = false
                             ReturnType = Unchecked.defaultof<Type>
                         } : CodeReader.CSharpMethod   
-                elif meth.MethodKind = MethodKind.EventAdd then
-                    let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
-                    let getEv, setEv =
-                        let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
-                    let b =
-                        JSRuntime.CombineDelegates (NewArray [ getEv; Var args.[0].ParameterId ]) |> setEv    
-                    {
-                        IsStatic = meth.IsStatic
-                        Parameters = args
-                        Body = ExprStatement b
-                        IsAsync = false
-                        ReturnType = sr.ReadType meth.ReturnType
-                    } : CodeReader.CSharpMethod   
-                elif meth.MethodKind = MethodKind.EventRemove then
-                    let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
-                    let getEv, setEv =
-                        let on = if meth.IsStatic then None else Some This
-                        FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
-                        , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
-                    let b =
-                        Call (None, NonGeneric delegateTy, NonGeneric delRemove, [getEv; Var args.[0].ParameterId]) |> setEv
-                    {
-                        IsStatic = meth.IsStatic
-                        Parameters = args
-                        Body = ExprStatement b
-                        IsAsync = false
-                        ReturnType = sr.ReadType meth.ReturnType
-                    } : CodeReader.CSharpMethod   
                 else
-                    match meth.MethodKind with
+                    match meth.MethodKind with 
+                    | MethodKind.EventAdd ->
+                        let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
+                        let getEv, setEv =
+                            let on = if meth.IsStatic then None else Some This
+                            FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
+                            , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        let b =
+                            JSRuntime.CombineDelegates (NewArray [ getEv; Var args.[0].ParameterId ]) |> setEv    
+                        {
+                            IsStatic = meth.IsStatic
+                            Parameters = args
+                            Body = ExprStatement b
+                            IsAsync = false
+                            ReturnType = sr.ReadType meth.ReturnType
+                        } : CodeReader.CSharpMethod   
+                    | MethodKind.EventRemove ->
+                        let args = meth.Parameters |> Seq.map sr.ReadParameter |> List.ofSeq
+                        let getEv, setEv =
+                            let on = if meth.IsStatic then None else Some This
+                            FieldGet(on, NonGeneric def, meth.AssociatedSymbol.Name)
+                            , fun x -> FieldSet(on, NonGeneric def, meth.AssociatedSymbol.Name, x)
+                        let b =
+                            Call (None, NonGeneric delegateTy, NonGeneric delRemove, [getEv; Var args.[0].ParameterId]) |> setEv
+                        {
+                            IsStatic = meth.IsStatic
+                            Parameters = args
+                            Body = ExprStatement b
+                            IsAsync = false
+                            ReturnType = sr.ReadType meth.ReturnType
+                        } : CodeReader.CSharpMethod   
+                    | MethodKind.PropertyGet ->
+                        // implicit property get inside positional records
+                        let propSymbol = meth.AssociatedSymbol;
+                        let b = Return (FieldGet (Some This, NonGeneric def, propSymbol.Name))
+                        {
+                            IsStatic = meth.IsStatic
+                            Parameters = []
+                            Body = b
+                            IsAsync = false
+                            ReturnType = sr.ReadType meth.ReturnType
+                        } : CodeReader.CSharpMethod   
                     | MethodKind.Constructor
-                    | MethodKind.StaticConstructor -> ()
+                    | MethodKind.StaticConstructor ->
+                        // implicit constructor
+                        let b = 
+                            if meth.IsStatic then
+                                match staticInit with
+                                | Some si -> si
+                                | _ -> Empty
+                            else
+                                let baseCall =
+                                    let bTyp = cls.BaseType
+                                    if isNull bTyp then Empty else
+                                    match sr.ReadNamedType bTyp with
+                                    | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
+                                        Empty
+                                    | b ->
+                                        ExprStatement (baseCtor This b (ConstructorInfo.Default()) [])
+                                let init =
+                                    if hasInit then 
+                                        ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                    else 
+                                        Empty
+                                CombineStatements [
+                                    baseCall
+                                    init
+                                ]
+                        {
+                            IsStatic = meth.IsStatic
+                            Parameters = []
+                            Body = b
+                            IsAsync = false
+                            ReturnType = Unchecked.defaultof<Type>
+                        } : CodeReader.CSharpMethod
                     | k -> failwithf "Unexpected method kind: %s" (System.Enum.GetName(typeof<MethodKind>, k))
-                    // implicit constructor
-                    let b = 
-                        if meth.IsStatic then
-                            match staticInit with
-                            | Some si -> si
-                            | _ -> Empty
-                        else
-                            let baseCall =
-                                let bTyp = cls.BaseType
-                                if isNull bTyp then Empty else
-                                match sr.ReadNamedType bTyp with
-                                | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
-                                    Empty
-                                | b ->
-                                    ExprStatement (baseCtor This b (ConstructorInfo.Default()) [])
-                            let init =
-                                if hasInit then 
-                                    ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
-                                else 
-                                    Empty
-                            CombineStatements [
-                                baseCall
-                                init
-                            ]
-                    {
-                        IsStatic = meth.IsStatic
-                        Parameters = []
-                        Body = b
-                        IsAsync = false
-                        ReturnType = Unchecked.defaultof<Type>
-                    } : CodeReader.CSharpMethod
                     
             let getBody isInline =
                 let parsed = getParsed() 
@@ -847,6 +1137,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 FieldType = sr.ReadType f.Type 
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
+
+    //if isRecord then
+    //    let getter = sr.ReadMethod p.GetMethod
+    //    let setter = CodeReader.setterOf (NonGeneric getter)
+    //    let v = Id.New()
+    //    let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
+    //    addMethod None pAnnot setter.Entity N.Inline false body
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 

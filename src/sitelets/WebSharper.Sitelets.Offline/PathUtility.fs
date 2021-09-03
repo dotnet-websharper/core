@@ -176,7 +176,7 @@ module internal PathUtility =
             patternToFrags pat
             |> String.concat "/"
 
-    let ToAbsolute dir path =
+    let ToAbsolute baseDir path =
         match path with
-        | P0 -> dir
-        | _ -> Path.Combine(dir, ShowPath path)
+        | P0 -> baseDir
+        | _ -> Path.Combine(baseDir, ShowPath path)

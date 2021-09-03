@@ -40,10 +40,8 @@ type HtmlTextWriter =
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
     static member IsSelfClosingTag : string -> bool
-    member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?useAssemblyDir: bool -> unit
-    static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?useAssemblyDir: bool -> unit
-
-val AllReferencedAssemblies : Lazy<list<System.Reflection.Assembly>>
+    member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
+    static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
 
 type MediaType =
     | Css

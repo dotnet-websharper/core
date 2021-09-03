@@ -240,34 +240,53 @@ type InlineGenerator() =
         else g.GetSourceName(p)
 
 [<Sealed>]
-type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, netStandardPath: string option) =
+type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDefinition, referencePaths: string seq) =
     let assemblies = Dictionary()
     let main = out.MainModule
     let resolvedTypes = Dictionary()
     
-    let corelib, syscore, isNetStandard =
-        match netStandardPath with
-        | Some p ->
-            let netstandard = AssemblyDefinition.ReadAssembly p
-            assemblies.["netstandard"] <- netstandard
-            netstandard, null, true
+    let netstandard =
+        let netstandardPath = 
+            referencePaths
+            |> Seq.tryPick (fun p ->
+                if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
+            )
+        match netstandardPath with
+        | Some p -> 
+            AssemblyDefinition.ReadAssembly p
         | _ ->
-            let resolve x = aR.Resolve(AssemblyNameReference.Parse(x))
-            let mscorlib = resolve(typeof<int>.Assembly.FullName)
-            assemblies.["mscorlib"] <- mscorlib
-            let syscore = resolve(typeof<System.Linq.Enumerable>.Assembly.FullName)
-            assemblies.["System.Core"] <- syscore
-            mscorlib, syscore, false
+            failwith "WIG project requires netstandard.dll reference"
 
-    let correctType (t: TypeReference) =
-        if isNetStandard && AssemblyConventions.IsNetStandardType t.FullName then
-            t.Scope <- corelib.Name
+    let corelib =
+        let corePath = Assembly.GetAssembly(typeof<obj>).Location
+        AssemblyDefinition.ReadAssembly corePath
+    
+    do
+        assemblies.["netstandard"] <- netstandard
+        assemblies.["System.Private.CoreLib"] <- corelib
+
+    let rec correctType (t: TypeReference) =
+        if AssemblyConventions.IsNetStandardType t.FullName then
+            t.Scope <- netstandard.Name
+        match t with
+        | :? GenericInstanceType as g ->
+            for a in g.GenericArguments do
+                correctType a
+        | :? ArrayType as a ->
+            correctType a.ElementType
+        | _ -> ()
+        ()
 
     let rec correctMethod (m: MethodReference) =
         correctType m.ReturnType
         correctType m.DeclaringType
         for p in m.Parameters do
             correctParameter p
+        match m with 
+        | :? GenericInstanceMethod as g ->
+            for a in g.GenericArguments do
+                correctType a
+        | _ -> ()
 
     and correctParameter (p: ParameterDefinition) =
         correctType p.ParameterType
@@ -289,36 +308,46 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     and correctAttributeNamedArg (a: CustomAttributeNamedArgument) =
         correctAttributeArg a.Argument
 
-    let resolveAsm (asmName: string) (typeName: string) =
+    let resolveAsm (asmName: string) =
         match assemblies.TryGetValue(AssemblyName(asmName).Name) with
         | true, x -> x
         | false, _ ->
-            let asm =
-                if isNetStandard && AssemblyConventions.IsNetStandardType typeName then corelib else
-                aR.Resolve(asmName)
+            let asm = aR.Resolve(asmName)
             assemblies.[asmName] <- asm
             asm
 
-    let doResolveTypeName (asm: AssemblyDefinition) (typeName: string) =
+    let doResolveTypeName (asm: AssemblyDefinition) (origAsmName: string) (typeName: string) =
         let ty = 
             match asm.MainModule.GetType(typeName.Replace('+', '/')) with
-            | null -> failwithf "Could not resolve type %s in %A" typeName asm.Name
-            | ty when asm.Name = out.Name -> ty :> TypeReference
-            | ty -> main.ImportReference ty
+            | null -> 
+                let asmName = string asm.Name
+                let asmNameWithOrig =
+                    if asmName = origAsmName then
+                        asmName
+                    else
+                        origAsmName + " loaded as " + asmName
+                failwithf "Could not resolve type %s in %A" typeName asmNameWithOrig
+            | ty when asm.Name = out.Name ->
+                correctType ty
+                ty :> TypeReference
+            | ty -> 
+                correctType ty
+                main.ImportReference ty
         resolvedTypes.[typeName] <- ty
         ty
 
-    let resolveTypeName asm typeName =
+    let resolveTypeName asm origAsmName typeName =
         match resolvedTypes.TryGetValue(typeName) with
         | true, x -> x
-        | false, _ -> doResolveTypeName asm typeName
+        | false, _ -> doResolveTypeName asm origAsmName typeName
 
     let resolveType (ty: System.Type) =
         match resolvedTypes.TryGetValue(ty.FullName) with
         | true, x -> x
         | false, _ ->
-            let asm = resolveAsm ty.Assembly.FullName ty.FullName
-            resolveTypeName asm ty.FullName
+            let origAsmName = ty.Assembly.FullName
+            let asm = resolveAsm origAsmName
+            resolveTypeName asm origAsmName ty.FullName
 
     let genericInstance (def: TypeReference) (args: seq<TypeReference>) =
         if Seq.isEmpty args then
@@ -334,18 +363,25 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
                 r.GenericArguments.Add(x)
             r :> TypeReference
 
-    let commonType (assembly: AssemblyDefinition) baseName ts =
+    let wsCore =
+        let t = typeof<WebSharper.InlineAttribute>
+        resolveAsm t.Assembly.FullName
+
+    let commonType (assembly: AssemblyDefinition) origAsmName baseName ts =
         let name =
             match Seq.length ts with
             | 0 -> baseName
             | k -> baseName + "`" + string k
-        let tDef = resolveTypeName assembly name
+        let tDef = resolveTypeName assembly origAsmName name
         genericInstance tDef ts
+
+    let coreLibType baseName ts = commonType corelib "System.Private.CoreLib" baseName ts
+    let wsCoreType baseName ts = commonType wsCore "WebSharper.Core" baseName ts
 
     // First resolve FSharp.Core without explicit version,
     // so that the resolver can pick up the version from the passed references.
-    let fsharpCore = resolveAsm "FSharp.Core" "Microsoft.FSharp.Core.FSharpFunc`2"
-    let funcType = resolveTypeName fsharpCore "Microsoft.FSharp.Core.FSharpFunc`2"
+    let fsharpCore = resolveAsm "FSharp.Core"
+    let funcType = resolveTypeName fsharpCore "FSharp.Core" "Microsoft.FSharp.Core.FSharpFunc`2"
     let attributeType = resolveType typeof<System.Attribute>
     let converterType = resolveType typedefof<System.Converter<_, _>>
     let objectType = resolveType typeof<obj>
@@ -369,18 +405,14 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let funcWithArgsRest = resolveType typedefof<WebSharper.JavaScript.FuncWithArgsRest<_,_,_>>
     let optionType = resolveType typedefof<WebSharper.JavaScript.Optional<_>>
 
-    let wsCore =
-        let t = typeof<WebSharper.InlineAttribute>
-        resolveAsm t.Assembly.FullName t.FullName
-
     member b.CorrectType t = correctType t; t
 
     member b.CorrectMethod m = correctMethod m; m
 
-    member b.SystemAssembly = corelib
+    member b.CoreLib = corelib
 
     member b.Action ts =
-        commonType corelib "System.Action" ts
+        coreLibType "System.Action" ts
 
     member b.Converter d r =
         genericInstance converterType [d; r]
@@ -394,21 +426,21 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Tuple(ts: seq<TypeReference>) =
         let rec createTuple (ta: _[]) =
             if ta.Length < 8 then
-                commonType corelib "System.Tuple" ta
+                coreLibType "System.Tuple" ta
             else
-                commonType corelib "System.Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
+                coreLibType "System.Tuple" (Seq.append (ta.[.. 6]) [ createTuple ta.[7 ..] ])    
         createTuple (Array.ofSeq ts)
 
     member b.Choice(ts: seq<TypeReference>) =
-        commonType wsCore "WebSharper.JavaScript.Union" ts
+        wsCoreType "WebSharper.JavaScript.Union" ts
 
     member b.Option t =
         genericInstance optionType [t]    
 
     member b.Type(assemblyName: string, fullName: string) =
-        match resolveAsm assemblyName fullName with
+        match resolveAsm assemblyName with
         | null -> failwithf "Could not resolve assembly: %s" assemblyName
-        | asm -> resolveTypeName asm fullName
+        | asm -> resolveTypeName asm assemblyName fullName
 
     member b.Type(t: Type) =
         b.Type(t.Assembly.FullName, t.FullName)
@@ -426,15 +458,14 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
         genericInstance funcWithThis [this; ret]        
 
     member b.FuncWithRest args rest result =
-        commonType wsCore "WebSharper.JavaScript.FuncWithRest" (args @ [ rest; result ])
+        wsCoreType "WebSharper.JavaScript.FuncWithRest" (args @ [ rest; result ])
 
     member b.FuncWithArgsRest args rest result =
         genericInstance funcWithArgsRest [args; rest; result]        
 
     member b.Delegate args res =
         let tn = if Option.isSome res then "System.Func" else "System.Action"
-        let fromLib = if isNetStandard || List.length args <= 8 then corelib else syscore
-        commonType fromLib tn (args @ Option.toList res)
+        coreLibType tn (args @ Option.toList res)
 
     member b.InteropDelegate this args pars res =
         let tn =
@@ -443,7 +474,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
             + if Option.isSome pars then "Params" else ""
             + if Option.isSome res then "Func" else "Action"
         if List.length args <= 6 then
-            commonType wsCore tn (Option.toList this @ args @ Option.toList pars @ Option.toList res)
+            wsCoreType tn (Option.toList this @ args @ Option.toList pars @ Option.toList res)
         else
             b.Type(typeof<WebSharper.JavaScript.Function>)
 
@@ -614,7 +645,9 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
         t.Resolve().Methods
         |> Seq.tryFind (fun m -> m.IsConstructor && isMatch m)
         |> function
-            | Some x -> def.MainModule.ImportReference (tB.CorrectMethod x)
+            | Some x ->
+                tB.CorrectMethod x
+                |> def.MainModule.ImportReference
             | None -> failwithf "Could not find a constructor in %s" t.FullName
 
     let findConstructorByArity t n =
@@ -704,12 +737,11 @@ type CompilerOptions =
         ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
-        IsNetStandard : bool
     }
 
-    static member Default(name) =
+    static member Default(assemblyName) =
         {
-            AssemblyName = name
+            AssemblyName = assemblyName
             AssemblyResolver = None
             AssemblyVersion = Version(0, 0)
             DocPath = None
@@ -719,7 +751,6 @@ type CompilerOptions =
             ProjectDir = "."
             ReferencePaths = Seq.empty
             StrongNameKeyPath = None
-            IsNetStandard = false
         }
 
     static member Parse args =
@@ -1302,9 +1333,11 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 typeof<System.Reflection.AssemblyTitleAttribute>
                 typeof<System.Reflection.AssemblyFileVersionAttribute>
                 typeof<System.Reflection.AssemblyInformationalVersionAttribute>
+                typeof<System.Runtime.Versioning.TargetFrameworkAttribute>
             |]
         let getSystemTypeDef (t: Type) =
-            tB.SystemAssembly.MainModule.GetType(t.FullName)
+            tB.CoreLib.MainModule.GetType(t.FullName)
+            |> tB.CorrectType
             |> def.MainModule.ImportReference
         let stringTypeDef =
             getSystemTypeDef typeof<string>
@@ -1335,7 +1368,7 @@ type CompiledAssembly(def: AssemblyDefinition, doc: XmlDocGenerator, options: Co
                 | _ -> ()
 
 [<Sealed>]
-type Compiler() =
+type Compiler(logger: WebSharper.Compiler.LoggerBase) =
 
     let iG = InlineGenerator()
 
@@ -1438,15 +1471,7 @@ type Compiler() =
         let comments : Comments = Dictionary()
         let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
         let types, genTypes = buildInitialTypes assembly def
-        let netStandardPath = 
-            if options.IsNetStandard then
-                options.ReferencePaths 
-                |> Seq.tryPick (fun p ->
-                    if Path.GetFileName(p).ToLower() = "netstandard.dll" then Some p else None
-                )
-            else
-                None
-        let tB = TypeBuilder(resolver, def, netStandardPath)
+        let tB = TypeBuilder(resolver, def, options.ReferencePaths)
         let tC = TypeConverter(tB, types, genTypes)
         let mB = MemberBuilder(tB, def)
         let mC = MemberConverter(tB, mB, tC, types, iG, def, comments, options, [])
@@ -1474,6 +1499,7 @@ type Compiler() =
 
     member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
         let (def, comments, mB, tB) = buildAssembly resolver options assembly
+        logger.TimedStage "Built assembly"
         for f in options.EmbeddedResources do
             try
                 EmbeddedResource(Path.GetFileName(f), ManifestResourceAttributes.Public, File.ReadAllBytes(f))
@@ -1496,6 +1522,7 @@ type Compiler() =
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
         WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
+        logger.TimedStage "Creating WebSharper metadata"
 
         let doc = XmlDocGenerator(def, comments)
         let r = CompiledAssembly(def, doc, options, tB)
@@ -1510,9 +1537,9 @@ type Compiler() =
         | Some docPath -> doc.Generate docPath
         r
 
-    member c.Compile(options, assembly, ?originalAssembly) =
+    member c.Compile(options, assembly, ?original) =
         let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, ?originalAssembly = originalAssembly)
+        c.Compile(resolver, options, assembly, ?originalAssembly = original)
 
     member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
@@ -1532,5 +1559,5 @@ type Compiler() =
     member c.Start(args, assembly, original, ?resolver) =
         c.StartProgram(args, assembly, ?resolver = resolver, originalAssembly = original)
 
-    static member Create() =
-        Compiler()
+    static member Create(logger) =
+        Compiler(logger)

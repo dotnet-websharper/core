@@ -32,8 +32,9 @@
   </PropertyGroup>
   <Import Project="WebSharper.FSharp.targets" />
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' == 'True'">$(Root)\build\$(Configuration)\FSharp\net461\deploy\</FscToolPath>
-    <FscToolPath Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">$(Root)\build\$(Configuration)\FSharp\netcoreapp3.1\deploy\</FscToolPath>
-    <FscToolExe Condition="'$(_WebSharperUseNetFxCompiler)' != 'True'">wsfsc.exe</FscToolExe>
+    <FscToolPath>$(Root)\build\$(Configuration)\FSharp\net5.0\$(NETCoreSdkRuntimeIdentifier)\deploy\</FscToolPath>
+    <FscToolExe Condition="'$(OS)' == 'Windows_NT'">wsfsc.exe</FscToolExe>
+    <FscToolExe Condition="'$(OS)' == 'Unix'"      >wsfsc.sh</FscToolExe>
+    <FscBoosterCmd Condition="'$(OS)' != 'Windows_NT'">wsfscservice_start.sh</FscBoosterCmd>
   </PropertyGroup>
 </Project>

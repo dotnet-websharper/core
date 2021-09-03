@@ -298,12 +298,12 @@ type Compilation(meta: Info, ?hasGraph) =
                             match System.Type.GetType(macro.Value.AssemblyQualifiedName, true) with
                             | null ->
                                 if this.UseLocalMacros then
-                                    this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.FullName))
+                                    this.AddError(None, SourceError(sprintf "Failed to find macro type: '%s'" macro.Value.AssemblyQualifiedName))
                                 None
                             | t -> Some t
                         with e -> 
                             if this.UseLocalMacros then
-                                this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %s" macro.Value.FullName e.Message))
+                                this.AddError(None, SourceError(sprintf "Failed to load macro type: '%s', Error: %A" macro.Value.FullName e))
                             None
                     let! mctor, arg =
                         match mt.GetConstructor([||]) with
@@ -316,7 +316,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         try mctor.Invoke(arg) |> Some
                         with e ->
                             if this.UseLocalMacros then
-                                this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %s" macro.Value.FullName e.Message))
+                                this.AddError(None, SourceError(sprintf "Creating macro instance failed: '%s', Error: %A" macro.Value.FullName e))
                             None
                     match inv with 
                     | :? WebSharper.Core.Macro as m -> 
@@ -400,6 +400,19 @@ type Compilation(meta: Info, ?hasGraph) =
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
             ExtraBundles = this.CurrentExtraBundles
+        }    
+
+    member this.ToRuntimeMetadata() =
+        {
+            SiteletDefinition = this.SiteletDefinition 
+            Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
+            Interfaces = interfaces
+            Classes = classes
+            CustomTypes = customTypes
+            MacroEntries = Map.empty
+            Quotations = quotations
+            ResourceHashes = MergedDictionary meta.ResourceHashes
+            ExtraBundles = this.AllExtraBundles
         }    
 
     member this.AddProxy(tProxy, tTarget) =
@@ -628,19 +641,29 @@ type Compilation(meta: Info, ?hasGraph) =
                                         if typ = t && m.Value.MethodName = mName then
                                             yield m
                                 ]
-                            if List.isEmpty candidates then
-                                let names =
-                                    seq {
-                                        for m in cls.Methods.Keys do
-                                            yield m.Value.MethodName
-                                        for t, m in compilingMethods.Keys do
-                                            if typ = t then
+                            let bres =
+                                match cls.BaseClass with
+                                | Some bTyp -> 
+                                    match this.LookupMethodInfoInternal(bTyp, meth) with
+                                    | LookupMemberError _ -> None
+                                    | res -> Some res
+                                | None -> None
+                            match bres with
+                            | Some m -> m
+                            | None ->
+                                if List.isEmpty candidates then
+                                    let names =
+                                        seq {
+                                            for m in cls.Methods.Keys do
                                                 yield m.Value.MethodName
-                                    }
-                                    |> Seq.distinct |> List.ofSeq
-                                LookupMemberError (MethodNameNotFound (typ, meth, names))
-                            else
-                                LookupMemberError (MethodNotFound (typ, meth, candidates))
+                                            for t, m in compilingMethods.Keys do
+                                                if typ = t then
+                                                    yield m.Value.MethodName
+                                        }
+                                        |> Seq.distinct |> List.ofSeq
+                                    LookupMemberError (MethodNameNotFound (typ, meth, names))
+                                else
+                                    LookupMemberError (MethodNotFound (typ, meth, candidates))
                         | i -> CustomTypeMember i
         | _ ->
             match this.GetCustomType typ with
@@ -737,7 +760,18 @@ type Compilation(meta: Info, ?hasGraph) =
                 match getter, setter with
                 | None, None ->
                     match this.GetCustomType typ with
-                    | NotCustomType -> LookupFieldError (FieldNotFound (typ, field))
+                    | NotCustomType -> 
+                        let bres =
+                            match cls.BaseClass with
+                            | Some bTyp ->
+                                match this.LookupFieldInfo(bTyp, field) with
+                                | LookupFieldError _ -> None
+                                | f -> Some f
+                            | _ ->
+                                None
+                        match bres with 
+                        | Some f -> f
+                        | None -> LookupFieldError (FieldNotFound (typ, field))
                     | i -> CustomTypeField i
                 | _ -> 
                     PropertyField (getter, setter)

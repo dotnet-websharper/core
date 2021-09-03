@@ -114,6 +114,7 @@ let MainSite runServerTests ctx = function
     | Actions.ConsoleTests -> TestsPage runServerTests false ctx
 
 let Main runServerTests =
+    System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- new System.Globalization.CultureInfo("en-US")
     Sitelet.Sum [
         Sitelet.InferPartialInUnion <@ FullAction.Site @> (MainSite runServerTests)
         Sitelet.Shift "sitelet-tests" <|

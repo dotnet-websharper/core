@@ -57,7 +57,7 @@ type WebSharperCSharpAnalyzer () =
         | _ ->
             let mutable err = None
             let m = 
-                try path |> FE.ReadFromFile FE.DiscardNotInlineExpressions
+                try path |> FE.ReadFromFile WebSharper.Core.Metadata.MetadataOptions.DiscardNotInlineExpressions
                 with e ->
                     err <- Some e.Message
                     None

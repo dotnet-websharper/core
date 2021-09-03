@@ -168,3 +168,16 @@ module Dict =
     let tryFind key (d: IDictionary<_,_>) =
         let mutable value = Unchecked.defaultof<'V>
         if d.TryGetValue(key, &value) then Some value else None
+
+module Reflection =
+
+    let mutable OverrideAssemblyResolve = None : option<string -> System.Reflection.Assembly>
+
+    let LoadAssembly (assemblyNameOrPath: string) =
+        match OverrideAssemblyResolve with
+        | Some oar ->
+            try oar assemblyNameOrPath
+            with e -> failwithf "Failed to load assembly %s from reference: %O" assemblyNameOrPath e  
+        | None ->
+            try System.Reflection.Assembly.Load(assemblyNameOrPath)  
+            with e -> failwithf "Failed to load assembly %s: %O" assemblyNameOrPath e

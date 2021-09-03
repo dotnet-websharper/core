@@ -107,9 +107,13 @@ namespace WebSharper.CSharp.Tests
 
             public override int VirtualMethod() { return 2; }
 
+            public override SubClass CovariantVirtualMethod() { return this; }
+
             public int BaseCall() { return base.VirtualMethod(); }
 
             public SubClass(int v) : this() { Value += v; }
+
+            public int ValueAlias => this.Value;
         }
 
         class BaseClass : AbstractBaseClass
@@ -117,7 +121,9 @@ namespace WebSharper.CSharp.Tests
             public virtual int VirtualMethod() { return 1; }
 
             public override int AbstractMethod() { return 2; }
-        
+
+            public virtual BaseClass CovariantVirtualMethod() { return this; }
+
             public BaseClass() { }
 
             public BaseClass(int v) { Value = v; }
@@ -144,6 +150,13 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
 
+        [Test("C# covariant inheritance", TestKind.Skip)]
+        public void CovariantInheritance()
+        {
+            Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
+            Equal(new SubClass().CovariantVirtualMethod().ValueAlias, 2, "Covariant override method");
+        }
+
         interface ISomething
         {
             int Foo();
@@ -166,6 +179,29 @@ namespace WebSharper.CSharp.Tests
             Equal(((ISomething)o).Bar, "Bar");
             Equal(o.Foo(), 42);
             Equal(((ISomething)o).Foo(), 42);
+        }
+
+        interface ITestDefaultImpl
+        {
+            int Foo() => 42;
+        }
+
+        class TestDefaultImpl : ITestDefaultImpl
+        {
+        }
+
+        class TestDefaultImpl2 : ITestDefaultImpl
+        {
+            int Foo() => 2;
+        }
+
+        [Test("C# interface default implementations", TestKind.Skip)]
+        public void InterfaceDefaultImplementations()
+        {
+            var o = new TestDefaultImpl();
+            Equal(((ITestDefaultImpl)o).Foo(), 42);
+            var o2 = new TestDefaultImpl2();
+            Equal(((ITestDefaultImpl)o).Foo(), 2);
         }
 
         struct StructTest
@@ -203,7 +239,7 @@ namespace WebSharper.CSharp.Tests
             Equal(o.Field2, 2);
             Equal(o.Value, 0);
             o.SetValueTo3ByPartialMethod();
-            Equal(o.Value, 3);
+            Equal(o.GetValueByPartialMethod(), 3);
             o.SetValueTo4();
             Equal(o.Value, 4);
         }
@@ -328,9 +364,24 @@ namespace WebSharper.CSharp.Tests
 
         partial void PartialMethod();
 
+        partial void PartialMethodNotImpl();
+
+        private partial int PartialMethodRelaxed();
+
         public void SetValueTo3ByPartialMethod()
         {
             PartialMethod();
+            PartialMethodNotImpl();
         }
+
+        public int GetValueByPartialMethod()
+        {
+            return PartialMethodRelaxed();
+        }
+    }
+
+    [JavaScript]
+    public interface IFoo {
+        public int Bar => 0;
     }
 }

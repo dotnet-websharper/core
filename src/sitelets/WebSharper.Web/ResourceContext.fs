@@ -33,7 +33,7 @@ module ResourceContext =
 
     let private contextCache = ConcurrentDictionary<string, Re.Context>()
 
-    let ResourceContext (appPath: string) : Re.Context =
+    let ResourceContext (appPath: string) (meta: M.Info) : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
             let pu = P.PathUtility.VirtualPaths(appPath)
             let isDebug = Context.IsDebug()
@@ -47,7 +47,7 @@ module ResourceContext =
                     let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)
                     let version = 
                         let fileName = if isDebug then pu.JavaScriptFileName(aid) else pu.MinifiedJavaScriptFileName(aid)
-                        match Shared.Metadata.ResourceHashes.TryGetValue(fileName) with
+                        match meta.ResourceHashes.TryGetValue(fileName) with
                         | true, h -> "?h=" + string h
                         | _ -> ""
                     Re.RenderLink (url + version)
@@ -60,7 +60,7 @@ module ResourceContext =
                     let r = P.EmbeddedResource.Create(kind, id, resource)
                     let url = pu.EmbeddedPath r
                     let version = 
-                        match Shared.Metadata.ResourceHashes.TryGetValue(pu.EmbeddedResourceKey r) with
+                        match meta.ResourceHashes.TryGetValue(pu.EmbeddedResourceKey r) with
                         | true, h -> "?h=" + string h
                         | _ -> ""
                     Re.RenderLink (url + version)

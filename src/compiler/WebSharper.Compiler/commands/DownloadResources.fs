@@ -38,7 +38,7 @@ module DownloadResources =
                     }
                 String.concat " - " (messages e)
 
-    let DownloadResource path root =
+    let DownloadResource (path: string) (root: string) =
         let errors = ResizeArray()
         let name = Path.GetFileNameWithoutExtension path
         try
@@ -51,7 +51,7 @@ module DownloadResources =
                     null
                 else
                     try
-                        System.Reflection.Assembly.Load (Path.GetFileNameWithoutExtension path)
+                        WebSharper.Core.Reflection.LoadAssembly path
                     with e ->
                         if e.HResult <> 0x80131058 then
                             errors.Add <| sprintf "Failed to load assembly for unpacking local resources: %s - %s" path (printError e)     
@@ -71,3 +71,5 @@ module DownloadResources =
                             errors.Add <| sprintf "Failed to unpack local resource: %s - %s" t.FullName (printError e)   
         with e ->
             errors.Add <| sprintf "Failed to unpack local resources from %s: %s" name (printError e)
+
+        errors.ToArray()

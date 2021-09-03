@@ -1,0 +1,6 @@
+group fcs
+	FSharp.Compiler.Service
+	FSharp.Core
+	System.Runtime.Caching
+	System.Configuration.ConfigurationManager
+	NLog

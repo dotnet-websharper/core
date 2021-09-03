@@ -1,23 +1,25 @@
 type file
 id WebSharper.Compiler.Common
 authors IntelliFactory
-licenseUrl http://websharper.com/licensing
-projectUrl http://websharper.com
+projectUrl https://websharper.com/
+repositoryType git
+repositoryUrl https://github.com/dotnet-websharper/core/
+licenseUrl https://github.com/dotnet-websharper/core/blob/master/LICENSE.md
+licenseExpression Apache-2.0
+iconUrl https://github.com/dotnet-websharper/core/raw/websharper50/tools/WebSharper.png
 description
-        Common compiler libraries for C#/F#-to-JavaScript translation
+    Common compiler libraries for C#/F#-to-JavaScript translation
 tags
-    Web JavaScript F# C#
+    WebSharper JavaScript FSharp CSharp Compiler
 dependencies
-    WebSharper == CURRENTVERSION
-    System.Configuration.ConfigurationManager >= LOCKEDVERSION
-    Mono.Cecil >= LOCKEDVERSION
-    FSharp.Core >= LOCKEDVERSION
+    framework: netstandard2.0
+        WebSharper == CURRENTVERSION
+        System.Configuration.ConfigurationManager >= LOCKEDVERSION
+        System.Runtime.Loader >= LOCKEDVERSION
+        Mono.Cecil >= LOCKEDVERSION
+        FSharp.Core >= LOCKEDVERSION
 files
-    ../build/Release/FSharp/net461/WebSharper.Compiler.dll ==> lib/net461
-    ../build/Release/FSharp/net461/WebSharper.Compiler.xml ==> lib/net461
-    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.dll ==> lib/net461
-    ../build/Release/FSharp/Offline/net461/WebSharper.Sitelets.Offline.xml ==> lib/net461
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll ==> lib/netstandard2.0
     ../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.xml ==> lib/netstandard2.0
-    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
-    ../build/Release/FSharp/Offline/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.dll ==> lib/netstandard2.0
+    ../build/Release/netstandard2.0/WebSharper.Sitelets.Offline.xml ==> lib/netstandard2.0

@@ -43,7 +43,6 @@ type CompilerOptions =
         ProjectDir : string
         ReferencePaths : seq<string>
         StrongNameKeyPath : option<string>
-        IsNetStandard : bool
     }
 
     static member Default : assemblyName: string -> CompilerOptions
@@ -61,4 +60,4 @@ type Compiler =
     member Compile : options: CompilerOptions * assembly: CodeModel.Assembly * ?original: Assembly -> CompiledAssembly
     member Start : args: seq<string> * assembly: CodeModel.Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
     member Start : args: seq<string> * assembly: CodeModel.Assembly * original: Assembly * ?resolver: WebSharper.Compiler.AssemblyResolver -> int
-    static member Create : unit -> Compiler
+    static member Create : WebSharper.Compiler.LoggerBase -> Compiler

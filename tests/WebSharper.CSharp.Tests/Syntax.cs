@@ -90,7 +90,7 @@ namespace WebSharper.CSharp.Tests
             var a = 0;
             goto x;
             a += 1;
-            x: Equal(a, 0);
+        x: Equal(a, 0);
         }
 
         [Test]
@@ -105,7 +105,7 @@ namespace WebSharper.CSharp.Tests
             {
                 a = 1;
             }
-            x: Equal(a, 1);
+        x: Equal(a, 1);
         }
 
         [Test]
@@ -117,14 +117,14 @@ namespace WebSharper.CSharp.Tests
             {
                 goto y;
                 b++;
-                y: goto x;
+            y: goto x;
             }
             finally
             {
                 a = 1;
             }
             b++;
-            x: Equal(a, 1);
+        x: Equal(a, 1);
             Equal(b, 0);
         }
 
@@ -149,6 +149,34 @@ namespace WebSharper.CSharp.Tests
             foreach (var e in arr)
                 x += e;
             Equal(x, 6);
+        }
+
+        [Test]
+        public void ForEachExtension()
+        {
+            var coll = new TestExtensionGetEnumerator() { Values = new() { 1, 2, 3 } };
+            var x = 0;
+            foreach (var e in coll)
+                x += e;
+            Equal(x, 6);
+        }
+
+        [Test("C# local functions", TestKind.Skip)]
+        public void LocalFunctions()
+        {
+            var one = 1;
+            int addOneLocal(int x) => x + one;
+            Equal(addOneLocal(1), 2);
+
+            int addOneThis(int x) => x + this.GetOne();
+            Equal(addOneThis(1), 2);
+
+            static int add(int x, int y) { return x + y; }
+            Equal(add(1, 2), 3);
+
+            [Inline] int addOneInline(int x) => x + one;
+            Equal(addOneInline(1), 2);
+
         }
 
         class Disposing : IDisposable
@@ -205,6 +233,22 @@ namespace WebSharper.CSharp.Tests
                         arr.Add(3);
                         break;
                 }
+            Equal(arr.ToArray(), new[] { 1, 2, 2, 3 });
+            Equal(arr[1], 2);
+        }
+
+        [Test("C# switch expression", TestKind.Skip)]
+        public void SwitchExpression()
+        {
+            var arr = new List<int>();
+            for (int i = 0; i < 4; i++)
+                arr.Add(
+                    i switch
+                    {
+                        0 => 1,
+                        _ when (i == 1 || i == 2) => 2,
+                        _ => 3
+                    });
             Equal(arr.ToArray(), new[] { 1, 2, 2, 3 });
             Equal(arr[1], 2);
         }
@@ -396,7 +440,7 @@ namespace WebSharper.CSharp.Tests
             string firstName = "James", lastName = "Bond";
             Equal($"My name is {lastName}. {firstName} {lastName}.", "My name is Bond. James Bond.");
 
-            Equal($"align:{"x", 2 + 3}", "align:    x");
+            Equal($"align:{"x",2 + 3}", "align:    x");
         }
 
         [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787", TestKind.Skip)]
@@ -406,7 +450,7 @@ namespace WebSharper.CSharp.Tests
             Equal($"format:{d:hh}", "format:03");
         }
 
-        public int OptionalTest(int x, int y = 2, int z = 0, int w = 0) => 100*x + 10*y + z - w;
+        public int OptionalTest(int x, int y = 2, int z = 0, int w = 0) => 100 * x + 10 * y + z - w;
 
         public int DefaultOptionalTest([Optional] int x) => x;
 
@@ -517,7 +561,8 @@ namespace WebSharper.CSharp.Tests
 
             public int? X() => this.x;
 
-            public int? Increment() {
+            public int? Increment()
+            {
                 this.x++;
                 return this.x;
             }
@@ -542,12 +587,16 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public void NullCoalesce()
         {
-            NullTest x = null;
+#nullable enable
+            NullTest? x = null;
             Equal((x ?? new NullTest(42)).X(), 42, "object null case");
             x = new NullTest(53);
             Equal((x ?? new NullTest(42)).X(), 53, "object non-null case");
             Equal(x.Increment() ?? 12, 54, "check side effect 1");
             Equal(x.Increment() ?? 35, 55, "check side effect 2");
+            NullTest xx = null!;
+            Equal(xx, null!);
+#nullable disable
 
             int? y = null;
             Equal(y ?? 67, 67, "Nullable null case");
@@ -602,7 +651,7 @@ namespace WebSharper.CSharp.Tests
 
         public int ExprVarField = int.TryParse("42", out var i) ? i : 0;
 
-        public int ExprVarProp { get; set; } = int.TryParse("42", out var i) ? i : 0; 
+        public int ExprVarProp { get; set; } = int.TryParse("42", out var i) ? i : 0;
 
         [Test]
         public void ExpressionVariables()
@@ -619,6 +668,58 @@ namespace WebSharper.CSharp.Tests
                     select int.TryParse(s, out var i) ? i : 0;
 
             Equal(r.ToArray(), new[] { 5 }, "expression variable in query");
+        }
+
+        [Test("C# target-typed new", TestKind.Skip)]
+        public void TargetTypedNew()
+        {
+            string[] strings = { "5" };
+            JsEqual(strings, new[] { "5" });
+
+            List<int> list = new();
+            Equal(list.Count, 0);
+        }
+
+        [Test]
+        public void TargetTypedConditional()
+        {
+            int? res = 1 < 2 ? 3 : null;
+            Equal(res, 3);
+        }
+
+        [Test("C# Index", TestKind.Skip)]
+        public void IndexTest()
+        {
+            string[] strings = { "0", "1", "2", "3", "4" };
+
+            Index i = 2;
+            Index j = ^2;
+
+            Equal(strings[i], "2");
+            Equal(strings[j], "3");
+        }
+
+        [Test("C# Range", TestKind.Skip)]
+        public void RangeTest()
+        {
+            int[] someArray = new int[5] { 1, 2, 3, 4, 5 };
+            Equal(someArray[0..2], new[] { 1, 2 });
+            Equal(someArray[1..^0], new[] { 2, 3, 4, 5 });
+        }
+    }
+
+    [JavaScript]
+    class TestExtensionGetEnumerator
+    {
+        public List<int> Values = new List<int>();
+    }
+
+    [JavaScript]
+    static class TestExtensionGetEnumeratorExtension
+    {
+        public static IEnumerator<int> GetEnumerator(this TestExtensionGetEnumerator coll)
+        {
+            return coll.Values.GetEnumerator();
         }
     }
 
@@ -654,6 +755,8 @@ namespace WebSharper.CSharp.Tests
         public int Field2 = 2;
 
         partial void PartialMethod() { Value = 3; }
+
+        private partial int PartialMethodRelaxed() { return Value; }
 
         public void SetValueTo4()
         {

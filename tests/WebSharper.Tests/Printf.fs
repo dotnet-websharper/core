@@ -141,4 +141,13 @@ let Tests =
         Test "Empty format string" {
             equal (sprintf "") ""
         }
+
+        Test "String interpolation" {
+            let x = 5
+            let hi = "hi"
+            equal $"x={x} hi={hi}" "x=5 hi=hi"
+            equal $"x=%d{x} hi=%s{hi}" "x=5 hi=hi"
+            equal $"%A{(1, 2)}" "(1, 2)"
+            equal $"%A{[1; 2]}" "[1; 2]"
+        }
     }

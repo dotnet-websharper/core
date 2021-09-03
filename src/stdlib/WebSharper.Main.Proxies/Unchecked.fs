@@ -128,8 +128,9 @@ let Equals (a: 'T) (b: 'T) : bool =
     if a ===. b then true else
         match JS.TypeOf a with
         | JS.Object ->
-            if a ===. null || a ===. JS.Undefined || b ===. null || b ===. JS.Undefined then false
+            if a ===. null || a ===. JS.Undefined || b ===. null || b ===. JS.Undefined || JS.TypeOf b <> JS.Object then false
             elif JS.In "Equals" a then equals a b
+            elif JS.In "Equals" b then false
             elif isArray a && isArray b then arrayEquals (As a) (As b)
             elif isDate a && isDate b then dateEquals a b
             else objEquals (As a) (As b)

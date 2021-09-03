@@ -20,7 +20,7 @@
 
 module WebSharper.Compiler.FSharp.ErrorPrinting
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Diagnostics
 open WebSharper.Core
 open WebSharper.Compiler
 open WebSharper.Compiler.ErrorPrinting
@@ -51,16 +51,18 @@ type WarnSettings =
         this.WarnAsError.Contains(c)
         || (this.AllWarnAsError && this.DontWarnAsError.Contains(c))
 
-let PrintGlobalError err =
-    eprintfn "WebSharper error WS9001: %s" (NormalizeErrorString err)
+let PrintGlobalError (logger: LoggerBase) err =
+    sprintf "WebSharper error WS9001: %s" (NormalizeErrorString err)
+    |> logger.Error
 
-let PrintGlobalWarning (warnSettings: WarnSettings) err =
+let PrintGlobalWarning (warnSettings: WarnSettings) (logger: LoggerBase) err =
     if warnSettings.CheckNoWarn(9002) then
         ()
     elif warnSettings.CheckWarnAsError(9002) then
-        PrintGlobalError err
+        PrintGlobalError logger err
     else
-        eprintfn "WebSharper warning WS9002: %s" (NormalizeErrorString err)
+        sprintf "WebSharper warning WS9002: %s" (NormalizeErrorString err)
+        |> logger.Error
 
 // see https://github.com/fsharp/FSharp.Compiler.Service/blob/533e728f08f4f9f8527b58877d377f9d6eed09ce/src/fsharp/CompileOps.fs#L380
 let private Level5Warnings =
@@ -75,10 +77,10 @@ let private Level5Warnings =
              // 1178,tcNoEqualityNeeded2,"The struct, record or union type '%s' does not support structural equality because the type '%s' does not satisfy the 'equality' constraint. Consider adding the 'NoEquality' attribute to the type '%s' to clarify that the type does not support structural equality"
     ]
 
-let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
+let PrintFSharpErrors (settings: WarnSettings) (logger: LoggerBase) (errs: FSharpDiagnostic[]) =
     for err in errs do
         let isError, isPrinted =
-            if err.Severity = FSharpErrorSeverity.Error then
+            if err.Severity = FSharpDiagnosticSeverity.Error then
                 true, true
             else
                 let n = err.ErrorNumber
@@ -96,11 +98,12 @@ let PrintFSharpErrors (settings: WarnSettings) (errs: FSharpErrorInfo[]) =
                 let fn = err.FileName
                 if fn <> "unknown" && fn <> "startup" && fn <> "commandLineArgs" then
                     let file = fn.Replace("/","\\")
-                    sprintf "%s(%d,%d,%d,%d): " file err.StartLineAlternate (err.StartColumn + 1) err.EndLineAlternate (err.EndColumn + 1)
+                    sprintf "%s(%d,%d,%d,%d): " file err.StartLine (err.StartColumn + 1) err.EndLine (err.EndColumn + 1)
                 else ""
             let info =
                 sprintf "%s %s FS%04d: " err.Subcategory (if isError then "error" else "warning") err.ErrorNumber
-            eprintfn "%s%s%s" pos info (NormalizeErrorString err.Message)
+            sprintf "%s%s%s" pos info (NormalizeErrorString err.Message)
+            |> logger.Error
 
 // We need to print full rooted path for VS to correctly link the error to the file
 open System.IO
@@ -108,7 +111,7 @@ let fullpath cwd (nm: string) =
     let p = if Path.IsPathRooted(nm) then nm else Path.Combine(cwd,nm)
     try Path.GetFullPath(p) with _ -> p
 
-let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSettings) (comp: Compilation) =
+let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSettings) (logger: LoggerBase) (comp: Compilation) =
     let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
         if (not isError || warnOnly) && warnSettings.CheckNoWarn(9002) then
@@ -121,11 +124,13 @@ let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSetting
                     "warning WS9002"
             match pos with
             | Some pos ->
-                eprintfn "%s(%d,%d,%d,%d): WebSharper %s: %s" 
+                sprintf "%s(%d,%d,%d,%d): WebSharper %s: %s" 
                     (fullpath projDir pos.FileName) (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
                     severity (NormalizeErrorString msg)
+                |> logger.Error
             | _ ->
-                eprintfn "WebSharper %s: %s" severity (NormalizeErrorString msg)
+                sprintf "WebSharper %s: %s" severity (NormalizeErrorString msg)
+                |> logger.Error
     
     for pos, err in comp.Errors do
         printWebSharperError pos true (string err)

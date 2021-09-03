@@ -1,14 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="..\..\msbuild\netfx.props" />
   <PropertyGroup>
-    <TargetFrameworks>net461;netstandard2.0</TargetFrameworks>
+    <TargetFramework>net5.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
     <OtherFlags>--nowarn:FS0044 --nowarn:TEST1234</OtherFlags>
   	<LangVersion>preview</LangVersion>
+    <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="FromUI/AppendList.fsi" />
+    <Compile Include="FromUI/AppendList.fs" />
     <Compile Include="Collections.fs" />
     <Compile Include="Dependencies.fs" />
     <Compile Include="AddressOf.fs" />
@@ -27,6 +29,7 @@
     <Compile Include="Exception.fs" />
     <Compile Include="Inheritance.fs" />
     <Compile Include="Integers.fs" />
+    <Compile Include="Interop.fs" />
     <Compile Include="KeyValuePair.fs" />
     <Compile Include="Lazy.fs" />
     <Compile Include="List.fs" />
@@ -65,10 +68,8 @@
     <None Include="paket.references" />
     <Content Include="testwsconfig.json" />
   </ItemGroup>
-  <ItemGroup Condition="$(TargetFramework.StartsWith('net4'))">
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
-  </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
@@ -85,7 +86,6 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
     <ProjectReference Include="..\WebSharper.Collections.Tests\WebSharper.Collections.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
-    <Reference Include="System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089" />
   </ItemGroup>
   <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />

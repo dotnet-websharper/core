@@ -30,12 +30,12 @@ type Content(t: Lazy<string>) =
     member c.Write(output: TextWriter) =
         output.Write(t.Value)
 
-    member c.WriteFile(fileName: string, ?encoding: Encoding) =
+    member c.WriteFile(name: string, ?encoding: Encoding) =
         let enc = defaultArg encoding utf8
-        let dir = DirectoryInfo(Path.GetDirectoryName(fileName))
+        let dir = DirectoryInfo(Path.GetDirectoryName(name))
         if not dir.Exists then
             dir.Create()
-        File.WriteAllText(fileName, t.Value, enc)
+        File.WriteAllText(name, t.Value, enc)
 
     member c.Text = t.Value
 

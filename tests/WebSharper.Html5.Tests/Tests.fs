@@ -22,7 +22,6 @@ module WebSharper.Html5.Tests.Main
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 
 [<JavaScript>]
 type Elt (name) =
@@ -321,7 +320,8 @@ type TestBuilder with
                     | Choice2Of2 args -> args
                 let el = el args
                 do! Async.FromContinuations (fun (ok, _, _) ->
-                    let fixture = JQuery.Of("#qunit-fixture").Empty().Get(0)
+                    let fixture = JS.Document.GetElementById "qunit-fixture"
+                    fixture.InnerHTML <- ""
                     el.OnAfterInsert(fun _ -> ok())
                         .InsertInto(fixture)
                 )

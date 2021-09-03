@@ -83,29 +83,38 @@ module ClientServerTests =
                 )
             }
 
-            TestIf runServerTests "Router.Ajax" {
+            TestIf runServerTests "Router.Xhr" {
                 let settings ep =
-                    let s = JQuery.AjaxSettings()
+                    let s =
+                        {
+                            ResponseT = XMLHttpRequestResponseType.Text
+                            Url = ""
+                            IsAsync = true
+                            Username = ""
+                            Password = ""
+                            Timeout = 0
+                            WithCredentials = false
+                        }
                     match ep with
                     | UCors _ -> corsBaseUri |> Option.iter (fun uri -> s.Url <- uri)
                     | _ -> ()
                     s
                 let! serverResults = GetTestValues()
-                let! ajaxResults =
+                let! xhrResults =
                     async {
                         let arr = ResizeArray()
                         for testValue, _, _ in serverResults do
                             try
                                 do! Expect testValue
-                                let! res = Router.AjaxWith (settings testValue) ShiftedRouter testValue
+                                let! res = Router.XHRWith (settings testValue) ShiftedRouter testValue
                                 arr.Add (res)
                             with e ->
                                 arr.Add (e.StackTrace)
                         return arr.ToArray()
                     }
                 let expectedResults = serverResults |> Array.map (fun (_, serverLink, _) -> serverLink)
-                forEach (Array.zip ajaxResults expectedResults) (fun (r, v) -> Do {
-                    equalMsg r v (sprintf "Ajax call for: " + string v)
+                forEach (Array.zip xhrResults expectedResults) (fun (r, v) -> Do {
+                    equalMsg r v (sprintf "Xhr call for: " + string v)
                 })
             }
 

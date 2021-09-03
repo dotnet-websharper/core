@@ -70,4 +70,10 @@ let Tests =
             equal (Nullable.int (Nullable -3.5)) (Nullable -3)
             equal (Nullable.int (Nullable 'a')) (Nullable 97)
         }
+
+        Test "Auto-conversion" {
+            equal (WebSharper.CSharp.Tests.Interop.AddNullables(2, 3)) 5
+            equal (WebSharper.CSharp.Tests.Interop.AddNullables(2, Nullable())) 2
+            equal (WebSharper.CSharp.Tests.Interop.AddNullables(2, 3)) (WebSharper.CSharp.Tests.Interop.AddNullables(Nullable<int>2, Nullable<int>3))
+        }
     }

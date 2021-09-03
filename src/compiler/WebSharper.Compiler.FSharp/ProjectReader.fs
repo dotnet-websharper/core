@@ -20,7 +20,8 @@
 
 module WebSharper.Compiler.FSharp.ProjectReader
 
-open FSharp.Compiler.SourceCodeServices
+open FSharp.Compiler.Symbols
+open FSharp.Compiler.CodeAnalysis
 open System.Collections.Generic
 
 open WebSharper.Core
@@ -75,15 +76,16 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
-let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
     let thisDef = sr.ReadTypeDefinition cls
     let annot =
         sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
     d.Add(cls, (thisDef, annot))
+    t.Add(thisDef, cls)
     for m in members do
         match m with
         | SourceEntity (ent, nmembers) ->
-            collectClassAnnotations d sr annot ent nmembers
+            collectClassAnnotations d t sr annot ent nmembers
         | _ -> ()
 
 let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: FSharpEntity) =
@@ -775,7 +777,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             let usesNull =
                 cls.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
                 && cls.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
-                && cls.UnionCases |> Seq.exists (fun c -> c.UnionCaseFields.Count = 0)
+                && cls.UnionCases |> Seq.exists (fun c -> c.Fields.Count = 0)
 
             let mutable nullCase = usesNull 
 
@@ -794,7 +796,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             ConstantFSharpUnionCase (String "$$ERROR$$")
                     let cAnnot = sr.AttributeReader.GetMemberAnnot(annot, case.Attributes)
                     let kind =
-                        let argumentless = case.UnionCaseFields.Count = 0
+                        let argumentless = case.Fields.Count = 0
                         if nullCase && argumentless then
                             nullCase <- false
                             constantCase Null
@@ -812,7 +814,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 SingletonFSharpUnionCase
                             else
                                 NormalFSharpUnionCase (
-                                    case.UnionCaseFields
+                                    case.Fields
                                     |> Seq.map (fun f ->
                                         {
                                             Name = f.Name
@@ -996,9 +998,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         }
     )
 
-open WebSharper.Compiler.FrontEnd
-
-let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
+let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (config: WsConfig) (checkResults: FSharpCheckProjectResults) =   
     comp.AssemblyName <- assemblyName
     comp.ProxyTargetName <- config.ProxyTargetName
     let sr = CodeReader.SymbolReader(comp)    
@@ -1032,8 +1032,6 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
     for s in asmAnnot.JavaScriptExportTypesFilesAndAssemblies do
         comp.AddJavaScriptExport (ExportByName s)
 
-    comp.CustomTypesReflector <- A.reflectCustomType
-    
     let lookupAssembly =
         lazy
         Map [
@@ -1042,19 +1040,25 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
                 yield r.SimpleName, r.Contents 
         ]
 
+    let typeImplLookup = Dictionary<TypeDefinition, FSharpEntity>()
+    
     let lookupTypeDefinition (typ: TypeDefinition) =
-        let t = typ.Value
-        let path = t.FullName.Split('+')
-        let mutable res =
-            lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
-                match e.TryFullName with
-                | Some fn when fn = path.[0] -> true
-                | _ -> false
-            )
-        for i = 1 to path.Length - 1 do
-            if res.IsSome then
-                res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
-        res 
+        match typeImplLookup.TryGetValue(typ) with
+        | true, ores -> Some ores
+        | _ ->
+            let t = typ.Value
+            let path = t.FullName.Split('+')
+            let mutable res =
+                lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
+                    match e.TryFullName with
+                    | Some fn when fn = path.[0] -> true
+                    | _ -> false
+                )
+            for i = 1 to path.Length - 1 do
+                if res.IsSome then
+                    res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
+        
+            res
 
     let readAttribute (a: FSharpAttribute) =
         try
@@ -1135,6 +1139,102 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             ) 
         )
 
+    let reflectCustomType (typeDef: TypeDefinition): CustomTypeInfo =
+        let cls = lookupTypeDefinition(typeDef)
+        let branchOnType (entity: FSharpEntity) =
+            let clsTparams =
+                lazy 
+                entity.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+            if entity.IsDelegate then
+                let tparams = 
+                    entity.GenericParameters
+                    |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
+                let inv = entity.MembersFunctionsAndValues |> Seq.find(fun m -> m.CompiledName = "Invoke")
+                DelegateInfo {
+                    DelegateArgs =
+                        inv.CurriedParameterGroups |> Seq.concat |> Seq.map (fun p -> sr.ReadType tparams p.Type) |> List.ofSeq
+                    ReturnType = sr.ReadType tparams inv.ReturnParameter.Type
+                }
+            else if entity.IsEnum then
+                CustomTypeInfo.EnumInfo typeDef
+            else if entity.IsFSharpRecord then
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
+                entity.FSharpFields |> Seq.map (fun f ->
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                    {
+                        Name = f.Name
+                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
+                        RecordFieldType = fTyp
+                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                        Optional = isOpt
+                        IsMutable = f.IsMutable
+                    }
+                )
+                |> List.ofSeq |> FSharpRecordInfo    
+            else if entity.IsFSharpUnion then
+                let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes)
+                let usesNull =
+                    entity.UnionCases.Count < 4 // see TaggingThresholdFixedConstant in visualfsharp/src/ilx/EraseUnions.fs
+                    && entity.Attributes |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.UseNullAsTrueValue
+                    && entity.UnionCases |> Seq.exists (fun c -> c.Fields.Count = 0)
+
+                let cases =
+                    entity.UnionCases
+                    |> Seq.map (fun case ->
+                        let cAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, case.Attributes)
+                        let kind =
+                            match cAnnot.Kind with
+                            | Some (A.MemberKind.Constant v) -> 
+                                ConstantFSharpUnionCase v
+                            | _ ->
+                                NormalFSharpUnionCase (
+                                    case.Fields
+                                    |> Seq.map (fun f ->
+                                        {
+                                            Name = f.Name
+                                            UnionFieldType = sr.ReadType clsTparams.Value f.FieldType
+                                            DateTimeFormat = 
+                                                cAnnot.DateTimeFormat 
+                                                |> List.tryPick (fun (target, format) -> if target = Some f.Name then Some format else None)
+                                        }
+                                    )
+                                    |> List.ofSeq
+                                )
+                        let staticIs =
+                            not usesNull || not (
+                                case.Attributes
+                                |> CodeReader.hasCompilationRepresentation CompilationRepresentationFlags.Instance
+                            )
+                        {
+                            Name = case.Name
+                            JsonName = cAnnot.Name
+                            Kind = kind
+                            StaticIs = staticIs
+                        }
+                    )
+                    |> List.ofSeq
+                
+                FSharpUnionInfo {
+                    Cases = cases
+                    NamedUnionCases = tAnnot.NamedUnionCases
+                    HasNull = usesNull && cases |> List.exists (fun c -> c.Kind = ConstantFSharpUnionCase Null) 
+                }
+            else
+                CustomTypeInfo.NotCustomType 
+
+        cls
+        |> Option.map branchOnType
+        |> Option.defaultValue CustomTypeInfo.NotCustomType
+
+    let tryReflectCustomType typeDef =
+        try
+            reflectCustomType typeDef
+        with
+        | _ -> CustomTypeInfo.NotCustomType
+
+    comp.CustomTypesReflector <- tryReflectCustomType
     comp.LookupTypeAttributes <- lookupTypeAttributes
     comp.LookupFieldAttributes <- lookupFieldAttributes 
     comp.LookupMethodAttributes <- lookupMethodAttributes
@@ -1194,7 +1294,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
         for t in topLevelTypes do
             match t with
             | SourceEntity (c, m) ->
-                collectClassAnnotations classAnnotations sr rootTypeAnnot c m
+                collectClassAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
             | _ -> ()
 
         // register all proxies for signature redirection
@@ -1213,6 +1313,7 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
+            
             let statements, fields = sc            
             let cctor = Function ([], Block (List.ofSeq statements))
             let members =
@@ -1247,14 +1348,14 @@ let transformAssembly (comp : Compilation) assemblyName (config: WsConfig) (chec
             getStartupCodeClass sc.Value |> comp.AddClass
     )
     
-    TimedStage "Parsing with FCS"
+    logger.TimedStage "Parsing with FCS"
 
     argCurrying.ResolveAll()
 
-    TimedStage "Analyzing function arguments"
+    logger.TimedStage "Analyzing function arguments"
 
     comp.Resolve()
 
-    TimedStage "Resolving names"
+    logger.TimedStage "Resolving names"
 
     comp
