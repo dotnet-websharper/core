@@ -38,11 +38,9 @@ let createAssemblyResolver (config : WsConfig) =
             for r in config.References -> Path.GetFullPath r
             yield Path.GetFullPath config.AssemblyFile
         ]        
-    let aR =
-        AssemblyResolver.Create()
-            .SearchPaths(paths)
-            .SearchDirectories([compilerDir])
-    aR
+    AssemblyResolver.Create()
+        .SearchPaths(paths)
+        .SearchDirectories([compilerDir])
 
 let handleCommandResult logger config warnSettings stageName cmdRes =  
     let res =
@@ -95,13 +93,16 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     
     let isBundleOnly = config.ProjectType = Some BundleOnly
 
+    let aR = createAssemblyResolver config
+    
     let exitCode = 
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             0
         else
             let errors, exitCode = 
-                checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
+                aR.Wrap <| fun () ->
+                    checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
     
             PrintFSharpErrors warnSettings logger errors
     
@@ -116,7 +117,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     if exitCode <> 0 then 
         exitCode
     elif config.ProjectType = Some WIG then  
-        let aR = createAssemblyResolver config
         aR.Wrap <| fun () ->
             try 
                 RunInterfaceGenerator aR config.KeyFile config logger
@@ -126,7 +126,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 1
     else 
 
-    let aR = createAssemblyResolver config
     let loader = Loader.Create aR logger.Error
     let refs = [ for r in config.References -> loader.LoadFile(r, false) ]
     let wsRefsMeta =
