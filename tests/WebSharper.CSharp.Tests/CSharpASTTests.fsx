@@ -213,8 +213,21 @@ using WebSharper;
 //}
 
 [JavaScript]
-public record PersonP(string FirstName, string LastName = "Smith"); // positional record
+public record Person
+{
+    public string LastName { get; }
+    public string FirstName { get; }
 
-[JavaScript]
-public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
+    public Person(string first, string last) //=> (FirstName, LastName) = (first, last);
+    {
+        this.FirstName = first;
+        this.LastName = last;
+    }
+}
+
+//[JavaScript]
+//public record PersonP(string FirstName, string LastName = "Smith"); // positional record
+
+//[JavaScript]
+//public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
 """

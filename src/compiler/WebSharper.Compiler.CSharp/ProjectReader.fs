@@ -745,8 +745,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let b =
                                     let o = Var p.ParameterId
                                     if isEqualsImpl then
+                                        let isObject e = Unary(UnaryOperator.TypeOf, e) ^== Value (String "object")
+                                        let getConstructor e = ItemGet(e, Value (String "constructor"), Pure)
                                         seq {
-                                            Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
+                                            isObject o
+                                            getConstructor This ^=== getConstructor o
                                             for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
                                                 v ^== vo     
                                         } |> Seq.reduce (^&&)
