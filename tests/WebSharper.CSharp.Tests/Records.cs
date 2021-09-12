@@ -32,7 +32,7 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# records")]
     class Records : TestCategory
     {
-        [Test("C# record equality", TestKind.Skip)]
+        [Test("C# record equality")]
         public void Equality()
         {
             var person = new Person("Bill", "Wagner");
@@ -42,14 +42,14 @@ namespace WebSharper.CSharp.Tests
             IsFalse(person == student);
         }
 
-        [Test("C# record ToString", TestKind.Skip)]
+        [Test("C# record ToString")]
         public void ToStringTest()
         {
             var person = new Person("Bill", "Wagner");
             Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
-        [Test("C# record with", TestKind.Skip)]
+        [Test("C# record with")]
         public void WithExpression()
         {
             var person = new PersonP("Bill", "Wagner");
@@ -61,7 +61,7 @@ namespace WebSharper.CSharp.Tests
             NotStrictEqual(person, personClone);
         }
 
-        [Test("C# record deconstruction", TestKind.Skip)]
+        [Test("C# record deconstruction")]
         public void Deconstruct()
         {
             var person = new PersonP("Bill", "Wagner");
@@ -70,7 +70,7 @@ namespace WebSharper.CSharp.Tests
             Equal(firstName, "Wagner");
         }
 
-        [Test("C# record inheritance", TestKind.Skip)]
+        [Test("C# record inheritance")]
         public void Inheritance()
         {
             var teacher = new TeacherP("Bill", "Wagner", "English");

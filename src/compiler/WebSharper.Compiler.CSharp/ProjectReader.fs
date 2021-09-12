@@ -650,28 +650,26 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let ri = recordInfo |> Option.get
                             let useGetter getter = Call(Some This, NonGeneric def, NonGeneric getter, [])
                             //let cString s = Value (String s) 
-                            //let getAllValues ofObj =
-                            //    seq {
-                            //        for (p, getter) in ri.PositionalFields do
-                            //            yield p.Symbol.Name, useGetter getter
-                            //        for p in ri.OtherFields do
-                            //            match p with 
-                            //            | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
-                            //                yield pSymbol.Name, useGetter getter
-                            //            | CodeReader.CSharpRecordField (fSymbol, _) ->
-                            //                yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
-                            //    }    
-                            //let eq x y =
-                            //    let eqM =
-                            //        Hashed {
-                            //            MethodName = "Equals"
-                            //            Parameters = [ NonGenericType Definitions.Object ] 
-                            //            ReturnType = NonGenericType Definitions.Bool
-                            //            Generics = 0
-                            //        }
-                            //    Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
-                            let ueq x y =
-                                Call(None, NonGeneric uncheckedMdl, NonGeneric uncheckedEquals, [x; y])    
+                            let getAllValues ofObj =
+                                seq {
+                                    for (p, getter) in ri.PositionalFields do
+                                        yield p.Symbol.Name, useGetter getter
+                                    for p in ri.OtherFields do
+                                        match p with 
+                                        | CodeReader.CSharpRecordProperty (pSymbol, getter) ->
+                                            yield pSymbol.Name, useGetter getter
+                                        | CodeReader.CSharpRecordField (fSymbol, _) ->
+                                            yield fSymbol.Name, FieldGet(Some ofObj, NonGeneric def, fSymbol.Name) 
+                                }    
+                            let eq x y =
+                                let eqM =
+                                    Hashed {
+                                        MethodName = "Equals"
+                                        Parameters = [ thisTyp ] 
+                                        ReturnType = NonGenericType Definitions.Bool
+                                        Generics = 0
+                                    }
+                                Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
                             match meth.Name with
                             | "Deconstruct" ->
                                 let b =
@@ -715,45 +713,52 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    Unary(UnaryOperator.Not, ueq (Var x.ParameterId) (Var y.ParameterId)) |> Return
-                                    //Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
+                                    Unary(UnaryOperator.Not, eq (Var x.ParameterId) (Var y.ParameterId)) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
                                     Body = b
                                     IsAsync = false
-                                    ReturnType = NonGenericType Definitions.String
+                                    ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod                                
                             | "op_Equality" ->
                                 let x = CodeReader.CSharpParameter.New "x"
                                 let y = CodeReader.CSharpParameter.New "y"
                                 let b =
-                                    ueq (Var x.ParameterId) (Var y.ParameterId) |> Return
-                                    //eq (Var x.ParameterId) (Var y.ParameterId) |> Return
+                                    eq (Var x.ParameterId) (Var y.ParameterId) |> Return
                                 {
                                     IsStatic = true
                                     Parameters = [ x; y ]
                                     Body = b
                                     IsAsync = false
-                                    ReturnType = NonGenericType Definitions.String
+                                    ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod
                             | "Equals" ->
-                                let p = CodeReader.CSharpParameter.New "other"
+                                let p = CodeReader.CSharpParameter.New "o"
+                                let isEqualsImpl =
+                                    match memdef with
+                                    | Member.Override (_, m)  ->
+                                        match m.Value.Parameters with
+                                        | [ p ] -> p = thisTyp
+                                        | _ -> false
+                                    | _ -> false
                                 let b =
-                                    ueq This (Var p.ParameterId) |> Return
-                                    //let o = Var p.ParameterId
-                                    //seq {
-                                    //    Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
-                                    //    for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
-                                    //        v ^== vo     
-                                    //} |> Seq.reduce (^&&)
-                                    //|> Return
+                                    let o = Var p.ParameterId
+                                    if isEqualsImpl then
+                                        seq {
+                                            Unary(UnaryOperator.TypeOf, This) ^== Unary(UnaryOperator.TypeOf, o)
+                                            for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
+                                                v ^== vo     
+                                        } |> Seq.reduce (^&&)
+                                        |> Return
+                                    else
+                                        eq This o |> Return
                                 {
                                     IsStatic = false
                                     Parameters = [ p ]
                                     Body = b
                                     IsAsync = false
-                                    ReturnType = NonGenericType Definitions.String
+                                    ReturnType = NonGenericType Definitions.Bool
                                 } : CodeReader.CSharpMethod
                             | "GetHashCode" ->
                                 let b =
@@ -801,6 +806,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             | mname ->
                                 failwithf "Not recognized record method: %s" mname    
                         | :? ParameterSyntax as syntax ->
+                            if meth.Name = "get_EqualityContract" then
+                                {
+                                    IsStatic = false
+                                    Parameters = []
+                                    Body = Empty
+                                    IsAsync = false
+                                    ReturnType = VoidType
+                                } : CodeReader.CSharpMethod
+                            else
                             let p =
                                 try
                                     syntax

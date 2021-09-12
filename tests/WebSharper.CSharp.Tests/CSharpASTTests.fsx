@@ -215,6 +215,6 @@ using WebSharper;
 [JavaScript]
 public record PersonP(string FirstName, string LastName = "Smith"); // positional record
 
-//[JavaScript]
-//public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
+[JavaScript]
+public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
 """
