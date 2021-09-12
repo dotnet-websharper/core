@@ -55,7 +55,7 @@ type CSharpParameter =
 
     static member New (name, typ) =    
         {
-            ParameterId = Id.New()
+            ParameterId = Id.New(name)
             Symbol = null
             DefaultValue = None
             Type = typ

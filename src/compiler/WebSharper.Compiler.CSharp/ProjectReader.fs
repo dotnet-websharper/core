@@ -217,8 +217,21 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let clsMembers = ResizeArray()
 
-    let isRecord =
-        cls.DeclaringSyntaxReferences |> Seq.exists (fun x -> (x.SyntaxTree.GetRoot().FindNode(x.Span) :? RecordDeclarationSyntax))
+    let recordInfo =
+        let recSyntax =
+            cls.DeclaringSyntaxReferences |> Seq.tryPick (fun x -> 
+                match x.SyntaxTree.GetRoot().FindNode(x.Span) with
+                | :? RecordDeclarationSyntax as rs -> Some rs
+                | _ -> None
+            )
+        match recSyntax with
+        | Some syntax ->
+            let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
+            syntax    
+            |> RoslynHelpers.RecordDeclarationData.FromNode 
+            |> (cs model).TransformRecordDeclaration
+            |> Some
+        | None -> None
 
     let def, proxied =
         match annot.ProxyOf with
@@ -465,8 +478,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
         if skipCompGen then () else
 
-        let mutable recordInfo = None
-
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
             hasStubMember <- true
@@ -636,13 +647,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> (cs model).TransformConversionOperatorDeclaration
                             |> fixMethod
                         | :? RecordDeclarationSyntax as syntax ->
-                            let ri =
-                                match recordInfo with
-                                | Some x -> x
-                                | None ->
-                                    syntax    
-                                    |> RoslynHelpers.RecordDeclarationData.FromNode 
-                                    |> (cs model).TransformRecordDeclaration
+                            let ri = recordInfo |> Option.get
                             let useGetter getter = Call(Some This, NonGeneric def, NonGeneric getter, [])
                             //let cString s = Value (String s) 
                             //let getAllValues ofObj =
@@ -774,56 +779,25 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     IsAsync = false
                                     ReturnType = thisTyp
                                 } : CodeReader.CSharpMethod
-                            | ".ctor" ->
-                                let isCloneCtor =
-                                    meth.Parameters.Length = 1 && (
-                                        match sr.ReadType meth.Parameters.[0].Type with
-                                        | ConcreteType ct -> ct.Entity = def
-                                        | _ -> false
-                                    )    
-                                
-                                if isCloneCtor then
-                                    let o = CodeReader.CSharpParameter.New ("o", thisTyp)
-                                    let baseCall =
-                                        match ri.BaseCall with
-                                        | None -> Empty
-                                        | Some (bTyp, _, _, _) ->
-                                            let bCtor = 
-                                                Hashed {
-                                                    CtorParameters = [ ConcreteType bTyp ]
-                                                }
-                                            ExprStatement (baseCtor This bTyp bCtor [ Var o.ParameterId ])
-                                    let b =
-                                        ri.PositionalFields |> List.map (fun (_, getter) ->
-                                            let setter = CodeReader.setterOf (NonGeneric getter)
-                                            Call(Some This, NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
-                                        ) |> Sequential |> ExprStatement
-                                    {
-                                        IsStatic = false
-                                        Parameters = [ o ]
-                                        Body = CombineStatements [ b; baseCall ]
-                                        IsAsync = false
-                                        ReturnType = Unchecked.defaultof<Type>
-                                    } : CodeReader.CSharpMethod
-                                else
-                                    let baseCall =
-                                        match ri.BaseCall with
-                                        | None -> Empty
-                                        | Some (bTyp, bCtor, args, reorder) ->
-                                            ExprStatement (baseCtor This bTyp bCtor args |> reorder)
-                                    let b =
-                                        ri.PositionalFields |> List.map (fun (p, getter) ->
-                                            let setter = CodeReader.setterOf (NonGeneric getter)
-                                            Call(Some This, NonGeneric def, setter, [Var p.ParameterId])
-                                        ) |> Sequential |> ExprStatement
-                                    let pars = ri.PositionalFields |> List.map fst
-                                    {
-                                        IsStatic = false
-                                        Parameters = pars
-                                        Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
-                                        IsAsync = false
-                                        ReturnType = Unchecked.defaultof<Type>
-                                    } : CodeReader.CSharpMethod
+                            | ".ctor" ->                                
+                                let baseCall =
+                                    match ri.BaseCall with
+                                    | None -> Empty
+                                    | Some (bTyp, bCtor, args, reorder) ->
+                                        ExprStatement (baseCtor This bTyp bCtor args |> reorder)
+                                let b =
+                                    ri.PositionalFields |> List.map (fun (p, getter) ->
+                                        let setter = CodeReader.setterOf (NonGeneric getter)
+                                        Call(Some This, NonGeneric def, setter, [Var p.ParameterId])
+                                    ) |> Sequential |> ExprStatement
+                                let pars = ri.PositionalFields |> List.map fst
+                                {
+                                    IsStatic = false
+                                    Parameters = pars
+                                    Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
+                                    IsAsync = false
+                                    ReturnType = Unchecked.defaultof<Type>
+                                } : CodeReader.CSharpMethod
                             | mname ->
                                 failwithf "Not recognized record method: %s" mname    
                         | :? ParameterSyntax as syntax ->
@@ -924,36 +898,61 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | MethodKind.Constructor
                     | MethodKind.StaticConstructor ->
                         // implicit constructor
-                        let b = 
-                            if meth.IsStatic then
-                                match staticInit with
-                                | Some si -> si
-                                | _ -> Empty
-                            else
-                                let baseCall =
-                                    let bTyp = cls.BaseType
-                                    if isNull bTyp then Empty else
-                                    match sr.ReadNamedType bTyp with
-                                    | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
-                                        Empty
-                                    | b ->
-                                        ExprStatement (baseCtor This b (ConstructorInfo.Default()) [])
-                                let init =
-                                    if hasInit then 
-                                        ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
-                                    else 
-                                        Empty
-                                CombineStatements [
-                                    baseCall
-                                    init
-                                ]
-                        {
-                            IsStatic = meth.IsStatic
-                            Parameters = []
-                            Body = b
-                            IsAsync = false
-                            ReturnType = Unchecked.defaultof<Type>
-                        } : CodeReader.CSharpMethod
+                        match recordInfo with
+                        | Some ri ->
+                            let o = CodeReader.CSharpParameter.New ("o", thisTyp)
+                            let baseCall =
+                                match ri.BaseCall with
+                                | None -> Empty
+                                | Some (bTyp, _, _, _) ->
+                                    let bCtor = 
+                                        Hashed {
+                                            CtorParameters = [ ConcreteType bTyp ]
+                                        }
+                                    ExprStatement (baseCtor This bTyp bCtor [ Var o.ParameterId ])
+                            let b =
+                                ri.PositionalFields |> List.map (fun (_, getter) ->
+                                    let setter = CodeReader.setterOf (NonGeneric getter)
+                                    Call(Some This, NonGeneric def, setter, [Call (Some (Var o.ParameterId), NonGeneric def, NonGeneric getter, [])])
+                                ) |> Sequential |> ExprStatement
+                            {
+                                IsStatic = false
+                                Parameters = [ o ]
+                                Body = CombineStatements [ b; baseCall ]
+                                IsAsync = false
+                                ReturnType = Unchecked.defaultof<Type>
+                            } : CodeReader.CSharpMethod
+                        | _ ->
+                            let b = 
+                                if meth.IsStatic then
+                                    match staticInit with
+                                    | Some si -> si
+                                    | _ -> Empty
+                                else
+                                    let baseCall =
+                                        let bTyp = cls.BaseType
+                                        if isNull bTyp then Empty else
+                                        match sr.ReadNamedType bTyp with
+                                        | { Entity = td } when td = Definitions.Obj || td = Definitions.ValueType ->
+                                            Empty
+                                        | b ->
+                                            ExprStatement (baseCtor This b (ConstructorInfo.Default()) [])
+                                    let init =
+                                        if hasInit then 
+                                            ExprStatement <| Call(Some This, NonGeneric def, NonGeneric initDef, [])
+                                        else 
+                                            Empty
+                                    CombineStatements [
+                                        baseCall
+                                        init
+                                    ]
+                            {
+                                IsStatic = meth.IsStatic
+                                Parameters = []
+                                Body = b
+                                IsAsync = false
+                                ReturnType = Unchecked.defaultof<Type>
+                            } : CodeReader.CSharpMethod
                     | k -> failwithf "Unexpected method kind: %s" (System.Enum.GetName(typeof<MethodKind>, k))
                     
             let getBody isInline =

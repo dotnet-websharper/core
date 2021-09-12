@@ -194,23 +194,23 @@ let translate (source: string) =
 translate """
 using WebSharper;
 
-[JavaScript]
-public class Person
-{
-    public string FirstName { get; set; }
-    public string LastName { get; set; }
+//[JavaScript]
+//public class Person
+//{
+//    public string FirstName { get; set; }
+//    public string LastName { get; set; }
 
-    public Person(string firstName, string lastName = "Smith")
-    {
-        this.FirstName = firstName;
-        this.LastName = lastName;
-    }
+//    public Person(string firstName, string lastName = "Smith")
+//    {
+//        this.FirstName = firstName;
+//        this.LastName = lastName;
+//    }
 
-    public static Person GetSmith(string firstName = "Tim")
-    {
-        return new Person(firstName);
-    }
-}
+//    public static Person GetSmith(string firstName = "Tim")
+//    {
+//        return new Person(firstName);
+//    }
+//}
 
 [JavaScript]
 public record PersonP(string FirstName, string LastName = "Smith"); // positional record
