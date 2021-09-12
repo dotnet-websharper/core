@@ -383,15 +383,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         else
                             inits.Add <| Call(Some This, cdef, NonGeneric setter, [ b ])
                 | :? ParameterSyntax as pSyntax ->  // positional record property
-                    let data =
-                        pSyntax |> RoslynHelpers.ParameterData.FromNode
-                    match data.Default with
-                    | Some def ->
-                        let b =
-                            def |> (cs model).TransformEqualsValueClause     
-                        inits.Add <| ItemSet(This, jsFieldName(), b )   
-                    | None ->
-                        () 
+                    //let data =
+                    //    pSyntax |> RoslynHelpers.ParameterData.FromNode
+                    () 
                 | _ -> failwithf "Unexpected property declaration kind: %s" (System.Enum.GetName(typeof<SyntaxKind>, syntax.Kind))
             | _ -> ()
         | :? IFieldSymbol as f -> 
@@ -513,18 +507,21 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     try
                         let syntax = decls.[0].GetSyntax()
                         let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
+                        let useDefaultValues (pars: CodeReader.CSharpParameter list) body =
+                            let defValues = 
+                                pars |> List.choose (fun p ->
+                                    p.DefaultValue |> Option.map (fun v -> p.ParameterId, p.Type, v)
+                                )
+                            if List.isEmpty defValues then body else
+                                CombineStatements [
+                                    ExprStatement <| 
+                                        Sequential [ for i, t, v in defValues -> VarSet(i, Coalesce(Var i, t, v)) ]
+                                    body
+                                ]    
                         let fixMethod (m: CodeReader.CSharpMethod) =
                             let b1 = 
-                                let defValues = 
-                                    m.Parameters |> List.choose (fun p ->
-                                        p.DefaultValue |> Option.map (fun v -> p.ParameterId, v)
-                                    )
-                                if List.isEmpty defValues then m.Body else
-                                    CombineStatements [
-                                        ExprStatement <| 
-                                            Sequential [ for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i)) ]
-                                        m.Body
-                                    ]    
+                                m.Body
+                                |> useDefaultValues m.Parameters
                             let b2 =
                                 let isSeq =
                                     match m.ReturnType with
@@ -624,7 +621,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             {
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
-                                Body = b |> FixThisScope().Fix
+                                Body = b |> useDefaultValues c.Parameters |> FixThisScope().Fix
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
@@ -819,10 +816,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                             let setter = CodeReader.setterOf (NonGeneric getter)
                                             Call(Some This, NonGeneric def, setter, [Var p.ParameterId])
                                         ) |> Sequential |> ExprStatement
+                                    let pars = ri.PositionalFields |> List.map fst
                                     {
                                         IsStatic = false
-                                        Parameters = ri.PositionalFields |> List.map fst
-                                        Body = CombineStatements [ b; baseCall ]
+                                        Parameters = pars
+                                        Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
                                         IsAsync = false
                                         ReturnType = Unchecked.defaultof<Type>
                                     } : CodeReader.CSharpMethod
@@ -836,9 +834,21 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     |> (cs model).TransformParameter
                                 with _ ->
                                     failwithf "Failed to parse parameter"
+                            let name = p.ParameterId.Name.Value
                             if meth.Name.StartsWith "get_" then
+                                // add field
+                                let nr =
+                                    {
+                                        StrongName = None
+                                        IsStatic = false
+                                        IsOptional = false
+                                        IsReadonly = true
+                                        FieldType = p.Type
+                                    }
+                                clsMembers.Add (NotResolvedMember.Field (name, nr))    
+                                
                                 let b =
-                                    Return (FieldGet (Some This, NonGeneric def, p.ParameterId.Name.Value))
+                                    Return (FieldGet (Some This, NonGeneric def, name))
                                 {
                                     IsStatic = false
                                     Parameters = []
@@ -848,7 +858,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             elif meth.Name.StartsWith "set_" then
                                 let b =
-                                    Return (FieldSet (Some This, NonGeneric def, p.ParameterId.Name.Value, Var p.ParameterId))
+                                    Return (FieldSet (Some This, NonGeneric def, name, Var p.ParameterId))
                                 {
                                     IsStatic = false
                                     Parameters = [ p ]
@@ -860,7 +870,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 failwithf "Not recognized generated method of record"
                         | _ -> failwithf "Not recognized method syntax kind: %A" (syntax.Kind()) 
                     with e ->
-                        comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s" meth.Name e.Message))
+                        comp.AddError(None, SourceError(sprintf "Error reading member '%s': %s at %s" meth.Name e.Message e.StackTrace))
                         {
                             IsStatic = meth.IsStatic
                             Parameters = []

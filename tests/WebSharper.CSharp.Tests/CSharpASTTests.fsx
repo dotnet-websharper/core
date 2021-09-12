@@ -21,13 +21,13 @@
 //#r @"C:\Program Files\dotnet\sdk\5.0.301\Microsoft\Microsoft.NET.Build.Extensions\net461\lib\System.Runtime.dll"
 // "D:\repos\dotnet-websharper\core\packages\includes\NETStandard.Library.Ref\ref\netstandard2.1\System.Runtime.dll"
 //#r "../../build\Release/CSharp/netstandard2.0/System.Collections.Immutable.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Microsoft.CodeAnalysis.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Microsoft.CodeAnalysis.CSharp.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/WebSharper.Compiler.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/WebSharper.Compiler.CSharp.dll"
+#r "../../build/Release/CSharp/net5.0/Microsoft.CodeAnalysis.dll"
+#r "../../build/Release/CSharp/net5.0/Microsoft.CodeAnalysis.CSharp.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/CSharp/net5.0/WebSharper.Compiler.dll"
+#r "../../build/Release/CSharp/net5.0/WebSharper.Compiler.CSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -66,7 +66,7 @@ let wsRefs =
 let metadata =
     let metas =
         wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
         )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
@@ -195,7 +195,25 @@ translate """
 using WebSharper;
 
 [JavaScript]
-public record PersonP(string FirstName, string LastName); // positional record
+public class Person
+{
+    public string FirstName { get; set; }
+    public string LastName { get; set; }
+
+    public Person(string firstName, string lastName = "Smith")
+    {
+        this.FirstName = firstName;
+        this.LastName = lastName;
+    }
+
+    public static Person GetSmith(string firstName = "Tim")
+    {
+        return new Person(firstName);
+    }
+}
+
+[JavaScript]
+public record PersonP(string FirstName, string LastName = "Smith"); // positional record
 
 //[JavaScript]
 //public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
