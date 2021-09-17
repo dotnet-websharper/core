@@ -64,13 +64,10 @@ module Implemetnation =
     let amsToDictByName paths =
         paths
         |> Seq.choose (fun path ->
-            let asmName = 
-                try
-                    Some (AssemblyName.GetAssemblyName path)
-                with _ -> None
-            match asmName with
-            | None -> None
-            | Some n -> Some (n.Name, path)
+            try
+                let assemblyName = AssemblyName.GetAssemblyName path
+                Some (assemblyName.Name, path)
+            with _ -> None
         )
         |> dict
 
