@@ -77,13 +77,13 @@ let startListening() =
         // compilations are serialed by a MailboxProcessor
         let rec messageLoop () = async {
 
-            let mutable exited = false
+            let mutable exiting = false
             // a compilation failing because a client disconnects can still process the next compilation
             try
                 // read a message
                 let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
                 if deserializedMessage = { args = [| "exit" |] } then
-                    exited <- true
+                    exiting <- true
                 else
                     let tryGetDirectoryName (path: string) =
                         try
@@ -162,7 +162,7 @@ let startListening() =
             with 
             | ex -> 
                 nLogger.Error(ex, "Error in MailBoxProcessor loop")
-            if exited then
+            if exiting && inbox.CurrentQueueLength <> 0 then
                 locker.Set() |> ignore
             else 
                 // loop to top
