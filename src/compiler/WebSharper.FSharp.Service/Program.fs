@@ -71,13 +71,12 @@ let startListening() =
     // client starts the service without window. You have to shut down the service from Task Manager/ kill command.
     // or use dotnet-ws tool, and send a [|"exit"|] message.
     use locker = new AutoResetEvent(false)
+    let mutable exiting = false
     let agent = MailboxProcessor.Start(fun inbox ->
 
         // the message processing function
         // compilations are serialed by a MailboxProcessor
         let rec messageLoop () = async {
-
-            let mutable exiting = false
             // a compilation failing because a client disconnects can still process the next compilation
             try
                 // read a message
@@ -162,7 +161,7 @@ let startListening() =
             with 
             | ex -> 
                 nLogger.Error(ex, "Error in MailBoxProcessor loop")
-            if exiting && inbox.CurrentQueueLength <> 0 then
+            if exiting && inbox.CurrentQueueLength = 0 then
                 locker.Set() |> ignore
             else 
                 // loop to top
