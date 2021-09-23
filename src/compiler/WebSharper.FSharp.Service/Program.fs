@@ -17,6 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
+#nowarn "44"
 
 open System
 open System.IO.Pipes
@@ -30,7 +31,44 @@ open WebSharper.Compiler
 open WebSharper.Compiler.FSharp.Compile
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open WebSharper.Compiler.CommandTools
+open System.Collections.Generic
 
+let argsDict = Dictionary<string, string []>()
+
+let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
+    let tryGetDirectoryName (path: string) =
+        try
+           System.IO.Path.GetDirectoryName path |> Some
+        with
+        | :? System.DivideByZeroException -> None
+
+    if args = {args= [|"exit"|]} then
+        Exit
+    elif args.args.Length = 1 && args.args.[0].StartsWith("compile:") then
+        let projectOption = args.args.[0].Substring(8) 
+        let projectDirOption = projectOption |> Some |> Option.bind tryGetDirectoryName
+        match projectDirOption with
+        | Some project -> System.Environment.CurrentDirectory <- project
+        | None -> ()
+        PostCompile (projectOption, projectDirOption)
+    else
+        let joinTailIfSome (array: string array) =
+            match array with
+            | [||] -> None
+            | x -> System.String.Join(":", x) |> Some
+
+        // read the project file
+        let projectOption = 
+            args.args
+            |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
+            |> Option.bind (fun x -> x.Split(':') |> Array.tail |> joinTailIfSome)
+        let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
+        match projectDirOption with
+        | Some project -> System.Environment.CurrentDirectory <- project
+        | None -> ()
+        FullCompile (args.args, projectOption, projectDirOption)
+        
+        
 let startListening() =
     let nLogger = 
         let callerType = 
@@ -46,7 +84,7 @@ let startListening() =
 
     nLogger.Debug "Initializing memory cache"
     let memCache = MemoryCache.Default
-    let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
+    let tryGetMetadata project (r: WebSharper.Compiler.FrontEnd.Assembly) =
         match r.LoadPath with
         // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
         | Some x when memCache.[x] = null -> 
@@ -58,6 +96,7 @@ let startListening() =
                 let monitor = new HostFileChangeMonitor([| x |])
                 policy.ChangeMonitors.Add monitor
                 memCache.Set(x, result, policy)
+                memCache.CreateCacheEntryChangeMonitor([| x |]).NotifyOnChanged(fun _ -> argsDict.Remove project |> ignore)
                 nLogger.Trace(sprintf "Storing assembly: %s" x)
                 memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | Some x ->
@@ -81,83 +120,107 @@ let startListening() =
             try
                 // read a message
                 let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
-                if deserializedMessage = { args = [| "exit" |] } then
-                    exiting <- true
-                else
-                    let tryGetDirectoryName (path: string) =
-                        try
-                           System.IO.Path.GetDirectoryName path |> Some
-                        with
-                        | :? System.DivideByZeroException -> None
 
-                    let joinTailIfSome (array: string array) =
-                        match array with
-                        | [||] -> None
-                        | x -> System.String.Join(":", x) |> Some
+                // possible sends for pipeStream
+                let send paramPrint str = async {
+                    let newMessage = paramPrint str
+                    nLogger.Trace(sprintf "Server sends: %s" newMessage)
+                    let bf = new BinaryFormatter()
+                    use ms = new MemoryStream()
+                    bf.Serialize(ms, newMessage)
+                    ms.Flush()
+                    ms.Position <- 0L
+                    do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
+                    serverPipe.Flush()
+                }
+                let sendFinished = sprintf "x: %i" |> send
 
-                    // read the project file
-                    let projectOption = 
-                        deserializedMessage.args
-                        |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                        |> Option.bind (fun x -> x.Split(':') |> Array.tail |> joinTailIfSome)
-                    let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
+                // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
+                // in service compilation it's proxied through a NamedPipeStream. prefixed with n: or e: or x: (error code)
+                let logger = { new LoggerBase() with
+                        override _.Out s =
+                            let sendOut = sprintf "n: %s" |> send
+                            let asyncValue = 
+                                s
+                                |> sendOut
+                            Async.RunSynchronously(asyncValue, cancellationToken = token)
+                        override _.Error s =
+                            let sendErr = sprintf "e: %s" |> send
+                            let asyncValue = 
+                                s
+                                |> sendErr
+                            Async.RunSynchronously(asyncValue, cancellationToken = token)
+                    }
+
+                let processCompileMessage (projectOption: string option) projectDirOption wsConfig warnSettings = async {
                     match projectDirOption with
                     | Some project -> 
-                        System.Environment.CurrentDirectory <- project
                         nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
-                        let send paramPrint str = async {
-                            let newMessage = paramPrint str
-                            nLogger.Trace(sprintf "Server sends: %s" newMessage)
-                            let bf = new BinaryFormatter()
-                            use ms = new MemoryStream()
-                            bf.Serialize(ms, newMessage)
-                            ms.Flush()
-                            ms.Position <- 0L
-                            do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
-                            serverPipe.Flush()
-                        }
-                        // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
-                        // in service compilation it's proxied through a NamedPipeStream. prefixed with n: or e: or x: (error code)
-                        let logger = { new LoggerBase() with
-                                override _.Out s =
-                                    let sendOut = sprintf "n: %s" |> send
-                                    let asyncValue = 
-                                        s
-                                        |> sendOut
-                                    Async.RunSynchronously(asyncValue, cancellationToken = token)
-                                override _.Error s =
-                                    let sendErr = sprintf "e: %s" |> send
-                                    let asyncValue = 
-                                        s
-                                        |> sendErr
-                                    Async.RunSynchronously(asyncValue, cancellationToken = token)
-                            }
-                                
-                        let sendFinished = sprintf "x: %i" |> send
-                        // use the same differentiation like --standalone
-
                         let compilationResultForDebugOrRelease() =
-                            let parsedOptions = ParseOptions deserializedMessage.args logger
-                            match parsedOptions with
-                            | HelpOrCommand r ->
-                                r // unexpected, wsfsc.exe should handle this
-                            | ParsedOptions (wsConfig, warnSettings) ->
 #if DEBUG
-                                Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+                            Compile wsConfig warnSettings logger checkerFactory (fun x -> tryGetMetadata project x)
 #else
-                                try Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
-                                with 
-                                | ArgumentError msg -> 
-                                    PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
-                                    1
-                                | e -> 
-                                    PrintGlobalError logger (sprintf "Global error: %A" e)
-                                    1
+                            try Compile wsConfig warnSettings logger checkerFactory (fun x -> tryGetMetadata project x)
+                            with 
+                            | ArgumentError msg -> 
+                                PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
+                                1
+                            | e -> 
+                                PrintGlobalError logger (sprintf "Global error: %A" e)
+                                1
 #endif
                         let returnValue = compilationResultForDebugOrRelease()
                         do! sendFinished returnValue
                     | None ->
                         ()
+                    }
+                match deserializedMessage with
+                | Exit -> 
+                    exiting <- true
+                | PostCompile (project, projectDirOption) ->
+                    if argsDict.ContainsKey project |> not then
+                        let projectNotInCacheErrorCode = -33212
+                        do! sendFinished projectNotInCacheErrorCode
+                    else
+                        let args = argsDict.[project]
+                        let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
+                        try
+                            parsedOptions <- ParseOptions args logger
+                        with
+                        | _ -> 
+                            let unexpectedFinishErrorCode = -12211
+                            do! sendFinished unexpectedFinishErrorCode
+                        // use the same differentiation like --standalone
+                        match parsedOptions with
+                        | HelpOrCommand r ->
+                            do! sendFinished r // unexpected, wsfsc.exe should handle this
+                        | ParsedOptions (wsConfig, warnSettings) ->
+                            // https://developers.websharper.com/docs/v4.x/fs/project-variables
+                            // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
+                            match defaultArg wsConfig.ProjectType Website with
+                            | WIG | Proxy -> 
+                                let permittedProjectTypeErrorCode = -21233
+                                do! sendFinished permittedProjectTypeErrorCode
+                            | Bundle | BundleOnly | Html | Website ->
+                                do! processCompileMessage (project |> Some) projectDirOption wsConfig warnSettings
+                | FullCompile (args, projectOption, projectDirOption) ->
+                    let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
+                    try
+                        parsedOptions <- ParseOptions args logger
+                    with
+                    | _ -> 
+                        let unexpectedFinishErrorCode = -12211
+                        do! sendFinished unexpectedFinishErrorCode
+                    // use the same differentiation like --standalone
+                    match parsedOptions with
+                    | HelpOrCommand r ->
+                        do! sendFinished r // unexpected, wsfsc.exe should handle this
+                    | ParsedOptions (wsConfig, warnSettings) ->
+                        match projectOption with
+                        | Some project -> argsDict.[project] <- args
+                        | None -> ()
+                        do! processCompileMessage projectOption projectDirOption wsConfig warnSettings
+                        
             with 
             | ex -> 
                 nLogger.Error(ex, "Error in MailBoxProcessor loop")
