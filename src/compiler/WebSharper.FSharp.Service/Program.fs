@@ -38,9 +38,13 @@ let argsDict = Dictionary<string, string []>()
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
     let tryGetDirectoryName (path: string) =
         try
-           System.IO.Path.GetDirectoryName path |> Some
+            let path = System.IO.Path.GetDirectoryName path
+            if System.IO.Directory.Exists path then
+                Some path
+            else
+                None
         with
-        | :? System.DivideByZeroException -> None
+        | _ -> None
 
     if args = {args= [|"exit"|]} then
         Exit
