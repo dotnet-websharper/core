@@ -33,7 +33,7 @@ open WebSharper.Compiler.FSharp.ErrorPrinting
 open WebSharper.Compiler.CommandTools
 open System.Collections.Generic
 
-let argsDict = Dictionary<string, string []>()
+let argsDict = Dictionary<string, string []>(StringComparer.InvariantCultureIgnoreCase)
 
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
     let tryGetDirectoryName (path: string) =
