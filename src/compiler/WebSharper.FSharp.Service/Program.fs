@@ -38,24 +38,11 @@ type CachedProjInfo = { Timestamps: FileTimestamp list; Args: string [] }
 let argsDict = Dictionary<string, CachedProjInfo>(StringComparer.InvariantCultureIgnoreCase)
 
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
-    let tryGetDirectoryName (path: string) =
-        try
-            let path = System.IO.Path.GetDirectoryName path
-            if System.IO.Directory.Exists path then
-                Some path
-            else
-                None
-        with
-        | _ -> None
 
     if args = {args= [|"exit"|]} then
         Exit
     elif args.args.Length = 1 && args.args.[0].StartsWith("compile:") then
         let projectOption = args.args.[0].Substring(8) 
-        let projectDirOption = projectOption |> Some |> Option.bind tryGetDirectoryName
-        match projectDirOption with
-        | Some project -> System.Environment.CurrentDirectory <- project
-        | None -> ()
         PostCompile (projectOption)
     else
         let joinTailIfSome (array: string array) =
@@ -68,10 +55,6 @@ let (|Exit|FullCompile|PostCompile|) (args: ArgsType) =
             args.args
             |> Array.tryFind (fun x -> x.IndexOf("--project", System.StringComparison.OrdinalIgnoreCase) >= 0)
             |> Option.bind (fun x -> x.Split(':') |> Array.tail |> joinTailIfSome)
-        let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
-        match projectDirOption with
-        | Some project -> System.Environment.CurrentDirectory <- project
-        | None -> ()
         FullCompile (args.args, projectOption)
         
         
@@ -186,35 +169,48 @@ let startListening() =
                     | None -> ()
                     do! sendFinished returnValue
                     }
+                let tryGetDirectoryName (path: string) =
+                    try
+                        let path = System.IO.Path.GetDirectoryName path
+                        if System.IO.Directory.Exists path then
+                            Some path
+                        else
+                            None
+                    with
+                    | _ -> None
                 match deserializedMessage with
                 | Exit -> 
                     exiting <- true
                 | PostCompile project ->
-                    if argsDict.ContainsKey project |> not then
-                        let projectNotInCacheErrorCode = -33212
-                        do! sendFinished projectNotInCacheErrorCode
-                    else
-                        let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
-                        try
-                            parsedOptions <- ParseOptions argsDict.[project].Args logger
-                        with
-                        | _ -> 
-                            let unexpectedFinishErrorCode = -12211
-                            do! sendFinished unexpectedFinishErrorCode
-                        // use the same differentiation like --standalone
-                        match parsedOptions with
-                        | HelpOrCommand r ->
-                            do! sendFinished r // unexpected, wsfsc.exe should handle this
-                        | ParsedOptions (wsConfig, warnSettings) ->
-                            // https://developers.websharper.com/docs/v4.x/fs/project-variables
-                            // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
-                            match defaultArg wsConfig.ProjectType Website with
-                            | WIG | Proxy -> 
-                                let permittedProjectTypeErrorCode = -21233
-                                do! sendFinished permittedProjectTypeErrorCode
-                            | Bundle | BundleOnly | Html | Website ->
-                                do! processCompileMessage (project |> Some) wsConfig warnSettings argsDict.[project].Args
+                    let projectDirOption = tryGetDirectoryName project 
+                    match projectDirOption with
+                    | Some project -> System.Environment.CurrentDirectory <- project
+                    | None -> ()
+                    let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
+                    try
+                        parsedOptions <- ParseOptions argsDict.[project].Args logger
+                    with
+                    | _ -> 
+                        let unexpectedFinishErrorCode = -12211
+                        do! sendFinished unexpectedFinishErrorCode
+                    // use the same differentiation like --standalone
+                    match parsedOptions with
+                    | HelpOrCommand r ->
+                        do! sendFinished r // unexpected, wsfsc.exe should handle this
+                    | ParsedOptions (wsConfig, warnSettings) ->
+                        // https://developers.websharper.com/docs/v4.x/fs/project-variables
+                        // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
+                        match defaultArg wsConfig.ProjectType Website with
+                        | WIG | Proxy -> 
+                            let permittedProjectTypeErrorCode = -21233
+                            do! sendFinished permittedProjectTypeErrorCode
+                        | Bundle | BundleOnly | Html | Website ->
+                            do! processCompileMessage (project |> Some) wsConfig warnSettings argsDict.[project].Args
                 | FullCompile (args, projectOption) ->
+                    let projectDirOption = projectOption |> Option.bind tryGetDirectoryName
+                    match projectDirOption with
+                    | Some project -> System.Environment.CurrentDirectory <- project
+                    | None -> ()
                     let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
                     try
                         parsedOptions <- ParseOptions args logger
@@ -253,12 +249,16 @@ let startListening() =
                         let message = message :?> ArgsType
                         if message.args.Length = 1 && message.args.[0].StartsWith "compile:" then
                             let project = message.args.[0].Substring(8) 
-                            let projCache = argsDict.[project]
-                            if projCache.Timestamps |> List.exists (fun timestamp -> (File.Exists timestamp.Path |> not) || File.GetLastWriteTime(timestamp.Path) <> (timestamp.Timestamp)) then
-                                let projectOutdatedErrorCode = -11234
-                                do! sendFinished serverPipe projectOutdatedErrorCode
-                            else
-                                agent.Post (message, serverPipe, token)
+                            match argsDict.TryGetValue project with
+                            | true, projCache ->
+                                if projCache.Timestamps |> List.exists (fun timestamp -> (File.Exists timestamp.Path |> not) || File.GetLastWriteTime(timestamp.Path) <> (timestamp.Timestamp)) then
+                                    let projectOutdatedErrorCode = -11234
+                                    do! sendFinished serverPipe projectOutdatedErrorCode
+                                else
+                                    agent.Post (message, serverPipe, token)
+                            | false, _ ->
+                                let projectNotInCacheErrorCode = -33212
+                                do! sendFinished serverPipe projectNotInCacheErrorCode
                         else
                             agent.Post (message, serverPipe, token)
                         return None
