@@ -33,7 +33,9 @@ open WebSharper.Compiler.FSharp.ErrorPrinting
 open WebSharper.Compiler.CommandTools
 open System.Collections.Generic
 
-let argsDict = Dictionary<string, string []>(StringComparer.InvariantCultureIgnoreCase)
+type FileTimestamp = { Path: string; Timestamp: DateTime }
+type CachedProjInfo = { Timestamps: FileTimestamp list; Args: string [] }
+let argsDict = Dictionary<string, CachedProjInfo>(StringComparer.InvariantCultureIgnoreCase)
 
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
     let tryGetDirectoryName (path: string) =
@@ -54,7 +56,7 @@ let (|Exit|FullCompile|PostCompile|) (args: ArgsType) =
         match projectDirOption with
         | Some project -> System.Environment.CurrentDirectory <- project
         | None -> ()
-        PostCompile (projectOption, projectDirOption)
+        PostCompile (projectOption)
     else
         let joinTailIfSome (array: string array) =
             match array with
@@ -70,7 +72,7 @@ let (|Exit|FullCompile|PostCompile|) (args: ArgsType) =
         match projectDirOption with
         | Some project -> System.Environment.CurrentDirectory <- project
         | None -> ()
-        FullCompile (args.args, projectOption, projectDirOption)
+        FullCompile (args.args, projectOption)
         
         
 let startListening() =
@@ -88,7 +90,7 @@ let startListening() =
 
     nLogger.Debug "Initializing memory cache"
     let memCache = MemoryCache.Default
-    let tryGetMetadata project (r: WebSharper.Compiler.FrontEnd.Assembly) =
+    let tryGetMetadata (r: WebSharper.Compiler.FrontEnd.Assembly) =
         match r.LoadPath with
         // memCache.[<non-existent key>] won't error. It's returning null, if the key is not present.
         | Some x when memCache.[x] = null -> 
@@ -100,7 +102,6 @@ let startListening() =
                 let monitor = new HostFileChangeMonitor([| x |])
                 policy.ChangeMonitors.Add monitor
                 memCache.Set(x, result, policy)
-                memCache.CreateCacheEntryChangeMonitor([| x |]).NotifyOnChanged(fun _ -> argsDict.Remove project |> ignore)
                 nLogger.Trace(sprintf "Storing assembly: %s" x)
                 memCache.[x] :?> Result<WebSharper.Core.Metadata.Info, string> option
         | Some x ->
@@ -110,6 +111,20 @@ let startListening() =
             // in-memory assembly may have no path. nLogger. 
             // nLogger.Trace "Reading assembly: %s" x makes this compilation fail. No Tracing here.
             WebSharper.Compiler.FrontEnd.TryReadFromAssembly WebSharper.Core.Metadata.MetadataOptions.FullMetadata r
+
+    // possible sends for pipeStream
+    let send (serverPipe: NamedPipeServerStream) paramPrint str = async {
+        let newMessage = paramPrint str
+        nLogger.Trace(sprintf "Server sends: %s" newMessage)
+        let bf = new BinaryFormatter()
+        use ms = new MemoryStream()
+        bf.Serialize(ms, newMessage)
+        ms.Flush()
+        ms.Position <- 0L
+        do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
+        serverPipe.Flush()
+    }
+    let sendFinished (serverPipe: NamedPipeServerStream) = sprintf "x: %i" |> send serverPipe
 
     // client starts the service without window. You have to shut down the service from Task Manager/ kill command.
     // or use dotnet-ws tool, and send a [|"exit"|] message.
@@ -125,20 +140,8 @@ let startListening() =
                 // read a message
                 let! (deserializedMessage: ArgsType, serverPipe: NamedPipeServerStream, token) = inbox.Receive()
 
-                // possible sends for pipeStream
-                let send paramPrint str = async {
-                    let newMessage = paramPrint str
-                    nLogger.Trace(sprintf "Server sends: %s" newMessage)
-                    let bf = new BinaryFormatter()
-                    use ms = new MemoryStream()
-                    bf.Serialize(ms, newMessage)
-                    ms.Flush()
-                    ms.Position <- 0L
-                    do! ms.CopyToAsync(serverPipe) |> Async.AwaitTask
-                    serverPipe.Flush()
-                }
-                let sendFinished = sprintf "x: %i" |> send
-
+                let send = send serverPipe
+                let sendFinished = sendFinished serverPipe
                 // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
                 // in service compilation it's proxied through a NamedPipeStream. prefixed with n: or e: or x: (error code)
                 let logger = { new LoggerBase() with
@@ -156,40 +159,44 @@ let startListening() =
                             Async.RunSynchronously(asyncValue, cancellationToken = token)
                     }
 
-                let processCompileMessage (projectOption: string option) projectDirOption wsConfig warnSettings = async {
-                    match projectDirOption with
-                    | Some project -> 
-                        nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
-                        let compilationResultForDebugOrRelease() =
+                let processCompileMessage (projectOption: string option) wsConfig warnSettings args = async {
+                    nLogger.Debug(sprintf "Compiling %s" projectOption.Value)
+                    let compilationResultForDebugOrRelease() =
 #if DEBUG
-                            Compile wsConfig warnSettings logger checkerFactory (fun x -> tryGetMetadata project x)
+                        Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
 #else
-                            try Compile wsConfig warnSettings logger checkerFactory (fun x -> tryGetMetadata project x)
-                            with 
-                            | ArgumentError msg -> 
-                                PrintGlobalError logger (msg + " - args: " + (deserializedMessage.args |> String.concat " "))
-                                1
-                            | e -> 
-                                PrintGlobalError logger (sprintf "Global error: %A" e)
-                                1
+                        try Compile wsConfig warnSettings logger checkerFactory tryGetMetadata
+                        with 
+                        | ArgumentError msg -> 
+                            PrintGlobalError logger (msg + " - args: " + (args |> String.concat " "))
+                            1
+                        | e -> 
+                            PrintGlobalError logger (sprintf "Global error: %A" e)
+                            1
 #endif
-                        let returnValue = compilationResultForDebugOrRelease()
-                        do! sendFinished returnValue
-                    | None ->
-                        ()
+                    let returnValue = compilationResultForDebugOrRelease()
+                    match projectOption with
+                    | Some project ->
+                        let projectTimestamp = { Path = project; Timestamp = File.GetLastWriteTime project }
+                        let referenceTimestamps = 
+                            wsConfig.References
+                            |> Array.map (fun x -> { Path = x; Timestamp = File.GetLastWriteTime x })
+                            |> Array.toList
+                        argsDict.[project] <- { Timestamps = projectTimestamp :: referenceTimestamps; Args = args }
+                    | None -> ()
+                    do! sendFinished returnValue
                     }
                 match deserializedMessage with
                 | Exit -> 
                     exiting <- true
-                | PostCompile (project, projectDirOption) ->
+                | PostCompile project ->
                     if argsDict.ContainsKey project |> not then
                         let projectNotInCacheErrorCode = -33212
                         do! sendFinished projectNotInCacheErrorCode
                     else
-                        let args = argsDict.[project]
                         let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
                         try
-                            parsedOptions <- ParseOptions args logger
+                            parsedOptions <- ParseOptions argsDict.[project].Args logger
                         with
                         | _ -> 
                             let unexpectedFinishErrorCode = -12211
@@ -206,8 +213,8 @@ let startListening() =
                                 let permittedProjectTypeErrorCode = -21233
                                 do! sendFinished permittedProjectTypeErrorCode
                             | Bundle | BundleOnly | Html | Website ->
-                                do! processCompileMessage (project |> Some) projectDirOption wsConfig warnSettings
-                | FullCompile (args, projectOption, projectDirOption) ->
+                                do! processCompileMessage (project |> Some) wsConfig warnSettings argsDict.[project].Args
+                | FullCompile (args, projectOption) ->
                     let mutable parsedOptions = ParseOptionsResult.HelpOrCommand 0
                     try
                         parsedOptions <- ParseOptions args logger
@@ -220,10 +227,7 @@ let startListening() =
                     | HelpOrCommand r ->
                         do! sendFinished r // unexpected, wsfsc.exe should handle this
                     | ParsedOptions (wsConfig, warnSettings) ->
-                        match projectOption with
-                        | Some project -> argsDict.[project] <- args
-                        | None -> ()
-                        do! processCompileMessage projectOption projectDirOption wsConfig warnSettings
+                        do! processCompileMessage projectOption wsConfig warnSettings args
                         
             with 
             | ex -> 
@@ -246,7 +250,17 @@ let startListening() =
             try
                 let handleMessage (message: obj) = 
                     async {
-                        agent.Post (message :?> ArgsType, serverPipe, token)
+                        let message = message :?> ArgsType
+                        if message.args.Length = 1 && message.args.[0].StartsWith "compile:" then
+                            let project = message.args.[0].Substring(8) 
+                            let projCache = argsDict.[project]
+                            if projCache.Timestamps |> List.exists (fun timestamp -> (File.Exists timestamp.Path |> not) || File.GetLastWriteTime(timestamp.Path) <> (timestamp.Timestamp)) then
+                                let projectOutdatedErrorCode = -11234
+                                do! sendFinished serverPipe projectOutdatedErrorCode
+                            else
+                                agent.Post (message, serverPipe, token)
+                        else
+                            agent.Post (message, serverPipe, token)
                         return None
                     }
                 // collecting a full message in a ResizableBuffer. When it arrives do the "handleMessage" function on that.
