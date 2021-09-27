@@ -17,8 +17,8 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-
 module WebSharper.FSharp.NamedPipeClient
+#nowarn "44"
 
 open System.Diagnostics
 open System.IO.Pipes
@@ -128,6 +128,9 @@ let sendCompileCommand args =
                 clientPipe.Flush()
                 let! errorCode = readingMessages clientPipe printResponse
                 match errorCode with
+                | Some -12211 ->
+                    nLogger.Error(sprintf "Error while parsing project parameters (%i)" unexpectedFinishErrorCode)
+                    return -12211
                 | Some x -> return x
                 | None -> 
                     nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
