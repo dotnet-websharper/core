@@ -33,12 +33,17 @@ open WebSharper.Compiler.FSharp.ErrorPrinting
 open WebSharper.Compiler.CommandTools
 open System.Collections.Generic
 
+type ErrorCode =
+    | ProjectNotCached          = -33212
+    | ProjectOutdated           = -11234
+    | UnexpectedFinish          = -12211
+    | ProjectTypeNotPermitted   = -21233
+
 type FileTimestamp = { Path: string; Timestamp: DateTime }
 type CachedProjInfo = { Timestamps: FileTimestamp list; Args: string [] }
 let argsDict = Dictionary<string, CachedProjInfo>(StringComparer.InvariantCultureIgnoreCase)
 
 let (|Exit|FullCompile|PostCompile|) (args: ArgsType) = 
-
     if args = {args= [|"exit"|]} then
         Exit
     elif args.args.Length = 1 && args.args.[0].StartsWith("compile:") then
@@ -190,10 +195,9 @@ let startListening() =
                     try
                         parsedOptions <- ParseOptions argsDict.[project].Args logger
                     with
-                    | _ -> 
-                        let unexpectedFinishErrorCode = -12211
-                        do! sendFinished unexpectedFinishErrorCode
-                    // use the same differentiation like --standalone
+                    | _ ->
+                        do! sendFinished (int ErrorCode.UnexpectedFinish)
+                    // use the same differentiation as --standalone
                     match parsedOptions with
                     | HelpOrCommand r ->
                         do! sendFinished r // unexpected, wsfsc.exe should handle this
@@ -201,9 +205,9 @@ let startListening() =
                         // https://developers.websharper.com/docs/v4.x/fs/project-variables
                         // If Project is empty but OutputDir is specified then this setting will implicitly have the value Site, which means a Client-Server Application project type.
                         match defaultArg wsConfig.ProjectType Website with
-                        | WIG | Proxy -> 
-                            let permittedProjectTypeErrorCode = -21233
-                            do! sendFinished permittedProjectTypeErrorCode
+                        // TODO: this needs to be revisited with .NET 6
+                        | WIG | Proxy ->
+                            do! sendFinished (int ErrorCode.ProjectTypeNotPermitted)
                         | Bundle | BundleOnly | Html | Website ->
                             do! processCompileMessage (project |> Some) wsConfig warnSettings argsDict.[project].Args
                 | FullCompile (args, projectOption) ->
@@ -215,16 +219,14 @@ let startListening() =
                     try
                         parsedOptions <- ParseOptions args logger
                     with
-                    | _ -> 
-                        let unexpectedFinishErrorCode = -12211
-                        do! sendFinished unexpectedFinishErrorCode
+                    | _ ->
+                        do! sendFinished (int ErrorCode.UnexpectedFinish)
                     // use the same differentiation like --standalone
                     match parsedOptions with
                     | HelpOrCommand r ->
                         do! sendFinished r // unexpected, wsfsc.exe should handle this
                     | ParsedOptions (wsConfig, warnSettings) ->
                         do! processCompileMessage projectOption wsConfig warnSettings args
-                        
             with 
             | ex -> 
                 nLogger.Error(ex, "Error in MailBoxProcessor loop")
@@ -252,13 +254,11 @@ let startListening() =
                             match argsDict.TryGetValue project with
                             | true, projCache ->
                                 if projCache.Timestamps |> List.exists (fun timestamp -> (File.Exists timestamp.Path |> not) || File.GetLastWriteTime(timestamp.Path) <> (timestamp.Timestamp)) then
-                                    let projectOutdatedErrorCode = -11234
-                                    do! sendFinished serverPipe projectOutdatedErrorCode
+                                    do! sendFinished serverPipe (int ErrorCode.ProjectOutdated)
                                 else
                                     agent.Post (message, serverPipe, token)
                             | false, _ ->
-                                let projectNotInCacheErrorCode = -33212
-                                do! sendFinished serverPipe projectNotInCacheErrorCode
+                                do! sendFinished serverPipe (int ErrorCode.ProjectNotCached)
                         else
                             agent.Post (message, serverPipe, token)
                         return None
