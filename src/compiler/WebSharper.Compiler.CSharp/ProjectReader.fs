@@ -845,19 +845,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     |> (cs model).TransformParameter
                                 with _ ->
                                     failwithf "Failed to parse parameter"
-                            let name = p.ParameterId.Name.Value
+                            let name = "<" + p.ParameterId.Name.Value + ">k__BackingField"
                             if meth.Name.StartsWith "get_" then
-                                // add field
-                                let nr =
-                                    {
-                                        StrongName = None
-                                        IsStatic = false
-                                        IsOptional = false
-                                        IsReadonly = true
-                                        FieldType = p.Type
-                                    }
-                                clsMembers.Add (NotResolvedMember.Field (name, nr))    
-                                
                                 let b =
                                     Return (FieldGet (Some This, NonGeneric def, name))
                                 {
@@ -1170,6 +1159,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
+        printfn "field %s -> %A" f.Name nr
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
     for f in members.OfType<IEventSymbol>() do

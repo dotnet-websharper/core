@@ -85,7 +85,7 @@ namespace WebSharper.CSharp.Tests
             Equal(person2.FirstName, "Thomas");
             Equal(person2.LastName, "Wagner");
             var personClone = person with { };
-            Equal(person, personClone);
+            IsTrue(person == personClone);
             NotStrictEqual(person, personClone);
         }
 

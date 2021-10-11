@@ -1,5 +1,27 @@
 (function (Global) {
   "use strict";
+
+  // Polyfill
+
+  if (!Date.now) {
+    Date.now = function () {
+      return new Date().getTime();
+    };
+  }
+
+  if (!Math.trunc) {
+    Math.trunc = function (x) {
+      return x < 0 ? Math.ceil(x) : Math.floor(x);
+    }
+  }
+
+  if (!Object.setPrototypeOf) {
+    Object.setPrototypeOf = function (obj, proto) {
+      obj.__proto__ = proto;
+      return obj;
+    }
+  }
+
   Global.IntelliFactory = {
     Runtime: {
       Ctor: function (ctor, typeFunction) {
@@ -27,7 +49,8 @@
 
       Clone: function (obj) {
         var res = {};
-        for (var p in obj) { res[p] = obj[p] }
+        for (var p of Object.getOwnPropertyNames(obj)) { res[p] = obj[p] }
+        Object.setPrototypeOf(obj, Object.getPrototypeOf(obj));
         return res;
       },
 
@@ -290,27 +313,6 @@
     if (Global.WebSharper && WebSharper.Activator && WebSharper.Activator.Activate)
       WebSharper.Activator.Activate()
   });
-
-  // Polyfill
-
-  if (!Date.now) {
-    Date.now = function () {
-      return new Date().getTime();
-    };
-  }
-
-  if (!Math.trunc) {
-    Math.trunc = function (x) {
-      return x < 0 ? Math.ceil(x) : Math.floor(x);
-    }
-  }
-
-  if (!Object.setPrototypeOf) {
-    Object.setPrototypeOf = function (obj, proto) {
-      obj.__proto__ = proto;
-      return obj;
-    }
-  }
 
   Global.ignore = function() { };
   Global.id = function(x) { return x };
