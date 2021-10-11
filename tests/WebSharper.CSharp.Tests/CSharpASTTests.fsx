@@ -194,39 +194,29 @@ let translate (source: string) =
 translate """
 using WebSharper;
 
-//[JavaScript]
-//public class Person
-//{
-//    public string FirstName { get; set; }
-//    public string LastName { get; set; }
-
-//    public Person(string firstName, string lastName = "Smith")
-//    {
-//        this.FirstName = firstName;
-//        this.LastName = lastName;
-//    }
-
-//    public static Person GetSmith(string firstName = "Tim")
-//    {
-//        return new Person(firstName);
-//    }
-//}
-
 [JavaScript]
-public class TestClass
+public class Tests
 {
-    public int X = 0;
-    [Name("YY")]
-    public int Y { get; set; }
+        public void PosToStringTest()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            //Equal(person.ToString(), "PersonP { FirstName = Bill, LastName = Wagner }");
+        }
 
-    public TestClass GetOne() 
-    {
-        return new TestClass() { X = 1, Y = 2 };
-    }
+        public void PosWithExpression()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            var person2 = person with { FirstName = "Thomas" };
+            //Equal(person2.FirstName, "Thomas");
+            //Equal(person2.LastName, "Wagner");
+            var personClone = person with { };
+            //Equal(person, personClone);
+            //NotStrictEqual(person, personClone);
+        }
 }
 
-//[JavaScript]
-//public record PersonP(string FirstName, string LastName = "Smith"); // positional record
+[JavaScript]
+public record PersonP(string FirstName, string LastName = "Smith"); // positional record
 
 //[JavaScript]
 //public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);

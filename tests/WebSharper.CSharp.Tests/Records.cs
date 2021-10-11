@@ -74,7 +74,7 @@ namespace WebSharper.CSharp.Tests
         public void PosToStringTest()
         {
             var person = new PersonP("Bill", "Wagner");
-            Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            Equal(person.ToString(), "PersonP { FirstName = Bill, LastName = Wagner }");
         }
 
         [Test("C# positional record with")]

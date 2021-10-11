@@ -406,7 +406,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             let setter = CodeReader.setterOf (NonGeneric getter)
                             let v = Id.New()
                             let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, bf.Name, Var v))
-                            addMethod None pAnnot setter.Entity N.Inline false body
+                            addMethod None pAnnot setter.Entity N.Instance false body
                         | None -> ()
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth

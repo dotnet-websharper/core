@@ -282,9 +282,9 @@ namespace WebSharper.CSharp.Tests
             o.set_X(4);
             Equal(o.x, 4);
 
-            Equal(o.xx(), 3);
+            Equal(o.get_xx(), 3);
             o.set_xx(4);
-            Equal(o.xx(), 4);
+            Equal(o.get_xx(), 4);
         }
 
         [JavaScript]
