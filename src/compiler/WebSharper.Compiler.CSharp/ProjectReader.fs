@@ -752,10 +752,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     let o = Var p.ParameterId
                                     if isEqualsImpl then
                                         let isObject e = Unary(UnaryOperator.TypeOf, e) ^== Value (String "object")
-                                        let getConstructor e = ItemGet(e, Value (String "constructor"), Pure)
+                                        let getPrototype e = 
+                                            Application(Global [ "Object"; "getPrototypeOf" ], [ e ], Purity.Pure, Some 1)
                                         seq {
                                             isObject o
-                                            getConstructor This ^=== getConstructor o
+                                            getPrototype This ^=== getPrototype o
                                             for (_, v), (_, vo) in Seq.zip (getAllValues This) (getAllValues o) do
                                                 v ^== vo     
                                         } |> Seq.reduce (^&&)

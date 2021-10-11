@@ -218,10 +218,32 @@ public record Person
     public string LastName { get; }
     public string FirstName { get; }
 
-    public Person(string first, string last) //=> (FirstName, LastName) = (first, last);
+    public Person(string first, string last) // => (FirstName, LastName) = (first, last);
     {
         this.FirstName = first;
         this.LastName = last;
+    }
+}
+
+[JavaScript]
+public record Teacher : Person
+{
+    public string Subject { get; }
+
+    public Teacher(string first, string last, string sub = "Math")
+        : base(first, last) => Subject = sub;
+}
+
+[JavaScript]
+class RecordsTests
+{
+    public void Equality()
+    {
+        var person = new Person("Bill", "Wagner");
+        var person2 = new Person("Bill", "Wagner");
+        var student = new Teacher("Bill", "Wagner", "English");
+        var expectTrue = person == person2;
+        var expectFalse = person == student;
     }
 }
 
