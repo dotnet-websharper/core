@@ -704,7 +704,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             | "ToString" ->
                                 let b =
-                                    Value (String cls.Name) ^+ JSRuntime.PrintObject This |> Return
+                                    Value (String (cls.Name + " ")) ^+ JSRuntime.PrintObject This |> Return
                                     //let vals =
                                     //    getAllValues This
                                     //    |> Seq.indexed

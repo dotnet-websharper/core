@@ -44,7 +44,7 @@
         function (obj) {
           var res = "{ ";
           var empty = true;
-          for (var field in Object.getOwnPropertyNames(obj)) {
+          for (var field of Object.getOwnPropertyNames(obj)) {
             if (empty) {
               empty = false;
             } else {
