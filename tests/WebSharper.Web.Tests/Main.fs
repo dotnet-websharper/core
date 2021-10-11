@@ -18,7 +18,9 @@
 //
 // $end{copyright}
 
-module WebSharper.Web.Tests.Main
+module WebSharperWebTestsMain
+
+open WebSharper.Web.Tests
 
 open WebSharper
 open WebSharper.Testing

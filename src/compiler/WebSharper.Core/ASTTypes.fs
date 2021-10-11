@@ -754,6 +754,8 @@ module Reflection =
         let rec getName (t: System.Type) =
             if t.IsNested then
                 getName t.DeclaringType + "+" + t.Name 
+            elif System.String.IsNullOrEmpty t.Namespace then
+                t.Name
             else t.Namespace + "." + t.Name
         let name = getName t
         let asmName =

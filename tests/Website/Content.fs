@@ -103,7 +103,7 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                 if runServerTests then
                     yield ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> :> Web.Control
                     yield ClientSide <@ WebSharper.Module.Tests.Main.RunTests() @> :> Web.Control
-                yield ClientSide <@ WebSharper.Web.Tests.Main.RunTests jsonBaseUri runServerTests @> :> Web.Control
+                yield ClientSide <@ WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests @> :> Web.Control
             ] : list<Web.Control>
         )
     )
