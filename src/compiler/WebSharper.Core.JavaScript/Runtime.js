@@ -42,9 +42,9 @@
 
       PrintObject:
         function (obj) {
-          var res = obj.constructor.name + " { ";
+          var res = "{ ";
           var empty = true;
-          for (field in obj) {
+          for (var field in Object.getOwnPropertyNames(obj)) {
             if (empty) {
               empty = false;
             } else {

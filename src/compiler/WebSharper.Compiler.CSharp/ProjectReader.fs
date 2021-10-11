@@ -352,7 +352,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         | :? IPropertySymbol as p ->
             if p.IsAbstract || p.IsIndexer then () else
             let pAnnot = sr.AttributeReader.GetMemberAnnot(annot, p.GetMethod.GetAttributes())
-            let jsFieldName() = Value (String ("$" + p.Name))
             match pAnnot.Kind with
             | Some A.MemberKind.JavaScript ->
                 let decls = p.DeclaringSyntaxReferences
@@ -385,9 +384,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         match backingfield with
                         | Some bf ->
                             if p.IsStatic then
-                                staticInits.Add <| ItemSet(Self, jsFieldName(), b )
+                                staticInits.Add <| FieldSet(None, NonGeneric def, bf.Name, b)
                             else
-                                inits.Add <| ItemSet(This, jsFieldName(), b )
+                                inits.Add <| FieldSet(Some This, NonGeneric def, bf.Name, b)
                             // auto-add init methods
                             let getter = sr.ReadMethod p.GetMethod
                             let setter = CodeReader.setterOf (NonGeneric getter)
@@ -691,7 +690,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 } : CodeReader.CSharpMethod
                             | "ToString" ->
                                 let b =
-                                    JSRuntime.PrintObject This |> Return
+                                    Value (String cls.Name) ^+ JSRuntime.PrintObject This |> Return
                                     //let vals =
                                     //    getAllValues This
                                     //    |> Seq.indexed
@@ -1147,7 +1146,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
         let jsName =
             match backingForProp with
-            | Some p -> Some ("$" + p.Name)
+            | Some p -> Some p.Name
             | None -> mAnnot.Name                       
         let nr =
             {
