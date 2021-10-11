@@ -216,7 +216,13 @@ using WebSharper;
 public class TestClass
 {
     public int X = 0;
+    [Name("YY")]
     public int Y { get; set; }
+
+    public TestClass GetOne() 
+    {
+        return new TestClass() { X = 1, Y = 2 };
+    }
 }
 
 //[JavaScript]
