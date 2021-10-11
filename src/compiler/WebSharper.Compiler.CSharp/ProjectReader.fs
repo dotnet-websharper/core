@@ -1146,7 +1146,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, attrs)
         let jsName =
             match backingForProp with
-            | Some p -> Some p.Name
+            | Some p -> mAnnot.Name |> Option.defaultValue p.Name |> Some
             | None -> mAnnot.Name                       
         let nr =
             {
@@ -1156,7 +1156,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
-        printfn "Adding field: %s" f.Name
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
     for f in members.OfType<IEventSymbol>() do
@@ -1169,7 +1168,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = false
                 FieldType = sr.ReadType f.Type 
             }
-        printfn "Adding event field: %s" f.Name
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
     //if isRecord then

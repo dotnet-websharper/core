@@ -1716,23 +1716,27 @@ type RoslynTransformer(env: Environment) =
                 | _ ->
                     // TODO : make this inlined
                     let pr = symbol.AssociatedSymbol :?> IPropertySymbol
+                    let typ = sr.ReadNamedType symbol.ContainingType
+                    let backingfield = 
+                        symbol.ContainingType.GetMembers().OfType<IFieldSymbol>()
+                        |> Seq.find (fun bf -> bf.AssociatedSymbol = symbol.AssociatedSymbol)
                     if pr.IsStatic then 
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)), NoSideEffect)
+                            Return <| FieldGet(None, typ, backingfield.Name)
                         | AccessorDeclarationKind.SetAccessorDeclaration 
                         | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
-                            ExprStatement <| ItemSet(Self, Value (String ("$" + pr.Name)), Var v)
+                            ExprStatement <| FieldSet(None, typ, backingfield.Name, Var v)
                         | _ -> failwith "impossible"
                     else
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(This, Value (String ("$" + pr.Name)), NoSideEffect)
+                            Return <| FieldGet(Some This, typ, backingfield.Name)
                         | AccessorDeclarationKind.SetAccessorDeclaration 
                         | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
-                            ExprStatement <| ItemSet(This, Value (String ("$" + pr.Name)), Var v)
+                            ExprStatement <| FieldSet(Some This, typ, backingfield.Name, Var v)
                         | _ -> failwith "impossible"
             {
                 IsStatic = symbol.IsStatic
