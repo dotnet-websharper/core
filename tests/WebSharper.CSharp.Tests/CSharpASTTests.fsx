@@ -90,7 +90,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.7\" + a 
+            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.10\" + a 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 

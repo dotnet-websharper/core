@@ -379,16 +379,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     
                     match p.SetMethod with
                     | null ->
-                        if p.IsStatic then
-                            staticInits.Add <| ItemSet(Self, jsFieldName(), b )
-                        else
-                            inits.Add <| ItemSet(This, jsFieldName(), b )
-                        // auto-add init methods
-                        let getter = sr.ReadMethod p.GetMethod
-                        let setter = CodeReader.setterOf (NonGeneric getter)
-                        let v = Id.New()
-                        let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, p.Name, Var v))
-                        addMethod None pAnnot setter.Entity N.Inline false body
+                        let backingfield = 
+                            members.OfType<IFieldSymbol>()
+                            |> Seq.tryFind (fun bf -> bf.AssociatedSymbol = mem)
+                        match backingfield with
+                        | Some bf ->
+                            if p.IsStatic then
+                                staticInits.Add <| ItemSet(Self, jsFieldName(), b )
+                            else
+                                inits.Add <| ItemSet(This, jsFieldName(), b )
+                            // auto-add init methods
+                            let getter = sr.ReadMethod p.GetMethod
+                            let setter = CodeReader.setterOf (NonGeneric getter)
+                            let v = Id.New()
+                            let body = Lambda([ v ], FieldSet(Some This, NonGeneric def, bf.Name, Var v))
+                            addMethod None pAnnot setter.Entity N.Inline false body
+                        | None -> ()
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth
                         if p.IsStatic then
@@ -1150,6 +1156,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
+        printfn "Adding field: %s" f.Name
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
     for f in members.OfType<IEventSymbol>() do
@@ -1162,6 +1169,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = false
                 FieldType = sr.ReadType f.Type 
             }
+        printfn "Adding event field: %s" f.Name
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
     //if isRecord then
