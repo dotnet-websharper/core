@@ -2470,9 +2470,13 @@ type RoslynTransformer(env: Environment) =
             match propertyPatternClause with
             | Some ppc -> ppc
             | _ ->
-                let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Value.Node).Type
-                fun v ->
-                    Sequential [ this.PatternSet(designation.Value, Var v, rTyp); Value (Bool true) ]
+                match designation with
+                | Some d ->
+                    let rTyp = env.SemanticModel.GetTypeInfo(x.Node).Type
+                    fun v ->
+                        Sequential [ this.PatternSet(d, Var v, rTyp); Value (Bool true) ]
+                | _ ->
+                    failwithf "Empty pattern unexpected: %s" (x.Node.ToString())
 
     member this.TransformPositionalPatternClause (x: PositionalPatternClauseData) : _ =
         //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
@@ -2490,7 +2494,8 @@ type RoslynTransformer(env: Environment) =
     member this.TransformPropertyPatternClause (x: PropertyPatternClauseData) : _ =
         let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
         fun v ->
-            subpatterns |> List.map (fun p -> p v)
+            subpatterns 
+            |> List.map (fun p -> p v)
             |> List.reduce (^&&)
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
@@ -2502,12 +2507,14 @@ type RoslynTransformer(env: Environment) =
             let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
             match symbol with
             | :? IPropertySymbol as symbol ->
+                let id = Id.New(mut = false)
                 if symbol.ContainingType.IsAnonymousType then
                     fun v ->
-                        ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect)
+                        Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
                 else
                     fun v ->
-                        call symbol.GetMethod (Some (Var v)) [] // TODO property indexers
+                        Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
+                         // TODO property indexers
             | _ ->
                 failwith "Expecting property symbol in PropertyPatternClause"
 
@@ -2601,7 +2608,7 @@ type RoslynTransformer(env: Environment) =
         let res = Id.New(mut = false)
         let sv = Id.New("$sv", mut = false)
         Let (sv, governingExpression, 
-            let unmatched = Undefined // TODO throw SwitchExpressionException
+            let unmatched = StatementExpr(Throw (Value (String "Value is unmatched.")), None) 
             (arms, unmatched) 
             ||> List.foldBack (fun (pattern, body) rest ->
                 Conditional (pattern sv, body, rest)

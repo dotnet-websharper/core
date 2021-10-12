@@ -1159,7 +1159,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsReadonly = f.IsReadOnly
                 FieldType = sr.ReadType f.Type 
             }
-        printfn "field %s -> %A" f.Name nr
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
     
     for f in members.OfType<IEventSymbol>() do

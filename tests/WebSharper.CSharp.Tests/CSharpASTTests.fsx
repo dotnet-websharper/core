@@ -200,17 +200,21 @@ using System.Collections.Generic;
 [JavaScript]
 public class Tests
 {
-        public void SwitchExpression()
+        public void Recursive()
         {
-            var arr = new List<int>();
-            for (int i = 0; i < 4; i++)
-                arr.Add(
-                    i switch
-                    {
-                        0 => 1,
-                        _ when (i == 1 || i == 2) => 2,
-                        _ => 3
-                    });
+            var o = (1, 3);
+            var res = 0;
+            if (o is (var x, var y))
+                res = x + y;
+            //var o = new { X = (1, 3) };
+            //var res = 0;
+            //if (o is { X: var (x, y) })
+            //    res = x + y;
+            //Equal(res, 4);
+            //var o2 = new { X = (1, 3), Y = 2 };
+            //if (o2 is { X: (var x2, var y2), Y: var z })
+              //  res = x2 + y2 + z;
+            //Equal(res, 6);
         }
 }
 """
