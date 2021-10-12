@@ -765,7 +765,9 @@ type RoslynTransformer(env: Environment) =
         let argumentList = x.ArgumentList |> this.TransformArgumentList
         let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =
-            if isExtensionMethod then
+            if symbol.MethodKind = MethodKind.LocalFunction then
+                argumentListWithParamsFix()    
+            elif isExtensionMethod then
                 fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
                 |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
             elif not symbol.IsStatic then
@@ -2021,9 +2023,29 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformAnonymousMethodExpression (x: AnonymousMethodExpressionData) : _ =
         let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let ids =
+            parameterList |> Option.defaultValue [] |> List.map (fun p -> 
+                let id = Id.New p.ParameterId.Name.Value
+                env.Parameters.Add(p.Symbol, (id, false))
+                id
+            )    
         let block = x.Block |> this.TransformBlock
         let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
-        TODO x
+        let body =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> block
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        if symbol.IsAsync then
+            let b = 
+                body |> Continuation.addLastReturnIfNeeded Undefined
+                |> Continuation.AwaitTransformer().TransformStatement 
+                |> BreakStatement
+                |> Continuation.FreeNestedGotos().TransformStatement
+            let labels = Continuation.CollectLabels.Collect b
+            Function(ids, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+        else
+            Function(ids, body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter

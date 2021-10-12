@@ -192,32 +192,28 @@ let translate (source: string) =
     js |> printfn "%s" 
 
 translate """
+using System;
 using WebSharper;
+using System.Threading.Tasks;
 
 [JavaScript]
 public class Tests
 {
-        public void PosToStringTest()
+        public void LocalFunctions()
         {
-            var person = new PersonP("Bill", "Wagner");
-            //Equal(person.ToString(), "PersonP { FirstName = Bill, LastName = Wagner }");
-        }
+            var one = 1;
+            int addOneLocal(int x) => x + one;
+            var res1 = addOneLocal(1);
 
-        public void PosWithExpression()
-        {
-            var person = new PersonP("Bill", "Wagner");
-            var person2 = person with { FirstName = "Thomas" };
-            //Equal(person2.FirstName, "Thomas");
-            //Equal(person2.LastName, "Wagner");
-            var personClone = person with { };
-            //Equal(person, personClone);
-            //NotStrictEqual(person, personClone);
+            int addOneThis(int x) => x + this.GetOne();
+            var res2 = addOneThis(1);
+
+            static int add(int x, int y) { return x + y; }
+            var res3 = add(1, 2);
+
+            [Inline] int addOneInline(int x) => x + one;
+            var res4 = addOneInline(1);
+
         }
 }
-
-[JavaScript]
-public record PersonP(string FirstName, string LastName = "Smith"); // positional record
-
-//[JavaScript]
-//public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
 """

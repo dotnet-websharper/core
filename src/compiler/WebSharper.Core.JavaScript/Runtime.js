@@ -50,7 +50,7 @@
       Clone: function (obj) {
         var res = {};
         for (var p of Object.getOwnPropertyNames(obj)) { res[p] = obj[p] }
-        Object.setPrototypeOf(obj, Object.getPrototypeOf(obj));
+        Object.setPrototypeOf(res, Object.getPrototypeOf(obj));
         return res;
       },
 

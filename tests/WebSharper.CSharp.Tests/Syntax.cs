@@ -161,7 +161,7 @@ namespace WebSharper.CSharp.Tests
             Equal(x, 6);
         }
 
-        [Test("C# local functions", TestKind.Skip)]
+        [Test("C# local functions")]
         public void LocalFunctions()
         {
             var one = 1;
@@ -237,7 +237,7 @@ namespace WebSharper.CSharp.Tests
             Equal(arr[1], 2);
         }
 
-        [Test("C# switch expression", TestKind.Skip)]
+        [Test("C# switch expression")]
         public void SwitchExpression()
         {
             var arr = new List<int>();
@@ -670,11 +670,11 @@ namespace WebSharper.CSharp.Tests
             Equal(r.ToArray(), new[] { 5 }, "expression variable in query");
         }
 
-        [Test("C# target-typed new", TestKind.Skip)]
+        [Test("C# target-typed new")]
         public void TargetTypedNew()
         {
             string[] strings = { "5" };
-            JsEqual(strings, new[] { "5" });
+            IsTrue(Enumerable.SequenceEqual(strings, new[] { "5" }));
 
             List<int> list = new();
             Equal(list.Count, 0);

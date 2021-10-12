@@ -512,6 +512,12 @@ type FixThisScope() =
     let mutable thisVar = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
+    override this.TransformFuncDeclaration(var, args, body) =
+        scope <- scope + 1
+        let res = base.TransformFuncDeclaration(var, args, body)
+        scope <- scope - 1
+        res
+    
     override this.TransformFunction(args, body) =
         scope <- scope + 1
         let res = base.TransformFunction(args, body)

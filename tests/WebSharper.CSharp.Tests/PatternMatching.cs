@@ -89,7 +89,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 2);
         }
 
-        [Test("C# property pattern matching", TestKind.Skip)]
+        [Test("C# property pattern matching")]
         public void Property()
         {
             var o = new { X = 1 };
@@ -99,7 +99,7 @@ namespace WebSharper.CSharp.Tests
             Equal(res, 1);
         }
 
-        [Test("C# recursive pattern matching", TestKind.Skip)]
+        [Test("C# recursive pattern matching")]
         public void Recursive()
         {
             var o = new { X = (1, 3) };
