@@ -195,25 +195,22 @@ translate """
 using System;
 using WebSharper;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 [JavaScript]
 public class Tests
 {
-        public void LocalFunctions()
+        public void SwitchExpression()
         {
-            var one = 1;
-            int addOneLocal(int x) => x + one;
-            var res1 = addOneLocal(1);
-
-            int addOneThis(int x) => x + this.GetOne();
-            var res2 = addOneThis(1);
-
-            static int add(int x, int y) { return x + y; }
-            var res3 = add(1, 2);
-
-            [Inline] int addOneInline(int x) => x + one;
-            var res4 = addOneInline(1);
-
+            var arr = new List<int>();
+            for (int i = 0; i < 4; i++)
+                arr.Add(
+                    i switch
+                    {
+                        0 => 1,
+                        _ when (i == 1 || i == 2) => 2,
+                        _ => 3
+                    });
         }
 }
 """

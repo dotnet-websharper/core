@@ -2598,13 +2598,27 @@ type RoslynTransformer(env: Environment) =
     member this.TransformSwitchExpression (x: SwitchExpressionData) : _ =
         let governingExpression = x.GoverningExpression |> this.TransformExpression
         let arms = x.Arms |> Seq.map this.TransformSwitchExpressionArm |> List.ofSeq
-        TODO x
+        let res = Id.New(mut = false)
+        let sv = Id.New("$sv", mut = false)
+        Let (sv, governingExpression, 
+            let unmatched = Undefined // TODO throw SwitchExpressionException
+            (arms, unmatched) 
+            ||> List.foldBack (fun (pattern, body) rest ->
+                Conditional (pattern sv, body, rest)
+            )
+        )
 
     member this.TransformSwitchExpressionArm (x: SwitchExpressionArmData) : _ =
         let pattern = x.Pattern |> this.TransformPattern
         let whenClause = x.WhenClause |> Option.map this.TransformWhenClause
         let expression = x.Expression |> this.TransformExpression
-        TODO x
+        let patternWithWhen =
+            fun id ->
+                match whenClause, pattern id with
+                | Some we, Value (Bool true) -> we
+                | Some we, pt -> pt ^&& we  
+                | None, pt -> pt
+        patternWithWhen, expression
 
     member this.TransformWithExpression (x: WithExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
