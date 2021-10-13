@@ -60,6 +60,17 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher2.Subject, "Math");
         }
 
+        [Test("C# record pattern matching")]
+        public void PatternMatch()
+        {
+            var person = new Person("Bill", "Wagner");
+            if (person is { FirstName: var firstName, LastName: var lastName })
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
+        }
+
         [Test("C# positional record equality")]
         public void PosEquality()
         {
@@ -108,6 +119,28 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher.Subject, "English");
             var teacher2 = new TeacherP("Bill", "Wagner");
             Equal(teacher2.Subject, "Math");
+        }
+
+        [Test("C# positional record pattern matching")]
+        public void PosPatternMatch()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            if (person is { FirstName: var firstName, LastName: var lastName })
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
+        }
+
+        [Test("C# positional record pattern matching with Deconstruct", TestKind.Skip)]
+        public void PosPatternMatchDeconstruct()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            if (person is var (firstName, lastName))
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
         }
 
         [Test("C# init only setter")]
