@@ -44,7 +44,7 @@ open WebSharper.Fake
 open System.Diagnostics
 
 let version = "5.0"
-let pre = Some "preview1"
+let pre = None
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
