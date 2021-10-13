@@ -161,7 +161,7 @@ namespace WebSharper.CSharp.Tests
             Equal(f(), 5);
         }
 
-        [Test("C# anonymous method", TestKind.Skip)]
+        [Test("C# anonymous method")]
         public void AnonymousMethod()
         {
             Func<int, int, int> sum = delegate (int a, int b) { return a + b; };
@@ -171,6 +171,15 @@ namespace WebSharper.CSharp.Tests
             Equal(sumStatic(3, 4), 7);
         }
 
+        [Test("C# async anonymous method")]
+        public async void AsyncAnonymousMethod()
+        {
+            Func<int, int, Task<int>> sum = async delegate (int a, int b) { return a + b; };
+            Equal(await sum(3, 4), 7);
+
+            Func<int, int, Task<int>> sumStatic = async static delegate (int a, int b) { return a + b; };
+            Equal(await sumStatic(3, 4), 7);
+        }
 
         public event Action MyEvent;
 

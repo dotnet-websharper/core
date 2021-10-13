@@ -21,13 +21,13 @@
 //#r @"C:\Program Files\dotnet\sdk\5.0.301\Microsoft\Microsoft.NET.Build.Extensions\net461\lib\System.Runtime.dll"
 // "D:\repos\dotnet-websharper\core\packages\includes\NETStandard.Library.Ref\ref\netstandard2.1\System.Runtime.dll"
 //#r "../../build\Release/CSharp/netstandard2.0/System.Collections.Immutable.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Microsoft.CodeAnalysis.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Microsoft.CodeAnalysis.CSharp.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/WebSharper.Compiler.dll"
-#r "../../build/Release/CSharp/net5.0/deploy/WebSharper.Compiler.CSharp.dll"
+#r "../../build/Release/CSharp/net5.0/Microsoft.CodeAnalysis.dll"
+#r "../../build/Release/CSharp/net5.0/Microsoft.CodeAnalysis.CSharp.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/CSharp/net5.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/CSharp/net5.0/WebSharper.Compiler.dll"
+#r "../../build/Release/CSharp/net5.0/WebSharper.Compiler.CSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -66,7 +66,7 @@ let wsRefs =
 let metadata =
     let metas =
         wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
         )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
@@ -90,7 +90,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.7\" + a 
+            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.10\" + a 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 
@@ -192,11 +192,29 @@ let translate (source: string) =
     js |> printfn "%s" 
 
 translate """
+using System;
 using WebSharper;
+using System.Threading.Tasks;
+using System.Collections.Generic;
 
 [JavaScript]
-public record PersonP(string FirstName, string LastName); // positional record
-
-//[JavaScript]
-//public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
+public class Tests
+{
+        public void Recursive()
+        {
+            var o = (1, 3);
+            var res = 0;
+            if (o is (var x, var y))
+                res = x + y;
+            //var o = new { X = (1, 3) };
+            //var res = 0;
+            //if (o is { X: var (x, y) })
+            //    res = x + y;
+            //Equal(res, 4);
+            //var o2 = new { X = (1, 3), Y = 2 };
+            //if (o2 is { X: (var x2, var y2), Y: var z })
+              //  res = x2 + y2 + z;
+            //Equal(res, 6);
+        }
+}
 """

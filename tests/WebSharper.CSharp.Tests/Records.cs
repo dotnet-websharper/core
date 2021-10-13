@@ -32,7 +32,7 @@ namespace WebSharper.CSharp.Tests
     [JavaScript, Test("C# records")]
     class Records : TestCategory
     {
-        [Test("C# record equality", TestKind.Skip)]
+        [Test("C# record equality")]
         public void Equality()
         {
             var person = new Person("Bill", "Wagner");
@@ -42,27 +42,66 @@ namespace WebSharper.CSharp.Tests
             IsFalse(person == student);
         }
 
-        [Test("C# record ToString", TestKind.Skip)]
+        [Test("C# record ToString")]
         public void ToStringTest()
         {
             var person = new Person("Bill", "Wagner");
             Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
-        [Test("C# record with", TestKind.Skip)]
-        public void WithExpression()
+        [Test("C# record inheritance")]
+        public void Inheritance()
+        {
+            var teacher = new Teacher("Bill", "Wagner", "English");
+            Equal(teacher.FirstName, "Bill");
+            Equal(teacher.LastName, "Wagner");
+            Equal(teacher.Subject, "English");
+            var teacher2 = new Teacher("Bill", "Wagner");
+            Equal(teacher2.Subject, "Math");
+        }
+
+        [Test("C# record pattern matching")]
+        public void PatternMatch()
+        {
+            var person = new Person("Bill", "Wagner");
+            if (person is { FirstName: var firstName, LastName: var lastName })
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
+        }
+
+        [Test("C# positional record equality")]
+        public void PosEquality()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            var person2 = new PersonP("Bill", "Wagner");
+            var student = new TeacherP("Bill", "Wagner", "English");
+            IsTrue(person == person2);
+            IsFalse(person == student);
+        }
+
+        [Test("C# positional record ToString")]
+        public void PosToStringTest()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            Equal(person.ToString(), "PersonP { FirstName = Bill, LastName = Wagner }");
+        }
+
+        [Test("C# positional record with")]
+        public void PosWithExpression()
         {
             var person = new PersonP("Bill", "Wagner");
             var person2 = person with { FirstName = "Thomas" };
             Equal(person2.FirstName, "Thomas");
             Equal(person2.LastName, "Wagner");
             var personClone = person with { };
-            Equal(person, personClone);
+            IsTrue(person == personClone);
             NotStrictEqual(person, personClone);
         }
 
-        [Test("C# record deconstruction", TestKind.Skip)]
-        public void Deconstruct()
+        [Test("C# positional record deconstruction")]
+        public void PosDeconstruct()
         {
             var person = new PersonP("Bill", "Wagner");
             var (lastName, firstName) = person;
@@ -70,8 +109,8 @@ namespace WebSharper.CSharp.Tests
             Equal(firstName, "Wagner");
         }
 
-        [Test("C# record inheritance", TestKind.Skip)]
-        public void Inheritance()
+        [Test("C# positional record inheritance")]
+        public void PosInheritance()
         {
             var teacher = new TeacherP("Bill", "Wagner", "English");
             Equal(teacher.FirstName, "Bill");
@@ -82,7 +121,29 @@ namespace WebSharper.CSharp.Tests
             Equal(teacher2.Subject, "Math");
         }
 
-        [Test]
+        [Test("C# positional record pattern matching")]
+        public void PosPatternMatch()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            if (person is { FirstName: var firstName, LastName: var lastName })
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
+        }
+
+        [Test("C# positional record pattern matching with Deconstruct", TestKind.Skip)]
+        public void PosPatternMatchDeconstruct()
+        {
+            var person = new PersonP("Bill", "Wagner");
+            if (person is var (firstName, lastName))
+            {
+                Equal(firstName, "Bill");
+                Equal(lastName, "Wagner");
+            }
+        }
+
+        [Test("C# init only setter")]
         public void InitOnlySetter()
         {
             var person = new InitOnlyTest { Name = "Bill Wagner" };
@@ -96,7 +157,11 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; }
         public string FirstName { get; }
 
-        public Person(string first, string last) => (FirstName, LastName) = (first, last);
+        public Person(string first, string last) // => (FirstName, LastName) = (first, last);
+        {
+            this.FirstName = first;
+            this.LastName = last;
+        }
     }
 
     [JavaScript]
@@ -104,7 +169,7 @@ namespace WebSharper.CSharp.Tests
     {
         public string Subject { get; }
 
-        public Teacher(string first, string last, string sub)
+        public Teacher(string first, string last, string sub = "Math")
             : base(first, last) => Subject = sub;
     }
 

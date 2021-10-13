@@ -55,7 +55,7 @@ type CSharpParameter =
 
     static member New (name, typ) =    
         {
-            ParameterId = Id.New()
+            ParameterId = Id.New(name)
             Symbol = null
             DefaultValue = None
             Type = typ
@@ -765,7 +765,9 @@ type RoslynTransformer(env: Environment) =
         let argumentList = x.ArgumentList |> this.TransformArgumentList
         let argumentListWithParamsFix() = fixParamArray eSymbol x.ArgumentList argumentList
         let argumentListWithThis =
-            if isExtensionMethod then
+            if symbol.MethodKind = MethodKind.LocalFunction then
+                argumentListWithParamsFix()    
+            elif isExtensionMethod then
                 fixParamArray eSymbol x.ArgumentList ((None, (x.Expression |> this.TransformExpression)) :: argumentList)
                 |> List.map (fun (i, e) -> i |> Option.map ((+) 1), e)    
             elif not symbol.IsStatic then
@@ -958,7 +960,7 @@ type RoslynTransformer(env: Environment) =
         | VariableDesignationData.DiscardDesignation               x -> this.TransformDiscardDesignation x
         | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
 
-    member this.PatternSet (e, value, rTyp: ITypeSymbol) =
+    member this.PatternSet (e, value, rTypOpt: ITypeSymbol option) =
         let v = Id.New ("$m", mut = false)
         let rec trDesignation v e =
             match IgnoreExprSourcePos e with
@@ -967,32 +969,35 @@ type RoslynTransformer(env: Environment) =
             | NewVar(nv, _) ->
                 NewVar(nv, v) 
             | NewArray ds ->
-                let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
                 let dvalue =
-                    if rTyp.IsTupleType || t.Entity.Value.FullName.StartsWith "System.Tuple" then
-                        v 
-                    else
-                        // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
-                        let len = ds.Length
-                        //env.SemanticModel.LookupSymbols(value.
-                        let decM =
-                            rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
-                                | :? IMethodSymbol as m ->
-                                    let md = sr.ReadMethod m
-                                    if md.Value.Parameters.Length = len then
-                                        Some md
-                                    else None
-                                | _ -> None
-                            )
-                        match decM with
-                        | Some decM ->
-                            let vars = List.init len (fun _ -> Id.New(mut = false))
-                            Sequential [
-                                for v in vars do yield NewVar(v, Undefined)
-                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
-                                yield NewArray (vars |> List.map Var)
-                            ]
-                        | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
+                    match rTypOpt with
+                    | None -> v // parenthesized variable designation
+                    | Some rTyp ->
+                        let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
+                        if rTyp.IsTupleType || t.Entity.Value.FullName.StartsWith "System.Tuple" then
+                            v 
+                        else
+                            // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
+                            let len = ds.Length
+                            //env.SemanticModel.LookupSymbols(value.
+                            let decM =
+                                rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
+                                    | :? IMethodSymbol as m ->
+                                        let md = sr.ReadMethod m
+                                        if md.Value.Parameters.Length = len then
+                                            Some md
+                                        else None
+                                    | _ -> None
+                                )
+                            match decM with
+                            | Some decM ->
+                                let vars = List.init len (fun _ -> Id.New(mut = false))
+                                Sequential [
+                                    for v in vars do yield NewVar(v, Undefined)
+                                    yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
+                                    yield NewArray (vars |> List.map Var)
+                                ]
+                            | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
 
                 let tvalue = Id.New ("$m", mut = false)                
                 Let (tvalue, dvalue,
@@ -1218,7 +1223,7 @@ type RoslynTransformer(env: Environment) =
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
             | e -> 
                 let rTyp = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
-                this.PatternSet(e, right, rTyp)
+                this.PatternSet(e, right, Some rTyp)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -1716,23 +1721,27 @@ type RoslynTransformer(env: Environment) =
                 | _ ->
                     // TODO : make this inlined
                     let pr = symbol.AssociatedSymbol :?> IPropertySymbol
+                    let typ = sr.ReadNamedType symbol.ContainingType
+                    let backingfield = 
+                        symbol.ContainingType.GetMembers().OfType<IFieldSymbol>()
+                        |> Seq.find (fun bf -> bf.AssociatedSymbol = symbol.AssociatedSymbol)
                     if pr.IsStatic then 
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(Self, Value (String ("$" + pr.Name)), NoSideEffect)
+                            Return <| FieldGet(None, typ, backingfield.Name)
                         | AccessorDeclarationKind.SetAccessorDeclaration 
                         | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
-                            ExprStatement <| ItemSet(Self, Value (String ("$" + pr.Name)), Var v)
+                            ExprStatement <| FieldSet(None, typ, backingfield.Name, Var v)
                         | _ -> failwith "impossible"
                     else
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| ItemGet(This, Value (String ("$" + pr.Name)), NoSideEffect)
+                            Return <| FieldGet(Some This, typ, backingfield.Name)
                         | AccessorDeclarationKind.SetAccessorDeclaration 
                         | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
-                            ExprStatement <| ItemSet(This, Value (String ("$" + pr.Name)), Var v)
+                            ExprStatement <| FieldSet(Some This, typ, backingfield.Name, Var v)
                         | _ -> failwith "impossible"
             {
                 IsStatic = symbol.IsStatic
@@ -1996,7 +2005,7 @@ type RoslynTransformer(env: Environment) =
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
-        let varSet c = this.PatternSet(variable, c, info.ElementType)
+        let varSet c = this.PatternSet(variable, c, Some info.ElementType)
         this.TransformForEach (varSet, expression, statement, info)
         |> withStatementSourcePos x.Node
 
@@ -2017,9 +2026,29 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformAnonymousMethodExpression (x: AnonymousMethodExpressionData) : _ =
         let parameterList = x.ParameterList |> Option.map this.TransformParameterList
+        let ids =
+            parameterList |> Option.defaultValue [] |> List.map (fun p -> 
+                let id = Id.New p.ParameterId.Name.Value
+                env.Parameters.Add(p.Symbol, (id, false))
+                id
+            )    
         let block = x.Block |> this.TransformBlock
         let expressionBody = x.ExpressionBody |> Option.map this.TransformExpression
-        TODO x
+        let body =
+            match expressionBody with
+            | Some b -> Return b
+            | _ -> block
+        let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
+        if symbol.IsAsync then
+            let b = 
+                body |> Continuation.addLastReturnIfNeeded Undefined
+                |> Continuation.AwaitTransformer().TransformStatement 
+                |> BreakStatement
+                |> Continuation.FreeNestedGotos().TransformStatement
+            let labels = Continuation.CollectLabels.Collect b
+            Function(ids, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+        else
+            Function(ids, body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -2415,7 +2444,7 @@ type RoslynTransformer(env: Environment) =
                 TypeCheck(Var v, typ), 
                 Conditional(
                     Var c, 
-                    Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ],
+                    Sequential [ this.PatternSet(designation, Var v, Some rTyp); Value (Bool true) ],
                     Value (Bool false)
                 )
             )
@@ -2429,9 +2458,8 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformVarPattern (x: VarPatternData) : _ =
         let designation = x.Designation |> this.TransformVariableDesignation
-        let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Node).Type
         fun v ->
-            Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ]
+            Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
 
     member this.TransformRecursivePattern (x: RecursivePatternData) : _ =
         //let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
@@ -2444,9 +2472,13 @@ type RoslynTransformer(env: Environment) =
             match propertyPatternClause with
             | Some ppc -> ppc
             | _ ->
-                let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Value.Node).Type
-                fun v ->
-                    Sequential [ this.PatternSet(designation.Value, Var v, rTyp); Value (Bool true) ]
+                match designation with
+                | Some d ->
+                    let rTyp = env.SemanticModel.GetTypeInfo(x.Node).Type
+                    fun v ->
+                        Sequential [ this.PatternSet(d, Var v, Some rTyp); Value (Bool true) ]
+                | _ ->
+                    failwithf "Empty pattern unexpected: %s" (x.Node.ToString())
 
     member this.TransformPositionalPatternClause (x: PositionalPatternClauseData) : _ =
         //let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol
@@ -2464,7 +2496,8 @@ type RoslynTransformer(env: Environment) =
     member this.TransformPropertyPatternClause (x: PropertyPatternClauseData) : _ =
         let subpatterns = x.Subpatterns |> Seq.map this.TransformSubpattern |> List.ofSeq
         fun v ->
-            subpatterns |> List.map (fun p -> p v)
+            subpatterns 
+            |> List.map (fun p -> p v)
             |> List.reduce (^&&)
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
@@ -2476,12 +2509,14 @@ type RoslynTransformer(env: Environment) =
             let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
             match symbol with
             | :? IPropertySymbol as symbol ->
+                let id = Id.New(mut = false)
                 if symbol.ContainingType.IsAnonymousType then
                     fun v ->
-                        ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect)
+                        Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
                 else
                     fun v ->
-                        call symbol.GetMethod (Some (Var v)) [] // TODO property indexers
+                        Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
+                         // TODO property indexers
             | _ ->
                 failwith "Expecting property symbol in PropertyPatternClause"
 
@@ -2572,13 +2607,27 @@ type RoslynTransformer(env: Environment) =
     member this.TransformSwitchExpression (x: SwitchExpressionData) : _ =
         let governingExpression = x.GoverningExpression |> this.TransformExpression
         let arms = x.Arms |> Seq.map this.TransformSwitchExpressionArm |> List.ofSeq
-        TODO x
+        let res = Id.New(mut = false)
+        let sv = Id.New("$sv", mut = false)
+        Let (sv, governingExpression, 
+            let unmatched = StatementExpr(Throw (Value (String "Value is unmatched.")), None) 
+            (arms, unmatched) 
+            ||> List.foldBack (fun (pattern, body) rest ->
+                Conditional (pattern sv, body, rest)
+            )
+        )
 
     member this.TransformSwitchExpressionArm (x: SwitchExpressionArmData) : _ =
         let pattern = x.Pattern |> this.TransformPattern
         let whenClause = x.WhenClause |> Option.map this.TransformWhenClause
         let expression = x.Expression |> this.TransformExpression
-        TODO x
+        let patternWithWhen =
+            fun id ->
+                match whenClause, pattern id with
+                | Some we, Value (Bool true) -> we
+                | Some we, pt -> pt ^&& we  
+                | None, pt -> pt
+        patternWithWhen, expression
 
     member this.TransformWithExpression (x: WithExpressionData) : _ =
         let expression = x.Expression |> this.TransformExpression
