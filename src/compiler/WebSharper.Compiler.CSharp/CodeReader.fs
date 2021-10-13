@@ -960,7 +960,7 @@ type RoslynTransformer(env: Environment) =
         | VariableDesignationData.DiscardDesignation               x -> this.TransformDiscardDesignation x
         | VariableDesignationData.ParenthesizedVariableDesignation x -> this.TransformParenthesizedVariableDesignation x
 
-    member this.PatternSet (e, value, rTyp: ITypeSymbol) =
+    member this.PatternSet (e, value, rTypOpt: ITypeSymbol option) =
         let v = Id.New ("$m", mut = false)
         let rec trDesignation v e =
             match IgnoreExprSourcePos e with
@@ -969,32 +969,35 @@ type RoslynTransformer(env: Environment) =
             | NewVar(nv, _) ->
                 NewVar(nv, v) 
             | NewArray ds ->
-                let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
                 let dvalue =
-                    if rTyp.IsTupleType || t.Entity.Value.FullName.StartsWith "System.Tuple" then
-                        v 
-                    else
-                        // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
-                        let len = ds.Length
-                        //env.SemanticModel.LookupSymbols(value.
-                        let decM =
-                            rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
-                                | :? IMethodSymbol as m ->
-                                    let md = sr.ReadMethod m
-                                    if md.Value.Parameters.Length = len then
-                                        Some md
-                                    else None
-                                | _ -> None
-                            )
-                        match decM with
-                        | Some decM ->
-                            let vars = List.init len (fun _ -> Id.New(mut = false))
-                            Sequential [
-                                for v in vars do yield NewVar(v, Undefined)
-                                yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
-                                yield NewArray (vars |> List.map Var)
-                            ]
-                        | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
+                    match rTypOpt with
+                    | None -> v // parenthesized variable designation
+                    | Some rTyp ->
+                        let t = sr.ReadNamedType (rTyp :?> INamedTypeSymbol)
+                        if rTyp.IsTupleType || t.Entity.Value.FullName.StartsWith "System.Tuple" then
+                            v 
+                        else
+                            // workaround until https://github.com/dotnet/roslyn/pull/16541 is available
+                            let len = ds.Length
+                            //env.SemanticModel.LookupSymbols(value.
+                            let decM =
+                                rTyp.GetMembers("Deconstruct") |> Seq.tryPick (function
+                                    | :? IMethodSymbol as m ->
+                                        let md = sr.ReadMethod m
+                                        if md.Value.Parameters.Length = len then
+                                            Some md
+                                        else None
+                                    | _ -> None
+                                )
+                            match decM with
+                            | Some decM ->
+                                let vars = List.init len (fun _ -> Id.New(mut = false))
+                                Sequential [
+                                    for v in vars do yield NewVar(v, Undefined)
+                                    yield Call(Some v, t, NonGeneric decM, vars |> List.map (fun i -> MakeRef (Var i) (fun e -> VarSet(i, e))))
+                                    yield NewArray (vars |> List.map Var)
+                                ]
+                            | _ -> failwith "Failed to find deconstructor, extension methods are not supported yet"
 
                 let tvalue = Id.New ("$m", mut = false)                
                 Let (tvalue, dvalue,
@@ -1220,7 +1223,7 @@ type RoslynTransformer(env: Environment) =
                 withResultValue right <| fun rv -> Call (thisOpt, typ, setterOf getter, args @ [rv])
             | e -> 
                 let rTyp = env.SemanticModel.GetTypeInfo(x.Right.Node).Type
-                this.PatternSet(e, right, rTyp)
+                this.PatternSet(e, right, Some rTyp)
         | _ ->
             let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
             let opTyp, operator = getTypeAndMethod symbol
@@ -2002,7 +2005,7 @@ type RoslynTransformer(env: Environment) =
         let variable = x.Variable |> this.TransformExpression
         let expression = x.Expression |> this.TransformExpression
         let statement = x.Statement |> this.TransformStatement
-        let varSet c = this.PatternSet(variable, c, info.ElementType)
+        let varSet c = this.PatternSet(variable, c, Some info.ElementType)
         this.TransformForEach (varSet, expression, statement, info)
         |> withStatementSourcePos x.Node
 
@@ -2441,7 +2444,7 @@ type RoslynTransformer(env: Environment) =
                 TypeCheck(Var v, typ), 
                 Conditional(
                     Var c, 
-                    Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ],
+                    Sequential [ this.PatternSet(designation, Var v, Some rTyp); Value (Bool true) ],
                     Value (Bool false)
                 )
             )
@@ -2455,9 +2458,8 @@ type RoslynTransformer(env: Environment) =
 
     member this.TransformVarPattern (x: VarPatternData) : _ =
         let designation = x.Designation |> this.TransformVariableDesignation
-        let rTyp = env.SemanticModel.GetTypeInfo(x.Designation.Node).Type
         fun v ->
-            Sequential [ this.PatternSet(designation, Var v, rTyp); Value (Bool true) ]
+            Sequential [ this.PatternSet(designation, Var v, None); Value (Bool true) ]
 
     member this.TransformRecursivePattern (x: RecursivePatternData) : _ =
         //let typ = env.SemanticModel.GetTypeInfo(x.Type.Node).Type |> sr.ReadType
@@ -2474,7 +2476,7 @@ type RoslynTransformer(env: Environment) =
                 | Some d ->
                     let rTyp = env.SemanticModel.GetTypeInfo(x.Node).Type
                     fun v ->
-                        Sequential [ this.PatternSet(d, Var v, rTyp); Value (Bool true) ]
+                        Sequential [ this.PatternSet(d, Var v, Some rTyp); Value (Bool true) ]
                 | _ ->
                     failwithf "Empty pattern unexpected: %s" (x.Node.ToString())
 
