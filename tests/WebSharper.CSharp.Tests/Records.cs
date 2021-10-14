@@ -63,7 +63,7 @@ namespace WebSharper.CSharp.Tests
         [Test("C# record pattern matching")]
         public void PatternMatch()
         {
-            var person = new Person("Bill", "Wagner");
+            Person person = new ("Bill", "Wagner");
             if (person is { FirstName: var firstName, LastName: var lastName })
             {
                 Equal(firstName, "Bill");

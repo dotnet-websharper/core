@@ -493,6 +493,15 @@ module ClientSideJson =
                 equal l.First null
             }
 
+            Test "serialize C# record" {
+                equal (Json.Serialize (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))) """{"firstName":"Alonzo","lastName":"Church"}"""
+            }
+
+            Test "deserialize C# record" {
+                let ac = Json.Deserialize<WebSharper.CSharp.Interop.Tests.Person> """{"firstName":"Alonzo","lastName":"Church"}"""
+                equal ac (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))
+            }
+
             Test "deserialize obj" {
                 equalMsg (Json.Deserialize<obj> "null") (box ()) "null"
                 equalMsg (Json.Deserialize<obj> "123") (box 123) "int"
@@ -700,6 +709,13 @@ module ClientSideJson =
                 equal (List.ofSeq res) []
                 let! res2 = f (LinkedList [34; 5; 58])
                 equal (List.ofSeq res2) [34; 5; 58]
+            }
+
+            Test "C# record" {
+                // WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church")
+                let f (r: WebSharper.CSharp.Interop.Tests.Person) =
+                    echo "CSharpRecord" (Json.Serialize r) Json.Decode<WebSharper.CSharp.Interop.Tests.Person>
+                equalAsync (f (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))) (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))
             }
 
             Test "obj" {

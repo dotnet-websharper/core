@@ -454,11 +454,16 @@ and TAttrs =
                 else None)
         defaultArg customName (^T : (member Name : string) (mi))
 
-    static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo) =
+    static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo, ?pi: System.Reflection.ParameterInfo) =
         let mcad =
             match mi with
             | Some mi -> mi.GetCustomAttributesData()
             | None -> [||] :> _
+        let pcad =
+            match pi with
+            | Some pi -> pi.GetCustomAttributesData()
+            | None -> [||] :> _
+        let mcad = Seq.append mcad pcad
         let ucad =
             match uci with
             | Some uci -> uci.GetCustomAttributesData()
@@ -1288,28 +1293,61 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
                 raise (DecoderException(x, ta.Type))
     else
     match t.GetConstructor [||] with
-    | null -> raise (NoEncodingException t)
-    | _ -> ()
-    let fs = getObjectFields t
-    let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-    let ds = fs |> Array.map (fun f ->
-        let ta = TAttrs.Get(i, f.FieldType, f)
-        (i.GetEncodedFieldName f.DeclaringType f.Name,
-         decodeOptionalField dD ta))
-    fun (x: Value) ->
-        match x with
-        | Null -> null
-        | Object fields ->
-            let get = table fields
-            let obj = System.Activator.CreateInstance t
-            let data =
-                ds
-                |> Seq.map (fun (n, dec) ->
-                   dec (get n))
-                |> Seq.toArray
-            FS.PopulateObjectMembers(obj, ms, data)
-        | x ->
-            raise (DecoderException(x, ta.Type))
+    | null -> 
+        // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
+        let ctors = t.GetConstructors()
+        let ctor = 
+            if ctors.Length = 1 then 
+                ctors.[0] 
+            else
+                let jsonCtors = 
+                    ctors |> Array.filter (fun c -> 
+                        c.GetCustomAttributesData()
+                        |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
+                    )
+                if jsonCtors.Length = 1 then 
+                    jsonCtors.[0]  
+                else
+                    raise (NoEncodingException t)
+        let ds = ctor.GetParameters() |> Array.map (fun p ->
+            let prop = t.GetProperty(p.Name) |> Option.ofObj
+            let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
+            (i.GetEncodedFieldName t p.Name,
+             decodeOptionalField dD ta))
+        fun (x: Value) ->
+            match x with
+            | Null -> null
+            | Object fields ->
+                let get = table fields
+                let data =
+                    ds
+                    |> Seq.map (fun (n, dec) ->
+                       dec (get n))
+                    |> Seq.toArray
+                ctor.Invoke(data)
+            | x ->
+                raise (DecoderException(x, ta.Type))
+    | _ ->
+        let fs = getObjectFields t
+        let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
+        let ds = fs |> Array.map (fun f ->
+            let ta = TAttrs.Get(i, f.FieldType, f)
+            (i.GetEncodedFieldName f.DeclaringType f.Name,
+             decodeOptionalField dD ta))
+        fun (x: Value) ->
+            match x with
+            | Null -> null
+            | Object fields ->
+                let get = table fields
+                let obj = System.Activator.CreateInstance t
+                let data =
+                    ds
+                    |> Seq.map (fun (n, dec) ->
+                       dec (get n))
+                    |> Seq.toArray
+                FS.PopulateObjectMembers(obj, ms, data)
+            | x ->
+                raise (DecoderException(x, ta.Type))
 
 let btree node left right height count = 
     EncodedObject [

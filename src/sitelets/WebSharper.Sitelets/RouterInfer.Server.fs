@@ -307,9 +307,9 @@ module internal ServerRouting =
         let endpoints =
             if List.isEmpty endpoints then [None, [||]] else endpoints
         let allFieldsArr =
-            t.GetFields(BF.Instance ||| BF.Public)
+            t.GetFields(BF.Instance ||| BF.Public ||| BF.NonPublic)
             |> Array.map (fun f ->
-                f.Name,
+                f.Name.Replace("<", "").Replace(">k__BackingField", ""),
                 (f, getFieldAnnot f)
             )
         let allFields = dict allFieldsArr
@@ -332,7 +332,11 @@ module internal ServerRouting =
         let fieldRouters =
             routedFieldNames
             |> Seq.map (fun fName ->
-                let field, fAnnot = allFields.[fName]
+                let field, fAnnot = 
+                    try
+                        allFields.[fName]
+                    with _ ->
+                        failwithf "Key not found: %s in %A. routedFieldNames: %A" fName (allFields.Keys |> Array.ofSeq) routedFieldNames
                 fieldRouter field.FieldType fAnnot fName
             )
             |> Array.ofSeq
@@ -359,10 +363,33 @@ module internal ServerRouting =
             ) |> Array.ofSeq
         let readFields (o: obj) =
             fields |> Array.map (fun f -> f.GetValue(o))
-        let createObject values =
-            let o = System.Activator.CreateInstance(t)
-            (fields, values) ||> Array.iter2 (fun f v -> f.SetValue(o, v))
-            o
+        let createObject =
+            match t.GetConstructor [||] with
+            | null -> 
+                let ctors = t.GetConstructors()
+                let ctor = 
+                    if ctors.Length = 1 then 
+                        ctors.[0] 
+                    else
+                        failwithf "Type %s does not have parameterless constructor or singular parametrized contructor." t.FullName
+                let parNames = ctor.GetParameters() |> Array.map (fun p -> p.Name)
+                let fieldIndexList = 
+                    fields |> Array.map (fun f ->
+                        Array.IndexOf(parNames, f)
+                    )
+                let createObject values =
+                    let data = Array.zeroCreate fieldIndexList.Length
+                    (fields, values) ||> Array.iteri2 (fun i f v ->                             
+                        data.[fieldIndexList.[i]] <- v
+                    )
+                    ctor.Invoke(data)
+                createObject
+            | _ ->
+                let createObject values =
+                    let o = System.Activator.CreateInstance(t)
+                    (fields, values) ||> Array.iter2 (fun f v -> f.SetValue(o, v))
+                    o
+                createObject
         let subClasses =
             t.GetNestedTypes() |> Array.choose (fun nt ->
                 if nt.BaseType = t then Some (nt, getRouter nt) else None
