@@ -45,6 +45,7 @@ module private Types =
     let ShadowRoot = Class "ShadowRoot"
     let TreeWalker = Class "TreeWalker"
     let DocumentFragment = Class "DocumentFragment"
+    let Text = Class "Text"
 
 [<AutoOpen>]
 module private Enumerations =
@@ -118,6 +119,8 @@ module private Enumerations =
             ADDITION MODIFICATION REMOVAL"
 
 module Interfaces =
+
+    let Window = Class "Window"
 
     let DOMException =
         DOMClass "Exception"
@@ -202,18 +205,8 @@ module Interfaces =
                     T<string>?eventtype *
                     EventListener?listener *
                     !?T<bool>?useCapture ^-> T<unit>
-                "addEventListenerNS" =>
-                    T<string>?namespaceURI *
-                    T<string>?eventtype *
-                    EventListener?listener *
-                    !?T<bool>?useCapture ^-> T<unit>
                 "dispatchEvent" => Event ^-> T<bool>
                 "removeEventListener" =>
-                    T<string>?eventtype *
-                    EventListener?listener *
-                    !?T<bool>?useCapture ^-> T<unit>
-                "removeEventListenerNS" =>
-                    T<string>?namespaceURI *
                     T<string>?eventtype *
                     EventListener?listener *
                     !?T<bool>?useCapture ^-> T<unit>
@@ -250,13 +243,11 @@ module Interfaces =
                 "DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC" =? T<int>
             ]
         |+> Instance [
-                "attributes" =@ NamedNodeMap
                 "baseURI" =? T<string>
                 "childNodes" =? NodeList
                 "firstChild" =? TSelf
+                "isConnected" =? T<bool>
                 "lastChild" =? TSelf
-                "localName" =? T<string>
-                "namespaceURI" =? T<string>
                 "nextSibling" =? TSelf
                 "nodeName" =? T<string>
                 "nodeType" =? NodeType
@@ -264,35 +255,24 @@ module Interfaces =
                 "ownerDocument" =? Document
                 "parentNode" =? TSelf
                 "parentElement" =? Element
-                "prefix" =? T<string>
                 "previousSibling" =? TSelf
-                "rootNode" =? TSelf
                 "textContent" =@ T<string>
                 "appendChild" => TSelf?newChild ^-> TSelf
                 "cloneNode" => !?T<bool>?deep ^-> TSelf
                 "contains" => TSelf ^-> T<bool>
                 "compareDocumentPosition" => TSelf ^-> DocumentPosition
-                "getFeature" => T<string>?feature * T<string>?version ^-> T<obj>
                 "getRootNode" => !?T<obj>?options ^-> TSelf
-                "getUserData" => 
-                    T<string>?key ^-> T<obj> |> Obsolete
                 "hasAttributes" => T<unit->bool>
                 "hasChildNodes" => T<unit->bool>
                 "insertBefore" => TSelf?newChild * TSelf?refChild ^-> TSelf
                 "isDefaultNamespace" => T<string->bool>
                 "isEqualNode" => TSelf ^-> T<bool>
                 "isSameNode" => TSelf ^-> T<bool>
-                "isSupported" =>
-                    T<string>?feature * T<string>?version ^-> T<bool>
                 "lookupNamespaceURI" => T<string->string>
                 "lookupPrefix" => T<string->string>
                 "normalize" => T<unit->unit>
                 "removeChild" => TSelf?oldChild ^-> TSelf
                 "replaceChild" => TSelf?newChild * TSelf?oldChild ^-> TSelf
-                "setUserData" =>
-                    T<string>?key *
-                    T<obj>?data *
-                    T<obj>?handler ^-> T<obj> |> Obsolete
             ]
 
     let NodeList =
@@ -368,21 +348,6 @@ module Interfaces =
             "intersectsNode" => Node ^-> T<bool>
         ]
 
-    let CharacterData =
-        Class "CharacterData"
-        |=> Inherits Node
-        |+> Instance [
-                "data" =@ T<string>
-                "length" =? T<int>
-                "substringData" =>
-                    T<int>?offset * T<int>?count ^-> T<string>
-                "appendData" => T<string->unit>
-                "insertData" => T<int>?offset * T<string> ^-> T<unit>
-                "deleteData" => T<int>?offset * T<int>?count ^-> T<unit>
-                "replaceData" =>
-                    T<int>?offset * T<int>?count * T<string> ^-> T<unit>
-            ]
-
     let Attr =
         Class "Attr"
         |=> Inherits Node
@@ -421,10 +386,203 @@ module Interfaces =
             Optional = []
         }
 
+    let HTMLCollection = // LOOK AT THIS
+        Class "HTMLCollection"
+        |+> Instance [
+            "length" =? T<int>
+            "item" => T<int> ^-> Element
+            "namedItem" => T<string> ^-> Element
+        ]
+
+    let ParentNodeMixin = 
+        Instance [
+            "childElementCount" =? T<int>
+            "firstElementChild" =? !?Element
+            "lastElementChild" =? !?Element
+            "children" =? HTMLCollection
+
+            "prepend" => !+(T<string> + Node) ^-> T<unit>
+            "append" => !+(T<string> + Node) ^-> T<unit>
+            "replaceChildren" => !+(T<string> + Node) ^-> T<unit>
+        ]
+
+    let NonDocumentTypeChildNodeMixin = 
+        Instance [
+            "nextElementSibling" =? !?Element 
+            "previousElementSibling" =? !?Element
+        ]
+
+    let ChildNodeMixin = 
+        Instance [
+            "after" => !+(T<string> + Node) ^-> T<unit>
+            "before" => !+(T<string> + Node) ^-> T<unit>
+            "replaceWith" => !+(T<string> + Node) ^-> T<unit>
+            "remove" => T<unit> ^-> T<unit>
+        ]
+
+    let AssignedNodesOptions = 
+        Pattern.Config "AssignedNodesOptions"
+            {
+                Required = []
+                Optional = [
+                    "flatten", T<bool>
+                ]
+            }
+         
+
+    let HTMLSlotElement = 
+        Class "HTMLSlotElement"
+        |=> Inherits Element
+        |+> Static [
+            Constructor T<unit>
+        ]
+        |+> Instance [
+            "name" =@ T<string>
+            "assignedNodes" => !?AssignedNodesOptions?options ^-> !|Node
+            "assignedElements" => !?AssignedNodesOptions?options ^-> !|Element
+            "replaceWith" => !+(Element + Text) ^-> T<unit>
+        ]
+
+    let SlottableMixin = 
+        Instance [
+            "assignedSlot" => HTMLSlotElement
+        ]
+
+    let PointerEventsMixin = 
+        Instance [
+            "setPointerCapture" => T<int> ^-> T<unit>
+            "releasePointerCapture" => T<int> ^-> T<unit>
+            "hasPointerCapture" => T<int> ^-> T<bool>
+            "requestPointerLock" => T<unit> ^-> T<unit> // Part of Pointer Lock 2.0 
+        ]
+
+    let FullscreenNavigationUI = 
+        Pattern.EnumStrings "FullscreenNavigationUI"
+            [
+                "auto"
+                "show"
+                "hide"
+            ]
+
+    let FullscreenOptions = 
+        Pattern.Config "FullscreenOptions"
+            {
+                Required = []
+                Optional = [
+                    "navigationUI", FullscreenNavigationUI.Type
+                ]
+            }
+
+    let ScrollAnimateMode = 
+        Pattern.EnumStrings "ScrollAnimateMode"
+            [
+                "auto"
+                "smooth"
+                "instant"
+            ]
+
+    let ScrollOptions = 
+        Pattern.Config "ScrollOptions"
+            {
+                Required = [
+                    "top", T<int>
+                    "left", T<int>
+                ]
+                Optional = [
+                    "behavior", ScrollAnimateMode.Type
+                ]
+            }
+
+    let AnimationPlayState = 
+        Pattern.EnumStrings "AnimationPlayState"
+            [
+                "idle"
+                "running"
+                "paused"
+                "finished"
+            ]
+
+    let AnimationReplaceState = 
+        Pattern.EnumStrings "AnimationReplaceState"
+            [
+                "active"
+                "presisted"
+                "removed"
+            ]
+
+    let TimelinePhase =
+        Pattern.EnumStrings "TimelinePhase" 
+            [
+                "inactive"
+                "before"
+                "active"
+                "after"
+            ]
+
+    let DocumentTimeLineOptions =
+        Pattern.Config "DocumentTimeLineOptions"
+            {
+                Required = []
+                Optional = [
+                    "originTime", T<int>
+                ]
+            }
+
+    let AnimationTimeLine =
+        Class "AnimationTimeLine"
+        |+> Instance [
+            "currentTime" =? !?T<double>
+            "phase" =? TimelinePhase
+        ]
+
+    let DocumentTimeLine =
+        Class "DocumentTimeLine"
+        |=> Inherits AnimationTimeLine
+        |+> Static [
+            Constructor T<unit>
+            Constructor DocumentTimeLineOptions
+        ]
+
+    let Animation = 
+        Class "Animation"
+        |+> Static [
+            Constructor T<unit>
+        ]
+        |+> Instance [
+            "currentTime" =@ T<double>
+            "effect" =@ T<obj>
+            "finished" =? WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
+            "id" =@ T<string>
+            "oncancel" =@ T<unit> ^-> T<unit>
+            "onfinish" =@ T<unit> ^-> T<unit> 
+            "onremove" =@ T<unit> ^-> T<unit>
+            "pending" =? T<bool>
+            "playbackRate" =@ T<double>
+            "playState" =? AnimationPlayState.Type
+            "ready" =? WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
+            "replaceState" =? AnimationReplaceState.Type
+            "startTime" =@ T<double>
+            "timeline" =@ AnimationTimeLine
+
+            "cancel" => T<unit> ^-> T<unit>
+            "commitStyles" => T<unit> ^-> T<unit>
+            "finish" => T<unit> ^-> T<unit>
+            "pause" => T<unit> ^-> T<unit>
+            "persist" => T<unit> ^-> T<unit>
+            "play" => T<unit> ^-> T<unit>
+            "reverse" => T<unit> ^-> T<unit>
+            "updatePlaybackRate" => T<double> ^-> T<unit>
+        ]
+
     let Element =
         Element
         |=> Inherits Node
         |+> QuerySelectorMixin
+        |+> ParentNodeMixin
+        |+> NonDocumentTypeChildNodeMixin
+        |+> ChildNodeMixin
+        |+> SlottableMixin
+        |+> PointerEventsMixin
         |+> Instance [
                 "schemaTypeInfo" =@ TypeInfo
                 "tagName" =@ T<string>
@@ -438,7 +596,10 @@ module Interfaces =
                 "outerHTML" =? T<string>
                 "prefix" =? T<string>
 
+                "slot" =@ T<string>
 
+                "animate" => (T<obj> + !|T<obj>) * (T<int> + T<obj>) ^-> Animation
+                "getAnimations" => T<unit> ^-> !|Animation
 
                 // CSSOM
                 "scrollTop" =@ T<double>
@@ -452,7 +613,19 @@ module Interfaces =
                 
                 "getClientRects" => T<unit> ^-> Type.ArrayOf DOMRect
                 "getBoundingClientRect" => T<unit> ^-> DOMRect
+                "scroll" => !?ScrollOptions?options ^-> T<unit>
+                "scrollBy" => !?ScrollOptions?options ^-> T<unit>
+                "scrollIntoView" => !?ScrollOptions?options ^-> T<unit>
+                "scrollTo" => !?ScrollOptions ^-> T<unit>
                 // CSSOM
+
+                // FullScreen API
+                "onfullscreenchange" =@ T<unit> ^-> T<unit>
+                "onfullscreenerror" =@ T<unit> ^-> T<unit>
+
+                "requestFullScreen" => !?FullscreenOptions?options ^-> WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
+                // FullScreen API
+
 
                 "hasAttributes" => T<unit> ^-> T<bool>
                 "getAttributeNames" => T<unit> ^-> T<string[]>
@@ -482,29 +655,41 @@ module Interfaces =
                 
                 "attachShadow" => ShadowRootInit ^-> ShadowRoot
                 "shadowRoot" =? ShadowRoot
+
+                "insertAdjacentElement" => T<string>?where * Element?element ^-> !?Element
+                "insertAdjacentText" => T<string>?where * T<string>?data ^-> T<unit>
+                "insertAdjacentHTML" => T<string>?position * T<string>?text ^-> T<unit>
             ]
 
-    let HTMLCollection =
-        Class "HTMLCollection"
+    let CharacterData =
+        Class "CharacterData"
+        |=> Inherits Node
+        |+> ChildNodeMixin
+        |+> NonDocumentTypeChildNodeMixin
         |+> Instance [
-            "length" =? T<int>
-            "item" => T<int> ^-> Element
-            "namedItem" => T<string> ^-> Element
-        ]
+                "data" =@ T<string>
+                "length" =? T<int>
+                "substringData" =>
+                    T<int>?offset * T<int>?count ^-> T<string>
+                "appendData" => T<string->unit>
+                "insertData" => T<int>?offset * T<string> ^-> T<unit>
+                "deleteData" => T<int>?offset * T<int>?count ^-> T<unit>
+                "replaceData" =>
+                    T<int>?offset * T<int>?count * T<string> ^-> T<unit>
+            ]
 
     let Text =
-        Class "Text"
+        Text
         |=> Inherits CharacterData
+        |+> SlottableMixin
         |+> Static [
                 Constructor T<unit>
                 Constructor T<string>
             ]
         |+> Instance [
                 "wholeText" =? T<string>
-                "isElementContentWhiteSpace" =? T<bool> |> Obsolete
 
                 "splitText" => T<int> ^-> TSelf
-                "replaceWholeText" => T<string> ^-> TSelf |> Obsolete
             ]
 
     let Comment =
@@ -575,13 +760,11 @@ module Interfaces =
     let DocumentType =
         DocumentType
         |=> Inherits Node
+        |+> ChildNodeMixin
         |+> Instance [
                 "name" =? T<string>
-                "entities" =? NamedNodeMap
-                "notations" =? NamedNodeMap
                 "publicId" =? T<string>
                 "systemId" =? T<string>
-                "internalSubset" =? T<string>
             ]
 
     let Notation =
@@ -622,6 +805,8 @@ module Interfaces =
     let DocumentFragment =
         DocumentFragment
         |=> Inherits Node
+        |+> QuerySelectorMixin
+        |+> ParentNodeMixin
 
     let ShadowRoot =
         ShadowRoot
@@ -1134,21 +1319,65 @@ module Interfaces =
             Optional = [ "is", T<string> ]
         }
 
+    let CompatMode = 
+        Pattern.EnumStrings "CompatMode"
+            [
+                "BackCompat"
+                "CSS1Compat"
+            ]
+
+    let DesignMode = 
+        Pattern.EnumStrings "DesignMode"
+            [
+                "on"
+                "off"
+            ]
+
+    let Location = 
+        Class "Location" 
+        |+> Instance [
+            "href" =@ T<string>
+            "assign" => T<string> ^-> T<unit> 
+            "replace" => T<string> ^-> T<unit> 
+            "reload" => T<unit> ^-> T<unit> 
+            "toString" => T<unit> ^-> T<string>
+
+                // URL decomposition IDL attributes 
+            "protocol" =@ T<string>
+            "host" =@ T<string>
+            "hostname" =@ T<string>
+            "port" =@ T<string>
+            "pathname" =@ T<string>
+            "search" =@ T<string>
+            "hash" =@ T<string>
+            "origin" =? T<string>
+            "username" =@ T<string>
+            "password" =@ T<string>
+
+        ]
+
     let Document =
         Document
         |=> Inherits Node
         |+> QuerySelectorMixin
+        |+> ParentNodeMixin
         |+> Instance [
                 "activeElement" =? Element
+                "characterSet" =? T<string>
+                "compatMode" =? CompatMode.Type
+                "contentType" =? T<string>
                 "cookie" =@ T<string>
                 "body" =@ Element
+                "defaultView" =? Window
+                "designMode" =@ DesignMode.Type
                 "dir" =@ T<string>
                 "doctype" =? DocumentType
                 "documentElement" =? Element
                 "documentURI" =? T<string>
-                "domain" =@ T<string>
-                "domConfig" =@ DOMConfiguration |> Obsolete
+                "domain" =@ T<string> |> Obsolete
                 "embeds" =? NodeList
+                "fonts" =? T<obj> // TODO
+                "fullscreenElement" =? !?Element
                 "forms" =? NodeList
                 "head" =? Element
                 "hidden" =? T<bool>
@@ -1157,7 +1386,12 @@ module Interfaces =
                 "inputEncoding" =? T<string> |> Obsolete
                 "lastModified" =? T<string>
                 "links" =? NodeList
+                "location" =@ Location
                 "lastStyleSheetSet" =? T<string>
+                "pictureInPictureElement" =? !?Element
+                "pictureInPictureEnabled" =? T<bool>
+                "pointerLockElement" =? !?Element
+                "scrollingElement" =? !?Element
                 "plugins" =? NodeList
                 "preferredStyleSheetSet" =? T<string>
                 "readyState" =? T<string>
@@ -1167,14 +1401,14 @@ module Interfaces =
                 "strictErrorChecking" =@ T<bool>
                 "styleSheets" =? T<obj> // StyleSheetList
                 "styleSheetSets" =? T<obj>
-                "timeline" =? T<obj>
+                "timeline" =? DocumentTimeLine
                     |> WithComment "Warning: This method is not supported in every browser."
                 "title" =@ T<string>
                 "URL" =? T<string>
                 "visibilityState" =? T<string>
-                "xmlEncoding" =@ T<string>
-                "xmlStandalone" =@ T<bool>
-                "xmlVersion" =@ T<string>
+                "xmlEncoding" =@ T<string> |> Obsolete
+                "xmlStandalone" =@ T<bool> |> Obsolete
+                "xmlVersion" =@ T<string> |> Obsolete
                 "adoptNode" => Node ^-> Node
                 "createAttribute" => T<string> ^-> Attr
                 "createAttributeNS" =>
@@ -1203,7 +1437,7 @@ module Interfaces =
                     T<string>?namespaceURI *
                     T<string>?localName ^-> NodeList
                 "importNode" => Node?importedNode * T<bool>?deep ^-> Node
-                "normalizeDocument" => T<unit> ^-> T<unit>
+                "normalizeDocument" => T<unit> ^-> T<unit> |> Obsolete
                 "renameNode" =>
                     Node *
                     T<string>?namespaceURI *
@@ -1214,18 +1448,37 @@ module Interfaces =
                 "write" => T<string> ^-> T<unit>
                 "writeln" => T<string> ^-> T<unit>
 
-                "execCommand" => T<string> * T<bool> * T<string> ^-> T<bool>
+                "execCommand" => T<string> * T<bool> * T<string> ^-> T<bool> |> Obsolete
                 "getElementsByName" => T<string> ^-> NodeList
                 "getSelection" => T<unit> ^-> T<obj>
                 "hasFocus" => T<unit> ^-> T<bool>
-                "queryCommandEnabled" => T<string> ^-> T<bool>
-                "queryCommandSupported" => T<string> ^-> T<bool>
+                "queryCommandEnabled" => T<string> ^-> T<bool> |> Obsolete
+                "queryCommandSupported" => T<string> ^-> T<bool> |> Obsolete
 
                 "createNodeIterator" => (Node * !?T<int> * !?NodeFilter) ^-> NodeIterator
                 "createTreeWalker" => (Node * !?T<int> * !?NodeFilter) ^-> TreeWalker
 
                 "createRange" => T<unit> ^-> Range
                 "createEvent" => T<string> ^-> Event
+
+                "elementFromPoint" => T<int>?x * T<int>?y ^-> Element
+                "elementsFromPoint" => T<int>?x * T<int>?y ^-> !|Element
+
+                "exitPictureInPicture" => T<unit> ^-> WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
+                |> WithWarning "Warning: This method is not supported in every browser"
+
+                "exitPointerLock" => T<unit> ^-> T<unit>
+
+                "hasStorageAccess" => T<unit> ^-> WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<bool>]
+                |> WithComment "Warning: This method is not supported in every browser."
+                "requestStorageAccess" => T<unit> ^-> WebSharper.JavaScript.Ecma.Definition.EcmaPromise.[T<unit>]
+                |> WithComment "Warning: This method is not supported in every browser."
+
+                // Event handlers
+                "onvisibilitychange" => T<unit> ^-> T<unit>
+                "onreadystatechange" => T<unit> ^-> T<unit>
+
+                "getAnimations" => T<unit> ^-> !|Animation
             ]
         |+> Static [
                 "Current" =? Document
@@ -1299,6 +1552,21 @@ module Definition =
                 I.HTMLCollection
                 I.TreeWalker
                 I.Range
+                I.AssignedNodesOptions
+                I.HTMLSlotElement
+                I.FullscreenNavigationUI
+                I.FullscreenOptions
+                I.ScrollAnimateMode
+                I.ScrollOptions
+                I.Animation
+                I.AnimationPlayState
+                I.AnimationReplaceState
+                I.CompatMode
+                I.DesignMode
+                I.TimelinePhase
+                I.AnimationTimeLine
+                I.DocumentTimeLine
+                I.DocumentTimeLineOptions
                 E.DOMExceptionType
                 E.DerivationMethod
                 E.DocumentPosition
