@@ -493,6 +493,24 @@ module ClientSideJson =
                 equal l.First null
             }
 
+            Test "serialize C# record" {
+                let s1 = Json.Serialize (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))
+                let r11 = """{"FirstName":"Alonzo","LastName":"Church"}""" 
+                let r12 = """{"LastName":"Church","FirstName":"Alonzo"}""" 
+                isTrue (s1 = r11 || s1 = r12)
+                let s2 = Json.Serialize (WebSharper.CSharp.Interop.Tests.Person2("Alonzo", "Church"))
+                let r21 = """{"first":"Alonzo","last":"Church"}"""
+                let r22 = """{"last":"Church","first":"Alonzo"}"""
+                isTrue (s2 = r21 || s2 = r22)
+            }
+
+            Test "deserialize C# record" {
+                let ac = Json.Deserialize<WebSharper.CSharp.Interop.Tests.Person> """{"FirstName":"Alonzo","LastName":"Church"}"""
+                equal ac (WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church"))
+                let ac2 = Json.Deserialize<WebSharper.CSharp.Interop.Tests.Person2> """{"first":"Alonzo","last":"Church"}"""
+                equal ac2 (WebSharper.CSharp.Interop.Tests.Person2("Alonzo", "Church"))
+            }
+
             Test "deserialize obj" {
                 equalMsg (Json.Deserialize<obj> "null") (box ()) "null"
                 equalMsg (Json.Deserialize<obj> "123") (box 123) "int"
@@ -700,6 +718,20 @@ module ClientSideJson =
                 equal (List.ofSeq res) []
                 let! res2 = f (LinkedList [34; 5; 58])
                 equal (List.ofSeq res2) [34; 5; 58]
+            }
+
+            Test "C# record" {
+                let o = WebSharper.CSharp.Interop.Tests.Person("Alonzo", "Church")
+                let f (r: WebSharper.CSharp.Interop.Tests.Person) =
+                    echo "CSharpRecord" (Json.Serialize r) Json.Decode<WebSharper.CSharp.Interop.Tests.Person>
+                equalAsync (f o) o
+            }
+            
+            Test "C# record with Name attributes" {
+                let o = WebSharper.CSharp.Interop.Tests.Person2("Alonzo", "Church")
+                let f (r: WebSharper.CSharp.Interop.Tests.Person2) =
+                    echo "CSharpRecordNamed" (Json.Serialize r) Json.Decode<WebSharper.CSharp.Interop.Tests.Person2>
+                equalAsync (f o) o
             }
 
             Test "obj" {

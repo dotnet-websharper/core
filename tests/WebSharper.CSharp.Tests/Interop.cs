@@ -389,7 +389,7 @@ namespace WebSharper.CSharp.Tests
             Equal(o.AddWithFSharpFunc(2, 3), 6);
         }
 
-        [Test]
+        [Test("F# anonymous record", TestKind.Skip)]
         public void FSharpAnonRecord()
         {   
             Equal(I.Module.AnonRecordNested().A, 1);

@@ -55,6 +55,21 @@ namespace WebSharper.CSharp.Tests
     {
     }
 
+    [JavaScript]
+    public record TestRecordPos(int X, int Y);
+
+    [JavaScript]
+    public record TestRecord
+    {
+        public int X { get; }
+        public int Y { get; }
+        public TestRecord (int x, int y)
+        {
+            X = x;
+            Y = y;
+        }
+    }
+
     public static class Server
     {
         [Remote]
@@ -151,6 +166,18 @@ namespace WebSharper.CSharp.Tests
         public static Task<TestStruct> IncrementXYStruct(TestStruct o)
         {
             return Task.FromResult(new TestStruct(o.X + 1, o.Y + 1));
+        }
+
+        [Remote]
+        public static Task<TestRecordPos> IncrementXYRecordPos(TestRecordPos o)
+        {
+            return Task.FromResult(new TestRecordPos(o.X + 1, o.Y + 1));
+        }
+
+        [Remote]
+        public static Task<TestRecord> IncrementXYRecord(TestRecord o)
+        {
+            return Task.FromResult(new TestRecord(o.X + 1, o.Y + 1));
         }
 
         public static int Zero()
@@ -277,10 +304,10 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestClass();
             o.X = 1;
-            o.Y = 1;
+            o.Y = 2;
             o = await Server.IncrementXY(o);
             Equal(o.X, 2);
-            Equal(o.Y, 2);
+            Equal(o.Y, 3);
         }
 
         [Test]
@@ -299,10 +326,28 @@ namespace WebSharper.CSharp.Tests
         public async Task CustomStruct()
         {
             if (!ShouldRun) { Expect(0); return; }
-            var o = new TestStruct(1, 1);
+            var o = new TestStruct(1, 2);
             o = await Server.IncrementXYStruct(o);
             Equal(o.X, 2);
-            Equal(o.Y, 2);
+            Equal(o.Y, 3);
+        }
+
+        [Test]
+        public async Task RecordPos()
+        {
+            if (!ShouldRun) { Expect(0); return; }
+            var o = new TestRecordPos(1, 2);
+            o = await Server.IncrementXYRecordPos(o);
+            IsTrue(o == new TestRecordPos(1, 2));
+        }
+
+        [Test]
+        public async Task Record()
+        {
+            if (!ShouldRun) { Expect(0); return; }
+            var o = new TestRecord(1, 2);
+            o = await Server.IncrementXYRecord(o);
+            IsTrue(o == new TestRecord(1, 2));
         }
 
         [Test]

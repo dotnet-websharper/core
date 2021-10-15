@@ -65,7 +65,10 @@ namespace WebSharper.CSharp.Sitelets.Tests
                                 Elt("div",
                                     Elt("a", Attr("href", ctx.Link(JohnDoe)),
                                         Text("Go to John Doe's page"))),
-                                Elt("form",
+                                Elt("div",
+                                    Elt("a", Attr("href", ctx.Link(JaneDoe)),
+                                        Text("Go to Jane Doe's page"))),
+                               Elt("form",
                                     Attr("action", ctx.Link(EmptyQueryPerson)),
                                     Attr("method", "get"),
                                     Text("This form should work. "),
@@ -91,6 +94,14 @@ namespace WebSharper.CSharp.Sitelets.Tests
                         Body:
                             Elt("div",
                                 Text(String.Format("{0} {1} is {2} years old. ",
+                                    person.name.first, person.name.last, person.age)),
+                                Elt("a", Attr("href", ctx.Link("/")),
+                                    Text("Go back to C# sitelets tests home")))))
+                .With<PersonRec>((ctx, person) =>
+                    Content.Page(
+                        Body:
+                            Elt("div",
+                                Text(String.Format("{0} {1} is {2} years old. (from C# record)",
                                     person.name.first, person.name.last, person.age)),
                                 Elt("a", Attr("href", ctx.Link("/")),
                                     Text("Go back to C# sitelets tests home")))))
@@ -121,6 +132,12 @@ namespace WebSharper.CSharp.Sitelets.Tests
             public string last;
         }
 
+        [EndPoint("/personrec/{name}/{age}", "/personrec/{age}/{name}")]
+        public record PersonRec(NameRec name, int age);
+
+        [EndPoint("{first}/{last}")]
+        public record NameRec(string first, string last);
+
         [Method("GET"), EndPoint("qperson/{name}")]
         public class QueryPerson
         {
@@ -143,6 +160,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
         private static Attr Attr(string name, string value) => new Attr(name, value);
         private static Text Text(string text) => new Text(text);
         public static Person JohnDoe => new Person { name = new Name { first = "John", last = "Doe" }, age = 30 };
+        public static PersonRec JaneDoe => new (new ("Jane", "Doe"), 31);
         private static QueryPerson EmptyQueryPerson => new QueryPerson { name = new QueryName() };
     }
 }

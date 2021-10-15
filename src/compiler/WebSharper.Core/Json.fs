@@ -454,11 +454,16 @@ and TAttrs =
                 else None)
         defaultArg customName (^T : (member Name : string) (mi))
 
-    static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo) =
+    static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo, ?pi: System.Reflection.ParameterInfo) =
         let mcad =
             match mi with
             | Some mi -> mi.GetCustomAttributesData()
             | None -> [||] :> _
+        let pcad =
+            match pi with
+            | Some pi -> pi.GetCustomAttributesData()
+            | None -> [||] :> _
+        let mcad = Seq.append mcad pcad
         let ucad =
             match uci with
             | Some uci -> uci.GetCustomAttributesData()
@@ -1288,28 +1293,67 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
                 raise (DecoderException(x, ta.Type))
     else
     match t.GetConstructor [||] with
-    | null -> raise (NoEncodingException t)
-    | _ -> ()
-    let fs = getObjectFields t
-    let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-    let ds = fs |> Array.map (fun f ->
-        let ta = TAttrs.Get(i, f.FieldType, f)
-        (i.GetEncodedFieldName f.DeclaringType f.Name,
-         decodeOptionalField dD ta))
-    fun (x: Value) ->
-        match x with
-        | Null -> null
-        | Object fields ->
-            let get = table fields
-            let obj = System.Activator.CreateInstance t
-            let data =
-                ds
-                |> Seq.map (fun (n, dec) ->
-                   dec (get n))
-                |> Seq.toArray
-            FS.PopulateObjectMembers(obj, ms, data)
-        | x ->
-            raise (DecoderException(x, ta.Type))
+    | null -> 
+        // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
+        let ctors = t.GetConstructors()
+        let ctor = 
+            if ctors.Length = 1 then 
+                ctors.[0] 
+            else
+                let jsonCtors = 
+                    ctors |> Array.filter (fun c -> 
+                        c.GetCustomAttributesData()
+                        |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
+                    )
+                if jsonCtors.Length = 1 then 
+                    jsonCtors.[0]  
+                else
+                    raise (NoEncodingException t)
+        let ds = ctor.GetParameters() |> Array.map (fun p ->
+            let prop = t.GetProperty(p.Name) |> Option.ofObj
+            let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
+            let fname =
+                let bfName = "<" + p.Name + ">k__BackingField"
+                if t.GetField(bfName) |> isNull then
+                    bfName
+                else
+                    p.Name
+            (i.GetEncodedFieldName t fname,
+             decodeOptionalField dD ta))
+        fun (x: Value) ->
+            match x with
+            | Null -> null
+            | Object fields ->
+                let get = table fields
+                let data =
+                    ds
+                    |> Seq.map (fun (n, dec) ->
+                       dec (get n))
+                    |> Seq.toArray
+                ctor.Invoke(data)
+            | x ->
+                raise (DecoderException(x, ta.Type))
+    | _ ->
+        let fs = getObjectFields t
+        let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
+        let ds = fs |> Array.map (fun f ->
+            let ta = TAttrs.Get(i, f.FieldType, f)
+            (i.GetEncodedFieldName f.DeclaringType f.Name,
+             decodeOptionalField dD ta))
+        fun (x: Value) ->
+            match x with
+            | Null -> null
+            | Object fields ->
+                let get = table fields
+                let obj = System.Activator.CreateInstance t
+                let data =
+                    ds
+                    |> Seq.map (fun (n, dec) ->
+                       dec (get n))
+                    |> Seq.toArray
+                FS.PopulateObjectMembers(obj, ms, data)
+            | x ->
+                raise (DecoderException(x, ta.Type))
 
 let btree node left right height count = 
     EncodedObject [
@@ -1894,16 +1938,36 @@ module TypedProviderInternals =
                 | true, cls -> 
                     let fields = cls.Fields
                     fun f ->
-                    match fields.TryGetValue f with
-                    | true, (M.InstanceField n, _, _)
-                    | true, (M.OptionalField n, _, _) -> n
-                    | true, (M.IndexedField i, _, _) -> string i
-                    | true, _ ->
-                        failwithf "A static field not serializable: %s.%s" 
-                            t.FullName f                                          
-                    | _ ->
-                        failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
-                            f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
+                        let getName v =
+                            match v with
+                            | (M.InstanceField n, _, _)
+                            | (M.OptionalField n, _, _) -> Some n
+                            | (M.IndexedField i, _, _) -> Some (string i)
+                            | _ ->
+                                failwithf "A static field not serializable: %s.%s" 
+                                    t.FullName f                                          
+
+                        let tryGet f =
+                            match fields.TryGetValue f with
+                            | true, v -> getName v
+                            | _ ->
+                                let fl = f.ToLower()
+                                let caseInsensitive =
+                                    fields |> Seq.choose (fun (KeyValue(k, v)) ->
+                                        if k.ToLower() = fl then
+                                            Some v
+                                        else 
+                                            None
+                                    )
+                                    |> Array.ofSeq
+                                match caseInsensitive with
+                                | [| v |] -> getName v
+                                | _ -> None
+                        match tryGet f with
+                        | Some n -> n                                     
+                        | _ ->
+                            failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
+                                f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with
                     | true, M.FSharpRecordInfo fs -> 
@@ -1986,13 +2050,24 @@ module PlainProviderInternals =
                 let fields =
                     if FST.IsRecord(t, flags) then
                         FST.GetRecordFields(t, flags)
-                        |> Seq.cast<System.Reflection.MemberInfo>
+                        |> Seq.map (fun f ->
+                            f.Name, f :> System.Reflection.MemberInfo
+                        )
                     else
                         getObjectFields t
-                        |> Seq.cast<System.Reflection.MemberInfo>
-                for f in fields do
-                    if not (d.ContainsKey f.Name) then
-                        d.Add(f.Name, TAttrs.GetName f)
+                        |> Seq.map (fun f ->
+                            let fn = f.Name
+                            if fn.StartsWith("<") && fn.EndsWith(">k__BackingField") then
+                                let pn = fn.Replace("<", "").Replace(">k__BackingField", "")
+                                fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
+                            else
+                                fn, f :> System.Reflection.MemberInfo
+                        )
+                if t.FullName = "WebSharper.CSharp.Interop.Tests.Person2" then
+                    printfn "This is it"
+                for fn, f in fields do
+                    if not (d.ContainsKey fn) then
+                        d.Add(fn, TAttrs.GetName f)
                 fun n ->
                     match d.TryGetValue n with
                     | true, n -> n

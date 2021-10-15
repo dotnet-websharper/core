@@ -148,6 +148,8 @@ module Json =
         | [<Json "x">] Queue of x: System.Collections.Generic.Queue<int>
         | [<Json "x">] Stack of x: System.Collections.Generic.Stack<int>
         | [<Json "x">] LinkedList of x: System.Collections.Generic.LinkedList<int>
+        | [<Json "x">] CSharpRecord of x: WebSharper.CSharp.Interop.Tests.Person
+        | [<Json "x">] CSharpRecordNamed of x: WebSharper.CSharp.Interop.Tests.Person2
         | [<Json "x">] Object of x: obj
 
     let Content = function
@@ -178,6 +180,8 @@ module Json =
         | Queue x -> Content.Json x
         | Stack x -> Content.Json x
         | LinkedList x -> Content.Json x
+        | CSharpRecord x -> Content.Json x
+        | CSharpRecordNamed x -> Content.Json x
         | Object x ->
             // We don't handle encoding obj in general, to avoid accidental upcasts
             // so we need to specialize based on the forms that the decoder may return.

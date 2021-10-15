@@ -17,20 +17,23 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
+using System;
+using WebSharper;
+using WebSharper.Web;
+using WebSharper.Sitelets;
 
-module WebSharperWebTestsMain
+namespace WebSharper.CSharp.Interop.Tests
+{
+    [JavaScript]
+    public record Person(
+        string FirstName, 
+        string LastName
+    );
 
-open WebSharper.Web.Tests
+    [JavaScript]
+    public record Person2(
+        [property: Name("first")] string FirstName,
+        [property: Name("last")] string LastName
+    );
 
-open WebSharper
-open WebSharper.Testing
-
-[<JavaScript>]
-[<Require(typeof<Resources.BaseResource>, "testUrlResource.css")>]
-let RunTests jsonBaseUri includeRemoting =
-    Runner.RunTests [|
-        yield ClientSideJson.ClientTests
-        if includeRemoting then
-            yield Remoting.Tests
-            yield ClientSideJson.SiteletRoundTripTests jsonBaseUri
-    |]
+}

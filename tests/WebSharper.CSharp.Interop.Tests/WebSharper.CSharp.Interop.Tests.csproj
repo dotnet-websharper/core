@@ -1,19 +1,15 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
-    <OutputPath>bin\$(Configuration)</OutputPath>
-    <StartAction>Program</StartAction>
-    <StartProgram>$([System.Environment]::GetEnvironmentVariable(`WinDir`))\explorer.exe</StartProgram>
-    <StartArguments>$(MSBuildThisFileDirectory)bin\html</StartArguments>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <WebSharperProject>Library</WebSharperProject>
+    <Signed Condition=" ! $(TargetFramework.StartsWith('net4')) ">false</Signed>
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Client.fs" />
-    <Compile Include="Main.fs" />
-    <Content Include="Main.html" />
-    <None Include="extra.files" />
-    <None Include="wsconfig.json" />
+    <None Remove="C:\Users\andra\.nuget\packages\fsharp.core\5.0.2\contentFiles\any\netstandard2.0\FSharp.Core.xml" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
@@ -25,8 +21,7 @@
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Main\WebSharper.Main.fsproj" />
-    <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\msbuild\WebSharper.FSharp.Internal.targets" />
+  <Import Project="..\..\msbuild\WebSharper.CSharp.Internal.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
