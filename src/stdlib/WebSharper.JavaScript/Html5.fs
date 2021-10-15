@@ -1610,29 +1610,6 @@ module General =
             "replaceState" => T<obj> * T<string> * T<string> ^-> T<unit>
         ]
 
-    let Location =
-        Class "Location" 
-        |+> Instance [
-            "href" =@ T<string>
-            "assign" => T<string> ^-> T<unit> 
-            "replace" => T<string> ^-> T<unit> 
-            "reload" => T<unit> ^-> T<unit> 
-            "toString" => T<unit> ^-> T<string>
-
-                // URL decomposition IDL attributes 
-            "protocol" =@ T<string>
-            "host" =@ T<string>
-            "hostname" =@ T<string>
-            "port" =@ T<string>
-            "pathname" =@ T<string>
-            "search" =@ T<string>
-            "hash" =@ T<string>
-            "origin" =? T<string>
-            "username" =@ T<string>
-            "password" =@ T<string>
-
-        ]
-
     let UndoManager =
         Class "UndoManager"
         |+> Instance [
@@ -1645,7 +1622,6 @@ module General =
             "clearRedo" => T<unit> ^-> T<unit> 
         ]
 
-    let Window = Class "Window"
     let MessagePort = Class "MessagePort"
 
     let ErrorEvent =
@@ -1669,9 +1645,9 @@ module General =
             "data" =? T<obj>
             "origin" =? T<string>
             "lastEventId" =? T<string>
-            "source" =? Window
+            "source" =? Dom.Interfaces.Window
             "ports" =? Type.ArrayOf(MessagePort)
-            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * Window * Type.ArrayOf(MessagePort) ^-> T<unit>
+            "initMessageEvent" => T<string> * T<bool> * T<bool> * T<obj> * T<string> * T<string> * Dom.Interfaces.Window * Type.ArrayOf(MessagePort) ^-> T<unit>
                 |> Obsolete
         ]
 
@@ -1733,10 +1709,10 @@ module General =
 
     do
         let f = Dom.Interfaces.Event ^-> T<unit>
-        Window
+        Dom.Interfaces.Window
         |=> Inherits WindowOrWorkerGlobalScope
         |+> Static [
-            "self" =? Window
+            "self" =? Dom.Interfaces.Window
             |> WithGetterInline "window"
             |> ObsoleteWithMessage "Use JS.Window instead."
         ]
@@ -1745,7 +1721,7 @@ module General =
             "history" =? History
             "document" =? Dom.Interfaces.Document
             "name" =@ T<string>
-            "location" =? Location
+            "location" =? Dom.Interfaces.Location
             "undoManager" =? UndoManager
 
             "locationbar" =? BarProp
@@ -1787,17 +1763,17 @@ module General =
             "focus" => T<unit> ^-> T<unit>
                 |> WithComment "Makes a request to bring the window to the front"
 
-            "frames" =? Window
+            "frames" =? Dom.Interfaces.Window
             "length" =? T<int>
-            "top" =? Window
-            "opener" =? Window
-            "parent" =? Window
+            "top" =? Dom.Interfaces.Window
+            "opener" =? Dom.Interfaces.Window
+            "parent" =? Dom.Interfaces.Window
             "frameElement" =? Dom.Interfaces.Element
-            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  Window
-            "open" => (T<string> * T<string> * T<string>) ^->  Window
-            "open" => (T<string> * T<string>) ^->  Window
-            "open" => (T<string>) ^->  Window
-            "open" => (T<unit>) ^->  Window
+            "open" => (T<string> * T<string> * T<string> * T<string>) ^->  Dom.Interfaces.Window
+            "open" => (T<string> * T<string> * T<string>) ^->  Dom.Interfaces.Window
+            "open" => (T<string> * T<string>) ^->  Dom.Interfaces.Window
+            "open" => (T<string>) ^->  Dom.Interfaces.Window
+            "open" => (T<unit>) ^->  Dom.Interfaces.Window
             "close" => T<unit> ^-> T<unit>
 
             "navigator" =? Navigator
@@ -2772,15 +2748,15 @@ module Definition =
                 Fetch.Response
                 General.BarProp
                 General.History
-                General.Location
                 General.ErrorEvent
+                Dom.Interfaces.Location
                 General.MessageEvent
                 General.MessagePort
                 General.Navigator
                 General.ScrollRestoration
                 General.UndoManager
                 General.WindowOrWorkerGlobalScope
-                General.Window
+                Dom.Interfaces.Window
                 General.CSSSD
                 General.MQL
                 TypedArrays.DataView.Class
