@@ -1312,7 +1312,13 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         let ds = ctor.GetParameters() |> Array.map (fun p ->
             let prop = t.GetProperty(p.Name) |> Option.ofObj
             let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
-            (i.GetEncodedFieldName t p.Name,
+            let fname =
+                let bfName = "<" + p.Name + ">k__BackingField"
+                if t.GetField(bfName) |> isNull then
+                    bfName
+                else
+                    p.Name
+            (i.GetEncodedFieldName t fname,
              decodeOptionalField dD ta))
         fun (x: Value) ->
             match x with
@@ -1932,16 +1938,36 @@ module TypedProviderInternals =
                 | true, cls -> 
                     let fields = cls.Fields
                     fun f ->
-                    match fields.TryGetValue f with
-                    | true, (M.InstanceField n, _, _)
-                    | true, (M.OptionalField n, _, _) -> n
-                    | true, (M.IndexedField i, _, _) -> string i
-                    | true, _ ->
-                        failwithf "A static field not serializable: %s.%s" 
-                            t.FullName f                                          
-                    | _ ->
-                        failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
-                            f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
+                        let getName v =
+                            match v with
+                            | (M.InstanceField n, _, _)
+                            | (M.OptionalField n, _, _) -> Some n
+                            | (M.IndexedField i, _, _) -> Some (string i)
+                            | _ ->
+                                failwithf "A static field not serializable: %s.%s" 
+                                    t.FullName f                                          
+
+                        let tryGet f =
+                            match fields.TryGetValue f with
+                            | true, v -> getName v
+                            | _ ->
+                                let fl = f.ToLower()
+                                let caseInsensitive =
+                                    fields |> Seq.choose (fun (KeyValue(k, v)) ->
+                                        if k.ToLower() = fl then
+                                            Some v
+                                        else 
+                                            None
+                                    )
+                                    |> Array.ofSeq
+                                match caseInsensitive with
+                                | [| v |] -> getName v
+                                | _ -> None
+                        match tryGet f with
+                        | Some n -> n                                     
+                        | _ ->
+                            failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
+                                f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with
                     | true, M.FSharpRecordInfo fs -> 
@@ -2024,13 +2050,24 @@ module PlainProviderInternals =
                 let fields =
                     if FST.IsRecord(t, flags) then
                         FST.GetRecordFields(t, flags)
-                        |> Seq.cast<System.Reflection.MemberInfo>
+                        |> Seq.map (fun f ->
+                            f.Name, f :> System.Reflection.MemberInfo
+                        )
                     else
                         getObjectFields t
-                        |> Seq.cast<System.Reflection.MemberInfo>
-                for f in fields do
-                    if not (d.ContainsKey f.Name) then
-                        d.Add(f.Name, TAttrs.GetName f)
+                        |> Seq.map (fun f ->
+                            let fn = f.Name
+                            if fn.StartsWith("<") && fn.EndsWith(">k__BackingField") then
+                                let pn = fn.Replace("<", "").Replace(">k__BackingField", "")
+                                fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
+                            else
+                                fn, f :> System.Reflection.MemberInfo
+                        )
+                if t.FullName = "WebSharper.CSharp.Interop.Tests.Person2" then
+                    printfn "This is it"
+                for fn, f in fields do
+                    if not (d.ContainsKey fn) then
+                        d.Add(fn, TAttrs.GetName f)
                 fun n ->
                     match d.TryGetValue n with
                     | true, n -> n

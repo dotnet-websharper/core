@@ -160,7 +160,7 @@ namespace WebSharper.CSharp.Sitelets.Tests
         private static Attr Attr(string name, string value) => new Attr(name, value);
         private static Text Text(string text) => new Text(text);
         public static Person JohnDoe => new Person { name = new Name { first = "John", last = "Doe" }, age = 30 };
-        public static PersonRec JaneDoe => new (new ("John", "Doe"), 31);
+        public static PersonRec JaneDoe => new (new ("Jane", "Doe"), 31);
         private static QueryPerson EmptyQueryPerson => new QueryPerson { name = new QueryName() };
     }
 }

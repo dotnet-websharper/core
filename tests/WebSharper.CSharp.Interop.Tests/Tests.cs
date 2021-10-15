@@ -26,7 +26,14 @@ namespace WebSharper.CSharp.Interop.Tests
 {
     [JavaScript]
     public record Person(
-        [property: Name("firstName")] string FirstName, 
-        [property: Name("lastName")] string LastName
+        string FirstName, 
+        string LastName
     );
+
+    [JavaScript]
+    public record Person2(
+        [property: Name("first")] string FirstName,
+        [property: Name("last")] string LastName
+    );
+
 }

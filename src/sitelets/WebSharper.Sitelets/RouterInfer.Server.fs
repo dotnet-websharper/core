@@ -336,7 +336,7 @@ module internal ServerRouting =
                     try
                         allFields.[fName]
                     with _ ->
-                        failwithf "Key not found: %s in %A. routedFieldNames: %A" fName (allFields.Keys |> Array.ofSeq) routedFieldNames
+                        failwithf "Routed field not found: %s in type %s" fName t.FullName
                 fieldRouter field.FieldType fAnnot fName
             )
             |> Array.ofSeq
@@ -375,7 +375,7 @@ module internal ServerRouting =
                 let parNames = ctor.GetParameters() |> Array.map (fun p -> p.Name)
                 let fieldIndexList = 
                     fields |> Array.map (fun f ->
-                        Array.IndexOf(parNames, f)
+                        Array.IndexOf(parNames, f.Name.Replace("<","").Replace(">k__BackingField", ""))
                     )
                 let createObject values =
                     let data = Array.zeroCreate fieldIndexList.Length
