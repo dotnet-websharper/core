@@ -82,3 +82,25 @@ let Middleware (options: WebSharperOptions) =
 
         else next.Invoke()
     )
+
+type SiteletHttpFuncResult = Task<HttpContext option>
+type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
+type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
+
+let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
+    fun (next: SiteletHttpFunc) ->
+        let handleSitelet (httpCtx: HttpContext) =
+            let options = httpCtx.RequestServices.GetService(typeof<IOptions<WebSharperOptions>>) :> IOptions<WebSharperOptions> 
+            let ctx = Context.GetOrMake httpCtx options.Value
+            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
+            match sitelet.Router.Route ctx.Request with
+            | Some endpoint ->
+                let content = sitelet.Controller.Handle endpoint
+                async {
+                    do! contentHelper httpCtx content
+                    return None
+                }
+                |> Async.StartAsTask
+            | None -> next httpCtx
+
+        handleSitelet

@@ -54,44 +54,6 @@ type WebSharperOptions
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
     ) =
 
-    static let tryLoad(name: AssemblyName) =
-        try
-            match Assembly.Load(name) with
-            | null -> None
-            | a -> Some a
-        with _ -> None
-
-    static let loadFileInfo(p: string) =
-        let fn = Path.GetFullPath p
-        let name = AssemblyName.GetAssemblyName(fn)
-        match tryLoad(name) with
-        | None -> Assembly.LoadFrom(fn)
-        | Some a -> a
-
-    static let discoverAssemblies (path: string) =
-        let ls pat = Directory.GetFiles(path, pat)
-        let files = Array.append (ls "*.dll") (ls "*.exe")
-        files |> Array.choose (fun p ->
-            try Some (loadFileInfo(p))
-            with e -> None)
-
-    static let loadReferencedAssemblies (logger: ILogger) (alreadyLoaded: Assembly[]) =
-        let loaded = Dictionary()
-        let rec load (asm: Assembly) =
-            for asmName in asm.GetReferencedAssemblies() do
-                let name = asmName.Name
-                if not (loaded.ContainsKey name) then
-                    try loaded.[name] <- Assembly.Load(asmName)
-                    with _ ->
-                        logger.LogWarning("Failed to load {0} referenced by {1}", name, asm.GetName().Name)
-        for asm in alreadyLoaded do
-            loaded.[asm.GetName().Name] <- asm
-        Array.ofSeq loaded.Values
-
-    static let autoBinDir() =
-        Reflection.Assembly.GetExecutingAssembly().Location
-        |> Path.GetDirectoryName
-     
     let siteletAssembly =
         siteletAssembly
         |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
@@ -127,7 +89,6 @@ type WebSharperOptions
                     trace.TraceInformation("Initialized WebSharper in {0} seconds.",
                         (after-before).TotalSeconds)
                     res
-
 
     let json = J.Provider.CreateTyped metadata
 
@@ -192,18 +153,14 @@ type WebSharperOptions
             useRemoting: bool,
             useExtension
         ) =
-        let binDir =
-            match binDir with
-            | None -> autoBinDir()
-            | Some d -> d
-        let logger =
-            match logger with
-            | Some l -> l
-            | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
-        //// Note: must load assemblies and set Context.* before calling Shared.*
-        //let assemblies =
-        //    discoverAssemblies binDir
-        //    |> loadReferencedAssemblies logger
+        //let binDir =
+        //    match binDir with
+        //    | None -> autoBinDir()
+        //    | Some d -> d
+        //let logger =
+        //    match logger with
+        //    | Some l -> l
+        //    | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
         let env = services.GetRequiredService<IHostingEnvironment>()
         Context.IsDebug <- env.IsDevelopment
         let config =

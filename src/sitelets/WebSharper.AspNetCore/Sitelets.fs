@@ -22,11 +22,37 @@ module WebSharper.AspNetCore.Sitelets
 open System
 open System.IO
 open System.Threading.Tasks
+open System.Text.Json
 open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Routing
 open Microsoft.AspNetCore.Mvc
 open Microsoft.AspNetCore.Mvc.Abstractions
+open Microsoft.Extensions.Options
 open WebSharper.Sitelets
+
+let rec internal contentHelper (httpCtx: HttpContext) (content: obj) =
+    async {
+        match content with
+        | :? string as stringContent ->
+            httpCtx.Response.StatusCode <- StatusCodes.Status200OK
+            do! httpCtx.Response.WriteAsync(stringContent) |> Async.AwaitTask
+        | :? IActionResult as actionResult ->
+            let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
+            do! actionResult.ExecuteResultAsync(actionCtx) |> Async.AwaitTask
+        | _ ->
+            let contentType = content.GetType()
+            if contentType.IsGenericType && contentType.GetGenericTypeDefinition() = typedefof<Task<_>> then
+                let contentTask = content :?> Task
+                do! contentTask |> Async.AwaitTask
+                let contentResult =
+                    let resultGetter = contentType.GetProperty("Result")
+                    resultGetter.GetMethod.Invoke(contentTask, [||])
+                return! contentHelper httpCtx contentResult
+            else
+                httpCtx.Response.StatusCode <- StatusCodes.Status200OK
+                let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
+                do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value) |> Async.AwaitTask
+    }
 
 let Middleware (options: WebSharperOptions) =
     let sitelet =
@@ -42,8 +68,37 @@ let Middleware (options: WebSharperOptions) =
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
-                let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
                 let content = sitelet.Controller.Handle endpoint
-                (content:>IActionResult).ExecuteResultAsync actionCtx
+                contentHelper httpCtx content |> Async.StartAsTask :> Task
             | None -> next.Invoke()
         )
+
+// Giraffe/Saturn helpers
+
+open System.Threading.Tasks
+open Microsoft.AspNetCore.Mvc
+open Microsoft.AspNetCore.Mvc.Abstractions
+open Microsoft.AspNetCore.Routing
+open Microsoft.AspNetCore.Http
+    
+type SiteletHttpFuncResult = Task<HttpContext option>
+type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
+type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
+
+let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
+    fun (next: SiteletHttpFunc) ->
+        let handleSitelet (httpCtx: HttpContext) =
+            let options = httpCtx.RequestServices.GetService(typeof<IOptions<WebSharperOptions>>) :> IOptions<WebSharperOptions> 
+            let ctx = Context.GetOrMake httpCtx options.Value
+            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
+            match sitelet.Router.Route ctx.Request with
+            | Some endpoint ->
+                let content = sitelet.Controller.Handle endpoint
+                async {
+                    do! contentHelper httpCtx content
+                    return None
+                }
+                |> Async.StartAsTask
+            | None -> next httpCtx
+
+        handleSitelet
