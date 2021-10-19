@@ -26,6 +26,10 @@ module WebSharper.Pervasives
 /// Marks a server-side function to be invokable remotely from the client-side.
 type RpcAttribute = RemoteAttribute
 
+/// Re-exports Remoting.AddHandler.
+let AddRpcHandler (t: System.Type) (h: obj) =
+    WebSharper.Core.Remoting.AddHandler t h
+
 /// Implements piping with mutation.
 [<Inline "($f($x), $x)">]
 let ( |>! ) x f = f x; x

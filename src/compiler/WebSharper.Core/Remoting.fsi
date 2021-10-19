@@ -47,9 +47,9 @@ type Request =
 /// WebSharper remote procedure call request.
 val IsRemotingRequest : Headers -> bool
 
-///// Adds an RPC handler object for a given remoting type.
-///// You can only add one instance for each type.
-//val AddHandler : System.Type -> obj -> unit
+/// Adds an RPC handler object for a given remoting type.
+/// You can only add one instance for each type.
+val AddHandler : System.Type -> obj -> unit
 
 /// Handles remote procedure call requests.
 [<Sealed>]

@@ -140,10 +140,10 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
 
 exception InvalidHandlerException of Type
 
-//let handlers = Dictionary<System.Type, obj>()
+let staticHandlers = Dictionary<System.Type, obj>()
 
-//let AddHandler (t: System.Type) (h: obj) =
-//    handlers.[t] <- h
+let AddHandler (t: System.Type) (h: obj) =
+    staticHandlers.[t] <- h
 
 let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodInfo) =
     let enc = getResultEncoder jP m
@@ -156,7 +156,13 @@ let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodIn
     else
         fun j ->
             let t = m.DeclaringType
-            match handlers.Invoke t with
+            let h =
+                match handlers.Invoke t with
+                | null -> 
+                    match staticHandlers.TryGetValue t with
+                    | _, h -> h
+                | h -> h
+            match h with
             | null -> 
                 raise (InvalidHandlerException t)
             | inst ->
