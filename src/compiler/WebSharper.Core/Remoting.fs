@@ -140,12 +140,12 @@ let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
 
 exception InvalidHandlerException of Type
 
-let handlers = Dictionary<System.Type, obj>()
+let staticHandlers = Dictionary<System.Type, obj>()
 
 let AddHandler (t: System.Type) (h: obj) =
-    handlers.[t] <- h
+    staticHandlers.[t] <- h
 
-let toConverter (jP: J.Provider) (m: MethodInfo) =
+let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodInfo) =
     let enc = getResultEncoder jP m
     let dec = getParameterDecoder jP m
     let run = FI.Compile m
@@ -156,10 +156,16 @@ let toConverter (jP: J.Provider) (m: MethodInfo) =
     else
         fun j ->
             let t = m.DeclaringType
-            match handlers.TryFind t with
-            | None -> 
+            let h =
+                match handlers.Invoke t with
+                | null -> 
+                    match staticHandlers.TryGetValue t with
+                    | _, h -> h
+                | h -> h
+            match h with
+            | null -> 
                 raise (InvalidHandlerException t)
-            | Some inst ->
+            | inst ->
                 let args = dec j
                 let ps = Array.zeroCreate (args.Length + 1)
                 for i in 1 .. args.Length do
@@ -183,7 +189,7 @@ exception RemotingException of message: string with
     override this.Message = this.message
 
 [<Sealed>]
-type Server(info, jP) =
+type Server(info, jP, handlers: Func<System.Type, obj>) =
     let remote = M.Utilities.getRemoteMethods info
     let withoutHash = 
         remote.Keys |> Seq.map (fun h -> h.Assembly, h.Path) |> HashSet
@@ -195,7 +201,7 @@ type Server(info, jP) =
                 raise (RemotingException ("Remote method signature incompatible: " + m.Path + ", " + m.Assembly))
             else
                 raise (RemotingException ("Remote method not found: " + m.Path + ", " + m.Assembly))
-        | Some (td, m) -> toConverter jP (AST.Reflection.LoadMethod td m)
+        | Some (td, m) -> toConverter jP handlers (AST.Reflection.LoadMethod td m)
     let getCachedConverter m =
         d.GetOrAdd(m, valueFactory = Func<_,_>(getConverter))
 
@@ -218,4 +224,4 @@ type Server(info, jP) =
 
     member this.JsonProvider = jP
 
-    static member Create info jP = Server(info, jP)
+    static member Create info jP handlers = Server(info, jP, handlers)

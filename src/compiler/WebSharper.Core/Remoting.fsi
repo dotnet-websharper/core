@@ -21,6 +21,8 @@
 /// Implements server-side remote procedure call support.
 module WebSharper.Core.Remoting
 
+open System
+
 module M = WebSharper.Core.Metadata
 //module R = WebSharper.Core.Reflection
 
@@ -54,7 +56,7 @@ val AddHandler : System.Type -> obj -> unit
 type Server =
 
     /// Creates a new instance.
-    static member Create : M.Info -> Json.Provider -> Server
+    static member Create : M.Info -> Json.Provider -> Func<System.Type, obj> -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

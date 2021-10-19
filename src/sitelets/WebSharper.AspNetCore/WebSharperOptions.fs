@@ -43,97 +43,23 @@ type WebSharperOptions
     internal 
     (
         services: IServiceProvider,
+        config: IConfiguration,
         contentRoot: string,
         webRoot: string,
         isDebug: bool,
         sitelet: option<Sitelet<obj>>,
-        siteletAssembly: option<Assembly>,
+        siteletAssembly: Assembly,
         metadata: option<M.Info>,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
     ) =
 
-    static let tryLoad(name: AssemblyName) =
-        try
-            match Assembly.Load(name) with
-            | null -> None
-            | a -> Some a
-        with _ -> None
-
-    static let loadFileInfo(p: string) =
-        let fn = Path.GetFullPath p
-        let name = AssemblyName.GetAssemblyName(fn)
-        match tryLoad(name) with
-        | None -> Assembly.LoadFrom(fn)
-        | Some a -> a
-
-    static let discoverAssemblies (path: string) =
-        let ls pat = Directory.GetFiles(path, pat)
-        let files = Array.append (ls "*.dll") (ls "*.exe")
-        files |> Array.choose (fun p ->
-            try Some (loadFileInfo(p))
-            with e -> None)
-
-    static let loadReferencedAssemblies (logger: ILogger) (alreadyLoaded: Assembly[]) =
-        let loaded = Dictionary()
-        let rec load (asm: Assembly) =
-            for asmName in asm.GetReferencedAssemblies() do
-                let name = asmName.Name
-                if not (loaded.ContainsKey name) then
-                    try loaded.[name] <- Assembly.Load(asmName)
-                    with _ ->
-                        logger.LogWarning("Failed to load {0} referenced by {1}", name, asm.GetName().Name)
-        for asm in alreadyLoaded do
-            loaded.[asm.GetName().Name] <- asm
-        Array.ofSeq loaded.Values
-
-    static let autoBinDir() =
-        Reflection.Assembly.GetExecutingAssembly().Location
-        |> Path.GetDirectoryName
-     
-    let siteletAssembly =
-        siteletAssembly
-        |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
-
-    let metadata, dependencies = 
-        match metadata with
-        | Some meta ->
-            meta, Graph.FromData meta.Dependencies
-        | None ->
-
-            let before = System.DateTime.UtcNow
-            let metadataSetting =
-                Context.GetSetting "WebSharperSharedMetadata"
-                |> Option.map (fun x -> x.ToLower())
-            match metadataSetting with
-            | Some "none" ->
-                M.Info.Empty, Graph.Empty
-            | _ ->
-                let trace =
-                    System.Diagnostics.TraceSource("WebSharper",
-                        System.Diagnostics.SourceLevels.All)
-                let runtimeMeta =
-                    siteletAssembly 
-                    |> M.IO.LoadRuntimeMetadata
-                match runtimeMeta with
-                | None ->
-                    trace.TraceInformation("Runtime WebSharper metadata not found.")
-                    M.Info.Empty, Graph.Empty 
-                | Some meta ->
-                    let after = System.DateTime.UtcNow
-                    let res =
-                        meta, Graph.FromData meta.Dependencies
-                    trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-                        (after-before).TotalSeconds)
-                    res
-
-
-    let json = J.Provider.CreateTyped metadata
-
     member val AuthenticationScheme = "WebSharper" with get, set
 
     member this.Services = services
+
+    member this.Configuration = config
 
     member this.UseSitelets = useSitelets
 
@@ -141,9 +67,9 @@ type WebSharperOptions
 
     member this.Metadata = metadata
 
-    member this.Dependencies = dependencies
+    //member this.Dependencies = dependencies
 
-    member this.Json = json
+    //member this.Json = json
 
     member this.IsDebug = isDebug
 
@@ -192,25 +118,28 @@ type WebSharperOptions
             useRemoting: bool,
             useExtension
         ) =
-        let binDir =
-            match binDir with
-            | None -> autoBinDir()
-            | Some d -> d
-        let logger =
-            match logger with
-            | Some l -> l
-            | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
-        //// Note: must load assemblies and set Context.* before calling Shared.*
-        //let assemblies =
-        //    discoverAssemblies binDir
-        //    |> loadReferencedAssemblies logger
+        //let binDir =
+        //    match binDir with
+        //    | None -> autoBinDir()
+        //    | Some d -> d
+        //let logger =
+        //    match logger with
+        //    | Some l -> l
+        //    | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
         let env = services.GetRequiredService<IHostingEnvironment>()
-        Context.IsDebug <- env.IsDevelopment
+        //Context.IsDebug <- env.IsDevelopment
         let config =
             match config with
             | Some c -> c
             | None -> services.GetRequiredService<IConfiguration>().GetSection("websharper") :> _
-        Context.GetSetting <- fun key -> Option.ofObj config.[key]
+        //Context.GetSetting <- fun key -> Option.ofObj config.[key]
+        let siteletAssembly =
+            siteletAssembly |> Option.defaultWith (fun () ->
+                match services.GetService<IWebSharperService>() with
+                | null -> System.Reflection.Assembly.GetEntryAssembly()
+                | wsService -> wsService.SiteletAssembly
+            )
+                
         let sitelet =
             if useSitelets then
                 sitelet |> Option.orElseWith (fun () ->
@@ -219,7 +148,7 @@ type WebSharperOptions
                     | service -> Some service.Sitelet
                 )
             else None
-        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), sitelet, siteletAssembly, metadata, useSitelets, useRemoting, useExtension)
+        WebSharperOptions(services, config, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), sitelet, siteletAssembly, metadata, useSitelets, useRemoting, useExtension)
 
 /// Defines settings for a WebSharper application.
 type WebSharperBuilder(services: IServiceProvider) =

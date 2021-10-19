@@ -9,8 +9,8 @@
     <Compile Include="WebSharperOptions.fs" />
     <Compile Include="EnvKey.fs" />
     <Compile Include="Context.fs" />
-    <Compile Include="Remoting.fs" />
-    <Compile Include="Sitelets.fs" />
+    <Compile Include="RemotingHandler.fs" />
+    <Compile Include="SiteletsHandler.fs" />
     <Compile Include="WebContextExtensions.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
     <None Include="paket.references" />
