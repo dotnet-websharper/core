@@ -82,10 +82,20 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
 
 
 let Middleware (options: WebSharperOptions) =
-    let wsService = options.Services.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+    let wsService = 
+        match options.Services.GetService(typeof<IWebSharperService>) with
+        | :? IWebSharperService as s -> s
+        | _ ->
+            let meta =
+                match options.Metadata with
+                | Some m -> m
+                | _ -> Unchecked.defaultof<WebSharper.Core.Metadata.Info>
+            DefaultWebSharperService(options.SiteletAssembly, meta, options.AuthenticationScheme, options.Configuration) :> IWebSharperService
     let getRemotingHandler (t: Type) =
-        let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) :?> IRemotingService
-        service.Handler
+        let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
+        match service with
+        | :? IRemotingService as s -> s.Handler
+        | _ -> null
     let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
         match handleRemote ctx server wsService options.IsDebug options.ContentRootPath with
@@ -103,8 +113,10 @@ let HttpHandler () : RemotingHttpHandler =
             let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
             let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
             let getRemotingHandler (t: Type) =
-                let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) :?> IRemotingService
-                service.Handler
+                let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
+                match service with
+                | :? IRemotingService as s -> s.Handler
+                | _ -> null
             let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
             
             match handleRemote httpCtx server wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath with

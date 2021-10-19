@@ -43,6 +43,7 @@ type WebSharperOptions
     internal 
     (
         services: IServiceProvider,
+        config: IConfiguration,
         contentRoot: string,
         webRoot: string,
         isDebug: bool,
@@ -58,11 +59,13 @@ type WebSharperOptions
 
     member this.Services = services
 
+    member this.Configuration = config
+
     member this.UseSitelets = useSitelets
 
     member this.UseRemoting = useRemoting
 
-    //member this.Metadata = metadata
+    member this.Metadata = metadata
 
     //member this.Dependencies = dependencies
 
@@ -145,7 +148,7 @@ type WebSharperOptions
                     | service -> Some service.Sitelet
                 )
             else None
-        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), sitelet, siteletAssembly, metadata, useSitelets, useRemoting, useExtension)
+        WebSharperOptions(services, config, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), sitelet, siteletAssembly, metadata, useSitelets, useRemoting, useExtension)
 
 /// Defines settings for a WebSharper application.
 type WebSharperBuilder(services: IServiceProvider) =

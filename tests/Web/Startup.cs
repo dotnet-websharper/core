@@ -21,7 +21,7 @@ namespace Web
             var site = new WebSharper.Tests.Website.WebsiteEntryPoint();
 
             services
-                .AddWebSharper()
+                //.AddWebSharper()
                 .AddSitelet(site.Sitelet)
                 .AddAuthentication("WebSharper")
                 .AddCookie("WebSharper", options => { });

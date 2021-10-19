@@ -58,13 +58,26 @@ let Middleware (options: WebSharperOptions) =
     let sitelet =
         match options.Sitelet with
         | Some s -> Some s
-        | None -> Loading.DiscoverSitelet [ options.SiteletAssembly ]
+        | None -> 
+            match options.Services.GetService(typeof<ISiteletService>) with
+            | :? ISiteletService as s ->
+                Some s.Sitelet
+            | _ -> 
+                Loading.DiscoverSitelet [ options.SiteletAssembly ]
+    let wsService = 
+        match options.Services.GetService(typeof<IWebSharperService>) with
+        | :? IWebSharperService as s -> s
+        | _ ->
+            let meta =
+                match options.Metadata with
+                | Some m -> m
+                | _ -> Unchecked.defaultof<WebSharper.Core.Metadata.Info>
+            DefaultWebSharperService(options.SiteletAssembly, meta, options.AuthenticationScheme, options.Configuration) :> IWebSharperService
     match sitelet with
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
             let ctx = Context.GetOrMake httpCtx wsService options.IsDebug options.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
