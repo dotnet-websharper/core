@@ -15,12 +15,16 @@ dependencies
         WebSharper == CURRENTVERSION
         WebSharper.Testing == CURRENTVERSION
 files
-    ../build/Release/Tests/netstandard2.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.dll ==> lib/net5.0
+    ../build/Release/Tests/netstandard2.0/ProxyProjectTest.Proxy.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.CSharp.Sitelets.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.CSharp.Interop.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/net5.0/WebSharper.CSharp.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/netstandard2.0/WebSharper.Collections.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/netstandard2.0/WebSharper.Html5.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/netstandard2.0/WebSharper.InterfaceGenerator.Tests.dll ==> lib/net5.0
-    ../build/Release/Tests/netstandard2.0/WebSharper.Sitelets.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.Module.Tests.dll ==> lib/net5.0
+    ../build/Release/Tests/net5.0/WebSharper.Sitelets.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/net5.0/WebSharper.Web.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/net5.0/WebSharper.Tests.dll ==> lib/net5.0
     ../build/Release/Tests/net5.0/Website.dll ==> lib/net5.0
