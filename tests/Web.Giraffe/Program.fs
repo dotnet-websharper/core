@@ -10,6 +10,8 @@ open Microsoft.Extensions.Logging
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
 
+open WebSharper.AspNetCore
+
 // ---------------------------------
 // Models
 // ---------------------------------
@@ -60,8 +62,20 @@ let webApp =
     choose [
         GET >=>
             choose [
-                route "/" >=> indexHandler "world"
+                //route "/" >=> indexHandler "world"
                 routef "/hello/%s" indexHandler
+            ]
+        Remoting.HttpHandler ()
+        GET >=>
+            choose [
+                //route "/" >=> indexHandler "world"
+                routef "/helloyetagain/%s" indexHandler
+            ]
+        Sitelets.HttpHandler <| WebSharper.Tests.Website.WebsiteEntryPoint().Sitelet
+        GET >=>
+            choose [
+                //route "/" >=> indexHandler "world"
+                routef "/helloagain/%s" indexHandler
             ]
         setStatusCode 404 >=> text "Not Found" ]
 
@@ -101,6 +115,7 @@ let configureApp (app : IApplicationBuilder) =
 let configureServices (services : IServiceCollection) =
     services.AddCors()    |> ignore
     services.AddGiraffe() |> ignore
+    services.AddWebSharper() |> ignore
 
 let configureLogging (builder : ILoggingBuilder) =
     builder.AddConsole()

@@ -115,6 +115,7 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
                     return None
                 }
                 |> Async.StartAsTask
-            | None -> next httpCtx
+            | None -> 
+                Task.FromResult None
 
         handleSitelet

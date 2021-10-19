@@ -80,7 +80,6 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
         |> Some
     else None
 
-
 let Middleware (options: WebSharperOptions) =
     let wsService = 
         match options.Services.GetService(typeof<IWebSharperService>) with
@@ -110,22 +109,32 @@ type RemotingHttpHandler = RemotingHttpFunc -> RemotingHttpFunc
 let HttpHandler () : RemotingHttpHandler =
     fun (next: RemotingHttpFunc) ->
         let handleRPC (httpCtx: HttpContext) =
-            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
-            let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-            let getRemotingHandler (t: Type) =
-                let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
-                match service with
-                | :? IRemotingService as s -> s.Handler
-                | _ -> null
-            let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
+            let getReqHeader (k: string) =
+                match httpCtx.Request.Headers.TryGetValue(k) with
+                | true, s -> Seq.tryHead s
+                | false, _ -> None
+
+            if Rem.IsRemotingRequest getReqHeader then
+                let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+                let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
+                let getRemotingHandler (t: Type) =
+                    let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
+                    match service with
+                    | :? IRemotingService as s -> s.Handler
+                    | _ -> null
+                let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
             
-            match handleRemote httpCtx server wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath with
-            | Some handle ->
-                async {
-                    do! handle
-                    return None
-                }
-                |> Async.StartAsTask
-            | None -> next httpCtx
+                match handleRemote httpCtx server wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath with
+                | Some handle ->
+                    async {
+                        do! handle
+                        return None
+                    }
+                    |> Async.StartAsTask
+                | None -> 
+                    Task.FromResult None
+
+            else
+                Task.FromResult None
                 
         handleRPC
