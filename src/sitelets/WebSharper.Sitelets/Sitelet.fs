@@ -97,7 +97,7 @@ module Sitelet =
         : Sitelet<'T> =
         {
             Router = site.Router
-            Controller =
+            Controller =                                                                                                                                      
                 { Handle = fun endpoint ->
                     let prot = filter
                     let failure ctx = async {

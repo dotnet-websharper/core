@@ -33,15 +33,14 @@ module ResourceContext =
 
     let private contextCache = ConcurrentDictionary<string, Re.Context>()
 
-    let ResourceContext (appPath: string) (meta: M.Info) : Re.Context =
+    let ResourceContext (appPath: string) (meta: M.Info) isDebug getSetting : Re.Context =
         contextCache.GetOrAdd(appPath, fun appPath ->
             let pu = P.PathUtility.VirtualPaths(appPath)
-            let isDebug = Context.IsDebug()
             {
                 DebuggingEnabled = isDebug
                 DefaultToHttp = false
                 ScriptBaseUrl = Some (pu.ScriptBasePath + "/")
-                GetSetting = Context.GetSetting
+                GetSetting = getSetting
                 GetAssemblyRendering = fun name ->
                     let aid = P.AssemblyId.Create(name)
                     let url = if isDebug then pu.JavaScriptPath(aid) else pu.MinifiedJavaScriptPath(aid)

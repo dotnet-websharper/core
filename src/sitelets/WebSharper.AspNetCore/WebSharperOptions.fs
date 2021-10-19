@@ -47,50 +47,12 @@ type WebSharperOptions
         webRoot: string,
         isDebug: bool,
         sitelet: option<Sitelet<obj>>,
-        siteletAssembly: option<Assembly>,
+        siteletAssembly: Assembly,
         metadata: option<M.Info>,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
     ) =
-
-    let siteletAssembly =
-        siteletAssembly
-        |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
-
-    let metadata, dependencies = 
-        match metadata with
-        | Some meta ->
-            meta, Graph.FromData meta.Dependencies
-        | None ->
-
-            let before = System.DateTime.UtcNow
-            let metadataSetting =
-                Context.GetSetting "WebSharperSharedMetadata"
-                |> Option.map (fun x -> x.ToLower())
-            match metadataSetting with
-            | Some "none" ->
-                M.Info.Empty, Graph.Empty
-            | _ ->
-                let trace =
-                    System.Diagnostics.TraceSource("WebSharper",
-                        System.Diagnostics.SourceLevels.All)
-                let runtimeMeta =
-                    siteletAssembly 
-                    |> M.IO.LoadRuntimeMetadata
-                match runtimeMeta with
-                | None ->
-                    trace.TraceInformation("Runtime WebSharper metadata not found.")
-                    M.Info.Empty, Graph.Empty 
-                | Some meta ->
-                    let after = System.DateTime.UtcNow
-                    let res =
-                        meta, Graph.FromData meta.Dependencies
-                    trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-                        (after-before).TotalSeconds)
-                    res
-
-    let json = J.Provider.CreateTyped metadata
 
     member val AuthenticationScheme = "WebSharper" with get, set
 
@@ -100,11 +62,11 @@ type WebSharperOptions
 
     member this.UseRemoting = useRemoting
 
-    member this.Metadata = metadata
+    //member this.Metadata = metadata
 
-    member this.Dependencies = dependencies
+    //member this.Dependencies = dependencies
 
-    member this.Json = json
+    //member this.Json = json
 
     member this.IsDebug = isDebug
 
@@ -162,12 +124,19 @@ type WebSharperOptions
         //    | Some l -> l
         //    | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
         let env = services.GetRequiredService<IHostingEnvironment>()
-        Context.IsDebug <- env.IsDevelopment
+        //Context.IsDebug <- env.IsDevelopment
         let config =
             match config with
             | Some c -> c
             | None -> services.GetRequiredService<IConfiguration>().GetSection("websharper") :> _
-        Context.GetSetting <- fun key -> Option.ofObj config.[key]
+        //Context.GetSetting <- fun key -> Option.ofObj config.[key]
+        let siteletAssembly =
+            siteletAssembly |> Option.defaultWith (fun () ->
+                match services.GetService<IWebSharperService>() with
+                | null -> System.Reflection.Assembly.GetEntryAssembly()
+                | wsService -> wsService.SiteletAssembly
+            )
+                
         let sitelet =
             if useSitelets then
                 sitelet |> Option.orElseWith (fun () ->

@@ -21,6 +21,8 @@
 /// Implements server-side remote procedure call support.
 module WebSharper.Core.Remoting
 
+open System
+
 module M = WebSharper.Core.Metadata
 //module R = WebSharper.Core.Reflection
 
@@ -45,16 +47,16 @@ type Request =
 /// WebSharper remote procedure call request.
 val IsRemotingRequest : Headers -> bool
 
-/// Adds an RPC handler object for a given remoting type.
-/// You can only add one instance for each type.
-val AddHandler : System.Type -> obj -> unit
+///// Adds an RPC handler object for a given remoting type.
+///// You can only add one instance for each type.
+//val AddHandler : System.Type -> obj -> unit
 
 /// Handles remote procedure call requests.
 [<Sealed>]
 type Server =
 
     /// Creates a new instance.
-    static member Create : M.Info -> Json.Provider -> Server
+    static member Create : M.Info -> Json.Provider -> Func<System.Type, obj> -> Server
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>

@@ -38,13 +38,13 @@ type Context() =
         | false, false -> a + "/" + b
         | _ -> a + b
 
-    /// Get or set runtime configuration settings.
-    static member val GetSetting : (string -> option<string>) = (fun _ -> None)
-        with get, set
+    ///// Get or set runtime configuration settings.
+    //static member val GetSetting : (string -> option<string>) = (fun _ -> None)
+    //    with get, set
 
-    /// Get or set whether the application is running in debug mode.
-    static member val IsDebug : (unit -> bool) = (fun () -> false)
-        with get, set
+    ///// Get or set whether the application is running in debug mode.
+    //static member val IsDebug : (unit -> bool) = (fun () -> false)
+    //    with get, set
 
     /// Virtual application root path on the server.
     abstract member ApplicationPath : string

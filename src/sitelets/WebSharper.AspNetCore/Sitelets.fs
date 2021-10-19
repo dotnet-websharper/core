@@ -64,7 +64,8 @@ let Middleware (options: WebSharperOptions) =
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-            let ctx = Context.GetOrMake httpCtx options
+            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+            let ctx = Context.GetOrMake httpCtx wsService options.IsDebug options.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
@@ -88,8 +89,8 @@ type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
 let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
-            let options = httpCtx.RequestServices.GetService(typeof<IOptions<WebSharperOptions>>) :> IOptions<WebSharperOptions> 
-            let ctx = Context.GetOrMake httpCtx options.Value
+            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+            let ctx = Context.GetOrMake httpCtx wsService false "" sitelet // TODO
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->

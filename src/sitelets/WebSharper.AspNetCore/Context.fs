@@ -150,7 +150,7 @@ type private AspNetCoreRequest(req: HttpRequest) =
 let private buildRequest (req: HttpRequest) =
     AspNetCoreRequest req :> Http.Request
 
-type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
+type private UserSession(httpCtx: HttpContext, options: IWebSharperService) =
     let scheme = options.AuthenticationScheme
 
     let loginUser (username: string) (expiry: option<TimeSpan>) =
@@ -192,68 +192,66 @@ type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
 
         member this.IsAvailable = true
 
-let private makeEnv (httpCtx: HttpContext) (options: WebSharperOptions) =
+let private makeEnv (httpCtx: HttpContext)  =
     dict [|
         "WebSharper.AspNetCore.HttpContext", box httpCtx
-        "WebSharper.AspNetCore.Services", box options.Services
     |]
 
-let Make (httpCtx: HttpContext) (options: WebSharperOptions) =
+let Make (httpCtx: HttpContext) (wsService: IWebSharperService,  isDebug, rootFolder, sitelet: Sitelet<'T>) =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
-    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata
-    let link =
-        match options.Sitelet with
-        | None ->
-            fun _ -> failwith "Failed to create link: no Sitelet set up."
-        | Some s ->
-            fun x ->
-                match s.Router.Link x with
-                | None -> failwithf "Failed to link to %O" (box x)
-                | Some loc when loc.IsAbsoluteUri -> string loc
-                | Some loc -> appPath ++ string loc
+    let getSetting x =
+        wsService.Configuration.[x] |> Option.ofObj 
+    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
+    let link x =
+        match sitelet.Router.Link x with
+        | None -> failwithf "Failed to link to %O" (box x)
+        | Some loc when loc.IsAbsoluteUri -> string loc
+        | Some loc -> appPath ++ string loc
     let req = buildRequest httpCtx.Request
     new Context<'T>(
         ApplicationPath = appPath,
-        Environment = makeEnv httpCtx options,
+        Environment = makeEnv httpCtx,
         Link = link,
-        Json = options.Json,
-        Metadata = options.Metadata,
-        Dependencies = options.Dependencies,
+        Json = wsService.Json,
+        Metadata = wsService.Metadata,
+        Dependencies = wsService.Dependencies,
         ResourceContext = resCtx,
         Request = req,
-        RootFolder = options.ContentRootPath,
-        UserSession = UserSession(httpCtx, options)
+        RootFolder = rootFolder,
+        UserSession = UserSession(httpCtx, wsService)
     )
 
-let MakeSimple (httpCtx: HttpContext) (options: WebSharperOptions) =
+let MakeSimple (httpCtx: HttpContext) (wsService: IWebSharperService, isDebug, rootFolder) =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
-    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata
+    let getSetting x =
+        wsService.Configuration.[x] |> Option.ofObj 
+    let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
     let uri = RequestUri httpCtx.Request
     { new WebSharper.Web.Context() with
         member this.ApplicationPath = appPath
         // TODO use httpCtx.Items? but it's <obj, obj>, not <string, obj>
-        member this.Environment = makeEnv httpCtx options
-        member this.Json = options.Json
-        member this.Metadata = options.Metadata
-        member this.Dependencies = options.Dependencies
+        member this.Environment = makeEnv httpCtx
+        member this.Json = wsService.Json
+        member this.Metadata = wsService.Metadata
+        member this.Dependencies = wsService.Dependencies
         member this.ResourceContext = resCtx
         member this.RequestUri = uri
-        member this.RootFolder = options.ContentRootPath
-        member this.UserSession = UserSession(httpCtx, options) :> _
+        member this.RootFolder = rootFolder
+        member this.UserSession = UserSession(httpCtx, wsService) :> _
     }
 
-let private getOrMake<'T> make (httpCtx: HttpContext) (options: WebSharperOptions) =
+let private getOrMake<'T, 'A> make (httpCtx: HttpContext) (args: 'A) =
     match httpCtx.Items.TryGetValue(EnvKey.Context) with
     | true, x -> x :?> 'T
     | false, _ ->
-        let ctx = make httpCtx options
+        let ctx = make httpCtx args
         httpCtx.Items.[EnvKey.Context] <- ctx
         ctx
 
-let GetOrMake httpCtx options =
-    getOrMake<Context<'T>> Make httpCtx options
+let GetOrMake httpCtx options isDebug rootFolder sitelet =
+    getOrMake<Context<'T>, _> Make httpCtx (options, isDebug, rootFolder, sitelet)
 
-let GetOrMakeSimple httpCtx options =
-    getOrMake<WebSharper.Web.Context> MakeSimple httpCtx options
+let GetOrMakeSimple httpCtx options isDebug rootFolder =
+    getOrMake<WebSharper.Web.Context, _> MakeSimple httpCtx (options, isDebug, rootFolder)

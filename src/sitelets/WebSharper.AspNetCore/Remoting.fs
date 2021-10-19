@@ -27,80 +27,90 @@ open Microsoft.AspNetCore.Http
 open WebSharper.Web
 module Rem = WebSharper.Core.Remoting
 
-let Middleware (options: WebSharperOptions) =
-    let server = Rem.Server.Create options.Metadata options.Json
-    Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
+let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IWebSharperService) isDebug rootPath =
 
-        let getReqHeader (k: string) =
-            match ctx.Request.Headers.TryGetValue(k) with
-            | true, s -> Seq.tryHead s
+    let getReqHeader (k: string) =
+        match ctx.Request.Headers.TryGetValue(k) with
+        | true, s -> Seq.tryHead s
+        | false, _ -> None
+
+    let addRespHeaders headers =
+        headers |> List.iter (fun (k: string, v: string) ->
+            let v = Microsoft.Extensions.Primitives.StringValues(v)
+            ctx.Response.Headers.Add(k, v)
+        )
+
+    if Rem.IsRemotingRequest getReqHeader then
+        let uri = Context.RequestUri ctx.Request
+        let getCookie name =
+            match ctx.Request.Cookies.TryGetValue(name) with
+            | true, x -> Some x
             | false, _ -> None
-
-        let addRespHeaders headers =
-            headers |> List.iter (fun (k: string, v: string) ->
-                let v = Microsoft.Extensions.Primitives.StringValues(v)
-                ctx.Response.Headers.Add(k, v)
+        let setInfiniteCookie name value =
+            ctx.Response.Cookies.Append(name, value,
+                CookieOptions(Expires = Nullable(DateTimeOffset.UtcNow.AddYears(1000)))
             )
-
-        if Rem.IsRemotingRequest getReqHeader then
-            let uri = Context.RequestUri ctx.Request
-            let getCookie name =
-                match ctx.Request.Cookies.TryGetValue(name) with
-                | true, x -> Some x
-                | false, _ -> None
-            let setInfiniteCookie name value =
-                ctx.Response.Cookies.Append(name, value,
-                    CookieOptions(Expires = Nullable(DateTimeOffset.UtcNow.AddYears(1000)))
-                )
-            match RpcHandler.CorsAndCsrfCheck ctx.Request.Method uri getCookie getReqHeader setInfiniteCookie with
-            | CorsAndCsrfCheckResult.Error (code, msg, text) ->
-                ctx.Response.StatusCode <- code
-                let bytes = Encoding.UTF8.GetBytes(text)
-                ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
-            | CorsAndCsrfCheckResult.Ok headers ->
-                async {
-                    addRespHeaders headers
-                    let wsctx = Context.GetOrMakeSimple ctx options
-                    use reader = new StreamReader(ctx.Request.Body)
-                    let! body = reader.ReadToEndAsync() |> Async.AwaitTask
-                    let! resp =
-                        server.HandleRequest(
-                            {
-                                Body = body
-                                Headers = getReqHeader
-                            }, wsctx)
-                    ctx.Response.StatusCode <- 200
-                    ctx.Response.ContentType <- resp.ContentType
-                    let bytes = Encoding.UTF8.GetBytes(resp.Content)
-                    return! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
-                }
-                |> Async.StartAsTask
-                :> Task
-            | CorsAndCsrfCheckResult.Preflight headers ->
+        match RpcHandler.CorsAndCsrfCheck ctx.Request.Method uri getCookie getReqHeader setInfiniteCookie with
+        | CorsAndCsrfCheckResult.Error (code, msg, text) ->
+            ctx.Response.StatusCode <- code
+            let bytes = Encoding.UTF8.GetBytes(text)
+            ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+        | CorsAndCsrfCheckResult.Ok headers ->
+            async {
                 addRespHeaders headers
-                Task.CompletedTask
+                let wsctx = Context.GetOrMakeSimple ctx wsService isDebug rootPath
+                use reader = new StreamReader(ctx.Request.Body)
+                let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+                let! resp =
+                    server.HandleRequest(
+                        {
+                            Body = body
+                            Headers = getReqHeader
+                        }, wsctx)
+                ctx.Response.StatusCode <- 200
+                ctx.Response.ContentType <- resp.ContentType
+                let bytes = Encoding.UTF8.GetBytes(resp.Content)
+                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+            }
+        | CorsAndCsrfCheckResult.Preflight headers ->
+            addRespHeaders headers
+            async.Zero()
+        |> Some
+    else None
 
-        else next.Invoke()
+
+let Middleware (options: WebSharperOptions) =
+    let wsService = options.Services.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+    let getRemotingHandler (t: Type) =
+        let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) :?> IRemotingService
+        service.Handler
+    let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
+    Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
+        match handleRemote ctx server wsService options.IsDebug options.ContentRootPath with
+        | Some rTask -> rTask |> Async.StartAsTask :> Task
+        | None -> next.Invoke()
     )
 
-type SiteletHttpFuncResult = Task<HttpContext option>
-type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
-type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
+type RemotingHttpFuncResult = Task<HttpContext option>
+type RemotingHttpFunc =  HttpContext -> RemotingHttpFuncResult
+type RemotingHttpHandler = RemotingHttpFunc -> RemotingHttpFunc
 
-let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
-    fun (next: SiteletHttpFunc) ->
-        let handleSitelet (httpCtx: HttpContext) =
-            let options = httpCtx.RequestServices.GetService(typeof<IOptions<WebSharperOptions>>) :> IOptions<WebSharperOptions> 
-            let ctx = Context.GetOrMake httpCtx options.Value
-            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
-            match sitelet.Router.Route ctx.Request with
-            | Some endpoint ->
-                let content = sitelet.Controller.Handle endpoint
+let HttpHandler () : RemotingHttpHandler =
+    fun (next: RemotingHttpFunc) ->
+        let handleRPC (httpCtx: HttpContext) =
+            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+            let getRemotingHandler (t: Type) =
+                let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) :?> IRemotingService
+                service.Handler
+            let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
+            
+            match handleRemote httpCtx server wsService false "" with
+            | Some handle ->
                 async {
-                    do! contentHelper httpCtx content
+                    do! handle
                     return None
                 }
                 |> Async.StartAsTask
             | None -> next httpCtx
-
-        handleSitelet
+                
+        handleRPC

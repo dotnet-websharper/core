@@ -19,6 +19,7 @@ namespace Web
         public void ConfigureServices(IServiceCollection services)
         {
             var site = new WebSharper.Tests.Website.WebsiteEntryPoint();
+
             services
                 .AddWebSharper()
                 .AddSitelet(site.Sitelet)
