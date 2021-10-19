@@ -201,7 +201,10 @@ let Make (httpCtx: HttpContext) (wsService: IWebSharperService,  isDebug, rootFo
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
     let getSetting x =
-        wsService.Configuration.[x] |> Option.ofObj 
+        if isNull wsService.Configuration then 
+            None
+        else
+            wsService.Configuration.[x] |> Option.ofObj 
     let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
     let link x =
         match sitelet.Router.Link x with
@@ -226,7 +229,10 @@ let MakeSimple (httpCtx: HttpContext) (wsService: IWebSharperService, isDebug, r
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
     let getSetting x =
-        wsService.Configuration.[x] |> Option.ofObj 
+        if isNull wsService.Configuration then 
+            None
+        else
+            wsService.Configuration.[x] |> Option.ofObj 
     let resCtx = WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
     let uri = RequestUri httpCtx.Request
     { new WebSharper.Web.Context() with

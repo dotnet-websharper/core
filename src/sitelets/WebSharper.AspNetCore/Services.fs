@@ -55,15 +55,24 @@ type DefaultWebSharperService
         |> Option.ofObj
         |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
 
+    let configuration =
+        if isNull configuration then 
+            ConfigurationManager.GetSection("websharper") :?> IConfiguration 
+        else 
+            configuration
+
     let metadata, dependencies = 
         if not (obj.ReferenceEquals(metadata, null)) then
             metadata, Graph.FromData metadata.Dependencies
         else
             let before = System.DateTime.UtcNow
             let metadataSetting =
-                configuration.["WebSharperSharedMetadata"]
-                |> Option.ofObj
-                |> Option.map (fun x -> x.ToLower())
+                if isNull configuration then
+                    None
+                else
+                    configuration.["WebSharperSharedMetadata"]
+                    |> Option.ofObj
+                    |> Option.map (fun x -> x.ToLower())
             match metadataSetting with
             | Some "none" ->
                 M.Info.Empty, Graph.Empty
@@ -90,9 +99,6 @@ type DefaultWebSharperService
 
     let authenticationScheme =
         if isNull authenticationScheme then "WebSharper" else authenticationScheme
-
-    let configuration =
-        if isNull configuration then ConfigurationManager.GetSection("websharper") :?> IConfiguration else configuration
 
     interface IWebSharperService with
         member this.SiteletAssembly = siteletAssembly
@@ -186,6 +192,8 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharper(this: IServiceCollection, 
             [<Optional>] siteletAssembly: Assembly, 
-            [<Optional>] metadata: M.Info) =
-        this.AddSingleton<IWebSharperService>(DefaultWebSharperService(siteletAssembly, metadata))
+            [<Optional>] metadata: M.Info,
+            [<Optional>] authenticationScheme: string,
+            [<Optional>] configuration: IConfiguration) =
+        this.AddSingleton<IWebSharperService>(DefaultWebSharperService(siteletAssembly, metadata, authenticationScheme, configuration))
         

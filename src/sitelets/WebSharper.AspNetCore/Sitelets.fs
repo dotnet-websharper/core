@@ -81,6 +81,7 @@ open Microsoft.AspNetCore.Mvc
 open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.AspNetCore.Routing
 open Microsoft.AspNetCore.Http
+open Microsoft.AspNetCore.Hosting
     
 type SiteletHttpFuncResult = Task<HttpContext option>
 type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
@@ -90,7 +91,8 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
             let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
-            let ctx = Context.GetOrMake httpCtx wsService false "" sitelet // TODO
+            let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
+            let ctx = Context.GetOrMake httpCtx wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->

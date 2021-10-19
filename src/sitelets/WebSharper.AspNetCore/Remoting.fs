@@ -25,6 +25,8 @@ open System.Text
 open System.Threading.Tasks
 open Microsoft.AspNetCore.Http
 open WebSharper.Web
+open Microsoft.AspNetCore.Hosting
+
 module Rem = WebSharper.Core.Remoting
 
 let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IWebSharperService) isDebug rootPath =
@@ -99,12 +101,13 @@ let HttpHandler () : RemotingHttpHandler =
     fun (next: RemotingHttpFunc) ->
         let handleRPC (httpCtx: HttpContext) =
             let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+            let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
             let getRemotingHandler (t: Type) =
                 let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) :?> IRemotingService
                 service.Handler
             let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
             
-            match handleRemote httpCtx server wsService false "" with
+            match handleRemote httpCtx server wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath with
             | Some handle ->
                 async {
                     do! handle
