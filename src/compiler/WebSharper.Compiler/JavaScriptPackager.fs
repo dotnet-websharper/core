@@ -20,7 +20,7 @@
 
 // Creates single .js files from WebSharper.Core.Metadata.Info
 // (possibly filtered by code path analysis) 
-module WebSharper.Compiler.Packager
+module WebSharper.Compiler.JavaScriptPackager
 
 open System.Collections.Generic
 

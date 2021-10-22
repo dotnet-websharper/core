@@ -30,7 +30,9 @@
     <Compile Include="Stubs.fs" />
     <Compile Include="Closures.fs" />
     <Compile Include="JavaScriptWriter.fs" />
-    <Compile Include="Packager.fs" />
+    <Compile Include="TypeScriptWriter.fs" />
+    <Compile Include="JavaScriptPackager.fs" />
+    <Compile Include="TypeScriptPackager.fs" />
     <Compile Include="ErrorPrinting.fs" />
     <Compile Include="api/Symbols.fsi" />
     <Compile Include="api/Symbols.fs" />

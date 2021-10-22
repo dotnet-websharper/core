@@ -139,6 +139,9 @@ type Assembly =
     member this.ReadableJavaScript =
         ReadResource EMBEDDED_JS this.Definition
 
+    member this.TypeScript =
+        ReadResource EMBEDDED_TS this.Definition
+
     member this.MapFileForReadable =
         ReadResource EMBEDDED_MAP this.Definition
 

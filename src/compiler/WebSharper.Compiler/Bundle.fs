@@ -72,7 +72,7 @@ module Bundling =
             CurrentJs: Lazy<option<string * string>>
             Sources: seq<string * string>
             EntryPoint: option<Statement>
-            EntryPointStyle: Packager.EntryPointStyle
+            EntryPointStyle: JavaScriptPackager.EntryPointStyle
             IsExtraBundle: bool
             AddError : option<SourcePos> -> string -> unit
         }
@@ -93,7 +93,7 @@ module Bundling =
             if sourceMap then
                 o.RefAssemblies |> Seq.collect (fun a ->
                     match a.MapFileForReadable with
-                    | Some mapFile -> WebSharper.Compiler.Packager.readMapFileSources mapFile
+                    | Some mapFile -> WebSharper.Compiler.JavaScriptPackager.readMapFileSources mapFile
                     | _-> []
                 )  
                 |> Seq.append o.Sources
@@ -136,7 +136,7 @@ module Bundling =
                     let current = 
                         if dce then trimMetadata meta nodes 
                         else meta
-                    Packager.packageAssembly current current o.EntryPoint o.EntryPointStyle
+                    JavaScriptPackager.packageAssembly current current o.EntryPoint o.EntryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message)
         let resources = graph.GetResourcesOf nodes
@@ -245,7 +245,7 @@ module Bundling =
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                    let js, m = pkg |> WebSharper.Compiler.Packager.exprToString pref getCodeWriter
+                    let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString pref getCodeWriter
                     if sourceMap then
                         if mode = BundleMode.JavaScript then
                             map <- m
@@ -381,7 +381,7 @@ module Bundling =
                     CurrentMeta = currentMeta
                     GetAllDeps = getDeps jsExports [bundle.Node]
                     EntryPoint = Some bundle.EntryPoint
-                    EntryPointStyle = Packager.EntryPointStyle.ForceImmediate
+                    EntryPointStyle = JavaScriptPackager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
                     Sources = []
                     RefAssemblies = refAssemblies
@@ -464,8 +464,8 @@ module Bundling =
     let Bundle (config: WsConfig) (logger: LoggerBase) (refMetas: M.Info list) (currentMeta: M.Info) (comp: Compilation) (currentJS: Lazy<option<string * string>>) sources (refAssemblies: Assembly list) (currentExtraBundles: list<string * Content>) =
         let entryPointStyle =
             if List.isEmpty comp.JavaScriptExports
-            then Packager.EntryPointStyle.ForceOnLoad
-            else Packager.EntryPointStyle.OnLoadIfExists
+            then JavaScriptPackager.EntryPointStyle.ForceOnLoad
+            else JavaScriptPackager.EntryPointStyle.OnLoadIfExists
         logger
         |> CreateBundle {
             Config = config

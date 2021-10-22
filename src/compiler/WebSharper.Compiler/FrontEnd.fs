@@ -91,14 +91,14 @@ let TransformMetaSources assemblyName (current: M.Info) sourceMap =
 let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     let pkg = 
-        Packager.packageAssembly refMeta current entryPoint Packager.EntryPointStyle.OnLoadIfExists
+        JavaScriptPackager.packageAssembly refMeta current entryPoint JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
     if pkg = AST.Undefined then None else
         let getCodeWriter() = WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-        let js, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+        let js, _ = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
         logger.TimedStage "Writing .js for bundle"
-        let minJs, _ = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+        let minJs, _ = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         logger.TimedStage "Writing .min.js for bundle"
 
         Some (js, minJs)
@@ -111,7 +111,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     logger.TimedStage "Source position transformations"
 
     let pkg = 
-        Packager.packageAssembly refMeta current (comp |> Option.bind (fun c -> c.EntryPoint)) Packager.EntryPointStyle.OnLoadIfExists
+        JavaScriptPackager.packageAssembly refMeta current (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
     logger.TimedStage "Packaging assembly"
     
@@ -210,12 +210,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
+        let js, map = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable getCodeWriter
         addRes EMBEDDED_JS (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
         map |> Option.iter (fun m ->
             addRes EMBEDDED_MAP None (Some (getBytes m)))
         logger.TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
-        let minJs, minMap = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
+        let minJs, minMap = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Compact getCodeWriter
         addRes EMBEDDED_MINJS (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
         minMap |> Option.iter (fun m ->
             addRes EMBEDDED_MINMAP None (Some (getBytes m)))
