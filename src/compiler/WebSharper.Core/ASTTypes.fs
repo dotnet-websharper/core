@@ -29,6 +29,8 @@ type private Ids() =
     static member New() =
         System.Threading.Interlocked.Increment(&lastId)
 
+type Modifiers = S.Modifiers
+
 [<CustomComparison; CustomEquality>]
 /// An identifier for a variable or label.
 type Id =
@@ -36,7 +38,9 @@ type Id =
         mutable IdName : string option
         Id: int64
         Mutable : bool
-        Tuple : bool
+        StrongName : bool
+        Optional : bool
+        Type : Type option
     }
 
     member this.Name 
@@ -44,14 +48,17 @@ type Id =
         and set n = this.IdName <- n
 
     member this.IsMutable = this.Mutable
-    member this.IsTuple = this.Tuple
+    member this.HasStrongName = this.StrongName
+    member this.IsOptional = this.Optional
     
-    static member New(?name, ?mut, ?tup) =
+    static member New(?name, ?mut, ?str, ?opt, ?typ) =
         {
             IdName = name
             Id = Ids.New()
             Mutable = defaultArg mut true
-            Tuple = defaultArg tup false
+            StrongName = defaultArg str false
+            Optional = defaultArg opt false
+            Type = typ
         }
 
     member this.Clone() =
@@ -63,6 +70,39 @@ type Id =
         { this with
             Mutable = true
         }
+
+    member this.ToNonOptional() =
+        if this.Optional then
+            { this with
+                Optional = false
+            }
+        else this
+
+    member this.VarType = this.Type
+
+    member this.ToTSType(toTSType) =
+        match this.Type with
+        | None -> this
+        | Some t -> { this with Type = Some (TSType (toTSType t)) }
+
+    member this.TSType =
+        match this.Type with
+        | Some (TSType t) -> Some t
+        | _ -> None
+
+    member this.SubstituteGenerics(gs : Type[]) =
+        match this.Type with
+        | Some t -> { this with Type = Some (t.SubstituteGenerics gs) }
+        | _ -> this
+
+    member this.HasUnresolvedGenerics =
+        match this.Type with
+        | Some t -> t.HasUnresolvedGenerics
+        | _ -> false
+
+    member this.IsGlobal() = this.Id = -1L
+
+    member this.WithType(t) = { this with Type = t }
 
     override this.GetHashCode() = int this.Id
     
@@ -79,6 +119,13 @@ type Id =
 
     override this.ToString() =
         (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
+
+    member this.ToString(m: Modifiers) =
+        String.concat "" [
+            if m.HasFlag Modifiers.Private then yield "private "
+            if m.HasFlag Modifiers.Public then yield "public "
+            if m.HasFlag Modifiers.ReadOnly then yield "readonly"
+        ] + string this
 
 /// Specifies a curried or tupled F# function argument that is translated to a flat function
 type FuncArgOptimization =
@@ -115,7 +162,6 @@ type MutatingBinaryOperator =
     | LeftShiftAssign          = 9
     | RightShiftAssign         = 10
     | UnsignedRightShiftAssign = 11
-    | CoalesceAssign           = 12
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module MutatingBinaryOperator =
@@ -131,7 +177,6 @@ module MutatingBinaryOperator =
     let [<Literal>] ``<<=``  = MutatingBinaryOperator.LeftShiftAssign         
     let [<Literal>] ``>>=``  = MutatingBinaryOperator.RightShiftAssign        
     let [<Literal>] ``>>>=`` = MutatingBinaryOperator.UnsignedRightShiftAssign
-    let [<Literal>] ``??=``  = MutatingBinaryOperator.CoalesceAssign
 
 type MutatingUnaryOperator =
     | PreIncrement  = 0
@@ -172,8 +217,6 @@ type BinaryOperator =
     | InstanceOf         = 20
     | BitwiseOr          = 21
     | Or                 = 22
-    | Exponentiation     = 23
-    | Coalesce           = 24
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module BinaryOperator =
@@ -183,7 +226,6 @@ module BinaryOperator =
     let [<Literal>] ``&&``     = BinaryOperator.And               
     let [<Literal>] ``&``      = BinaryOperator.BitwiseAnd        
     let [<Literal>] ``*``      = BinaryOperator.Multiply          
-    let [<Literal>] ``**``     = BinaryOperator.Exponentiation          
     let [<Literal>] ``+``      = BinaryOperator.Add               
     let [<Literal>] ``-``      = BinaryOperator.Substract         
     let [<Literal>] ``/``      = BinaryOperator.Divide            
@@ -201,7 +243,6 @@ module BinaryOperator =
     let [<Literal>] instanceof = BinaryOperator.InstanceOf            
     let [<Literal>] ``|``      = BinaryOperator.BitwiseOr         
     let [<Literal>] ``||``     = BinaryOperator.Or  
-    let [<Literal>] ``??``     = BinaryOperator.Coalesce  
 
 type UnaryOperator =
     | Not        = 0
@@ -263,17 +304,7 @@ type TypeDefinitionInfo =
     member this.AssemblyQualifiedName =
         this.FullName + ", " + this.Assembly
         
-    override this.ToString() = this.FullName    
-    
-    member this.GenericLength =
-        try
-            this.FullName.Split('.', '+') |> Array.sumBy (fun n ->
-                match n.IndexOf '`' with
-                | -1 -> 0
-                | i -> int (n.Substring(i + 1))
-            )
-        with _ ->
-            failwithf "failed to get generics count of type %s" this.FullName
+    override this.ToString() = this.FullName            
 
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
@@ -288,7 +319,7 @@ module Definitions =
 
     let Tuple isStruct (arity: int) =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = if isStruct then "System.ValueTuple" else "mscorlib"
             FullName = 
                 let name = if isStruct then "System.ValueTuple" else "System.Tuple"
                 if arity = 0 then name else name + "`" + string (min arity 8)
@@ -302,19 +333,19 @@ module Definitions =
 
     let Array =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "[]"
         }    
 
     let Array2 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "[,]"
         }
 
     let ResizeArray =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Collections.Generic.List`1"
         }
 
@@ -326,94 +357,88 @@ module Definitions =
 
     let Void =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Void"
         }
 
     let Object =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Object"
         }
 
     let Bool =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Boolean"
-        }
-
-    let Char =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Char"
         }
 
     let UInt8 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Byte"
         }
     let Byte = UInt8
 
     let Int8 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.SByte"
         }
     let SByte = Int8
 
     let UInt16 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.UInt16"
         }
 
     let Int16 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Int16"
         }
 
     let UInt32 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.UInt32"
         }
 
     let Int32 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Int32"
         }
     let Int = Int32
 
     let UInt64 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.UInt64"
         }
 
     let Int64 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Int64"
         }
 
     let String =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.String"
         }
 
     let Float32 =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Single"
         }
 
     let Float =
         TypeDefinition {
-            Assembly = "netstandard"
+            Assembly = "mscorlib"
             FullName = "System.Double"
         }
 
@@ -428,25 +453,14 @@ module Definitions =
             Assembly = "FSharp.Core"
             FullName = "Microsoft.FSharp.Core.FSharpChoice`" + string arity
         }
-    
-    let Decimal =
+
+    let Exception =
         TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Decimal"
+            Assembly = "mscorlib"
+            FullName = "System.Exception"
         }
 
-    let FSharpOption =
-        TypeDefinition {
-            Assembly = "FSharp.Core"
-            FullName = "Microsoft.FSharp.Core.FSharpOption`1"
-        }
-    
-    let FSharpValueOption =
-        TypeDefinition {
-            Assembly = "FSharp.Core"
-            FullName = "Microsoft.FSharp.Core.FSharpValueOption`1"
-        }
-    
+
 /// Stores a definition and type parameter information
 type Concrete<'T> =
     {
@@ -474,6 +488,8 @@ and Type =
     | StaticTypeParameter of ordinal: int
     /// used for F# inner generics
     | LocalTypeParameter
+    /// Translated type
+    | TSType of tsType: TSType
 
     override this.ToString() =
         match this with
@@ -490,6 +506,7 @@ and Type =
         | VoidType -> "unit"
         | StaticTypeParameter i -> "^T" + string i
         | LocalTypeParameter -> "'?"
+        | TSType _ -> "TSType"
 
     member this.IsParameter =
         match this with
@@ -526,12 +543,13 @@ and Type =
                         name + "8[[" + 
                             String.concat "],[" (ts |> Seq.take 7 |> Seq.map (fun g -> g.AssemblyQualifiedName)) + 
                             getName (l - 7) (ts |> Seq.skip 7 |> List.ofSeq) + "]]"
-                getName (List.length ts) ts, "netstandard"
+                getName (List.length ts) ts, if v then "System.ValueTuple" else "mscorlib"
             | FSharpFuncType (a, r) ->
                 "Microsoft.FSharp.Core.FSharpFunc`2[[" + a.AssemblyQualifiedName + "],[" + r.AssemblyQualifiedName + "]]", "FSharp.Core"
             | ByRefType t -> getNameAndAsm t
             | VoidType -> "Microsoft.FSharp.Core.Unit", "FSharp.Core"
             | LocalTypeParameter -> "$?", ""
+            | TSType _ -> invalidOp "TypeScript type has no AssemblyQualifiedName"
         getNameAndAsm this |> combine
 
     member this.TypeDefinition =
@@ -545,28 +563,20 @@ and Type =
         | FSharpFuncType _ -> Definitions.FSharpFunc
         | ByRefType t -> t.TypeDefinition
         | VoidType -> Definitions.Unit
+        | TSType _ -> invalidOp "TypeScript type has no TypeDefinition"
 
-    member this.SubstituteGenerics (gs : Type[], ?staticOnly) =
+    member this.SubstituteGenerics (gs : Type[]) =
         match this with 
-        | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics(gs, ?staticOnly = staticOnly)) }
-        | TypeParameter i ->
-            if staticOnly.IsSome && staticOnly.Value then
-                this
-            elif gs.Length > i then 
-                gs.[i] 
-            else 
-                failwithf "Error during generic substitution, index %d, types: %A" i (gs |> Seq.map string |> String.concat ";")
-        | StaticTypeParameter i ->
-            if gs.Length > i then 
-                gs.[i] 
-            else 
-                failwithf "Error during generic substitution, index %d, types: %A" i (gs |> Seq.map string |> String.concat ";")
-        | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics(gs, ?staticOnly = staticOnly), i)
-        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics(gs, ?staticOnly = staticOnly)), v) 
-        | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics(gs, ?staticOnly = staticOnly), r.SubstituteGenerics(gs, ?staticOnly = staticOnly))
-        | ByRefType t -> ByRefType (t.SubstituteGenerics(gs, ?staticOnly = staticOnly))
-        | VoidType -> this
-        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
+        | ConcreteType t -> ConcreteType { t with Generics = t.Generics |> List.map (fun p -> p.SubstituteGenerics gs) }
+        | TypeParameter i -> gs.[i]
+        | ArrayType (t, i) -> ArrayType (t.SubstituteGenerics gs, i)
+        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.SubstituteGenerics gs), v) 
+        | FSharpFuncType (a, r) -> FSharpFuncType (a.SubstituteGenerics gs, r.SubstituteGenerics gs)
+        | ByRefType t -> ByRefType (t.SubstituteGenerics gs)
+        | VoidType 
+        | StaticTypeParameter _ 
+        | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenerics"
 
     member this.SubstituteGenericsToSame(o : Type) =
         match this with 
@@ -579,6 +589,20 @@ and Type =
         | VoidType 
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support SubstituteGenericsToSame"
+
+    member this.HasUnresolvedGenerics =
+        match this with 
+        | ConcreteType t -> t.Generics |> List.exists (fun p -> p.HasUnresolvedGenerics)
+        | StaticTypeParameter _ 
+        | TypeParameter _ -> true
+        | VoidType 
+        | LocalTypeParameter -> false
+        | ArrayType (t, _) -> t.HasUnresolvedGenerics
+        | TupleType (ts, v) -> ts |> List.exists (fun p -> p.HasUnresolvedGenerics)
+        | FSharpFuncType (a, r) -> a.HasUnresolvedGenerics || r.HasUnresolvedGenerics
+        | ByRefType t -> t.HasUnresolvedGenerics
+        | TSType _ -> invalidOp "TypeScript type does not support HasUnresolvedGenerics"
 
     member this.GetStableHash()  =
         let inline (++) a b = StableHash.tuple (a, b)
@@ -601,6 +625,7 @@ and Type =
         | VoidType -> 6
         | StaticTypeParameter i -> 7 ++ i
         | LocalTypeParameter -> 8
+        | TSType _ -> invalidOp "TypeScript type does not support GetStableHash"
 
     member this.Normalize() =
         match this with
@@ -628,48 +653,64 @@ and Type =
         | VoidType 
         | StaticTypeParameter _ 
         | LocalTypeParameter -> this
+        | TSType _ -> invalidOp "TypeScript type does not support Normalize"
 
-    member this.MapTypeDefinitions(mapping) =
+and [<RequireQualifiedAccess>] TSType =
+    | Any
+    | Named of list<string>
+    | Generic of TSType * list<TSType>
+    | Imported of Id * list<string>
+    | Importing of string * list<string>
+    | Function of option<TSType> * list<TSType * bool> * option<TSType> * TSType
+    | New of list<TSType> * TSType
+    | Tuple of list<TSType>
+    | Union of list<TSType>
+    | Intersection of list<TSType>
+    | Param of int
+    | Constraint of TSType * list<TSType>
+    | TypeGuard of Id * TSType
+    | ObjectOf of TSType
+
+    member this.SubstituteGenerics (gs : TSType[]) =
+        let inline tr (p:TSType) = p.SubstituteGenerics gs
         match this with 
-        | ConcreteType t -> 
-            ConcreteType { 
-                Generics = t.Generics |> List.map (fun p -> p.MapTypeDefinitions mapping)
-                Entity = mapping t.Entity 
-            }
-        | TypeParameter i
-        | StaticTypeParameter i -> this
-        | ArrayType (t, i) -> ArrayType (t.MapTypeDefinitions mapping, i)
-        | TupleType (ts, v) -> TupleType (ts |> List.map (fun p -> p.MapTypeDefinitions mapping), v) 
-        | FSharpFuncType (a, r) -> FSharpFuncType (a.MapTypeDefinitions mapping, r.MapTypeDefinitions mapping)
-        | ByRefType t -> ByRefType (t.MapTypeDefinitions mapping)
-        | VoidType -> this
-        | LocalTypeParameter -> ConcreteType { Entity = Definitions.Object; Generics = [] }
+        | Any
+        | Named _
+        | Imported _
+        | Importing _
+            -> this
+        | Param i -> gs.[i]
+        | Generic (e, g) -> Generic (tr e, List.map tr g)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
+        | New (a, r) -> New (List.map tr a, tr r)
+        | Tuple ts -> Tuple (List.map tr ts)
+        | Union ts -> Union (List.map tr ts)
+        | Intersection ts -> Intersection (List.map tr ts)
+        | Constraint (t, c) -> Constraint (tr t, List.map tr c)
+        | TypeGuard (a, t) -> TypeGuard(a, tr t)
+        | ObjectOf a -> ObjectOf(tr a)
 
-    static member IsGenericCompatible(targetSig, usageSig) =
-        let d = System.Collections.Generic.Dictionary() 
-        let rec isCompat t1 t2 =
-            match t1, t2 with
-            | (StaticTypeParameter i | TypeParameter i), t ->
-                match d.TryGetValue(i) with
-                | true, ts -> ts = t
-                | _ ->
-                    d.Add(i, t)
-                    true
-            | ConcreteType t1, ConcreteType t2 -> t1.Entity = t2.Entity && t1.Generics.Length = t2.Generics.Length && List.forall2 isCompat t1.Generics t2.Generics
-            | ArrayType (t1, r1), ArrayType (t2, r2) -> r1 = r2 && isCompat t1 t2
-            | TupleType (t1, s1), TupleType (t2, s2) -> s1 = s2 && t1.Length = t2.Length && List.forall2 isCompat t1 t2 
-            | FSharpFuncType (a1, r1), FSharpFuncType (a2, r2) -> isCompat a1 a2 && isCompat r1 r2
-            | ByRefType t1, ByRefType t2 -> isCompat t1 t2
-            | VoidType, VoidType -> true
-            | _ -> false
-        isCompat targetSig usageSig
-
-    member this.IsOptional =
-        match this with
-        | ConcreteType t ->
-            t.Entity = Definitions.FSharpOption 
-            || t.Entity = Definitions.FSharpValueOption 
-        | _ -> false
+    member this.ResolveModule (getModule: string -> Id option) =
+        let inline tr (p:TSType) = p.ResolveModule getModule
+        match this with 
+        | Any
+        | Named _
+        | Imported _
+        | Param _
+            -> this
+        | Importing (m, a) ->
+            match getModule m with
+            | Some v -> Imported(v, a)
+            | _ -> Named a
+        | Generic (e, g) -> Generic (tr e, List.map tr g)
+        | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
+        | New (a, r) -> New (List.map tr a, tr r)
+        | Tuple ts -> Tuple (List.map tr ts)
+        | Union ts -> Union (List.map tr ts)
+        | Intersection ts -> Intersection (List.map tr ts)
+        | Constraint (t, c) -> Constraint (tr t, List.map tr c)
+        | TypeGuard (a, t) -> TypeGuard(a, tr t)
+        | ObjectOf a -> ObjectOf(tr a)
 
 type MethodInfo =
     {
@@ -688,12 +729,6 @@ type MethodInfo =
             else
                 "unit") 
             m.ReturnType
-
-    member this.SubstituteResolvedGenerics (gs : Type[]) =
-        { this with
-            Parameters = this.Parameters |> List.map (fun t -> t.SubstituteGenerics(gs))
-            ReturnType = this.ReturnType.SubstituteGenerics(gs)
-        }
 
 type Method = Hashed<MethodInfo>
 
@@ -718,185 +753,68 @@ type Member =
     | Constructor of Constructor
     | StaticConstructor
 
-type Address = Hashed<list<string>>
+type Module =
+    | StandardLibrary
+    | JavaScriptFile of string
+    | WebSharperModule of string
+    | CurrentModule
+    | ImportedModule of Id
+
+type PlainAddress = Hashed<list<string>>
+
+type Address =
+    {
+        Module : Module
+        Address : PlainAddress
+    }
+
+    member this.JSAddress =
+        match this.Module with
+        | StandardLibrary
+        | JavaScriptFile _ ->
+            Some this.Address
+        | _ -> None
+
+    member this.MapName f =
+        match this.Address.Value with
+        | n :: r ->
+            { this with Address = Hashed (f n :: r) }
+        | _ ->
+            failwith "MapName on empty address"
+
+    member this.Sub n =
+        { this with Address = Hashed (n :: this.Address.Value) }
 
 module private Instances =
-    let GlobalId =
+    let uniqueId name i = 
         {
-            IdName = Some "self"
-            Id = -1L
+            IdName = Some name
+            Id = i
             Mutable = false
-            Tuple = false
+            StrongName = true
+            Optional = false
+            Type = None
         }
 
-    let ImportId =
-        {
-            IdName = Some "import"
-            Id = -2L
-            Mutable = false
-            Tuple = false
-        }
+    let GlobalId = uniqueId "window" -1L
 
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
+    let RuntimeModule = JavaScriptFile "Runtime"
+
+    let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
+    let EmptyAddress = { Module = CurrentModule; Address = Hashed [] }
+
 type Id with
     static member Global() = Instances.GlobalId
-    static member Import() = Instances.ImportId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 
-module Reflection = 
-    type private FST = Microsoft.FSharp.Reflection.FSharpType
-
-    let private getTypeDefinitionUnchecked fullAsmName (t: System.Type) =
-        let rec getName (t: System.Type) =
-            if t.IsNested then
-                getName t.DeclaringType + "+" + t.Name 
-            elif System.String.IsNullOrEmpty t.Namespace then
-                t.Name
-            else t.Namespace + "." + t.Name
-        let name = getName t
-        let asmName =
-            if fullAsmName then
-                match AssemblyConventions.StandardAssemblyFullNameForTypeNamed name with
-                | Some n -> n
-                | None -> t.Assembly.FullName
-            else
-                match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
-                | Some n -> n
-                | None -> t.Assembly.FullName.Split(',').[0]
-        Hashed {
-            Assembly = asmName
-            FullName = name
-        } 
-
-    let ReadTypeDefinition (t: System.Type) =
-        if t.IsArray then
-            if t.GetArrayRank() = 1 then
-                Definitions.Array
-            else 
-                Definitions.Array2
-        elif FST.IsFunction t then 
-            Definitions.FSharpFunc
-        elif FST.IsTuple t then 
-            Definitions.Tuple t.IsValueType (t.GetGenericArguments().Length)
-        else
-            getTypeDefinitionUnchecked false t
-
-    let private unitTy = typeof<unit>
-    let private voidTy = typeof<System.Void>
-
-    let rec ReadType (t: System.Type) =        
-        let gen () =
-            ConcreteType {
-                Generics = 
-                    if t.IsGenericType then 
-                        t.GetGenericArguments() |> Seq.map ReadType |> List.ofSeq 
-                    else [] 
-                Entity = getTypeDefinitionUnchecked false t
-            }
-        if t.IsArray then
-            ArrayType (ReadType(t.GetElementType()), t.GetArrayRank())
-        elif t.IsByRef then
-            ByRefType (ReadType(t.GetElementType()))
-        elif FST.IsFunction t then
-            let a, r = FST.GetFunctionElements t
-            FSharpFuncType(ReadType a, ReadType r)        
-        elif FST.IsTuple t then
-            // if a tuple type is generic on the rest parameter, we don't have a definite length tuple and GetTupleElements fails
-            try TupleType(FST.GetTupleElements t |> Seq.map ReadType |> List.ofSeq, t.IsValueType) 
-            with _ -> gen()
-        elif t.IsGenericParameter then  
-            match t.DeclaringMethod with
-            | null ->
-                TypeParameter t.GenericParameterPosition
-            | _ ->
-                let dT = t.DeclaringType
-                let k =
-                    if not dT.IsGenericType then 0 else
-                        dT.GetGenericArguments().Length
-                TypeParameter (k + t.GenericParameterPosition)
-        elif t = voidTy || t = unitTy then
-            VoidType
-        else
-            gen()
-
-    let private readMethodInfo (m : System.Reflection.MethodInfo) =
-        let i = m.Module.ResolveMethod m.MetadataToken :?> System.Reflection.MethodInfo
-        {
-            MethodName = i.Name
-            Parameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
-            ReturnType = ReadType i.ReturnType 
-            Generics   = if i.IsGenericMethod then i.GetGenericArguments().Length else 0
-        }
-
-    let ReadMethod m =
-        Method (readMethodInfo m)
-
-    let private readConstructorInfo (i : System.Reflection.ConstructorInfo) =
-        {
-            CtorParameters = i.GetParameters() |> Seq.map (fun p -> ReadType p.ParameterType) |> List.ofSeq
-        }
-
-    let ReadConstructor c =
-        Constructor (readConstructorInfo c)    
-
-    let ReadMember (m: System.Reflection.MemberInfo) =
-        match m with
-        | :? System.Reflection.ConstructorInfo as c ->
-            if c.IsStatic then Member.StaticConstructor
-            else Member.Constructor (ReadConstructor c)    
-            |> Some
-        | :? System.Reflection.MethodInfo as m ->
-            if m.IsVirtual then
-                let b = m.GetBaseDefinition()
-                let typ = b.DeclaringType 
-                let info = ReadTypeDefinition typ, ReadMethod b 
-                if typ.IsInterface then Member.Implementation info
-                else Member.Override info
-            else Member.Method (not m.IsStatic, ReadMethod m)    
-            |> Some
-        | _ -> None
-
-    let LoadType (t: Type) =
-        try System.Type.GetType(t.AssemblyQualifiedName, true)  
-        with e -> failwithf "Failed to load type %s: %O" t.AssemblyQualifiedName e
-
-    let LoadTypeDefinition (td: TypeDefinition) =
-        try System.Type.GetType(td.Value.AssemblyQualifiedName, true)   
-        with e -> failwithf "Failed to load type %s from assembly %s: %O" td.Value.FullName td.Value.Assembly e
-
-    let [<Literal>] AllMethodsFlags = 
-        System.Reflection.BindingFlags.Instance
-        ||| System.Reflection.BindingFlags.Static
-        ||| System.Reflection.BindingFlags.Public
-        ||| System.Reflection.BindingFlags.NonPublic
-
-    let [<Literal>] AllPublicMethodsFlags = 
-        System.Reflection.BindingFlags.Instance
-        ||| System.Reflection.BindingFlags.Static
-        ||| System.Reflection.BindingFlags.Public
-
-    let LoadMethod td (m: Method) =
-        let m = m.Value
-        let methodInfos = (LoadTypeDefinition td).GetMethods(AllMethodsFlags)
-        try
-            methodInfos
-            |> Seq.find (fun i -> i.Name = m.MethodName && readMethodInfo i = m)
-        with _ ->
-            failwithf "Could not load method %O candidates: %A" m (methodInfos |> Seq.choose (fun c -> 
-                let mc = readMethodInfo c
-                if mc.MethodName = m.MethodName then Some (string mc) else None
-            ) |> Array.ofSeq)
-
-    let LoadConstructor td (c: Constructor) =
-        let c = c.Value
-        let ctorInfos = (LoadTypeDefinition td).GetConstructors(AllMethodsFlags)
-        try
-            ctorInfos
-            |> Seq.find (fun i -> readConstructorInfo i = c)
-        with _ ->
-            failwithf "Could not load constructor for type %s" td.Value.AssemblyQualifiedName
-
+type Address with
+    static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
+    static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f; "WSRuntime"] }
+    static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
+    static member Global() = Instances.GlobalAddress
+    static member Empty() = Instances.EmptyAddress
