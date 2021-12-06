@@ -421,8 +421,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     if Option.isSome comp.ProxyTargetName && kind = A.MemberKind.JavaScript then
                         match meth.InlineAnnotation with
                         | FSharpInlineAnnotation.AggressiveInline
-                        | FSharpInlineAnnotation.AlwaysInline
-                        | FSharpInlineAnnotation.PseudoValue ->
+                        | FSharpInlineAnnotation.AlwaysInline ->
                             A.MemberKind.InlineJavaScript
                         | _ -> kind
                     else kind

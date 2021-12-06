@@ -259,10 +259,19 @@
   </Target>
   -->
   <Choose>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v5.0') Or ($(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0')">
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETStandard' And $(TargetFrameworkVersion) == 'v2.0'">
       <ItemGroup>
         <Reference Include="FSharp.Core">
-          <HintPath>C:\Users\runneradmin\.nuget\packages\fsharp.core\5.0.0\lib\netstandard2.0\FSharp.Core.dll</HintPath>
+          <HintPath>C:\Users\andra\.nuget\packages\fsharp.core\6.0.1\lib\netstandard2.0\FSharp.Core.dll</HintPath>
+          <Private>True</Private>
+          <Paket>True</Paket>
+        </Reference>
+      </ItemGroup>
+    </When>
+    <When Condition="$(TargetFrameworkIdentifier) == '.NETCoreApp' And $(TargetFrameworkVersion) == 'v6.0'">
+      <ItemGroup>
+        <Reference Include="FSharp.Core">
+          <HintPath>C:\Users\andra\.nuget\packages\fsharp.core\6.0.1\lib\netstandard2.1\FSharp.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
