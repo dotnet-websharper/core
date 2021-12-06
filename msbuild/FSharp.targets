@@ -33,6 +33,7 @@
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
     <OtherFlags>$(OtherFlags) --nowarn:3186</OtherFlags>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <ErrorOnDuplicatePublishOutputFiles>False</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
     <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>

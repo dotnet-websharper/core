@@ -22,7 +22,7 @@ type TargetFramework =
         | Net461 -> "net472"
         | Net46 -> "net472"
         | NetStandard20 -> "netstandard2.0"
-        | NetCoreApp31 -> "net5.0"
+        | NetCoreApp31 -> "net6.0"
 
     member this.IsNetFx =
         match this with
@@ -35,7 +35,7 @@ let parseTargetFrameworks (attrValue: string) : TargetFramework[] =
         | "net472" -> Net461
         | "net472" -> Net46
         | "netstandard2.0" -> NetStandard20
-        | "net5.0" -> NetCoreApp31
+        | "net6.0" -> NetCoreApp31
         | s -> failwithf "Unknown target framework: %s" s
     )
 

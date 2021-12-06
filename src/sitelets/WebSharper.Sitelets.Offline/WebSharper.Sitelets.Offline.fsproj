@@ -22,12 +22,12 @@
     <ProjectReference Include="..\WebSharper.Web\WebSharper.Web.fsproj" />
   </ItemGroup>
   <Target Name="_CopyToDeploy" AfterTargets="Build">
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\win-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\linux-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net5.0\linux-musl-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net5.0\win-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net5.0\linux-x64\deploy" />
-    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net5.0\linux-musl-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\win-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\linux-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\linux-musl-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\win-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\linux-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\linux-musl-x64\deploy" />
   </Target>
   <Import Project="..\..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\..\.paket\Paket.Restore.targets" />
