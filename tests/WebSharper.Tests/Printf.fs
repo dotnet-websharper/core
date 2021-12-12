@@ -97,6 +97,13 @@ let Tests =
             equal (sprintf "%10.5f" 9.) "   9.00000"
         }
 
+        Test "Binary" {
+            equal (sprintf "%B" 69) "1000101"
+            equal (sprintf "%4B" 1) "   1"
+            equal (sprintf "%4B" 16) "10000"
+            equal (sprintf "%08B" 89) "01011001"
+        }
+
         Test "Generic" {
             equal (sprintf "%O World" (Hi())) "Hello World"            
         }

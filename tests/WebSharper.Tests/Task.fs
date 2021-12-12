@@ -87,4 +87,64 @@ let Tests =
             isTrue task2.IsCompleted
             equal !state "AB"
         }
+
+        Test "Task computation expression" {
+            let task1 = task { return 1 }
+            let! task1Res = Async.AwaitTask task1
+            equal task1Res 1
+            let task2 = task { return! task1 }
+            let! task2Res = Async.AwaitTask task2
+            equal task2Res 1
+            let task3 = task { return 2 }
+            let task4 =
+                task {
+                    let! r1 = task1
+                    let! r3 = task3
+                    return r1 + r3
+                }
+            let! task4Res = Async.AwaitTask task4
+            equal task4Res 3
+        }
+
+        Test "For" {
+            let x = task {
+                let l = ref []
+                for i in 1 .. 3 do 
+                    l := i :: !l
+                return  !l
+            }
+            let! xRes = Async.AwaitTask x
+            equal xRes [ 3; 2; 1 ]
+        }
+
+        Test "TryWith" {
+            let ops = ref ""
+            let x = task {
+                try
+                    ops := !ops + "A"
+                    failwith "error"
+                    ops := !ops + "A"
+                with _ ->
+                    ops := !ops + "B"
+                return !ops
+            }
+            let! xRes = Async.AwaitTask x
+            equal xRes "AB"
+        }
+
+        Test "TryFinally" {
+            let ops = ref ""
+            let x = task {
+                try
+                    try
+                        ops := !ops + "A"
+                        failwith "error"
+                        ops := !ops + "A"
+                    finally ops := !ops + "F"
+                with _ -> ()
+                return !ops
+            }
+            let! xRes = Async.AwaitTask x
+            equal xRes "AF"
+        }
     }
