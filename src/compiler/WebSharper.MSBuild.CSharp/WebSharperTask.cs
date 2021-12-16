@@ -52,7 +52,7 @@ namespace WebSharper.MSBuild.CSharp
         public string WebSharperJsOutput { get; set; }
         public string WebSharperMinJsOutput { get; set; }
         public string DocumentationFile { get; set; } = "";
-        public string ZafirToolPath { get; set; } = "ZafirCs.exe";
+        public string WebSharperToolPath { get; set; } = "wscsc.exe";
         public string DefineConstants { get; set; } = "";
         public string NoStandardLib { get; set; } = "";
         public ITaskItem[] Sources { get; set; } = new ITaskItem[] { };
@@ -62,11 +62,11 @@ namespace WebSharper.MSBuild.CSharp
         public string SubsystemVersion { get; set; } = "";
         public string LangVersion { get; set; } = "";
 
-        protected override string ToolName => Path.GetFileName(ZafirToolPath);
+        protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
         protected override string GenerateFullPathToTool()
         {
-            return ZafirToolPath;
+            return WebSharperToolPath;
         }
 
         private void WriteAtFileName(string filename)

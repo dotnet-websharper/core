@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <CSharpTool>True</CSharpTool>
+  </PropertyGroup>
+  <Import Project="..\..\..\msbuild\CSharp.targets" />
+  <Import Project="..\..\..\.paket\Paket.Restore.targets" />
+</Project>

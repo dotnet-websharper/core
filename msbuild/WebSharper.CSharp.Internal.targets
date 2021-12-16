@@ -28,7 +28,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)build/$(Configuration)/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll</WebSharperTaskAssembly>
-    <ZafirCsFullPath Condition=" '$(ZafirToolPath)' == ''">$(Root)build\$(Configuration)\CSharp\net6.0\$(NETCoreSdkRuntimeIdentifier)\deploy\zafircs.exe</ZafirCsFullPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == ''">$(Root)build\$(Configuration)\CSharp\net6.0\$(NETCoreSdkRuntimeIdentifier)\deploy\wscsc.exe</WebSharperToolPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
@@ -53,7 +53,7 @@
   </ItemGroup>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.CSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
   <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <Exec Command="chmod u+x '$(ZafirCsFullPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask 
       DefineConstants="$(DefineConstants)"
       NoStandardLib="$(NoCompilerStandardLib)"
@@ -81,7 +81,7 @@
       WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
-      ZafirToolPath="$(ZafirCsFullPath)"
+      WebSharperToolPath="$(WebSharperToolPath)"
       TargetType="$(OutputType)"
       NoConfig="true"
       DebugType="$(DebugType)"

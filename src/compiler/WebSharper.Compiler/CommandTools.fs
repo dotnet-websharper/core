@@ -429,7 +429,7 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 
     let printInfo (logger: LoggerBase) helpKind = 
         let lang = if isFSharp then "F#" else "C#"
-        let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
+        let exe = if isFSharp then "wsfsc.exe" else "wscsc.exe"
         let compiler = if isFSharp then "fsc.exe" else "csc.exe"
         sprintf "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
         |> logger.Out
