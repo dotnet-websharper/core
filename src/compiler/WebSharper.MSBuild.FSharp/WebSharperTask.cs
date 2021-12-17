@@ -29,38 +29,21 @@ namespace WebSharper.MSBuild.FSharp
 {
     public sealed class WebSharperTask : ToolTask
     {
-        public ITaskItem[] EmbeddedResources { get; set; } = new ITaskItem[] { };
-        public string Configuration { get; set; } = "";
-        public ITaskItem OutputAssembly { get; set; }
-        public ITaskItem[] References { get; set; } = new ITaskItem[] { };
-        public string KeyOriginatorFile { get; set; }
+        public ITaskItem[] FscCommandLineArgs { get; set; } = new ITaskItem[] { };
         public string MSBuildProjectFullPath { get; set; }
-        public string MSBuildProjectDirectory { get; set; }
-        public string Name { get; set; } = "";
-        public string OutputPath { get; set; }
         public string WebProjectOutputDir { get; set; }
         public string WebSharperConfigFile { get; set; }
         public string WebSharperBundleOutputDir { get; set; }
         public string WebSharperHtmlDirectory { get; set; }
         public string WebSharperProject { get; set; }
         public string WebSharperSourceMap { get; set; } = "";
-        public string WebSharperTypeScriptDeclaration { get; set; } = "";
         public string WebSharperErrorsAsWarnings { get; set; } = "";
         public string WebSharperDeadCodeElimination { get; set; } = "";
         public string WebSharperDownloadResources { get; set; } = "";
         public string WebSharperAnalyzeClosures { get; set; }
         public string WebSharperJsOutput { get; set; }
         public string WebSharperMinJsOutput { get; set; }
-        public string DocumentationFile { get; set; } = "";
         public string WebSharperToolPath { get; set; } = "wsfsc.exe";
-        public string DefineConstants { get; set; } = "";
-        public string NoStandardLib { get; set; } = "";
-        public ITaskItem[] Sources { get; set; } = new ITaskItem[] { };
-        public string TargetType { get; set; } = "";
-        public string NoConfig { get; set; } = "";
-        public string DebugType { get; set; } = "";
-        public string SubsystemVersion { get; set; } = "";
-        public string LangVersion { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -74,29 +57,17 @@ namespace WebSharper.MSBuild.FSharp
             using (FileStream f = File.OpenWrite(filename))
             using (StreamWriter w = new StreamWriter(f))
             {
-                if (TryParseBool(NoConfig))
-                    w.WriteLine("/noconfig");
+                if (FscCommandLineArgs.Length == 0)
+                {
+                    throw new Exception("Expecting FscCommandLineArgs set, needs ProvideCommandLineArgs=True");
+                }
 
-                if (TryParseBool(NoStandardLib))
-                    w.WriteLine("/nostdlib+");
-
-                WriteIfSet(w, "/target:", TargetType);
-
-                WriteIfSet(w, "/debug:", DebugType);
-
-                WriteIfSet(w, "/subsystemversion:", SubsystemVersion);
-
-                WriteIfSet(w, "/langVersion:", LangVersion);
-
-                WriteIfSet(w, "/doc:", DocumentationFile);
-
-                WriteIfSet(w, "/out:", OutputAssembly);
+                foreach (var a in FscCommandLineArgs)
+                    WriteIfSet(w, "", a);
 
                 WriteIfSet(w, "--ws:", WebSharperProject);
 
                 WriteIfSet(w, "--project:", MSBuildProjectFullPath);
-
-                WriteIfSet(w, "/keyfile:", KeyOriginatorFile);
 
                 WriteIfSet(w, "--wsoutput:", WebProjectOutputDir);
                 WriteIfSet(w, "--wsoutput:", WebSharperBundleOutputDir);
@@ -116,18 +87,13 @@ namespace WebSharper.MSBuild.FSharp
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");
 
+                if (TryParseBool(WebSharperErrorsAsWarnings))
+                    w.WriteLine("--wswarnonly");
+
                 if (WebProjectOutputDir != null && WebSharperProject == null)
                     w.WriteLine("--site");
 
                 WriteIfSet(w, "--wsconfig:", WebSharperConfigFile);
-
-                WriteIfSet(w, "/define:", DefineConstants);
-
-                foreach (var r in References)
-                    WriteIfSet(w, "/reference:", r);
-
-                foreach (var s in Sources)
-                    WriteIfSet(w, "", s);
             }
         }
 

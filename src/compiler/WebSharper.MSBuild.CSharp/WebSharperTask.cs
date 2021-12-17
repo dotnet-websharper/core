@@ -116,6 +116,9 @@ namespace WebSharper.MSBuild.CSharp
                 if (TryParseBool(WebSharperSourceMap))
                     w.WriteLine("--jsmap");
 
+                if (TryParseBool(WebSharperErrorsAsWarnings))
+                    w.WriteLine("--wswarnonly");
+
                 if (WebProjectOutputDir != null && WebSharperProject == null)
                     w.WriteLine("--site");
 

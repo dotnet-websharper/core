@@ -27,12 +27,13 @@
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == ''">$(Root)build\$(Configuration)\FSharp\net6.0\$(NETCoreSdkRuntimeIdentifier)\deploy\wsfsc.exe</WebSharperToolPath>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == ''">$(Root)\build\$(Configuration)\FSharp\net6.0\$(NETCoreSdkRuntimeIdentifier)\deploy\wsfsc.exe</WebSharperToolPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
-    <TargetsTriggeredByCompilation>$(TargetsTriggeredByCompilation);WebSharperCompile</TargetsTriggeredByCompilation>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
+    <SkipCompilerExecution>True</SkipCompilerExecution>
+    <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
   </PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
@@ -40,29 +41,17 @@
     </ItemGroup>
   </Target>
   <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
-  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' ">
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' " AfterTargets="CoreCompile">
     <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
     <WebSharperTask
-      DefineConstants="$(DefineConstants)"
-      NoStandardLib="$(NoCompilerStandardLib)"
-      Sources="@(Compile)"
-      OutputAssembly="@(IntermediateAssembly)"
-      References="@(ReferencePath)"
-      Configuration="$(Configuration)"
-      DocumentationFile="$(DocumentationFile)"
-      EmbeddedResources="@(EmbeddedResource)"
-      KeyOriginatorFile="$(KeyOriginatorFile)"
+      FscCommandLineArgs="@(FscCommandLineArgs)"
       MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
-      MSBuildProjectDirectory="$(MSBuildProjectDirectory)"
-      Name="$(AssemblyName)"
-      OutputPath="$(OutputPath)"
-      WebSharperConfigFile="$(WebSharperConfigFile)"
       WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
-      WebSharperSourceMap="$(WebSharperSourceMap)"
-      WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
       WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
       WebSharperDownloadResources="$(WebSharperDownloadResources)"
@@ -70,11 +59,6 @@
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperToolPath="$(WebSharperToolPath)"
-      TargetType="$(OutputType)"
-      NoConfig="true"
-      DebugType="$(DebugType)"
-      SubsystemVersion="$(SubsystemVersion)"
-      LangVersion="$(LangVersion)"
     />
   </Target>
 </Project>
