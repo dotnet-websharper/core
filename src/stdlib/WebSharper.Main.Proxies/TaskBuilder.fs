@@ -84,6 +84,7 @@ type internal TaskBuilderBaseProxy() =
 type private TaskBuilderProxy() =
     inherit TaskBuilderBaseProxy()
 
+    [<Inline>]
     member x.Run<'T> (code: ResumableCode<TaskStateMachineData<'T>, 'T>) =
         code
         |> As<Async<'T>>
@@ -96,7 +97,8 @@ type private TaskBuilderProxy() =
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module internal TaskBuilderModuleProxy =
-    let task = TaskBuilderProxy() |> As<TaskBuilder>
+    [<Inline>]
+    let task = () |> As<TaskBuilder>
 
 [<Name "TaskBuilderExtensions">]
 [<Proxy
