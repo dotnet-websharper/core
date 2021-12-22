@@ -106,6 +106,19 @@ let Tests =
             equal task4Res 3
         }
 
+        Test "Async interop" {
+            let async1 = async { return 1 }
+            let task1 = task { return! async1 }
+            let task2 =
+                task {
+                    let! r1 = async1
+                    let! r2 = task1
+                    return r1 + r2
+                }
+            let! task2Res = Async.AwaitTask task2
+            equal task2Res 2
+        }
+
         Test "For" {
             let x = task {
                 let l = ref []
@@ -146,5 +159,40 @@ let Tests =
             }
             let! xRes = Async.AwaitTask x
             equal xRes "AF"
+        }
+
+        Test "Using" {
+            let res = ref 0
+            let d =
+                { new System.IDisposable with
+                    member x.Dispose() =
+                        incr res
+                }
+            let x = 
+                task {
+                    use dd = d
+                    return !res
+                }
+            let! xRes = Async.AwaitTask x
+            equal xRes 0
+            equal !res 1
+        }
+
+        Skip "UsingAsync" {
+            let res = ref 0
+            let d =
+                { new System.IAsyncDisposable with
+                    member x.DisposeAsync() =
+                        incr res
+                        ValueTask.CompletedTask
+                }
+            let x = 
+                task {
+                    use dd = d
+                    return !res
+                }
+            let! xRes = Async.AwaitTask x
+            equal xRes 0
+            equal !res 1
         }
     }

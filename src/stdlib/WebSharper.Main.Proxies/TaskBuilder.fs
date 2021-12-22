@@ -105,7 +105,7 @@ module internal TaskBuilderModuleProxy =
     "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
-module internal TaskBuilderExtensionsProxy =
+module internal TaskBuilderExtensionsHighPriorityProxy =
     [<Inline>]
     let ``TaskBuilderBase.Bind``<'TResult1, 'TOverall, 'TResult2> 
         (_: TaskBuilderBase, task: Task<'TResult1>, continuation: 'TResult1 -> ResumableCode<TaskStateMachineData<'TOverall>, 'TResult2>) =
@@ -116,3 +116,32 @@ module internal TaskBuilderExtensionsProxy =
     let ``TaskBuilderBase.ReturnFrom``<'T>(this: TaskBuilderBase, task: Task<'T>) =
         Async.AwaitTask task
         |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
+
+[<Name "TaskBuilderExtensions">]
+[<Proxy
+    "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority, \
+     FSharp.Core, Culture=neutral, \
+     PublicKeyToken=b03f5f7f11d50a3a">]
+module internal TaskBuilderExtensionsMediumPriorityProxy =
+    [<Inline>]
+    let ``TaskBuilderBase.Bind``<'TResult1, 'TOverall, 'TResult2> 
+        (_: TaskBuilderBase, computation: Async<'TResult1>, continuation: 'TResult1 -> ResumableCode<TaskStateMachineData<'TOverall>, 'TResult2>) =
+            async.Bind(computation, As<'TResult1 -> Async<'TResult2>> continuation)
+            |> As<ResumableCode<TaskStateMachineData<'TOverall>, 'TResult2>> 
+
+    [<Inline>]
+    let ``TaskBuilderBase.ReturnFrom``<'T>(this: TaskBuilderBase, computation: Async<'T>) =
+        computation
+        |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
+
+[<Name "TaskBuilderExtensions">]
+[<Proxy
+    "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority, \
+     FSharp.Core, Culture=neutral, \
+     PublicKeyToken=b03f5f7f11d50a3a">]
+module internal TaskBuilderExtensionsLowPriorityProxy =
+    [<Inline>]
+    let ``TaskBuilderBase.Using``<'TResource, 'TOverall, 'T when 'TResource :> IDisposable> 
+        (_: TaskBuilderBase, resource: 'TResource, body: 'TResource -> ResumableCode<TaskStateMachineData<'TOverall>, 'T>) =
+            async.Using(resource, As<'TResource -> Async<'T>> body)
+            |> As<ResumableCode<TaskStateMachineData<'TOverall>, 'T>> 
