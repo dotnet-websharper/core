@@ -11,16 +11,6 @@ let optionalToken (t: SyntaxToken) =
     | SyntaxKind.None -> None
     | _ -> Some t
 
-type [<RequireQualifiedAccess>] TypeParameterVarianceKeyword =
-    | InKeyword 
-    | OutKeyword
-with
-    static member FromToken(t: SyntaxToken) =
-        match t.Kind() with
-        | SyntaxKind.InKeyword -> InKeyword
-        | SyntaxKind.OutKeyword -> OutKeyword
-        | k -> failwithf "Unexpected TypeParameterVarianceKeyword kind: %O" k
-
 type [<RequireQualifiedAccess>] IdentifierNameIdentifier =
     | IdentifierToken of string
     | GlobalKeyword  
@@ -68,6 +58,16 @@ with
         | SyntaxKind.ObjectKeyword -> ObjectKeyword
         | SyntaxKind.VoidKeyword -> VoidKeyword
         | k -> failwithf "Unexpected PredefinedTypeKeyword kind: %O" k
+
+type [<RequireQualifiedAccess>] TypeParameterVarianceKeyword =
+    | InKeyword 
+    | OutKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.InKeyword -> InKeyword
+        | SyntaxKind.OutKeyword -> OutKeyword
+        | k -> failwithf "Unexpected TypeParameterVarianceKeyword kind: %O" k
 
 type [<RequireQualifiedAccess>] ParameterIdentifier =
     | IdentifierToken of string
@@ -559,6 +559,26 @@ with
         | SyntaxKind.UnmanagedKeyword -> UnmanagedKeyword
         | k -> failwithf "Unexpected FunctionPointerCallingConventionManagedOrUnmanagedKeyword kind: %O" k
 
+type [<RequireQualifiedAccess>] RecordDeclarationKind =
+    | RecordDeclaration      
+    | RecordStructDeclaration
+with
+    static member FromKind(k: SyntaxKind) =
+        match k with
+        | SyntaxKind.RecordDeclaration -> RecordDeclaration
+        | SyntaxKind.RecordStructDeclaration -> RecordStructDeclaration
+        | _ -> failwithf "Unexpected RecordDeclarationKind kind: %O" k
+
+type [<RequireQualifiedAccess>] RecordDeclarationClassOrStructKeyword =
+    | ClassKeyword 
+    | StructKeyword
+with
+    static member FromToken(t: SyntaxToken) =
+        match t.Kind() with
+        | SyntaxKind.ClassKeyword -> ClassKeyword
+        | SyntaxKind.StructKeyword -> StructKeyword
+        | k -> failwithf "Unexpected RecordDeclarationClassOrStructKeyword kind: %O" k
+
 type [<RequireQualifiedAccess>] OperatorDeclarationOperatorToken =
     | PlusToken                  
     | MinusToken                 
@@ -677,75 +697,10 @@ with
         | SyntaxKind.IdentifierToken -> IdentifierToken t.Text
         | k -> failwithf "Unexpected AccessorDeclarationKeyword kind: %O" k
 
-type TypeParameterData(node: TypeParameterSyntax) =
-    member this.Node = node
-    member this.VarianceKeyword = node.VarianceKeyword |> optionalToken |> Option.map TypeParameterVarianceKeyword.FromToken
-    member this.Identifier = node.Identifier
-    static member FromNode(n: TypeParameterSyntax) = TypeParameterData(n)
-
-and TypeParameterListData(node: TypeParameterListSyntax) =
-    member this.Node = node
-    member this.Parameters = node.Parameters |> Seq.map TypeParameterData.FromNode
-    static member FromNode(n: TypeParameterListSyntax) = TypeParameterListData(n)
-
-and IdentifierNameData(node: IdentifierNameSyntax) =
+type IdentifierNameData(node: IdentifierNameSyntax) =
     member this.Node = node
     member this.Identifier = node.Identifier |> IdentifierNameIdentifier.FromToken
     static member FromNode(n: IdentifierNameSyntax) = IdentifierNameData(n)
-
-and TypeArgumentListData(node: TypeArgumentListSyntax) =
-    member this.Node = node
-    member this.Arguments = node.Arguments |> Seq.map TypeData.FromNode
-    static member FromNode(n: TypeArgumentListSyntax) = TypeArgumentListData(n)
-
-and GenericNameData(node: GenericNameSyntax) =
-    member this.Node = node
-    member this.Identifier = node.Identifier
-    member this.TypeArgumentList = node.TypeArgumentList |> TypeArgumentListData.FromNode
-    static member FromNode(n: GenericNameSyntax) = GenericNameData(n)
-
-and [<RequireQualifiedAccess>] SimpleNameData =
-    | IdentifierName of IdentifierNameData
-    | GenericName    of GenericNameData
-with
-    static member FromNode(n: SimpleNameSyntax) =
-        match n with
-        | :? IdentifierNameSyntax as d -> IdentifierName (IdentifierNameData.FromNode(d))
-        | :? GenericNameSyntax as d -> GenericName (GenericNameData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of SimpleNameSyntax"
-    member this.Node =
-        match this with
-        | IdentifierName d -> d.Node :> SimpleNameSyntax
-        | GenericName d -> d.Node :> SimpleNameSyntax
-
-and QualifiedNameData(node: QualifiedNameSyntax) =
-    member this.Node = node
-    member this.Left = node.Left |> NameData.FromNode
-    member this.Right = node.Right |> SimpleNameData.FromNode
-    static member FromNode(n: QualifiedNameSyntax) = QualifiedNameData(n)
-
-and AliasQualifiedNameData(node: AliasQualifiedNameSyntax) =
-    member this.Node = node
-    member this.Alias = node.Alias |> IdentifierNameData.FromNode
-    member this.Name = node.Name |> SimpleNameData.FromNode
-    static member FromNode(n: AliasQualifiedNameSyntax) = AliasQualifiedNameData(n)
-
-and [<RequireQualifiedAccess>] NameData =
-    | SimpleName         of SimpleNameData
-    | QualifiedName      of QualifiedNameData
-    | AliasQualifiedName of AliasQualifiedNameData
-with
-    static member FromNode(n: NameSyntax) =
-        match n with
-        | :? SimpleNameSyntax as d -> SimpleName (SimpleNameData.FromNode(d))
-        | :? QualifiedNameSyntax as d -> QualifiedName (QualifiedNameData.FromNode(d))
-        | :? AliasQualifiedNameSyntax as d -> AliasQualifiedName (AliasQualifiedNameData.FromNode(d))
-        | _ -> failwithf "Unexpected descendant class of NameSyntax"
-    member this.Node =
-        match this with
-        | SimpleName d -> d.Node :> NameSyntax
-        | QualifiedName d -> d.Node :> NameSyntax
-        | AliasQualifiedName d -> d.Node :> NameSyntax
 
 and PredefinedTypeData(node: PredefinedTypeSyntax) =
     member this.Node = node
@@ -807,6 +762,17 @@ and ArrowExpressionClauseData(node: ArrowExpressionClauseSyntax) =
     member this.Node = node
     member this.Expression = node.Expression |> ExpressionData.FromNode
     static member FromNode(n: ArrowExpressionClauseSyntax) = ArrowExpressionClauseData(n)
+
+and TypeParameterData(node: TypeParameterSyntax) =
+    member this.Node = node
+    member this.VarianceKeyword = node.VarianceKeyword |> optionalToken |> Option.map TypeParameterVarianceKeyword.FromToken
+    member this.Identifier = node.Identifier
+    static member FromNode(n: TypeParameterSyntax) = TypeParameterData(n)
+
+and TypeParameterListData(node: TypeParameterListSyntax) =
+    member this.Node = node
+    member this.Parameters = node.Parameters |> Seq.map TypeParameterData.FromNode
+    static member FromNode(n: TypeParameterListSyntax) = TypeParameterListData(n)
 
 and EqualsValueClauseData(node: EqualsValueClauseSyntax) =
     member this.Node = node
@@ -1027,9 +993,28 @@ and VarPatternData(node: VarPatternSyntax) =
     member this.Designation = node.Designation |> VariableDesignationData.FromNode
     static member FromNode(n: VarPatternSyntax) = VarPatternData(n)
 
+and ExpressionColonData(node: ExpressionColonSyntax) =
+    member this.Node = node
+    member this.Expression = node.Expression |> ExpressionData.FromNode
+    static member FromNode(n: ExpressionColonSyntax) = ExpressionColonData(n)
+
+and [<RequireQualifiedAccess>] BaseExpressionColonData =
+    | ExpressionColon of ExpressionColonData
+    | NameColon       of NameColonData
+with
+    static member FromNode(n: BaseExpressionColonSyntax) =
+        match n with
+        | :? ExpressionColonSyntax as d -> ExpressionColon (ExpressionColonData.FromNode(d))
+        | :? NameColonSyntax as d -> NameColon (NameColonData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of BaseExpressionColonSyntax"
+    member this.Node =
+        match this with
+        | ExpressionColon d -> d.Node :> BaseExpressionColonSyntax
+        | NameColon d -> d.Node :> BaseExpressionColonSyntax
+
 and SubpatternData(node: SubpatternSyntax) =
     member this.Node = node
-    member this.NameColon = node.NameColon |> Option.ofObj |> Option.map NameColonData.FromNode
+    member this.ExpressionColon = node.ExpressionColon |> Option.ofObj |> Option.map BaseExpressionColonData.FromNode
     member this.Pattern = node.Pattern |> PatternData.FromNode
     static member FromNode(n: SubpatternSyntax) = SubpatternData(n)
 
@@ -1298,6 +1283,7 @@ and ParenthesizedLambdaExpressionData(node: ParenthesizedLambdaExpressionSyntax)
     member this.Node = node
     member this.Block = node.Block |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ExpressionData.FromNode
+    member this.ReturnType = node.ReturnType |> Option.ofObj |> Option.map TypeData.FromNode
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     static member FromNode(n: ParenthesizedLambdaExpressionSyntax) = ParenthesizedLambdaExpressionData(n)
 
@@ -2006,6 +1992,86 @@ with
         | OmittedTypeArgument d -> d.Node :> TypeSyntax
         | RefType d -> d.Node :> TypeSyntax
 
+and TypeArgumentListData(node: TypeArgumentListSyntax) =
+    member this.Node = node
+    member this.Arguments = node.Arguments |> Seq.map TypeData.FromNode
+    static member FromNode(n: TypeArgumentListSyntax) = TypeArgumentListData(n)
+
+and GenericNameData(node: GenericNameSyntax) =
+    member this.Node = node
+    member this.Identifier = node.Identifier
+    member this.TypeArgumentList = node.TypeArgumentList |> TypeArgumentListData.FromNode
+    static member FromNode(n: GenericNameSyntax) = GenericNameData(n)
+
+and [<RequireQualifiedAccess>] SimpleNameData =
+    | IdentifierName of IdentifierNameData
+    | GenericName    of GenericNameData
+with
+    static member FromNode(n: SimpleNameSyntax) =
+        match n with
+        | :? IdentifierNameSyntax as d -> IdentifierName (IdentifierNameData.FromNode(d))
+        | :? GenericNameSyntax as d -> GenericName (GenericNameData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of SimpleNameSyntax"
+    member this.Node =
+        match this with
+        | IdentifierName d -> d.Node :> SimpleNameSyntax
+        | GenericName d -> d.Node :> SimpleNameSyntax
+
+and QualifiedNameData(node: QualifiedNameSyntax) =
+    member this.Node = node
+    member this.Left = node.Left |> NameData.FromNode
+    member this.Right = node.Right |> SimpleNameData.FromNode
+    static member FromNode(n: QualifiedNameSyntax) = QualifiedNameData(n)
+
+and AliasQualifiedNameData(node: AliasQualifiedNameSyntax) =
+    member this.Node = node
+    member this.Alias = node.Alias |> IdentifierNameData.FromNode
+    member this.Name = node.Name |> SimpleNameData.FromNode
+    static member FromNode(n: AliasQualifiedNameSyntax) = AliasQualifiedNameData(n)
+
+and [<RequireQualifiedAccess>] NameData =
+    | SimpleName         of SimpleNameData
+    | QualifiedName      of QualifiedNameData
+    | AliasQualifiedName of AliasQualifiedNameData
+with
+    static member FromNode(n: NameSyntax) =
+        match n with
+        | :? SimpleNameSyntax as d -> SimpleName (SimpleNameData.FromNode(d))
+        | :? QualifiedNameSyntax as d -> QualifiedName (QualifiedNameData.FromNode(d))
+        | :? AliasQualifiedNameSyntax as d -> AliasQualifiedName (AliasQualifiedNameData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of NameSyntax"
+    member this.Node =
+        match this with
+        | SimpleName d -> d.Node :> NameSyntax
+        | QualifiedName d -> d.Node :> NameSyntax
+        | AliasQualifiedName d -> d.Node :> NameSyntax
+
+and NamespaceDeclarationData(node: NamespaceDeclarationSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> NameData.FromNode
+    member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
+    static member FromNode(n: NamespaceDeclarationSyntax) = NamespaceDeclarationData(n)
+
+and FileScopedNamespaceDeclarationData(node: FileScopedNamespaceDeclarationSyntax) =
+    member this.Node = node
+    member this.Name = node.Name |> NameData.FromNode
+    member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
+    static member FromNode(n: FileScopedNamespaceDeclarationSyntax) = FileScopedNamespaceDeclarationData(n)
+
+and [<RequireQualifiedAccess>] BaseNamespaceDeclarationData =
+    | NamespaceDeclaration           of NamespaceDeclarationData
+    | FileScopedNamespaceDeclaration of FileScopedNamespaceDeclarationData
+with
+    static member FromNode(n: BaseNamespaceDeclarationSyntax) =
+        match n with
+        | :? NamespaceDeclarationSyntax as d -> NamespaceDeclaration (NamespaceDeclarationData.FromNode(d))
+        | :? FileScopedNamespaceDeclarationSyntax as d -> FileScopedNamespaceDeclaration (FileScopedNamespaceDeclarationData.FromNode(d))
+        | _ -> failwithf "Unexpected descendant class of BaseNamespaceDeclarationSyntax"
+    member this.Node =
+        match this with
+        | NamespaceDeclaration d -> d.Node :> BaseNamespaceDeclarationSyntax
+        | FileScopedNamespaceDeclaration d -> d.Node :> BaseNamespaceDeclarationSyntax
+
 and SimpleBaseTypeData(node: SimpleBaseTypeSyntax) =
     member this.Node = node
     member this.Type = node.Type |> TypeData.FromNode
@@ -2062,6 +2128,8 @@ and InterfaceDeclarationData(node: InterfaceDeclarationSyntax) =
 
 and RecordDeclarationData(node: RecordDeclarationSyntax) =
     member this.Node = node
+    member this.Kind = RecordDeclarationKind.FromKind(node.Kind())
+    member this.ClassOrStructKeyword = node.ClassOrStructKeyword |> optionalToken |> Option.map RecordDeclarationClassOrStructKeyword.FromToken
     member this.Identifier = node.Identifier
     member this.TypeParameterList = node.TypeParameterList |> Option.ofObj |> Option.map TypeParameterListData.FromNode
     member this.ParameterList = node.ParameterList |> Option.ofObj |> Option.map ParameterListData.FromNode
@@ -2161,6 +2229,7 @@ and OperatorDeclarationData(node: OperatorDeclarationSyntax) =
     member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
+    member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.OperatorToken = node.OperatorToken |> OperatorDeclarationOperatorToken.FromToken
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     static member FromNode(n: OperatorDeclarationSyntax) = OperatorDeclarationData(n)
@@ -2170,6 +2239,7 @@ and ConversionOperatorDeclarationData(node: ConversionOperatorDeclarationSyntax)
     member this.ExpressionBody = node.ExpressionBody |> Option.ofObj |> Option.map ArrowExpressionClauseData.FromNode
     member this.Body = node.Body |> Option.ofObj |> Option.map BlockData.FromNode
     member this.ImplicitOrExplicitKeyword = node.ImplicitOrExplicitKeyword |> ConversionOperatorDeclarationImplicitOrExplicitKeyword.FromToken
+    member this.ExplicitInterfaceSpecifier = node.ExplicitInterfaceSpecifier |> Option.ofObj |> Option.map ExplicitInterfaceSpecifierData.FromNode
     member this.Type = node.Type |> TypeData.FromNode
     member this.ParameterList = node.ParameterList |> ParameterListData.FromNode
     static member FromNode(n: ConversionOperatorDeclarationSyntax) = ConversionOperatorDeclarationData(n)
@@ -2288,12 +2358,6 @@ and GlobalStatementData(node: GlobalStatementSyntax) =
     member this.Statement = node.Statement |> StatementData.FromNode
     static member FromNode(n: GlobalStatementSyntax) = GlobalStatementData(n)
 
-and NamespaceDeclarationData(node: NamespaceDeclarationSyntax) =
-    member this.Node = node
-    member this.Name = node.Name |> NameData.FromNode
-    member this.Members = node.Members |> Seq.map MemberDeclarationData.FromNode
-    static member FromNode(n: NamespaceDeclarationSyntax) = NamespaceDeclarationData(n)
-
 and DelegateDeclarationData(node: DelegateDeclarationSyntax) =
     member this.Node = node
     member this.ReturnType = node.ReturnType |> TypeData.FromNode
@@ -2308,36 +2372,36 @@ and IncompleteMemberData(node: IncompleteMemberSyntax) =
     static member FromNode(n: IncompleteMemberSyntax) = IncompleteMemberData(n)
 
 and [<RequireQualifiedAccess>] MemberDeclarationData =
-    | BaseTypeDeclaration     of BaseTypeDeclarationData
-    | BaseFieldDeclaration    of BaseFieldDeclarationData
-    | BaseMethodDeclaration   of BaseMethodDeclarationData
-    | BasePropertyDeclaration of BasePropertyDeclarationData
-    | GlobalStatement         of GlobalStatementData
-    | NamespaceDeclaration    of NamespaceDeclarationData
-    | DelegateDeclaration     of DelegateDeclarationData
-    | EnumMemberDeclaration   of EnumMemberDeclarationData
-    | IncompleteMember        of IncompleteMemberData
+    | BaseNamespaceDeclaration of BaseNamespaceDeclarationData
+    | BaseTypeDeclaration      of BaseTypeDeclarationData
+    | BaseFieldDeclaration     of BaseFieldDeclarationData
+    | BaseMethodDeclaration    of BaseMethodDeclarationData
+    | BasePropertyDeclaration  of BasePropertyDeclarationData
+    | GlobalStatement          of GlobalStatementData
+    | DelegateDeclaration      of DelegateDeclarationData
+    | EnumMemberDeclaration    of EnumMemberDeclarationData
+    | IncompleteMember         of IncompleteMemberData
 with
     static member FromNode(n: MemberDeclarationSyntax) =
         match n with
+        | :? BaseNamespaceDeclarationSyntax as d -> BaseNamespaceDeclaration (BaseNamespaceDeclarationData.FromNode(d))
         | :? BaseTypeDeclarationSyntax as d -> BaseTypeDeclaration (BaseTypeDeclarationData.FromNode(d))
         | :? BaseFieldDeclarationSyntax as d -> BaseFieldDeclaration (BaseFieldDeclarationData.FromNode(d))
         | :? BaseMethodDeclarationSyntax as d -> BaseMethodDeclaration (BaseMethodDeclarationData.FromNode(d))
         | :? BasePropertyDeclarationSyntax as d -> BasePropertyDeclaration (BasePropertyDeclarationData.FromNode(d))
         | :? GlobalStatementSyntax as d -> GlobalStatement (GlobalStatementData.FromNode(d))
-        | :? NamespaceDeclarationSyntax as d -> NamespaceDeclaration (NamespaceDeclarationData.FromNode(d))
         | :? DelegateDeclarationSyntax as d -> DelegateDeclaration (DelegateDeclarationData.FromNode(d))
         | :? EnumMemberDeclarationSyntax as d -> EnumMemberDeclaration (EnumMemberDeclarationData.FromNode(d))
         | :? IncompleteMemberSyntax as d -> IncompleteMember (IncompleteMemberData.FromNode(d))
         | _ -> failwithf "Unexpected descendant class of MemberDeclarationSyntax"
     member this.Node =
         match this with
+        | BaseNamespaceDeclaration d -> d.Node :> MemberDeclarationSyntax
         | BaseTypeDeclaration d -> d.Node :> MemberDeclarationSyntax
         | BaseFieldDeclaration d -> d.Node :> MemberDeclarationSyntax
         | BaseMethodDeclaration d -> d.Node :> MemberDeclarationSyntax
         | BasePropertyDeclaration d -> d.Node :> MemberDeclarationSyntax
         | GlobalStatement d -> d.Node :> MemberDeclarationSyntax
-        | NamespaceDeclaration d -> d.Node :> MemberDeclarationSyntax
         | DelegateDeclaration d -> d.Node :> MemberDeclarationSyntax
         | EnumMemberDeclaration d -> d.Node :> MemberDeclarationSyntax
         | IncompleteMember d -> d.Node :> MemberDeclarationSyntax

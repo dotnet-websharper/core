@@ -2501,24 +2501,40 @@ type RoslynTransformer(env: Environment) =
             |> List.reduce (^&&)
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
-        //let nameColon = x.NameColon |> Option.map this.TransformNameColon        
         let pattern = x.Pattern |> this.TransformPattern
-        match x.NameColon with
+        match x.ExpressionColon with
         | None -> pattern
-        | Some nc ->
-            let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
-            match symbol with
-            | :? IPropertySymbol as symbol ->
+        | Some (BaseExpressionColonData.NameColon nc) ->
+            let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol :?> IPropertySymbol
+            let id = Id.New(mut = false)
+            if symbol.ContainingType.IsAnonymousType then
+                fun v ->
+                    Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
+            else
+                fun v ->
+                    Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
+                        // TODO property indexers
+        | Some (BaseExpressionColonData.ExpressionColon ec) ->
+            let rec getSymbols (e: ExpressionData) acc =
+                match e with
+                | ExpressionData.MemberAccessExpression ma ->
+                    let symbol = env.SemanticModel.GetSymbolInfo(ma.Name.Node).Symbol :?> IPropertySymbol
+                    getSymbols ma.Expression (symbol :: acc)
+                | _ ->
+                    let symbol = env.SemanticModel.GetSymbolInfo(e.Node).Symbol :?> IPropertySymbol
+                    symbol :: acc
+            let symbols = getSymbols ec.Expression [] |> List.rev
+            fun v ->
+                let value =
+                    (Var v, symbols)
+                    ||> List.fold (fun e symbol ->
+                        if symbol.ContainingType.IsAnonymousType then
+                            ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect)
+                        else
+                            call symbol.GetMethod (Some (Var v)) []
+                    )
                 let id = Id.New(mut = false)
-                if symbol.ContainingType.IsAnonymousType then
-                    fun v ->
-                        Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
-                else
-                    fun v ->
-                        Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
-                         // TODO property indexers
-            | _ ->
-                failwith "Expecting property symbol in PropertyPatternClause"
+                Let (id, value, pattern id)
 
     member this.TransformParenthesizedPattern (x: ParenthesizedPatternData) : _ =
         x.Pattern |> this.TransformPattern

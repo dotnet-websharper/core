@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
     <CodeAnalysisRuleSet>WebSharper.CSharp.Tests.ruleset</CodeAnalysisRuleSet>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>10.0</LangVersion>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Tests>True</Tests>
   </PropertyGroup>
