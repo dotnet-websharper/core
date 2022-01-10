@@ -2505,33 +2505,48 @@ type RoslynTransformer(env: Environment) =
         match x.ExpressionColon with
         | None -> pattern
         | Some (BaseExpressionColonData.NameColon nc) ->
-            let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol :?> IPropertySymbol
+            let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
             let id = Id.New(mut = false)
             if symbol.ContainingType.IsAnonymousType then
                 fun v ->
                     Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
             else
-                fun v ->
-                    Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
-                        // TODO property indexers
+                match symbol with
+                | :? IPropertySymbol as propSymbol ->
+                    fun v ->
+                        Let (id, call propSymbol.GetMethod (Some (Var v)) [], pattern id)
+                            // TODO property indexers
+                | :? IFieldSymbol as fieldSymbol ->
+                    let typ = sr.ReadNamedType symbol.ContainingType
+                    fun v ->
+                        Let (id, FieldGet(Some (Var v), typ, fieldSymbol.Name), pattern id)
+                | _ ->
+                    failwith "Expecting field or property in recursive pattern"
         | Some (BaseExpressionColonData.ExpressionColon ec) ->
             let rec getSymbols (e: ExpressionData) acc =
                 match e with
                 | ExpressionData.MemberAccessExpression ma ->
-                    let symbol = env.SemanticModel.GetSymbolInfo(ma.Name.Node).Symbol :?> IPropertySymbol
+                    let symbol = env.SemanticModel.GetSymbolInfo(ma.Name.Node).Symbol
                     getSymbols ma.Expression (symbol :: acc)
                 | _ ->
-                    let symbol = env.SemanticModel.GetSymbolInfo(e.Node).Symbol :?> IPropertySymbol
+                    let symbol = env.SemanticModel.GetSymbolInfo(e.Node).Symbol
                     symbol :: acc
-            let symbols = getSymbols ec.Expression [] |> List.rev
+            let symbols = getSymbols ec.Expression []
             fun v ->
                 let value =
                     (Var v, symbols)
                     ||> List.fold (fun e symbol ->
                         if symbol.ContainingType.IsAnonymousType then
-                            ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect)
+                            ItemGet(e, Value (String (symbol.Name)), NoSideEffect)
                         else
-                            call symbol.GetMethod (Some (Var v)) []
+                            match symbol with
+                            | :? IPropertySymbol as propSymbol ->
+                                call propSymbol.GetMethod (Some e) []
+                            | :? IFieldSymbol as fieldSymbol ->
+                                let typ = sr.ReadNamedType symbol.ContainingType
+                                FieldGet(Some e, typ, fieldSymbol.Name)
+                            | _ ->
+                                failwith "Expecting field or property in recursive pattern"
                     )
                 let id = Id.New(mut = false)
                 Let (id, value, pattern id)
