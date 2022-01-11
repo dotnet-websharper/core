@@ -102,6 +102,7 @@ let Tests =
             equal (sprintf "%4B" 1) "   1"
             equal (sprintf "%4B" 16) "10000"
             equal (sprintf "%08B" 89) "01011001"
+            equal (sprintf "%B" -5) "11111111111111111111111111111011"
         }
 
         Test "Generic" {

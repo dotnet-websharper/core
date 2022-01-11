@@ -1153,6 +1153,8 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                     numberToString f (fun n -> cCall (cCall n "toString" [cInt 16]) "toUpperCase" [])
                 | 'o' ->                                           
                     numberToString f (fun n -> cCall n "toString" [cInt 8])
+                | 'B' ->
+                    numberToString f (fun n -> cCall n "toString" [cInt 2])
                 | 'e' ->
                     numberToString f (fun n -> cCall n "toExponential" []) 
                 | 'E' ->
