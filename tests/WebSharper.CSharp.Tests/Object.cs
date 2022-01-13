@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-using System;
+global using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -293,6 +293,12 @@ namespace WebSharper.CSharp.Tests
             public readonly int X;
             public readonly int Y;
 
+            public MyStruct()
+            {
+                this.X = 1;
+                this.Y = 0;
+            }
+
             public MyStruct(int x, int y)
             {
                 this.X = x;
@@ -314,6 +320,36 @@ namespace WebSharper.CSharp.Tests
             IsFalse(s1.Equals(s3));
             IsTrue(s1.GetHashCode() != -1);
             Equal(s1.Sum, 3);
+        }
+
+        [Test]
+        public void StructDefaults()
+        {
+            var s1 = new MyStruct();
+            var s2 = default(MyStruct);
+            IsTrue(s1.X == 1 && s1.Y == 0);
+            IsTrue(s2.X == 0 && s2.Y == 0);
+        }
+
+        [JavaScript]
+        public struct MyStructProps
+        {
+            public int X { get; init; }
+            public int Y { get; init; }
+
+            public MyStructProps(int x, int y)
+            {
+                this.X = x;
+                this.Y = y;
+            }
+        }
+
+        [Test]
+        public void StructWith()
+        {
+            var s1 = new MyStructProps(1, 2);
+            var s2 = s1 with { Y = 3 };
+            IsTrue(s2.X == 1 && s2.Y == 3);
         }
 
         public class MyException : Exception

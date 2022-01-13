@@ -26,6 +26,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WebSharper.Testing;
 using System.Collections;
+using System.Runtime.CompilerServices;
 
 [assembly: WebSharper.JavaScript("Tests.cs")] // test for JavaScript("FileName")
 
@@ -443,6 +444,17 @@ namespace WebSharper.CSharp.Tests
             Equal($"align:{"x",2 + 3}", "align:    x");
         }
 
+        const string _firstName = "James";
+        const string _lastName  = "Bond";
+
+        const string _introduction = $"My name is {_lastName}. {_firstName} {_lastName}.";
+
+        [Test]
+        public void ConstantInterpolatedString()
+        {
+            Equal(_introduction, "My name is Bond. James Bond.");
+        }
+
         [Test("Date formatting, known issue: https://github.com/intellifactory/websharper/issues/787", TestKind.Skip)]
         public void DateFormatting()
         {
@@ -705,6 +717,28 @@ namespace WebSharper.CSharp.Tests
             int[] someArray = new int[5] { 1, 2, 3, 4, 5 };
             Equal(someArray[0..2], new[] { 1, 2 });
             Equal(someArray[1..^0], new[] { 2, 3, 4, 5 });
+        }
+
+        public static void Validate(bool condition, [CallerArgumentExpression("condition")] string message = null)
+        {
+            if (!condition)
+            {
+                throw new InvalidOperationException($"Argument failed validation: <{message}>");
+            }
+        }
+
+        [Test]
+        public void CallerArgumentExpressionTest()
+        {
+            try
+            {
+                Validate(1 == 2);
+            }
+            catch (Exception e)
+            {
+                Equal(e.Message, "Argument failed validation: <1 == 2>");
+                throw;
+            }
         }
     }
 

@@ -18,7 +18,6 @@
 //
 // $end{copyright}
 using Microsoft.FSharp.Control;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -60,6 +59,21 @@ namespace WebSharper.CSharp.Tests
         public void LambdaDiscard()
         {
             Equal(F2(static _ => 42), 42, "Func<T,U> lambda invocation with discard");
+        }
+
+        [Test]
+        public void LambdaNatruralType()
+        {
+            var parse = (string s) => int.Parse(s);            
+            Equal(parse("1"), 1);
+        }
+        
+        [Test]
+        public void LambdaReturnType()
+        {
+            var choose = object (bool b) => b ? 1 : "two";
+            Equal(choose(true), 1);
+            Equal(choose(false), "two");
         }
 
         [Test]
