@@ -322,7 +322,7 @@ namespace WebSharper.CSharp.Tests
             Equal(s1.Sum, 3);
         }
 
-        [Test]
+        [Test("struct default with custom parameterless constructor", TestKind.Skip)]
         public void StructDefaults()
         {
             var s1 = new MyStruct();

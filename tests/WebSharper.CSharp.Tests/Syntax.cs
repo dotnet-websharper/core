@@ -727,7 +727,7 @@ namespace WebSharper.CSharp.Tests
             }
         }
 
-        [Test]
+        [Test("CallerArgumentExpression attrribute", TestKind.Skip)]
         public void CallerArgumentExpressionTest()
         {
             try
