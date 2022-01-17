@@ -822,7 +822,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 {
                                     IsStatic = false
                                     Parameters = pars
-                                    Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
+                                    Body = CombineStatements [ baseCall; b ] |> useDefaultValues pars
                                     IsAsync = false
                                     ReturnType = Unchecked.defaultof<Type>
                                 } : CodeReader.CSharpMethod
@@ -944,7 +944,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             {
                                 IsStatic = false
                                 Parameters = [ o ]
-                                Body = CombineStatements [ b; baseCall ]
+                                Body = CombineStatements [ baseCall; b ]
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod

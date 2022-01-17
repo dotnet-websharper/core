@@ -327,8 +327,8 @@ namespace WebSharper.CSharp.Tests
         {
             var s1 = new MyStruct();
             var s2 = default(MyStruct);
-            IsTrue(s1.X == 1 && s1.Y == 0);
-            IsTrue(s2.X == 0 && s2.Y == 0);
+            Equal($"{s1.X}, {s1.Y}", "1, 0");
+            Equal($"{s2.X}, {s2.Y}", "0, 0");
         }
 
         [JavaScript]
@@ -388,6 +388,42 @@ namespace WebSharper.CSharp.Tests
                 res = "wrong type of exception";
             }
             Equal(res, "ok");
+        }
+
+        [Test]
+        public void InitializationOrder()
+        {
+            _initializationOrder = "";
+            var o = new InitializationOrderSub();
+            Equal(_initializationOrder, "AGCBDEF");
+        }
+
+        private static string _initializationOrder = "";
+
+        public class InitializationOrderBase
+        {
+            public string C = _initializationOrder += "C";
+
+            public string B = _initializationOrder += "B";
+
+            public InitializationOrderBase()
+            {
+                _initializationOrder += "E";
+            }
+
+            public string D = _initializationOrder += "D";
+        }
+
+        public class InitializationOrderSub : InitializationOrderBase
+        {
+            public string A = _initializationOrder += "A";
+
+            public InitializationOrderSub() : base()
+            {
+                _initializationOrder += "F";
+            }
+
+            public string G = _initializationOrder += "G";
         }
     }
 
