@@ -43,7 +43,7 @@ open Fake.IO.FileSystemOperators
 open WebSharper.Fake
 open System.Diagnostics
 
-let version = "5.0"
+let version = "6.0"
 let pre = None
 
 let baseVersion =
