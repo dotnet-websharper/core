@@ -102,6 +102,28 @@ let Tests =
             equal (sprintf "%4B" 1) "   1"
             equal (sprintf "%4B" 16) "10000"
             equal (sprintf "%08B" 89) "01011001"
+            equal (sprintf "%B" -5) "11111111111111111111111111111011"
+        }
+
+        Test "Hexadecimal" {
+            equal (sprintf "%x" 69) "45"
+            equal (sprintf "%x" 16) "10"
+            equal (sprintf "%x" 255) "ff"
+            equal (sprintf "%X" 255) "FF"
+            equal (sprintf "%4x" 1) "   1"
+            equal (sprintf "%04x" 1) "0001"
+            equal (sprintf "%x" -5) "fffffffb"
+            equal (sprintf "%x" -5y) "fb"
+            equal (sprintf "%x" -5s) "fffb"
+        }
+
+        Test "Octal" {
+            equal (sprintf "%o" 69) "105"
+            equal (sprintf "%o" 16) "20"
+            equal (sprintf "%o" 64) "100"
+            equal (sprintf "%4o" 1) "   1"
+            equal (sprintf "%04o" 1) "0001"
+            equal (sprintf "%o" -5) "37777777773"
         }
 
         Test "Generic" {
