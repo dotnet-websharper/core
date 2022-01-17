@@ -978,6 +978,22 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
             else t n
         )
 
+    let numberToStringForIntFormmating (f: FormatString.FormatSpecifier) t =
+        withPadding f (fun (n, typ) ->
+            let length =
+                match typ with
+                | Some (ConcreteType t) when t.Entity = Definitions.SByte -> 8 
+                | Some (ConcreteType t) when t.Entity = Definitions.Int16 -> 16 
+                | Some (ConcreteType t) when t.Entity = Definitions.Int32 -> 32
+                | _ -> 0
+            let flippedN =
+                if length = 0 then n 
+                else utils comp "adjustSigned" [n; cInt length]
+            if FormatString.isPlusForPositives f.Flags then utils comp "plusForPos" [t flippedN]
+            elif FormatString.isSpaceForPositives f.Flags then utils comp "spaceForPos" [t flippedN]
+            else t flippedN
+        )
+
     let prettyPrint (t: Type) o = 
         let rec pp (t: Type) (o: Expression) = 
             match t with
@@ -1148,13 +1164,13 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                 | 'd' | 'i' ->
                     numberToString f (fun n -> cCallG ["String"] [n])
                 | 'x' ->                                           
-                    numberToString f (fun n -> cCall n "toString" [cInt 16])
+                    numberToStringForIntFormmating f (fun n -> cCall n "toString" [cInt 16])
                 | 'X' ->                                           
-                    numberToString f (fun n -> cCall (cCall n "toString" [cInt 16]) "toUpperCase" [])
+                    numberToStringForIntFormmating f (fun n -> cCall (cCall n "toString" [cInt 16]) "toUpperCase" [])
                 | 'o' ->                                           
-                    numberToString f (fun n -> cCall n "toString" [cInt 8])
+                    numberToStringForIntFormmating f (fun n -> cCall n "toString" [cInt 8])
                 | 'B' ->
-                    numberToString f (fun n -> cCall n "toString" [cInt 2])
+                    numberToStringForIntFormmating f (fun n -> cCall n "toString" [cInt 2])
                 | 'e' ->
                     numberToString f (fun n -> cCall n "toExponential" []) 
                 | 'E' ->
