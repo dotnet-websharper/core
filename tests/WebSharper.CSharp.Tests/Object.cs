@@ -150,7 +150,7 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
 
-        [Test("C# covariant inheritance", TestKind.Skip)]
+        [Test("C# covariant inheritance")]
         public void CovariantInheritance()
         {
             Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");

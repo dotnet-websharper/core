@@ -226,6 +226,14 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 | Some n -> n
                 | None -> a.Name
 
+    let getMeth (x: IMethodSymbol) =
+        Hashed {
+            MethodName = x.Name
+            Parameters = self.ReadParameterTypes x
+            ReturnType = x.ReturnType |> self.ReadType
+            Generics = x.Arity
+        }
+
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
             override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
@@ -359,13 +367,6 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             }
         | ".cctor" -> Member.StaticConstructor
         | _ ->
-            let getMeth (x: IMethodSymbol) =
-                Hashed {
-                    MethodName = x.Name
-                    Parameters = this.ReadParameterTypes x
-                    ReturnType = x.ReturnType |> this.ReadType
-                    Generics = x.Arity
-                }
             if x.IsOverride then
                 let o = x.OverriddenMethod.OriginalDefinition
                 Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
@@ -379,6 +380,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 let o = x.OriginalDefinition
                 Member.Method (not o.IsStatic, getMeth o)
         |> comp.ResolveProxySignature
+
+    member this.ReadMemberImpl (x: IMethodSymbol) =
+        getMeth x.OriginalDefinition    
 
     member this.ReadParameter (x: IParameterSymbol) : CSharpParameter =
         let typ = this.ReadType x.Type
