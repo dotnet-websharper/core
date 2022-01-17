@@ -6,7 +6,6 @@
     <Name>wsfsc</Name>
     <Signed>False</Signed>
     <FSharpTool>True</FSharpTool>
-    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>

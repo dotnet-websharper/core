@@ -39,7 +39,6 @@ group includes
 group fcs
     framework: net6.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
-    strategy: min
     storage: none
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
@@ -59,7 +58,4 @@ group nunit
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
     nuget FSUnit ~> 4.0.4
-    nuget FSharp.Core ~> 6.0.1
-    nuget Microsoft.NETCore.Platforms ~> 5.0.2
-    nuget System.Runtime.Caching ~> 5.0.0
-    nuget FSharp.Compiler.Service ~> 41.0.1
+

@@ -6,7 +6,6 @@
     <Name>wscsc</Name>
     <Signed>False</Signed>
     <CSharpTool>True</CSharpTool>
-    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>

@@ -478,6 +478,8 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         )
     | S.If (a, b, c) -> If (trE a, trS b, trS c)
     | S.Ignore a -> ExprStatement (trE a)    
+    | S.Import (a, b, c) ->
+        failwith "Currently unsupported: JS import in inline"   
     | S.Labelled (a, b)  -> 
         failwith "Currently unsupported: JS labels"
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)

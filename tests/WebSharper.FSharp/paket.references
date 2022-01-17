@@ -3,6 +3,7 @@
    NUnit3TestAdapter
    Microsoft.NET.Test.Sdk
    FSUnit
+group fcs
    System.Runtime.Caching
    FSharp.Core
    FSharp.Compiler.Service
