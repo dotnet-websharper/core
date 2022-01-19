@@ -3,8 +3,9 @@
 
 [![Join the chat at https://gitter.im/intellifactory/websharper](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/intellifactory/websharper?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-WebSharper is an [F#][fsharp]-based web programming platform including a compiler from F# code to JavaScript.
+WebSharper is an [F#][fsharp]-based web programming platform including compilers from F# and C# code to JavaScript.
 
+* [Building and contributing](#contrib)
 * [Installing](#installing)
 * [Running your applications](#running)
 * [Hello world!](#helloworld)
@@ -13,16 +14,26 @@ WebSharper is an [F#][fsharp]-based web programming platform including a compile
 * [Adding client-side functionality](#clientside)
 * [Using JavaScript libraries](#jslibs)
 * [Creating REST applications](#rest)
-* [Contributing](#contrib)
 * [Links](#links)
+
+<a name="contrib"></a>
+## Building and contributing
+
+This readme is directed to end users.
+To build the WebSharper compiler and core libraries for yourself,
+please refer to the [contributing guide](CONTRIBUTING.md).
+
+WebSharper is an open-source project, and contributions are welcome!
+
+Also don't hesitate to [report issues on the tracker][issues].
 
 <a name="installing"></a>
 ## Installing
 
-The easiest way to get started is from an application template. You can install the various WebSharper [project templates](http://websharper.com/docs/templates) by following the instructions below for:
+The easiest way to get started is from an application template.
+You can install the various WebSharper [project templates](http://websharper.com/docs/templates) by following the instructions below for:
 
  * [Visual Studio](http://websharper.com/docs/install)
- * [Xamarin Studio/MonoDevelop](http://websharper.com/docs/install-xs)
 
 Alternatively, you can use the [F# Yeoman Generator](https://github.com/fsprojects/generator-fsharp) to install template files for your favorite editor.  You can then build your project by running `msbuild` in the project root folder.
 
@@ -49,7 +60,7 @@ With the exception of the self-hosted templates, all WebSharper templates produc
 
 In the examples below, you will see how to create [WebSharper sitelets](http://websharper.com/docs/sitelets). Sitelets are web applications encoded in the F# type system. They have a set of endpoints (accessed via GET, POST, etc.) to which they respond by serving web content asynchronously. You can run these the following ways:
 
- * **In IIS or any other ASP.NET-compatible container**
+ * **In ASP.NET Core or hosted in IIS or any other compatible container**
 
    Annotate your main sitelet with the `[<Website>]` attribute:
    
@@ -58,17 +69,6 @@ In the examples below, you will see how to create [WebSharper sitelets](http://w
    let MySite = ...
    ```
    
- * **As a self-hosted executable using WebSharper.Warp**
- 
-   Warp provides a way to self-host sitelets via OWIN and `Microsoft.Owin`.  To use Warp, you need to add `WebSharper.Warp` to your project (which should be a console project), and invoke the host machinery with your sitelet:
-   
-   ```fsharp
-   [<EntryPoint>]
-   do Warp.RunAndWaitForInput(MySite) |> ignore
-   ```
-
-  By default, sites are served on `http://localhost:9000`.
-
  * **As a Suave application**
 
    Suave is a light-weight web server built in F#.  You can easily use WebSharper in your existing Suave application, or host your WebSharper applications (which should be a console project) on Suave, by adding `WebSharper.Suave` to your project and calling the WebSharper adapter to convert your sitelet to a Suave `WebPart`:
@@ -357,15 +357,6 @@ let MySite =
 TBA.
 
 <hr />
-
-<a name="contrib"></a>
-## Contributing to WebSharper
-
-WebSharper is an open-source project, and contributions are welcome!
-
-First, don't hesitate to [report issues on the tracker][issues].
-
-To contribute code, please check the [contributing guide](CONTRIBUTING.md).
 
 <a name="links"></a>
 ## Links
