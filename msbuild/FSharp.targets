@@ -35,10 +35,6 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <ErrorOnDuplicatePublishOutputFiles>False</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
-    <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-  </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>
       <C Include="@(Compile)" />

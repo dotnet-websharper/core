@@ -21,6 +21,7 @@ files
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfsc.dll.config ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfsc.runtimeconfig.json ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfscservice.exe ==> tools/net6.0/win-x64
+    ../build/Release/FSharp/net6.0/win-x64/deploy/wsfscservice.dll.config ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfscservice_start.cmd ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/NLog.config ==> tools/net6.0/win-x64
@@ -32,6 +33,7 @@ files
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfsc.sh ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfsc.runtimeconfig.json ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfscservice ==> tools/net6.0/linux-x64
+    ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfscservice.dll.config ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfscservice_start.sh ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/NLog.config ==> tools/net6.0/linux-x64
@@ -43,6 +45,7 @@ files
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfsc.sh ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfsc.runtimeconfig.json ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfscservice ==> tools/net6.0/linux-musl-x64
+    ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfscservice.dll.config ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfscservice_start.sh ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/NLog.config ==> tools/net6.0/linux-musl-x64

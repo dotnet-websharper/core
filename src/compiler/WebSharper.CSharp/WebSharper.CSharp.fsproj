@@ -5,6 +5,7 @@
     <OutputType>Exe</OutputType>
     <Name>wscsc</Name>
     <Signed>False</Signed>
+    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <CSharpTool>True</CSharpTool>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>
