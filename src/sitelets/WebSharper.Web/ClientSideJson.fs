@@ -160,7 +160,7 @@ module Provider =
     let EncodeLinkedList (encEl:(unit -> 'T -> obj)) : (unit -> LinkedList<'T> -> obj) =
         ()
         fun () (d: LinkedList<'T>) ->
-            let o = Array<'T>()
+            let o = Array<obj>()
             let e = encEl()
             for x in d :> seq<'T> do o.Push(e x) |> ignore
             box o
