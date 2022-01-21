@@ -15,6 +15,8 @@ dependencies
         WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
+    ../build/Release/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll ==> tools/netstandard2.0
+
     ../build/Release/FSharp/net6.0/win-x64/deploy/*.dll ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/**/*.dll ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfsc.exe ==> tools/net6.0/win-x64
@@ -26,6 +28,7 @@ files
     ../build/Release/FSharp/net6.0/win-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/NLog.config ==> tools/net6.0/win-x64
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/win-x64
+
     ../build/Release/FSharp/net6.0/linux-x64/deploy/*.dll ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/**/*.dll ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfsc ==> tools/net6.0/linux-x64
@@ -38,6 +41,7 @@ files
     ../build/Release/FSharp/net6.0/linux-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/linux-x64
     ../build/Release/FSharp/net6.0/linux-x64/deploy/NLog.config ==> tools/net6.0/linux-x64
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/linux-x64
+
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/*.dll ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/**/*.dll ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfsc ==> tools/net6.0/linux-musl-x64
@@ -50,4 +54,3 @@ files
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/wsfscservice.runtimeconfig.json ==> tools/net6.0/linux-musl-x64
     ../build/Release/FSharp/net6.0/linux-musl-x64/deploy/NLog.config ==> tools/net6.0/linux-musl-x64
     ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/linux-musl-x64
-    ../src/compiler/WebSharper.FSharp/runngen.ps1 ==> tools
