@@ -244,6 +244,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
                         let msg = "Proxy member do not match any member names of target class."
                         comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+                elif def.Value.FullName.StartsWith "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`" then
+                    () // ignore warnings for OptimizedClosures, they are expected
                 else 
                     let msg = sprintf "Proxy member do not match any member signatures of target class %s. Current: %s, candidates: %s" (string def.Value) (string mdef.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)

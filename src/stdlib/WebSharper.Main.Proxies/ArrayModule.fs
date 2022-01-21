@@ -51,10 +51,10 @@ let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
     res |> As<('T1 * 'T2) []>
 
 [<Name "average">]
-let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
+let inline Average (arr: 'T []): 'T = As (As<float> (Array.sum arr) / As<float> (Array.length arr))
 
 [<Name "averageBy">]
-let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float (Array.length arr))
+let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (As<float> (Array.sumBy f arr) / As<float> (Array.length arr))
 
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
