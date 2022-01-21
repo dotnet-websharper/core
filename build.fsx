@@ -80,6 +80,7 @@ let targets = MakeTargets {
                             Framework = Some fw
                             OutputPath = Some outputPath
                             NoRestore = true
+                            NoBuild = true
                             SelfContained = false |> Some
                             Runtime = rid |> Some
                             Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
