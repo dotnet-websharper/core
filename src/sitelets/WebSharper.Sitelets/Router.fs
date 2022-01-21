@@ -975,7 +975,7 @@ module Router =
                     | _ -> Seq.empty
                 | _ -> Seq.empty
             Write = fun value ->
-                let parts = value |> Array.map item.Write
+                let parts = value |> Array.map (fun v -> item.Write v)
                 if Array.forall Option.isSome parts then
                     Some (Seq.append (Seq.singleton (Route.Segment (string value.Length))) (parts |> Seq.collect Option.get))
                 else None                      
@@ -1362,7 +1362,7 @@ module RouterOperators =
                         item.Parse path |> Seq.collect(fun (p, a) -> collect p (a :: acc))
                 collect path []
             Write = fun value ->
-                let parts = value |> Array.map item.Write
+                let parts = value |> Array.map (fun v -> item.Write v)
                 if Array.forall Option.isSome parts then
                     Some (parts |> Seq.collect Option.get)
                 else None                      

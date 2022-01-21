@@ -135,6 +135,10 @@ let InnerGenerics pred l =
 [<JavaScript>]
 let (|Odd|Even|) x = if x % 2 = 0 then Even else Odd
 
+[<return: Struct>]
+[<JavaScript>]
+let (|NegativeStruct|_|) x = if x < 0 then ValueSome -x else ValueNone
+
 [<JavaScript>]
 let (|Negative|_|) x = if x < 0 then Some -x else None
 
@@ -525,7 +529,15 @@ let Tests =
                 | _ -> x >= 0
             isTrue (testNegativePattern -5)
             isTrue (testNegativePattern 0)
-            isTrue (testNegativePattern 5)                
+            isTrue (testNegativePattern 5)       
+            
+            let testNegativeStructPattern x =
+                match x with
+                | NegativeStruct y -> x = -y
+                | _ -> x >= 0
+            isTrue (testNegativeStructPattern -5)
+            isTrue (testNegativeStructPattern 0)
+            isTrue (testNegativeStructPattern 5)                
         }
 
         Test "Static type augmentation" {
@@ -653,4 +665,25 @@ let Tests =
             equal (a.[-2..(-1)]) [||]
             equal (s.[-2..(-1)]) ""
         }
+
+        Test "F# 6 indexing" {
+            let l = [ 1..10 ]
+            equal l[1] 2
+            equal (l[1 .. 2] |> Array.ofList) [| 2; 3 |]
+        }
+
+        Test "F# 6 as pattern" {
+            let resOk =
+                match 1, 2 with
+                | _ as (a, b) ->
+                    a = 1 && b = 2
+            isTrue resOk
+        }
+
+        Test "F# 6 implicit conversion" {
+            let res : int64 =
+                if true then 1L else 2
+            equal res 1L
+        }
+
     }

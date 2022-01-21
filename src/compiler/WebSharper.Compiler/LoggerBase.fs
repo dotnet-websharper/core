@@ -21,7 +21,7 @@
 namespace WebSharper.Compiler
 
 [<AbstractClass>]
-type LoggerBase() as self =
+type LoggerBase() =
     let mutable time = System.DateTime.Now     
     
 #if DEBUG

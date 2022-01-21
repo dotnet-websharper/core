@@ -226,6 +226,14 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 | Some n -> n
                 | None -> a.Name
 
+    let getMeth (x: IMethodSymbol) =
+        Hashed {
+            MethodName = x.Name
+            Parameters = self.ReadParameterTypes x
+            ReturnType = x.ReturnType |> self.ReadType
+            Generics = x.Arity
+        }
+
     let attrReader =
         { new A.AttributeReader<Microsoft.CodeAnalysis.AttributeData>() with
             override this.GetAssemblyName attr = attr.AttributeClass |> getContainingAssemblyName
@@ -359,13 +367,6 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             }
         | ".cctor" -> Member.StaticConstructor
         | _ ->
-            let getMeth (x: IMethodSymbol) =
-                Hashed {
-                    MethodName = x.Name
-                    Parameters = this.ReadParameterTypes x
-                    ReturnType = x.ReturnType |> this.ReadType
-                    Generics = x.Arity
-                }
             if x.IsOverride then
                 let o = x.OverriddenMethod.OriginalDefinition
                 Member.Override(this.ReadNamedTypeDefinition o.ContainingType, getMeth o)
@@ -379,6 +380,9 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                 let o = x.OriginalDefinition
                 Member.Method (not o.IsStatic, getMeth o)
         |> comp.ResolveProxySignature
+
+    member this.ReadMemberImpl (x: IMethodSymbol) =
+        getMeth x.OriginalDefinition    
 
     member this.ReadParameter (x: IParameterSymbol) : CSharpParameter =
         let typ = this.ReadType x.Type
@@ -2501,24 +2505,55 @@ type RoslynTransformer(env: Environment) =
             |> List.reduce (^&&)
 
     member this.TransformSubpattern (x: SubpatternData) : _ =
-        //let nameColon = x.NameColon |> Option.map this.TransformNameColon        
         let pattern = x.Pattern |> this.TransformPattern
-        match x.NameColon with
+        match x.ExpressionColon with
         | None -> pattern
-        | Some nc ->
+        | Some (BaseExpressionColonData.NameColon nc) ->
             let symbol = env.SemanticModel.GetSymbolInfo(nc.Name.Node).Symbol
-            match symbol with
-            | :? IPropertySymbol as symbol ->
+            let id = Id.New(mut = false)
+            if symbol.ContainingType.IsAnonymousType then
+                fun v ->
+                    Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
+            else
+                match symbol with
+                | :? IPropertySymbol as propSymbol ->
+                    fun v ->
+                        Let (id, call propSymbol.GetMethod (Some (Var v)) [], pattern id)
+                            // TODO property indexers
+                | :? IFieldSymbol as fieldSymbol ->
+                    let typ = sr.ReadNamedType symbol.ContainingType
+                    fun v ->
+                        Let (id, FieldGet(Some (Var v), typ, fieldSymbol.Name), pattern id)
+                | _ ->
+                    failwith "Expecting field or property in recursive pattern"
+        | Some (BaseExpressionColonData.ExpressionColon ec) ->
+            let rec getSymbols (e: ExpressionData) acc =
+                match e with
+                | ExpressionData.MemberAccessExpression ma ->
+                    let symbol = env.SemanticModel.GetSymbolInfo(ma.Name.Node).Symbol
+                    getSymbols ma.Expression (symbol :: acc)
+                | _ ->
+                    let symbol = env.SemanticModel.GetSymbolInfo(e.Node).Symbol
+                    symbol :: acc
+            let symbols = getSymbols ec.Expression []
+            fun v ->
+                let value =
+                    (Var v, symbols)
+                    ||> List.fold (fun e symbol ->
+                        if symbol.ContainingType.IsAnonymousType then
+                            ItemGet(e, Value (String (symbol.Name)), NoSideEffect)
+                        else
+                            match symbol with
+                            | :? IPropertySymbol as propSymbol ->
+                                call propSymbol.GetMethod (Some e) []
+                            | :? IFieldSymbol as fieldSymbol ->
+                                let typ = sr.ReadNamedType symbol.ContainingType
+                                FieldGet(Some e, typ, fieldSymbol.Name)
+                            | _ ->
+                                failwith "Expecting field or property in recursive pattern"
+                    )
                 let id = Id.New(mut = false)
-                if symbol.ContainingType.IsAnonymousType then
-                    fun v ->
-                        Let (id, ItemGet(Var v, Value (String (symbol.Name)), NoSideEffect), pattern id)
-                else
-                    fun v ->
-                        Let (id, call symbol.GetMethod (Some (Var v)) [], pattern id)
-                         // TODO property indexers
-            | _ ->
-                failwith "Expecting property symbol in PropertyPatternClause"
+                Let (id, value, pattern id)
 
     member this.TransformParenthesizedPattern (x: ParenthesizedPatternData) : _ =
         x.Pattern |> this.TransformPattern

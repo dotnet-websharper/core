@@ -115,5 +115,12 @@ type internal FSharpMap<'K,'V when 'K : comparison>
         interface IEnumerable<KeyValuePair<'K,'V>> with
             member this.GetEnumerator() = this.GetEnumerator()
 
+        member this.Keys : System.Collections.Generic.ICollection<'K> =
+            Seq.map (fun kvp -> kvp.Key) (T.Ascend this.Tree)
+            |> ResizeArray
+            :> _
 
-
+        member this.Values : System.Collections.Generic.ICollection<'V> =
+            Seq.map (fun kvp -> kvp.Value) (T.Ascend this.Tree)
+            |> ResizeArray
+            :> _

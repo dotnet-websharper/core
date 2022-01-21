@@ -2,6 +2,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
+    <WebSharperErrorsAsWarnings>True</WebSharperErrorsAsWarnings>
     <Tests>True</Tests>
   </PropertyGroup>
   <ItemGroup>

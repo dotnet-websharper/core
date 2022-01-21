@@ -1,15 +1,15 @@
 references: strict
 redirects: on
 
-framework: net5.0, netstandard2.0
+framework: net6.0, netstandard2.0
 source https://api.nuget.org/v3/index.json
 strategy: min
 storage: none
 
 nuget Mono.Cecil ~> 0.11.0
-nuget Microsoft.CodeAnalysis.CSharp ~> 3.9.0
+nuget Microsoft.CodeAnalysis.CSharp ~> 4.0.1
 nuget System.CodeDom 4.4.0
-nuget System.Configuration.ConfigurationManager 5.0.0
+nuget System.Configuration.ConfigurationManager 6.0.0
 nuget System.Runtime.Loader 4.3.0
 nuget System.Reflection.Emit.Lightweight 4.7.0
 nuget Microsoft.Build.Utilities.Core 16.8.0
@@ -20,7 +20,7 @@ nuget Microsoft.CSharp 4.7.0
 nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 
 nuget System.Net.Http ~> 4.3.0
-nuget FSharp.Core 5.0.0
+nuget FSharp.Core 6.0.1
 
 nuget System.Text.RegularExpressions ~> 4.3.0
 nuget System.Text.Json ~> 4.7.0
@@ -31,35 +31,31 @@ group wsbuild
 
 group includes
     references: strict
-    framework: net5.0, netstandard2.1
+    framework: net6.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref
-    nuget FSharp.Core ~> 5.0.0
+    nuget FSharp.Core ~> 6.0.1
 
 group fcs
-    framework: net5.0, netstandard2.0
+    framework: net6.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
-    strategy: min
     storage: none
-    nuget System.Runtime.Caching ~> 5.0.0
-    nuget System.Configuration.ConfigurationManager ~> 5.0.0
+    nuget System.Runtime.Caching ~> 6.0.0
+    nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service ~> 40.0
-    nuget FSharp.Core ~> 5.0.0
+    nuget FSharp.Compiler.Service ~> 41.0.1
+    nuget FSharp.Core ~> 6.0.1
 
 group test
     source https://api.nuget.org/v3/index.json
     nuget Chutzpah ~> 4.4.11
 
 group nunit
-    framework: net5.0
+    framework: net6.0
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget NUnit ~> 3.13.2
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
     nuget FSUnit ~> 4.0.4
-    nuget FSharp.Core ~> 5.0.2
-    nuget Microsoft.NETCore.Platforms ~> 5.0.2
-    nuget System.Runtime.Caching ~> 5.0.0
-    nuget FSharp.Compiler.Service ~> 40.0
+

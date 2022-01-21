@@ -33,10 +33,7 @@
     <OutputPath Condition=" '$(OutputPath)' == '' ">$(Root)\build\$(Configuration)\</OutputPath>
     <OtherFlags>$(OtherFlags) --nowarn:3186</OtherFlags>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(FSharp40)' == 'True' ">
-    <DefineConstants>$(DefineConstants);FSHARP40</DefineConstants>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <ErrorOnDuplicatePublishOutputFiles>False</ErrorOnDuplicatePublishOutputFiles>
   </PropertyGroup>
   <Target Name="IncludeVersionFile" BeforeTargets="CoreCompile">
     <ItemGroup>

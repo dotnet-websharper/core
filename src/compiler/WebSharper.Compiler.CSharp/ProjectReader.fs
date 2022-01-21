@@ -822,7 +822,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 {
                                     IsStatic = false
                                     Parameters = pars
-                                    Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
+                                    Body = CombineStatements [ baseCall; b ] |> useDefaultValues pars
                                     IsAsync = false
                                     ReturnType = Unchecked.defaultof<Type>
                                 } : CodeReader.CSharpMethod
@@ -944,7 +944,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             {
                                 IsStatic = false
                                 Parameters = [ o ]
-                                Body = CombineStatements [ b; baseCall ]
+                                Body = CombineStatements [ baseCall; b ]
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
@@ -1014,10 +1014,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | _ -> failwith "impossible"
                 let jsMethod isInline =
                     match memdef with
-                    // virtual methods are split to abstract and override
                     | Member.Override (td, _) when not isInline && td = def ->
+                        // virtual methods are split to abstract and override
                         addMethod None mAnnot mdef (N.Abstract) true Undefined
                         addMethod (Some (meth, memdef)) { mAnnot with Name = None } mdef (N.Override def) false (getBody isInline)
+                    | Member.Override (td, _) when not isInline ->
+                        addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                        // check for overrides with covariant return types, add redirect if needed
+                        let implMDef = sr.ReadMemberImpl meth
+                        if implMDef <> mdef then
+                            let holes = List.init mdef.Value.Parameters.Length (fun i -> Hole (i + 1))
+                            Call(Some (Hole 0), NonGeneric def, NonGeneric mdef, holes)
+                            |> addMethod None A.MemberAnnotation.BasicInlineJavaScript implMDef N.Inline false
                     | _ ->
                         addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
                 let checkNotAbstract() =

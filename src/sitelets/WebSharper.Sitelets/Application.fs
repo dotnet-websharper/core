@@ -43,10 +43,7 @@ type Application =
             Router = Router.Single SPA.EndPoint.Home "/"
             Controller =
                 { Handle = fun SPA.EndPoint.Home ->
-                    Content.CustomContentAsync <| fun ctx -> async {
-                        let! x = f ctx
-                        return! Content.ToResponse x ctx
-                    }
+                    Content.FromContext f |> Content.FromAsync
                 }
         }
 

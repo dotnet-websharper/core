@@ -80,7 +80,7 @@ module Sitelet =
                 Handle = fun ep ->
                     Content.CustomContentAsync <| fun ctx -> async {
                         let! content = handle ctx ep
-                        return! WebSharper.Sitelets.Content.ToResponse content ctx
+                        return! WebSharper.Sitelets.Content<'T>.ToResponse content ctx
                     }
             }
         }

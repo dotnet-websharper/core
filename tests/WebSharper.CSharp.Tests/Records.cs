@@ -37,15 +37,27 @@ namespace WebSharper.CSharp.Tests
         {
             var person = new Person("Bill", "Wagner");
             var person2 = new Person("Bill", "Wagner");
-            var student = new Teacher("Bill", "Wagner", "English");
+            var teacher = new Teacher("Bill", "Wagner", "English");
             IsTrue(person == person2);
-            IsFalse(person == student);
+            IsFalse(person == teacher);
         }
 
         [Test("C# record ToString")]
         public void ToStringTest()
         {
             var person = new Person("Bill", "Wagner");
+            Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            var teacher = new Teacher("Bill", "Wagner", "English");
+            //Equal(teacher.ToString(), "Teacher { LastName = Wagner, FirstName = Bill, Subject = English }"); // .NET order not enforced
+            Equal(teacher.ToString(), "Teacher { Subject = English, LastName = Wagner, FirstName = Bill }");
+        }
+
+        [Test("C# record struct", TestKind.Skip)]
+        public void RecordStruct()
+        {
+            var person = new PersonStruct("Bill", "Wagner");
+            var person2 = new PersonStruct("Bill", "Wagner");
+            IsTrue(person == person2);
             Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
@@ -76,16 +88,18 @@ namespace WebSharper.CSharp.Tests
         {
             var person = new PersonP("Bill", "Wagner");
             var person2 = new PersonP("Bill", "Wagner");
-            var student = new TeacherP("Bill", "Wagner", "English");
+            var teacher = new TeacherP("Bill", "Wagner", "English");
             IsTrue(person == person2);
-            IsFalse(person == student);
+            IsFalse(person == teacher);
         }
 
-        [Test("C# positional record ToString")]
+        [Test("C# positional record ToString overridden sealed")]
         public void PosToStringTest()
         {
             var person = new PersonP("Bill", "Wagner");
-            Equal(person.ToString(), "PersonP { FirstName = Bill, LastName = Wagner }");
+            Equal(person.ToString(), "Bill Wagner");
+            var teacher = new TeacherP("Bill", "Wagner", "English");
+            Equal(teacher.ToString(), "Bill Wagner");
         }
 
         [Test("C# positional record with")]
@@ -157,11 +171,7 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; }
         public string FirstName { get; }
 
-        public Person(string first, string last) // => (FirstName, LastName) = (first, last);
-        {
-            this.FirstName = first;
-            this.LastName = last;
-        }
+        public Person(string first, string last) => (FirstName, LastName) = (first, last);
     }
 
     [JavaScript]
@@ -174,7 +184,13 @@ namespace WebSharper.CSharp.Tests
     }
 
     [JavaScript]
-    public record PersonP(string FirstName, string LastName); // positional record
+    public record PersonP(string FirstName, string LastName) // positional record
+    {
+        public override sealed string ToString()
+        {
+            return $"{FirstName} {LastName}";
+        }
+    }
 
     [JavaScript]
     public record TeacherP(string TFirstName, string LastName, string Subject = "Math") : PersonP(TFirstName, LastName);
@@ -187,6 +203,15 @@ namespace WebSharper.CSharp.Tests
         public string MiddleName { get => middleName; set => middleName = value; }
 
         public string LastName { get; set; }
+    }
+
+    [JavaScript]
+    public record struct PersonStruct
+    {
+        public readonly string LastName;
+        public readonly string FirstName;
+
+        public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
     }
 
     [JavaScript]

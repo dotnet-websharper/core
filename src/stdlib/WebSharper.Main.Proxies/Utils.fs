@@ -128,3 +128,21 @@ let nullableCmpR (a: obj) (b: obj) f = if b ==. null then false else f a b
 [<JavaScript>]
 [<Name "WebSharper.Nullable.conv">]
 let nullableConv (a: obj) f = if a ==. null then null else f a
+
+[<JavaScript>]
+let adjustSigned (number: obj) (length: int) =
+    if number <. 0 then
+        if length = 32 then
+            number +. ((1 <<. 16) *. (1 <<. 16))
+        else
+            number +. (1 <<. length)
+    else
+        number
+
+[<JavaScript>]
+let plusForPosSignAdjusted s =
+    "+" + s     
+
+[<JavaScript>]
+let spaceForPosSignAdjusted s =
+    " " + s

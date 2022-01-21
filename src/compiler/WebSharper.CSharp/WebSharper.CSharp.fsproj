@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <OutputType>Exe</OutputType>
-    <Name>ZafirCs</Name>
+    <Name>wscsc</Name>
     <Signed>False</Signed>
-    <CSharpTool>True</CSharpTool>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <CSharpTool>True</CSharpTool>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.fs" />
     <Content Include="App.config" />
-    <Content Include="zafircs-netcore.cmd">
+    <Content Include="wscsc.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="zafircs-netcore.sh">
+    <Content Include="wscsc.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="paket.references" />
