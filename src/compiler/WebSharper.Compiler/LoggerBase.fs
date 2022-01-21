@@ -21,15 +21,15 @@
 namespace WebSharper.Compiler
 
 [<AbstractClass>]
-type LoggerBase() =
-    let mutable time = System.DateTime.Now     
-    
 #if DEBUG
+type LoggerBase() as self =
     static let mutable currentLogger = Unchecked.defaultof<LoggerBase>
-
-    do 
-        currentLogger <- self
+    do currentLogger <- self
+#else
+type LoggerBase() =
 #endif
+    
+    let mutable time = System.DateTime.Now     
 
     abstract Error : string -> unit
     abstract Out : string -> unit
