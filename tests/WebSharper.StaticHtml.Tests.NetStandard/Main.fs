@@ -2,14 +2,50 @@ namespace WebSharper.StaticHtml.Tests.NetStandard
 
 open WebSharper
 open WebSharper.Sitelets
+open WebSharper.Web
 
 type EndPoint =
     | [<EndPoint "GET /">] Home
     | [<EndPoint "GET /about">] About
 
 module Site =
-    open WebSharper.Sitelets.Tests
-    open WebSharper.Sitelets.Tests.Server
+    [<AbstractClass>]
+    type RequiresNoResources() =
+        interface IRequiresResources with
+            member this.Requires(_) = Seq.empty
+            member this.Encode(_, _) = []
+
+    type Elt(name, [<System.ParamArray>] contents: INode[]) =
+        let attributes, children =
+            contents |> Array.partition (fun n -> n.IsAttribute)
+        interface IRequiresResources with
+            member this.Requires(meta) = children |> Seq.collect (fun c -> c.Requires(meta))
+            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
+        interface INode with
+            member this.Write(ctx, w) =
+                w.WriteBeginTag(name)
+                attributes |> Array.iter (fun n -> n.Write(ctx, w))
+                if Array.isEmpty children && WebSharper.Core.Resources.HtmlTextWriter.IsSelfClosingTag(name) then
+                    w.Write(WebSharper.Core.Resources.HtmlTextWriter.SelfClosingTagEnd)
+                else
+                    w.Write(WebSharper.Core.Resources.HtmlTextWriter.TagRightChar)
+                    children |> Array.iter (fun n -> n.Write(ctx, w))
+                    w.WriteEndTag(name)
+            member this.IsAttribute = false
+
+    type Attr(name, value) =
+        inherit RequiresNoResources()
+        interface INode with
+            member this.Write(ctx, w) =
+                w.WriteAttribute(name, value)
+            member this.IsAttribute = true
+
+    type Text(txt) =
+        inherit RequiresNoResources()
+        interface INode with
+            member this.Write(ctx, w) =
+                w.WriteEncodedText(txt)
+            member this.IsAttribute = false
 
     /// A helper function to create a hyperlink
     let private ( => ) title href =
