@@ -6,9 +6,10 @@
 #r "nuget: Fake.DotNet.Cli"
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
-#r "nuget: Paket.Core prerelease"
+#r "nuget: Paket.Core"
 #else
 #r "paket:
+nuget FSharp.Core 5.0.0
 nuget FAKE.Core
 nuget Fake.Core.Target
 nuget Fake.IO.FileSystem
