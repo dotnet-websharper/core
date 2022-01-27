@@ -188,6 +188,7 @@ Target.create "RunTestsRelease" <| fun _ ->
     webTestsProc.Start()
     webTestsProc.BeginOutputReadLine()
     started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
+    Async.Sleep 3000 |> Async.RunSynchronously
 
     let res =
         Shell.Exec(
@@ -212,7 +213,7 @@ Target.create "Stop" <| fun _ ->
 "Stop" ==> "WS-Restore"
 
 "WS-BuildRelease"
-    ==> "RunTestsRelease"
+    ?=> "RunTestsRelease"
     ?=> "WS-Package"
 
 "RunTestsRelease"
