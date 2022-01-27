@@ -188,7 +188,6 @@ Target.create "RunTestsRelease" <| fun _ ->
     webTestsProc.Start()
     webTestsProc.BeginOutputReadLine()
     started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
-    Async.Sleep 10000 |> Async.RunSynchronously
 
     let res =
         Shell.Exec(
