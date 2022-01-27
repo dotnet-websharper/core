@@ -56,23 +56,16 @@ let rec internal contentHelper (httpCtx: HttpContext) (content: obj) =
 
 let Middleware (options: WebSharperOptions) =
     let sitelet =
-        match options.Sitelet with
-        | Some s -> Some s
-        | None -> 
-            match options.Services.GetService(typeof<ISiteletService>) with
-            | :? ISiteletService as s ->
-                Some s.Sitelet
-            | _ -> 
-                Loading.DiscoverSitelet [ options.SiteletAssembly ]
+        match options.Services.GetService(typeof<ISiteletService>) with
+        | :? ISiteletService as s ->
+            Some s.Sitelet
+        | _ -> 
+            failwith "ISiteletService not found. Use AddSitelet in your ConfigureServices."
     let wsService = 
         match options.Services.GetService(typeof<IWebSharperService>) with
         | :? IWebSharperService as s -> s
         | _ ->
-            let meta =
-                match options.Metadata with
-                | Some m -> m
-                | _ -> Unchecked.defaultof<WebSharper.Core.Metadata.Info>
-            DefaultWebSharperService(options.SiteletAssembly, meta, options.AuthenticationScheme, options.Configuration) :> IWebSharperService
+            failwith "IWebSharperService not found. Use AddSitelet in your ConfigureServices."
     match sitelet with
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())

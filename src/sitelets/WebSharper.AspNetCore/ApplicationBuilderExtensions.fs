@@ -34,70 +34,6 @@ open WebSharper.Sitelets
 [<Extension>]
 type ApplicationBuilderExtensions =
 
-    // Remoting                        
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharperRemoting(this: IApplicationBuilder, options: WebSharperOptions) =
-        //for s in this.ApplicationServices.GetServices<IRemotingService>() do
-        //    s.Register()
-        this.Use(Remoting.Middleware options)
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharperRemoting
-        (
-            this: IApplicationBuilder,
-            _env: IHostingEnvironment,
-            [<Optional>] config: IConfiguration,
-            [<Optional>] binDir: string
-        ) =
-        WebSharperOptions.Create(this.ApplicationServices, None, None, None, Option.ofObj config, None, Option.ofObj binDir, false, true, fun _ _ -> ())
-        |> this.UseWebSharperRemoting
-
-    // Sitelets
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharperSitelets(this: IApplicationBuilder, options: WebSharperOptions) =
-        this.Use(Sitelets.Middleware options)
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharperSitelets<'T when 'T : equality>
-        (
-            this: IApplicationBuilder,
-            _env: IHostingEnvironment,
-            [<Optional>] sitelet: Sitelet<'T>,
-            [<Optional>] config: IConfiguration,
-            [<Optional>] binDir: string
-        ) =
-        WebSharperOptions.Create(this.ApplicationServices, sitelet, config, null, binDir, true, false)
-        |> this.UseWebSharperSitelets
-
-    // All
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharper(this: IApplicationBuilder, options: WebSharperOptions) =
-        if options.UseRemoting then this.UseWebSharperRemoting(options) |> ignore
-        if options.UseSitelets then this.UseWebSharperSitelets(options) |> ignore
-        options.UseExtension this options
-        this
-
-    [<Extension>]
-    [<Obsolete "Use UseWebSharper(Action<WebSharperBuilder>)">]
-    static member UseWebSharper
-        (
-            this: IApplicationBuilder,
-            _env: IHostingEnvironment,
-            [<Optional>] sitelet: Sitelet<'T>,
-            [<Optional>] config: IConfiguration,
-            [<Optional>] binDir: string
-        ) =
-        WebSharperOptions.Create(this.ApplicationServices, sitelet, config, null, binDir, true, true)
-        |> this.UseWebSharper
-
     /// Use the WebSharper server side.
     [<Extension>]
     static member UseWebSharper
@@ -107,4 +43,11 @@ type ApplicationBuilderExtensions =
         ) =
         let builder = WebSharperBuilder(this.ApplicationServices)
         if not (isNull build) then build.Invoke(builder)
-        this.UseWebSharper(builder.Build())
+        let options = builder.Build()
+        if options.UseRemoting then 
+            this.Use(Remoting.Middleware options) |> ignore
+        if options.UseSitelets then 
+            this.Use(Sitelets.Middleware options) |> ignore
+        options.UseExtension this options
+        this
+

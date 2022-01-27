@@ -85,11 +85,7 @@ let Middleware (options: WebSharperOptions) =
         match options.Services.GetService(typeof<IWebSharperService>) with
         | :? IWebSharperService as s -> s
         | _ ->
-            let meta =
-                match options.Metadata with
-                | Some m -> m
-                | _ -> Unchecked.defaultof<WebSharper.Core.Metadata.Info>
-            DefaultWebSharperService(options.SiteletAssembly, meta, options.AuthenticationScheme, options.Configuration) :> IWebSharperService
+            failwith "IWebSharperService not found. Use AddSitelet in your ConfigureServices."
     let getRemotingHandler (t: Type) =
         let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
         match service with
