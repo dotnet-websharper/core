@@ -51,9 +51,9 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
-let publish (mode: BuildMode) =
+let publish rids (mode: BuildMode) =
     let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
-        for rid in [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64" ] do
+        for rid in rids do
             let outputPath =
                 __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
             DotNet.publish (fun p ->
@@ -137,7 +137,7 @@ let targets = MakeTargets {
             BuildAction.Multiple [
                 BuildAction.Custom prepareCompiler
                 BuildAction.Projects ["WebSharper.Compiler.sln"]
-                BuildAction.Custom publish
+                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64" ])
                 BuildAction.Custom prepareMain
                 BuildAction.Projects ["WebSharper.sln"]
             ]
@@ -180,7 +180,22 @@ Target.create "AllTests" <| fun o ->
    ]
    |> build o (isDebug o)
 
-Target.create "RunTestsRelease" <| fun _ ->
+Target.create "RunCompilerTestsRelease" <| fun _ ->
+    DotNet.test (fun t ->
+        { t with
+            NoRestore = true
+            Configuration = DotNet.BuildConfiguration.Release
+        }
+    ) "tests/WebSharper.FSharp/WebSharper.FSharp.Tests.fsproj"
+
+"WS-BuildRelease"
+?=> "RunCompilerTestsRelease"
+?=> "WS-Package"
+
+"RunCompilerTestsRelease"
+==> "CI-Release"
+
+Target.create "RunMainTestsRelease" <| fun _ ->
     Trace.log "Starting Web test project"
     let mutable startedOk = false
     let started = Event<unit>()
@@ -218,10 +233,10 @@ Target.create "RunTestsRelease" <| fun _ ->
         failwith "Chutzpah test run failed"
 
 "WS-BuildRelease"
-    ?=> "RunTestsRelease"
+    ?=> "RunMainTestsRelease"
     ?=> "WS-Package"
 
-"RunTestsRelease"
+"RunMainTestsRelease"
     ==> "CI-Release"
     
 Target.runOrDefaultWithArguments "Build"
