@@ -28,7 +28,8 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == ''">$(Root)/build/$(Configuration)/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
-    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == ''">$(Root)\build\$(Configuration)\FSharp\net6.0\$(NETCoreSdkRuntimeIdentifier)\deploy\wsfsc.exe</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net6.0/wsfsc.exe</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(Root)/build/$(Configuration)/FSharp/net6.0/wsfsc.exe</WebSharperToolPath>
     <WebSharperSourceMap>True</WebSharperSourceMap>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>

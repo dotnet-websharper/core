@@ -148,17 +148,23 @@ Target.create "Build" <| fun o ->
         BuildAction.Custom prepareCompiler
         BuildAction.Projects ["WebSharper.Compiler.NoTests.sln"]
     ]
-    |> build o (isDebug o) 
+    |> build o (buildModeFromFlag o) 
+
+"WS-GenAssemblyInfo"
+    ==> "Build"
 
 Target.create "Publish" <| fun o ->
-    publish (isDebug o)  
+    publish [ None ] (buildModeFromFlag o)  
 
 Target.create "Tests" <| fun o ->
     BuildAction.Multiple [
         BuildAction.Custom prepareCompiler
         BuildAction.Projects ["WebSharper.Compiler.sln"]
     ]
-    |> build o (isDebug o) 
+    |> build o (buildModeFromFlag o) 
+
+"WS-GenAssemblyInfo"
+    ==> "Tests"
     
 Target.create "BuildAll" <| fun o ->
     BuildAction.Multiple [
@@ -168,7 +174,10 @@ Target.create "BuildAll" <| fun o ->
         BuildAction.Custom prepareMain
         BuildAction.Projects ["WebSharper.NoTests.sln"]
     ]
-    |> build o (isDebug o) 
+    |> build o (buildModeFromFlag o) 
+
+"WS-GenAssemblyInfo"
+    ==> "BuildAll"
 
 Target.create "AllTests" <| fun o ->
    BuildAction.Multiple [
@@ -178,7 +187,10 @@ Target.create "AllTests" <| fun o ->
        BuildAction.Custom prepareMain
        BuildAction.Projects ["WebSharper.sln"]
    ]
-   |> build o (isDebug o)
+   |> build o (buildModeFromFlag o)
+
+"WS-GenAssemblyInfo"
+    ==> "AllTests"
 
 Target.create "RunCompilerTestsRelease" <| fun _ ->
     DotNet.test (fun t ->
@@ -189,11 +201,11 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
     ) "tests/WebSharper.FSharp/WebSharper.FSharp.Tests.fsproj"
 
 "WS-BuildRelease"
-?=> "RunCompilerTestsRelease"
-?=> "WS-Package"
+    ?=> "RunCompilerTestsRelease"
+    ?=> "WS-Package"
 
 "RunCompilerTestsRelease"
-==> "CI-Release"
+    ==> "CI-Release"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
     Trace.log "Starting Web test project"
