@@ -123,10 +123,13 @@ type WsConfig =
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
             Standalone = 
-                try
-                    System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
-                with
-                | _ -> false
+                let envVar = System.Environment.GetEnvironmentVariable("WebSharperBuildService")
+                if isNull envVar then
+                    false
+                else
+                    match bool.TryParse(envVar) with
+                    | true, v -> v
+                    | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
         }
 

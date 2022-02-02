@@ -20,6 +20,8 @@
 
 module WebSharper.Core.JavaScript.Test.ParserTests
 
+open NUnit.Framework
+
 open System.Globalization
 open System.Threading
 module P = WebSharper.Core.JavaScript.Parser
@@ -36,6 +38,7 @@ let private ps s =
     | [ s ] -> s
     | _ -> invalidArg "s" "Not a statement."
 
+[<Test>]
 let Run () =
 
     Section "Parser"
@@ -96,7 +99,7 @@ let Run () =
         p "alpha"   =? S.Var "alpha"
         p "throws"  =? S.Var "throws"
         p "\u0436x" =? S.Var "\u0436x"
-        Throws<P.ParserError>(fun () -> p "throw" |> ignore)
+        Testing.Throws<P.ParserError>(fun () -> p "throw" |> ignore)
     }
 
     Test "application" {

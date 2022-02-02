@@ -155,16 +155,6 @@ Target.create "Build" <| fun o ->
 
 Target.create "Publish" <| fun o ->
     publish [ None ] (buildModeFromFlag o)  
-
-Target.create "Tests" <| fun o ->
-    BuildAction.Multiple [
-        BuildAction.Custom prepareCompiler
-        BuildAction.Projects ["WebSharper.Compiler.sln"]
-    ]
-    |> build o (buildModeFromFlag o) 
-
-"WS-GenAssemblyInfo"
-    ==> "Tests"
     
 Target.create "BuildAll" <| fun o ->
     BuildAction.Multiple [
@@ -179,7 +169,7 @@ Target.create "BuildAll" <| fun o ->
 "WS-GenAssemblyInfo"
     ==> "BuildAll"
 
-Target.create "AllTests" <| fun o ->
+Target.create "Tests" <| fun o ->
    BuildAction.Multiple [
        BuildAction.Custom prepareCompiler
        BuildAction.Projects ["WebSharper.Compiler.sln"]
@@ -190,15 +180,21 @@ Target.create "AllTests" <| fun o ->
    |> build o (buildModeFromFlag o)
 
 "WS-GenAssemblyInfo"
-    ==> "AllTests"
+    ==> "Tests"
 
 Target.create "RunCompilerTestsRelease" <| fun _ ->
-    DotNet.test (fun t ->
-        { t with
-            NoRestore = true
-            Configuration = DotNet.BuildConfiguration.Release
-        }
-    ) "tests/WebSharper.FSharp/WebSharper.FSharp.Tests.fsproj"
+    [
+        "tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
+        "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
+    ]
+    |> List.iter (
+        DotNet.test (fun t ->
+            { t with
+                NoRestore = true
+                Configuration = DotNet.BuildConfiguration.Release
+            }
+        ) 
+    ) 
 
 "WS-BuildRelease"
     ?=> "RunCompilerTestsRelease"

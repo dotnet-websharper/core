@@ -37,6 +37,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-49
 		paket.lock = paket.lock
 		README.md = README.md
 		rebuild.cmd = rebuild.cmd
+		runtests.cmd = runtests.cmd
+		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.FSharp", "src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj", "{D54EA1FD-F52F-4F07-921F-7B3D1B412CD0}"
@@ -52,10 +54,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.CSharp", "src\compiler\WebSharper.MSBuild.CSharp\WebSharper.MSBuild.CSharp.csproj", "{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.FSharp.Service", "src\compiler\WebSharper.FSharp.Service\WebSharper.FSharp.Service.fsproj", "{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{05E41CBD-6479-4429-8C34-CA5DDB7BA0FC}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "WebSharper.Compiler.FSharp.Tests", "tests\WebSharper.Compiler.FSharp.Tests\WebSharper.Compiler.FSharp.Tests.fsproj", "{23C4B0B8-FADF-4235-813C-B65A2D32364C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WebSharper.MSBuild.FSharp", "src\compiler\WebSharper.MSBuild.FSharp\WebSharper.MSBuild.FSharp.csproj", "{C433885A-0345-4045-BA8F-C42779C93972}"
 EndProject
@@ -132,12 +130,6 @@ Global
 		{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
 		{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.DebugTests|Any CPU.Build.0 = Debug|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C433885A-0345-4045-BA8F-C42779C93972}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C433885A-0345-4045-BA8F-C42779C93972}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C433885A-0345-4045-BA8F-C42779C93972}.DebugTests|Any CPU.ActiveCfg = Debug|Any CPU
@@ -161,7 +153,6 @@ Global
 		{46D8C7C3-43CA-465C-9714-20B22CF3E459} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{766B4A21-4CE7-4D2A-BBDC-CB0F54876DC4} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 		{74DF21FC-ECB4-4C08-AF98-4EDBE92D8F7F} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
-		{23C4B0B8-FADF-4235-813C-B65A2D32364C} = {05E41CBD-6479-4429-8C34-CA5DDB7BA0FC}
 		{C433885A-0345-4045-BA8F-C42779C93972} = {EC03CB1D-151F-4469-A6DD-D5854A340F1D}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution

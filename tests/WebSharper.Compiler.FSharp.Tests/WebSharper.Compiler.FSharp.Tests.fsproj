@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
     <SignAssembly>false</SignAssembly>
     <GenerateProgramFile>false</GenerateProgramFile>
+    <FSharpTool>true</FSharpTool>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Tests.fs" />
@@ -12,10 +13,10 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler\WebSharper.Compiler.fsproj" />
-    <ProjectReference Include="..\..\src\compiler\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />
-    <ProjectReference Include="..\..\src\compiler\WebSharper.FSharp.Service\WebSharper.FSharp.Service.fsproj" />
-    <ProjectReference Include="..\..\src\compiler\WebSharper.FSharp\WebSharper.FSharp.fsproj" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\WebSharper.Compiler.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\WebSharper.Compiler.FSharp.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\wsfsc.dll" />
+    <Reference Include="..\..\build\$(Configuration)\FSharp\net6.0\wsfscservice.dll" />
   </ItemGroup>
   <Import Project="..\..\msbuild\FSharp.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
