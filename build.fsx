@@ -146,7 +146,7 @@ let targets = MakeTargets {
 Target.create "Build" <| fun o ->
     BuildAction.Multiple [
         BuildAction.Custom prepareCompiler
-        BuildAction.Projects ["WebSharper.Compiler.NoTests.sln"]
+        BuildAction.Projects ["WebSharper.Compiler.sln"]
     ]
     |> build o (buildModeFromFlag o) 
 
@@ -159,7 +159,7 @@ Target.create "Publish" <| fun o ->
 Target.create "BuildAll" <| fun o ->
     BuildAction.Multiple [
         BuildAction.Custom prepareCompiler
-        BuildAction.Projects ["WebSharper.Compiler.NoTests.sln"]
+        BuildAction.Projects ["WebSharper.Compiler.sln"]
         //BuildAction.Custom publish
         BuildAction.Custom prepareMain
         BuildAction.Projects ["WebSharper.NoTests.sln"]
