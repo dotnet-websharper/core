@@ -27,17 +27,15 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{068ABD81-368A-497B-A0A2-135BA8A16B0A}"
 	ProjectSection(SolutionItems) = preProject
 		build.cmd = build.cmd
-		chutzpah.json = chutzpah.json
 		build.fsx = build.fsx
 		build.sh = build.sh
+		chutzpah.json = chutzpah.json
 		CONTRIBUTING.md = CONTRIBUTING.md
 		LICENSE.md = LICENSE.md
 		paket.dependencies = paket.dependencies
 		paket.lock = paket.lock
 		README.md = README.md
 		rebuild.cmd = rebuild.cmd
-		runtests.cmd = runtests.cmd
-		runtests.fsx = runtests.fsx
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-BAD1-4D58-AFB8-529185357EE4}"
@@ -75,10 +73,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{F4582361-B
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{77D17EB5-2917-470D-B2FE-FA6560BFBBC1}"
 	ProjectSection(SolutionItems) = preProject
-		tools\GenSingleFw.cmd = tools\GenSingleFw.cmd
-		tools\GenSingleFw.fsx = tools\GenSingleFw.fsx
-		tools\GenSingleFw.sh = tools\GenSingleFw.sh
-		tools\UpdateVersion.fsx = tools\UpdateVersion.fsx
 		tools\WebSharper.Compiler.Common.paket.template = tools\WebSharper.Compiler.Common.paket.template
 		tools\WebSharper.Compiler.CSharp.paket.template = tools\WebSharper.Compiler.CSharp.paket.template
 		tools\WebSharper.Compiler.FSharp.paket.template = tools\WebSharper.Compiler.FSharp.paket.template
