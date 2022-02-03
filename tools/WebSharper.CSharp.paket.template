@@ -42,7 +42,7 @@ files
 
     ../build/Release/CSharp/net6.0/deploy/*.dll ==> tools/net6.0
     ../build/Release/CSharp/net6.0/deploy/**/*.dll ==> tools/net6.0
-    ../build/Release/CSharp/net6.0/deploy/wscsc ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/wscsc.exe ==> tools/net6.0
     ../build/Release/CSharp/net6.0/deploy/wscsc.dll.config ==> tools/net6.0
     ../build/Release/CSharp/net6.0/deploy/wscsc.runtimeconfig.json ==> tools/net6.0
     ../build/Release/CSharp/net6.0/deploy/wscsc.sh ==> tools/net6.0
