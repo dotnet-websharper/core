@@ -71,7 +71,7 @@ let Middleware (options: WebSharperOptions) =
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-            let ctx = Context.GetOrMake httpCtx wsService options.IsDebug options.ContentRootPath sitelet
+            let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->
@@ -98,7 +98,7 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
         let handleSitelet (httpCtx: HttpContext) =
             let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
             let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-            let ctx = Context.GetOrMake httpCtx wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath sitelet
+            let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             match sitelet.Router.Route ctx.Request with
             | Some endpoint ->

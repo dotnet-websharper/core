@@ -29,7 +29,7 @@ open Microsoft.AspNetCore.Hosting
 
 module Rem = WebSharper.Core.Remoting
 
-let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IWebSharperService) isDebug rootPath =
+let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IWebSharperService) rootPath =
 
     let getReqHeader (k: string) =
         match ctx.Request.Headers.TryGetValue(k) with
@@ -60,7 +60,7 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
         | CorsAndCsrfCheckResult.Ok headers ->
             async {
                 addRespHeaders headers
-                let wsctx = Context.GetOrMakeSimple ctx wsService isDebug rootPath
+                let wsctx = Context.GetOrMakeSimple ctx wsService rootPath
                 use reader = new StreamReader(ctx.Request.Body)
                 let! body = reader.ReadToEndAsync() |> Async.AwaitTask
                 let! resp =
@@ -93,7 +93,7 @@ let Middleware (options: WebSharperOptions) =
         | _ -> null
     let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
-        match handleRemote ctx server wsService options.IsDebug options.ContentRootPath with
+        match handleRemote ctx server wsService options.ContentRootPath with
         | Some rTask -> rTask |> Async.StartAsTask :> Task
         | None -> next.Invoke()
     )
@@ -120,7 +120,7 @@ let HttpHandler () : RemotingHttpHandler =
                     | _ -> null
                 let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
             
-                match handleRemote httpCtx server wsService (hostingEnv.IsDevelopment()) hostingEnv.ContentRootPath with
+                match handleRemote httpCtx server wsService hostingEnv.ContentRootPath with
                 | Some handle ->
                     async {
                         do! handle

@@ -263,7 +263,7 @@ type Rendering with
                 (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN) "false").ToLowerInvariant() = "true"
             then
                 let def = "//cdn.websharper.com/{assembly}/{version}/{filename}"
-                Some (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN) def)
+                Some (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_CDNFORMAT) def)
             else None
         |> Option.map (fun urlFormat ->
             let asmName = AssemblyName(assemblyName)

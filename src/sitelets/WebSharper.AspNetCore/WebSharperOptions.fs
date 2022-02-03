@@ -45,7 +45,6 @@ type WebSharperOptions
         services: IServiceProvider,
         contentRoot: string,
         webRoot: string,
-        isDebug: bool,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
@@ -56,8 +55,6 @@ type WebSharperOptions
     member this.UseSitelets = useSitelets
 
     member this.UseRemoting = useRemoting
-
-    member this.IsDebug = isDebug
 
     member this.WebRootPath = webRoot
 
@@ -87,7 +84,7 @@ type WebSharperOptions
         let env = services.GetRequiredService<IHostingEnvironment>()
         //Context.IsDebug <- env.IsDevelopment
         //Context.GetSetting <- fun key -> Option.ofObj config.[key]
-        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), useSitelets, useRemoting, useExtension)
+        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, useSitelets, useRemoting, useExtension)
 
 /// Defines settings for a WebSharper application.
 type WebSharperBuilder(services: IServiceProvider) =

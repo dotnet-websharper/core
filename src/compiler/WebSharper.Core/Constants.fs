@@ -54,7 +54,13 @@ module RuntimeSettings =
     let RUNTIMESETTING_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
 
     [<Literal>]
-    let RUNTIMESETTING_STDLIB_USECDN ="WebSharper.StdlibUseCdn"
+    let RUNTIMESETTING_STDLIB_USECDN = "WebSharper.StdlibUseCdn"
+
+    [<Literal>]
+    let RUNTIMESETTING_STDLIB_CDNFORMAT = "WebSharper.StdlibCdnFormat"
 
     [<Literal>]
     let RUNTIMESETTING_USEDOWNLOADEDRESOURCES = "UseDownloadedResources"
+
+    [<Literal>]
+    let RUNTIMESETTING_USEMINIFIEDSCRIPTS = "UseMinifiedScripts"
