@@ -210,9 +210,9 @@ let private makeResCtx (httpCtx: HttpContext) (wsService: IWebSharperService) =
         match getSetting RUNTIMESETTING_USEMINIFIEDSCRIPTS with
         | Some ums ->
             match bool.TryParse(ums) with
-            | true, v -> v
-            | _ -> false
-        | _ -> false
+            | true, useMinifiedScripts -> not useMinifiedScripts
+            | _ -> true
+        | _ -> true
     appPath,
     WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
 
