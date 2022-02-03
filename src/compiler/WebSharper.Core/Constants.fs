@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -18,10 +18,10 @@
 //
 // $end{copyright}
 
-namespace WebSharper.Compiler
+namespace WebSharper.Constants
 
 [<AutoOpen>]
-module internal Constants =
+module EmbeddedResources =
 
     [<Literal>]
     let EMBEDDED_METADATA = "WebSharper.meta"
@@ -43,3 +43,18 @@ module internal Constants =
 
     [<Literal>]
     let EMBEDDED_DTS = "WebSharper.d.ts"
+
+[<AutoOpen>]
+module RuntimeSettings =
+    
+    [<Literal>]
+    let RUNTIMESETTING_SHARED_METADATA = "WebSharperSharedMetadata"
+
+    [<Literal>]
+    let RUNTIMESETTING_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
+
+    [<Literal>]
+    let RUNTIMESETTING_STDLIB_USECDN ="WebSharper.StdlibUseCdn"
+
+    [<Literal>]
+    let RUNTIMESETTING_USEDOWNLOADEDRESOURCES = "UseDownloadedResources"

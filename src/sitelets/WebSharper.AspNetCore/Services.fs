@@ -29,6 +29,7 @@ open Microsoft.Extensions.DependencyInjection
 open WebSharper.Sitelets
 open WebSharper.Core
 open WebSharper.Core.DependencyGraph
+open WebSharper.Constants
 open Microsoft.Extensions.Configuration
 
 module M = WebSharper.Core.Metadata
@@ -70,7 +71,7 @@ type DefaultWebSharperService
                 if isNull configuration then
                     None
                 else
-                    configuration.["WebSharperSharedMetadata"]
+                    configuration.[RUNTIMESETTING_SHARED_METADATA]
                     |> Option.ofObj
                     |> Option.map (fun x -> x.ToLower())
             match metadataSetting with

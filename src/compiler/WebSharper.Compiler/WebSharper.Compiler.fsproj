@@ -11,7 +11,6 @@
     <Compile Include="AssemblyResolution.fs" />
     <Compile Include="FileSystem.fsi" />
     <Compile Include="FileSystem.fs" />
-    <Compile Include="Constants.fs" />
     <Compile Include="Utility.fs" />
     <Compile Include="Helpers.fs" />
     <Compile Include="AttributeReader.fs" />

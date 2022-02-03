@@ -20,6 +20,8 @@
 
 namespace WebSharper.Compiler
 
+open WebSharper.Constants
+
 module CT = WebSharper.Core.ContentTypes
 
 [<AutoOpen>]

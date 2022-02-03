@@ -25,6 +25,8 @@ open System.IO
 open System.Net
 open System.Reflection
 
+open WebSharper.Constants
+
 module CT = ContentTypes
     
 type HtmlTextWriter(w: TextWriter, indent: string) =
@@ -253,15 +255,15 @@ type Rendering with
                 assemblyName.Split(',').[0]
             else
                 assemblyName
-        match ctx.GetSetting ("WebSharper.CdnFormat." + shortName) with
+        match ctx.GetSetting (RUNTIMESETTING_CDNFORMAT_PREFIX + shortName) with
         | Some urlFormat -> Some urlFormat
         | None ->
             let isStdlib = AssemblyName(assemblyName).GetPublicKeyToken() = thisAssemblyToken
             if isStdlib &&
-                (defaultArg (ctx.GetSetting "WebSharper.StdlibUseCdn") "false").ToLowerInvariant() = "true"
+                (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN) "false").ToLowerInvariant() = "true"
             then
                 let def = "//cdn.websharper.com/{assembly}/{version}/{filename}"
-                Some (defaultArg (ctx.GetSetting "WebSharper.StdlibCdnFormat") def)
+                Some (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN) def)
             else None
         |> Option.map (fun urlFormat ->
             let asmName = AssemblyName(assemblyName)
@@ -321,7 +323,7 @@ type BaseResource(kind: Kind) as this =
     interface IExternalScriptResource with
         member this.Urls ctx =
             let dHttp = ctx.DefaultToHttp
-            let isLocal = ctx.GetSetting "UseDownloadedResources" |> Option.exists (fun s -> s.ToLower() = "true")
+            let isLocal = ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES |> Option.exists (fun s -> s.ToLower() = "true")
             let localFolder f =
                 ctx.WebRoot +  "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
             match kind with
@@ -359,7 +361,7 @@ type BaseResource(kind: Kind) as this =
     interface IResource with
         member this.Render ctx =
             let dHttp = ctx.DefaultToHttp
-            let isLocal = ctx.GetSetting "UseDownloadedResources" |> Option.exists (fun s -> s.ToLower() = "true")
+            let isLocal = ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES |> Option.exists (fun s -> s.ToLower() = "true")
             let localFolder isCss f =
                 ctx.WebRoot + 
                 (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f

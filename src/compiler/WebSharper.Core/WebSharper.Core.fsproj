@@ -11,6 +11,7 @@
     <Compile Include="PathConventions.fs" />
     <Compile Include="ContentTypes.fs" />
     <Compile Include="Utilities.fs" />
+    <Compile Include="Constants.fs" />
     <Compile Include="AssemblyConventions.fs" />
     <Compile Include="Binary.fsi" />
     <Compile Include="Binary.fs" />
