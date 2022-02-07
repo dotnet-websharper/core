@@ -75,7 +75,7 @@ let publish rids (mode: BuildMode) =
     publishExe mode "net6.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
     publishExe mode "net6.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
 
-let prepareCompiler (mode: BuildMode) =
+Target.create "Prepare" <| fun _ ->
     // make netstandardtypes.txt
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
     if not f.Exists then
@@ -114,7 +114,7 @@ let prepareCompiler (mode: BuildMode) =
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
-let prepareMain (mode: BuildMode) =
+    // make minified scripts
     let needsBuilding input output =
         let i = FileInfo(input)
         let o = FileInfo(output)
@@ -135,22 +135,21 @@ let targets = MakeTargets {
         HasDefaultBuild = false
         BuildAction =
             BuildAction.Multiple [
-                BuildAction.Custom prepareCompiler
                 BuildAction.Projects ["WebSharper.Compiler.sln"]
                 BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64" ])
-                BuildAction.Custom prepareMain
                 BuildAction.Projects ["WebSharper.sln"]
             ]
 }
 
+targets.AddPrebuild "Prepare"
+
 Target.create "Build" <| fun o ->
     BuildAction.Multiple [
-        BuildAction.Custom prepareCompiler
         BuildAction.Projects ["WebSharper.Compiler.sln"]
     ]
     |> build o (buildModeFromFlag o) 
 
-"WS-GenAssemblyInfo"
+"Prepare"
     ==> "Build"
 
 Target.create "Publish" <| fun o ->
@@ -158,28 +157,24 @@ Target.create "Publish" <| fun o ->
     
 Target.create "BuildAll" <| fun o ->
     BuildAction.Multiple [
-        BuildAction.Custom prepareCompiler
         BuildAction.Projects ["WebSharper.Compiler.sln"]
         //BuildAction.Custom publish
-        BuildAction.Custom prepareMain
         BuildAction.Projects ["WebSharper.NoTests.sln"]
     ]
     |> build o (buildModeFromFlag o) 
 
-"WS-GenAssemblyInfo"
+"Prepare"
     ==> "BuildAll"
 
 Target.create "Tests" <| fun o ->
    BuildAction.Multiple [
-       BuildAction.Custom prepareCompiler
        BuildAction.Projects ["WebSharper.Compiler.sln"]
        //BuildAction.Custom publish
-       BuildAction.Custom prepareMain
        BuildAction.Projects ["WebSharper.sln"]
    ]
    |> build o (buildModeFromFlag o)
 
-"WS-GenAssemblyInfo"
+"Prepare"
     ==> "Tests"
 
 Target.create "RunCompilerTestsRelease" <| fun _ ->
