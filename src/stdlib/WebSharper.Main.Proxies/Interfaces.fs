@@ -112,12 +112,17 @@ type private IEnumerableProxy =
     [<Name "GetEnumerator0">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
 
-[<Proxy(typeof<seq<_>>)>]  
+    [<Inline>]
+    default this.GetEnumerator() = Enumerator.getEnumerator0 this
+
+[<Proxy(typeof<seq<_>>, [| typeof<System.Collections.IEnumerable> |])>]  
 type private IEnumerableProxy<'T> =
-    inherit System.Collections.IEnumerable 
     
     [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
+
+    [<Inline>]
+    default this.GetEnumerator() = Enumerator.getEnumerator this : System.Collections.Generic.IEnumerator<'T>
 
 [<Proxy(typeof<System.Collections.ICollection>)>]
 type private ICollectionProxy =

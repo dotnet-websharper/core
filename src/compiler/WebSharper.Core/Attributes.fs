@@ -152,6 +152,9 @@ type ProxyAttribute private () =
     /// Constructs a new proxy link using an assembly-qualified name.
     new (assemblyQualifiedName: string) = ProxyAttribute()
 
+    /// Constructs a new proxy link using a type directly and allows adding inherited interfaces.
+    new (proxiedType: Type, interfaces: Type[]) = ProxyAttribute()
+
 /// Marks a server-side function to be invokable remotely from the client-side.
 [<Sealed; U(T.Method)>]
 type RemoteAttribute() =

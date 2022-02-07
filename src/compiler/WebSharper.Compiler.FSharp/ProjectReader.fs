@@ -146,7 +146,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (lookupTypeDefinition: TypeDefinition -> FSharpEntity option) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -178,6 +178,19 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
+
+    let isInterfaceProxy =
+        Option.isSome annot.ProxyOf &&
+        match lookupTypeDefinition def with
+        | Some p -> 
+            let res = p.IsInterface
+            if def.Value.FullName = "System.Collections.IEnumerable" && not res then
+                failwithf "Expection interface type info on %s" def.Value.AssemblyQualifiedName
+            res
+        | None -> 
+            if def.Value.FullName = "System.Collections.IEnumerable" then
+                failwithf "Could not find type info on %s" def.Value.AssemblyQualifiedName
+            false
 
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
@@ -633,7 +646,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let checkNotAbstract() =
                         if meth.IsDispatchSlot then
                             error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
-                        else
+                        elif not isInterfaceProxy then
                             match memdef with
                             | Member.Override (bTyp, _) -> 
                                 if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
@@ -749,12 +762,28 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots lookupTypeDefinition ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
             transformInitAction sc comp sr annot expr    
 
+    if isInterfaceProxy then
+        let methodNames = 
+            clsMembers |> Seq.choose (fun m ->
+                match m with
+                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                    Some (mem, sn)
+                | _ -> None 
+            )     
+        let intf =
+            {
+                StrongName = annot.Name 
+                Extends = annot.ProxyExtends
+                NotResolvedMethods = List.ofSeq methodNames 
+            }
+        comp.AddInterface(def, intf)
+    
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
@@ -1309,7 +1338,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             

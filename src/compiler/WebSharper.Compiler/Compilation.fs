@@ -1581,70 +1581,70 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // Add graph edges for GetEnumerator and Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
-            let wsEnumeratorModule =
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.Enumerator"
-                } 
+            //let wsEnumeratorModule =
+            //    TypeDefinition {
+            //        Assembly = "WebSharper.Main"
+            //        FullName = "WebSharper.Enumerator"
+            //    } 
 
-            let seq0Ty =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.IEnumerable"
-                } 
+            //let seq0Ty =
+            //    TypeDefinition {
+            //        Assembly = "netstandard"
+            //        FullName = "System.Collections.IEnumerable"
+            //    } 
 
-            let seqTy =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.Generic.IEnumerable`1"
-                } 
+            //let seqTy =
+            //    TypeDefinition {
+            //        Assembly = "netstandard"
+            //        FullName = "System.Collections.Generic.IEnumerable`1"
+            //    } 
 
-            let enum0Ty =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.IEnumerator"
-                } 
+            //let enum0Ty =
+            //    TypeDefinition {
+            //        Assembly = "netstandard"
+            //        FullName = "System.Collections.IEnumerator"
+            //    } 
 
-            let enumTy =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.Generic.IEnumerator`1"
-                }
+            //let enumTy =
+            //    TypeDefinition {
+            //        Assembly = "netstandard"
+            //        FullName = "System.Collections.Generic.IEnumerator`1"
+            //    }
 
-            let getEnumerator0 =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
+            //let getEnumerator0 =
+            //    Method {
+            //        MethodName = "GetEnumerator"
+            //        Parameters = []
+            //        ReturnType = ConcreteType (NonGeneric enum0Ty)
+            //        Generics = 0
+            //    } 
             
-            let wsGetEnumerator0 =
-                Method {
-                    MethodName = "Get0"
-                    Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
+            //let wsGetEnumerator0 =
+            //    Method {
+            //        MethodName = "Get0"
+            //        Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
+            //        ReturnType = ConcreteType (NonGeneric enum0Ty)
+            //        Generics = 0
+            //    } 
     
-            let getEnumerator =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 0
-                } 
+            //let getEnumerator =
+            //    Method {
+            //        MethodName = "GetEnumerator"
+            //        Parameters = []
+            //        ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
+            //        Generics = 0
+            //    } 
 
-            let wsGetEnumerator =
-                Method {
-                    MethodName = "Get"
-                    Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 1
-                } 
+            //let wsGetEnumerator =
+            //    Method {
+            //        MethodName = "Get"
+            //        Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
+            //        ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
+            //        Generics = 1
+            //    } 
             
-            graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
-            graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
+            //graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
+            //graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
 
             let equals =
                 Method {
