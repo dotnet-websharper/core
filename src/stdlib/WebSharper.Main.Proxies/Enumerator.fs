@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Provides an `IEnumerator` implementation.
-module private WebSharper.Enumerator
+module internal WebSharper.Enumerator
 
 open WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>

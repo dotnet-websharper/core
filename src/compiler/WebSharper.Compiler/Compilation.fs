@@ -583,39 +583,8 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member private this.LookupMethodInfoInternal(typ, meth) = 
         let typ = this.FindProxied typ
-        match interfaces.TryFind typ with
-        | Some intf -> 
-            match intf.Methods.TryFind meth with
-            | Some m ->
-                if typ.Value.Assembly = "netstandard" then
-                    match typ.Value.FullName with
-                    | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
-                    | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
-                    | _ -> 
-                        Compiled (Instance m, Optimizations.None, Undefined)
-                else
-                    Compiled (Instance m, Optimizations.None, Undefined)              
-            | _ ->
-                let mName = meth.Value.MethodName
-                let candidates = 
-                    [
-                        for m in intf.Methods.Keys do
-                            if m.Value.MethodName = mName then
-                                yield m
-                    ]
-                if List.isEmpty candidates then
-                    let names =
-                        seq {
-                            for m in intf.Methods.Keys do
-                                yield m.Value.MethodName
-                        }
-                        |> Seq.distinct |> List.ofSeq
-                    LookupMemberError (MethodNameNotFound (typ, meth, names))
-                else
-                    LookupMemberError (MethodNotFound (typ, meth, candidates))
-        | _ -> 
+                
+        // look for class method
         match classes.TryFind typ with
         | Some cls ->
             match cls.Methods.TryFind meth with
@@ -666,9 +635,46 @@ type Compilation(meta: Info, ?hasGraph) =
                                     LookupMemberError (MethodNotFound (typ, meth, candidates))
                         | i -> CustomTypeMember i
         | _ ->
-            match this.GetCustomType typ with
-            | NotCustomType -> LookupMemberError (TypeNotFound typ)
-            | i -> CustomTypeMember i
+
+        // look for interface method
+        match interfaces.TryFind typ with
+        | Some intf -> 
+            match intf.Methods.TryFind meth with
+            | Some m ->
+                //if typ.Value.Assembly = "netstandard" then
+                //    match typ.Value.FullName with
+                //    | "System.Collections.IEnumerable" ->
+                //        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
+                //    | "System.Collections.Generic.IEnumerable`1" ->
+                //        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
+                //    | _ -> 
+                //        Compiled (Instance m, Optimizations.None, Undefined)
+                //else
+                    Compiled (Instance m, Optimizations.None, Undefined)              
+            | _ ->
+                let mName = meth.Value.MethodName
+                let candidates = 
+                    [
+                        for m in intf.Methods.Keys do
+                            if m.Value.MethodName = mName then
+                                yield m
+                    ]
+                if List.isEmpty candidates then
+                    let names =
+                        seq {
+                            for m in intf.Methods.Keys do
+                                yield m.Value.MethodName
+                        }
+                        |> Seq.distinct |> List.ofSeq
+                    LookupMemberError (MethodNameNotFound (typ, meth, names))
+                else
+                    LookupMemberError (MethodNotFound (typ, meth, candidates))
+        | _ ->
+
+        // look for custom type method
+        match this.GetCustomType typ with
+        | NotCustomType -> LookupMemberError (TypeNotFound typ)
+        | i -> CustomTypeMember i
 
     member this.LookupMethodInfo(typ, meth: Method) = 
         let m = meth.Value
@@ -1344,9 +1350,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             | Some p ->
                                 p, M.Method(mDef, { nr with Kind = N.Implementation p }) 
                             | _ -> td, m
-                        if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
-                            Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
-                        else 
+                        //if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
+                        //    Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
+                        //else 
                         match interfaces.TryFind td with
                         | Some i ->
                             match i.Methods.TryFind mDef with

@@ -227,7 +227,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let addMethod (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) (mdef: Method) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
-            if not <| ms.Contains memdef then
+            if not isInterfaceProxy && not (ms.Contains memdef) then
                 let candidates =
                     let n = mdef.Value.MethodName
                     match memdef with
@@ -770,9 +770,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     if isInterfaceProxy then
         let methodNames = 
-            clsMembers |> Seq.choose (fun m ->
+            clsMembers |> Array.ofSeq |> Array.choose (fun m ->
                 match m with
                 | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                    clsMembers.Remove(m)
                     Some (mem, sn)
                 | _ -> None 
             )     
@@ -780,7 +781,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             {
                 StrongName = annot.Name 
                 Extends = annot.ProxyExtends
-                NotResolvedMethods = List.ofSeq methodNames 
+                NotResolvedMethods = List.ofArray methodNames 
             }
         comp.AddInterface(def, intf)
     
