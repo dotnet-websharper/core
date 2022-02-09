@@ -1078,9 +1078,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         | true, ores -> Some ores
         | _ ->
             let t = typ.Value
+            let assemblies =
+                if t.Assembly = "netstandard" then
+                    lookupAssembly.Value |> Map.toSeq |> Seq.choose (fun (n, a) -> if n.StartsWith "System" then Some a else None)     
+                else
+                    [| lookupAssembly.Value.[t.Assembly] |]
             let path = t.FullName.Split('+')
             let mutable res =
-                lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
+                assemblies |> Seq.collect (fun a -> a.Entities) |> Seq.tryFind (fun e ->
                     match e.TryFullName with
                     | Some fn when fn = path.[0] -> true
                     | _ -> false
@@ -1088,7 +1093,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             for i = 1 to path.Length - 1 do
                 if res.IsSome then
                     res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
-        
+            res |> Option.iter (fun td -> typeImplLookup.Add(typ, td))
             res
 
     let readAttribute (a: FSharpAttribute) =

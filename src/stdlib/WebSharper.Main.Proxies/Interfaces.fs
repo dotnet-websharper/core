@@ -122,7 +122,7 @@ type private IEnumerableProxy<'T> =
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
 
     [<Inline>]
-    default this.GetEnumerator() = Enumerator.Get (As<System.Collections.Generic.IEnumerator<'T> this)
+    default this.GetEnumerator() = Enumerator.Get (As<System.Collections.Generic.IEnumerable<'T>> this)
 
 [<Proxy(typeof<System.Collections.ICollection>)>]
 type private ICollectionProxy =
