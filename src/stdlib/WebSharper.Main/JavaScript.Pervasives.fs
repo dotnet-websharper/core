@@ -124,6 +124,11 @@ let GetJS<'T> (x: obj) (items: seq<string>) =
 [<Macro(typeof<M.DefaultToUndefined>)>]
 let DefaultToUndefined<'T> (x: 'T) = x
 
+/// Skips calling default interface implementations but calls into the method on 
+/// the object by name.
+[<Macro(typeof<M.NoDefaultInterfaceImplementation>)>]
+let NoDefaultInterfaceImplementation<'T> (x: 'T) = x
+
 module Optional =
     /// Converts an F# option value to a JavaScript erased option
     [<Inline>]

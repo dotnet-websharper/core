@@ -151,6 +151,11 @@ type DefaultToUndefined =
     inherit Macro
 
 [<Sealed>]
+type NoDefaultInterfaceImplementation =
+    new : unit -> NoDefaultInterfaceImplementation
+    inherit Macro
+
+[<Sealed>]
 type TypeTest =
     new : unit -> TypeTest
     inherit Macro

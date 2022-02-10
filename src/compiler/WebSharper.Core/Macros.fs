@@ -1363,6 +1363,25 @@ type DefaultToUndefined() =
         MacroOk <| tr c.Arguments.[0]
 
 [<Sealed>]
+type NoDefaultInterfaceImplementation() =
+    inherit Macro()
+
+    override __.TranslateCall(c) =
+        match c.Arguments.[0] with 
+        | I.Call(thisObj, typ, meth, args) ->
+            let noDefIntfImplMeth =
+                Generic (
+                    Method 
+                        { meth.Entity.Value with
+                            MethodName = "noDefIntfImpl:" + meth.Entity.Value.MethodName
+                        }
+                )  meth.Generics
+                
+            MacroOk (Call(thisObj, typ, meth, args))
+        | e -> 
+            MacroOk e
+
+[<Sealed>]
 type TypeTest() =
     inherit Macro()
 

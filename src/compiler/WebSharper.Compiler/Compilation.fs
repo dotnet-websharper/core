@@ -581,12 +581,12 @@ type Compilation(meta: Info, ?hasGraph) =
             cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
         | _ -> false
 
-    member private this.LookupMethodInfoInternal(typ, meth) = 
+    member private this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl) = 
         let typ = this.FindProxied typ
                 
         // look for class method
-        match classes.TryFind typ with
-        | Some cls ->
+        match noDefIntfImpl, classes.TryFind typ with
+        | false, Some cls ->
             match cls.Methods.TryFind meth with
             | Some m -> Compiled m
             | _ -> 
@@ -613,7 +613,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             let bres =
                                 match cls.BaseClass with
                                 | Some bTyp -> 
-                                    match this.LookupMethodInfoInternal(bTyp, meth) with
+                                    match this.LookupMethodInfoInternal(bTyp, meth, noDefIntfImpl) with
                                     | LookupMemberError _ -> None
                                     | res -> Some res
                                 | None -> None
@@ -641,16 +641,7 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some intf -> 
             match intf.Methods.TryFind meth with
             | Some m ->
-                //if typ.Value.Assembly = "netstandard" then
-                //    match typ.Value.FullName with
-                //    | "System.Collections.IEnumerable" ->
-                //        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
-                //    | "System.Collections.Generic.IEnumerable`1" ->
-                //        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
-                //    | _ -> 
-                //        Compiled (Instance m, Optimizations.None, Undefined)
-                //else
-                    Compiled (Instance m, Optimizations.None, Undefined)              
+                Compiled (Instance m, Optimizations.None, Undefined)              
             | _ ->
                 let mName = meth.Value.MethodName
                 let candidates = 
@@ -689,18 +680,28 @@ type Compilation(meta: Info, ?hasGraph) =
                 else None
             | _ -> None
 
-        let res = this.LookupMethodInfoInternal(typ, meth)
+        let meth, noDefIntfImpl =
+            if meth.Value.MethodName.StartsWith("noDefIntfImpl:") then
+                Method 
+                    { meth.Value with
+                        MethodName = meth.Value.MethodName[14 ..]
+                    }
+                , true
+            else
+                meth, false
+
+        let res = this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl)
         if m.MethodName = "op_Explicit" then
             match res with
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match this.LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth, noDefIntfImpl) with
                     | LookupMemberError _ -> 
                         let implicitMeth = Method { m with MethodName = "op_Implicit" }
-                        match this.LookupMethodInfoInternal(typ, implicitMeth) with
+                        match this.LookupMethodInfoInternal(typ, implicitMeth, noDefIntfImpl) with
                         | LookupMemberError _ -> 
-                            match this.LookupMethodInfoInternal(ot, implicitMeth) with
+                            match this.LookupMethodInfoInternal(ot, implicitMeth, noDefIntfImpl) with
                             | LookupMemberError _ -> res
                             | sres -> sres
                         | sres -> sres
@@ -712,7 +713,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match this.LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth, noDefIntfImpl) with
                     | LookupMemberError _ -> res
                     | sres -> sres
                 | _ -> res
@@ -1587,71 +1588,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // Add graph edges for GetEnumerator and Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
-            //let wsEnumeratorModule =
-            //    TypeDefinition {
-            //        Assembly = "WebSharper.Main"
-            //        FullName = "WebSharper.Enumerator"
-            //    } 
-
-            //let seq0Ty =
-            //    TypeDefinition {
-            //        Assembly = "netstandard"
-            //        FullName = "System.Collections.IEnumerable"
-            //    } 
-
-            //let seqTy =
-            //    TypeDefinition {
-            //        Assembly = "netstandard"
-            //        FullName = "System.Collections.Generic.IEnumerable`1"
-            //    } 
-
-            //let enum0Ty =
-            //    TypeDefinition {
-            //        Assembly = "netstandard"
-            //        FullName = "System.Collections.IEnumerator"
-            //    } 
-
-            //let enumTy =
-            //    TypeDefinition {
-            //        Assembly = "netstandard"
-            //        FullName = "System.Collections.Generic.IEnumerator`1"
-            //    }
-
-            //let getEnumerator0 =
-            //    Method {
-            //        MethodName = "GetEnumerator"
-            //        Parameters = []
-            //        ReturnType = ConcreteType (NonGeneric enum0Ty)
-            //        Generics = 0
-            //    } 
-            
-            //let wsGetEnumerator0 =
-            //    Method {
-            //        MethodName = "Get0"
-            //        Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
-            //        ReturnType = ConcreteType (NonGeneric enum0Ty)
-            //        Generics = 0
-            //    } 
-    
-            //let getEnumerator =
-            //    Method {
-            //        MethodName = "GetEnumerator"
-            //        Parameters = []
-            //        ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-            //        Generics = 0
-            //    } 
-
-            //let wsGetEnumerator =
-            //    Method {
-            //        MethodName = "Get"
-            //        Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
-            //        ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-            //        Generics = 1
-            //    } 
-            
-            //graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
-            //graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
-
             let equals =
                 Method {
                     MethodName = "Equals"

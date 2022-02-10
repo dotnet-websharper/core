@@ -58,9 +58,6 @@ let New<'S,'T> (state: 'S) (next: T<'S,'T> -> bool) =
 let NewDisposing<'S,'T> (state: 'S) dispose (next: T<'S,'T> -> bool) =
     As<IE<'T>> (new T<'S,'T>(state, As null, next, dispose))
 
-[<Inline "$x.GetEnumerator()">]
-let getEnumerator (x: obj) : IE<'T> = X
-
 [<JavaScript>]
 let ArrayEnumerator (s: obj[]) =
     New 0 (fun e ->
@@ -90,10 +87,7 @@ let Get (x: seq<'T>) : IE<'T> =
     elif JS.TypeOf x = JS.String then
         StringEnumerator (As x)
     else
-        getEnumerator x
-
-[<Inline "'GetEnumerator0' in $x ? $x.GetEnumerator0() : $x.GetEnumerator()">]
-let getEnumerator0 (x: obj) : System.Collections.IEnumerator = X
+        NoDefaultInterfaceImplementation(x.GetEnumerator())
 
 [<JavaScript>]
 let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
@@ -101,6 +95,8 @@ let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
         As (ArrayEnumerator (As x))
     elif JS.TypeOf x = JS.String then
         As (StringEnumerator (As x))
+    elif JS.In "GetEnumerator0" x then
+        NoDefaultInterfaceImplementation(x.GetEnumerator())
     else
-        getEnumerator0 x
+        NoDefaultInterfaceImplementation((As<seq<obj>> x).GetEnumerator())
 

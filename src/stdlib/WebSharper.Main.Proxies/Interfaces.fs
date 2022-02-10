@@ -108,7 +108,6 @@ type private IDisposableProxy =
 
 [<Proxy(typeof<System.Collections.IEnumerable>)>]  
 type private IEnumerableProxy =
-
     [<Name "GetEnumerator0">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
 
@@ -117,7 +116,6 @@ type private IEnumerableProxy =
 
 [<Proxy(typeof<seq<_>>, [| typeof<System.Collections.IEnumerable> |])>]  
 type private IEnumerableProxy<'T> =
-    
     [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
 
