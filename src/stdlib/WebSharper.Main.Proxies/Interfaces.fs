@@ -110,7 +110,6 @@ type private IDisposableProxy =
 type private IEnumerableProxy =
     [<Name "GetEnumerator0">]
     abstract GetEnumerator : unit -> System.Collections.IEnumerator
-
     [<Inline>]
     default this.GetEnumerator() = Enumerator.Get0 (As<System.Collections.IEnumerable> this)
 
@@ -118,113 +117,131 @@ type private IEnumerableProxy =
 type private IEnumerableProxy<'T> =
     [<Name "GetEnumerator">]
     abstract GetEnumerator : unit -> System.Collections.Generic.IEnumerator<'T>
-
     [<Inline>]
     default this.GetEnumerator() = Enumerator.Get (As<System.Collections.Generic.IEnumerable<'T>> this)
 
-[<Proxy(typeof<System.Collections.ICollection>)>]
+[<Proxy(typeof<System.Collections.ICollection>, [| typeof<System.Collections.IEnumerable> |])>]
 type private ICollectionProxy =
-    inherit System.Collections.IEnumerable
     [<Name "Count">]
-    abstract member Count          : int
-    [<Name "IsSynchronized">]
-    abstract member IsSynchronized : bool
-    [<Name "SyncRoot">]
-    abstract member SyncRoot       : obj
-    [<Name "CopyTo">]
-    abstract member CopyTo         : System.Array * int -> unit
+    abstract member Count : int
+    [<Inline>]
+    default this.Count = Enumerator.Count (As<System.Collections.ICollection> this)
 
-[<Proxy(typeof<System.Collections.Generic.ICollection<_>>)>]
+    //[<Name "IsSynchronized">]
+    //abstract member IsSynchronized : bool
+    //[<Name "SyncRoot">]
+    //abstract member SyncRoot : obj
+    [<Name "CopyTo">]
+    abstract member CopyTo : System.Array * int -> unit
+    [<Inline>]
+    default this.CopyTo(array: System.Array, index: int) = Enumerator.CopyTo (As<System.Collections.ICollection> this) array index
+
+[<Proxy(typeof<System.Collections.Generic.ICollection<_>>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.Generic.IEnumerable<_>> |])>]
 type private ICollectionProxy<'T> =
-    inherit System.Collections.IEnumerable
-    inherit System.Collections.Generic.IEnumerable<'T>
     [<Name "Count">]
-    abstract member Count      : int
+    abstract member Count : int
+    [<Inline>]
+    default this.Count = Enumerator.Count (As<System.Collections.ICollection> this)
+
     [<Name "IsReadOnly">]
     abstract member IsReadOnly : bool
-    [<Name "CopyTo">]
-    abstract member CopyTo     : 'T [] * int -> unit
-    [<Name "Add">]
-    abstract member Add        : 'T -> unit
-    [<Name "Clear">]
-    abstract member Clear      : unit -> unit
-    [<Name "Contains">]
-    abstract member Contains   : 'T -> bool
-    [<Name "Remove">]
-    abstract member Remove     : 'T -> bool
+    [<Inline>]
+    default this.IsReadOnly = Enumerator.IsReadOnly (As<System.Collections.Generic.ICollection<'T>> this)
 
-[<Proxy(typeof<System.Collections.IList>)>]
+    [<Name "CopyTo">]
+    abstract member CopyTo : 'T [] * int -> unit
+    [<Inline>]
+    default this.CopyTo(array: 'T [], index: int) = Enumerator.CopyTo (As<System.Collections.ICollection> this) array index
+
+    [<Name "Add">]
+    abstract member Add : 'T -> unit
+    [<Inline>]
+    default this.Add(item: 'T) = Enumerator.Add (As<System.Collections.Generic.ICollection<'T>> this) item
+
+    [<Name "Clear">]
+    abstract member Clear : unit -> unit
+    [<Inline>]
+    default this.Clear() = Enumerator.Clear (As<System.Collections.Generic.ICollection<'T>> this)
+
+    [<Name "Contains">]
+    abstract member Contains : 'T -> bool
+    [<Inline>]
+    default this.Contains(item: 'T) = Enumerator.Contains (As<System.Collections.Generic.ICollection<'T>> this) item
+
+    [<Name "Remove">]
+    abstract member Remove : 'T -> bool
+    [<Inline>]
+    default this.Remove(item: 'T) = Enumerator.Remove (As<System.Collections.Generic.ICollection<'T>> this) item
+
+[<Proxy(typeof<System.Collections.IList>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.ICollection> |])>]
 type private IListProxy =
-    inherit System.Collections.IEnumerable
-    inherit System.Collections.ICollection
     [<Name "IsFixedSize">]
     abstract member IsFixedSize : bool
     [<Name "IsReadOnly">]
-    abstract member IsReadOnly  : bool
+    abstract member IsReadOnly : bool
     [<Name "Item">]
-    abstract member Item        : int -> obj with get, set
+    abstract member Item : int -> obj with get, set
     [<Name "Add">]
-    abstract member Add         : obj -> int
+    abstract member Add : obj -> int
     [<Name "Clear">]
-    abstract member Clear       : unit -> unit
+    abstract member Clear : unit -> unit
     [<Name "Contains">]
-    abstract member Contains    : obj -> bool
+    abstract member Contains : obj -> bool
     [<Name "IndexOf">]
-    abstract member IndexOf     : obj -> int
+    abstract member IndexOf : obj -> int
     [<Name "Insert">]
-    abstract member Insert      : int * obj -> unit
+    abstract member Insert : int * obj -> unit
     [<Name "Remove">]
-    abstract member Remove      : obj -> unit
+    abstract member Remove : obj -> unit
     [<Name "RemoveAt">]
-    abstract member RemoveAt    : int -> unit
+    abstract member RemoveAt : int -> unit
 
-[<Proxy(typeof<System.Collections.Generic.IList<_>>)>]
+[<Proxy(typeof<System.Collections.Generic.IList<_>>, [| typeof<System.Collections.Generic.ICollection<_>> |])>]
 type private IListProxy<'T> =
-    inherit System.Collections.Generic.ICollection<'T>
     [<Name "Item">]
-    abstract member Item        : int -> 'T with get, set
+    abstract member Item : int -> 'T with get, set
     [<Name "IndexOf">]
-    abstract member IndexOf     : 'T -> int
+    abstract member IndexOf : 'T -> int
     [<Name "Insert">]
-    abstract member Insert      : int * 'T -> unit
+    abstract member Insert : int * 'T -> unit
     [<Name "Remove">]
-    abstract member Remove      : 'T -> unit
+    abstract member Remove : 'T -> unit
     [<Name "RemoveAt">]
-    abstract member RemoveAt    : int -> unit
+    abstract member RemoveAt : int -> unit
 
 [<Proxy(typeof<System.Collections.IDictionary>)>]
 type private IDictionaryProxy =
     inherit System.Collections.ICollection
     [<Name "IsFixedSize">]
-    abstract member IsFixedSize   : bool
+    abstract member IsFixedSize : bool
     [<Name "IsReadOnly">] 
-    abstract member IsReadOnly    : bool
+    abstract member IsReadOnly : bool
     [<Name "Item">]
-    abstract member Item          : obj -> obj with get, set
+    abstract member Item : obj -> obj with get, set
     [<Name "Keys">]
-    abstract member Keys          : System.Collections.ICollection
+    abstract member Keys : System.Collections.ICollection
     [<Name "Values">]
-    abstract member Values        : System.Collections.ICollection
+    abstract member Values : System.Collections.ICollection
     [<Name "Add">]
-    abstract member Add           : obj * obj -> unit
+    abstract member Add : obj * obj -> unit
     [<Name "Clear">]
-    abstract member Clear         : unit -> unit
+    abstract member Clear : unit -> unit
     [<Name "ContainsKey">]
-    abstract member Contains      : obj -> bool
+    abstract member Contains : obj -> bool
     [<Name "GetEnumerator">]
     abstract member GetEnumerator : unit -> System.Collections.IDictionaryEnumerator
     [<Name "RemoveKey">]
-    abstract member Remove        : obj -> unit
+    abstract member Remove : obj -> unit
 
 [<Proxy(typeof<System.Collections.IDictionaryEnumerator>)>]
 type private IDictionaryEnumeratorProxy =
     inherit System.Collections.IEnumerator
     [<Name "Entry">]
-    abstract member Entry  : System.Collections.DictionaryEntry
+    abstract member Entry : System.Collections.DictionaryEntry
     [<Name "Key">] 
-    abstract member Key    : obj
+    abstract member Key : obj
     [<Name "Value">] 
-    abstract member Value  : obj
+    abstract member Value : obj
 
 [<Proxy(typeof<System.Collections.DictionaryEntry>)>]
 type private DictionaryEntryProxy(key: obj, value: obj) =
@@ -243,17 +260,17 @@ type private DictionaryEntryProxy(key: obj, value: obj) =
 type private IDictionaryProxy<'TKey, 'TValue> =
     inherit System.Collections.Generic.ICollection<System.Collections.Generic.KeyValuePair<'TKey, 'TValue>>
     [<Name "Item">]
-    abstract member Item        : 'TKey -> 'TValue with get, set
+    abstract member Item : 'TKey -> 'TValue with get, set
     [<Name "Keys">]
-    abstract member Keys        : System.Collections.Generic.ICollection<'TKey>
+    abstract member Keys : System.Collections.Generic.ICollection<'TKey>
     [<Name "Values">]
-    abstract member Values      : System.Collections.Generic.ICollection<'TValue>
+    abstract member Values : System.Collections.Generic.ICollection<'TValue>
     [<Name "AddWithKey">]
-    abstract member Add         : 'TKey * 'TValue -> unit
+    abstract member Add : 'TKey * 'TValue -> unit
     [<Name "ContainsKey">]
     abstract member ContainsKey : 'TKey -> bool
     [<Name "RemoveKey">]
-    abstract member Remove      : 'TKey -> bool
+    abstract member Remove : 'TKey -> bool
     [<Name "TryGetValue">]
     abstract member TryGetValue : 'TKey * byref<'TValue> -> bool
 
@@ -261,9 +278,9 @@ type private IDictionaryProxy<'TKey, 'TValue> =
 type private ISetProxy<'T> =
     inherit System.Collections.Generic.ICollection<'T>
     [<Name "AddReturn">]
-    abstract member Add         : 'T -> bool
+    abstract member Add : 'T -> bool
     [<Name "ExceptWith">]
-    abstract member ExceptWith  : seq<'T> -> unit
+    abstract member ExceptWith : seq<'T> -> unit
     [<Name "IntersectWith">]
     abstract member IntersectWith : seq<'T> -> unit
     [<Name "IsProperSubsetOf">]
@@ -287,11 +304,11 @@ type private ISetProxy<'T> =
 [<Name "WebSharper.IEnumerator">]
 type private IEnumeratorProxy =
     [<Name "Current0">]
-    abstract member Current  : obj
+    abstract member Current : obj
     [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
     [<Name "Reset">]
-    abstract member Reset    : unit -> unit
+    abstract member Reset : unit -> unit
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
 [<Name "WebSharper.IEnumerator1">]

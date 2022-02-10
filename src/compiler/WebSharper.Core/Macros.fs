@@ -1376,8 +1376,7 @@ type NoDefaultInterfaceImplementation() =
                             MethodName = "noDefIntfImpl:" + meth.Entity.Value.MethodName
                         }
                 )  meth.Generics
-                
-            MacroOk (Call(thisObj, typ, meth, args))
+            MacroOk (Call(thisObj, typ, noDefIntfImplMeth, args))
         | e -> 
             MacroOk e
 

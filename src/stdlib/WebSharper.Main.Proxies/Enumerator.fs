@@ -100,3 +100,57 @@ let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
     else
         NoDefaultInterfaceImplementation((As<seq<obj>> x).GetEnumerator())
 
+[<JavaScript>]
+let Count (x: System.Collections.ICollection) = 
+    if x :? System.Array then
+        (As<obj[]> x).Length
+    else 
+        NoDefaultInterfaceImplementation(x.Count)
+
+[<JavaScript>]
+let ArrayCopyTo(x: System.Array) (array: System.Array) (index: int) =
+    if x.Length + index < array.Length then raise (System.ArgumentException("array"))
+    Array.blit (As<obj[]> x) 0 (As<obj[]> array) index x.Length
+
+[<JavaScript>]
+let CopyTo (x: System.Collections.ICollection) (array: System.Array) (index: int) =
+    if x :? System.Array then
+        ArrayCopyTo (As<System.Array> x) array index
+    else
+        NoDefaultInterfaceImplementation(x.CopyTo(array,index))
+
+[<JavaScript>]
+let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) = 
+    if x :? System.Array then
+        true
+    else 
+        NoDefaultInterfaceImplementation(x.IsReadOnly)
+
+[<JavaScript>]
+let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
+    if x :? System.Array then
+        failwith "Collection is read-only."
+    else
+        NoDefaultInterfaceImplementation(x.Add(item))
+
+[<JavaScript>]
+let Clear (x: System.Collections.Generic.ICollection<'T>) =
+    if x :? System.Array then
+        failwith "Collection is read-only."
+    else
+        NoDefaultInterfaceImplementation(x.Clear())
+
+[<JavaScript>]
+let Contains (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
+    if x :? System.Array then
+        Array.contains (As<int> item) (As<int[]> x) // using int so that 'T is not constrained, it's erased anyways
+    else
+        NoDefaultInterfaceImplementation(x.Contains(item))
+
+[<JavaScript>]
+let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
+    if x :? System.Array then
+        failwith "Collection is read-only."
+    else
+        NoDefaultInterfaceImplementation(x.Remove(item))
+   
