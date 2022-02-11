@@ -80,77 +80,77 @@ let StringEnumerator (s: string) =
         else
             false)
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Get (x: seq<'T>) : IE<'T> =
     if x :? System.Array then
         ArrayEnumerator (As x)
     elif JS.TypeOf x = JS.String then
         StringEnumerator (As x)
     else
-        NoDefaultInterfaceImplementation(x.GetEnumerator())
+        x.GetEnumerator()
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
     if x :? System.Array then
         As (ArrayEnumerator (As x))
     elif JS.TypeOf x = JS.String then
         As (StringEnumerator (As x))
     elif JS.In "GetEnumerator0" x then
-        NoDefaultInterfaceImplementation(x.GetEnumerator())
+        x.GetEnumerator()
     else
-        NoDefaultInterfaceImplementation((As<seq<obj>> x).GetEnumerator())
+        (As<seq<obj>> x).GetEnumerator()
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Count (x: System.Collections.ICollection) = 
     if x :? System.Array then
         (As<obj[]> x).Length
     else 
-        NoDefaultInterfaceImplementation(x.Count)
+        x.Count
 
 [<JavaScript>]
 let ArrayCopyTo(x: System.Array) (array: System.Array) (index: int) =
     if x.Length + index < array.Length then raise (System.ArgumentException("array"))
     Array.blit (As<obj[]> x) 0 (As<obj[]> array) index x.Length
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let CopyTo (x: System.Collections.ICollection) (array: System.Array) (index: int) =
     if x :? System.Array then
         ArrayCopyTo (As<System.Array> x) array index
     else
-        NoDefaultInterfaceImplementation(x.CopyTo(array,index))
+        x.CopyTo(array,index)
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) = 
     if x :? System.Array then
         true
     else 
-        NoDefaultInterfaceImplementation(x.IsReadOnly)
+        x.IsReadOnly
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
         failwith "Collection is read-only."
     else
-        NoDefaultInterfaceImplementation(x.Add(item))
+        x.Add(item)
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Clear (x: System.Collections.Generic.ICollection<'T>) =
     if x :? System.Array then
         failwith "Collection is read-only."
     else
-        NoDefaultInterfaceImplementation(x.Clear())
+        x.Clear()
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Contains (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
         Array.contains (As<int> item) (As<int[]> x) // using int so that 'T is not constrained, it's erased anyways
     else
-        NoDefaultInterfaceImplementation(x.Contains(item))
+        x.Contains(item)
 
-[<JavaScript>]
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
         failwith "Collection is read-only."
     else
-        NoDefaultInterfaceImplementation(x.Remove(item))
+        x.Remove(item)
    

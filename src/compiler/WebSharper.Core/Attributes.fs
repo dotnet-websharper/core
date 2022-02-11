@@ -86,6 +86,16 @@ type PureAttribute() =
 type WarnAttribute(warning: string) =
     inherit A()
 
+/// Special compilation options for the JavaScript translation.
+type JavaScriptOptions =
+    | None = 0x00000000
+    /// Erases generic parameters inside this expression during WebSharper translation.
+    /// You can get use this to translate `defaultof` inside a generic function.
+    | DefaultToUndefined = 0x00000001
+    /// Skips calling default interface implementations but calls into the method on 
+    /// the object by name.
+    | NoDefaultInterfaceImplementation = 0x00000010
+
 /// Marks methods, properties and constructors for compilation to JavaScript.
 [<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter, AllowMultiple = true)>]
 type JavaScriptAttribute() =
@@ -101,6 +111,10 @@ type JavaScriptAttribute() =
     /// Specify a type to include in JavaScript compilation.
     /// Use on assembly level.
     new (clientType : Type) = JavaScriptAttribute()
+
+    /// Specify special compilation options.
+    /// Scope is a single method only.
+    new (options: JavaScriptOptions) = JavaScriptAttribute()
 
 /// Annotates methods an constructors with custom compilation rules.
 /// The supplied type should implement Macros.IMacro and a default constructor.

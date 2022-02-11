@@ -23,6 +23,8 @@
 [<AutoOpen>]
 module WebSharper.JavaScript.Pervasives
 
+open System.Runtime.CompilerServices
+
 open WebSharper
 module M = WebSharper.Core.Macros
 
@@ -121,13 +123,8 @@ let GetJS<'T> (x: obj) (items: seq<string>) =
 
 /// Erases generic parameters inside this expression during WebSharper translation.
 /// You can get use this to translate `defaultof` inside a generic function.
-[<Macro(typeof<M.DefaultToUndefined>)>]
+[<Macro(typeof<M.DefaultToUndefined>); MethodImpl(MethodImplOptions.NoInlining)>]
 let DefaultToUndefined<'T> (x: 'T) = x
-
-/// Skips calling default interface implementations but calls into the method on 
-/// the object by name.
-[<Macro(typeof<M.NoDefaultInterfaceImplementation>)>]
-let NoDefaultInterfaceImplementation<'T> (x: 'T) = x
 
 module Optional =
     /// Converts an F# option value to a JavaScript erased option
