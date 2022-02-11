@@ -125,15 +125,17 @@ type internal HashSetProxy<'T when 'T : equality>
             for item in xs do
                 x.Remove(item) |> ignore
 
-        [<Inline>]
+        [<Name("GetEnumerator")>]
         member this.GetEnumerator() =
            As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
 
         interface IEnumerable with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
         
         interface IEnumerable<'T> with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         // TODO: optimize methods by checking if other collection
         // is a HashSet with the same IEqualityComparer

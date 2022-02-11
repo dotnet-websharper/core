@@ -217,6 +217,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | None -> [] 
                     | Some (_, _, ids, _) -> ids
                 Warn = mAnnot.Warn
+                JavaScriptOptions = mAnnot.JavaScriptOptions
             }
         match curriedArgs with
         | Some (mem, ca, args, inst) ->

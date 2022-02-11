@@ -162,14 +162,17 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
                 node <- node.Previous
         if notFound then null else node
                 
+    [<Name("GetEnumerator")>]
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
         As (new EnumeratorProxy<_>(As this))
 
     interface IEnumerable with
-        member this.GetEnumerator() = this.GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
 
     interface IEnumerable<'T> with
-        member this.GetEnumerator() = this.GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
 
     member this.Remove(node: LLN<'T>) =
         let before = node.Previous

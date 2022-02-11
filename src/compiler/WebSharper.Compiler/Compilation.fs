@@ -1176,7 +1176,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let toCompilingMember (nr : NotResolvedMethod) (comp: CompiledMember) =
             match nr.Generator with
             | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind, opts nr.Pure nr)
-            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr, JavaScriptOptions.None)
+            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr, nr.JavaScriptOptions)
             
         let extraClassAddresses = Dictionary()
 

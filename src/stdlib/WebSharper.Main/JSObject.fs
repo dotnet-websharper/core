@@ -27,8 +27,8 @@ type JSObject [<Inline "{}">]() =
     [<Inline "void($this[$key] = $value)">]
     member this.Add<'T>(key: string, value: 'T) = X<unit> 
 
-    interface System.Collections.IEnumerable with
-        member this.GetEnumerator() = X<System.Collections.IEnumerator>
+    //interface System.Collections.IEnumerable with
+    //    member this.GetEnumerator() = X<System.Collections.IEnumerator>
 
     [<Inline "$this">]
     member this.As<'T>() = X<'T>

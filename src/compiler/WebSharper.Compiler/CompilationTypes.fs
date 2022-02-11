@@ -60,6 +60,7 @@ module NotResolved =
             mutable Body : Expression
             Requires : list<TypeDefinition * option<obj>>
             Warn : option<string>
+            JavaScriptOptions : JavaScriptOptions
         }
 
     type NotResolvedField =

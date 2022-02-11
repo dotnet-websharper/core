@@ -87,6 +87,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
             |> T.TryFind {Key=k; Value=JS.Undefined}
             |> Option.map (fun kv -> kv.Value)
 
+        [<Name("GetEnumerator")>]
         member this.GetEnumerator() =
             let s =
                 T.Ascend tree
@@ -110,10 +111,12 @@ type internal FSharpMap<'K,'V when 'K : comparison>
                     (As<Map<'K,'V>> other)
 
         interface IEnumerable with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = this.GetEnumerator()
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         member this.Keys : System.Collections.Generic.ICollection<'K> =
             Seq.map (fun kvp -> kvp.Key) (T.Ascend this.Tree)

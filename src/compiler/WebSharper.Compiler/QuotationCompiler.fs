@@ -70,6 +70,7 @@ type QuotationCompiler (meta : M.Info) =
                     FuncArgs = None
                     Args = []
                     Warn = mAnnot.Warn
+                    JavaScriptOptions = mAnnot.JavaScriptOptions
                 }
 
             let addMethod mAnnot mdef kind compiled expr =
@@ -192,6 +193,7 @@ type QuotationCompiler (meta : M.Info) =
                                 FuncArgs = None
                                 Args = []
                                 Warn = mAnnot.Warn
+                                JavaScriptOptions = mAnnot.JavaScriptOptions
                             }
                         clsMembers.Add(NotResolvedMember.Method(mdef, nr))
                     | A.MemberKind.NoFallback ->
