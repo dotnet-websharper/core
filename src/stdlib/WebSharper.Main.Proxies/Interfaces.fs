@@ -192,7 +192,7 @@ type private IListProxy =
     [<Inline>]
     default this.Item 
         with get (index: int) = Enumerator.LItem0Get (As<System.Collections.IList> this) index
-        and set (index: int) value = Enumerator.LItem0Set (As<System.Collections.IList> this) index value
+        and set (index: int) (value: obj) = Enumerator.LItem0Set (As<System.Collections.IList> this) index value
     
     [<Name "LAdd">]
     abstract member Add : obj -> int
@@ -251,7 +251,7 @@ type private IListProxy<'T> =
     [<Name "LRemoveAt">]
     abstract member RemoveAt : int -> unit
     [<Inline>]
-    default this.RemoveAt(index: int) = Enumerator.LRemoveAt (As<System.Collections.Generic.IList<'T> this) index
+    default this.RemoveAt(index: int) = Enumerator.LRemoveAt (As<System.Collections.Generic.IList<'T>> this) index
 
 [<Proxy(typeof<System.Collections.IDictionary>)>]
 type private IDictionaryProxy =

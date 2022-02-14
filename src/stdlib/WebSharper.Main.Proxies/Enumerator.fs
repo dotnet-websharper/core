@@ -144,17 +144,21 @@ let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) =
     else 
         x.IsReadOnly
 
+[<JavaScript>]
+let FailReadOnly() =
+    failwith "Collection is read-only."
+
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
-        failwith "Collection is read-only."
+        FailReadOnly()
     else
         x.Add(item)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Clear (x: System.Collections.Generic.ICollection<'T>) =
     if x :? System.Array then
-        failwith "Collection is read-only."
+        FailReadOnly()
     else
         x.Clear()
 
@@ -168,7 +172,7 @@ let Contains (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
-        failwith "Collection is read-only."
+        FailReadOnly()
     else
         x.Remove(item)
    
@@ -185,3 +189,101 @@ let LIsReadOnly (x: System.Collections.IList) =
         false
     else 
         x.IsReadOnly
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LItem0Get (x: System.Collections.IList) (index: int) = 
+    if x :? System.Array then
+        (As<obj[]> x)[index]
+    else 
+        x[index]
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LItem0Set (x: System.Collections.IList) (index: int) (value: obj) = 
+    if x :? System.Array then
+        (As<obj[]> x)[index] <- value
+    else 
+        x[index] <- value    
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LAdd (x: System.Collections.IList) (item: obj) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.Add(item)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LClear (x: System.Collections.IList) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.Clear()
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LContains (x: System.Collections.IList) (item: obj) = 
+    if x :? System.Array then
+        Array.contains (As<int> item) (As<int[]> x) // using int so that 'T is not constrained, it's erased anyways
+    else 
+        x.Contains(item)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LIndexOf0 (x: System.Collections.IList) (item: obj) = 
+    if x :? System.Array then
+        System.Array.IndexOf (As<obj[]> x, item)
+    else 
+        x.IndexOf(item)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LInsert0 (x: System.Collections.IList) (index: int) (value: obj) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.Insert(index, value)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LRemove0 (x: System.Collections.IList) (item: obj) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.Remove(item)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LRemoveAt0 (x: System.Collections.IList) (index: int) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.RemoveAt(index)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LItemGet (x: System.Collections.Generic.IList<'T>) (index: int) = 
+    if x :? System.Array then
+        As<'T> ((As<obj[]> x)[index])
+    else 
+        x[index] 
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LItemSet (x: System.Collections.Generic.IList<'T>) (index: int) (value: 'T) = 
+    if x :? System.Array then
+        (As<obj[]> x)[index] <- box value
+    else 
+        x[index] <- value    
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LIndexOf (x: System.Collections.Generic.IList<'T>) (item: 'T) = 
+    if x :? System.Array then
+        System.Array.IndexOf (As<obj[]> x, item)
+    else 
+        x.IndexOf(item)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LInsert (x: System.Collections.Generic.IList<'T>) (index: int) (value: 'T) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.Insert(index, value)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LRemoveAt (x: System.Collections.Generic.IList<'T>) (index: int) = 
+    if x :? System.Array then
+        FailReadOnly()
+    else 
+        x.RemoveAt(index)
