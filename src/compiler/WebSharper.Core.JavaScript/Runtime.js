@@ -22,7 +22,7 @@
     }
   }
 
-  Global.IntelliFactory = {
+  Global.WebSharper = {
     Runtime: {
       Ctor: function (ctor, typeFunction) {
         ctor.prototype = typeFunction.prototype;
@@ -179,7 +179,7 @@
               invokes.push(del);
           }
         }
-        return IntelliFactory.Runtime.CreateDelegate(invokes);
+        return WebSharper.Runtime.CreateDelegate(invokes);
       },
 
       DelegateEqual: function (d1, d2) {
@@ -249,7 +249,7 @@
             return f.apply(null, allArgs);
           if (n == 2)
             return function (a) { return f.apply(null, allArgs.concat([a === void (0) ? null : a])); }
-          return IntelliFactory.Runtime.Curried(f, n - 1, allArgs);
+          return WebSharper.Runtime.Curried(f, n - 1, allArgs);
         }
       },
 
@@ -309,7 +309,7 @@
     }
   }
 
-  Global.IntelliFactory.Runtime.OnLoad(function () {
+  Global.WebSharper.Runtime.OnLoad(function () {
     if (Global.WebSharper && WebSharper.Activator && WebSharper.Activator.Activate)
       WebSharper.Activator.Activate()
   });

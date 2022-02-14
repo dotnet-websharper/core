@@ -702,7 +702,7 @@ type New() =
 //type FST = Reflection.FSharpType
 
 module JSRuntime =
-    let private runtime = ["Runtime"; "IntelliFactory"]
+    let private runtime = ["Runtime"; "WebSharper"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
     let GetOptional value = runtimeFunc "GetOptional" Pure [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
@@ -1573,7 +1573,7 @@ type WebWorker() =
             let filename = c.Compilation.AddBundle(name, ExprStatement e, includeJsExports).FileName
             let path = 
                 Application(
-                    Global ["IntelliFactory"; "Runtime"; "ScriptPath"],
+                    Global ["WebSharper"; "Runtime"; "ScriptPath"],
                     [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
                     NonPure, Some 2)
             Ctor(worker, workerCtor, [path])
