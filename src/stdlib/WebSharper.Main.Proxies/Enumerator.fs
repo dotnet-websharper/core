@@ -101,11 +101,20 @@ let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
         (As<seq<obj>> x).GetEnumerator()
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
-let Count (x: System.Collections.ICollection) = 
+let Count (x: System.Collections.Generic.ICollection<'T>) = 
     if x :? System.Array then
         (As<obj[]> x).Length
     else 
         x.Count
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let Count0 (x: System.Collections.ICollection) = 
+    if x :? System.Array then
+        (As<obj[]> x).Length
+    elif JS.In "Count0" x then
+        x.Count
+    else 
+        (As<System.Collections.Generic.ICollection<obj>> x).Count
 
 [<JavaScript>]
 let ArrayCopyTo(x: System.Array) (array: System.Array) (index: int) =
@@ -113,11 +122,20 @@ let ArrayCopyTo(x: System.Array) (array: System.Array) (index: int) =
     Array.blit (As<obj[]> x) 0 (As<obj[]> array) index x.Length
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
-let CopyTo (x: System.Collections.ICollection) (array: System.Array) (index: int) =
+let CopyTo (x: System.Collections.Generic.ICollection<'T>) (array: 'T[]) (index: int) =
     if x :? System.Array then
         ArrayCopyTo (As<System.Array> x) array index
     else
-        x.CopyTo(array,index)
+        x.CopyTo(array, index)
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let CopyTo0 (x: System.Collections.ICollection) (array: System.Array) (index: int) =
+    if x :? System.Array then
+        ArrayCopyTo (As<System.Array> x) array index
+    elif JS.In "CopyTo0" x then
+        x.CopyTo(array, index)
+    else
+        (As<System.Collections.Generic.ICollection<obj>> x).CopyTo(As<obj[]> array, index)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) = 
@@ -154,3 +172,16 @@ let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     else
         x.Remove(item)
    
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let IsFixedSize (x: System.Collections.IList) = 
+    if x :? System.Array then
+        true
+    else 
+        x.IsReadOnly
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let LIsReadOnly (x: System.Collections.IList) = 
+    if x :? System.Array then
+        false
+    else 
+        x.IsReadOnly

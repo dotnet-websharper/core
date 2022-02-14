@@ -122,15 +122,15 @@ type private IEnumerableProxy<'T> =
 
 [<AbstractClass; Proxy(typeof<System.Collections.ICollection>, [| typeof<System.Collections.IEnumerable> |])>]
 type private ICollectionProxy =
-    [<Name "Count">]
+    [<Name "Count0">]
     abstract member Count : int
     [<Inline>]
-    default this.Count = Enumerator.Count (As<System.Collections.ICollection> this)
+    default this.Count = Enumerator.Count0 (As<System.Collections.ICollection> this)
 
-    [<Name "CopyTo">]
+    [<Name "CopyTo0">]
     abstract member CopyTo : System.Array * int -> unit
     [<Inline>]
-    default this.CopyTo(array: System.Array, index: int) = Enumerator.CopyTo (As<System.Collections.ICollection> this) array index
+    default this.CopyTo(array: System.Array, index: int) = Enumerator.CopyTo0 (As<System.Collections.ICollection> this) array index
 
     [<Name "IsSynchronized">]
     abstract member IsSynchronized : bool
@@ -143,7 +143,7 @@ type private ICollectionProxy<'T> =
     [<Name "Count">]
     abstract member Count : int
     [<Inline>]
-    default this.Count = Enumerator.Count (As<System.Collections.ICollection> this)
+    default this.Count = Enumerator.Count (As<System.Collections.Generic.ICollection<'T>> this)
 
     [<Name "IsReadOnly">]
     abstract member IsReadOnly : bool
@@ -153,7 +153,7 @@ type private ICollectionProxy<'T> =
     [<Name "CopyTo">]
     abstract member CopyTo : 'T [] * int -> unit
     [<Inline>]
-    default this.CopyTo(array: 'T [], index: int) = Enumerator.CopyTo (As<System.Collections.ICollection> this) array index
+    default this.CopyTo(array: 'T [], index: int) = Enumerator.CopyTo (As<System.Collections.Generic.ICollection<'T>> this) array index
 
     [<Name "Add">]
     abstract member Add : 'T -> unit
@@ -179,37 +179,79 @@ type private ICollectionProxy<'T> =
 type private IListProxy =
     [<Name "IsFixedSize">]
     abstract member IsFixedSize : bool
-    [<Name "IsReadOnly">]
+    [<Inline>]
+    default this.IsFixedSize = Enumerator.IsFixedSize (As<System.Collections.IList> this)
+    
+    [<Name "LIsReadOnly">]
     abstract member IsReadOnly : bool
-    [<Name "Item">]
+    [<Inline>]
+    default this.IsReadOnly = Enumerator.LIsReadOnly (As<System.Collections.IList> this)
+    
+    [<Name "LItem0">]
     abstract member Item : int -> obj with get, set
-    [<Name "Add">]
+    [<Inline>]
+    default this.Item 
+        with get (index: int) = Enumerator.LItem0Get (As<System.Collections.IList> this) index
+        and set (index: int) value = Enumerator.LItem0Set (As<System.Collections.IList> this) index value
+    
+    [<Name "LAdd">]
     abstract member Add : obj -> int
-    [<Name "Clear">]
+    [<Inline>]
+    default this.Add(item: obj) = Enumerator.LAdd (As<System.Collections.IList> this) item
+
+    [<Name "LClear">]
     abstract member Clear : unit -> unit
-    [<Name "Contains">]
+    [<Inline>]
+    default this.Clear() = Enumerator.LClear (As<System.Collections.IList> this)
+    
+    [<Name "LContains">]
     abstract member Contains : obj -> bool
-    [<Name "IndexOf">]
+    [<Inline>]
+    default this.Contains(item: obj) = Enumerator.LContains (As<System.Collections.IList> this) item
+    
+    [<Name "LIndexOf0">]
     abstract member IndexOf : obj -> int
-    [<Name "Insert">]
+    [<Inline>]
+    default this.IndexOf(item: obj) = Enumerator.LIndexOf0 (As<System.Collections.IList> this) item
+    
+    [<Name "LInsert0">]
     abstract member Insert : int * obj -> unit
-    [<Name "Remove">]
+    [<Inline>]
+    default this.Insert(index: int, item: obj) = Enumerator.LInsert0 (As<System.Collections.IList> this) index item
+
+    [<Name "LRemove0">]
     abstract member Remove : obj -> unit
-    [<Name "RemoveAt">]
+    [<Inline>]
+    default this.Remove(item: obj) = Enumerator.LRemove0 (As<System.Collections.IList> this) item
+
+    [<Name "LRemoveAt0">]
     abstract member RemoveAt : int -> unit
+    [<Inline>]
+    default this.RemoveAt(index: int) = Enumerator.LRemoveAt0 (As<System.Collections.IList> this) index
 
 [<Proxy(typeof<System.Collections.Generic.IList<_>>, [| typeof<System.Collections.Generic.ICollection<_>> |])>]
 type private IListProxy<'T> =
-    [<Name "Item">]
+    [<Name "LItem">]
     abstract member Item : int -> 'T with get, set
-    [<Name "IndexOf">]
+    [<Inline>]
+    default this.Item 
+        with get (index: int) = Enumerator.LItemGet (As<System.Collections.Generic.IList<'T>> this) index
+        and set (index: int) value = Enumerator.LItemSet (As<System.Collections.Generic.IList<'T>> this) index value
+    
+    [<Name "LIndexOf">]
     abstract member IndexOf : 'T -> int
-    [<Name "Insert">]
+    [<Inline>]
+    default this.IndexOf(item: 'T) = Enumerator.LIndexOf (As<System.Collections.Generic.IList<'T>> this) item
+
+    [<Name "LInsert">]
     abstract member Insert : int * 'T -> unit
-    [<Name "Remove">]
-    abstract member Remove : 'T -> unit
-    [<Name "RemoveAt">]
+    [<Inline>]
+    default this.Insert(index: int, item: 'T) = Enumerator.LInsert (As<System.Collections.Generic.IList<'T>> this) index item
+    
+    [<Name "LRemoveAt">]
     abstract member RemoveAt : int -> unit
+    [<Inline>]
+    default this.RemoveAt(index: int) = Enumerator.LRemoveAt (As<System.Collections.Generic.IList<'T> this) index
 
 [<Proxy(typeof<System.Collections.IDictionary>)>]
 type private IDictionaryProxy =
