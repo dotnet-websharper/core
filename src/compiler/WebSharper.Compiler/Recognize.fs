@@ -237,7 +237,7 @@ let setValue (env: Environment) expr value =
     | _ -> failwith "invalid form for setter"
 
 let glob = Var (Id.Global())
-let wsruntime = Global ["IntelliFactory"; "Runtime"]
+let wsruntime = Global ["WebSharper"; "Runtime"]
 
 let jsFunctionMembers =
     System.Collections.Generic.HashSet [
@@ -324,10 +324,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 match trC with
                 | Value (String f) ->
                     if wsRuntimeFunctions.Contains f then
-                        Global ["IntelliFactory"; "Runtime"; f]
+                        Global ["WebSharper"; "Runtime"; f]
                     else
-                        failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
-                | _ -> failwith "expected a function of IntelliFactory.Runtime"     
+                        failwithf "Unrecognized WebSharper.Runtime function: %s" f
+                | _ -> failwith "expected a function of WebSharper.Runtime"     
             else
                 match trA, trC with
                 | GlobalAccess a, Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->

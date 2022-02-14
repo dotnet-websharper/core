@@ -581,7 +581,7 @@ let makeExprInline (vars: Id list) expr =
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
 
 module JSRuntime =
-    let private runtime = ["Runtime"; "IntelliFactory"]
+    let private runtime = ["Runtime"; "WebSharper"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
