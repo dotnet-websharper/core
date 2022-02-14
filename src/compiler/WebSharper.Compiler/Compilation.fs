@@ -675,9 +675,15 @@ type Compilation(meta: Info, ?hasGraph) =
             |> Option.orElseWith tryFindClassMethod
             |> Option.defaultWith fallback
         else
-            tryFindClassMethod ()
-            |> Option.orElseWith tryFindInterfaceMethod
-            |> Option.defaultWith fallback
+            match tryFindClassMethod () with
+            | Some (LookupMemberError _ as e) ->
+                match tryFindInterfaceMethod () with
+                | Some res -> res
+                | _ -> e
+            | Some res -> res
+            | None ->
+                tryFindInterfaceMethod ()
+                |> Option.defaultWith fallback
 
     member this.LookupMethodInfo(typ, meth: Method, noDefIntfImpl) = 
         let m = meth.Value

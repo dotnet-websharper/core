@@ -77,26 +77,32 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name("GetEnumerator")>]
     member this.GetEnumerator() =
         As<D<'K,'V>.KeyCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
             
     interface IEnumerable<'K> with
-        member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
-        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator<'K>>
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator>
 
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     member this.Count = d.Count 
 
+    [<Name("GetEnumerator")>]
     member this.GetEnumerator() =
         As<D<'K,'V>.ValueCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
             
     interface IEnumerable<'V> with
-        member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
-        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator<'V>>
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator>
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
 [<Stub>]
@@ -217,8 +223,8 @@ type internal Dictionary<'K,'V when 'K : equality>
         [<Name("GetEnumerator")>]
         member this.GetEnumerator() = 
             let s = JS.GetFieldValues data
-            (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
-
+            As<D<'K,'V>.Enumerator> ((As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator())
+            
         interface System.Collections.IEnumerable with
             [<JavaScript(false)>]
             member this.GetEnumerator() = X<_>            

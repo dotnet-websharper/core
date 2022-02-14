@@ -120,21 +120,23 @@ type private IEnumerableProxy<'T> =
     [<Inline>]
     default this.GetEnumerator() = Enumerator.Get (As<System.Collections.Generic.IEnumerable<'T>> this)
 
-[<Proxy(typeof<System.Collections.ICollection>, [| typeof<System.Collections.IEnumerable> |])>]
+[<AbstractClass; Proxy(typeof<System.Collections.ICollection>, [| typeof<System.Collections.IEnumerable> |])>]
 type private ICollectionProxy =
     [<Name "Count">]
     abstract member Count : int
     [<Inline>]
     default this.Count = Enumerator.Count (As<System.Collections.ICollection> this)
 
-    //[<Name "IsSynchronized">]
-    //abstract member IsSynchronized : bool
-    //[<Name "SyncRoot">]
-    //abstract member SyncRoot : obj
     [<Name "CopyTo">]
     abstract member CopyTo : System.Array * int -> unit
     [<Inline>]
     default this.CopyTo(array: System.Array, index: int) = Enumerator.CopyTo (As<System.Collections.ICollection> this) array index
+
+    [<Name "IsSynchronized">]
+    abstract member IsSynchronized : bool
+
+    [<Name "SyncRoot">]
+    abstract member SyncRoot : obj
 
 [<Proxy(typeof<System.Collections.Generic.ICollection<_>>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.Generic.IEnumerable<_>> |])>]
 type private ICollectionProxy<'T> =
