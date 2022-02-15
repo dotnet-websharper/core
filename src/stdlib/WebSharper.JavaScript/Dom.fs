@@ -194,9 +194,45 @@ module Interfaces =
                 "left" =? T<double>
             ]
 
+    let EventTargetClass =
+        Class "EventTarget"
+
+    let AbortSignal =
+        Class "AbortSignal"
+        |=> Inherits EventTargetClass
+        |+> Static [
+            "abort" => T<obj>?reason ^-> TSelf
+            "timeout" => T<int>?milliseconds ^-> TSelf
+        ]
+        |+> Instance [
+            "aborted" =? T<bool>
+            "reason" =? T<obj>
+            "throwIfAborted" => T<unit> ^-> T<unit>
+            "onabort" =@ !?(Event ^-> T<unit>)
+        ]
+
+    let EventListenerOptions =
+        Pattern.Config "EventListenerOptions" {
+            Required = []
+            Optional = [
+                "capture", T<bool>
+            ]
+        }
+
+    let AddEventListenerOptions =
+        Pattern.Config "AddEventListenerOptions" {
+            Required = []
+            Optional = [
+                "capture", T<bool>
+                "passive", T<bool>
+                "once", T<bool>
+                "signal", AbortSignal.Type
+            ]
+        }
+
     let EventTarget =
         let EventListener = (T<unit> + Event) ^-> T<unit>
-        Class "EventTarget"
+        EventTargetClass
         |+> Static [
                 Constructor T<unit>
             ]
@@ -205,11 +241,19 @@ module Interfaces =
                     T<string>?eventtype *
                     EventListener?listener *
                     !?T<bool>?useCapture ^-> T<unit>
+                "addEventListener" =>
+                    T<string>?eventtype *
+                    EventListener?listener *
+                    AddEventListenerOptions?options ^-> T<unit>
                 "dispatchEvent" => Event ^-> T<bool>
                 "removeEventListener" =>
                     T<string>?eventtype *
                     EventListener?listener *
                     !?T<bool>?useCapture ^-> T<unit>
+                "removeEventListener" =>
+                    T<string>?eventtype *
+                    EventListener?listener *
+                    EventListenerOptions?options ^-> T<unit>
             ]
 
     let QuerySelectorMixin =
@@ -1567,6 +1611,9 @@ module Definition =
                 I.AnimationTimeLine
                 I.DocumentTimeLine
                 I.DocumentTimeLineOptions
+                I.AddEventListenerOptions
+                I.EventListenerOptions
+                I.AbortSignal
                 E.DOMExceptionType
                 E.DerivationMethod
                 E.DocumentPosition

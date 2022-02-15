@@ -44,7 +44,7 @@ let (|Runtime|_|) e =
     match e with 
     | GlobalAccess a ->
         match a.Value with
-        | [ r; "Runtime"; "IntelliFactory" ] -> Some r
+        | [ r; "Runtime"; "WebSharper" ] -> Some r
         | _ -> None
     | _ -> None
 
