@@ -37,12 +37,19 @@ type ResizeArrayEnumeratorProxy<'T> (arr: 'T[]) =
 
     interface System.Collections.IEnumerator with
         member this.MoveNext() = this.MoveNext()
-        member this.Current with get() = box (arr.[i])
+        member this.Current = 
+            (As<System.Collections.Generic.IEnumerator<obj>> this).Current  
         [<JavaScript(false)>]
         member this.Reset() = ()
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        member this.Current with get() = arr.[i]
+        member this.Current = 
+            if i = -1 then
+                failwith "Enumeration has not started. Call MoveNext."
+            elif i >= arr.Length then
+                failwith "Enumeration already finished."
+            else
+                arr.[i]
 
     interface System.IDisposable with
         member this.Dispose() = ()

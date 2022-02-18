@@ -52,9 +52,16 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 
     interface IEnumerator<'T> with
-        member this.Current = c.Value
+        member this.Current = 
+            if JS.In "c" c then
+                failwith "Enumeration has not started. Call MoveNext."
+            elif c ==. null then
+                failwith "Enumeration already finished."
+            else
+                c.Value
         
-        member this.Current = c.Value |> box
+        member this.Current =
+            (As<System.Collections.Generic.IEnumerator<obj>> this).Current  
 
         member this.MoveNext() =
             c <- c.Next

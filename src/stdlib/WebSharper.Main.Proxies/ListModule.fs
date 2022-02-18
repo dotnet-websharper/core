@@ -45,6 +45,11 @@ let setValue (l: list<'T>) (v: 'T) =
     JS.Set l "$0" v
 
 [<Inline>]
+let setValueNonTail (l: list<'T>) (v: 'T) =
+    JS.Set l "$" 1
+    JS.Set l "$0" v
+
+[<Inline>]
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
 
@@ -128,8 +133,26 @@ let Exists2<'T1,'T2> (p : 'T1 -> 'T2 -> bool)
     e
 
 [<Name "filter">]
-let Filter<'T> (p: 'T -> bool) (l: list<'T>) =
-    List.ofSeq (Seq.filter p l)
+let Filter<'T> (p: 'T -> bool) (x: list<'T>) =
+    if List.isEmpty x then x else
+    let mutable res = []
+    let mutable r = res
+    let mutable l = x
+    let mutable go = true
+    while go do
+        if p (unsafeHead l) then 
+            if List.isEmpty res then
+                res <- freshEmptyList()    
+                r <- res
+            else
+                r <- freshTail r
+            setValueNonTail r (unsafeHead l)            
+        l <- unsafeTail l
+        if List.isEmpty l then
+            go <- false
+    if not (List.isEmpty res) then
+        setTail r []
+    res
 
 [<Inline>]
 let Find p (l: list<_>) = Seq.find p l

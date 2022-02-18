@@ -268,18 +268,16 @@ let Filter (f: 'T -> bool) (s: seq<'T>) =
         let o = Enumerator.Get s
         Enumerator.NewDisposing () (fun _ -> o.Dispose()) <| fun e ->
             let mutable loop = o.MoveNext()
-            let mutable c    = o.Current
+            let mutable c    = JS.Undefined
             let mutable res  = false
             while loop do
+                c <- o.Current
                 if f c then
                     e.Current <- c
                     res       <- true
                     loop      <- false
-                else
-                    if o.MoveNext() then
-                        c <- o.Current
-                    else
-                        loop <- false
+                elif not (o.MoveNext()) then
+                    loop <- false
             res
 
 [<Name "find">]
