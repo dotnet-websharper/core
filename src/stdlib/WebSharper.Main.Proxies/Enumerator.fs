@@ -167,17 +167,26 @@ let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) =
 let FailReadOnly() =
     failwith "Collection is read-only."
 
+[<Inline("$x.resizable")>]
+let IsResizable(x: obj) = X<bool>
+
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<JavaScript.Array<'T>> x).Push(item) |> ignore
+        else
+            FailReadOnly()
     else
         x.Add(item)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Clear (x: System.Collections.Generic.ICollection<'T>) =
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<JavaScript.Array<'T>> x).Splice(0, (As<JavaScript.Array<'T>> x).Length) |> ignore   
+        else
+            FailReadOnly()
     else
         x.Clear()
 
@@ -191,14 +200,19 @@ let Contains (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            match System.Array.IndexOf(As<'T[]> x, item) with
+            | -1 -> false
+            | n -> (As<'T[]> x).JS.Splice(n, 1) |> ignore; true
+        else
+            FailReadOnly()
     else
         x.Remove(item)
    
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsFixedSize (x: System.Collections.IList) = 
     if x :? System.Array then
-        true
+        not (IsResizable x)
     else 
         x.IsReadOnly
 
@@ -224,16 +238,23 @@ let LItem0Set (x: System.Collections.IList) (index: int) (value: obj) =
         x[index] <- value    
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
-let LAdd (x: System.Collections.IList) (item: obj) = 
+let LAdd (x: System.Collections.IList) (item: obj) : int = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            As<obj[]>(x).JS.Push(item) |> ignore
+            As<obj[]>(x).Length            
+        else
+            FailReadOnly()
     else 
         x.Add(item)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LClear (x: System.Collections.IList) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<'T[]> x).JS.Splice(0, (As<'T[]> x).Length) |> ignore   
+        else
+            FailReadOnly()
     else 
         x.Clear()
 
@@ -254,21 +275,32 @@ let LIndexOf0 (x: System.Collections.IList) (item: obj) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LInsert0 (x: System.Collections.IList) (index: int) (value: obj) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<obj[]> x).JS.Splice(index, 0, value) |> ignore
+        else
+            FailReadOnly()
     else 
         x.Insert(index, value)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LRemove0 (x: System.Collections.IList) (item: obj) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            match System.Array.IndexOf(As<obj[]> x, item) with
+            | -1 -> ()
+            | n -> (As<obj[]> x).JS.Splice(n, 1) |> ignore
+        else
+            FailReadOnly()
     else 
         x.Remove(item)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LRemoveAt0 (x: System.Collections.IList) (index: int) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<obj[]> x).JS.Splice(index, 1) |> ignore
+        else
+            FailReadOnly()
     else 
         x.RemoveAt(index)
 
@@ -296,13 +328,19 @@ let LIndexOf (x: System.Collections.Generic.IList<'T>) (item: 'T) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LInsert (x: System.Collections.Generic.IList<'T>) (index: int) (value: 'T) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<'T[]> x).JS.Splice(index, 0, value) |> ignore
+        else
+            FailReadOnly()
     else 
         x.Insert(index, value)
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LRemoveAt (x: System.Collections.Generic.IList<'T>) (index: int) = 
     if x :? System.Array then
-        FailReadOnly()
+        if IsResizable x then
+            (As<'T[]> x).JS.Splice(index, 1) |> ignore
+        else
+            FailReadOnly()
     else 
         x.RemoveAt(index)
