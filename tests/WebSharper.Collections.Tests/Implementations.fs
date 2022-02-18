@@ -51,27 +51,43 @@ let Tests =
             isFalse (e.MoveNext())
             raises (e.Current)
         }
+
+    let TestICollection (x: System.Collections.ICollection) (expectedArray: 'T[]) =
+        Do {
+            equal x.Count expectedArray.Length
+            let a = Array.zeroCreate expectedArray.Length
+            x.CopyTo(a, 0)
+            equal a expectedArray
+        }
+
+    let TestICollectionGeneric (x: System.Collections.Generic.ICollection<'T>) expectedCount =
+        Do {
+            equal x.Count expectedCount
+            // TODO more
+        }
     
     TestCategory "Collection interface implementations" {
-        Test "Array as IEnumerable" {
+        Test "Array" {
             let arr = [| 1; 3 |]
             run (TestIEnumerable arr 1 3)
             run (TestIEnumerableGeneric arr 1 3)
+            run (TestICollection arr [| 1; 3 |])
         }
 
-        Test "ResizeArray as IEnumerable" {
+        Test "ResizeArray" {
             let arr = ResizeArray [ 1; 3 ]
             run (TestIEnumerable arr 1 3)
             run (TestIEnumerableGeneric arr 1 3)
+            run (TestICollection arr [| 1; 3 |])
         }
 
-        Test "String as IEnumerable" {
+        Test "String" {
             let s = "ac"
             run (TestIEnumerable s 'a' 'c')
             run (TestIEnumerableGeneric s 'a' 'c')
         }
 
-        Test "Dictionary as IEnumerable" {
+        Test "Dictionary" {
             let d = new System.Collections.Generic.Dictionary<int, int>()
             d.Add(1, 2)
             d.Add(2, 4)
@@ -81,7 +97,7 @@ let Tests =
             run (TestIEnumerableGeneric d kv1 kv2)
         }
 
-        Test "dict as IEnumerable" {
+        Test "dict" {
             let d = dict [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
@@ -89,7 +105,7 @@ let Tests =
             run (TestIEnumerableGeneric d kv1 kv2)
         }
 
-        Test "readOnlyDict as IEnumerable" {
+        Test "readOnlyDict" {
             let d = readOnlyDict [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
@@ -97,7 +113,7 @@ let Tests =
             run (TestIEnumerableGeneric d kv1 kv2)
         }
 
-        Test "HashSet as IEnumerable" {
+        Test "HashSet" {
             let s = System.Collections.Generic.HashSet<int>()
             s.Add(1) |> ignore
             s.Add(3) |> ignore
@@ -105,37 +121,40 @@ let Tests =
             run (TestIEnumerableGeneric s 1 3)
         }
 
-        Test "F# list as IEnumerable" {
+        Test "F# list" {
             let l = [ 1; 3 ]
             run (TestIEnumerable l 1 3)
             run (TestIEnumerableGeneric l 1 3)
         }
         
-        Test "LinkedList as IEnumerable" {
+        Test "LinkedList" {
             let l = System.Collections.Generic.LinkedList<int>()
             l.AddLast(3) |> ignore
             l.AddFirst(1) |> ignore
             run (TestIEnumerable l 1 3)
             run (TestIEnumerableGeneric l 1 3)
+            run (TestICollection l [| 1; 3 |])
         }
 
-        Test "Queue as IEnumerable" {
+        Test "Queue" {
             let q = System.Collections.Generic.Queue<int>()
             q.Enqueue(1)
             q.Enqueue(3)
             run (TestIEnumerable q 1 3)
             run (TestIEnumerableGeneric q 1 3)
+            run (TestICollection q [| 1; 3 |])
         }
 
-        Test "Stack as IEnumerable" {
+        Test "Stack" {
             let s = System.Collections.Generic.Stack<int>()
             s.Push(1)
             s.Push(3)
             run (TestIEnumerable s 3 1)
             run (TestIEnumerableGeneric s 3 1)
+            run (TestICollection s [| 1; 3 |])
         }
 
-        Test "F# Map as IEnumerable" {
+        Test "F# Map" {
             let m = Map [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
@@ -143,15 +162,16 @@ let Tests =
             run (TestIEnumerableGeneric m kv1 kv2)
         }
 
-        Test "F# Set as IEnumerable" {
+        Test "F# Set" {
             let s = Set [ 1; 3 ]
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
         }
 
-        Test "ReadOnlyCollection as IEnumerable" {
+        Test "ReadOnlyCollection" {
             let c = System.Collections.ObjectModel.ReadOnlyCollection<int>([| 1; 3 |])
             run (TestIEnumerable c 1 3)
             run (TestIEnumerableGeneric c 1 3)
+            run (TestICollection c [| 1; 3 |])
         }
     }
