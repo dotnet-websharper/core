@@ -66,7 +66,6 @@ let RunTests runServerSide autoStart =
         Optimizations.Tests
         Promise.Tests
         Proxy.Tests
-        Collections.Tests
         Queue.Tests
         Query.Tests
         Random.Tests

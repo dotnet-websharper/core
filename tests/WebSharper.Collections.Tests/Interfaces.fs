@@ -18,13 +18,11 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Collections
+module WebSharper.Collections.Tests.Interfaces
 
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-
-module R = WebSharper.Testing.RandomValues
 
 [<JavaScript>]
 type CollectionTest () =
@@ -259,7 +257,7 @@ type DictTest() =
         
 [<JavaScript>]
 let Tests =
-    TestCategory "Generic Collections" {
+    TestCategory "Collection interfaces" {
         Test "ICollection" {
             let cT = CollectionTest()
             let expected = [|1;3;5|]

@@ -344,18 +344,19 @@ type private ISetProxy<'T> =
     [<Name "UnionWith">]
     abstract member UnionWith : seq<'T> -> unit
 
-[<Proxy(typeof<System.Collections.IEnumerator>)>]
-[<Name "WebSharper.IEnumerator">]
+[<AbstractClass; Proxy(typeof<System.Collections.IEnumerator>)>]
 type private IEnumeratorProxy =
     [<Name "Current0">]
     abstract member Current : obj
     [<Name "MoveNext">]
     abstract member MoveNext : unit -> bool
+    
     [<Name "Reset">]
     abstract member Reset : unit -> unit
+    [<Inline>]
+    default this.Reset() = Enumerator.Reset (As<System.Collections.IEnumerator> this)
 
 [<Proxy(typeof<System.Collections.Generic.IEnumerator<_>>)>]
-[<Name "WebSharper.IEnumerator1">]
 type private IEnumeratorProxy<'T> =
     [<Name "Current">]
     abstract member Current : 'T

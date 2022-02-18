@@ -943,15 +943,15 @@ type SubtestBuilder () =
         (
             r: Runner<'A>,
             [<ProjectionParameter>] src: 'A -> #seq<'T>,
-            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<'B>
+            [<ProjectionParameter>] attempt: 'A -> 'T -> Runner<unit>
         ) : Runner<'A> =
         fun asserter ->
-            let rec loop (attempt: 'T -> Runner<'B>) (acc: Choice<'A, Async<'A>>) (src: list<'T>) =
+            let rec loop (attempt: 'T -> Runner<unit>) (acc: Choice<'A, Async<'A>>) (src: list<'T>) =
                 match src with
                 | [] -> acc
                 | e :: l ->
                     let r = attempt e
-                    loop attempt (acc |> Runner.Bind (fun args -> r asserter |> Runner.Map (fun _ -> args))) l
+                    loop attempt (acc |> Runner.Bind (fun args -> r asserter |> Runner.Map (fun () -> args))) l
             r asserter |> Runner.Bind (fun args ->
                 loop (attempt args) (Choice1Of2 args) (List.ofSeq (src args))
             )
@@ -1088,10 +1088,10 @@ type SubtestBuilder () =
     member this.RunSubtest
         (
             r: Runner<'A>,
-            [<ProjectionParameter>] subtest: 'A -> Runner<'B>
-        ) : Runner<'B> =
+            [<ProjectionParameter>] subtest: 'A -> Runner<unit>
+        ) : Runner<'A> =
         fun asserter ->
-            r asserter |> Runner.Bind (fun a -> subtest a asserter)
+            r asserter |> Runner.Bind (fun args -> subtest args asserter |> Runner.Map (fun () -> args))
 
     member this.Bind(a: Async<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
         fun asserter ->

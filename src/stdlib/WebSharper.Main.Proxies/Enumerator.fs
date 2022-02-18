@@ -25,26 +25,38 @@ open WebSharper.JavaScript
 type IE<'T> = System.Collections.Generic.IEnumerator<'T>
 
 /// Represents an unfolding enumerator.
-[<Sealed>]
-type T<'S,'T> [<JavaScript>] (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
-    [<Inline; JavaScript>] 
-    member this.MoveNext() = n this
-    member this.State with [<Inline; JavaScript>] get() = s and [<Inline; JavaScript>] set (v: 'S) = this?s <- v
-    member this.Current with [<Inline; JavaScript>] get() = c and [<Inline; JavaScript>] set (v: 'T) = this?c <- v
+[<Sealed; JavaScript>]
+type T<'S,'T> (s: 'S, c: 'T, n: T<'S,'T> -> bool, d: T<'S,'T> -> unit) =
+    let mutable e = 0
+    [<Inline>]
+    member this.State 
+        with get() = s 
+        and set (v: 'S) = this?s <- v
+    [<Inline>]
+    member this.Current 
+        with get() = c 
+        and set (v: 'T) = this?c <- v
 
     interface System.Collections.IEnumerator with
-        [<JavaScript>] 
-        member this.MoveNext() = n this
-        [<JavaScript>]
-        member this.Current with get() = box c
-        member this.Reset() = failwith "IEnumerator.Reset not supported"
+        member this.MoveNext() = 
+            let m = n this 
+            e <- if m then 1 else 2
+            m
+        member this.Current = 
+            (As<System.Collections.Generic.IEnumerator<obj>> this).Current  
+        [<JavaScript(false)>]
+        member this.Reset() = ()
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        [<JavaScript>]
-        member this.Current with get() = c
+        member this.Current with get() = 
+            if e = 1 then
+                c
+            elif e = 0 then
+                failwith "Enumeration has not started. Call MoveNext."
+            else 
+                failwith "Enumeration already finished."
 
     interface System.IDisposable with
-        [<JavaScript>] 
         member this.Dispose() = if As d then d this
 
 /// Constructs a new `IEnumerator` by unfolding a function.
@@ -99,6 +111,13 @@ let Get0 (x: System.Collections.IEnumerable) : System.Collections.IEnumerator =
         x.GetEnumerator()
     else
         (As<seq<obj>> x).GetEnumerator()
+
+[<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
+let Reset (x: System.Collections.IEnumerator) =
+    if JS.In "Reset" x then
+        x.Reset()
+    else
+        failwith "IEnumerator.Reset not supported"
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Count (x: System.Collections.Generic.ICollection<'T>) = 

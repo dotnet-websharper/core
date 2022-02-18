@@ -26,30 +26,25 @@ type private IComparer<'T> = System.Collections.Generic.IComparer<'T>
 
 [<Name "WebSharper.Collections.ListEnumerator">]
 [<Proxy(typeof<System.Collections.Generic.List.Enumerator<_>>)>]
-type ResizeArrayEnumeratorProxy<'T> [<JavaScript>] (arr: 'T[]) =
+type ResizeArrayEnumeratorProxy<'T> (arr: 'T[]) =
     let mutable i = -1
 
-    [<JavaScript>] 
     member this.MoveNext() =
         i <- i + 1
         i < arr.Length
 
-    [<JavaScript>] 
     member this.Current with get() = arr.[i]
 
     interface System.Collections.IEnumerator with
-        [<JavaScript>] 
         member this.MoveNext() = this.MoveNext()
-        [<JavaScript>]
         member this.Current with get() = box (arr.[i])
-        member this.Reset() = failwith "IEnumerator.Reset not supported"
+        [<JavaScript(false)>]
+        member this.Reset() = ()
 
     interface System.Collections.Generic.IEnumerator<'T> with
-        [<JavaScript>]
         member this.Current with get() = arr.[i]
 
     interface System.IDisposable with
-        [<JavaScript>] 
         member this.Dispose() = ()
 
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]

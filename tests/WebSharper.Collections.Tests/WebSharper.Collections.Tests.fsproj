@@ -14,6 +14,8 @@
     <Compile Include="LinkedList.fs" />
     <Compile Include="HashSet.fs" />
     <Compile Include="Interop.fs" />
+    <Compile Include="Interfaces.fs" />
+    <Compile Include="Implementations.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="SplitProxy.fs" />
     <None Include="paket.references" />

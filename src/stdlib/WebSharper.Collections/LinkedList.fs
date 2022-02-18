@@ -62,6 +62,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
 
         member this.Dispose() = ()
 
+        [<JavaScript(false)>]
         member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]
