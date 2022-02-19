@@ -53,17 +53,42 @@ let Tests =
         }
 
     let TestICollection (x: System.Collections.ICollection) (expectedArray: 'T[]) =
+        let a = Array.zeroCreate expectedArray.Length
         Do {
             equal x.Count expectedArray.Length
-            let a = Array.zeroCreate expectedArray.Length
             x.CopyTo(a, 0)
             equal a expectedArray
         }
 
-    let TestICollectionGeneric (x: System.Collections.Generic.ICollection<'T>) expectedCount =
+    let TestICollectionGeneric (x: System.Collections.Generic.ICollection<'T>) newItem (expectedArray: 'T[]) =
+        let a = Array.zeroCreate expectedArray.Length
         Do {
-            equal x.Count expectedCount
-            // TODO more
+            isFalse (x.IsReadOnly)
+            x.Add(newItem)
+            equal x.Count expectedArray.Length
+            x.CopyTo(a, 0)
+            equal a expectedArray
+            isTrue (x.Contains newItem)
+            isTrue (x.Remove(newItem))
+            isFalse (x.Contains newItem)
+            isFalse (x.Remove(newItem))
+            x.Clear()
+            equal x.Count 0
+        }
+
+    let TestICollectionGenericReadOnly (x: System.Collections.Generic.ICollection<'T>) missingItem (expectedArray: 'T[])  =
+        let a = Array.zeroCreate expectedArray.Length
+        Do {
+            isTrue (x.IsReadOnly)
+            raises (x.Add(missingItem)) 
+            equal x.Count expectedArray.Length
+            x.CopyTo(a, 0)
+            equal a expectedArray
+            isTrue (x.Contains (Array.last expectedArray))
+            isFalse (x.Contains missingItem)
+            raises (x.Remove(missingItem))
+            raises (x.Clear())
+            equal x.Count expectedArray.Length
         }
     
     TestCategory "Collection interface implementations" {
@@ -72,6 +97,7 @@ let Tests =
             run (TestIEnumerable arr 1 3)
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
+            run (TestICollectionGenericReadOnly arr 2 [| 1; 3 |])
         }
 
         Test "ResizeArray" {
@@ -79,6 +105,7 @@ let Tests =
             run (TestIEnumerable arr 1 3)
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
+            run (TestICollectionGeneric arr 2 [| 1; 3; 2 |])
         }
 
         Test "String" {
@@ -93,22 +120,27 @@ let Tests =
             d.Add(2, 4)
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
+            let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
+            run (TestICollectionGeneric d kv3 [| kv1; kv2; kv3 |])
         }
 
         Test "dict" {
             let d = dict [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
+            let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
+            run (TestICollectionGeneric d kv3 [| kv1; kv2; kv3 |])
         }
 
         Test "readOnlyDict" {
             let d = readOnlyDict [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
+            let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
         }
@@ -119,6 +151,7 @@ let Tests =
             s.Add(3) |> ignore
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
+            run (TestICollectionGeneric s 2 [| 1; 3; 2 |])
         }
 
         Test "F# list" {
@@ -134,6 +167,7 @@ let Tests =
             run (TestIEnumerable l 1 3)
             run (TestIEnumerableGeneric l 1 3)
             run (TestICollection l [| 1; 3 |])
+            run (TestICollectionGeneric l 2 [| 1; 3; 2 |])
         }
 
         Test "Queue" {
@@ -157,15 +191,18 @@ let Tests =
         Test "F# Map" {
             let m = Map [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
-            let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
+            let kv2 = System.Collections.Generic.KeyValuePair(2, 4)        
+            let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable m kv1 kv2)
             run (TestIEnumerableGeneric m kv1 kv2)
+            run (TestICollectionGenericReadOnly m kv3 [| kv1; kv3 |])
         }
 
         Test "F# Set" {
             let s = Set [ 1; 3 ]
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
+            run (TestICollectionGenericReadOnly s 2 [| 1; 3 |])
         }
 
         Test "ReadOnlyCollection" {
@@ -173,5 +210,6 @@ let Tests =
             run (TestIEnumerable c 1 3)
             run (TestIEnumerableGeneric c 1 3)
             run (TestICollection c [| 1; 3 |])
+            run (TestICollectionGenericReadOnly c 2 [| 1; 3 |])
         }
     }
