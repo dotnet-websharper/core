@@ -75,10 +75,6 @@ type ResizeArrayProxy<'T> [<Inline "$wsruntime.MarkResizable($_arr)">] (_arr: 'T
     member this.GetEnumerator() =
         As<System.Collections.Generic.List.Enumerator<'T>>(new ResizeArrayEnumeratorProxy<'T>(As<'T[]> this))
 
-    interface 'T seq with
-        member this.GetEnumerator() = (As<System.Collections.IEnumerable> this).GetEnumerator()
-        member this.GetEnumerator() = (As<seq<'T>> this).GetEnumerator()
-
     [<Inline>]
     member this.Add(x: 'T) : unit =
         As<'T[]>(this).JS.Push(x) |> ignore

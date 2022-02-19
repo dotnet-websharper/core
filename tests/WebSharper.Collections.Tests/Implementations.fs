@@ -151,7 +151,7 @@ let Tests =
             s.Push(3)
             run (TestIEnumerable s 3 1)
             run (TestIEnumerableGeneric s 3 1)
-            run (TestICollection s [| 1; 3 |])
+            run (TestICollection s [| 3; 1 |])
         }
 
         Test "F# Map" {
