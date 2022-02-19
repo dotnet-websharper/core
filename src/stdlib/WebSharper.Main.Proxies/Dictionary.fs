@@ -233,6 +233,26 @@ type internal Dictionary<'K,'V when 'K : equality>
             [<JavaScript(false)>]
             member this.GetEnumerator() = X<_>            
 
+        interface ICollection<KeyValuePair<'K,'V>> with
+            member this.IsReadOnly = false
+            member this.Count = count  
+            member this.Add(p) = this.Add(p.Key, p.Value)
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(JavaScriptOptions.DefaultToUndefined)>]
+            member this.Contains(p) =
+                match this.TryGetValue(p.Key) with
+                | true, v when Unchecked.equals v p.Value -> true
+                | _ -> false
+            member this.CopyTo(arr: KeyValuePair<'K,'V>[], index: int) =
+                (Seq.toArray this).CopyTo(arr, index)
+            [<JavaScript(JavaScriptOptions.DefaultToUndefined)>]
+            member this.Remove(p) =
+                match this.TryGetValue(p.Key) with
+                | true, v when Unchecked.equals v p.Value ->
+                    this.Remove p.Key
+                | _ -> false
+
         member this.Remove(k: 'K) =
             remove k
 

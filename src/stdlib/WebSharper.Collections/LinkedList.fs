@@ -92,7 +92,7 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             
     new () = ListProxy(Seq.empty)          
 
-    [<Name("Count")>]
+    [<Inline>]
     member this.Count = c
 
     [<Inline>]
@@ -174,6 +174,14 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
         As (new EnumeratorProxy<_>(As this))
 
+    interface IEnumerable with
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
+
+    interface IEnumerable<'T> with
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
+
     member this.Remove(node: LLN<'T>) =
         let before = node.Previous
         let after = node.Next
@@ -200,4 +208,15 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
             node <- node.Next
             i <- i + 1 
             
-               
+    interface ICollection<'T> with
+        member this.IsReadOnly = false
+        member this.Count = c  
+        member this.Add(x) = this.AddLast(x) |> ignore
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'T[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(x) = X<bool>

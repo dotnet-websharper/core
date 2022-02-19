@@ -46,6 +46,7 @@ type private FSharpSet<'T when 'T : comparison>
 
         member this.Contains v = T.Contains v tree
 
+        [<Name("Count")>]
         member this.Count = T.Count tree
 
         member this.IsEmpty = T.IsEmpty tree
@@ -100,4 +101,14 @@ type private FSharpSet<'T when 'T : comparison>
             member this.CompareTo other =
                 Seq.compareWith compare this (As<FSharpSet<'T>> other)
 
-
+        interface ICollection<'T> with
+            member this.IsReadOnly = true
+            [<JavaScript(false)>]
+            member this.Count = X<int>  
+            member this.Add(p) = failwith "Set values cannot be mutated."
+            member this.Clear() = failwith "Set values cannot be mutated."
+            [<JavaScript(false)>]
+            member this.Contains(p) = X<bool>
+            member this.CopyTo(arr: 'T[], index: int) =
+                (Seq.toArray this).CopyTo(arr, index)
+            member this.Remove(p) = failwith "Set values cannot be mutated."

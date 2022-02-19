@@ -626,8 +626,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentNode <- M.ImplementationNode(typ, intf, meth)
             currentIsInline <- isInline info
             match info with
-            | NotCompiled (i, _, _, _) -> 
-                let res = this.TransformExpression expr |> breakExpr
+            | NotCompiled (i, _, _, jsOpts) -> 
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> breakExpr
                 let res = this.CheckResult(res)
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
             | NotGenerated (g, p, i, _, _) ->

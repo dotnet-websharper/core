@@ -31,64 +31,64 @@ let Tests =
     let TestIEnumerable (x: System.Collections.IEnumerable) expectedItem1 expectedItem2 =
         let e = x.GetEnumerator()
         Do {
-            raises (e.Current)
+            raisesMsg (e.Current) "IEnumerator.Current throws before starting enumeration"
             isTrue (e.MoveNext())
             equal (e.Current) expectedItem1
             isTrue (e.MoveNext())
             equal (e.Current) expectedItem2
             isFalse (e.MoveNext())
-            raises (e.Current)
+            raisesMsg (e.Current) "IEnumerator.Current throws after finishing enumeration"
         }
         
     let TestIEnumerableGeneric (x: System.Collections.Generic.IEnumerable<'T>) expectedItem1 expectedItem2 =
         let e = x.GetEnumerator()
         Do {
-            raises (e.Current)
+            raisesMsg (e.Current) "IEnumerator<T>.Current throws before starting enumeration"
             isTrue (e.MoveNext())
             equal (e.Current) expectedItem1
             isTrue (e.MoveNext())
             equal (e.Current) expectedItem2
             isFalse (e.MoveNext())
-            raises (e.Current)
+            raisesMsg (e.Current) "IEnumerator<T>.Current throws after finishing enumeration"
         }
 
     let TestICollection (x: System.Collections.ICollection) (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
-            equal x.Count expectedArray.Length
+            equalMsg x.Count expectedArray.Length "ICollection.Count"
             x.CopyTo(a, 0)
-            equal a expectedArray
+            equalMsg a expectedArray "ICollection.CopyTo"
         }
 
     let TestICollectionGeneric (x: System.Collections.Generic.ICollection<'T>) newItem (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
-            isFalse (x.IsReadOnly)
+            isFalseMsg (x.IsReadOnly) "ICollection<T>.IsReadOnly false"
             x.Add(newItem)
-            equal x.Count expectedArray.Length
+            equalMsg x.Count expectedArray.Length "ICollection<T>.Count"
             x.CopyTo(a, 0)
-            equal a expectedArray
-            isTrue (x.Contains newItem)
-            isTrue (x.Remove(newItem))
-            isFalse (x.Contains newItem)
-            isFalse (x.Remove(newItem))
+            equalMsg a expectedArray "ICollection<T>.CopyTo"
+            isTrueMsg (x.Contains newItem) "ICollection<T>.Contains true"
+            isTrueMsg (x.Remove(newItem)) "ICollection<T>.Remove true"
+            isFalseMsg (x.Contains newItem) "ICollection<T>.Contains false"
+            isFalseMsg (x.Remove(newItem)) "ICollection<T>.Remove false"
             x.Clear()
-            equal x.Count 0
+            equalMsg x.Count 0 "ICollection<T>.Clear"
         }
 
     let TestICollectionGenericReadOnly (x: System.Collections.Generic.ICollection<'T>) missingItem (expectedArray: 'T[])  =
         let a = Array.zeroCreate expectedArray.Length
         Do {
-            isTrue (x.IsReadOnly)
-            raises (x.Add(missingItem)) 
-            equal x.Count expectedArray.Length
+            isTrueMsg (x.IsReadOnly) "ICollection<T>.IsReadOnly true"
+            raisesMsg (x.Add(missingItem)) "ICollection<T>.Add throws"
+            equalMsg x.Count expectedArray.Length "ICollection<T>.Count"
             x.CopyTo(a, 0)
-            equal a expectedArray
-            isTrue (x.Contains (Array.last expectedArray))
-            isFalse (x.Contains missingItem)
-            raises (x.Remove(missingItem))
-            raises (x.Clear())
-            equal x.Count expectedArray.Length
+            equalMsg a expectedArray "ICollection<T>.CopyTo"
+            isTrueMsg (x.Contains (Array.last expectedArray)) "ICollection<T>.Contains true"
+            isFalseMsg (x.Contains missingItem) "ICollection<T>.Contains false"
+            raisesMsg (x.Remove(missingItem)) "ICollection<T>.Remove throws"
+            raisesMsg (x.Clear()) "ICollection<T>.Clear throws"
+            equalMsg x.Count expectedArray.Length "ICollection<T>.Count"
         }
     
     TestCategory "Collection interface implementations" {
@@ -151,7 +151,7 @@ let Tests =
             s.Add(3) |> ignore
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
-            run (TestICollectionGeneric s 2 [| 1; 3; 2 |])
+            run (TestICollectionGeneric s 2 [| 1; 2; 3 |]) // order is sorted, specific to WebSharper's implementation, but .NET HashSet has no guarantees on ordering
         }
 
         Test "F# list" {
@@ -195,7 +195,7 @@ let Tests =
             let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable m kv1 kv2)
             run (TestIEnumerableGeneric m kv1 kv2)
-            run (TestICollectionGenericReadOnly m kv3 [| kv1; kv3 |])
+            run (TestICollectionGenericReadOnly m kv3 [| kv1; kv2 |])
         }
 
         Test "F# Set" {

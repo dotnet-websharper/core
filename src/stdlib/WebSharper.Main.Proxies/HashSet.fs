@@ -119,6 +119,7 @@ type internal HashSetProxy<'T when 'T : equality>
             for i = 0 to all.Length - 1 do 
                 arr.[i] <- all.[i]
 
+        [<Name("Count")>]
         member x.Count = count
 
         member x.ExceptWith(xs: seq<'T>) =
@@ -199,3 +200,17 @@ type internal HashSetProxy<'T when 'T : equality>
         member x.UnionWith(xs: seq<'T>) =
             for item in xs do
                 x.Add(item) |> ignore
+
+        interface ICollection<'T> with
+            member this.IsReadOnly = false
+            [<JavaScript(false)>]
+            member this.Count = X<int>  
+            member this.Add(x) = this.Add(x) |> ignore
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(false)>]
+            member this.Contains(p) = X<bool>
+            [<JavaScript(false)>]
+            member this.CopyTo(arr: 'T[], index: int) = ()
+            [<JavaScript(false)>]
+            member this.Remove(x) = X<bool>

@@ -156,19 +156,19 @@ let CopyTo0 (x: System.Collections.ICollection) (array: System.Array) (index: in
     else
         (As<System.Collections.Generic.ICollection<obj>> x).CopyTo(As<obj[]> array, index)
 
+[<Inline("$x.resizable")>]
+let IsResizable(x: obj) = X<bool>
+
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) = 
     if x :? System.Array then
-        true
+        not (IsResizable x)
     else 
         x.IsReadOnly
 
 [<JavaScript>]
 let FailReadOnly() =
     failwith "Collection is read-only."
-
-[<Inline("$x.resizable")>]
-let IsResizable(x: obj) = X<bool>
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
