@@ -76,7 +76,7 @@ let Tests =
             equalMsg x.Count 0 "ICollection<T>.Clear"
         }
 
-    let TestICollectionGenericReadOnly (x: System.Collections.Generic.ICollection<'T>) missingItem (expectedArray: 'T[])  =
+    let TestICollectionGenericReadOnly (x: System.Collections.Generic.ICollection<'T>) missingItem (expectedArray: 'T[]) =
         let a = Array.zeroCreate expectedArray.Length
         Do {
             isTrueMsg (x.IsReadOnly) "ICollection<T>.IsReadOnly true"
@@ -90,7 +90,90 @@ let Tests =
             raisesMsg (x.Clear()) "ICollection<T>.Clear throws"
             equalMsg x.Count expectedArray.Length "ICollection<T>.Count"
         }
+
+    let TestIList (x: System.Collections.IList) newItem newItem2 =
+        Do {
+            isFalseMsg (x.IsFixedSize) "IList.IsFixedSize false"
+            isFalseMsg (x.IsReadOnly) "IList.IsReadOnly false"
+            isFalseMsg (x.Contains newItem) "IList.Contains false" 
+            x[0] <- newItem 
+            equalMsg (x[0]) newItem "IList.Item"
+            isTrueMsg (x.Contains newItem) "IList.Contains true" 
+            equalMsg (x.Add(newItem2)) 2 "IList.Add"
+            equalMsg (x.IndexOf(newItem2)) 2 "IList.IndexOf"
+            x.Insert(0, newItem2)
+            equalMsg (x[0]) newItem2 "IList.Insert"
+            equalMsg (x[1]) newItem "IList.Insert"
+            x.Remove(newItem2)
+            equalMsg (x[0]) newItem "IList.Remove"
+            x.RemoveAt(0)
+            equalMsg (x[1]) newItem2 "IList.Remove"
+            x.Clear()
+            equalMsg (x.Count) 0 "IList.Clear"
+        }
+        
+    let TestIListGeneric (x: System.Collections.Generic.IList<'T>) newItem newItem2 =
+        Do {
+            x[0] <- newItem 
+            equalMsg (x[0]) newItem "IList.Item"
+            equalMsg (x.IndexOf(newItem)) 0 "IList.IndexOf"
+            x.Insert(0, newItem2)
+            equalMsg (x.IndexOf(newItem2)) 0 "IList.Insert"
+            x.RemoveAt(0)
+            equalMsg (x.IndexOf(newItem)) 0 "IList.RemoveAt"
+        }
+
+    let TestIListFixedSize (x: System.Collections.IList) newItem defaultValue =
+        Do {
+            isTrueMsg (x.IsFixedSize) "IList.IsFixedSize true"
+            isFalseMsg (x.IsReadOnly) "IList.IsReadOnly false"
+            isFalseMsg (x.Contains newItem) "IList.Contains false" 
+            x[0] <- newItem 
+            equalMsg (x[0]) newItem "IList.Item"
+            isTrueMsg (x.Contains newItem) "IList.Contains true" 
+            raisesMsg (x.Add(newItem)) "IList.Add throws"
+            equalMsg (x.IndexOf(newItem)) 0 "IList.IndexOf"
+            raisesMsg (x.Insert(0, newItem)) "IList.Insert throws"
+            raisesMsg (x.Remove(newItem)) "IList.Remove throws"
+            raisesMsg (x.RemoveAt(0)) "IList.RemoveAt throws"
+            x.Clear()
+            equalMsg (x[0]) defaultValue "IList.Clear"
+        }
+        
+    let TestIListGenericFixedSize (x: System.Collections.Generic.IList<'T>) newItem =
+        Do {
+            x[0] <- newItem 
+            equalMsg (x[0]) newItem "IList<T>.Item"
+            equalMsg (x.IndexOf(newItem)) 0 "IList<T>.IndexOf"
+            raisesMsg (x.Insert(0, newItem)) "IList<T>.Insert throws"
+            raisesMsg (x.RemoveAt(0)) "IList<T>.RemoveAt throws"
+        }
     
+    let TestIListReadOnly (x: System.Collections.IList) firstItem missingItem =
+        Do {
+            isTrueMsg (x.IsFixedSize) "IList.IsFixedSize true"
+            isTrueMsg (x.IsReadOnly) "IList.IsReadOnly true"
+            raisesMsg (x[0] <- missingItem) "IList.Item setter throws" 
+            isFalseMsg (x.Contains missingItem) "IList.Contains false" 
+            equalMsg (x[0]) firstItem "IList.Item"
+            isTrueMsg (x.Contains firstItem) "IList.Contains true" 
+            raisesMsg (x.Add(firstItem)) "IList.Add throws"
+            equalMsg (x.IndexOf(firstItem)) 0 "IList.IndexOf"
+            raisesMsg (x.Insert(0, missingItem)) "IList.Insert throws"
+            raisesMsg (x.Remove(firstItem)) "IList.Remove throws"
+            raisesMsg (x.RemoveAt(0)) "IList.RemoveAt throws"
+            raisesMsg (x.Clear()) "IList.Clear throws"
+        }
+    
+    let TestIListGenericReadOnly (x: System.Collections.Generic.IList<'T>) firstItem missingItem =
+        Do {
+            raisesMsg (x[0] <- missingItem) "IList<T>.Item setter throws" 
+            equalMsg (x[0]) firstItem "IList<T>.Item"
+            equalMsg (x.IndexOf(firstItem)) 0 "IList<T>.IndexOf"
+            raisesMsg (x.Insert(0, missingItem)) "IList<T>.Insert throws"
+            raisesMsg (x.RemoveAt(0)) "IList<T>.RemoveAt throws"
+        }
+
     TestCategory "Collection interface implementations" {
         Test "Array" {
             let arr = [| 1; 3 |]
@@ -98,6 +181,8 @@ let Tests =
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
             run (TestICollectionGenericReadOnly arr 2 [| 1; 3 |])
+            run (TestIListFixedSize arr 2 0)
+            run (TestIListGenericFixedSize arr 4)
         }
 
         Test "ResizeArray" {
@@ -106,6 +191,10 @@ let Tests =
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
             run (TestICollectionGeneric arr 2 [| 1; 3; 2 |])
+            let arr = ResizeArray [ 1; 3 ]
+            run (TestIList arr 2 0)
+            let arr = ResizeArray [ 1; 3 ]
+            run (TestIListGeneric arr 4 5)
         }
 
         Test "String" {
@@ -211,5 +300,7 @@ let Tests =
             run (TestIEnumerableGeneric c 1 3)
             run (TestICollection c [| 1; 3 |])
             run (TestICollectionGenericReadOnly c 2 [| 1; 3 |])
+            run (TestIListReadOnly c 1 0)
+            run (TestIListGenericReadOnly c 1 0)
         }
     }
