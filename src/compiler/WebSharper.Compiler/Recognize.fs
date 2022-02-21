@@ -280,6 +280,7 @@ let wsRuntimeFunctions =
         "Curried3"
         "UnionByType"
         "MarkResizable"
+        "MarkReadOnly"
         "ScriptBasePath"
         "ScriptPath"
     ]

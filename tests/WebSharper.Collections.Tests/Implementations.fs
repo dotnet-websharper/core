@@ -123,7 +123,7 @@ let Tests =
             equalMsg (x.IndexOf(newItem)) 0 "IList.RemoveAt"
         }
 
-    let TestIListFixedSize (x: System.Collections.IList) newItem defaultValue =
+    let TestIListFixedSize (x: System.Collections.IList) newItem =
         Do {
             isTrueMsg (x.IsFixedSize) "IList.IsFixedSize true"
             isFalseMsg (x.IsReadOnly) "IList.IsReadOnly false"
@@ -137,7 +137,7 @@ let Tests =
             raisesMsg (x.Remove(newItem)) "IList.Remove throws"
             raisesMsg (x.RemoveAt(0)) "IList.RemoveAt throws"
             x.Clear()
-            equalMsg (x[0]) defaultValue "IList.Clear"
+            equalMsg (x[0]) null "IList.Clear" // instead of default value, JS translation will clear to null only without type information
         }
         
     let TestIListGenericFixedSize (x: System.Collections.Generic.IList<'T>) newItem =
@@ -181,7 +181,7 @@ let Tests =
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
             run (TestICollectionGenericReadOnly arr 2 [| 1; 3 |])
-            run (TestIListFixedSize arr 2 0)
+            run (TestIListFixedSize arr 2)
             run (TestIListGenericFixedSize arr 4)
         }
 
@@ -191,10 +191,10 @@ let Tests =
             run (TestIEnumerableGeneric arr 1 3)
             run (TestICollection arr [| 1; 3 |])
             run (TestICollectionGeneric arr 2 [| 1; 3; 2 |])
-            let arr = ResizeArray [ 1; 3 ]
-            run (TestIList arr 2 0)
-            let arr = ResizeArray [ 1; 3 ]
-            run (TestIListGeneric arr 4 5)
+            let arr2 = ResizeArray [ 1; 3 ]
+            run (TestIList arr2 2 0)
+            let arr3 = ResizeArray [ 1; 3 ]
+            run (TestIListGeneric arr3 4 5)
         }
 
         Test "String" {

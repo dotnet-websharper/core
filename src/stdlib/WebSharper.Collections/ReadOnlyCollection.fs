@@ -28,19 +28,14 @@ open System.Collections.Generic
 [<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
 [<Name "WebSharper.Collections.ReadOnlyCollection">]
 type ReadOnlyCollectionProxy<'T> =
-    [<Inline "WebSharper.Arrays.ofSeq($arr)">] 
-    new (arr: IList<'T>) = { }
+
+    [<Inline>]
+    static member CtorProxy (arr: IList<'T>) = JS.Inline("$wsruntime.MarkReadOnly($0)", Array.ofSeq arr)
     
     member this.Item with [<Inline "$this[$i]">] get (i: int) = X<'T>
 
     [<Inline "$this.length">]
     member this.Count = X<int>
-
-//    interface seq<'T> with
-//        [<Inline>]
-//        member this.GetEnumerator() = As<System.Collections.IEnumerator>(((As<'T[]> this) :> seq<'T>).GetEnumerator())
-//        [<Inline>]
-//        member this.GetEnumerator() = ((As<'T[]> this) :> seq<'T>).GetEnumerator()
 
 [<Proxy(typeof<System.Array>)>]
 type private ArrayProxy =

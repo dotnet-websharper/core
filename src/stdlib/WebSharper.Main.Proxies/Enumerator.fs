@@ -156,8 +156,11 @@ let CopyTo0 (x: System.Collections.ICollection) (array: System.Array) (index: in
     else
         (As<System.Collections.Generic.ICollection<obj>> x).CopyTo(As<obj[]> array, index)
 
-[<Inline("$x.resizable")>]
-let IsResizable(x: obj) = X<bool>
+[<Inline>]
+let IsResizable(x: obj) = JS.In "resizable" x
+
+[<Inline>]
+let IsJSReadOnly(x: obj) = JS.In "readonly" x
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsReadOnly (x: System.Collections.Generic.ICollection<'T>) = 
@@ -184,7 +187,7 @@ let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
 let Clear (x: System.Collections.Generic.ICollection<'T>) =
     if x :? System.Array then
         if IsResizable x then
-            (As<JavaScript.Array<'T>> x).Splice(0, (As<JavaScript.Array<'T>> x).Length) |> ignore   
+            (As<'T[]> x).JS.Splice(0, (As<'T[]> x).Length) |> ignore   
         else
             FailReadOnly()
     else
@@ -219,7 +222,10 @@ let IsFixedSize (x: System.Collections.IList) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LIsReadOnly (x: System.Collections.IList) = 
     if x :? System.Array then
-        false
+        if IsJSReadOnly x then 
+            true 
+        else 
+            false
     else 
         x.IsReadOnly
 
@@ -233,7 +239,10 @@ let LItem0Get (x: System.Collections.IList) (index: int) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LItem0Set (x: System.Collections.IList) (index: int) (value: obj) = 
     if x :? System.Array then
-        (As<obj[]> x)[index] <- value
+        if IsJSReadOnly x then 
+            FailReadOnly()
+        else
+            (As<obj[]> x)[index] <- value
     else 
         x[index] <- value    
 
@@ -242,7 +251,7 @@ let LAdd (x: System.Collections.IList) (item: obj) : int =
     if x :? System.Array then
         if IsResizable x then
             As<obj[]>(x).JS.Push(item) |> ignore
-            As<obj[]>(x).Length            
+            As<obj[]>(x).Length - 1            
         else
             FailReadOnly()
     else 
@@ -252,9 +261,12 @@ let LAdd (x: System.Collections.IList) (item: obj) : int =
 let LClear (x: System.Collections.IList) = 
     if x :? System.Array then
         if IsResizable x then
-            (As<'T[]> x).JS.Splice(0, (As<'T[]> x).Length) |> ignore   
-        else
+            (As<obj[]> x).JS.Splice(0, (As<obj[]> x).Length) |> ignore   
+        elif IsJSReadOnly x then 
             FailReadOnly()
+        else
+            for i = 0 to (As<obj[]> x).Length - 1 do
+                (As<obj[]> x)[i] <- null
     else 
         x.Clear()
 
@@ -314,7 +326,10 @@ let LItemGet (x: System.Collections.Generic.IList<'T>) (index: int) =
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let LItemSet (x: System.Collections.Generic.IList<'T>) (index: int) (value: 'T) = 
     if x :? System.Array then
-        (As<obj[]> x)[index] <- box value
+        if IsJSReadOnly x then 
+            FailReadOnly()
+        else
+            (As<obj[]> x)[index] <- box value
     else 
         x[index] <- value    
 
