@@ -75,7 +75,11 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 [<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    [<Name("Count")>]
     member this.Count = d.Count 
+
+    member this.CopyTo(arr: 'K[], index: int) =
+        (Seq.toArray this).CopyTo(arr, index)    
 
     [<Name("GetEnumerator")>]
     member this.GetEnumerator() =
@@ -91,7 +95,11 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    [<Name("Count")>]
     member this.Count = d.Count 
+
+    member this.CopyTo(arr: 'K[], index: int) =
+        (Seq.toArray this).CopyTo(arr, index)    
 
     [<Name("GetEnumerator")>]
     member this.GetEnumerator() =
@@ -216,6 +224,7 @@ type internal Dictionary<'K,'V when 'K : equality>
 
         member this.Count with [<Inline>] get () = count
 
+        [<Name("Item")>]
         member this.Item
             with get (k: 'K) : 'V = get k
             and set (k: 'K) (v: 'V) = set k v
@@ -253,6 +262,40 @@ type internal Dictionary<'K,'V when 'K : equality>
                     this.Remove p.Key
                 | _ -> false
 
+        interface ICollection with
+            [<JavaScript(false)>]
+            member this.CopyTo(array: System.Array, index: int) = ()
+            [<JavaScript(false)>]
+            member this.Count = X<int>
+            [<JavaScript(false)>]
+            member this.IsSynchronized = X<bool>
+            [<JavaScript(false)>]
+            member this.SyncRoot = X<obj>
+
+        interface IDictionary with
+            [<JavaScript(false)>]
+            member this.Add(key: obj, value: obj) = ()
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(false)>]
+            member this.Contains(key: obj) = X<bool>
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<IDictionaryEnumerator>
+            [<JavaScript(false)>]
+            member this.Remove(key: obj) = ()
+            member this.IsFixedSize = false
+            [<JavaScript(false)>]
+            member this.IsReadOnly = X<bool>
+            [<JavaScript(false)>]
+            member this.Item 
+                with get key = X<obj>
+                and set key value = ()
+            [<JavaScript(false)>]
+            member this.Keys = X<ICollection>
+            [<JavaScript(false)>]
+            member this.Values = X<ICollection>
+
+        [<Name("RemoveKey")>]
         member this.Remove(k: 'K) =
             remove k
 
@@ -272,8 +315,10 @@ type internal Dictionary<'K,'V when 'K : equality>
                     true
                 | _ -> false
 
+        [<Name("Values")>]
         member this.Values =
             As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
 
+        [<Name("Keys")>]
         member this.Keys =
             As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))

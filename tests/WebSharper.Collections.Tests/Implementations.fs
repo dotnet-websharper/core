@@ -191,6 +191,44 @@ let Tests =
             x.UnionWith (Seq.singleton  firstItem)
             isTrueMsg (x.SetEquals(startingItems)) "ISet<T>.UnionWith/SetEquals"
         }
+
+    let TestIDictionary (x: System.Collections.IDictionary) firstKey firstValue newFirstValue expectedKeys expectedValues missingKey =
+        Do {
+            isFalseMsg (x.IsFixedSize) "IDictionary.IsFixedSize false"
+            isFalseMsg (x.IsReadOnly) "IDictionary.IsReadOnly false"
+            equalMsg (x[firstKey]) firstValue "IDictionary.Item"
+            x[firstKey] <- newFirstValue
+            equalMsg (x[firstKey]) newFirstValue "IDictionary.Item setter"
+            run (TestICollection x.Keys expectedKeys)
+            run (TestICollection x.Values expectedValues)
+            isFalseMsg (x.Contains(missingKey)) "IDictionary.Contains false"
+            x.Add(missingKey, newFirstValue)
+            isTrueMsg (x.Contains(missingKey)) "IDictionary.Add"
+            x.Remove(missingKey)
+            isFalseMsg (x.Contains(missingKey)) "IDictionary.Remove"
+            let e = x.GetEnumerator()
+            raisesMsg (e.Current) "IDictionaryEnumerator.Current throws before starting enumeration"
+            raisesMsg (e.Entry) "IDictionaryEnumerator.Entry throws before starting enumeration"
+            raisesMsg (e.Key) "IDictionaryEnumerator.Key throws before starting enumeration"
+            raisesMsg (e.Value) "IDictionaryEnumerator.Value throws before starting enumeration"
+            isTrue (e.MoveNext())
+            equal (e.Current) (System.Collections.Generic.KeyValuePair(expectedKeys[0], expectedValues[0]))
+            equal (e.Entry) (System.Collections.DictionaryEntry(expectedKeys[0], expectedValues[0]))
+            equal (e.Key) expectedKeys[0]
+            equal (e.Value) expectedValues[0]
+            isTrue (e.MoveNext())
+            equal (e.Current) (System.Collections.Generic.KeyValuePair(expectedKeys[1], expectedValues[1]))
+            equal (e.Entry) (System.Collections.DictionaryEntry(expectedKeys[1], expectedValues[1]))
+            equal (e.Key) expectedKeys[1]
+            equal (e.Value) expectedValues[1]
+            isFalse (e.MoveNext())
+            raisesMsg (e.Current) "IDictionaryEnumerator.Current throws after finishing enumeration"
+            raisesMsg (e.Entry) "IDictionaryEnumerator.Entry throws after finishing enumeration"
+            raisesMsg (e.Key) "IDictionaryEnumerator.Key throws after finishing enumeration"
+            raisesMsg (e.Value) "IDictionaryEnumerator.Value throws after finishing enumeration"
+            x.Clear()
+            equalMsg x.Count 0 "IDictionary.Clear"
+        }
         
     TestCategory "Collection interface implementations" {
         Test "Array" {
@@ -230,7 +268,12 @@ let Tests =
             let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
+            run (TestICollection d [| kv1; kv2 |])
             run (TestICollectionGeneric d kv3 [| kv1; kv2; kv3 |])
+            let d2 = new System.Collections.Generic.Dictionary<int, int>()
+            d2.Add(1, 2)
+            d2.Add(2, 4)
+            run (TestIDictionary d2 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
         }
 
         Test "dict" {
