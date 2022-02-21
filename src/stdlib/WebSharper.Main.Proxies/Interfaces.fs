@@ -321,7 +321,7 @@ type private IDictionaryProxy<'TKey, 'TValue> =
 [<Proxy(typeof<System.Collections.Generic.ISet<_>>)>]
 type private ISetProxy<'T> =
     inherit System.Collections.Generic.ICollection<'T>
-    [<Name "AddReturn">]
+    [<Name "SAdd">]
     abstract member Add : 'T -> bool
     [<Name "ExceptWith">]
     abstract member ExceptWith : seq<'T> -> unit

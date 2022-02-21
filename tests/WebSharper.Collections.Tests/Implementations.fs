@@ -174,6 +174,24 @@ let Tests =
             raisesMsg (x.RemoveAt(0)) "IList<T>.RemoveAt throws"
         }
 
+    let TestISetGeneric (x: System.Collections.Generic.ISet<'T>) startingItems missingItem firstItem =
+        Do {
+            isTrueMsg (x.Add(missingItem)) "ISet<T>.Add true"
+            isFalseMsg (x.Add(missingItem)) "ISet<T>.Add false"
+            x.ExceptWith (Seq.singleton missingItem)
+            isTrueMsg (x.Add(missingItem)) "ISet<T>.ExceptWith"
+            x.IntersectWith startingItems
+            isTrueMsg (x.Add(missingItem)) "ISet<T>.IntersectWith"
+            isTrueMsg (x.IsProperSupersetOf(startingItems)) "ISet<T>.IsProperSupersetOf"
+            isTrueMsg (x.IsSupersetOf(startingItems)) "ISet<T>.IsSupersetOf"
+            isTrueMsg (x.Overlaps(startingItems)) "ISet<T>.IsSupersetOf"
+            x.SymmetricExceptWith ([ missingItem; firstItem ])
+            isTrueMsg (x.IsProperSubsetOf(startingItems)) "ISet<T>.IsProperSupersetOf"
+            isTrueMsg (x.IsSubsetOf(startingItems)) "ISet<T>.IsSupersetOf"
+            x.UnionWith (Seq.singleton  firstItem)
+            isTrueMsg (x.SetEquals(startingItems)) "ISet<T>.UnionWith/SetEquals"
+        }
+        
     TestCategory "Collection interface implementations" {
         Test "Array" {
             let arr = [| 1; 3 |]
@@ -229,7 +247,6 @@ let Tests =
             let d = readOnlyDict [ 1, 2; 2, 4 ]
             let kv1 = System.Collections.Generic.KeyValuePair(1, 2)
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
-            let kv3 = System.Collections.Generic.KeyValuePair(3, 6)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
         }
@@ -241,6 +258,8 @@ let Tests =
             run (TestIEnumerable s 1 3)
             run (TestIEnumerableGeneric s 1 3)
             run (TestICollectionGeneric s 2 [| 1; 2; 3 |]) // order is sorted, specific to WebSharper's implementation, but .NET HashSet has no guarantees on ordering
+            let s2 = System.Collections.Generic.HashSet<int>([| 1; 3 |])
+            run (TestISetGeneric s2 (Seq.ofArray [| 1; 3 |]) 2 1)
         }
 
         Test "F# list" {

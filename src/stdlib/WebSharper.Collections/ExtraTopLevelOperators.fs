@@ -42,3 +42,7 @@ let CreateDictionary (s : seq<('K * 'V)>) : IDictionary<'K, 'V> =
 [<Inline>]
 let CreateReadOnlyDictionary (s : seq<('K * 'V)>) : IReadOnlyDictionary<'K, 'V> =
     MakeDict s
+
+[<Inline>]
+let CreateSet (s : seq<('T)>) : Set<'T> =
+    Set s 

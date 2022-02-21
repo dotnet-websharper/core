@@ -103,6 +103,7 @@ type internal HashSetProxy<'T when 'T : equality>
         new (init: seq<'T>, comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(init, equals comparer, getHashCode comparer)
 
+        [<Name "SAdd">]
         member this.Add(item: 'T) = add item
 
         member this.Clear() =
@@ -214,3 +215,27 @@ type internal HashSetProxy<'T when 'T : equality>
             member this.CopyTo(arr: 'T[], index: int) = ()
             [<JavaScript(false)>]
             member this.Remove(x) = X<bool>
+
+        interface ISet<'T> with
+            [<JavaScript(false)>]
+            member this.Add(item: 'T) = X<bool>
+            [<JavaScript(false)>]
+            member this.ExceptWith(other: IEnumerable<'T>) = ()            
+            [<JavaScript(false)>]
+            member this.IntersectWith(other: IEnumerable<'T>) = ()
+            [<JavaScript(false)>]
+            member this.IsProperSubsetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsProperSupersetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsSubsetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsSupersetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.Overlaps(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.SetEquals(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.SymmetricExceptWith(other: IEnumerable<'T>) = ()
+            [<JavaScript(false)>]
+            member this.UnionWith(other: IEnumerable<'T>) = ()
