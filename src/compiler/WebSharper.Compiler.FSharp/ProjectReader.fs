@@ -1025,7 +1025,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase || isInterfaceProxy
             ForceAddress = hasSingletonCase || def.Value.FullName = "System.Exception" // needed for Error inheritance
         }
     )
