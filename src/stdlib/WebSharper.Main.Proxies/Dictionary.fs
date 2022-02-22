@@ -75,13 +75,18 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 [<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
-    [<Name("Count")>]
+    [<Name "Count">]
     member this.Count = d.Count 
 
     member this.CopyTo(arr: 'K[], index: int) =
         (Seq.toArray this).CopyTo(arr, index)    
 
-    [<Name("GetEnumerator")>]
+    [<Name "IsReadOnly">]
+    member this.IsReadOnly = true
+
+    member this.Contains(item: 'K) = d.ContainsKey(item)
+
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.KeyCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
@@ -95,13 +100,18 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
-    [<Name("Count")>]
+    [<Name "Count">]
     member this.Count = d.Count 
 
     member this.CopyTo(arr: 'K[], index: int) =
         (Seq.toArray this).CopyTo(arr, index)    
 
-    [<Name("GetEnumerator")>]
+    [<Name "IsReadOnly">]
+    member this.IsReadOnly = true
+
+    member this.Contains(item: 'V) = d.ContainsValue(item)
+
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.ValueCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
@@ -222,6 +232,9 @@ type internal Dictionary<'K,'V when 'K : equality>
                 d.Self |> Array.exists (fun (KeyValue(dk, _)) -> 
                     equals.Call(dk, k)
                 ) 
+
+        member this.ContainsValue(v: 'V) =
+            (As<D<'K,'V>> this) |> Seq.exists (fun (KeyValue(_, x)) -> Unchecked.equals x v)
 
         member this.Count with [<Inline>] get () = count
 

@@ -175,6 +175,13 @@ type private ICollectionProxy<'T> =
     [<Inline>]
     default this.Remove(item: 'T) = Enumerator.Remove (As<System.Collections.Generic.ICollection<'T>> this) item
 
+[<Proxy(typeof<System.Collections.Generic.IReadOnlyCollection<_>>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.Generic.IEnumerable<_>> |])>]
+type private IReadOnlyCollectionProxy<'T> =
+    [<Name "Count">]
+    abstract member Count : int
+    [<Inline>]
+    default this.Count = Enumerator.Count (As<System.Collections.Generic.ICollection<'T>> this)
+
 [<Proxy(typeof<System.Collections.IList>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.ICollection> |])>]
 type private IListProxy =
     [<Name "IsFixedSize">]
@@ -304,12 +311,26 @@ type private IDictionaryProxy<'TKey, 'TValue> =
     abstract member Keys : System.Collections.Generic.ICollection<'TKey>
     [<Name "Values">]
     abstract member Values : System.Collections.Generic.ICollection<'TValue>
-    [<Name "AddWithKey">]
+    [<Name "DAdd">]
     abstract member Add : 'TKey * 'TValue -> unit
     [<Name "ContainsKey">]
     abstract member ContainsKey : 'TKey -> bool
     [<Name "RemoveKey">]
     abstract member Remove : 'TKey -> bool
+    [<Name "TryGetValue">]
+    abstract member TryGetValue : 'TKey * byref<'TValue> -> bool
+
+[<Proxy(typeof<System.Collections.Generic.IReadOnlyDictionary<_,_>>)>]
+type private IReadOnlyDictionaryProxy<'TKey, 'TValue> =
+    inherit System.Collections.Generic.IReadOnlyCollection<System.Collections.Generic.KeyValuePair<'TKey, 'TValue>>
+    [<Name "Item">]
+    abstract member Item : 'TKey -> 'TValue with get
+    [<Name "Keys">]
+    abstract member Keys : System.Collections.Generic.IEnumerable<'TKey>
+    [<Name "Values">]
+    abstract member Values : System.Collections.Generic.IEnumerable<'TValue>
+    [<Name "ContainsKey">]
+    abstract member ContainsKey : 'TKey -> bool
     [<Name "TryGetValue">]
     abstract member TryGetValue : 'TKey * byref<'TValue> -> bool
 

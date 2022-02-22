@@ -181,7 +181,10 @@ let Add (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
         else
             FailReadOnly()
     else
-        x.Add(item)
+        if (JS.In "Add" x) then
+            x.Add(item)
+        else
+            FailReadOnly()
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Clear (x: System.Collections.Generic.ICollection<'T>) =
@@ -191,7 +194,10 @@ let Clear (x: System.Collections.Generic.ICollection<'T>) =
         else
             FailReadOnly()
     else
-        x.Clear()
+        if (JS.In "Clear" x) then
+            x.Clear()
+        else
+            FailReadOnly()
 
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let Contains (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
@@ -210,8 +216,11 @@ let Remove (x: System.Collections.Generic.ICollection<'T>) (item: 'T) =
         else
             FailReadOnly()
     else
-        x.Remove(item)
-   
+        if (JS.In "Remove" x) then
+            x.Remove(item)
+        else
+            FailReadOnly()
+
 [<JavaScript(JavaScriptOptions.NoDefaultInterfaceImplementation)>]
 let IsFixedSize (x: System.Collections.IList) = 
     if x :? System.Array then

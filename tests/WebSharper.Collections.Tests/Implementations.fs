@@ -260,7 +260,7 @@ let Tests =
             run (TestIEnumerable x.Values expectedValues[0] expectedValues[1])
             run (TestIEnumerableGeneric x.Values expectedValues[0] expectedValues[1])
             isFalseMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.ContainsKey false"
-            isFalseMsg (x.ContainsKey(firstKey)) "IDictionary<K, V>.ContainsKey true"
+            isTrueMsg (x.ContainsKey(firstKey)) "IDictionary<K, V>.ContainsKey true"
         }
 
     TestCategory "Collection interface implementations" {
