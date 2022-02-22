@@ -229,7 +229,40 @@ let Tests =
             x.Clear()
             equalMsg x.Count 0 "IDictionary.Clear"
         }
+
+    let TestIDictionaryGeneric (x: System.Collections.Generic.IDictionary<'K, 'V>) firstKey firstValue newFirstValue (expectedKeys: 'K[]) (expectedValues: 'V[]) missingKey =
+        Do {
+            equalMsg (x[firstKey]) firstValue "IDictionary<K, V>.Item"
+            x[firstKey] <- newFirstValue
+            equalMsg (x[firstKey]) newFirstValue "IDictionary<K, V>.Item setter"
+            equalMsg (match x.TryGetValue(firstKey) with true, v -> Some v | _ -> None) (Some newFirstValue) "IDictionary<K, V>.TryGetValue"
+            run (TestIEnumerable x.Keys expectedKeys[0] expectedKeys[1])
+            run (TestIEnumerableGeneric x.Keys expectedKeys[0] expectedKeys[1])
+            run (TestICollectionGenericReadOnly x.Keys missingKey expectedKeys)
+            run (TestIEnumerable x.Values expectedValues[0] expectedValues[1])
+            run (TestIEnumerableGeneric x.Values expectedValues[0] expectedValues[1])
+            run (TestICollectionGenericReadOnly x.Values firstValue expectedValues)
+            isFalseMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.ContainsKey false"
+            x.Add(missingKey, newFirstValue)
+            isTrueMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.Add"
+            isTrueMsg (x.Remove(missingKey)) "IDictionary<K, V>.Remove"
+            isFalseMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.ContainsKey after remove"
+        }
         
+    let TestIReadOnlyDictionaryGeneric (x: System.Collections.Generic.IReadOnlyDictionary<'K, 'V>) (expectedKeys: 'K[]) (expectedValues: 'V[]) missingKey =
+        let firstKey = expectedKeys[0]
+        let firstValue = expectedValues[0]
+        Do {
+            equalMsg (x[firstKey]) firstValue "IDictionary<K, V>.Item"
+            equalMsg (match x.TryGetValue(firstKey) with true, v -> Some v | _ -> None) (Some firstValue) "IDictionary<K, V>.TryGetValue"
+            run (TestIEnumerable x.Keys expectedKeys[0] expectedKeys[1])
+            run (TestIEnumerableGeneric x.Keys expectedKeys[0] expectedKeys[1])
+            run (TestIEnumerable x.Values expectedValues[0] expectedValues[1])
+            run (TestIEnumerableGeneric x.Values expectedValues[0] expectedValues[1])
+            isFalseMsg (x.ContainsKey(missingKey)) "IDictionary<K, V>.ContainsKey false"
+            isFalseMsg (x.ContainsKey(firstKey)) "IDictionary<K, V>.ContainsKey true"
+        }
+
     TestCategory "Collection interface implementations" {
         Test "Array" {
             let arr = [| 1; 3 |]
@@ -274,6 +307,10 @@ let Tests =
             d2.Add(1, 2)
             d2.Add(2, 4)
             run (TestIDictionary d2 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
+            let d3 = new System.Collections.Generic.Dictionary<int, int>()
+            d3.Add(1, 2)
+            d3.Add(2, 4)
+            run (TestIDictionaryGeneric d3 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
         }
 
         Test "dict" {
@@ -284,6 +321,8 @@ let Tests =
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
             run (TestICollectionGeneric d kv3 [| kv1; kv2; kv3 |])
+            let d2 = dict [ 1, 2; 2, 4 ]
+            run (TestIDictionaryGeneric d2 1 2 3 [| 1; 2 |] [| 3; 4 |] 5)
         }
 
         Test "readOnlyDict" {
@@ -292,6 +331,7 @@ let Tests =
             let kv2 = System.Collections.Generic.KeyValuePair(2, 4)            
             run (TestIEnumerable d kv1 kv2)
             run (TestIEnumerableGeneric d kv1 kv2)
+            run (TestIReadOnlyDictionaryGeneric d [| 1; 2 |] [| 2; 4 |] 5)
         }
 
         Test "HashSet" {
