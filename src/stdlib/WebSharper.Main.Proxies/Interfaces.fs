@@ -266,7 +266,7 @@ type private IDictionaryProxy =
     abstract member Keys : System.Collections.ICollection
     [<Name "Values">]
     abstract member Values : System.Collections.ICollection
-    [<Name "Add">]
+    [<Name "DAdd">]
     abstract member Add : obj * obj -> unit
     [<Name "Clear">]
     abstract member Clear : unit -> unit
@@ -277,28 +277,23 @@ type private IDictionaryProxy =
     [<Name "RemoveKey">]
     abstract member Remove : obj -> unit
 
-[<Proxy(typeof<System.Collections.IDictionaryEnumerator>)>]
+[<Proxy(typeof<System.Collections.IDictionaryEnumerator>, [|typeof<System.Collections.IEnumerator>|])>]
 type private IDictionaryEnumeratorProxy =
-    inherit System.Collections.IEnumerator
-    [<Name "Entry">]
-    abstract member Entry : System.Collections.DictionaryEntry
-    [<Name "Key">] 
-    abstract member Key : obj
-    [<Name "Value">] 
-    abstract member Value : obj
+    [<Inline>]
+    member this.Entry = As<System.Collections.DictionaryEntry> (As<System.Collections.IEnumerator> this).Current
+    [<Inline>]
+    member this.Key = (As<System.Collections.DictionaryEntry> (As<System.Collections.IEnumerator> this).Current).Key
+    [<Inline>]
+    member this.Value = (As<System.Collections.DictionaryEntry> (As<System.Collections.IEnumerator> this).Current).Value
 
 [<Proxy(typeof<System.Collections.DictionaryEntry>)>]
-type private DictionaryEntryProxy(key: obj, value: obj) =
-    let mutable innerKey = key
-    let mutable innerValue = value
-    [<Name "Key">] 
-    member __.Key
-        with get ()  = innerKey
-        and  set key = innerKey <- key
-    [<Name "Value">] 
-    member __.Value
-        with get ()    = innerValue
-        and  set value = innerValue <- value
+type private DictionaryEntryProxy [<Inline "{K: $key, V: $value}">] (key: obj, value: obj) =
+    member this.Key
+        with [<Inline "$this.K">] get () = (As<System.Collections.Generic.KeyValuePair<obj,obj>> this).Key
+        //and  set key = innerKey <- key // mutable structs not supported yet
+    member this.Value
+        with [<Inline "$this.V">] get () = (As<System.Collections.Generic.KeyValuePair<obj,obj>> this).Value
+        //and  set value = innerValue <- value // mutable structs not supported yet
     
 [<Proxy(typeof<System.Collections.Generic.IDictionary<_,_>>)>]
 type private IDictionaryProxy<'TKey, 'TValue> =

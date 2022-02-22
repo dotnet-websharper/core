@@ -205,6 +205,7 @@ type internal Dictionary<'K,'V when 'K : equality>
                 getHashCode comparer
             )
 
+        [<Name "DAdd">]
         member this.Add(k: 'K, v: 'V) =
             add k v
 
