@@ -146,7 +146,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (lookupTypeDefinition: TypeDefinition -> FSharpEntity option) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -180,17 +180,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> thisDef, None
 
     let isInterfaceProxy =
-        Option.isSome annot.ProxyOf &&
-        match lookupTypeDefinition def with
-        | Some p -> 
-            let res = p.IsInterface
-            if def.Value.FullName = "System.Collections.IEnumerable" && not res then
-                failwithf "Expection interface type info on %s" def.Value.AssemblyQualifiedName
-            res
-        | None -> 
-            if def.Value.FullName = "System.Collections.IEnumerable" then
-                failwithf "Could not find type info on %s" def.Value.AssemblyQualifiedName
-            false
+        Option.isSome annot.ProxyOf && isInterface def
 
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
@@ -380,7 +370,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         |> HashSet
 
     let baseCls =
-        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" || isInterfaceProxy then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
@@ -763,7 +753,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots lookupTypeDefinition ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
@@ -792,7 +782,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif fsharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && ((isAbstractClass cls && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
@@ -1097,6 +1087,18 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             res |> Option.iter (fun td -> typeImplLookup.Add(typ, td))
             res
 
+    let isInterface (typ: TypeDefinition) =
+        match lookupTypeDefinition typ with
+        | Some e -> e.IsInterface
+        | None ->
+            try
+                let t = Reflection.LoadTypeDefinition typ
+                t.IsInterface
+            with _ ->
+                let msg = "Proxy target type could not be loaded: " + typ.Value.FullName
+                comp.AddWarning(None, SourceWarning msg)
+                false
+
     let readAttribute (a: FSharpAttribute) =
         try
             let fixTypeValue (o: obj) =
@@ -1345,7 +1347,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations lookupTypeDefinition c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
