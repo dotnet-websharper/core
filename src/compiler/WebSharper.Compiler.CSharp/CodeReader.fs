@@ -658,7 +658,7 @@ type RoslynTransformer(env: Environment) =
         | :? IDiscardSymbol ->
             Undefined
         | null -> 
-            err x.Node "TransformIdentifierName: Symbol is null. This is possibly a Roslyn bug, putting it in parentheses can help."
+            err x.Node (sprintf "TransformIdentifierName: Symbol is null for identifier %s" (x.Node.ToFullString()))
         | _ -> 
             err x.Node (sprintf "TransformIdentifierName: Local variable not found, symbol type: %s" 
                 (symbol.GetType().FullName))

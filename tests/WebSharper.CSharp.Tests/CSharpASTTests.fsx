@@ -90,7 +90,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\5.0.10\" + a 
+            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.2\" + a 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 
@@ -200,21 +200,63 @@ using System.Collections.Generic;
 [JavaScript]
 public class Tests
 {
-        public void Recursive()
+        interface ITestDefaultImpl
         {
-            var o = (1, 3);
-            var res = 0;
-            if (o is (var x, var y))
-                res = x + y;
-            //var o = new { X = (1, 3) };
-            //var res = 0;
-            //if (o is { X: var (x, y) })
-            //    res = x + y;
-            //Equal(res, 4);
-            //var o2 = new { X = (1, 3), Y = 2 };
-            //if (o2 is { X: (var x2, var y2), Y: var z })
-              //  res = x2 + y2 + z;
-            //Equal(res, 6);
+            int Foo() => 42;
+            int Bar() => this.Foo();
+        }
+
+        class TestDefaultImpl : ITestDefaultImpl
+        {
+        }
+
+        class TestDefaultImpl2 : ITestDefaultImpl
+        {
+            int ITestDefaultImpl.Foo() => 2;
+        }
+
+        public void InterfaceDefaultImplementations()
+        {
+            var o = new TestDefaultImpl();
+            var f = ((ITestDefaultImpl)o).Foo();
+            var g = ((ITestDefaultImpl)o).Bar();
+            var o2 = new TestDefaultImpl2();
+            var f2 = ((ITestDefaultImpl)o2).Foo();
+            var g2 = ((ITestDefaultImpl)o2).Bar();
+        }
+}
+"""
+
+translate """
+using System;
+using WebSharper;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
+[JavaScript]
+public class Tests
+{
+        interface ISomething
+        {
+            int Foo();
+
+            string Bar { get; }
+        }
+
+        class Something : ISomething
+        {
+            public string Bar => "Bar";
+
+            public int Foo() => 42;
+        }
+
+        public void InterfaceImplementations()
+        {
+            var o = new Something();
+            var bar = o.Bar;
+            var ibar = ((ISomething)o).Bar;
+            var foo = o.Foo();
+            var ifoo = ((ISomething)o).Foo();
         }
 }
 """

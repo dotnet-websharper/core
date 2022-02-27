@@ -764,7 +764,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             clsMembers |> Array.ofSeq |> Array.choose (fun m ->
                 match m with
                 | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
-                    clsMembers.Remove(m)
+                    clsMembers.Remove(m) |> ignore
                     Some (mem, sn)
                 | _ -> None 
             )     

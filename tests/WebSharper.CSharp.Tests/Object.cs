@@ -184,24 +184,27 @@ namespace WebSharper.CSharp.Tests
         interface ITestDefaultImpl
         {
             int Foo() => 42;
+            int Bar() => this.Foo();
         }
-
+        
         class TestDefaultImpl : ITestDefaultImpl
         {
         }
-
+        
         class TestDefaultImpl2 : ITestDefaultImpl
         {
-            int Foo() => 2;
+            int ITestDefaultImpl.Foo() => 2;
         }
-
-        [Test("C# interface default implementations", TestKind.Skip)]
+        
+        [Test("C# interface default implementations")]
         public void InterfaceDefaultImplementations()
         {
             var o = new TestDefaultImpl();
             Equal(((ITestDefaultImpl)o).Foo(), 42);
+            Equal(((ITestDefaultImpl)o).Bar(), 42);
             var o2 = new TestDefaultImpl2();
-            Equal(((ITestDefaultImpl)o).Foo(), 2);
+            Equal(((ITestDefaultImpl)o2).Foo(), 2);
+            Equal(((ITestDefaultImpl)o2).Bar(), 2);
         }
 
         struct StructTest
