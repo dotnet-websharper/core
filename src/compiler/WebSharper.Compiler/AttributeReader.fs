@@ -22,6 +22,7 @@
 /// from C# or F# source code or by reflection
 module WebSharper.Compiler.AttributeReader
 
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 
@@ -31,7 +32,7 @@ module M = WebSharper.Core.Metadata
 [<RequireQualifiedAccess>]
 type private Attribute =
     | Macro of TypeDefinition * option<obj>
-    | Proxy of TypeDefinition
+    | Proxy of TypeDefinition * TypeDefinition[] 
     | Inline of option<string> * dollarVars: string[]
     | Direct of string * dollarVars: string[]
     | Pure
@@ -42,7 +43,7 @@ type private Attribute =
     | Name of string
     | Stub
     | OptionalField
-    | JavaScript of bool
+    | JavaScript of bool * JavaScriptOptions
     | JavaScriptTypeOrFile of string
     | Remote
     | RemotingProvider of TypeDefinition * option<obj>
@@ -60,6 +61,7 @@ type private A = Attribute
 type TypeAnnotation = 
     {
         ProxyOf : option<TypeDefinition>
+        ProxyExtends : list<TypeDefinition>
         IsJavaScript : bool
         IsJavaScriptExport : bool
         IsForcedNotJavaScript : bool
@@ -78,6 +80,7 @@ type TypeAnnotation =
     static member Empty =
         {
             ProxyOf = None
+            ProxyExtends = []
             IsJavaScript = false
             IsJavaScriptExport = false
             IsForcedNotJavaScript = false
@@ -118,6 +121,7 @@ type MemberAnnotation =
         DateTimeFormat : list<option<string> * string>
         Pure : bool
         Warn : option<string>
+        JavaScriptOptions: JavaScriptOptions
     }
 
 type ParameterAnnotation =
@@ -138,6 +142,7 @@ module MemberAnnotation =
             DateTimeFormat = []
             Pure = false
             Warn = None
+            JavaScriptOptions = JavaScriptOptions.None
         }
 
     let BasicPureJavaScript =
@@ -238,7 +243,13 @@ type AttributeReader<'A>() =
     member private this.Read (attr: 'A) =
         match this.GetName(attr) with
         | "ProxyAttribute" ->
-            A.Proxy (this.ReadTypeArg attr |> fst)
+            let p, infts = this.ReadTypeArg attr
+            let intfTypes =
+                match infts with
+                | Some (:? System.Array as a) ->
+                    a |> Seq.cast<obj> |> Seq.map this.GetTypeDef |> Array.ofSeq
+                | _ -> [||]
+            A.Proxy (p, intfTypes)
         | "InlineAttribute" ->
             A.Inline (this.CtorArgOption(attr), this.DollarVars(attr))
         | "DirectAttribute" ->
@@ -267,9 +278,10 @@ type AttributeReader<'A>() =
             | x -> failwithf "Unrecognized constructor parameter type for Name attribute: %s" (x.GetType().FullName)
         | "JavaScriptAttribute" ->
             match Seq.tryHead (this.GetCtorArgs(attr)) with
-            | None -> A.JavaScript true
-            | Some (:? bool as enabled) -> A.JavaScript enabled
+            | None -> A.JavaScript (true, JavaScriptOptions.None)
+            | Some (:? bool as enabled) -> A.JavaScript (enabled, JavaScriptOptions.None)
             | Some (:? string as typeOrFile) -> A.JavaScriptTypeOrFile (typeOrFile.Split(',').[0])
+            | Some (:? int as jsOpts) -> A.JavaScript (true, enum<JavaScriptOptions> jsOpts) 
             | Some _ ->
                 let t, _ = this.ReadTypeArg attr
                 A.JavaScriptTypeOrFile t.Value.FullName
@@ -306,9 +318,11 @@ type AttributeReader<'A>() =
         let reqs = ResizeArray()
         let macros = ResizeArray() 
         let mutable js = None
+        let mutable jsOpts = JavaScriptOptions.None
         let mutable jse = false
         let mutable stub = false
         let mutable proxy = None
+        let mutable proxyExt = []
         let mutable prot = None
         for a in attrs do
             match this.GetAssemblyName a with
@@ -317,7 +331,9 @@ type AttributeReader<'A>() =
                 | A.Name n -> name <- Some n
                 | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Macro (m, p) -> macros.Add (m, p)
-                | A.JavaScript j -> js <- Some j
+                | A.JavaScript (j, o) -> 
+                    js <- Some j
+                    jsOpts <- o
                 | A.SPAEntryPoint ->
                     js <- Some true
                     attrArr.Add A.SPAEntryPoint
@@ -325,7 +341,9 @@ type AttributeReader<'A>() =
                     js <- Some true
                     jse <- true
                 | A.Stub -> stub <- true
-                | A.Proxy t -> proxy <- Some t
+                | A.Proxy (t, i) -> 
+                    proxy <- Some t
+                    proxyExt <- List.ofArray i
                 | A.Prototype p -> prot <- Some p
                 | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
@@ -355,12 +373,13 @@ type AttributeReader<'A>() =
             jse <- true
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, isJavaScript, js = Some false, jse, prot, isStub, List.ofSeq reqs
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, isJavaScript, isForcedNotJavaScript, isJavaScriptExport, prot, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, proxyExt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
+            ProxyExtends = proxyExt
             IsJavaScript = isJavaScript
             IsJavaScriptExport = isJavaScriptExport
             IsForcedNotJavaScript = isForcedNotJavaScript
@@ -383,7 +402,7 @@ type AttributeReader<'A>() =
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, isJavaScript, _, isJavaScriptExport, _, isStub, reqs = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -421,6 +440,7 @@ type AttributeReader<'A>() =
             DateTimeFormat = attrArr |> Seq.choose (function A.DateTimeFormat (a,b) -> Some (a,b) | _ -> None) |> List.ofSeq
             Pure = isPure
             Warn = warning
+            JavaScriptOptions = jsOptions
         }
 
     member this.GetParamAnnot (attrs: seq<'A>) =
@@ -429,7 +449,7 @@ type AttributeReader<'A>() =
                 match this.GetAssemblyName a with
                 | "WebSharper.Core" ->
                     match this.Read a with
-                    | A.JavaScript true -> true
+                    | A.JavaScript (true, _) -> true
                     | _ -> false
                 | _ -> false
             )
@@ -452,7 +472,7 @@ type AttributeReader<'A>() =
                 | A.Require (t, p) -> reqs.Add (t, p)
                 | A.Website t -> sitelet <- Some t
                 | A.RemotingProvider (t, p) -> remotingProvider <- Some (t, p)
-                | A.JavaScript true -> isJavaScript <- true
+                | A.JavaScript (true, _) -> isJavaScript <- true
                 | A.JavaScriptTypeOrFile s -> jsTypesAndFiles.Add s
                 | A.JavaScriptExport None -> 
                     isJavaScriptExport <- true

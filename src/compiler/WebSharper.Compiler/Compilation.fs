@@ -21,6 +21,7 @@
 namespace WebSharper.Compiler
   
 open System.Collections.Generic
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Core.Metadata
@@ -255,11 +256,11 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
             let addr = generatedMethodAddresses.[meth]
-            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None), body))
+            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None, JavaScriptOptions.None), body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, Optimizations.None), body))
+            compilingMethods.Add((td, meth),(NotCompiled (Inline, true, Optimizations.None, JavaScriptOptions.None), body))
 
         member this.AssemblyName = this.AssemblyName
 
@@ -581,96 +582,110 @@ type Compilation(meta: Info, ?hasGraph) =
             cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
         | _ -> false
 
-    member private this.LookupMethodInfoInternal(typ, meth) = 
+    member private this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl) = 
         let typ = this.FindProxied typ
-        match interfaces.TryFind typ with
-        | Some intf -> 
-            match intf.Methods.TryFind meth with
-            | Some m ->
-                if typ.Value.Assembly = "netstandard" then
-                    match typ.Value.FullName with
-                    | "System.Collections.IEnumerable" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get0"], [Hole 0], NonPure, Some 1))
-                    | "System.Collections.Generic.IEnumerable`1" ->
-                        Compiled (Inline, Optimizations.None, Application(Global ["WebSharper"; "Enumerator"; "Get"], [Hole 0], NonPure, Some 1))
-                    | _ -> 
-                        Compiled (Instance m, Optimizations.None, Undefined)
-                else
-                    Compiled (Instance m, Optimizations.None, Undefined)              
-            | _ ->
-                let mName = meth.Value.MethodName
-                let candidates = 
-                    [
-                        for m in intf.Methods.Keys do
-                            if m.Value.MethodName = mName then
-                                yield m
-                    ]
-                if List.isEmpty candidates then
-                    let names =
-                        seq {
-                            for m in intf.Methods.Keys do
-                                yield m.Value.MethodName
-                        }
-                        |> Seq.distinct |> List.ofSeq
-                    LookupMemberError (MethodNameNotFound (typ, meth, names))
-                else
-                    LookupMemberError (MethodNotFound (typ, meth, candidates))
-        | _ -> 
-        match classes.TryFind typ with
-        | Some cls ->
-            match cls.Methods.TryFind meth with
-            | Some m -> Compiled m
-            | _ -> 
-                match compilingMethods.TryFind (typ, meth) with
-                | Some m -> Compiling m
+                
+        let tryFindClassMethod () =
+            match classes.TryFind typ with
+            | Some cls ->
+                match cls.Methods.TryFind meth with
+                | Some m -> Compiled m
                 | _ -> 
-                    if not (List.isEmpty cls.Macros) then
-                        let info =
-                            List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
-                        Compiled (info, Optimizations.None, Undefined)
-                    else
-                        match this.GetCustomType typ with
-                        | NotCustomType -> 
-                            let mName = meth.Value.MethodName
-                            let candidates = 
-                                [
-                                    for m in cls.Methods.Keys do
-                                        if m.Value.MethodName = mName then
-                                            yield m
-                                    for t, m in compilingMethods.Keys do
-                                        if typ = t && m.Value.MethodName = mName then
-                                            yield m
-                                ]
-                            let bres =
-                                match cls.BaseClass with
-                                | Some bTyp -> 
-                                    match this.LookupMethodInfoInternal(bTyp, meth) with
-                                    | LookupMemberError _ -> None
-                                    | res -> Some res
-                                | None -> None
-                            match bres with
-                            | Some m -> m
-                            | None ->
-                                if List.isEmpty candidates then
-                                    let names =
-                                        seq {
-                                            for m in cls.Methods.Keys do
-                                                yield m.Value.MethodName
-                                            for t, m in compilingMethods.Keys do
-                                                if typ = t then
+                    match compilingMethods.TryFind (typ, meth) with
+                    | Some m -> Compiling m
+                    | _ -> 
+                        if not (List.isEmpty cls.Macros) then
+                            let info =
+                                List.foldBack (fun (m, p) fb -> Some (Macro (m, p, fb))) cls.Macros None |> Option.get
+                            Compiled (info, Optimizations.None, Undefined)
+                        else
+                            match this.GetCustomType typ with
+                            | NotCustomType -> 
+                                let mName = meth.Value.MethodName
+                                let candidates = 
+                                    [
+                                        for m in cls.Methods.Keys do
+                                            if m.Value.MethodName = mName then
+                                                yield m
+                                        for t, m in compilingMethods.Keys do
+                                            if typ = t && m.Value.MethodName = mName then
+                                                yield m
+                                    ]
+                                let bres =
+                                    match cls.BaseClass with
+                                    | Some bTyp -> 
+                                        match this.LookupMethodInfoInternal(bTyp, meth, noDefIntfImpl) with
+                                        | LookupMemberError _ -> None
+                                        | res -> Some res
+                                    | None -> None
+                                match bres with
+                                | Some m -> m
+                                | None ->
+                                    if List.isEmpty candidates then
+                                        let names =
+                                            seq {
+                                                for m in cls.Methods.Keys do
                                                     yield m.Value.MethodName
-                                        }
-                                        |> Seq.distinct |> List.ofSeq
-                                    LookupMemberError (MethodNameNotFound (typ, meth, names))
-                                else
-                                    LookupMemberError (MethodNotFound (typ, meth, candidates))
-                        | i -> CustomTypeMember i
-        | _ ->
+                                                for t, m in compilingMethods.Keys do
+                                                    if typ = t then
+                                                        yield m.Value.MethodName
+                                            }
+                                            |> Seq.distinct |> List.ofSeq
+                                        LookupMemberError (MethodNameNotFound (typ, meth, names))
+                                    else
+                                        LookupMemberError (MethodNotFound (typ, meth, candidates))
+                            | i -> CustomTypeMember i
+                |> Some
+            | _ -> None
+
+        let tryFindInterfaceMethod () = 
+            match interfaces.TryFind typ with
+            | Some intf -> 
+                match intf.Methods.TryFind meth with
+                | Some m ->
+                    Compiled (Instance m, Optimizations.None, Undefined)              
+                | _ ->
+                    let mName = meth.Value.MethodName
+                    let candidates = 
+                        [
+                            for m in intf.Methods.Keys do
+                                if m.Value.MethodName = mName then
+                                    yield m
+                        ]
+                    if List.isEmpty candidates then
+                        let names =
+                            seq {
+                                for m in intf.Methods.Keys do
+                                    yield m.Value.MethodName
+                            }
+                            |> Seq.distinct |> List.ofSeq
+                        LookupMemberError (MethodNameNotFound (typ, meth, names))
+                    else
+                        LookupMemberError (MethodNotFound (typ, meth, candidates))
+                |> Some
+            | _ -> None
+            
+        let fallback () =
             match this.GetCustomType typ with
             | NotCustomType -> LookupMemberError (TypeNotFound typ)
             | i -> CustomTypeMember i
 
-    member this.LookupMethodInfo(typ, meth: Method) = 
+        if noDefIntfImpl then
+            tryFindInterfaceMethod ()
+            |> Option.orElseWith tryFindClassMethod
+            |> Option.defaultWith fallback
+        else
+            match tryFindClassMethod () with
+            | Some (LookupMemberError _ as e) ->
+                match tryFindInterfaceMethod () with
+                | Some res -> res
+                | _ -> e
+            | Some res -> res
+            | None ->
+                tryFindInterfaceMethod ()
+                |> Option.defaultWith fallback
+
+    member this.LookupMethodInfo(typ, meth: Method, noDefIntfImpl) = 
         let m = meth.Value
 
         let otherType() = 
@@ -683,18 +698,18 @@ type Compilation(meta: Info, ?hasGraph) =
                 else None
             | _ -> None
 
-        let res = this.LookupMethodInfoInternal(typ, meth)
+        let res = this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl)
         if m.MethodName = "op_Explicit" then
             match res with
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match this.LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth, noDefIntfImpl) with
                     | LookupMemberError _ -> 
                         let implicitMeth = Method { m with MethodName = "op_Implicit" }
-                        match this.LookupMethodInfoInternal(typ, implicitMeth) with
+                        match this.LookupMethodInfoInternal(typ, implicitMeth, noDefIntfImpl) with
                         | LookupMemberError _ -> 
-                            match this.LookupMethodInfoInternal(ot, implicitMeth) with
+                            match this.LookupMethodInfoInternal(ot, implicitMeth, noDefIntfImpl) with
                             | LookupMemberError _ -> res
                             | sres -> sres
                         | sres -> sres
@@ -706,7 +721,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | LookupMemberError _ ->
                 match otherType() with
                 | Some ot ->
-                    match this.LookupMethodInfoInternal(ot, meth) with
+                    match this.LookupMethodInfoInternal(ot, meth, noDefIntfImpl) with
                     | LookupMemberError _ -> res
                     | sres -> sres
                 | _ -> res
@@ -1167,7 +1182,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let toCompilingMember (nr : NotResolvedMethod) (comp: CompiledMember) =
             match nr.Generator with
             | Some (g, p) -> NotGenerated(g, p, comp, notVirtual nr.Kind, opts nr.Pure nr)
-            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr)
+            | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr, nr.JavaScriptOptions)
             
         let extraClassAddresses = Dictionary()
 
@@ -1344,9 +1359,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             | Some p ->
                                 p, M.Method(mDef, { nr with Kind = N.Implementation p }) 
                             | _ -> td, m
-                        if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
-                            Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
-                        else 
+                        //if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
+                        //    Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
+                        //else 
                         match interfaces.TryFind td with
                         | Some i ->
                             match i.Methods.TryFind mDef with
@@ -1558,7 +1573,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | Some (smi, _, _) -> Some smi
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
-                                    | Some ((NotCompiled (smi, _, _) | NotGenerated (_, _, smi, _, _)), _) -> Some smi
+                                    | Some ((NotCompiled (smi, _, _, _) | NotGenerated (_, _, smi, _, _)), _) -> Some smi
                                     | None ->
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
@@ -1581,71 +1596,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
         // Add graph edges for GetEnumerator and Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
-            let wsEnumeratorModule =
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.Enumerator"
-                } 
-
-            let seq0Ty =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.IEnumerable"
-                } 
-
-            let seqTy =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.Generic.IEnumerable`1"
-                } 
-
-            let enum0Ty =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.IEnumerator"
-                } 
-
-            let enumTy =
-                TypeDefinition {
-                    Assembly = "netstandard"
-                    FullName = "System.Collections.Generic.IEnumerator`1"
-                }
-
-            let getEnumerator0 =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
-            
-            let wsGetEnumerator0 =
-                Method {
-                    MethodName = "Get0"
-                    Parameters = [ ConcreteType (NonGeneric seq0Ty) ]
-                    ReturnType = ConcreteType (NonGeneric enum0Ty)
-                    Generics = 0
-                } 
-    
-            let getEnumerator =
-                Method {
-                    MethodName = "GetEnumerator"
-                    Parameters = []
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 0
-                } 
-
-            let wsGetEnumerator =
-                Method {
-                    MethodName = "Get"
-                    Parameters = [ ConcreteType (Generic seqTy [TypeParameter 0]) ]
-                    ReturnType = ConcreteType (Generic enumTy [TypeParameter 0])
-                    Generics = 1
-                } 
-            
-            graph.AddEdge(AbstractMethodNode(seq0Ty, getEnumerator0), MethodNode(wsEnumeratorModule, wsGetEnumerator0))
-            graph.AddEdge(AbstractMethodNode(seqTy, getEnumerator), MethodNode(wsEnumeratorModule, wsGetEnumerator))
-
             let equals =
                 Method {
                     MethodName = "Equals"

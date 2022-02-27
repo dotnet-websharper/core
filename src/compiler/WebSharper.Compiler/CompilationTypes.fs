@@ -22,6 +22,7 @@ namespace WebSharper.Compiler
   
 open System.Collections.Generic
 
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Core.Metadata
@@ -29,7 +30,7 @@ open WebSharper.Core.Metadata
 open WebSharper.Core.DependencyGraph
 
 type CompilingMember =
-    | NotCompiled of CompiledMember * notVirtual: bool * opts: Optimizations
+    | NotCompiled of CompiledMember * notVirtual: bool * opts: Optimizations * jsOpts: JavaScriptOptions
     | NotGenerated of TypeDefinition * option<obj> * CompiledMember * notVirtual: bool * opts: Optimizations
 
 module NotResolved =
@@ -59,6 +60,7 @@ module NotResolved =
             mutable Body : Expression
             Requires : list<TypeDefinition * option<obj>>
             Warn : option<string>
+            JavaScriptOptions : JavaScriptOptions
         }
 
     type NotResolvedField =

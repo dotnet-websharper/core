@@ -1360,7 +1360,7 @@ type DefaultToUndefined() =
         }.TransformExpression
 
     override __.TranslateCall(c) =
-        MacroOk <| tr c.Arguments.[0]
+        MacroOk <| tr c.Arguments.Head
 
 [<Sealed>]
 type TypeTest() =

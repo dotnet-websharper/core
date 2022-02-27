@@ -293,6 +293,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             FuncArgs = None
             Args = []
             Warn = mAnnot.Warn
+            JavaScriptOptions = mAnnot.JavaScriptOptions
         }
 
     let addMethod (mem: option<IMethodSymbol * Member>) (mAnnot: A.MemberAnnotation) (mdef: Method) kind compiled expr =

@@ -1089,9 +1089,9 @@ type SubtestBuilder () =
         (
             r: Runner<'A>,
             [<ProjectionParameter>] subtest: 'A -> Runner<'B>
-        ) : Runner<'B> =
+        ) : Runner<'A> =
         fun asserter ->
-            r asserter |> Runner.Bind (fun a -> subtest a asserter)
+            r asserter |> Runner.Bind (fun args -> subtest args asserter |> Runner.Map (fun _ -> args))
 
     member this.Bind(a: Async<'A>, f: 'A -> Runner<'B>) : Runner<'B> =
         fun asserter ->

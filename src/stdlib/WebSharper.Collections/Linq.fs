@@ -39,8 +39,8 @@ type internal Grouping<'K, 'T> (k: 'K, v: seq<'T>) =
             v.GetEnumerator()
 
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator() =
-            (v :> System.Collections.IEnumerable).GetEnumerator()
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>
 
     interface System.Linq.IGrouping<'K, 'T> with
         member this.Key = k
@@ -96,8 +96,8 @@ type internal OrderedEnumerable<'T>(source: seq<'T>, primary: IComparer<'T>) =
             Array.sortInPlaceWith (fun x y -> primary.Compare(x, y)) a
             (a :> seq<'T>).GetEnumerator()
     interface IEnumerable with
-        member this.GetEnumerator() =
-            (this :> IEnumerable<'T>).GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>
 
 //[<Proxy(typeof<ILookup<_, _>>)>]
 //type internal ILookupProxy<'K, 'E> =

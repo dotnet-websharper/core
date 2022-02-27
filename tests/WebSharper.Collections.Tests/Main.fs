@@ -33,4 +33,6 @@ let RunTests() =
         ResizeArray.Tests
         LinkedList.Tests
         HashSet.Tests
+        Interfaces.Tests
+        Implementations.Tests
     |]

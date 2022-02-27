@@ -18,28 +18,31 @@
 //
 // $end{copyright}
 
-module private WebSharper.Collections.ReadOnlyCollection
+[<WebSharper.Proxy
+    "Microsoft.FSharp.Core.ExtraTopLevelOperators, \
+     FSharp.Core, Culture=neutral, \
+     PublicKeyToken=b03f5f7f11d50a3a">]
+module private WebSharper.Collections.ExtraTopLevelOperatorsProxy
 
 open WebSharper
-open WebSharper.JavaScript
 
 open System.Collections.Generic
 
-[<Proxy(typeof<System.Collections.ObjectModel.ReadOnlyCollection<_>>)>]
-[<Name "WebSharper.Collections.ReadOnlyCollection">]
-type ReadOnlyCollectionProxy<'T> =
+[<Name("WebSharper.Collections.dict")>]
+let private MakeDict (s : seq<('K * 'V)>) =
+    let d = Dictionary()
+    for a, b in s do
+        d.Add(a, b)
+    d
 
-    [<Inline>]
-    static member CtorProxy (arr: IList<'T>) = JS.Inline("$wsruntime.MarkReadOnly($0)", Array.ofSeq arr)
-    
-    member this.Item with [<Inline "$this[$i]">] get (i: int) = X<'T>
+[<Inline>]
+let CreateDictionary (s : seq<('K * 'V)>) : IDictionary<'K, 'V> =
+    MakeDict s 
 
-    [<Inline "$this.length">]
-    member this.Count = X<int>
+[<Inline>]
+let CreateReadOnlyDictionary (s : seq<('K * 'V)>) : IReadOnlyDictionary<'K, 'V> =
+    MakeDict s
 
-[<Proxy(typeof<System.Array>)>]
-type private ArrayProxy =
-
-    [<Inline>]
-    static member AsReadOnly(array: 'T[]) =
-        new System.Collections.ObjectModel.ReadOnlyCollection<'T>(array)
+[<Inline>]
+let CreateSet (s : seq<('T)>) : Set<'T> =
+    Set s 

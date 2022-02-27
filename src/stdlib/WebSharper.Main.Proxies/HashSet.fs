@@ -103,6 +103,7 @@ type internal HashSetProxy<'T when 'T : equality>
         new (init: seq<'T>, comparer: IEqualityComparer<'T>) =
             new HashSetProxy<'T>(init, equals comparer, getHashCode comparer)
 
+        [<Name "SAdd">]
         member this.Add(item: 'T) = add item
 
         member this.Clear() =
@@ -119,21 +120,24 @@ type internal HashSetProxy<'T when 'T : equality>
             for i = 0 to all.Length - 1 do 
                 arr.[i] <- all.[i]
 
+        [<Name("Count")>]
         member x.Count = count
 
         member x.ExceptWith(xs: seq<'T>) =
             for item in xs do
                 x.Remove(item) |> ignore
 
-        [<Inline>]
+        [<Name("GetEnumerator")>]
         member this.GetEnumerator() =
            As<HashSet<'T>.Enumerator>((As<seq<'T>>(concat data)).GetEnumerator())
 
         interface IEnumerable with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
         
         interface IEnumerable<'T> with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         // TODO: optimize methods by checking if other collection
         // is a HashSet with the same IEqualityComparer
@@ -197,3 +201,41 @@ type internal HashSetProxy<'T when 'T : equality>
         member x.UnionWith(xs: seq<'T>) =
             for item in xs do
                 x.Add(item) |> ignore
+
+        interface ICollection<'T> with
+            member this.IsReadOnly = false
+            [<JavaScript(false)>]
+            member this.Count = X<int>  
+            member this.Add(x) = this.Add(x) |> ignore
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(false)>]
+            member this.Contains(p) = X<bool>
+            [<JavaScript(false)>]
+            member this.CopyTo(arr: 'T[], index: int) = ()
+            [<JavaScript(false)>]
+            member this.Remove(x) = X<bool>
+
+        interface ISet<'T> with
+            [<JavaScript(false)>]
+            member this.Add(item: 'T) = X<bool>
+            [<JavaScript(false)>]
+            member this.ExceptWith(other: IEnumerable<'T>) = ()            
+            [<JavaScript(false)>]
+            member this.IntersectWith(other: IEnumerable<'T>) = ()
+            [<JavaScript(false)>]
+            member this.IsProperSubsetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsProperSupersetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsSubsetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.IsSupersetOf(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.Overlaps(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.SetEquals(other: IEnumerable<'T>) = X<bool>
+            [<JavaScript(false)>]
+            member this.SymmetricExceptWith(other: IEnumerable<'T>) = ()
+            [<JavaScript(false)>]
+            member this.UnionWith(other: IEnumerable<'T>) = ()

@@ -52,9 +52,16 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
     let mutable c = l
 
     interface IEnumerator<'T> with
-        member this.Current = c.Value
+        member this.Current = 
+            if JS.In "c" c then
+                failwith "Enumeration has not started. Call MoveNext."
+            elif c ==. null then
+                failwith "Enumeration already finished."
+            else
+                c.Value
         
-        member this.Current = c.Value |> box
+        member this.Current =
+            (As<System.Collections.Generic.IEnumerator<obj>> this).Current  
 
         member this.MoveNext() =
             c <- c.Next
@@ -62,6 +69,7 @@ type EnumeratorProxy<'T> [<JavaScript>] (l: LLN<'T>) =
 
         member this.Dispose() = ()
 
+        [<JavaScript(false)>]
         member this.Reset() = ()
 
 [<Proxy(typeof<LL<_>>)>]
@@ -162,14 +170,17 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
                 node <- node.Previous
         if notFound then null else node
                 
+    [<Name("GetEnumerator")>]
     member this.GetEnumerator(): LinkedList<'T>.Enumerator =
         As (new EnumeratorProxy<_>(As this))
 
     interface IEnumerable with
-        member this.GetEnumerator() = this.GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
 
     interface IEnumerable<'T> with
-        member this.GetEnumerator() = this.GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>            
 
     member this.Remove(node: LLN<'T>) =
         let before = node.Previous
@@ -188,4 +199,24 @@ type ListProxy<'T> [<JavaScript>] (coll: 'T seq) =
     member this.RemoveFirst() = this.Remove(n)
 
     member this.RemoveLast() = this.Remove(p)
-               
+
+    member this.CopyTo(arr: 'T[], index: int) =
+        let mutable node = n
+        let mutable i = index
+        while node <> null do
+            arr[i] <- node.Value
+            node <- node.Next
+            i <- i + 1 
+            
+    interface ICollection<'T> with
+        member this.IsReadOnly = false
+        member this.Count = c  
+        member this.Add(x) = this.AddLast(x) |> ignore
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'T[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(x) = X<bool>

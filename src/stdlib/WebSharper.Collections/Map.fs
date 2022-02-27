@@ -68,6 +68,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
             | _ ->
                 false
 
+        [<Name("Count")>]
         member this.Count = T.Count tree
 
         member this.IsEmpty = T.IsEmpty tree
@@ -87,6 +88,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
             |> T.TryFind {Key=k; Value=JS.Undefined}
             |> Option.map (fun kv -> kv.Value)
 
+        [<Name("GetEnumerator")>]
         member this.GetEnumerator() =
             let s =
                 T.Ascend tree
@@ -110,10 +112,12 @@ type internal FSharpMap<'K,'V when 'K : comparison>
                     (As<Map<'K,'V>> other)
 
         interface IEnumerable with
-            member this.GetEnumerator() = this.GetEnumerator() :> _
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = this.GetEnumerator()
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>
 
         member this.Keys : System.Collections.Generic.ICollection<'K> =
             Seq.map (fun kvp -> kvp.Key) (T.Ascend this.Tree)
@@ -124,3 +128,16 @@ type internal FSharpMap<'K,'V when 'K : comparison>
             Seq.map (fun kvp -> kvp.Value) (T.Ascend this.Tree)
             |> ResizeArray
             :> _
+
+        interface ICollection<KeyValuePair<'K,'V>> with
+            member this.IsReadOnly = true
+            [<JavaScript(false)>]
+            member this.Count = X<int>  
+            member this.Add(p) = failwith "Map values cannot be mutated."
+            member this.Clear() = failwith "Map values cannot be mutated."
+            member this.Contains(p) =
+                let mutable v = JS.Undefined
+                if this.TryGetValue(p.Key, &v) then Unchecked.equals v p.Value else false 
+            member this.CopyTo(arr: KeyValuePair<'K,'V>[], index: int) =
+                (Seq.toArray this).CopyTo(arr, index)
+            member this.Remove(p) = failwith "Map values cannot be mutated."

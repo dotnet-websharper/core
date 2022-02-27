@@ -280,6 +280,16 @@
         }
       },
 
+      MarkResizable: function (arr) {
+        Object.defineProperty(arr, "resizable", { enumerable: false, writable: false, configurable: false, value: true });
+        return arr;
+      },
+
+      MarkReadOnly: function (arr) {
+        Object.defineProperty(arr, "readonly", { enumerable: false, writable: false, configurable: false, value: true });
+        return arr;
+      },
+
       ScriptBasePath: "./",
 
       ScriptPath: function (a, f) {

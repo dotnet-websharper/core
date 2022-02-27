@@ -170,8 +170,7 @@ type private ArrayProxy =
 
     [<Inline>]
     member this.CopyTo(dst: System.Array, index: int) =
-        if this.Length + index < dst.Length then raise (ArgumentException("array"))
-        Array.blit (As<obj[]> this) 0 (As<obj[]> dst) index this.Length
+        Enumerator.ArrayCopyTo (As<System.Array> this) dst index
 
     [<Inline>]
     static member Copy(src: System.Array, dst: System.Array, length: int) =
