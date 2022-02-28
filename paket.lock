@@ -5,7 +5,7 @@ STRATEGY: MIN
 RESTRICTION: || (== net6.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (6.0.1)
+    FSharp.Core (6.0.3)
     Microsoft.AspNetCore.Authentication.Abstractions (2.0)
       Microsoft.AspNetCore.Http.Abstractions (>= 2.0)
       Microsoft.Extensions.Logging.Abstractions (>= 2.0)
@@ -568,11 +568,11 @@ STORAGE: NONE
 RESTRICTION: || (== net6.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (41.0.1)
-      FSharp.Core (6.0.1)
-      Microsoft.Build.Framework (>= 16.11)
-      Microsoft.Build.Tasks.Core (>= 16.11)
-      Microsoft.Build.Utilities.Core (>= 16.11)
+    FSharp.Compiler.Service (41.0.2)
+      FSharp.Core (6.0.2)
+      Microsoft.Build.Framework (>= 17.0.0-preview-21515-03)
+      Microsoft.Build.Tasks.Core (>= 17.0.0-preview-21515-03)
+      Microsoft.Build.Utilities.Core (>= 17.0.0-preview-21515-03)
       System.Buffers (>= 4.5.1)
       System.Collections.Immutable (>= 5.0)
       System.Diagnostics.Process (>= 4.3)
@@ -595,7 +595,7 @@ NUGET
       System.Threading.Tasks.Parallel (>= 4.3)
       System.Threading.Thread (>= 4.3)
       System.Threading.ThreadPool (>= 4.3)
-    FSharp.Core (6.0.1)
+    FSharp.Core (6.0.2)
     Microsoft.Build.Framework (17.0)
       System.Security.Permissions (>= 4.7)
     Microsoft.Build.Tasks.Core (17.0)
@@ -634,7 +634,7 @@ NUGET
       System.Security.AccessControl (>= 5.0)
       System.Security.Principal.Windows (>= 5.0)
     Microsoft.Win32.SystemEvents (6.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= netcoreapp3.1))
-    NLog (4.7.13)
+    NLog (4.7.14)
     runtime.debian.8-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.debian.9-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
     runtime.fedora.23-x64.runtime.native.System.Security.Cryptography.OpenSsl (4.3.3)
@@ -1115,7 +1115,7 @@ REFERENCES: STRICT
 RESTRICTION: || (== net6.0) (== netstandard2.1)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (6.0.1)
+    FSharp.Core (6.0.3)
     NETStandard.Library.Ref (2.1)
 
 GROUP nunit
@@ -1123,26 +1123,26 @@ STORAGE: NONE
 RESTRICTION: == net6.0
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Core (6.0.1)
+    FSharp.Core (6.0.2)
     FsUnit (4.0.7)
       FSharp.Core (>= 4.7.2)
       NETStandard.Library (>= 2.0.3)
       NUnit (>= 3.13.2 < 3.14)
-    Microsoft.CodeCoverage (17.0)
+    Microsoft.CodeCoverage (17.1)
     Microsoft.NET.Test.Sdk (16.10)
       Microsoft.CodeCoverage (>= 16.10)
       Microsoft.TestPlatform.TestHost (>= 16.10)
     Microsoft.NETCore.Platforms (6.0.1)
-    Microsoft.TestPlatform.ObjectModel (17.0)
-      NuGet.Frameworks (>= 5.0)
+    Microsoft.TestPlatform.ObjectModel (17.1)
+      NuGet.Frameworks (>= 5.11)
       System.Reflection.Metadata (>= 1.6)
-    Microsoft.TestPlatform.TestHost (17.0)
-      Microsoft.TestPlatform.ObjectModel (>= 17.0)
+    Microsoft.TestPlatform.TestHost (17.1)
+      Microsoft.TestPlatform.ObjectModel (>= 17.1)
       Newtonsoft.Json (>= 9.0.1)
     NETStandard.Library (2.0.3)
       Microsoft.NETCore.Platforms (>= 1.1)
     Newtonsoft.Json (13.0.1)
-    NuGet.Frameworks (6.0)
+    NuGet.Frameworks (6.1)
     NUnit (3.13.2)
       NETStandard.Library (>= 2.0)
     NUnit3TestAdapter (4.0)

@@ -20,7 +20,7 @@ nuget Microsoft.Extensions.DependencyModel 2.0.0
 nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 
 nuget System.Net.Http 4.3.0
-nuget FSharp.Core 6.0.1
+nuget FSharp.Core
 
 nuget System.Text.RegularExpressions 4.3.0
 nuget System.Text.Json 4.7.0
@@ -34,7 +34,7 @@ group includes
     framework: net6.0, netstandard2.1
     source https://api.nuget.org/v3/index.json
     nuget NETStandard.Library.Ref
-    nuget FSharp.Core ~> 6.0.1
+    nuget FSharp.Core
 
 group fcs
     framework: net6.0, netstandard2.0
@@ -43,8 +43,7 @@ group fcs
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service ~> 41.0.1
-    nuget FSharp.Core ~> 6.0.1
+    nuget FSharp.Compiler.Service 41.0.2
 
 group test
     source https://api.nuget.org/v3/index.json
@@ -58,4 +57,5 @@ group nunit
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
     nuget FSUnit ~> 4.0.4
+    nuget FSharp.Core 6.0.2
 
