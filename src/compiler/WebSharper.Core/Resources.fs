@@ -255,15 +255,24 @@ type Rendering with
                 assemblyName.Split(',').[0]
             else
                 assemblyName
-        match ctx.GetSetting (RUNTIMESETTING_CDNFORMAT_PREFIX + shortName) with
+        let cdnFormatOpt =
+            ctx.GetSetting (RUNTIMESETTING_CDNFORMAT_PREFIX + shortName) 
+            |> Option.orElseWith (fun () -> ctx.GetSetting (RUNTIMESETTING_OLD_CDNFORMAT_PREFIX + shortName))
+        match cdnFormatOpt with
         | Some urlFormat -> Some urlFormat
         | None ->
             let isStdlib = AssemblyName(assemblyName).GetPublicKeyToken() = thisAssemblyToken
             if isStdlib &&
-                (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN) "false").ToLowerInvariant() = "true"
+                (
+                    ctx.GetSetting RUNTIMESETTING_STDLIB_USECDN 
+                    |> Option.orElseWith (fun () -> ctx.GetSetting RUNTIMESETTING_OLD_STDLIB_USECDN)
+                    |> Option.exists (fun s -> s.ToLowerInvariant() = "true")
+                )
             then
-                let def = "//cdn.websharper.com/{assembly}/{version}/{filename}"
-                Some (defaultArg (ctx.GetSetting RUNTIMESETTING_STDLIB_CDNFORMAT) def)
+                ctx.GetSetting RUNTIMESETTING_STDLIB_CDNFORMAT
+                |> Option.orElseWith (fun () -> ctx.GetSetting RUNTIMESETTING_OLD_STDLIB_CDNFORMAT)
+                |> Option.defaultValue "//cdn.websharper.com/{assembly}/{version}/{filename}"
+                |> Some
             else None
         |> Option.map (fun urlFormat ->
             let asmName = AssemblyName(assemblyName)
@@ -311,6 +320,10 @@ type BaseResource(kind: Kind) as this =
     let self = this.GetType()
     let name = self.FullName
 
+    let isLocal (ctx: Context) =
+        ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES 
+        |> Option.exists (fun s -> s.ToLowerInvariant() = "true")
+
     new (spec: string) =
         new BaseResource(Basic spec)
 
@@ -323,7 +336,6 @@ type BaseResource(kind: Kind) as this =
     interface IExternalScriptResource with
         member this.Urls ctx =
             let dHttp = ctx.DefaultToHttp
-            let isLocal = ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES |> Option.exists (fun s -> s.ToLower() = "true")
             let localFolder f =
                 ctx.WebRoot +  "Scripts/WebSharper/" + this.GetLocalName() + "/" + f
             match kind with
@@ -335,7 +347,7 @@ type BaseResource(kind: Kind) as this =
                     match tryFindWebResource self spec with
                     | Some _ -> [||]
                     | None ->
-                        if isLocal then
+                        if isLocal ctx then
                             match tryGetUriFileName spec with
                             | Some f -> [|localFolder f|]
                             | _ -> [|spec|]
@@ -349,7 +361,7 @@ type BaseResource(kind: Kind) as this =
                         if url.EndsWith ".css" then None else Some url
                     )
                 let urls = 
-                    if isLocal then 
+                    if isLocal ctx then 
                         urls |> List.map (fun u ->
                             match tryGetUriFileName u with
                             | Some f -> localFolder f
@@ -361,7 +373,6 @@ type BaseResource(kind: Kind) as this =
     interface IResource with
         member this.Render ctx =
             let dHttp = ctx.DefaultToHttp
-            let isLocal = ctx.GetSetting RUNTIMESETTING_USEDOWNLOADEDRESOURCES |> Option.exists (fun s -> s.ToLower() = "true")
             let localFolder isCss f =
                 ctx.WebRoot + 
                 (if isCss then "Content/WebSharper/" else "Scripts/WebSharper/") + this.GetLocalName() + "/" + f
@@ -378,7 +389,7 @@ type BaseResource(kind: Kind) as this =
                         match tryFindWebResource self spec with
                         | Some e -> Rendering.GetWebResourceRendering(ctx, self, e)
                         | None ->
-                            if isLocal then
+                            if isLocal ctx then
                                 match tryGetUriFileName spec with
                                 | Some f ->
                                     RenderLink (localFolder (mt = Css) f)
@@ -395,7 +406,7 @@ type BaseResource(kind: Kind) as this =
                         url, url.EndsWith ".css"     
                     )  
                 let urls = 
-                    if isLocal then 
+                    if isLocal ctx then 
                         urls |> List.map (fun (u, isCss) ->
                             match tryGetUriFileName u with
                             | Some f ->

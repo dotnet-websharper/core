@@ -51,13 +51,22 @@ module RuntimeSettings =
     let RUNTIMESETTING_SHARED_METADATA = "WebSharperSharedMetadata"
 
     [<Literal>]
-    let RUNTIMESETTING_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
+    let RUNTIMESETTING_OLD_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
 
     [<Literal>]
-    let RUNTIMESETTING_STDLIB_USECDN = "WebSharper.StdlibUseCdn"
+    let RUNTIMESETTING_CDNFORMAT_PREFIX = "CdnFormat."
 
     [<Literal>]
-    let RUNTIMESETTING_STDLIB_CDNFORMAT = "WebSharper.StdlibCdnFormat"
+    let RUNTIMESETTING_OLD_STDLIB_USECDN = "WebSharper.StdlibUseCdn"
+
+    [<Literal>]
+    let RUNTIMESETTING_STDLIB_USECDN = "UseStdlibCdn"
+
+    [<Literal>]
+    let RUNTIMESETTING_OLD_STDLIB_CDNFORMAT = "WebSharper.StdlibCdnFormat"
+
+    [<Literal>]
+    let RUNTIMESETTING_STDLIB_CDNFORMAT = "StdlibCdnFormat"
 
     [<Literal>]
     let RUNTIMESETTING_USEDOWNLOADEDRESOURCES = "UseDownloadedResources"
