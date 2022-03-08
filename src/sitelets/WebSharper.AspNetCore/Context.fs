@@ -136,17 +136,17 @@ type private AspNetCoreRequest(req: HttpRequest) =
                         ]    
                 }
         cookies
-    override this.BodyText =
-        this.BodyTextAsync |> Async.RunSynchronously
-    override this.BodyTextAsync =
+    override x.BodyText =
         if isNull bodyText then
-            let i = this.Body
+            let i = req.Body
             if isNull i then
                 bodyText <- Task.FromResult ""    
             else
                 let reader = new System.IO.StreamReader(i, System.Text.Encoding.UTF8, false, 1024, leaveOpen = true)
                 bodyText <- reader.ReadToEndAsync()
-        bodyText |> Async.AwaitTask
+        bodyText
+    override x.IsBodyTextCompleted =
+        not (isNull bodyText) && bodyText.IsCompleted
 
 let private buildRequest (req: HttpRequest) =
     AspNetCoreRequest req :> Http.Request

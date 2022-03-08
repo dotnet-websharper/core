@@ -30,15 +30,15 @@ open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.Extensions.Options
 open WebSharper.Sitelets
 
-let rec internal contentHelper (httpCtx: HttpContext) (content: obj) =
-    async {
+let rec internal contentHelper (httpCtx: HttpContext) (content: obj) : Task =
+    task {
         match content with
         | :? string as stringContent ->
             httpCtx.Response.StatusCode <- StatusCodes.Status200OK
-            do! httpCtx.Response.WriteAsync(stringContent) |> Async.AwaitTask
+            do! httpCtx.Response.WriteAsync(stringContent)
         | :? IActionResult as actionResult ->
             let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
-            do! actionResult.ExecuteResultAsync(actionCtx) |> Async.AwaitTask
+            do! actionResult.ExecuteResultAsync(actionCtx)
         | _ ->
             let contentType = content.GetType()
             if contentType.IsGenericType && contentType.GetGenericTypeDefinition() = typedefof<Task<_>> then
@@ -51,7 +51,7 @@ let rec internal contentHelper (httpCtx: HttpContext) (content: obj) =
             else
                 httpCtx.Response.StatusCode <- StatusCodes.Status200OK
                 let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
-                do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value) |> Async.AwaitTask
+                do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value)
     }
 
 let Middleware (options: WebSharperOptions) =
@@ -73,11 +73,30 @@ let Middleware (options: WebSharperOptions) =
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
             let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
-            match sitelet.Router.Route ctx.Request with
-            | Some endpoint ->
-                let content = sitelet.Controller.Handle endpoint
-                contentHelper httpCtx content |> Async.StartAsTask :> Task
-            | None -> next.Invoke()
+            
+            let handleRouterResult r =
+               match r with
+               | Some endpoint ->
+                   let content = sitelet.Controller.Handle endpoint
+                   contentHelper httpCtx content
+               | None -> next.Invoke()
+           
+
+            let routeWithoutBody =
+                try
+                    Some (sitelet.Router.Route ctx.Request)
+                with :? Router.BodyTextNeededForRoute ->
+                    None 
+
+            match routeWithoutBody with
+            | Some r ->
+                handleRouterResult r
+            | None -> 
+                task {
+                    let! _ = ctx.Request.BodyText
+                    let routeWithBody = sitelet.Router.Route ctx.Request
+                    return! handleRouterResult routeWithBody
+                }
         )
 
 // Giraffe/Saturn helpers
@@ -100,15 +119,32 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
             let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
             let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath sitelet
             httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
-            match sitelet.Router.Route ctx.Request with
-            | Some endpoint ->
-                let content = sitelet.Controller.Handle endpoint
-                async {
-                    do! contentHelper httpCtx content
-                    return None
-                }
-                |> Async.StartAsTask
+
+            let handleRouterResult r =
+                match r with
+                | Some endpoint ->
+                    let content = sitelet.Controller.Handle endpoint
+                    task {
+                        do! contentHelper httpCtx content
+                        return None
+                    }
+                | None ->
+                    next httpCtx
+
+            let routeWithoutBody =
+                try
+                    Some (sitelet.Router.Route ctx.Request)
+                with :? Router.BodyTextNeededForRoute ->
+                    None 
+
+            match routeWithoutBody with
+            | Some r ->
+                handleRouterResult r
             | None -> 
-                Task.FromResult None
+                task {
+                    let! _ = ctx.Request.BodyText
+                    let routeWithBody = sitelet.Router.Route ctx.Request
+                    return! handleRouterResult routeWithBody
+                }
 
         handleSitelet

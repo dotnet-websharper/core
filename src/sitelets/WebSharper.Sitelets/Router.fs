@@ -318,7 +318,7 @@ type Route =
         QueryArgs : Map<string, string>
         FormData : Map<string, string>
         Method : option<string> 
-        Body : Lazy<string>
+        Body : option<string>
     }
 
     static member Empty =
@@ -327,7 +327,7 @@ type Route =
             QueryArgs = Map.empty
             FormData = Map.empty
             Method = None
-            Body = Lazy.CreateFromValue null
+            Body = Some null
         }
     
     static member Segment s =
@@ -353,7 +353,7 @@ type Route =
         | 0 -> Route.Empty
         | _ ->
         let mutable method = None
-        let mutable body = null
+        let mutable body = None
         let segments = System.Collections.Generic.Queue()
         let mutable queryArgs = Map.empty
         let mutable formData = Map.empty
@@ -362,8 +362,8 @@ type Route =
             | Some _ as m ->
                 method <- m
             | _ -> ()
-            match p.Body.Value with
-            | null -> ()
+            match p.Body with
+            | None -> ()
             | b ->
                 body <- b
             queryArgs <- p.QueryArgs |> Map.foldBack Map.add queryArgs 
@@ -375,7 +375,7 @@ type Route =
             QueryArgs = queryArgs
             FormData = formData
             Method = method
-            Body = Lazy.CreateFromValue body
+            Body = body
         }
 
     static member ParseQuery(q: string) =
@@ -423,7 +423,11 @@ type Route =
             QueryArgs = r.Get.ToList() |> Map.ofList
             FormData = r.Post.ToList() |> Map.ofList
             Method = Some (r.Method.ToString())
-            Body = lazy r.BodyText
+            Body = 
+                if r.IsBodyTextCompleted then
+                    Some r.BodyText.Result
+                else
+                    None
         }
 
     static member FromHash(path: string, ?strict: bool) =
@@ -692,17 +696,21 @@ module Router =
                 Seq.singleton { Route.Empty with Method = Some m }
         }
 
+    type BodyTextNeededForRoute () = 
+        inherit exn "This router needs body text loaded synchronously. Wait for Http.Request.BodyText to finish then try again."
+
     let Body (deserialize: string -> option<'A>) (serialize: 'A -> string) : Router<'A> =
         {
             Parse = fun path ->
-                match path.Body.Value with
-                | null -> Seq.empty
-                | x ->
+                match path.Body with
+                | None -> raise (BodyTextNeededForRoute())
+                | Some null -> Seq.empty
+                | Some x ->
                     match deserialize x with
-                    | Some b -> Seq.singleton ({ path with Body = Lazy.CreateFromValue null}, b)
+                    | Some b -> Seq.singleton ({path with Body = Some null}, b)
                     | _ -> Seq.empty
             Write = fun value ->
-                Some <| Seq.singleton { Route.Empty with Body = Lazy.CreateFromValue (serialize value) }
+                Some <| Seq.singleton { Route.Empty with Body = Some (serialize value) }
         }
 
     let FormData (item: Router<'A>) : Router<'A> =
