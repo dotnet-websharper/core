@@ -43,7 +43,7 @@ group fcs
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service 41.0.2
+    nuget FSharp.Compiler.Service
 
 group test
     source https://api.nuget.org/v3/index.json
@@ -57,5 +57,5 @@ group nunit
     nuget NUnit3TestAdapter ~> 4.0.0
     nuget Microsoft.NET.Test.Sdk ~> 16.10.0
     nuget FSUnit ~> 4.0.4
-    nuget FSharp.Core 6.0.2
+    nuget FSharp.Core
 
