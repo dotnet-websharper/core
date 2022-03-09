@@ -33,16 +33,13 @@ nuget NUglify //"
 
 open System.IO
 open System.Diagnostics
-open System.Xml
-open System.Xml.Linq
-open System.Xml.XPath
+open System.Threading
 open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
-open System.Diagnostics
 
 let version = "6.0"
 let pre = None
@@ -201,7 +198,7 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
 Target.create "RunMainTestsRelease" <| fun _ ->
     Trace.log "Starting Web test project"
     let mutable startedOk = false
-    let started = Event<unit>()
+    let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
     use webTestsProc = new Process()
     webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net6.0\Web.exe"
@@ -215,7 +212,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
                 Trace.log d.Data
             if d.Data.Contains("Application started.") then
                 startedOk <- true   
-                started.Trigger()
+                started.Set() |> ignore
     )
     webTestsProc.Exited.Add(fun _ -> 
         if not startedOk then
@@ -224,7 +221,8 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 
     webTestsProc.Start()
     webTestsProc.BeginOutputReadLine()
-    started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
+    started.WaitOne()
+    Thread.Sleep(5000)
 
     let res =
         Shell.Exec(
