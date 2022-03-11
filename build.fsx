@@ -175,6 +175,10 @@ Target.create "Tests" <| fun o ->
     ==> "Tests"
 
 Target.create "RunCompilerTestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "Compiler testing skipped"
+    else
+
     [
         "tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
         "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
@@ -196,7 +200,7 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
     ==> "CI-Release"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
-    if Environment.environVarAsBoolOrDefault "SKIP_CHUTZPAH_TESTING" false then
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "Chutzpah testing skipped"
     else
 
