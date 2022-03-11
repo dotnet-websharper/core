@@ -359,11 +359,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let staticInits = ResizeArray()                                               
             
     let implicitImplementations = System.Collections.Generic.Dictionary()
-    for intf in cls.Interfaces do
-        for meth in intf.GetMembers().OfType<IMethodSymbol>() do
-            let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
-            if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
-                Dict.addToMulti implicitImplementations impl (intf, meth)
+    if annot.IsJavaScript then
+        for intf in cls.Interfaces do
+            for meth in intf.GetMembers().OfType<IMethodSymbol>() do
+                let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
+                if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
+                    Dict.addToMulti implicitImplementations impl (intf, meth)
 
     for mem in members do
         match mem with
@@ -1109,17 +1110,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         comp.SetEntryPoint(ep)
                     | _ ->
                         error "The SPAEntryPoint must be a static method with no arguments"
-                match implicitImplementations.TryFind meth with
-                | Some impls ->
-                    for intf, imeth in impls do
-                        let idef = sr.ReadNamedTypeDefinition intf
-                        let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                        let imdef = sr.ReadMethod imeth 
-                        // TODO : correct generics
-                        Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod (Some (meth, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
-                    implicitImplementations.Remove(meth) |> ignore
-                | _ -> ()
+                if annot.IsJavaScript then
+                    match implicitImplementations.TryFind meth with
+                    | Some impls ->
+                        for intf, imeth in impls do
+                            let idef = sr.ReadNamedTypeDefinition intf
+                            let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                            let imdef = sr.ReadMethod imeth 
+                            // TODO : correct generics
+                            Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
+                            |> addMethod (Some (meth, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+                        implicitImplementations.Remove(meth) |> ignore
+                    | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
                     if isInline then 
@@ -1201,15 +1203,16 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
-    for KeyValue(meth, impls) in implicitImplementations do
-        let mdef = sr.ReadMethod meth
-        for intf, imeth in impls do
-            let idef = sr.ReadNamedTypeDefinition intf
-            if idef.Value.FullName <> "System.IEquatable`1" then // skipping System.IEquatable for C# records for now
-                let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                let imdef = sr.ReadMethod imeth
-                Lambda(vars, Call(Some This, NonGeneric idef, NonGeneric (getDefImpl mdef), vars |> List.map Var))
-                |> addMethod None A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+    if annot.IsJavaScript then
+        for KeyValue(meth, impls) in implicitImplementations do
+            let mdef = sr.ReadMethod meth
+            for intf, imeth in impls do
+                let idef = sr.ReadNamedTypeDefinition intf
+                if idef.Value.FullName <> "System.IEquatable`1" then // skipping System.IEquatable for C# records for now
+                    let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                    let imdef = sr.ReadMethod imeth
+                    Lambda(vars, Call(Some This, NonGeneric idef, NonGeneric (getDefImpl mdef), vars |> List.map Var))
+                    |> addMethod None A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
 
     if isInterface then
         clsMembers |> Array.ofSeq |> Array.iter (fun m ->
