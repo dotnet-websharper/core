@@ -88,8 +88,9 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
     let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
     let apiBaseUri = apiBaseUri.[..apiBaseUri.LastIndexOf '/']
     let corsBaseUri =
-        System.Configuration.ConfigurationManager.AppSettings.["CorsTestUrl"]
-        |> Option.ofObj
+        //System.Configuration.ConfigurationManager.AppSettings.["CorsTestUrl"]
+        //|> Option.ofObj
+        None : string option
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = (

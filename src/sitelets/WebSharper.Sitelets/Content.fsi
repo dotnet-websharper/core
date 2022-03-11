@@ -23,7 +23,6 @@ namespace WebSharper.Sitelets
 open System
 open System.Threading.Tasks
 open WebSharper
-open Microsoft.AspNetCore.Mvc
 
 /// Represents server responses to actions. The Page response is special-cased
 /// for combinators to have access to it.
@@ -67,7 +66,7 @@ type Content<'Endpoint> =
         * ?WriteBody: (System.IO.Stream -> unit)
         -> Async<Content<'Endpoint>>
     
-    interface IActionResult
+    //interface IActionResult
 
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]

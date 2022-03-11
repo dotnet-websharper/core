@@ -24,27 +24,8 @@ open System.IO
 open System.Threading
 open System.Threading.Tasks
 open WebSharper
-open Microsoft.AspNetCore.Http
-open Microsoft.AspNetCore.Mvc
 
 module CT = WebSharper.Core.ContentTypes
-
-module private ContentHelper =
-
-    let writeResponseAsync (resp: Http.Response) (out: HttpResponse) : Async<unit> =
-        async {
-            use memStr = new MemoryStream()
-            do
-                out.StatusCode <- resp.Status.Code
-                for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
-                    let values =
-                        [| for h in hs -> h.Value |]
-                        |> Microsoft.Extensions.Primitives.StringValues
-                    out.Headers.Append(name, values)
-                resp.WriteBody(memStr :> Stream)
-                memStr.Seek(0L, SeekOrigin.Begin) |> ignore
-            do! memStr.CopyToAsync(out.Body) |> Async.AwaitTask    
-        }
 
 [<CompiledName "FSharpContent">]
 type Content<'Endpoint> =
@@ -55,18 +36,6 @@ type Content<'Endpoint> =
         match c with
         | CustomContent x -> async.Return (x ctx)
         | CustomContentAsync x -> x ctx
-
-    interface IActionResult with
-        member x.ExecuteResultAsync (context: ActionContext) : Task =
-            let ctx = context.HttpContext.Items.TryGetValue("WebSharper.Sitelets.Context")
-            match ctx with
-            | true, o ->
-                async {
-                    let! rsp = Content<_>.ToResponse x (o:?>Context<_>)
-                    do! ContentHelper.writeResponseAsync rsp context.HttpContext.Response
-                } |> Async.StartAsTask :> Task
-            | false, _ ->
-                failwith ""
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =

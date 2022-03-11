@@ -30,12 +30,33 @@ open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.Extensions.Options
 open WebSharper.Sitelets
 
-let rec internal contentHelper (httpCtx: HttpContext) (content: obj) : Task =
+let internal writeResponse (resp: Http.Response) (out: HttpResponse) : Task =
+    let memStr = new MemoryStream()
+    out.StatusCode <- resp.Status.Code
+    for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
+        let values =
+            [| for h in hs -> h.Value |]
+            |> Microsoft.Extensions.Primitives.StringValues
+        out.Headers.Append(name, values)
+    resp.WriteBody(memStr :> Stream)
+    memStr.Seek(0L, SeekOrigin.Begin) |> ignore
+    task {
+        do! memStr.CopyToAsync(out.Body)
+        memStr.Dispose()
+    }
+
+let rec internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
     task {
         match content with
         | :? string as stringContent ->
             httpCtx.Response.StatusCode <- StatusCodes.Status200OK
             do! httpCtx.Response.WriteAsync(stringContent)
+        | :? Content<obj> as wsContent ->
+            let! rsp = Content<obj>.ToResponse wsContent context
+            do! writeResponse rsp httpCtx.Response
+        | :? CSharpContent as wsCSharpContent ->
+            let! rsp = Content<obj>.ToResponse wsCSharpContent.AsContent context
+            do! writeResponse rsp httpCtx.Response
         | :? IActionResult as actionResult ->
             let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
             do! actionResult.ExecuteResultAsync(actionCtx)
@@ -43,11 +64,11 @@ let rec internal contentHelper (httpCtx: HttpContext) (content: obj) : Task =
             let contentType = content.GetType()
             if contentType.IsGenericType && contentType.GetGenericTypeDefinition() = typedefof<Task<_>> then
                 let contentTask = content :?> Task
-                do! contentTask |> Async.AwaitTask
+                do! contentTask
                 let contentResult =
                     let resultGetter = contentType.GetProperty("Result")
                     resultGetter.GetMethod.Invoke(contentTask, [||])
-                return! contentHelper httpCtx contentResult
+                return! contentHelper httpCtx context contentResult
             else
                 httpCtx.Response.StatusCode <- StatusCodes.Status200OK
                 let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
@@ -72,15 +93,13 @@ let Middleware (options: WebSharperOptions) =
     | Some sitelet ->
         Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
             let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
-            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
             
             let handleRouterResult r =
                match r with
                | Some endpoint ->
                    let content = sitelet.Controller.Handle endpoint
-                   contentHelper httpCtx content
+                   contentHelper httpCtx ctx content
                | None -> next.Invoke()
-           
 
             let routeWithoutBody =
                 try
@@ -101,11 +120,6 @@ let Middleware (options: WebSharperOptions) =
 
 // Giraffe/Saturn helpers
 
-open System.Threading.Tasks
-open Microsoft.AspNetCore.Mvc
-open Microsoft.AspNetCore.Mvc.Abstractions
-open Microsoft.AspNetCore.Routing
-open Microsoft.AspNetCore.Http
 open Microsoft.AspNetCore.Hosting
     
 type SiteletHttpFuncResult = Task<HttpContext option>
@@ -113,19 +127,19 @@ type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
 type SiteletHttpHandler = SiteletHttpFunc -> SiteletHttpFunc
 
 let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
+    let sitelet = sitelet.Box()
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
             let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
             let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
             let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath sitelet
-            httpCtx.Items.Add("WebSharper.Sitelets.Context", ctx)
 
             let handleRouterResult r =
                 match r with
                 | Some endpoint ->
                     let content = sitelet.Controller.Handle endpoint
                     task {
-                        do! contentHelper httpCtx content
+                        do! contentHelper httpCtx ctx content
                         return None
                     }
                 | None ->

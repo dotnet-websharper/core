@@ -26,10 +26,6 @@ open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
 open Microsoft.AspNetCore.Builder
-open Microsoft.AspNetCore.Hosting
-open Microsoft.Extensions.Configuration
-open Microsoft.Extensions.Logging
-open WebSharper.Sitelets
 
 [<Extension>]
 type ApplicationBuilderExtensions =
