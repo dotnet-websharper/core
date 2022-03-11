@@ -196,6 +196,10 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
     ==> "CI-Release"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CHUTZPAH_TESTING" false then
+        Trace.log "Chutzpah testing skipped"
+    else
+
     Trace.log "Starting Web test project"
     let mutable startedOk = false
     let started = new EventWaitHandle(false, EventResetMode.ManualReset)
