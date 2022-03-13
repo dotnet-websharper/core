@@ -238,7 +238,7 @@ type WsConfig =
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = getBool k v }
             | "standalone" ->
-                res <- { res with Standalone = getBool k v }
+                res <- { res with Standalone = res.Standalone || getBool k v }
             | "runtimemetadata" ->
                 let runtimeMetadata =
                     match (getString k v).ToLower() with
@@ -549,7 +549,7 @@ let RecognizeWebSharperArg a wsArgs =
             Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c))
         else 
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
-    | Flag "--standalone" v -> Some { wsArgs with Standalone = v }
+    | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }
     | _ -> 
         None
 
