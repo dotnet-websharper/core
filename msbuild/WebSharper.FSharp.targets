@@ -28,14 +28,16 @@
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
     <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
+    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">True</WebSharperStandalone>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net6.0/wsfsc.exe</WebSharperToolPath>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh</WebSharperToolPath>
+    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">True</WebSharperStandalone>
     <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net6.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
     <SkipCompilerExecution>True</SkipCompilerExecution>
     <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
-  </PropertyGroup>
+</PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
@@ -60,6 +62,7 @@
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperToolPath="$(WebSharperToolPath)"
+      WebSharperStandalone="$(WebSharperStandalone)"
   />
   </Target>
 </Project>

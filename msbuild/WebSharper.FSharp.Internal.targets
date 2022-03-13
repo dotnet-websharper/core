@@ -61,6 +61,7 @@
       WebSharperJsOutput="$(WebSharperJsOutput)"
       WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
       WebSharperToolPath="$(WebSharperToolPath)"
+      WebSharperStandalone="$(WebSharperStandalone)"
     />
   </Target>
 </Project>

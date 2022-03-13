@@ -44,6 +44,7 @@ namespace WebSharper.MSBuild.FSharp
         public string WebSharperJsOutput { get; set; }
         public string WebSharperMinJsOutput { get; set; }
         public string WebSharperToolPath { get; set; } = "wsfsc.exe";
+        public string WebSharperStandalone { get; set; } = "";
 
         protected override string ToolName => Path.GetFileName(WebSharperToolPath);
 
@@ -89,6 +90,9 @@ namespace WebSharper.MSBuild.FSharp
 
                 if (TryParseBool(WebSharperErrorsAsWarnings))
                     w.WriteLine("--wswarnonly");
+
+                if (TryParseBool(WebSharperStandalone))
+                    w.WriteLine("--standalone");
 
                 if (WebProjectOutputDir != null && WebSharperProject == null)
                     w.WriteLine("--site");
