@@ -7,8 +7,11 @@
   <ItemGroup>
     <Compile Include="LoggerBase.fs" />
     <Compile Include="Abbreviations.fs" />
-    <Compile Include="AssemblyResolution.fsi" />
-    <Compile Include="AssemblyResolution.fs" />
+    <Compile Include="assemblyResolution/ImplCommon.fs" />
+    <Compile Include="assemblyResolution/ImplNet4x.fs" />
+    <Compile Include="assemblyResolution/ImplNetCore.fs" />
+    <Compile Include="assemblyResolution/AssemblyResolver.fsi" />
+    <Compile Include="assemblyResolution/AssemblyResolver.fs" />
     <Compile Include="FileSystem.fsi" />
     <Compile Include="FileSystem.fs" />
     <Compile Include="Utility.fs" />
@@ -47,7 +50,7 @@
     <Compile Include="FrontEnd.fs" />
     <Compile Include="WIGCompile.fsi" />
     <Compile Include="WIGCompile.fs" />
-    <Compile Include="commands\DownloadResources.fs" />
+    <Compile Include="commands/DownloadResources.fs" />
     <Compile Include="commands/Commands.fsi" />
     <Compile Include="commands/Commands.fs" />
     <Compile Include="commands/HtmlCommand.fsi" />
