@@ -11,7 +11,7 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <AssemblyName>wsfscservice</AssemblyName>
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
-    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <None Include="NLog.config">

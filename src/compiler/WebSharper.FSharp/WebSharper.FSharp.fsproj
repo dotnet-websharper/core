@@ -8,7 +8,7 @@
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
     <FSharpTool>True</FSharpTool>
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
-    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="NamedPipeClient.fs" />

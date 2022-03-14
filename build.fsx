@@ -133,7 +133,7 @@ let targets = MakeTargets {
         BuildAction =
             BuildAction.Multiple [
                 BuildAction.Projects ["WebSharper.Compiler.sln"]
-                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64" ])
+                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
                 BuildAction.Projects ["WebSharper.sln"]
             ]
 }
