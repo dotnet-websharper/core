@@ -25,11 +25,13 @@
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\win-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\linux-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\linux-musl-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\osx-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\FSharp\net6.0" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\win-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\linux-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\linux-musl-x64\deploy" />
+    <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\osx-x64\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0\deploy" />
     <Copy SourceFiles="$(OutputPath)\WebSharper.Sitelets.Offline.dll" DestinationFolder="$(OutputPath)\..\CSharp\net6.0" />
   </Target>
