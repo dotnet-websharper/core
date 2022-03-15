@@ -206,7 +206,7 @@ type ServiceExtensions =
             [<Optional>] metadata: M.Info,
             [<Optional>] authenticationScheme: string,
             [<Optional>] configuration: IConfiguration) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
+        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) then
             failwith "IWebSharperService already set when AddWebSharper was called. Call AddWebSharper before AddSitelet and/or AddWebSharperRemoting."
         this.AddSingleton<IWebSharperService>(DefaultWebSharperService(siteletAssembly, metadata, authenticationScheme, configuration))
         
