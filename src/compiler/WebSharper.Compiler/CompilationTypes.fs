@@ -46,6 +46,7 @@ module NotResolved =
         | Inline
         | NoFallback
         | Quotation of SourcePos * string list
+        | MissingImplementation of TypeDefinition
 
     type NotResolvedMethod =
         {

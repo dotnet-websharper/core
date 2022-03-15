@@ -179,8 +179,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             p, Some proxied
         | _ -> thisDef, None
 
-    let isInterfaceProxy =
-        Option.isSome annot.ProxyOf && isInterface def
+    let isProxy = Option.isSome annot.ProxyOf 
+    let isInterfaceProxy = isProxy && isInterface def
 
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
@@ -735,7 +735,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
                     clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
-            | None -> ()
+            | None ->
+                if isProxy then
+                    let memdef = sr.ReadMember meth
+                    match memdef with
+                    | Member.Implementation (t, mdef) ->    
+                        addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
+                    | _ -> ()
             let jsArgs =
                 meth.CurriedParameterGroups
                 |> Seq.concat

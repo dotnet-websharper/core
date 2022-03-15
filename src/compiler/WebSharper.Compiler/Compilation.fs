@@ -1077,7 +1077,8 @@ type Compilation(meta: Info, ?hasGraph) =
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
                                 graph.AddEdge(mNode, resNode req)
-                        | N.Implementation intf ->
+                        | N.Implementation intf 
+                        | N.MissingImplementation intf ->
                             let intf = this.FindProxied intf 
                             let mNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
                             graph.AddImplementation(typ, intf, meth)
@@ -1201,6 +1202,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let namedInstanceMembers = Dictionary() // includes implementations
         let remainingStaticMembers = Dictionary()
         let remainingInstanceMembers = Dictionary() // includes overrides
+        let missingImplementations = ResizeArray()
 
         let addCctorCall typ (ci: ClassInfo) expr =
             if Option.isSome ci.StaticConstructor then
@@ -1280,6 +1282,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 None, None, true
                             else 
                                 None, Some false, false
+                        | N.MissingImplementation _ -> None, Some false, false
                         | N.Abstract
                         | N.Instance -> sn, Some false, false
                         | N.Static
@@ -1359,9 +1362,6 @@ type Compilation(meta: Info, ?hasGraph) =
                             | Some p ->
                                 p, M.Method(mDef, { nr with Kind = N.Implementation p }) 
                             | _ -> td, m
-                        //if td.Value.FullName = "System.Collections.Generic.IEnumerable`1" then
-                        //    Dict.addToMulti namedInstanceMembers typ (m, "GetEnumerator")
-                        //else 
                         match interfaces.TryFind td with
                         | Some i ->
                             match i.Methods.TryFind mDef with
@@ -1370,6 +1370,12 @@ type Compilation(meta: Info, ?hasGraph) =
                             | _ -> printerrf "Failed to look up name for implemented member: %s.%s in type %s" td.Value.FullName mDef.Value.MethodName typ.Value.FullName 
                         | _ ->
                             printerrf "Failed to look up interface for implementing: %s by type %s" td.Value.FullName typ.Value.FullName
+                    | M.Method (mDef, ({ Kind = N.MissingImplementation td } as nr)) ->
+                        let td = 
+                            match proxies.TryFind td with
+                            | Some p -> p
+                            | _ -> td
+                        missingImplementations.Add (typ, td, mDef)
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m                   
 
@@ -1593,6 +1599,37 @@ type Compilation(meta: Info, ?hasGraph) =
 
         for KeyValue(typ, ms) in remainingInstanceMembers do
             resolveRemainingInstanceMembers typ classes.[typ] ms    
+
+        for typ, intf, meth in missingImplementations do
+            let mNameOpt =
+                interfaces.TryFind typ
+                |> Option.bind (fun i -> i.Methods.TryFind meth)
+            match mNameOpt with
+            | Some mName ->
+                let cls = classes.[typ]
+                let tryFindByName n =
+                    cls.Methods
+                    |> Seq.tryPick (fun (KeyValue(m, (cm, _, _))) ->
+                        match cm with 
+                        | Instance name when name = n -> Some m
+                        | _ -> None
+                    )    
+                let methFallbackOpt =
+                    tryFindByName mName
+                    |> Option.orElseWith (fun () ->
+                        if mName.EndsWith("0") then 
+                            tryFindByName (mName[.. mName.Length - 2]) 
+                        else None
+                    )
+                match methFallbackOpt with
+                | Some methFallback ->
+                    let iNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
+                    let mNode = graph.AddOrLookupNode(MethodNode(typ, methFallback))
+                    graph.AddEdge(iNode, mNode)
+                | _ ->
+                    printerrf "Failed to look up fallback method for missing proxy implementation: %s on type %s for interface %s" mName typ.Value.FullName intf.Value.FullName
+            | _ ->
+                ()
 
         // Add graph edges for GetEnumerator and Object methods redirection
         if hasGraph && this.AssemblyName = "WebSharper.Main" then

@@ -114,11 +114,20 @@ type internal HashSetProxy<'T when 'T : equality>
             let arr = data.[hash item]
             if arr ==. null then false else arrContains item arr
 
-        member x.CopyTo(arr: 'T[]) =
-            let mutable i = 0
+        [<Name("CopyTo")>]
+        member x.CopyTo(arr: 'T[], index: int) =
             let all = concat data 
             for i = 0 to all.Length - 1 do 
-                arr.[i] <- all.[i]
+                arr.[i + index] <- all.[i]
+
+        [<Inline>]
+        member x.CopyTo(arr: 'T[]) = x.CopyTo(arr, 0)
+
+        member x.CopyTo(arr: 'T[], index: int, count: int) =
+            let mutable i = 0
+            let all = concat data 
+            for i = 0 to count - 1 do 
+                arr.[i + index] <- all.[i]
 
         [<Name("Count")>]
         member x.Count = count
