@@ -94,8 +94,20 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
     interface IEnumerable<'K> with
         [<JavaScript(false)>]
         member this.GetEnumerator() = X<IEnumerator<'K>>
+    
+    interface IEnumerable with
         [<JavaScript(false)>]
         member this.GetEnumerator() = X<IEnumerator>
+
+    interface ICollection with
+        [<JavaScript(false)>]
+        member this.CopyTo(array: System.Array, index: int) = ()
+        [<JavaScript(false)>]
+        member this.Count = X<int>
+        [<JavaScript(false)>]
+        member this.IsSynchronized = X<bool>
+        [<JavaScript(false)>]
+        member this.SyncRoot = X<obj>
 
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
@@ -103,7 +115,7 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     [<Name "Count">]
     member this.Count = d.Count 
 
-    member this.CopyTo(arr: 'K[], index: int) =
+    member this.CopyTo(arr: 'V[], index: int) =
         (Seq.toArray this).CopyTo(arr, index)    
 
     [<Name "IsReadOnly">]
@@ -119,8 +131,20 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
     interface IEnumerable<'V> with
         [<JavaScript(false)>]
         member this.GetEnumerator() = X<IEnumerator<'V>>
+
+    interface IEnumerable with
         [<JavaScript(false)>]
         member this.GetEnumerator() = X<IEnumerator>
+
+    interface ICollection with
+        [<JavaScript(false)>]
+        member this.CopyTo(array: System.Array, index: int) = ()
+        [<JavaScript(false)>]
+        member this.Count = X<int>
+        [<JavaScript(false)>]
+        member this.IsSynchronized = X<bool>
+        [<JavaScript(false)>]
+        member this.SyncRoot = X<obj>
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
 [<Stub>]

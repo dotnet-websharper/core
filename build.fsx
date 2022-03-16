@@ -200,6 +200,19 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
 "RunCompilerTestsRelease"
     ==> "CI-Release"
 
+Target.create "RunSPATestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "Chutzpah testing for SPA skipped"
+    else
+
+    let res =
+        Shell.Exec(
+            "packages/test/Chutzpah/tools/chutzpah.console.exe", 
+            "tests/WebSharper.SPA.Tests/index.html /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
+        )
+    if res <> 0 then
+        failwith "Chutzpah test run failed for SPA tests"
+
 Target.create "RunMainTestsRelease" <| fun _ ->
     if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
         Trace.log "Chutzpah testing skipped"
@@ -243,7 +256,8 @@ Target.create "RunMainTestsRelease" <| fun _ ->
         failwith "Chutzpah test run failed"
 
 "WS-BuildRelease"
-    ?=> "RunMainTestsRelease"
+    ?=> "RunSPATestsRelease"
+    ==> "RunMainTestsRelease"
     ?=> "WS-Package"
 
 "RunMainTestsRelease"

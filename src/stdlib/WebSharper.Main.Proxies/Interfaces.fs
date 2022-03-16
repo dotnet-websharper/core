@@ -132,10 +132,10 @@ type private ICollectionProxy =
     [<Inline>]
     default this.CopyTo(array: System.Array, index: int) = Enumerator.CopyTo0 (As<System.Collections.ICollection> this) array index
 
-    [<Name "IsSynchronized">]
+    [<JavaScript(false)>]
     abstract member IsSynchronized : bool
 
-    [<Name "SyncRoot">]
+    [<JavaScript(false)>]
     abstract member SyncRoot : obj
 
 [<Proxy(typeof<System.Collections.Generic.ICollection<_>>, [| typeof<System.Collections.IEnumerable>; typeof<System.Collections.Generic.IEnumerable<_>> |])>]

@@ -1025,7 +1025,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             | _ ->
                                 failwith "Unexpected: instance member not a function"
                     | _ -> ()
-            
+            let isInterfaceProxy =
+                cls.ForceNoPrototype && interfaces.ContainsKey typ
+
             let cctor = cls.Members |> Seq.tryPick (function M.StaticConstructor e -> Some e | _ -> None)
             let baseCls =
                 cls.BaseClass |> Option.bind (fun b ->
@@ -1097,6 +1099,9 @@ type Compilation(meta: Info, ?hasGraph) =
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
                                 graph.AddEdge(mNode, resNode req)
+                            if isInterfaceProxy then
+                                graph.AddEdge(AbstractMethodNode(typ, meth), mNode) 
+                                 
                     | M.Field (_, f) ->
                         let rec addTypeDeps (t: Type) =
                             match t with
@@ -1371,11 +1376,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ ->
                             printerrf "Failed to look up interface for implementing: %s by type %s" td.Value.FullName typ.Value.FullName
                     | M.Method (mDef, ({ Kind = N.MissingImplementation td } as nr)) ->
-                        let td = 
-                            match proxies.TryFind td with
-                            | Some p -> p
-                            | _ -> td
-                        missingImplementations.Add (typ, td, mDef)
+                        missingImplementations.Add (typ, this.FindProxied td, mDef)
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m                   
 
@@ -1602,7 +1603,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         for typ, intf, meth in missingImplementations do
             let mNameOpt =
-                interfaces.TryFind typ
+                interfaces.TryFind intf
                 |> Option.bind (fun i -> i.Methods.TryFind meth)
             match mNameOpt with
             | Some mName ->
@@ -1611,9 +1612,31 @@ type Compilation(meta: Info, ?hasGraph) =
                     cls.Methods
                     |> Seq.tryPick (fun (KeyValue(m, (cm, _, _))) ->
                         match cm with 
-                        | Instance name when name = n -> Some m
+                        | Instance name when name = n -> Some (MethodNode(typ, m))
                         | _ -> None
-                    )    
+                    )
+                    |> Option.orElseWith (fun () ->
+                        compilingMethods 
+                        |> Seq.tryPick(fun (KeyValue((td, m), (cm, _))) ->
+                            if td = typ then
+                                match cm with 
+                                | NotCompiled (Instance name, _, _, _) 
+                                | NotGenerated (_, _, Instance name, _, _) when name = n -> Some (MethodNode(typ, m))
+                                | _ -> None
+                            else None
+                        )
+                    ) 
+                    |> Option.orElseWith (fun () ->
+                        compilingImplementations 
+                        |> Seq.tryPick(fun (KeyValue((td, i, m), (cm, _))) ->
+                            if td = typ then
+                                match cm with 
+                                | NotCompiled (Instance name, _, _, _) 
+                                | NotGenerated (_, _, Instance name, _, _) when name = n -> Some (ImplementationNode(typ, i, m))
+                                | _ -> None
+                            else None
+                        )
+                    ) 
                 let methFallbackOpt =
                     tryFindByName mName
                     |> Option.orElseWith (fun () ->
@@ -1623,15 +1646,49 @@ type Compilation(meta: Info, ?hasGraph) =
                     )
                 match methFallbackOpt with
                 | Some methFallback ->
-                    let iNode = graph.AddOrLookupNode(ImplementationNode(typ, intf, meth))
-                    let mNode = graph.AddOrLookupNode(MethodNode(typ, methFallback))
-                    graph.AddEdge(iNode, mNode)
+                    graph.AddEdge(ImplementationNode(typ, intf, meth), methFallback)
                 | _ ->
-                    printerrf "Failed to look up fallback method for missing proxy implementation: %s on type %s for interface %s" mName typ.Value.FullName intf.Value.FullName
+                    let hasStaticImpl =
+                        match classes.TryFind intf with
+                        | Some i -> 
+                            i.Methods.ContainsKey meth || compilingMethods.ContainsKey (intf, meth)
+                        | None -> false
+                    if not hasStaticImpl then
+                        let found = 
+                            cls.Methods.Values 
+                            |> Seq.choose (fun (cm, _, _) -> 
+                                match cm with 
+                                | Instance name -> Some name
+                                | _ -> None
+                            )
+                            |> Seq.append (
+                                compilingMethods 
+                                |> Seq.choose(fun (KeyValue((td, m), (cm, _))) ->
+                                    if td = typ && m = meth then
+                                        match cm with 
+                                        | NotCompiled (Instance name, _, _, _) 
+                                        | NotGenerated (_, _, Instance name, _, _) -> Some name
+                                        | _ -> None
+                                    else None
+                                )
+                            )
+                            |> Seq.append (
+                                compilingImplementations 
+                                |> Seq.choose(fun (KeyValue((td, _, m), (cm, _))) ->
+                                    if td = typ && m = meth then
+                                        match cm with 
+                                        | NotCompiled (Instance name, _, _, _) 
+                                        | NotGenerated (_, _, Instance name, _, _) -> Some name
+                                        | _ -> None
+                                    else None
+                                )
+                            )
+                            |> List.ofSeq
+                        printerrf "Failed to look up fallback method for missing proxy implementation: %s on type %s for interface %s found: %A" mName typ.Value.FullName intf.Value.FullName found
             | _ ->
                 ()
-
-        // Add graph edges for GetEnumerator and Object methods redirection
+    
+        // Add graph edges for Object methods redirections
         if hasGraph && this.AssemblyName = "WebSharper.Main" then
             let equals =
                 Method {
