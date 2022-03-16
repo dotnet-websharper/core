@@ -109,6 +109,22 @@ type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
         [<JavaScript(false)>]
         member this.SyncRoot = X<obj>
 
+    interface ICollection<'K> with
+        [<JavaScript(false)>]
+        member this.IsReadOnly = X<bool>
+        [<JavaScript(false)>]
+        member this.Count = X<int>  
+        [<JavaScript(false)>]
+        member this.Add(p) = ()
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'K[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(p) = X<bool>
+
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
@@ -145,6 +161,22 @@ type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
         member this.IsSynchronized = X<bool>
         [<JavaScript(false)>]
         member this.SyncRoot = X<obj>
+
+    interface ICollection<'V> with
+        [<JavaScript(false)>]
+        member this.IsReadOnly = X<bool>
+        [<JavaScript(false)>]
+        member this.Count = X<int>  
+        [<JavaScript(false)>]
+        member this.Add(p) = ()
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'V[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(p) = X<bool>
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
 [<Stub>]
