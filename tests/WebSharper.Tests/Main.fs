@@ -82,6 +82,6 @@ let RunTests runServerSide autoStart =
         Printf.Tests
         Tupled.Tests
         WIG.Tests
-        Cookies.Tests
+        (if runServerSide then Cookies.Tests else TestCategory "Cookies" { do () })
         (if runServerSide then Compiler.Tests else TestCategory "Compiler" { do () })
     |]

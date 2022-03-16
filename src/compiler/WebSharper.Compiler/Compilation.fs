@@ -573,14 +573,17 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.MethodExistsInMetadata (typ, meth) =
         let typ = this.FindProxied typ
-        match interfaces.TryFind typ with
-        | Some intf -> 
-            intf.Methods.ContainsKey meth
-        | _ ->
-        match classes.TryFind typ with
-        | Some cls ->
-            cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
-        | _ -> false
+        (
+            match interfaces.TryFind typ with
+            | Some intf -> 
+                intf.Methods.ContainsKey meth 
+            | _ -> false
+        ) || (
+            match classes.TryFind typ with
+            | Some cls ->
+                cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)
+            | _ -> false
+        )
 
     member private this.LookupMethodInfoInternal(typ, meth, noDefIntfImpl) = 
         let typ = this.FindProxied typ
