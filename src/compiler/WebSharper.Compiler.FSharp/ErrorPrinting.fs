@@ -32,6 +32,7 @@ type WarnSettings =
         WarnAsError : int Set
         AllWarnAsError : bool
         DontWarnAsError : int Set
+        VSStyleErrors : bool
     }    
 
     static member Default =
@@ -42,6 +43,7 @@ type WarnSettings =
             WarnAsError = Set []
             AllWarnAsError = false
             DontWarnAsError = Set []
+            VSStyleErrors = false
         }   
         
     member this.CheckNoWarn(c) =
@@ -101,7 +103,7 @@ let PrintFSharpErrors (settings: WarnSettings) (logger: LoggerBase) (errs: FShar
                     sprintf "%s(%d,%d,%d,%d): " file err.StartLine (err.StartColumn + 1) err.EndLine (err.EndColumn + 1)
                 else ""
             let info =
-                sprintf "%s %s FS%04d: " err.Subcategory (if isError then "error" else "warning") err.ErrorNumber
+                sprintf "%s%s FS%04d: " (if settings.VSStyleErrors then err.Subcategory + " " else "") (if isError then "error" else "warning") err.ErrorNumber
             sprintf "%s%s%s" pos info (NormalizeErrorString err.Message)
             |> logger.Error
 
@@ -115,8 +117,10 @@ let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSetting
     let projDir = Path.GetDirectoryName projFile
     let printWebSharperError (pos: AST.SourcePos option) isError msg =
         if (not isError || warnOnly) && warnSettings.CheckNoWarn(9002) then
-            ()
+            ()     
         else
+            let subcategory =
+                if warnSettings.VSStyleErrors then "WebSharper " else ""        
             let severity =
                 if (isError && not warnOnly) || (not isError && warnSettings.CheckWarnAsError(9002)) then 
                     "error WS9001" 
@@ -124,12 +128,12 @@ let PrintWebSharperErrors warnOnly (projFile: string) (warnSettings: WarnSetting
                     "warning WS9002"
             match pos with
             | Some pos ->
-                sprintf "%s(%d,%d,%d,%d): WebSharper %s: %s" 
+                sprintf "%s(%d,%d,%d,%d): %s%s: %s" 
                     (fullpath projDir pos.FileName) (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
-                    severity (NormalizeErrorString msg)
+                    subcategory severity (NormalizeErrorString msg)
                 |> logger.Error
             | _ ->
-                sprintf "WebSharper %s: %s" severity (NormalizeErrorString msg)
+                sprintf "%s%s: %s" subcategory severity (NormalizeErrorString msg)
                 |> logger.Error
     
     for pos, err in comp.Errors do

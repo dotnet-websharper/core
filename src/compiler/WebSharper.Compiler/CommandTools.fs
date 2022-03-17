@@ -70,7 +70,6 @@ type WsConfig =
         CompilerArgs : string[]        
         ProjectFile : string
         Documentation : string option
-        VSStyleErrors : bool
         PrintJS : bool
         WarnOnly : bool
         DeadCodeElimination : bool
@@ -108,7 +107,6 @@ type WsConfig =
             CompilerArgs = [||]
             ProjectFile = null
             Documentation = None
-            VSStyleErrors = false
             PrintJS  = false
             WarnOnly = false
             DeadCodeElimination = true

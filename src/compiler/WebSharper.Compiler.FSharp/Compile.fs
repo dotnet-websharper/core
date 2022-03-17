@@ -358,7 +358,7 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
         | _ ->
         match a with
         | "--vserrors" ->
-            wsArgs := { !wsArgs with VSStyleErrors = true }
+            warn := { !warn with VSStyleErrors = true }
             fscArgs.Add a
         | StartsWith "--doc:" d ->
             wsArgs := { !wsArgs with Documentation = Some d }
