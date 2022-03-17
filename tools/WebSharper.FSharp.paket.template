@@ -15,7 +15,6 @@ dependencies
         WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.FSharp.targets ==> build
-    ../build/Release/FSharp/netstandard2.0/WebSharper.MSBuild.FSharp.dll ==> tools/netstandard2.0
 
     ../build/Release/FSharp/net6.0/win-x64/deploy/*.dll ==> tools/net6.0/win-x64
     ../build/Release/FSharp/net6.0/win-x64/deploy/**/*.dll ==> tools/net6.0/win-x64
