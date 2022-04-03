@@ -20,9 +20,11 @@
 
 #nowarn "86" // redefining operators
 
-namespace WebSharper.Core.AST
+namespace rec WebSharper.Core.AST
 
 open WebSharper.Core
+
+module S = WebSharper.Core.JavaScript.Syntax
 
 type private Ids() =
     static let mutable lastId = -1L
@@ -162,6 +164,7 @@ type MutatingBinaryOperator =
     | LeftShiftAssign          = 9
     | RightShiftAssign         = 10
     | UnsignedRightShiftAssign = 11
+    | CoalesceAssign           = 12
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module MutatingBinaryOperator =
@@ -177,6 +180,7 @@ module MutatingBinaryOperator =
     let [<Literal>] ``<<=``  = MutatingBinaryOperator.LeftShiftAssign         
     let [<Literal>] ``>>=``  = MutatingBinaryOperator.RightShiftAssign        
     let [<Literal>] ``>>>=`` = MutatingBinaryOperator.UnsignedRightShiftAssign
+    let [<Literal>] ``??=``  = MutatingBinaryOperator.CoalesceAssign
 
 type MutatingUnaryOperator =
     | PreIncrement  = 0
@@ -217,6 +221,8 @@ type BinaryOperator =
     | InstanceOf         = 20
     | BitwiseOr          = 21
     | Or                 = 22
+    | Exponentiation     = 23
+    | Coalesce           = 24
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]  
 module BinaryOperator =
@@ -226,6 +232,7 @@ module BinaryOperator =
     let [<Literal>] ``&&``     = BinaryOperator.And               
     let [<Literal>] ``&``      = BinaryOperator.BitwiseAnd        
     let [<Literal>] ``*``      = BinaryOperator.Multiply          
+    let [<Literal>] ``**``     = BinaryOperator.Exponentiation          
     let [<Literal>] ``+``      = BinaryOperator.Add               
     let [<Literal>] ``-``      = BinaryOperator.Substract         
     let [<Literal>] ``/``      = BinaryOperator.Divide            
@@ -243,6 +250,7 @@ module BinaryOperator =
     let [<Literal>] instanceof = BinaryOperator.InstanceOf            
     let [<Literal>] ``|``      = BinaryOperator.BitwiseOr         
     let [<Literal>] ``||``     = BinaryOperator.Or  
+    let [<Literal>] ``??``     = BinaryOperator.Coalesce
 
 type UnaryOperator =
     | Not        = 0
@@ -469,7 +477,7 @@ type Concrete<'T> =
     }
 
 /// Identifies a type by shape
-and Type =
+type Type =
     /// A specific type not covered by other cases
     | ConcreteType of concreteType: Concrete<TypeDefinition>
     /// A class and method type parameters specified by index in the combined list
@@ -655,7 +663,7 @@ and Type =
         | LocalTypeParameter -> this
         | TSType _ -> invalidOp "TypeScript type does not support Normalize"
 
-and [<RequireQualifiedAccess>] TSType =
+type [<RequireQualifiedAccess>] TSType =
     | Any
     | Named of list<string>
     | Generic of TSType * list<TSType>

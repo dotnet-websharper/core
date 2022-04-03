@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Core.JavaScript.Writer
+module WebSharper.Core.JavaScript.TSWriter
 
 module S = Syntax
 type StringBuilder = System.Text.StringBuilder

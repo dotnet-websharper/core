@@ -19,7 +19,7 @@
 // $end{copyright}
 
 /// Provides a writer for JavaScript syntax.
-module WebSharper.Core.JavaScript.Writer
+module WebSharper.Core.JavaScript.TSWriter
 
 type CodeWriter =
     new : ?sources: (string * string)[] * ?offset: int -> CodeWriter 

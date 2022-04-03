@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -52,7 +52,6 @@ type Keyword =
     | ``void`` = 26
     | ``while`` = 27
     | ``with`` = 28
-    | ``import`` = 29
 
 type Symbol =
     | ``{`` = 0
@@ -103,7 +102,6 @@ type Symbol =
     | ``&=`` = 45
     | ``|=`` = 46
     | ``^=`` = 47
-    | ``**`` = 48
 
 type Lexeme =
     | EndOfInput
@@ -605,7 +603,6 @@ let parseIdentifierName id =
     | "void" -> ReservedWord Keyword.``void``
     | "while" -> ReservedWord Keyword.``while``
     | "with" -> ReservedWord Keyword.``with``
-    | "import" -> ReservedWord Keyword.``import``
     | _ -> Identifier id
 
 let lexIdentifierName allowKeywords s =
@@ -714,9 +711,6 @@ let lexToken s =
             | '=' ->
                 skip s |> ignore
                 Punctuator Symbol.``*=``
-            | '*' ->
-                skip s |> ignore
-                Punctuator Symbol.``**``
             | _ ->
                 Punctuator Symbol.``*``
         | Kind.``+`` ->

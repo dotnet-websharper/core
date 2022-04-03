@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -129,12 +129,11 @@ let (|UnaryOp|_|) (t: L.IToken) =
 let rec primExpr i =
     let t = peek i
     match t.Lexeme with
-    | L.Identifier x -> skipDiv i; S.Var x
+    | L.Identifier x -> skipDiv i; S.Var (S.Id.New x)
     | L.ReservedWord Kw.``this`` -> skipDiv i; S.This
     | L.ReservedWord Kw.``null`` -> skipDiv i; S.Constant S.Null
     | L.ReservedWord Kw.``false`` -> skipDiv i; S.Constant S.False
     | L.ReservedWord Kw.``true`` -> skipDiv i; S.Constant S.True
-    | L.ReservedWord Kw.``import`` -> skipDiv i; S.ImportFunc
     | L.NumericLiteral x -> skipDiv i; S.Constant (S.Number x)
     | L.StringLiteral x -> skipDiv i; S.Constant (S.String x)
     | L.RegexLiteral x -> skipDiv i; S.NewRegex x
@@ -228,13 +227,13 @@ and lhsExprTail news i body =
             skipRx i
             let args = arguments i
             match news with
-            | 0 -> loop news (S.Application (e, args))
-            | _ -> loop (news - 1) (S.New (e, args))
+            | 0 -> loop news (S.Application (e, [], args))
+            | _ -> loop (news - 1) (S.New (e, [], args))
         | _ ->
             let rec loop news e =
                 match news with
                 | 0 -> e
-                | _ -> loop (news - 1) (S.New (e, []))
+                | _ -> loop (news - 1) (S.New (e, [], []))
             loop news e
     loop news body
 
@@ -273,7 +272,6 @@ and logicalExprTail allowIn i e =
         | L.Punctuator o ->
             match o with
             | Sy.``*`` -> Some B.``*``
-            | Sy.``**`` -> Some B.``**``
             | Sy.``/`` -> Some B.``/``
             | Sy.``%`` -> Some B.``%``
             | Sy.``+`` -> Some B.``+``
@@ -304,24 +302,22 @@ and logicalExprTail allowIn i e =
     let prec x =
         match x with
         | B.``.`` -> 0
-        | B.``**`` -> 1
-        | B.``*`` | B.``/`` | B.``%`` -> 2
-        | B.``+`` | B.``-`` -> 3
-        | B.``<<`` | B.``>>`` | B.``>>>`` -> 4
+        | B.``*`` | B.``/`` | B.``%`` -> 1
+        | B.``+`` | B.``-`` -> 2
+        | B.``<<`` | B.``>>`` | B.``>>>`` -> 3
         | B.``<=`` | B.``<``  | B.``>=`` | B.``>``
-        | B.``in`` | B.``instanceof`` -> 5
-        | B.``!==`` | B.``!=`` | B.``===`` | B.``==`` -> 6
-        | B.``&`` -> 7
-        | B.``^`` -> 8
-        | B.``|`` -> 9
-        | B.``&&`` -> 10
-        | B.``||`` -> 11
-        | B.``,`` -> 13
-        | _ -> 12
+        | B.``in`` | B.``instanceof`` -> 4
+        | B.``!==`` | B.``!=`` | B.``===`` | B.``==`` -> 5
+        | B.``&`` -> 6
+        | B.``^`` -> 7
+        | B.``|`` -> 8
+        | B.``&&`` -> 9
+        | B.``||`` -> 10
+        | B.``,`` -> 12
+        | _ -> 11
     let app a o b = S.Binary (a, o, b)
     let rec add b o2 stack =
         match stack with
-        | _ when o2 = B.``**`` -> (b, o2) :: stack
         | (a, o1) :: rest when prec o1 <= prec o2 -> add (app a o1 b) o2 rest
         | _ -> (b, o2) :: stack
     let rec reduce b stack =
@@ -436,7 +432,7 @@ and stmt i =
             S.Labelled (id, stmt i)
         | _ ->
             let e =
-                S.Var id
+                S.Var (S.Id.New id)
                 |> lhsExprTail 0 i
                 |> assignExprTail true i
                 |> exprTail true i
@@ -456,7 +452,7 @@ and block i =
 and varStmt i =
     let vs = vars true i
     ``;`` i
-    S.Vars vs
+    S.Vars (vs, S.VarDecl)
 
 and vars allowIn i =
     varsTail allowIn [varDecl allowIn i] i
@@ -474,8 +470,8 @@ and varDecl allowIn i =
     match t.Lexeme with
     | L.Identifier id ->
         match (peek i).Lexeme with
-        | L.Punctuator Sy.``=`` -> skipRx i; (id, Some (assignExpr allowIn i))
-        | _ -> (id, None)
+        | L.Punctuator Sy.``=`` -> skipRx i; (S.Id.New id, Some (assignExpr allowIn i))
+        | _ -> (S.Id.New id, None)
     | _ ->
         error t "Expected an identifier."
 
@@ -652,7 +648,7 @@ and tryStmt i =
     let c = catchOpt ()
     let f = finallyOpt ()
     match c, f with
-    | Some (id, b2), fin -> S.TryWith (b1, id, b2, fin)
+    | Some (id, b2), fin -> S.TryWith (b1, (S.Id.New id), b2, fin)
     | None, Some b2 -> S.TryFinally (b1, b2)
     | _ -> error t "Expecting `catch` or `finally`."
 
@@ -671,10 +667,10 @@ and funExpr i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Lambda (Some id, f, funBody i)
+        S.Lambda (Some (S.Id.New id), f, funBody i, false)
     | L.Punctuator Sy.``(`` ->
         let f = formals i
-        S.Lambda (None, f, funBody i)
+        S.Lambda (None, f, funBody i, false)
     | _ ->
         error t "Expecting '(' or an identifier."
 
@@ -684,7 +680,7 @@ and funDecl i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Function (id, f, funBody i)
+        S.Function (S.Id.New id, f, funBody i)
     | _ ->
         error t "Expecting an identifier."
 
@@ -693,7 +689,7 @@ and formals i =
         let t = readRx i
         match t.Lexeme with
         | L.Punctuator Sy.``)`` -> List.rev acc
-        | L.Identifier id -> s1 (id :: acc)
+        | L.Identifier id -> s1 ((S.Id.New id) :: acc)
         | _ -> error t "Expecting ')' or an identifier."
     and s1 acc =
         let t = readRx i
@@ -704,7 +700,7 @@ and formals i =
     and s2 acc =
         let t = readRx i
         match t.Lexeme with
-        | L.Identifier id -> s1 (id :: acc)
+        | L.Identifier id -> s1 ((S.Id.New id) :: acc)
         | _ -> error t "Expecting an identifier."
     s0 []
 
