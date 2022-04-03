@@ -34,10 +34,7 @@ It is possible to work on WebSharper on Windows, Linux and OSX.
 
 To compile WebSharper, you need the following installed:
 
-* The .NET Core SDK 2.1.300 or newer. You can download it [here](https://www.microsoft.com/net/download).
-* The .NET Framework 4.6.1.
-  * For Windows, it is preinstalled, or you can download it [here](https://www.microsoft.com/en-us/download/details.aspx?id=49981).
-  * For Linux and OSX, this is provided by Mono. You can follow the install instructions [here](https://www.mono-project.com/download/stable/). For Linux, you should also follow the instructions to install `xsp` in order to run the test project.
+* The .NET Core SDK 6.0.0 or newer 6.x. You can download it [here](https://www.microsoft.com/net/download).
 
 <a name="build-cli"></a>
 ### Building WebSharper from the command line
@@ -74,7 +71,7 @@ The following options are available:
 
 We recommend that you use one of the following development environments:
 
-* On Windows: [Visual Studio 2017](https://visualstudio.microsoft.com/vs/).
+* On Windows: [Visual Studio 2022](https://visualstudio.microsoft.com/vs/).
 * On all platforms: [Visual Studio Code](https://code.visualstudio.com/) with the following extensions:
   * `ionide-fsharp` for F# support
   * `ms-vscode.csharp` for C# support

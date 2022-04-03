@@ -45,6 +45,11 @@ let setValue (l: list<'T>) (v: 'T) =
     JS.Set l "$0" v
 
 [<Inline>]
+let setValueNonTail (l: list<'T>) (v: 'T) =
+    JS.Set l "$" 1
+    JS.Set l "$0" v
+
+[<Inline>]
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
 
@@ -128,8 +133,26 @@ let Exists2<'T1,'T2> (p : 'T1 -> 'T2 -> bool)
     e
 
 [<Name "filter">]
-let Filter<'T> (p: 'T -> bool) (l: list<'T>) =
-    List.ofSeq (Seq.filter p l)
+let Filter<'T> (p: 'T -> bool) (x: list<'T>) =
+    if List.isEmpty x then x else
+    let mutable res = []
+    let mutable r = res
+    let mutable l = x
+    let mutable go = true
+    while go do
+        if p (unsafeHead l) then 
+            if List.isEmpty res then
+                res <- freshEmptyList()    
+                r <- res
+            else
+                r <- freshTail r
+            setValueNonTail r (unsafeHead l)            
+        l <- unsafeTail l
+        if List.isEmpty l then
+            go <- false
+    if not (List.isEmpty res) then
+        setTail r []
+    res
 
 [<Inline>]
 let Find p (l: list<_>) = Seq.find p l
@@ -769,3 +792,68 @@ let Windowed (windowSize: int) (s: 'T list) : list<list<'T>> =
 [<Name "splitAt">]
 let SplitAt (n: int) (list: 'T list) =
     (Take n list, Skip n list)
+
+[<Name "insertAt">]
+let InsertAt (index: int) (item: 'T) (arr: 'T list): 'T list =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            List.append arr [item]
+        else
+            if index = 0 then
+                List.append [item] arr
+            else
+                List.append (List.append arr.[0..index-1] [item]) arr.[index..]
+    else
+        failwith "Incorrect index"
+
+[<Name "insertManyAt">]
+let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T list): 'T list =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            List.append arr (items |> List.ofSeq)
+        else
+            if index = 0 then
+                List.append (items |> List.ofSeq) arr
+            else
+                List.append (List.append arr.[0..index-1] (items |> List.ofSeq)) arr.[index..]
+    else
+        failwith "Incorrect index"
+
+[<Name "removeAt">]
+let RemoveAt (index: int) (arr: 'T list): 'T list =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            arr.[0..index-1]
+        else
+            if index = 0 then
+                List.tail arr
+            else
+                List.append arr.[0..index-1] arr.[index+1..]
+    else
+        failwith "Incorrect index"
+
+[<Name "removeManyAt">]
+let RemoveManyAt (index: int) (number: int) (arr: 'T list): 'T list =
+    if index + number >= 0 && arr.Length > index + number then
+        if index + number = arr.Length then
+            arr.[0..index-1]
+        else
+            if index = 0 then
+                arr.[number..]
+            else
+                List.append arr.[0..index-1] arr.[index+number..]
+    else
+        failwith "Incorrect index"
+
+[<Name "updateAt">]
+let UpdateAt (index: int) (item: 'T) (arr: 'T list): 'T list =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            List.append arr.[0..index-1] [item]
+        else
+            if index = 0 then
+                List.append [item] (List.tail arr)
+            else
+                List.append (List.append arr.[0..index-1] [item]) arr.[index+1..]
+    else
+        failwith "Incorrect index"

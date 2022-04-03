@@ -88,8 +88,9 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
     let jsonBaseUri = jsonBaseUri.[..jsonBaseUri.LastIndexOf '/']
     let apiBaseUri = apiBaseUri.[..apiBaseUri.LastIndexOf '/']
     let corsBaseUri =
-        System.Configuration.ConfigurationManager.AppSettings.["CorsTestUrl"]
-        |> Option.ofObj
+        //System.Configuration.ConfigurationManager.AppSettings.["CorsTestUrl"]
+        //|> Option.ofObj
+        None : string option
     Content.Page(
         Title = "WebSharper client-side tests",
         Body = (
@@ -98,7 +99,7 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                 yield ClientSide <@ WebSharper.Collections.Tests.Main.RunTests() @> :> Web.Control
                 yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
                 yield ClientSide <@ Client.ClientSideTupleTest t12 @> :> Web.Control
-                yield ClientSide <@ WebSharper.Html5.Tests.Main.RunTests() @> :> Web.Control
+                yield ClientSide <@ WebSharper.Html5.Tests.Main.RunTests true @> :> Web.Control
                 yield ClientSide <@ WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests @> :> Web.Control
                 if runServerTests then
                     yield ClientSide <@ WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri @> :> Web.Control

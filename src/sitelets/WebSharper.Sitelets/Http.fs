@@ -154,8 +154,8 @@ module Http =
         abstract Body : Stream
         abstract Files : seq<IPostedFile>
         abstract Cookies : ParameterCollection
-        abstract BodyText : string
-        abstract BodyTextAsync : Async<string>
+        abstract BodyText : Task<string>
+        abstract IsBodyTextCompleted : bool
         
         member this.WithUri(uri) =
             match this with
@@ -163,6 +163,9 @@ module Http =
                 RequestWithUri(req.Original, uri) :> Request   
             | _ ->
                 RequestWithUri(this, uri) :> Request   
+
+        member this.BodyTextAsync =
+            this.BodyText |> Async.AwaitTask
 
         static member Empty (uri) =
             { new Request() with
@@ -175,8 +178,8 @@ module Http =
                 override x.Body = Stream.Null
                 override x.Files = Seq.empty
                 override x.Cookies = EmptyParameters
-                override x.BodyText = ""
-                override x.BodyTextAsync = async.Return ""
+                override x.BodyText = Task.FromResult ""
+                override x.IsBodyTextCompleted = true
             }
 
     // optimized wrapper around Request, used for IRouter.Shift
@@ -193,7 +196,7 @@ module Http =
         override x.Files = req.Files
         override x.Cookies = req.Cookies
         override x.BodyText = req.BodyText
-        override x.BodyTextAsync = req.BodyTextAsync
+        override x.IsBodyTextCompleted = req.IsBodyTextCompleted
 
     /// Represents the status of HTTP responses.
     /// TODO

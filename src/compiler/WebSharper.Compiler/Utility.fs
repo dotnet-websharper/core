@@ -37,8 +37,7 @@ module internal Utility =
             Some (r.ReadToEnd()))
 
     let IsWebResourceAttribute (fullName: string) =
-        ["System.Web.UI.WebResourceAttribute"; "WebSharper.WebResourceAttribute"]
-        |> List.contains fullName
+        fullName = "WebSharper.WebResourceAttribute"
 
     /// Like `ReadResourceFromAssembly`, but checks if it is marked as WebResource.
     /// First consults if the resource has been marked with WebResourceAttribute, and if yes,

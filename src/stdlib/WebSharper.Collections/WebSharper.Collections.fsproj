@@ -5,6 +5,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="ExtraTopLevelOperators.fs" />
     <Compile Include="BalancedTree.fs" />
     <Compile Include="Pair.fs" />
     <Compile Include="Map.fs" />

@@ -1,41 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
-    <FSharpTool>True</FSharpTool>
     <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <FSharpTool>True</FSharpTool>
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
-    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="wsfscservice_start.sh">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <None Include="NLog.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <Content Include="wsfscservice_start.cmd">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="wsfscservice_start.sh">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
     <Compile Include="NamedPipeClient.fs" />
     <Compile Include="Program.fs" />
-    <Content Include="wsfsc.cmd">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="wsfsc.sh">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <None Include="paket.references" />
+    <None Include="NLog.config" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="wsfscservice_start.cmd" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="wsfscservice_start.sh" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="wsfsc.cmd" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="wsfsc.sh" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="default.win32manifest" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="App.config" />
-    <Content Include="default.win32manifest">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WebSharper.Compiler.FSharp\WebSharper.Compiler.FSharp.fsproj" />

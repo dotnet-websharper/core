@@ -194,4 +194,16 @@ let Tests =
             equal (Map Seq.empty) Map.empty
             equal (Map [("A",1); ("B",2); ("A",3)]) (Map [("A",3); ("B",2)])
         }
+
+        Test "Map.keys" {
+            let m = Map.ofList [(1, 5); (2, 9)]
+            equal (Map.keys m |> Array.ofSeq) [| 1; 2 |]
+            equal (m.Keys |> Array.ofSeq) [| 1; 2 |]
+        }
+
+        Test "Map.values" {
+            let m = Map.ofList [(1, 5); (2, 9)]
+            equal (Map.values m |> Array.ofSeq) [| 5; 9 |]
+            equal (m.Values |> Array.ofSeq) [| 5; 9 |]
+        }
     }

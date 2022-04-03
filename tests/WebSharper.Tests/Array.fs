@@ -880,4 +880,29 @@ let Tests =
             equal usArr.[0] 1us
             equal usArr.[1] 1036us
         }
+
+        Test "Array.insertAt" {
+            raises ([| 0 |] |> Array.insertAt 2 5)
+            equal ([| 0 .. 4 |] |> Array.insertAt 2 5) [|0; 1; 5; 2; 3; 4|]
+        }
+
+        Test "Array.removeAt" {
+            raises ([| 0 |] |> Array.removeAt 2)
+            equal ([| 0 .. 4 |] |> Array.removeAt 2) [|0; 1; 3; 4|]
+        }
+
+        Test "Array.updateAt" {
+            raises ([| 0 |] |> Array.updateAt 2 5)
+            equal ([| 0 .. 4 |] |> Array.updateAt 2 5) [|0; 1; 5; 3; 4|]
+        }
+
+        Test "Array.insertManyAt" {
+            raises ([| 0 |] |> Array.insertManyAt 2 [|5; 6|])
+            equal ([| 0 .. 4 |] |> Array.insertManyAt 2 [|5; 6|]) [|0; 1; 5; 6; 2; 3; 4|]
+        }
+
+        Test "Array.removeManyAt" {
+            raises ([| 0 |] |> Array.removeManyAt 2 2)
+            equal ([| 0 .. 4 |] |> Array.removeManyAt 2 2) [|0; 1; 4|]
+        }
     }

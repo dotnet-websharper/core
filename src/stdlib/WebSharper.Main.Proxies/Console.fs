@@ -54,8 +54,6 @@ type ConsoleProxy =
     [<Inline>]
     static member WriteLine(x: string, o1: obj, o2: obj, o3: obj) = C.Log(System.String.Format(x, o1, o2, o3))
     [<Inline>]
-    static member WriteLine(x: string, o1: obj, o2: obj, o3: obj, o4: obj) = C.Log(System.String.Format(x, o1, o2, o3, o4))
-    [<Inline>]
     static member WriteLine(x: string, o: obj[]) =  C.Log(System.String.Format(x, o))
     [<Inline>]
     static member WriteLine(x: uint32) = C.Log(x)

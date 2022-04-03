@@ -15,28 +15,47 @@ dependencies
         WebSharper == CURRENTVERSION
 files
     ../msbuild/WebSharper.CSharp.targets ==> build
-    ../build/Release/CSharp/net5.0/win-x64/deploy/*.dll ==> tools/net5.0/win-x64
-    ../build/Release/CSharp/net5.0/win-x64/deploy/**/*.dll ==> tools/net5.0/win-x64
-    ../build/Release/CSharp/net5.0/win-x64/deploy/ZafirCs.exe ==> tools/net5.0/win-x64
-    ../build/Release/CSharp/net5.0/win-x64/deploy/ZafirCs.dll.config ==> tools/net5.0/win-x64
-    ../build/Release/CSharp/net5.0/win-x64/deploy/ZafirCs.runtimeconfig.json ==> tools/net5.0/win-x64
-    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0/win-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/*.dll ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/**/*.dll ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/ZafirCs ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/ZafirCs.dll.config ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/ZafirCs.runtimeconfig.json ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-x64/deploy/zafircs-netcore.sh ==> tools/net5.0/linux-x64
-    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0/linux-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/*.dll ==> tools/net5.0/linux-musl-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/**/*.dll ==> tools/net5.0/linux-musl-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/ZafirCs ==> tools/net5.0/linux-musl-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/ZafirCs.dll.config ==> tools/net5.0/linux-musl-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/ZafirCs.runtimeconfig.json ==> tools/net5.0/linux-musl-x64
-    ../build/Release/CSharp/net5.0/linux-musl-x64/deploy/zafircs-netcore.sh ==> tools/net5.0/linux-musl-x64
-    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net5.0/linux-musl-x64
     ../build/Release/CSharp/netstandard2.0/WebSharper.MSBuild.CSharp.dll ==> tools/netstandard2.0
-    ../src/compiler/WebSharper.CSharp/runngen.ps1 ==> tools
+
+    ../build/Release/CSharp/net6.0/win-x64/deploy/*.dll ==> tools/net6.0/win-x64
+    ../build/Release/CSharp/net6.0/win-x64/deploy/**/*.dll ==> tools/net6.0/win-x64
+    ../build/Release/CSharp/net6.0/win-x64/deploy/wscsc.exe ==> tools/net6.0/win-x64
+    ../build/Release/CSharp/net6.0/win-x64/deploy/wscsc.dll.config ==> tools/net6.0/win-x64
+    ../build/Release/CSharp/net6.0/win-x64/deploy/wscsc.runtimeconfig.json ==> tools/net6.0/win-x64
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/win-x64
+
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/*.dll ==> tools/net6.0/linux-x64
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/**/*.dll ==> tools/net6.0/linux-x64
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/wscsc ==> tools/net6.0/linux-x64
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/wscsc.dll.config ==> tools/net6.0/linux-x64
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/wscsc.runtimeconfig.json ==> tools/net6.0/linux-x64
+    ../build/Release/CSharp/net6.0/linux-x64/deploy/wscsc.sh ==> tools/net6.0/linux-x64
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/linux-x64
+
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/*.dll ==> tools/net6.0/linux-musl-x64
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/**/*.dll ==> tools/net6.0/linux-musl-x64
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/wscsc ==> tools/net6.0/linux-musl-x64
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/wscsc.dll.config ==> tools/net6.0/linux-musl-x64
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/wscsc.runtimeconfig.json ==> tools/net6.0/linux-musl-x64
+    ../build/Release/CSharp/net6.0/linux-musl-x64/deploy/wscsc.sh ==> tools/net6.0/linux-musl-x64
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/linux-musl-x64
+
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/*.dll ==> tools/net6.0/osx-x64
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/**/*.dll ==> tools/net6.0/osx-x64
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/wscsc ==> tools/net6.0/osx-x64
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/wscsc.dll.config ==> tools/net6.0/osx-x64
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/wscsc.runtimeconfig.json ==> tools/net6.0/osx-x64
+    ../build/Release/CSharp/net6.0/osx-x64/deploy/wscsc.sh ==> tools/net6.0/osx-x64
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0/osx-x64
+
+    ../build/Release/CSharp/net6.0/deploy/*.dll ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/**/*.dll ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/wscsc.exe ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/wscsc.dll.config ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/wscsc.runtimeconfig.json ==> tools/net6.0
+    ../build/Release/CSharp/net6.0/deploy/wscsc.sh ==> tools/net6.0
+    ../src/compiler/WebSharper.FSharp/default.win32manifest ==> tools/net6.0
+
     ../build/Release/CSharp/netstandard2.0/FSharp.Core.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Mono.Cecil.dll ==> analyzers/dotnet/cs
     ../build/Release/CSharp/netstandard2.0/Mono.Cecil.Mdb.dll ==> analyzers/dotnet/cs

@@ -51,10 +51,10 @@ let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
     res |> As<('T1 * 'T2) []>
 
 [<Name "average">]
-let inline Average (arr: 'T []): 'T = As (float (Array.sum arr) / float (Array.length arr))
+let inline Average (arr: 'T []): 'T = As (As<float> (Array.sum arr) / As<float> (Array.length arr))
 
 [<Name "averageBy">]
-let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (float (Array.sumBy f arr) / float (Array.length arr))
+let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (As<float> (Array.sumBy f arr) / As<float> (Array.length arr))
 
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
@@ -732,3 +732,69 @@ let Windowed (windowSize: int) (s: 'T []) : array<'T []> =
 [<Name "splitAt">]
 let SplitAt (n: int) (ar: 'T []) =
     Take n ar, Skip n ar
+
+
+[<Name "insertAt">]
+let InsertAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            Array.append arr [|item|]
+        else
+            if index = 0 then
+                Array.append [|item|] arr
+            else
+                Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index..]
+    else
+        failwith "Incorrect index"
+
+[<Name "insertManyAt">]
+let InsertManyAt (index: int) (items: System.Collections.Generic.IEnumerable<'T>) (arr: 'T []): 'T [] =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            Array.append arr (items |> Array.ofSeq)
+        else
+            if index = 0 then
+                Array.append (items |> Array.ofSeq) arr
+            else
+                Array.append (Array.append arr.[0..index-1] (items |> Array.ofSeq)) arr.[index..]
+    else
+        failwith "Incorrect index"
+
+[<Name "removeAt">]
+let RemoveAt (index: int) (arr: 'T []): 'T [] =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            arr.[0..index-1]
+        else
+            if index = 0 then
+                Array.tail arr
+            else
+                Array.append arr.[0..index-1] arr.[index+1..]
+    else
+        failwith "Incorrect index"
+
+[<Name "removeManyAt">]
+let RemoveManyAt (index: int) (number: int) (arr: 'T []): 'T [] =
+    if index + number >= 0 && arr.Length > index + number then
+        if index + number = arr.Length then
+            arr.[0..index-1]
+        else
+            if index = 0 then
+                arr.[number..]
+            else
+                Array.append arr.[0..index-1] arr.[index+number..]
+    else
+        failwith "Incorrect index"
+
+[<Name "updateAt">]
+let UpdateAt (index: int) (item: 'T) (arr: 'T []): 'T [] =
+    if index >= 0 && arr.Length > index then
+        if index + 1 = arr.Length then
+            Array.append arr.[0..index-1] [|item|]
+        else
+            if index = 0 then
+                Array.append [|item|] (Array.tail arr)
+            else
+                Array.append (Array.append arr.[0..index-1] [|item|]) arr.[index+1..]
+    else
+        failwith "Incorrect index"

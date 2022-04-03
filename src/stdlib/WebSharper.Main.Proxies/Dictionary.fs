@@ -75,28 +75,108 @@ type private ValueCollectionEnumeratorProxy<'K,'V> [<JavaScript(false)>] () =
 [<Name "WebSharper.Collections.KeyCollection">]
 [<Proxy(typeof<D<_,_>.KeyCollection>)>]
 type private KeyCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    [<Name "Count">]
     member this.Count = d.Count 
 
+    member this.CopyTo(arr: 'K[], index: int) =
+        (Seq.toArray this).CopyTo(arr, index)    
+
+    [<Name "IsReadOnly">]
+    member this.IsReadOnly = true
+
+    member this.Contains(item: 'K) = d.ContainsKey(item)
+
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.KeyCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Key)).GetEnumerator())
             
     interface IEnumerable<'K> with
-        member this.GetEnumerator() = As<IEnumerator<'K>>(this.GetEnumerator())
-        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator<'K>>
+    
+    interface IEnumerable with
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator>
+
+    interface ICollection with
+        [<JavaScript(false)>]
+        member this.CopyTo(array: System.Array, index: int) = ()
+        [<JavaScript(false)>]
+        member this.Count = X<int>
+        [<JavaScript(false)>]
+        member this.IsSynchronized = X<bool>
+        [<JavaScript(false)>]
+        member this.SyncRoot = X<obj>
+
+    interface ICollection<'K> with
+        [<JavaScript(false)>]
+        member this.IsReadOnly = X<bool>
+        [<JavaScript(false)>]
+        member this.Count = X<int>  
+        [<JavaScript(false)>]
+        member this.Add(p) = ()
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'K[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(p) = X<bool>
 
 [<Name "WebSharper.Collections.ValueCollection">]
 [<Proxy(typeof<D<_,_>.ValueCollection>)>]
 type private ValueCollectionProxy<'K,'V> (d: D<'K,'V>) =
+    [<Name "Count">]
     member this.Count = d.Count 
 
+    member this.CopyTo(arr: 'V[], index: int) =
+        (Seq.toArray this).CopyTo(arr, index)    
+
+    [<Name "IsReadOnly">]
+    member this.IsReadOnly = true
+
+    member this.Contains(item: 'V) = d.ContainsValue(item)
+
+    [<Name "GetEnumerator">]
     member this.GetEnumerator() =
         As<D<'K,'V>.ValueCollection.Enumerator>(
             (d |> Seq.map(fun kvp -> kvp.Value)).GetEnumerator())
             
     interface IEnumerable<'V> with
-        member this.GetEnumerator() = As<IEnumerator<'V>>(this.GetEnumerator())
-        member this.GetEnumerator() = As<IEnumerator>(this.GetEnumerator())
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator<'V>>
+
+    interface IEnumerable with
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<IEnumerator>
+
+    interface ICollection with
+        [<JavaScript(false)>]
+        member this.CopyTo(array: System.Array, index: int) = ()
+        [<JavaScript(false)>]
+        member this.Count = X<int>
+        [<JavaScript(false)>]
+        member this.IsSynchronized = X<bool>
+        [<JavaScript(false)>]
+        member this.SyncRoot = X<obj>
+
+    interface ICollection<'V> with
+        [<JavaScript(false)>]
+        member this.IsReadOnly = X<bool>
+        [<JavaScript(false)>]
+        member this.Count = X<int>  
+        [<JavaScript(false)>]
+        member this.Add(p) = ()
+        [<JavaScript(false)>]
+        member this.Clear() = ()
+        [<JavaScript(false)>]
+        member this.Contains(p) = X<bool>
+        [<JavaScript(false)>]
+        member this.CopyTo(arr: 'V[], index: int) = ()
+        [<JavaScript(false)>]
+        member this.Remove(p) = X<bool>
 
 [<Proxy(typeof<D<_,_>.Enumerator>)>]
 [<Stub>]
@@ -191,6 +271,7 @@ type internal Dictionary<'K,'V when 'K : equality>
                 getHashCode comparer
             )
 
+        [<Name "DAdd">]
         member this.Add(k: 'K, v: 'V) =
             add k v
 
@@ -208,22 +289,83 @@ type internal Dictionary<'K,'V when 'K : equality>
                     equals.Call(dk, k)
                 ) 
 
+        member this.ContainsValue(v: 'V) =
+            (As<D<'K,'V>> this) |> Seq.exists (fun (KeyValue(_, x)) -> Unchecked.equals x v)
+
         member this.Count with [<Inline>] get () = count
 
+        [<Name("Item")>]
         member this.Item
             with get (k: 'K) : 'V = get k
             and set (k: 'K) (v: 'V) = set k v
 
-        member this.GetEnumerator() = As<D<'K,'V>.Enumerator> ((this :> System.Collections.IEnumerable).GetEnumerator())
-
-        interface System.Collections.IEnumerable with
-            member this.GetEnumerator() = 
-                let s = JS.GetFieldValues data
-                (As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator()
+        [<Name("GetEnumerator")>]
+        member this.GetEnumerator() = 
+            let s = JS.GetFieldValues data
+            As<D<'K,'V>.Enumerator> ((As<KeyValuePair<'K,'V>[][]> s |> Array.concat).GetEnumerator())
             
+        interface System.Collections.IEnumerable with
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>            
+        
         interface IEnumerable<KeyValuePair<'K,'V>> with
-            member this.GetEnumerator() = As<IEnumerator<KeyValuePair<'K,'V>>> ((this :> System.Collections.IEnumerable).GetEnumerator())
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<_>            
 
+        interface ICollection<KeyValuePair<'K,'V>> with
+            member this.IsReadOnly = false
+            member this.Count = count  
+            member this.Add(p) = this.Add(p.Key, p.Value)
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(JavaScriptOptions.DefaultToUndefined)>]
+            member this.Contains(p) =
+                match this.TryGetValue(p.Key) with
+                | true, v when Unchecked.equals v p.Value -> true
+                | _ -> false
+            member this.CopyTo(arr: KeyValuePair<'K,'V>[], index: int) =
+                (Seq.toArray this).CopyTo(arr, index)
+            [<JavaScript(JavaScriptOptions.DefaultToUndefined)>]
+            member this.Remove(p) =
+                match this.TryGetValue(p.Key) with
+                | true, v when Unchecked.equals v p.Value ->
+                    this.Remove p.Key
+                | _ -> false
+
+        interface ICollection with
+            [<JavaScript(false)>]
+            member this.CopyTo(array: System.Array, index: int) = ()
+            [<JavaScript(false)>]
+            member this.Count = X<int>
+            [<JavaScript(false)>]
+            member this.IsSynchronized = X<bool>
+            [<JavaScript(false)>]
+            member this.SyncRoot = X<obj>
+
+        interface IDictionary with
+            [<JavaScript(false)>]
+            member this.Add(key: obj, value: obj) = ()
+            [<JavaScript(false)>]
+            member this.Clear() = ()
+            [<JavaScript(false)>]
+            member this.Contains(key: obj) = X<bool>
+            [<JavaScript(false)>]
+            member this.GetEnumerator() = X<IDictionaryEnumerator>
+            [<JavaScript(false)>]
+            member this.Remove(key: obj) = ()
+            member this.IsFixedSize = false
+            [<JavaScript(false)>]
+            member this.IsReadOnly = X<bool>
+            [<JavaScript(false)>]
+            member this.Item 
+                with get key = X<obj>
+                and set key value = ()
+            [<JavaScript(false)>]
+            member this.Keys = X<ICollection>
+            [<JavaScript(false)>]
+            member this.Values = X<ICollection>
+
+        [<Name("RemoveKey")>]
         member this.Remove(k: 'K) =
             remove k
 
@@ -243,8 +385,10 @@ type internal Dictionary<'K,'V when 'K : equality>
                     true
                 | _ -> false
 
+        [<Name("Values")>]
         member this.Values =
             As<D<'K,'V>.ValueCollection>(ValueCollectionProxy(As<D<'K,'V>>this))
 
+        [<Name("Keys")>]
         member this.Keys =
             As<D<'K,'V>.KeyCollection>(KeyCollectionProxy(As<D<'K,'V>>this))

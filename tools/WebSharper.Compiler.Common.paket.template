@@ -13,7 +13,6 @@ tags
 dependencies
     framework: netstandard2.0
         WebSharper == CURRENTVERSION
-        System.Configuration.ConfigurationManager >= LOCKEDVERSION
         System.Runtime.Loader >= LOCKEDVERSION
         Mono.Cecil >= LOCKEDVERSION
         FSharp.Core >= LOCKEDVERSION

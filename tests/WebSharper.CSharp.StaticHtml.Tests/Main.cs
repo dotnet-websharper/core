@@ -1,4 +1,4 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
@@ -17,22 +17,19 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-open WebSharper
-open WebSharper.Html.Server
-let app =
-    Warp.CreateSPA(fun _ ->
-        [
-            Div [
-                Testing.Runner.Run [
-                    typeof<WebSharper.Collections.Tests.Dictionary.Foo>.Assembly
-                    typeof<WebSharper.Tests.AddMacro>.Assembly
-                    typeof<WebSharper.Web.Tests.HelloWorld>.Assembly
-                    typeof<WebSharper.Html5.Tests.Samples>.Assembly
-                ]
-            ]
-        ])
-    |> Warp.Run
-printfn "Started."
-do System.Diagnostics.Process.Start("http://localhost:9000") |> ignore
-System.Console.ReadLine() |> ignore
-app.Stop()
+
+using System.Collections.Generic;
+using WebSharper.Sitelets;
+
+[assembly: Website(typeof(WebSharper.StaticHtml.Tests.WebsiteEntryPoint))]
+
+namespace WebSharper.StaticHtml.Tests;
+
+class WebsiteEntryPoint : IWebsite<object>
+{
+    public IEnumerable<object> Actions =>
+        new WebSharper.Tests.Website.WebsiteEntryPoint().Actions;
+
+    public Sitelet<object> Sitelet =>
+        WebSharper.Tests.Website.Content.Main(false).Box();
+}

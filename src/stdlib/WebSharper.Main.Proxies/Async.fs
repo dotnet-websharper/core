@@ -213,8 +213,4 @@ type private CancellationTokenSourceProxy () =
 [<Proxy(typeof<System.Threading.CancellationTokenRegistration>)>]
 type private CancellationTokenRegistrationProxy =
     [<Inline>]
-    member this.Dispose() = (this :> System.IDisposable).Dispose() 
-    
-    interface System.IDisposable with
-        [<JavaScript false>]
-        member this.Dispose() = ()
+    member this.Dispose() = (As<System.IDisposable> this).Dispose() 

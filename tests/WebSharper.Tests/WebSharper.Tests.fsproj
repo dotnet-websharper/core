@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <WebSharperConfigFile>testwsconfig.json</WebSharperConfigFile>
     <!-- Test #645: accept string nowarn arguments -->
@@ -11,7 +11,6 @@
   <ItemGroup>
     <Compile Include="FromUI/AppendList.fsi" />
     <Compile Include="FromUI/AppendList.fs" />
-    <Compile Include="Collections.fs" />
     <Compile Include="Dependencies.fs" />
     <Compile Include="AddressOf.fs" />
     <Compile Include="Array.fs" />

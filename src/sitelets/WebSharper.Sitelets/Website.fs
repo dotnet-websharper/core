@@ -27,7 +27,7 @@ open System.Web
 /// Define a Sitelets website. This interface must be
 /// implemented by the type passed to WebsiteAttribute.
 type IWebsite<'Action when 'Action : equality> =
-    abstract Actions : list<'Action>
+    abstract Actions : seq<'Action>
     abstract Sitelet : Sitelet<'Action>
 
 /// The action type for SinglePageWebsite.
@@ -64,7 +64,7 @@ module Utils =
                         match website with
                         | :? IWebsite<'T> as website -> website
                         | _ -> failwith "Invalid type: IWebsite not implemented."
-                    (Sitelet.Box website.Sitelet, List.map box website.Actions)
+                    (Sitelet.Box website.Sitelet, Seq.map box website.Actions |> List.ofSeq)
         }
 
 /// Mark an assembly that contains a Sitelets website, or a Sitelet static property.

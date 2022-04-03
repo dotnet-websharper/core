@@ -44,11 +44,17 @@ type WebSharperCSharpAnalyzer () =
     static let wsError = 
         new DiagnosticDescriptor ("WebSharperError", "WebSharper errors", "{0}", "WebSharper", DiagnosticSeverity.Error, true, null, null)
 
+    static let mutable testing = false
+
     let mutable compiling = false;
     let mutable lastRefPaths = [ "" ]
     let mutable cachedRefErrorsAndMeta = None
 
     let cachedRefMeta = Dictionary() 
+
+    static member IsTest
+        with get() = testing
+        and set v = testing <- v
 
     member this.GetRefMeta(path) =
         lock cachedRefMeta <| fun () ->
@@ -87,60 +93,63 @@ type WebSharperCSharpAnalyzer () =
         ImmutableArray.Create(wsWarning, wsError)
 
     override this.Initialize(initCtx) =
-        initCtx.RegisterCompilationAction(fun startCtx ->
-            compiling <- true
-        )
+        initCtx.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        if not testing then
+            // tun off for whole compilations
+            initCtx.RegisterCompilationAction(fun startCtx ->
+                compiling <- true
+            )
         initCtx.RegisterSemanticModelAction(fun ctx ->
             if compiling then () else
                 this.Analyze(ctx.SemanticModel.Compilation :?> CSharpCompilation, ctx)
         )
 
     member this.Analyze(compilation: CSharpCompilation, ctx: SemanticModelAnalysisContext) =
-            let refPaths =
-                compilation.ExternalReferences |> Seq.choose (fun r -> 
-                    match r with
-                    | :? PortableExecutableReference as cr -> Some cr.FilePath
-                    | _ -> None
-                )
-                |> List.ofSeq
+        let refPaths =
+            compilation.ExternalReferences |> Seq.choose (fun r -> 
+                match r with
+                | :? PortableExecutableReference as cr -> Some cr.FilePath
+                | _ -> None
+            )
+            |> List.ofSeq
             
-            let refErrors, refMeta =
-                if refPaths = lastRefPaths then
-                    cachedRefErrorsAndMeta.Value
-                else
-                
-                    let referencedAsmNames =
-                        refPaths
-                        |> Seq.map (fun i -> 
-                            let n = Path.GetFileNameWithoutExtension(i)
-                            n, i
-                        )
-                        |> Map.ofSeq
-
-                    System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
-                        let assemblyName = AssemblyName(e.Name).Name
-                        if assemblyName = "FSharp.Core" then
-                            typeof<option<_>>.Assembly
-                        else
-                        match Map.tryFind assemblyName referencedAsmNames with
-                        | None -> null
-                        | Some p -> Assembly.LoadFrom(p)
-                    )
-
-                    let metas = refPaths |> List.map this.GetRefMeta
-                    let refErrors = metas |> List.choose snd
-
-                    let refMeta =
-                        if List.isEmpty metas || not (List.isEmpty refErrors) then None 
-                        else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
-
-                    cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
-                    cachedRefErrorsAndMeta.Value
-
-            if not (List.isEmpty refErrors) then
-                for err in refErrors do    
-                    ctx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+        let refErrors, refMeta =
+            if refPaths = lastRefPaths then
+                cachedRefErrorsAndMeta.Value
             else
+                
+                let referencedAsmNames =
+                    refPaths
+                    |> Seq.map (fun i -> 
+                        let n = Path.GetFileNameWithoutExtension(i)
+                        n, i
+                    )
+                    |> Map.ofSeq
+
+                System.AppDomain.CurrentDomain.add_AssemblyResolve(fun _ e ->
+                    let assemblyName = AssemblyName(e.Name).Name
+                    if assemblyName = "FSharp.Core" then
+                        typeof<option<_>>.Assembly
+                    else
+                    match Map.tryFind assemblyName referencedAsmNames with
+                    | None -> null
+                    | Some p -> Assembly.LoadFrom(p)
+                )
+
+                let metas = refPaths |> List.map this.GetRefMeta
+                let refErrors = metas |> List.choose snd
+
+                let refMeta =
+                    if List.isEmpty metas || not (List.isEmpty refErrors) then None 
+                    else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
+
+                cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
+                cachedRefErrorsAndMeta.Value
+
+        if not (List.isEmpty refErrors) then
+            for err in refErrors do    
+                ctx.ReportDiagnostic(Diagnostic.Create(wsError, Location.None, err))
+        else
             try
                 if compilation.GetDiagnostics() |> Seq.exists (fun d -> d.Severity = DiagnosticSeverity.Error) then () else
 

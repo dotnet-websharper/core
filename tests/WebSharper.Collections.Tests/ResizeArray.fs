@@ -56,7 +56,7 @@ let Tests =
             property (fun (a: ResizeArray<_>) -> Do {
                 let b = a.AsReadOnly()
                 forEach {0 .. a.Count - 1} (fun i -> Do {
-                    equal a.[i] (As<_[]> b).[i]
+                    equal (As<_[]> b).[i] a.[i]
                 })
             })
         }

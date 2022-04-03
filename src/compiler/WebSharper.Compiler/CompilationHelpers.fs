@@ -581,7 +581,7 @@ let makeExprInline (vars: Id list) expr =
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
 
 module JSRuntime =
-    let private runtime = ["Runtime"; "IntelliFactory"]
+    let private runtime = ["Runtime"; "WebSharper"]
     let private runtimeFunc f p args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Application(GlobalAccess (Address (f :: runtime)), args, p, Some i)
     let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
@@ -951,7 +951,10 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | ConstructorNode (td, c) -> 
             (getOrAddClass td).Constructors.Add(c, meta.Classes.[td].Constructors.[c])
         | ImplementationNode (td, i, m) ->
-            (getOrAddClass td).Implementations.Add((i, m), meta.Classes.[td].Implementations.[i, m])
+            match meta.Classes.[td].Implementations.TryFind(i, m) with
+            | Some impl ->
+                (getOrAddClass td).Implementations.Add((i, m), impl)
+            | _ -> ()
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 

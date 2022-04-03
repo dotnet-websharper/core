@@ -44,7 +44,8 @@ type private ListProxy<'T> =
     member this.Item with get (x: int) : 'T = List.item x (As this)
 
     interface System.Collections.IEnumerable with
-        member this.GetEnumerator() = (this :> _ seq).GetEnumerator() :> _
+        [<JavaScript(false)>]
+        member this.GetEnumerator() = X<_>
 
     interface seq<'T> with
         member this.GetEnumerator() =

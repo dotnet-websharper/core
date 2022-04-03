@@ -1,2 +1,7 @@
+group nunit
+   NUnit
+   NUnit3TestAdapter
+   Microsoft.NET.Test.Sdk
+   FSUnit
 group fcs
    FSharp.Core

@@ -146,7 +146,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
         let env = CodeReader.Environment.New ([], [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -179,6 +179,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             p, Some proxied
         | _ -> thisDef, None
 
+    let isProxy = Option.isSome annot.ProxyOf 
+    let isInterfaceProxy = isProxy && isInterface def
+
     if annot.IsJavaScriptExport then
         comp.AddJavaScriptExport (ExportNode (TypeNode def))
 
@@ -204,6 +207,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | None -> [] 
                     | Some (_, _, ids, _) -> ids
                 Warn = mAnnot.Warn
+                JavaScriptOptions = mAnnot.JavaScriptOptions
             }
         match curriedArgs with
         | Some (mem, ca, args, inst) ->
@@ -214,7 +218,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let addMethod (mem: option<FSMFV * Member>) (mAnnot: A.MemberAnnotation) (mdef: Method) kind compiled curriedArgs expr =
         match proxied, mem with
         | Some ms, Some (mem, memdef) ->
-            if not <| ms.Contains memdef then
+            if not isInterfaceProxy && not (ms.Contains memdef) then
                 let candidates =
                     let n = mdef.Value.MethodName
                     match memdef with
@@ -244,6 +248,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     if not (mem.Accessibility.IsPrivate || mem.Accessibility.IsInternal) then
                         let msg = "Proxy member do not match any member names of target class."
                         comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
+                elif def.Value.FullName.StartsWith "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`" then
+                    () // ignore warnings for OptimizedClosures, they are expected
                 else 
                     let msg = sprintf "Proxy member do not match any member signatures of target class %s. Current: %s, candidates: %s" (string def.Value) (string mdef.Value) (String.concat ", " candidates)
                     comp.AddWarning(Some (CodeReader.getRange mem.DeclarationLocation), SourceWarning msg)
@@ -364,7 +370,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         |> HashSet
 
     let baseCls =
-        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" || isInterfaceProxy then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t.TypeDefinition |> sr.ReadTypeDefinition |> ignoreSystemObject)
@@ -421,8 +427,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     if Option.isSome comp.ProxyTargetName && kind = A.MemberKind.JavaScript then
                         match meth.InlineAnnotation with
                         | FSharpInlineAnnotation.AggressiveInline
-                        | FSharpInlineAnnotation.AlwaysInline
-                        | FSharpInlineAnnotation.PseudoValue ->
+                        | FSharpInlineAnnotation.AlwaysInline ->
                             A.MemberKind.InlineJavaScript
                         | _ -> kind
                     else kind
@@ -632,7 +637,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let checkNotAbstract() =
                         if meth.IsDispatchSlot then
                             error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
-                        else
+                        elif not isInterfaceProxy then
                             match memdef with
                             | Member.Override (bTyp, _) -> 
                                 if not (bTyp = Definitions.Obj || bTyp = Definitions.ValueType) then
@@ -730,7 +735,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
                     clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
-            | None -> ()
+            | None ->
+                if isProxy then
+                    let memdef = sr.ReadMember meth
+                    match memdef with
+                    | Member.Implementation (t, mdef) ->    
+                        addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
+                    | _ -> ()
             let jsArgs =
                 meth.CurriedParameterGroups
                 |> Seq.concat
@@ -748,19 +759,36 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
             transformInitAction sc comp sr annot expr    
 
+    if isInterfaceProxy then
+        let methodNames = 
+            clsMembers |> Array.ofSeq |> Array.choose (fun m ->
+                match m with
+                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                    clsMembers.Remove(m) |> ignore
+                    Some (mem, sn)
+                | _ -> None 
+            )     
+        let intf =
+            {
+                StrongName = annot.Name 
+                Extends = annot.ProxyExtends
+                NotResolvedMethods = List.ofArray methodNames 
+            }
+        comp.AddInterface(def, intf)
+    
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif fsharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && (isAbstractClass cls || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && ((isAbstractClass cls && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
@@ -993,7 +1021,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase || isInterfaceProxy
             ForceAddress = hasSingletonCase || def.Value.FullName = "System.Exception" // needed for Error inheritance
         }
     )
@@ -1047,9 +1075,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         | true, ores -> Some ores
         | _ ->
             let t = typ.Value
+            let assemblies =
+                if t.Assembly = "netstandard" then
+                    lookupAssembly.Value |> Map.toSeq |> Seq.choose (fun (n, a) -> if n.StartsWith "System" then Some a else None)     
+                else
+                    [| lookupAssembly.Value.[t.Assembly] |]
             let path = t.FullName.Split('+')
             let mutable res =
-                lookupAssembly.Value.[t.Assembly].Entities |> Seq.tryFind (fun e ->
+                assemblies |> Seq.collect (fun a -> a.Entities) |> Seq.tryFind (fun e ->
                     match e.TryFullName with
                     | Some fn when fn = path.[0] -> true
                     | _ -> false
@@ -1057,8 +1090,20 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             for i = 1 to path.Length - 1 do
                 if res.IsSome then
                     res <- res.Value.NestedEntities |> Seq.tryFind (fun e -> e.CompiledName = path.[i])
-        
+            res |> Option.iter (fun td -> typeImplLookup.Add(typ, td))
             res
+
+    let isInterface (typ: TypeDefinition) =
+        match lookupTypeDefinition typ with
+        | Some e -> e.IsInterface
+        | None ->
+            try
+                let t = Reflection.LoadTypeDefinition typ
+                t.IsInterface
+            with _ ->
+                let msg = "Proxy target type could not be loaded: " + typ.Value.FullName
+                comp.AddWarning(None, SourceWarning msg)
+                false
 
     let readAttribute (a: FSharpAttribute) =
         try
@@ -1308,7 +1353,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             

@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
@@ -11,6 +11,7 @@
     <Compile Include="Context.fs" />
     <Compile Include="RemotingHandler.fs" />
     <Compile Include="SiteletsHandler.fs" />
+    <Compile Include="ContentExtensions.fs" />
     <Compile Include="WebContextExtensions.fs" />
     <Compile Include="ApplicationBuilderExtensions.fs" />
     <None Include="paket.references" />

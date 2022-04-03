@@ -31,6 +31,7 @@ open Mono.Cecil
 open WebSharper.Compiler
 open WebSharper.Sitelets
 open WebSharper.Web
+open WebSharper.Constants
 
 module C = WebSharper.Sitelets.Content
 module H = WebSharper.Compiler.HtmlCommand
@@ -40,21 +41,6 @@ module M = WebSharper.Core.Metadata
 module P = PathUtility
 //module Re = WebSharper.Core.Reflection
 module R = WebSharper.Core.Resources
-
-[<Literal>]
-let EMBEDDED_JS = "WebSharper.js"
-
-[<Literal>]
-let EMBEDDED_MINJS = "WebSharper.min.js"
-
-[<Literal>]
-let EMBEDDED_MAP = "WebSharper.map"
-
-[<Literal>]
-let EMBEDDED_MINMAP = "WebSharper.min.map"
-
-[<Literal>]
-let EMBEDDED_DTS = "WebSharper.d.ts"
 
 type Mode = H.Mode
 

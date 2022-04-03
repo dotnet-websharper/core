@@ -135,3 +135,6 @@ module internal MapModule =
         |> T.OfSeq
         |> OfTree
 
+    let Keys (m: Map<'K, 'V>) : System.Collections.Generic.ICollection<'K> = m.Keys
+
+    let Values (m: Map<'K, 'V>) : System.Collections.Generic.ICollection<'V> = m.Values

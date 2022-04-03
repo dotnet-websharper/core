@@ -282,4 +282,13 @@ let Tests =
             equal (Set.unionMany seqOfSet) set3
         }
 
+        Test "Set collection conversions" {
+            let set1 = Set.ofArray [| 1 .. 7 |]
+            let set2 = Set.ofSeq { 1 .. 7 }
+            let set3 = set { 1 .. 7 }
+            equal set1.Count 7
+            equal set2.Count 7
+            equal set3.Count 7
+        }
+
     }

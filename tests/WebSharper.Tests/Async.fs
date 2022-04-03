@@ -299,4 +299,19 @@ let Tests =
             equal x 1 
         }
 
+        Test "Using" {
+            let res = ref 0
+            let d =
+                { new System.IDisposable with
+                    member x.Dispose() =
+                        incr res
+                }
+            let! x = 
+                async {
+                    use dd = d
+                    return !res
+                }
+            equal x 0
+            equal !res 1
+        }
     }

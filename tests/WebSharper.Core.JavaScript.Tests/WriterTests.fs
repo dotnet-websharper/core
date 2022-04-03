@@ -20,10 +20,13 @@
 
 module WebSharper.Core.JavaScript.Test.WriterTests
 
+open NUnit.Framework
+
 module S = WebSharper.Core.JavaScript.Syntax
 module W = WebSharper.Core.JavaScript.Writer
 type private P = WebSharper.Core.JavaScript.Preferences
 
+[<Test>]
 let Run () =
     Section "Writer"
 

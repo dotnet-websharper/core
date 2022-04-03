@@ -28,13 +28,17 @@ open WebSharper.CSharp.Tests
 [<JavaScript>]
 let Tests =
     TestCategory "Interop" {
-
-        Skip "C# records" {
+        Test "C# records" {
             let p1 = Person("A", "B")
             equal p1.FirstName "A"
             equal p1.LastName "B"
-            //equal (p1.``<Clone>$``()) p1
-            //let p2 = PersonP("A", "B")
-            //p2.Deconstruct
+            equal (p1.``<Clone>$``()) p1
+            let p2 = PersonP("A", "B")
+            let dec =
+                let mutable a = ""
+                let mutable b = ""
+                p2.Deconstruct(&a, &b)
+                a, b
+            equal dec ("A", "B")
         }
     }

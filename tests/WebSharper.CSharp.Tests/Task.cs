@@ -142,22 +142,29 @@ namespace WebSharper.CSharp.Tests
         [Test]
         public async Task WebWorker()
         {
-            var worker = new JavaScript.Worker(self =>
+            if (Remoting.ShouldRun)
             {
-                self.Onmessage = e =>
+                var worker = new JavaScript.Worker(self =>
                 {
-                    self.PostMessage(GlobalClass.GlobalFunction((string)e.Data));
+                    self.Onmessage = e =>
+                    {
+                        self.PostMessage(GlobalClass.GlobalFunction((string)e.Data));
+                    };
+                });
+                var t = new TaskCompletionSource<string>();
+                worker.Onmessage = e =>
+                {
+                    t.SetResult("The worker replied: " + (string)e.Data);
                 };
-            });
-            var t = new TaskCompletionSource<string>();
-            worker.Onmessage = e =>
+                worker.PostMessage("Hello world!");
+                var res = await t.Task;
+                worker.Terminate();
+                Equal(res, "The worker replied: [worker] Hello world!");
+            }
+            else
             {
-                t.SetResult("The worker replied: " + (string)e.Data);
-            };
-            worker.PostMessage("Hello world!");
-            var res = await t.Task;
-            worker.Terminate();
-            Equal(res, "The worker replied: [worker] Hello world!");
+                Expect(0);
+            }
         }
     }
 

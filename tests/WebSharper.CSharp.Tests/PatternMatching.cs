@@ -111,6 +111,14 @@ namespace WebSharper.CSharp.Tests
             if (o2 is { X: (var x2, var y2), Y: var z })
                 res = x2 + y2 + z;
             Equal(res, 6);
+            if (o2 is { X.Item2: var y3, Y: var z3 }) 
+                res = y3 + z3;
+            Equal(res, 5);
+            var o4 = new { X = new { Y = new { Z = 2 } } };
+            if (o4 is { X.Y.Z: var xyz })
+                res = xyz;
+            Equal(res, 2);
+
         }
 
         [Test]

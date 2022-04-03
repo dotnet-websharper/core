@@ -582,7 +582,7 @@ type Environment =
     
 let rec (|CompGenClosure|_|) (expr: FSharpExpr) =
     match expr with 
-    | P.Let((clo1, value), P.Lambda (x1, (P.Application(P.Value clo2, _, [P.Value x2]) | CompGenClosure(P.Application(P.Value clo2, _, [P.Value x2]))))) 
+    | P.Let((clo1, value, _), P.Lambda (x1, (P.Application(P.Value clo2, _, [P.Value x2]) | CompGenClosure(P.Application(P.Value clo2, _, [P.Value x2]))))) 
         when clo1.IsCompilerGenerated && clo1 = clo2 && x1 = x2 ->
             Some value
     | _ -> None
@@ -652,7 +652,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 List.foldBack2 (fun i v b -> Let(i, trArg v, b)) vars args (tr body)
             let trArg x = tr x |> removeListOfArray x.Type
             match func with
-            | P.Let((o, objectArg), CompGenLambda args.Length (ids, body)) ->
+            | P.Let((o, objectArg, _), CompGenLambda args.Length (ids, body)) ->
                 let ov = namedId o
                 Let(ov, tr objectArg, compGenCurriedAppl (env.WithVar(ov, o)) ids body)    
             | CompGenLambda args.Length (ids, body) ->
@@ -674,7 +674,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         // eliminating unneeded compiler-generated closures
         | CompGenClosure value ->
             tr value
-        | P.Let((id, value), body) ->
+        | P.Let((id, value, _), body) ->
             let i = namedId id
             let trValue = tr value
             let env = env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
@@ -685,7 +685,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 Let (i, trValue, tr body)
         | P.LetRec(defs, body) ->
             let mutable env = env
-            let ids = defs |> List.map (fun (id, _) ->
+            let ids = defs |> List.map (fun (id, _, _) ->
                 let i = namedId id
                 env <- env.WithVar(i, id, if isByRef id.FullType then ByRefArg else LocalVar)
                 i
@@ -693,7 +693,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let inline tr x = transformExpression env x
             LetRec (
                 Seq.zip ids defs 
-                |> Seq.map (fun (i, (_, v)) -> i, tr v) |> List.ofSeq, 
+                |> Seq.map (fun (i, (_, v, _)) -> i, tr v) |> List.ofSeq, 
                 tr body
             )
         | P.Call(this, meth, typeGenerics, methodGenerics, arguments) ->
@@ -775,10 +775,10 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             match before with
             | None -> call
             | Some a -> Sequential [a; call]
-        | P.TryFinally (body, final) ->
+        | P.TryFinally (body, final, _, _) ->
             let res = newId()
             StatementExpr (TryFinally(VarSetStatement(res, tr body), ExprStatement (tr final)), Some res)
-        | P.TryWith (body, var, filter, e, catch) -> // TODO: var, filter?
+        | P.TryWith (body, var, filter, e, catch, _, _) -> // TODO: var, filter?
             let err = namedId e
             let res = newId()
             StatementExpr (
@@ -790,7 +790,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             NewArray (items |> List.map tr)              
         | P.NewTuple (_, items) ->
             NewArray (items |> List.map tr)              
-        | P.WhileLoop (cond, body) ->
+        | P.WhileLoop (cond, body, _) ->
             IgnoredStatementExpr(While(tr cond, ExprStatement (Capturing().CaptureValueIfNeeded(tr body))))
         | P.ValueSet (var, value) ->
             if var.IsModuleValueOrMember then
@@ -816,7 +816,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 | ThisArg -> failwith "'this' parameter cannot be set"
         | P.TupleGet (_, i, tuple) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
-        | P.FastIntegerForLoop (start, end_, body, up) ->
+        | P.FastIntegerForLoop (start, end_, body, up, _, _) ->
             let j = newId()
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
@@ -1196,7 +1196,7 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
             List.iter scan expr.ImmediateSubExpressions
         try
             match expr with
-            | P.Let ((id, (P.Quote value)), body) ->
+            | P.Let ((id, (P.Quote value), _), body) ->
                 // I'd rather pass around a Map than do this dictionary mutation,
                 // but the type FSharpMemberOrFunctionOrValue isn't comparable :(
                 vars.[id] <- value

@@ -18,13 +18,11 @@
 //
 // $end{copyright}
 
-module WebSharper.Tests.Collections
+module WebSharper.Collections.Tests.Interfaces
 
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
-
-module R = WebSharper.Testing.RandomValues
 
 [<JavaScript>]
 type CollectionTest () =
@@ -32,7 +30,9 @@ type CollectionTest () =
     interface System.Collections.ICollection with
         member this.CopyTo(arr, ind) = Array.blit innerCollection ind (arr :?> int []) 0 (innerCollection.Length)
         member this.Count = innerCollection.Length
+        [<JavaScript(false)>]
         member this.IsSynchronized = false
+        [<JavaScript(false)>]
         member this.SyncRoot = this :> obj
         member this.GetEnumerator () = innerCollection.GetEnumerator()
 
@@ -64,7 +64,9 @@ type ListTest() =
     interface System.Collections.IList with
         member this.Count = innerCollection.Length
         member this.GetEnumerator () = innerCollection.GetEnumerator()
+        [<JavaScript(false)>]
         member this.IsSynchronized = false
+        [<JavaScript(false)>]
         member this.SyncRoot = this :> obj
         member this.CopyTo(arr, ind) = Array.blit innerCollection ind (arr :?> obj []) 0 (innerCollection.Length)
         member this.IsFixedSize = false
@@ -238,7 +240,9 @@ type DictTest() =
         member this.GetEnumerator () : System.Collections.IDictionaryEnumerator = null
         member this.Clear () = innerCollection <- [||]
         member this.IsFixedSize = false
+        [<JavaScript(false)>]
         member this.SyncRoot = null
+        [<JavaScript(false)>]
         member this.IsSynchronized = false
         member this.Item
             with get ind = innerCollection |> Array.find (fun (k, _) -> ind = k) |> snd
@@ -259,7 +263,7 @@ type DictTest() =
         
 [<JavaScript>]
 let Tests =
-    TestCategory "Generic Collections" {
+    TestCategory "Collection interfaces" {
         Test "ICollection" {
             let cT = CollectionTest()
             let expected = [|1;3;5|]
@@ -267,8 +271,8 @@ let Tests =
             (cT :> System.Collections.ICollection).CopyTo(arr, 0)
             equal arr expected
             equal ((cT :> System.Collections.ICollection).Count) 3
-            equal ((cT :> System.Collections.ICollection).SyncRoot) (cT :> obj)
-            equal ((cT :> System.Collections.ICollection).IsSynchronized) false
+            //equal ((cT :> System.Collections.ICollection).SyncRoot) (cT :> obj)
+            //equal ((cT :> System.Collections.ICollection).IsSynchronized) false
         }
         
         Test "ICollection'T" {

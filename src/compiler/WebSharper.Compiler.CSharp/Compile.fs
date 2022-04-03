@@ -263,7 +263,6 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
             References = refs |> Seq.distinct |> Array.ofSeq
             Resources = resources.ToArray()
             CompilerArgs = cscArgs.ToArray() 
-            VSStyleErrors = true
         }
     wsArgs := SetDefaultProjectFile !wsArgs false
     wsArgs := SetScriptBaseUrl !wsArgs

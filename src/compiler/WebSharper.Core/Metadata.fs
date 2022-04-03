@@ -25,6 +25,7 @@ module WebSharper.Core.Metadata
 open System.Collections.Generic
 open System.Runtime.InteropServices
 open WebSharper.Core.AST
+open WebSharper.Constants
 
 type RemotingKind =
     | RemoteAsync
@@ -516,15 +517,14 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "5.0"
+    let CurrentVersion = "6.0-rev1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)
 
     let LoadRuntimeMetadata(a: System.Reflection.Assembly) =
-        let n = "WebSharper.runtime.meta"
-        if Array.exists ((=) n) (a.GetManifestResourceNames()) then
-            use s = a.GetManifestResourceStream n
+        if Array.exists ((=) EMBEDDED_RUNTIME_METADATA) (a.GetManifestResourceNames()) then
+            use s = a.GetManifestResourceStream EMBEDDED_RUNTIME_METADATA
             try
                 Some (Decode s)
             with e ->

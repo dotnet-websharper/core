@@ -43,151 +43,56 @@ type WebSharperOptions
     internal 
     (
         services: IServiceProvider,
-        config: IConfiguration,
         contentRoot: string,
         webRoot: string,
-        isDebug: bool,
-        sitelet: option<Sitelet<obj>>,
-        siteletAssembly: Assembly,
-        metadata: option<M.Info>,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
     ) =
 
-    member val AuthenticationScheme = "WebSharper" with get, set
-
     member this.Services = services
-
-    member this.Configuration = config
 
     member this.UseSitelets = useSitelets
 
     member this.UseRemoting = useRemoting
 
-    member this.Metadata = metadata
-
-    //member this.Dependencies = dependencies
-
-    //member this.Json = json
-
-    member this.IsDebug = isDebug
-
     member this.WebRootPath = webRoot
 
     member this.ContentRootPath = contentRoot
-
-    member this.Sitelet = sitelet
-
-    member this.SiteletAssembly = siteletAssembly
 
     member internal this.UseExtension = useExtension
 
     static member Create
         (
             services: IServiceProvider,
-            [<Optional>] sitelet: Sitelet<'T>,
-            [<Optional>] config: IConfiguration,
             [<Optional>] logger: ILogger,
             [<Optional>] binDir: string,
             [<Optional; DefaultParameterValue true>] useSitelets: bool,
-            [<Optional; DefaultParameterValue true>] useRemoting: bool,
-            [<Optional>] siteletAssembly: Assembly,
-            [<Optional>] metadata: M.Info
+            [<Optional; DefaultParameterValue true>] useRemoting: bool
         ) =
-        let siteletOpt =
-            if obj.ReferenceEquals(sitelet, null)
-            then None
-            else Some (Sitelet.Box sitelet)
-        let metadataOpt =
-            if obj.ReferenceEquals(metadata, null)
-            then None
-            else Some metadata
-        WebSharperOptions.Create(services, siteletOpt, Option.ofObj siteletAssembly, metadataOpt, Option.ofObj config, Option.ofObj logger, Option.ofObj binDir, useSitelets, useRemoting, fun _ _ -> ())
+        WebSharperOptions.Create(services, Option.ofObj logger, Option.ofObj binDir, useSitelets, useRemoting, fun _ _ -> ())
 
     static member internal Create
         (
             services: IServiceProvider,
-            sitelet: option<Sitelet<obj>>,
-            siteletAssembly: option<Assembly>,
-            metadata: option<M.Info>,
-            config: option<IConfiguration>,
             logger: option<ILogger>,
             binDir: option<string>,
             useSitelets: bool,
             useRemoting: bool,
             useExtension
         ) =
-        //let binDir =
-        //    match binDir with
-        //    | None -> autoBinDir()
-        //    | Some d -> d
-        //let logger =
-        //    match logger with
-        //    | Some l -> l
-        //    | None -> services.GetRequiredService<ILoggerFactory>().CreateLogger<WebSharperOptions>() :> _
         let env = services.GetRequiredService<IHostingEnvironment>()
         //Context.IsDebug <- env.IsDevelopment
-        let config =
-            match config with
-            | Some c -> c
-            | None -> services.GetRequiredService<IConfiguration>().GetSection("websharper") :> _
         //Context.GetSetting <- fun key -> Option.ofObj config.[key]
-        let siteletAssembly =
-            siteletAssembly |> Option.defaultWith (fun () ->
-                match services.GetService<IWebSharperService>() with
-                | null -> System.Reflection.Assembly.GetEntryAssembly()
-                | wsService -> wsService.SiteletAssembly
-            )
-                
-        let sitelet =
-            if useSitelets then
-                sitelet |> Option.orElseWith (fun () ->
-                    match services.GetRequiredService<ISiteletService>() with
-                    | null -> None
-                    | service -> Some service.Sitelet
-                )
-            else None
-        WebSharperOptions(services, config, env.ContentRootPath, env.WebRootPath, env.IsDevelopment(), sitelet, siteletAssembly, metadata, useSitelets, useRemoting, useExtension)
+        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, useSitelets, useRemoting, useExtension)
 
 /// Defines settings for a WebSharper application.
 type WebSharperBuilder(services: IServiceProvider) =
-    let mutable _sitelet = None
-    let mutable _siteletAssembly = None
-    let mutable _metadata = None
-    let mutable _config = None
     let mutable _logger = None
     let mutable _binDir = None
-    let mutable _authScheme = None
     let mutable _useSitelets = true
     let mutable _useRemoting = true
     let mutable _useExtension = fun _ _ -> ()
-
-    /// <summary>Defines the sitelet to serve.</summary>
-    /// <remarks>
-    /// Using <c>AddSitelet</c> in <c>ConfigureServices</c> is preferred.
-    /// </remarks>
-    member this.Sitelet<'T when 'T : equality>(sitelet: Sitelet<'T>) =
-        _sitelet <- Some (Sitelet.Box sitelet)
-        this
-
-/// <summary>Specifies which assembly contains the runtime metadata for the sitelet (WebSharper project type: web).</summary>
-/// <remarks>Default: entry assembly..</remarks>
-    member this.SiteletAssembly(siteletAssembly: Assembly) =
-        _siteletAssembly <- Some siteletAssembly
-        this
-
-/// <summary>Overrides the default runtime metadata used by WebSharper.</summary>
-/// <remarks>Default: loaded from SiteletAssembly or entry assembly with WebSharper.Core.Metadata.IO.LoadRuntimeMetadata.</remarks>
-    member this.Metadata(meta: M.Info) =
-        _metadata <- Some meta
-        this
-
-    /// <summary>Defines the configuration to be used by WebSharper.</summary>
-    /// <remarks>Default: the host configuration's "websharper" subsection.</remarks>
-    member this.Config(config: IConfiguration) =
-        _config <- Some config
-        this
 
     /// <summary>Defines the logger for WebSharper internal messages.</summary>
     member this.Logger(logger: ILogger) =
@@ -203,12 +108,6 @@ type WebSharperBuilder(services: IServiceProvider) =
     /// <remarks>Default: the directory where WebSharper.AspNetCore.dll is located.</remarks>
     member this.BinDir(binDir: string) =
         _binDir <- Some binDir
-        this
-
-    /// <summary>Defines the name of the authentication scheme to use for <c>Web.Context.UserSession</c>.</summary>
-    /// <remarks>Default: "WebSharper".</remarks>
-    member this.AuthenticationScheme(scheme: string) =
-        _authScheme <- Some scheme
         this
 
     /// <summary>Defines whether to serve Sitelets.</summary>
@@ -239,6 +138,4 @@ type WebSharperBuilder(services: IServiceProvider) =
 
     /// Builds WebSharper options.
     member internal this.Build() =
-        let o = WebSharperOptions.Create(services, _sitelet, _siteletAssembly, _metadata, _config, _logger, _binDir, _useSitelets, _useRemoting, _useExtension)
-        _authScheme |> Option.iter (fun s -> o.AuthenticationScheme <- s)
-        o
+        WebSharperOptions.Create(services, _logger, _binDir, _useSitelets, _useRemoting, _useExtension)

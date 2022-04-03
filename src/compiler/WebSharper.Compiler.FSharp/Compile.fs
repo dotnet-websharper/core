@@ -82,7 +82,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let fixedArgs =
             config.CompilerArgs 
             |> Array.map (fun s -> 
-                s.Replace(@"net5.0\.NETCoreApp,Version=v5.0.AssemblyAttributes.fs", 
+                s.Replace(@"net6.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs", 
                     @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
@@ -358,7 +358,7 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
         | _ ->
         match a with
         | "--vserrors" ->
-            wsArgs := { !wsArgs with VSStyleErrors = true }
+            warn := { !warn with VSStyleErrors = true }
             fscArgs.Add a
         | StartsWith "--doc:" d ->
             wsArgs := { !wsArgs with Documentation = Some d }

@@ -21,6 +21,7 @@
 // Main translation module from .NET forms to JavaScript
 module WebSharper.Compiler.Translator
  
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Compiler
@@ -295,6 +296,23 @@ let tryGetTypeCheck kind expr =
     | _ ->
         None
 
+type DefaultToUndefined() =
+    inherit Transformer()
+    
+    override this.TransformCall(thisObj, typ, meth, args) =
+        if Option.isNone thisObj && IsDefaultValue typ.Entity meth.Entity && List.isEmpty args then
+            Undefined
+        else
+            base.TransformCall(thisObj, typ, meth, args)  
+
+let defaultToUndefinedTr = DefaultToUndefined()
+
+let applyJsOptions (jsOptions: JavaScriptOptions) expr =
+    if jsOptions.HasFlag(JavaScriptOptions.DefaultToUndefined) then
+        defaultToUndefinedTr.TransformExpression expr
+    else 
+        expr
+
 type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
 
@@ -304,6 +322,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable currentIsInline = false
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None
+    let mutable currentJsOpts = JavaScriptOptions.None
     let mutable cctorCalls = Set.empty
     let labelCctors = Dictionary()
     let boundVars = Dictionary()
@@ -342,7 +361,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Macro(_, _, Some f) -> ii f
             | _ -> false
         match info with        
-        | NotCompiled (m, _, _) 
+        | NotCompiled (m, _, _, _) 
         | NotGenerated (_, _, m, _, _) -> ii m
 
     let breakExpr e = 
@@ -573,9 +592,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 )
             currentIsInline <- isInline info
             match info with
-            | NotCompiled (i, notVirtual, opts) ->
+            | NotCompiled (i, notVirtual, opts, jsOpts) ->
                 currentFuncArgs <- opts.FuncArgs
-                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                currentJsOpts <- jsOpts
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
@@ -597,7 +617,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             match info with
-            | NotCompiled (i, _, opts) 
+            | NotCompiled (i, _, opts, _) 
             | NotGenerated (_, _, i, _, opts) ->
                 comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 
@@ -606,8 +626,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentNode <- M.ImplementationNode(typ, intf, meth)
             currentIsInline <- isInline info
             match info with
-            | NotCompiled (i, _, _) -> 
-                let res = this.TransformExpression expr |> breakExpr
+            | NotCompiled (i, _, _, jsOpts) -> 
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> breakExpr
                 let res = this.CheckResult(res)
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
             | NotGenerated (g, p, i, _, _) ->
@@ -618,7 +638,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             match info with
-            | NotCompiled (i, _, _) 
+            | NotCompiled (i, _, _, _) 
             | NotGenerated (_, _, i, _, _) ->
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
 
@@ -634,9 +654,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // for Error inheritance, using restorePrototype
             selfAddress <- comp.TryLookupClassInfo(typ) |> Option.bind (fun cls -> cls.Address)
             match info with
-            | NotCompiled (i, _, opts) -> 
+            | NotCompiled (i, _, opts, jsOpts) -> 
                 currentFuncArgs <- opts.FuncArgs
-                let res = this.TransformExpression expr |> removeSourcePosFromInlines |> breakExpr
+                currentJsOpts <- jsOpts
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
@@ -655,7 +676,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         with e ->
             let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
             match info with
-            | NotCompiled (i, _, opts)
+            | NotCompiled (i, _, opts, _)
             | NotGenerated (_, _, i, _, opts) ->
                 comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
 
@@ -1003,7 +1024,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | _ ->
                     this.Error("Static method on dynamic object not tranlated: " + n)
         else
-        match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
+        match comp.LookupMethodInfo(typ.Entity, meth.Entity, currentJsOpts.HasFlag(JavaScriptOptions.NoDefaultInterfaceImplementation)) with
         | Compiled (info, opts, expr) ->
             this.CompileCall(info, opts, expr, thisObj, typ, meth, args)
         | Compiling (info, expr) ->
@@ -1012,7 +1033,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCall (thisObj, typ, meth, args)
             else
                 match info with
-                | NotCompiled (info, _, opts) ->
+                | NotCompiled (info, _, opts, _) ->
                     this.CompileCall(info, opts, expr, thisObj, typ, meth, args)
                 | NotGenerated (_, _, info, _, _) ->
                     this.CompileCall(info, M.Optimizations.None, expr, thisObj, typ, meth, args)
@@ -1096,9 +1117,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 |> this.TransformExpression
             this.Warning("Creating delegate from inlined call, equality may not work.")
             call        
-        match comp.LookupMethodInfo(typ.Entity, meth.Entity) with
+        match comp.LookupMethodInfo(typ.Entity, meth.Entity, false) with
         | Compiled (info, _, _)
-        | Compiling ((NotCompiled (info, _, _) | NotGenerated (_, _, info, _, _)), _) ->
+        | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _) ->
             match info with 
             | M.Static address -> 
                 GlobalAccess address
@@ -1398,7 +1419,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.TransformCtor(typ, ctor, args)
             else 
                 match info with
-                | NotCompiled (info, _, opts) -> 
+                | NotCompiled (info, _, opts, _) -> 
                     this.CompileCtor(info, opts, expr, typ, ctor, args)
                 | NotGenerated (_, _, info, _, _) ->
                     this.CompileCtor(info, M.Optimizations.None, expr, typ, ctor, args)
@@ -1530,9 +1551,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         Labeled(a, this.TransformStatement b)
 
     override this.TransformOverrideName(typ, meth) =
-        match comp.LookupMethodInfo(typ, meth) with
+        match comp.LookupMethodInfo(typ, meth, false) with
         | Compiled (M.Instance name, _, _) 
-        | Compiling ((NotCompiled ((M.Instance name), _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
+        | Compiling ((NotCompiled ((M.Instance name), _, _, _) | NotGenerated (_,_,M.Instance name, _, _)), _) ->
             Value (String name)
         | LookupMemberError err ->
             this.Error err

@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <WebSharperProject>Library</WebSharperProject>
     <DisableImplicitFSharpCoreReference>True</DisableImplicitFSharpCoreReference>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
@@ -81,6 +81,7 @@
     <Compile Include="../WebSharper.Main.Proxies/Stack.fs" />
     <Compile Include="../WebSharper.Main.Proxies/String.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Task.fs" />
+    <Compile Include="../WebSharper.Main.Proxies/TaskBuilder.fs" />
     <Compile Include="../WebSharper.Main.Proxies/TimeSpan.fs" />
     <Compile Include="../WebSharper.Main.Proxies/Unchecked.fs" />
     <Compile Include="../WebSharper.Main.Proxies/ValueOption.fs" />

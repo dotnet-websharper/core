@@ -20,7 +20,6 @@
 
 namespace WebSharper.Compiler
 
-open System.Configuration
 open WebSharper.Core.AST
 
 module CT = WebSharper.Core.ContentTypes

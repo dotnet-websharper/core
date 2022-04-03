@@ -17,7 +17,7 @@
 // permissions and limitations under the License.
 //
 // $end{copyright}
-using System;
+global using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -150,7 +150,7 @@ namespace WebSharper.CSharp.Tests
             Equal(new SubClass(3).Value, 5, "Chained constructor");
         }
 
-        [Test("C# covariant inheritance", TestKind.Skip)]
+        [Test("C# covariant inheritance")]
         public void CovariantInheritance()
         {
             Equal(new BaseClass().CovariantVirtualMethod().Value, 1, "Covariant virtual method");
@@ -184,24 +184,27 @@ namespace WebSharper.CSharp.Tests
         interface ITestDefaultImpl
         {
             int Foo() => 42;
+            int Bar() => this.Foo();
         }
-
+        
         class TestDefaultImpl : ITestDefaultImpl
         {
         }
-
+        
         class TestDefaultImpl2 : ITestDefaultImpl
         {
-            int Foo() => 2;
+            int ITestDefaultImpl.Foo() => 2;
         }
-
-        [Test("C# interface default implementations", TestKind.Skip)]
+        
+        [Test("C# interface default implementations")]
         public void InterfaceDefaultImplementations()
         {
             var o = new TestDefaultImpl();
             Equal(((ITestDefaultImpl)o).Foo(), 42);
+            Equal(((ITestDefaultImpl)o).Bar(), 42);
             var o2 = new TestDefaultImpl2();
-            Equal(((ITestDefaultImpl)o).Foo(), 2);
+            Equal(((ITestDefaultImpl)o2).Foo(), 2);
+            Equal(((ITestDefaultImpl)o2).Bar(), 2);
         }
 
         struct StructTest
@@ -293,6 +296,12 @@ namespace WebSharper.CSharp.Tests
             public readonly int X;
             public readonly int Y;
 
+            public MyStruct()
+            {
+                this.X = 1;
+                this.Y = 0;
+            }
+
             public MyStruct(int x, int y)
             {
                 this.X = x;
@@ -314,6 +323,36 @@ namespace WebSharper.CSharp.Tests
             IsFalse(s1.Equals(s3));
             IsTrue(s1.GetHashCode() != -1);
             Equal(s1.Sum, 3);
+        }
+
+        [Test("struct default with custom parameterless constructor", TestKind.Skip)]
+        public void StructDefaults()
+        {
+            var s1 = new MyStruct();
+            var s2 = default(MyStruct);
+            Equal($"{s1.X}, {s1.Y}", "1, 0");
+            Equal($"{s2.X}, {s2.Y}", "0, 0");
+        }
+
+        [JavaScript]
+        public struct MyStructProps
+        {
+            public int X { get; init; }
+            public int Y { get; init; }
+
+            public MyStructProps(int x, int y)
+            {
+                this.X = x;
+                this.Y = y;
+            }
+        }
+
+        [Test]
+        public void StructWith()
+        {
+            var s1 = new MyStructProps(1, 2);
+            var s2 = s1 with { Y = 3 };
+            IsTrue(s2.X == 1 && s2.Y == 3);
         }
 
         public class MyException : Exception
@@ -352,6 +391,42 @@ namespace WebSharper.CSharp.Tests
                 res = "wrong type of exception";
             }
             Equal(res, "ok");
+        }
+
+        [Test]
+        public void InitializationOrder()
+        {
+            _initializationOrder = "";
+            var o = new InitializationOrderSub();
+            Equal(_initializationOrder, "AGCBDEF");
+        }
+
+        private static string _initializationOrder = "";
+
+        public class InitializationOrderBase
+        {
+            public string C = _initializationOrder += "C";
+
+            public string B = _initializationOrder += "B";
+
+            public InitializationOrderBase()
+            {
+                _initializationOrder += "E";
+            }
+
+            public string D = _initializationOrder += "D";
+        }
+
+        public class InitializationOrderSub : InitializationOrderBase
+        {
+            public string A = _initializationOrder += "A";
+
+            public InitializationOrderSub() : base()
+            {
+                _initializationOrder += "F";
+            }
+
+            public string G = _initializationOrder += "G";
         }
     }
 

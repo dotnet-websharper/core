@@ -26,6 +26,7 @@ open Microsoft.CodeAnalysis
 open Microsoft.CodeAnalysis.CSharp
 open Microsoft.CodeAnalysis.CSharp.Syntax
 
+open WebSharper
 open WebSharper.Core
 open WebSharper.Core.AST
 open WebSharper.Core.Metadata
@@ -216,7 +217,9 @@ let baseCtor thisExpr (t: Concrete<TypeDefinition>) c a =
 
 let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp: Compilation) (thisDef: TypeDefinition) (annot: A.TypeAnnotation) (cls: INamedTypeSymbol) =
     let isStruct = cls.TypeKind = TypeKind.Struct
-    if cls.TypeKind <> TypeKind.Class && not isStruct then None else
+    let isInterface = cls.TypeKind = TypeKind.Interface
+    let isClass = cls.TypeKind = TypeKind.Class
+    if not (isStruct || isInterface || isClass) then None else
     
     if isResourceType sr cls then
         if comp.HasGraph then
@@ -293,6 +296,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             FuncArgs = None
             Args = []
             Warn = mAnnot.Warn
+            JavaScriptOptions = mAnnot.JavaScriptOptions
         }
 
     let addMethod (mem: option<IMethodSymbol * Member>) (mAnnot: A.MemberAnnotation) (mdef: Method) kind compiled expr =
@@ -355,11 +359,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let staticInits = ResizeArray()                                               
             
     let implicitImplementations = System.Collections.Generic.Dictionary()
-    for intf in cls.Interfaces do
-        for meth in intf.GetMembers().OfType<IMethodSymbol>() do
-            let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
-            if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
-                Dict.addToMulti implicitImplementations impl (intf, meth)
+    if annot.IsJavaScript then
+        for intf in cls.Interfaces do
+            for meth in intf.GetMembers().OfType<IMethodSymbol>() do
+                let impl = cls.FindImplementationForInterfaceMember(meth) :?> IMethodSymbol
+                if not (isNull impl) && impl.ExplicitInterfaceImplementations.Length = 0 then 
+                    Dict.addToMulti implicitImplementations impl (intf, meth)
 
     for mem in members do
         match mem with
@@ -456,13 +461,19 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         ExprStatement (Sequential (staticInits |> List.ofSeq)) |> Some
 
     let baseCls =
-        if cls.IsValueType || cls.IsStatic then
+        if cls.IsValueType || cls.IsStatic || isInterface then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> sr.ReadNamedTypeDefinition |> ignoreSystemObject
         else
             cls.BaseType |> sr.ReadNamedTypeDefinition |> Some
     
+    let getDefImpl (meth: Method) =
+        Method {
+            meth.Value with
+                MethodName = meth.Value.MethodName + "$Def"
+        }
+
     let mutable hasStubMember = false
 
     for meth in members.OfType<IMethodSymbol>() do
@@ -822,7 +833,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 {
                                     IsStatic = false
                                     Parameters = pars
-                                    Body = CombineStatements [ b; baseCall ] |> useDefaultValues pars
+                                    Body = CombineStatements [ baseCall; b ] |> useDefaultValues pars
                                     IsAsync = false
                                     ReturnType = Unchecked.defaultof<Type>
                                 } : CodeReader.CSharpMethod
@@ -944,7 +955,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             {
                                 IsStatic = false
                                 Parameters = [ o ]
-                                Body = CombineStatements [ b; baseCall ]
+                                Body = CombineStatements [ baseCall; b ]
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
@@ -994,7 +1005,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     let allVars = Option.toList thisVar @ args
                     makeExprInline allVars (Application (b, allVars |> List.map Var, NonPure, None))
                 else
-                    Function(args, parsed.Body)
+                    if isInterface then
+                        let thisVar = Id.New "$this"
+                        let b = ReplaceThisWithVar(thisVar).TransformStatement(parsed.Body)
+                        Function(thisVar :: args, b)
+                    else
+                        Function(args, parsed.Body)
 
             let getVars() =
                 // TODO: do not parse method body
@@ -1014,12 +1030,24 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | _ -> failwith "impossible"
                 let jsMethod isInline =
                     match memdef with
-                    // virtual methods are split to abstract and override
                     | Member.Override (td, _) when not isInline && td = def ->
-                        addMethod None mAnnot mdef (N.Abstract) true Undefined
-                        addMethod (Some (meth, memdef)) { mAnnot with Name = None } mdef (N.Override def) false (getBody isInline)
-                    | _ ->
+                        if isInterface then
+                            addMethod None { mAnnot with Name = None } (getDefImpl mdef) N.Static false (getBody isInline)
+                        else
+                            // virtual methods are split to abstract and override
+                            addMethod None mAnnot mdef (N.Abstract) true Undefined
+                            addMethod (Some (meth, memdef)) { mAnnot with Name = None } mdef (N.Override def) false (getBody isInline)
+                    | Member.Override (td, _) when not isInline ->
                         addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
+                        // check for overrides with covariant return types, add redirect if needed
+                        let implMDef = sr.ReadMemberImpl meth
+                        if implMDef <> mdef then
+                            let holes = List.init mdef.Value.Parameters.Length (fun i -> Hole (i + 1))
+                            Call(Some (Hole 0), NonGeneric def, NonGeneric mdef, holes)
+                            |> addMethod None A.MemberAnnotation.BasicInlineJavaScript implMDef N.Inline false
+                    | _ ->
+                        if not isInterface then
+                            addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then N.Inline else getKind()) false (getBody isInline)
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -1082,22 +1110,24 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         comp.SetEntryPoint(ep)
                     | _ ->
                         error "The SPAEntryPoint must be a static method with no arguments"
-                match implicitImplementations.TryFind meth with
-                | Some impls ->
-                    for intf, imeth in impls do
-                        let idef = sr.ReadNamedTypeDefinition intf
-                        let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                        let imdef = sr.ReadMethod imeth 
-                        // TODO : correct generics
-                        Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
-                        |> addMethod (Some (meth, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
-                | _ -> ()
+                if annot.IsJavaScript then
+                    match implicitImplementations.TryFind meth with
+                    | Some impls ->
+                        for intf, imeth in impls do
+                            let idef = sr.ReadNamedTypeDefinition intf
+                            let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                            let imdef = sr.ReadMethod imeth 
+                            // TODO : correct generics
+                            Lambda(vars, Call(Some This, NonGeneric def, NonGeneric mdef, vars |> List.map Var))
+                            |> addMethod (Some (meth, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+                        implicitImplementations.Remove(meth) |> ignore
+                    | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   
-                        if isInline then 
-                            addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline false (getBody true)
-                        else
-                            addConstructor (Some (meth, memdef)) mAnnot cdef N.Constructor false (getBody false)
+                    if isInline then 
+                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Inline false (getBody true)
+                    else
+                        addConstructor (Some (meth, memdef)) mAnnot cdef N.Constructor false (getBody false)
                 match kind with
                 | A.MemberKind.NoFallback ->
                     addConstructor (Some (meth, memdef)) mAnnot cdef N.NoFallback true Undefined
@@ -1173,6 +1203,25 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 
+    if annot.IsJavaScript then
+        for KeyValue(meth, impls) in implicitImplementations do
+            let mdef = sr.ReadMethod meth
+            for intf, imeth in impls do
+                let idef = sr.ReadNamedTypeDefinition intf
+                if idef.Value.FullName <> "System.IEquatable`1" then // skipping System.IEquatable for C# records for now
+                    let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                    let imdef = sr.ReadMethod imeth
+                    Lambda(vars, Call(Some This, NonGeneric idef, NonGeneric (getDefImpl mdef), vars |> List.map Var))
+                    |> addMethod None A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+
+    if isInterface then
+        clsMembers |> Array.ofSeq |> Array.iter (fun m ->
+            match m with
+            | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                clsMembers.Remove(m) |> ignore
+            | _ -> () 
+        ) 
+
     //if isRecord then
     //    let getter = sr.ReadMethod p.GetMethod
     //    let setter = CodeReader.setterOf (NonGeneric getter)
@@ -1197,7 +1246,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         if annot.IsStub || hasStubMember
         then NotResolvedClassKind.Stub
         elif cls.IsStatic then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && cls.IsAbstract) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && cls.IsAbstract && not isInterface) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
@@ -1211,7 +1260,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false)
+            ForceNoPrototype = (annot.Prototype = Some false) || isInterface
             ForceAddress = false
         }
     )
@@ -1325,6 +1374,7 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
         match t.TypeKind with
         | TypeKind.Interface ->
             transformInterface sr a t |> Option.iter comp.AddInterface
+            transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
         | TypeKind.Struct | TypeKind.Class ->
             transformClass rcomp sr comp d a t |> Option.iter comp.AddClass
         | _ -> ()

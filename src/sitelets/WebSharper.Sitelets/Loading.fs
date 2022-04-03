@@ -23,6 +23,8 @@ module WebSharper.Sitelets.Loading
 open System
 open System.Reflection
 
+open WebSharper.Constants
+
 type private BF = BindingFlags
 
 /// Looks up assembly-wide Website attribute and runs it if present
@@ -66,7 +68,7 @@ let private TryLoadSiteB (assembly: Assembly) =
 /// Speed up Sitelet value discovery by not looking at System and non-WS assemblies.
 let private HasWSMetadata (a: Assembly) =
     if a.FullName.StartsWith "System" then false else
-        a.GetManifestResourceNames() |> Array.contains "WebSharper.meta"
+        a.GetManifestResourceNames() |> Array.contains EMBEDDED_METADATA
 
 /// Try to find a sitelet defined in one of these assemblies.
 let DiscoverSitelet(assemblies: seq<Assembly>) =

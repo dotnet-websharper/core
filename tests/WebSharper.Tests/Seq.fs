@@ -802,4 +802,28 @@ let Tests =
             })
         }
     
+        Test "Seq.insertAt" {
+            raises ([| 0 |] |> Seq.insertAt 2 5)
+            equal ([| 0 .. 4 |] |> Seq.insertAt 2 5 |> Array.ofSeq) [|0; 1; 5; 2; 3; 4|]
+        }
+
+        Test "Seq.removeAt" {
+            raises ([| 0 |] |> Seq.removeAt 2)
+            equal ([| 0 .. 4 |] |> Seq.removeAt 2 |> Array.ofSeq) [|0; 1; 3; 4|]
+        }
+
+        Test "Seq.updateAt" {
+            raises ([| 0 |] |> Seq.updateAt 2 5)
+            equal ([| 0 .. 4 |] |> Seq.updateAt 2 5 |> Array.ofSeq) [|0; 1; 5; 3; 4|]
+        }
+
+        Test "Seq.insertManyAt" {
+            raises ([| 0 |] |> Seq.insertManyAt 2 [|5; 6|])
+            equal ([| 0 .. 4 |] |> Seq.insertManyAt 2 [|5; 6|] |> Array.ofSeq) [|0; 1; 5; 6; 2; 3; 4|]
+        }
+
+        Test "Seq.removeManyAt" {
+            raises ([| 0 |] |> Seq.removeManyAt 2 2)
+            equal ([| 0 .. 4 |] |> Seq.removeManyAt 2 2 |> Array.ofSeq) [|0; 1; 4|]
+        }
     }

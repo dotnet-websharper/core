@@ -1,0 +1,6 @@
+{
+  "Framework": "qunit",
+  "CodeCoverageTimeout": 10000,
+  "Parallelism": 1,
+  "TestFileTimeout": 120000
+}

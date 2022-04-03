@@ -237,7 +237,7 @@ let setValue (env: Environment) expr value =
     | _ -> failwith "invalid form for setter"
 
 let glob = Var (Id.Global())
-let wsruntime = Global ["IntelliFactory"; "Runtime"]
+let wsruntime = Global ["WebSharper"; "Runtime"]
 
 let jsFunctionMembers =
     System.Collections.Generic.HashSet [
@@ -279,6 +279,8 @@ let wsRuntimeFunctions =
         "Curried2"
         "Curried3"
         "UnionByType"
+        "MarkResizable"
+        "MarkReadOnly"
         "ScriptBasePath"
         "ScriptPath"
     ]
@@ -324,10 +326,10 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 match trC with
                 | Value (String f) ->
                     if wsRuntimeFunctions.Contains f then
-                        Global ["IntelliFactory"; "Runtime"; f]
+                        Global ["WebSharper"; "Runtime"; f]
                     else
-                        failwithf "Unrecognized IntelliFactory.Runtime function: %s" f
-                | _ -> failwith "expected a function of IntelliFactory.Runtime"     
+                        failwithf "Unrecognized WebSharper.Runtime function: %s" f
+                | _ -> failwith "expected a function of WebSharper.Runtime"     
             else
                 match trA, trC with
                 | GlobalAccess a, Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
@@ -478,6 +480,8 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         )
     | S.If (a, b, c) -> If (trE a, trS b, trS c)
     | S.Ignore a -> ExprStatement (trE a)    
+    | S.Import (a, b, c) ->
+        failwith "Currently unsupported: JS import in inline"   
     | S.Labelled (a, b)  -> 
         failwith "Currently unsupported: JS labels"
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)

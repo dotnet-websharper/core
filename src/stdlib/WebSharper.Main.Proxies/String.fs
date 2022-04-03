@@ -249,9 +249,6 @@ type private StringProxy =
     [<Inline>]
     static member Concat(o1: obj, o2: obj, o3: obj) = string o1 + string o2 + string o3
 
-    [<Inline>]
-    static member Concat(o1: obj, o2: obj, o3: obj, o4: obj) = string o1 + string o2 + string o3 + string o4
-
     [<Inline "$strings.join('')">]
     static member Concat([<System.ParamArray>] strings: string[]) = X<string>
 

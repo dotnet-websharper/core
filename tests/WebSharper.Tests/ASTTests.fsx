@@ -18,10 +18,10 @@
 //
 // $end{copyright}
 
-#r "../../build/Release/FSharp/net5.0/FSharp.Compiler.Service.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Mdb.dll"
-#r "../../build/Release/FSharp/net5.0/Mono.Cecil.Pdb.dll"
+#r "../../build/Release/FSharp/net6.0/FSharp.Compiler.Service.dll"
+#r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
+#r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
+#r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
@@ -324,7 +324,7 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
 let metadata =
     let metas =
         wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
+            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
         )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
@@ -335,18 +335,16 @@ metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" 
 
 open System.IO
 
-let translate fsiSource source = 
+let translate source = 
 
     let tempFileName = Path.GetTempFileName()
-    let fileName1 = Path.ChangeExtension(tempFileName, ".fsi")    
-    let fileName2 = Path.ChangeExtension(tempFileName, ".fs")
+    let fileName = Path.ChangeExtension(tempFileName, ".fs")
     let base2 = Path.GetTempFileName()
     let dllName = Path.ChangeExtension(base2, ".dll")
     let projFileName = Path.ChangeExtension(base2, ".fsproj")
-    File.WriteAllText(fileName1, fsiSource)
-    File.WriteAllText(fileName2, source)
+    File.WriteAllText(fileName, source)
 
-    let args = mkProjectCommandLineArgs (dllName, [fileName1; fileName2])
+    let args = mkProjectCommandLineArgs (dllName, [fileName])
     let options =  checker.GetProjectOptionsFromCommandLineArgs (projFileName, args)
 
     let wholeProjectResults = checker.ParseAndCheckProject(options) |> Async.RunSynchronously
@@ -455,39 +453,69 @@ let getBody expr =
         let _, expr = cls.StaticConstructor |> Option.get
         expr
 
-translate """ 
-namespace WebSharper.UI
-
-/// A list that does not punish too much for appending.
-type internal AppendList<'T>
-
-/// Operations on append-lists.
-module internal AppendList =
-
-    /// The type synonym.
-    type T<'T> = AppendList<'T>
-
-    /// The empty list.
-    val Empty<'T> : T<'T>
-
-""" """
-namespace WebSharper.UI
 
 open WebSharper
-open System.Collections.Generic
+open WebSharper.JavaScript
 
-type internal AppendList<'T> =
-    | AL0
-    | AL1 of 'T
-    | AL2 of AppendList<'T> * AppendList<'T>
-    | AL3 of 'T []
+[<JavaScript(false)>]
+type ITest =
+    [<Name "GetCountShouldNotAppear">]
+    abstract GetCount: unit -> int
 
 [<JavaScript>]
-module AppendList =
+module M =
+    let getCount (this: ITest) = 1
 
-    type T<'T> = AppendList<'T>
+[<Proxy(typeof<ITest>)>]
+type ITestProxy =
+//    [<Name "GetCountStrongName">]
+    abstract GetCount: unit -> int
 
-    let Empty<'T> : AppendList<'T> = AL0
+    [<Inline>]
+    default this.GetCount () = M.getCount (As<ITest> this) //1
+
+[<JavaScript>]
+module Test =
+
+    let gcTest (o: ITest) = o.GetCount() 
+
+    type ImplTest() =
+
+        interface ITest with
+            member this.GetCount () = 2
+
+translate """
+namespace WebSharper.Tests
+
+open WebSharper
+open WebSharper.JavaScript
+
+[<JavaScript(false)>]
+type ITest =
+    [<Name "GetCountShouldNotAppear">]
+    abstract GetCount: unit -> int
+
+[<JavaScript>]
+module M =
+    let getCount (this: ITest) = 1
+
+[<Proxy(typeof<ITest>, [| typeof<System.Collections.IEnumerable> |])>]
+type private ITestProxy =
+//    [<Name "GetCountStrongName">]
+    abstract GetCount: unit -> int
+
+    [<Inline>]
+    default this.GetCount () = M.getCount (As<ITest> this) //1
+
+[<JavaScript>]
+module Test =
+
+    let gcTest (o: ITest) = o.GetCount() 
+
+    type ImplTest() =
+
+        interface ITest with
+            member this.GetCount () = 2
 
 """
 

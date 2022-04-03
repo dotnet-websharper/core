@@ -18,13 +18,7 @@
 //
 // $end{copyright}
 
-module WebSharper.Core.JavaScript.Test.Main
+module Program =
 
-[<EntryPoint>]
-let main args =
-    ParserTests.Run()
-    WriterTests.Run()
-    CompilerTests.Run()
-    let res =Testing.Report()
-    System.Console.ReadKey() |> ignore
-    res
+    let [<EntryPoint>] main _ =
+        0

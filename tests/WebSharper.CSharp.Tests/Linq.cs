@@ -665,6 +665,17 @@ namespace WebSharper.CSharp.Tests
             Equal(q1.ToArray(), new[] { 3, 5, 7, 9, 11, 13 }, "Query continuation");
         }
 
+        public int ExprAsValue(System.Linq.Expressions.Expression<Func<int>> act)
+        {
+            return (As<Func<int>>(act)).Invoke();
+        }
+
+        [Test]
+        public void LinqExpressionTest()
+        {
+            Equal(ExprAsValue(() => 2), 2);
+        }
+
         #region Auxiliary values
 
         private void SameValues(IEnumerable<int> s1, IEnumerable<int> s2, string msg)

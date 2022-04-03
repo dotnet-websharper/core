@@ -9,6 +9,7 @@
 #r "nuget: Paket.Core"
 #else
 #r "paket:
+nuget FSharp.Core 5.0.0
 nuget FAKE.Core
 nuget Fake.Core.Target
 nuget Fake.IO.FileSystem
@@ -16,7 +17,7 @@ nuget Fake.Tools.Git
 nuget Fake.DotNet.Cli
 nuget Fake.DotNet.AssemblyInfoFile
 nuget Fake.DotNet.Paket
-nuget Paket.Core //"
+nuget Paket.Core prerelease //"
 #endif
 
 #load "paket-files/wsbuild/github.com/dotnet-websharper/build-script/WebSharper.Fake.fsx"
@@ -32,92 +33,47 @@ nuget NUglify //"
 
 open System.IO
 open System.Diagnostics
-open System.Xml
-open System.Xml.Linq
-open System.Xml.XPath
+open System.Threading
 open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
-open System.Diagnostics
 
-let version = "5.0"
+let version = "6.0"
 let pre = None
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
-let specificFw = Environment.environVarOrNone "WS_TARGET_FW"
+let publish rids (mode: BuildMode) =
+    let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
+        for rid in rids do
+            let outputPath =
+                __SOURCE_DIRECTORY__ </> "build" </> string mode </> output </> fw </> (rid |> Option.defaultValue "") </> "deploy"
+            DotNet.publish (fun p ->
+                { p with
+                    Framework = Some fw
+                    OutputPath = Some outputPath
+                    NoRestore = true
+                    SelfContained = false |> Some
+                    Runtime = rid
+                    Configuration = mode.AsDotNet
+                }) input
+            if explicitlyCopyFsCore then
+                let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
+                [ 
+                    fsharpCoreLib </> "FSharp.Core.dll" 
+                ] 
+                |> Shell.copy outputPath                
+    publishExe mode "net6.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
+    publishExe mode "net6.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
+    publishExe mode "net6.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
 
-let targets = MakeTargets {
-    WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
-        BuildAction =
-            let buildSln sln =
-                let sln =
-                    match specificFw with
-                    | None -> sln
-                    | Some d -> d </> sln
-                match Environment.environVarOrNone "OS" with
-                | Some "Windows_NT" ->
-                    BuildAction.Projects [sln]
-                | _ ->
-                    BuildAction.Custom <| fun mode ->
-                        DotNet.build (fun p ->
-                            { p with
-                                Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
-                            }) sln
-            let dest mode lang =
-                __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> lang
-            let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
-                for rid in [ "win-x64"; "linux-x64"; "linux-musl-x64" ] do
-                    let outputPath =
-                        __SOURCE_DIRECTORY__ </> "build" </> mode.ToString() </> output </> fw </> rid </> "deploy"
-                    DotNet.publish (fun p ->
-                        { p with
-                            Framework = Some fw
-                            OutputPath = Some outputPath
-                            NoRestore = true
-                            SelfContained = false |> Some
-                            Runtime = rid |> Some
-                            Configuration = DotNet.BuildConfiguration.fromString (mode.ToString())
-                        }) input
-                    if explicitlyCopyFsCore then
-                        let fsharpCoreLib = __SOURCE_DIRECTORY__ </> "packages/includes/FSharp.Core/lib/netstandard2.0"
-                        [ 
-                            fsharpCoreLib </> "FSharp.Core.dll" 
-                        ] 
-                        |> Shell.copy outputPath                
-            BuildAction.Multiple [
-                buildSln "WebSharper.Compiler.sln"
-                BuildAction.Custom <| fun mode ->
-                    publishExe mode "net5.0" "src/compiler/WebSharper.FSharp/WebSharper.FSharp.fsproj" "FSharp" true
-                    publishExe mode "net5.0" "src/compiler/WebSharper.FSharp.Service/WebSharper.FSharp.Service.fsproj" "FSharp" true
-                    publishExe mode "net5.0" "src/compiler/WebSharper.CSharp/WebSharper.CSharp.fsproj" "CSharp" true
-                buildSln "WebSharper.sln"
-            ]
-}
-
-let NeedsBuilding input output =
-    let i = FileInfo(input)
-    let o = FileInfo(output)
-    not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
-
-let Minify () =
-    let minify (path: string) =
-        let out = Path.ChangeExtension(path, ".min.js")
-        if NeedsBuilding path out then
-            let raw = File.ReadAllText(path)
-            let mjs = NUglify.Uglify.Js(raw).Code
-            File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
-            stdout.WriteLine("Written {0}", out)
-    minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
-    minify "src/stdlib/WebSharper.Main/Json.js"
-    minify "src/stdlib/WebSharper.Main/AnimFrame.js"
-
-let MakeNetStandardTypesList() =
+Target.create "Prepare" <| fun _ ->
+    // make netstandardtypes.txt
     let f = FileInfo("src/compiler/WebSharper.Core/netstandardtypes.txt")
     if not f.Exists then
         let asm =
@@ -131,7 +87,7 @@ let MakeNetStandardTypesList() =
             Seq.iter writeType t.NestedTypes
         Seq.iter writeType asm.MainModule.Types
 
-let AddToolVersions() =
+    // make msbuild/AssemblyInfo.fs
     let lockFile =
         Paket.LockFile.LoadFrom(__SOURCE_DIRECTORY__ </> "paket.lock")
     let roslynVersion = 
@@ -155,18 +111,121 @@ let AddToolVersions() =
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
 
-Target.create "Prepare" <| fun _ ->
-    Minify()
-    MakeNetStandardTypesList()
-    AddToolVersions()
+    // make minified scripts
+    let needsBuilding input output =
+        let i = FileInfo(input)
+        let o = FileInfo(output)
+        not o.Exists || o.LastWriteTimeUtc < i.LastWriteTimeUtc
+    let minify (path: string) =
+        let out = Path.ChangeExtension(path, ".min.js")
+        if needsBuilding path out then
+            let raw = File.ReadAllText(path)
+            let mjs = NUglify.Uglify.Js(raw).Code
+            File.WriteAllText(Path.ChangeExtension(path, ".min.js"), mjs)
+            stdout.WriteLine("Written {0}", out)
+    minify "src/compiler/WebSharper.Core.JavaScript/Runtime.js"
+    minify "src/stdlib/WebSharper.Main/Json.js"
+    minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
-Target.create "RunTestsRelease" <| fun _ ->
+let targets = MakeTargets {
+    WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
+        HasDefaultBuild = false
+        BuildAction =
+            BuildAction.Multiple [
+                BuildAction.Projects ["WebSharper.Compiler.sln"]
+                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
+                BuildAction.Projects ["WebSharper.sln"]
+            ]
+}
+
+targets.AddPrebuild "Prepare"
+
+Target.create "Build" <| fun o ->
+    BuildAction.Multiple [
+        BuildAction.Projects ["WebSharper.Compiler.sln"]
+    ]
+    |> build o (buildModeFromFlag o) 
+
+"Prepare"
+    ==> "Build"
+
+Target.create "Publish" <| fun o ->
+    publish [ None ] (buildModeFromFlag o)  
+    
+Target.create "BuildAll" <| fun o ->
+    BuildAction.Multiple [
+        BuildAction.Projects ["WebSharper.Compiler.sln"]
+        //BuildAction.Custom publish
+        BuildAction.Projects ["WebSharper.NoTests.sln"]
+    ]
+    |> build o (buildModeFromFlag o) 
+
+"Prepare"
+    ==> "BuildAll"
+
+Target.create "Tests" <| fun o ->
+   BuildAction.Multiple [
+       BuildAction.Projects ["WebSharper.Compiler.sln"]
+       //BuildAction.Custom publish
+       BuildAction.Projects ["WebSharper.sln"]
+   ]
+   |> build o (buildModeFromFlag o)
+
+"Prepare"
+    ==> "Tests"
+
+Target.create "RunCompilerTestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "Compiler testing skipped"
+    else
+
+    [
+        "tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
+        "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
+        "tests/WebSharper.CSharp.Analyzer.Tests/WebSharper.CSharp.Analyzer.Tests.fsproj"
+    ]
+    |> List.iter (
+        DotNet.test (fun t ->
+            { t with
+                NoRestore = true
+                Configuration = DotNet.BuildConfiguration.Release
+            }
+        ) 
+    ) 
+
+"WS-BuildRelease"
+    ?=> "RunCompilerTestsRelease"
+    ?=> "WS-Package"
+
+"RunCompilerTestsRelease"
+    ==> "CI-Release"
+
+Target.create "RunSPATestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "Chutzpah testing for SPA skipped"
+    else
+    // TODO resolve cross site issues for automatic testing
+    ()
+
+    //let res =
+    //    Shell.Exec(
+    //        "packages/test/Chutzpah/tools/chutzpah.console.exe", 
+    //        "tests/WebSharper.SPA.Tests/index.html /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
+    //    )
+    //if res <> 0 then
+    //    failwith "Chutzpah test run failed for SPA tests"
+
+Target.create "RunMainTestsRelease" <| fun _ ->
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+        Trace.log "Chutzpah testing skipped"
+    else
+
     Trace.log "Starting Web test project"
     let mutable startedOk = false
-    let started = Event<unit>()
+    let started = new EventWaitHandle(false, EventResetMode.ManualReset)
 
     use webTestsProc = new Process()
-    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net5.0\Web.exe"
+    webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net6.0\Web.exe"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
@@ -177,7 +236,7 @@ Target.create "RunTestsRelease" <| fun _ ->
                 Trace.log d.Data
             if d.Data.Contains("Application started.") then
                 startedOk <- true   
-                started.Trigger()
+                started.Set() |> ignore
     )
     webTestsProc.Exited.Add(fun _ -> 
         if not startedOk then
@@ -186,35 +245,27 @@ Target.create "RunTestsRelease" <| fun _ ->
 
     webTestsProc.Start()
     webTestsProc.BeginOutputReadLine()
-    started.Publish |> Async.AwaitEvent |> Async.RunSynchronously
+    started.WaitOne()
+    Thread.Sleep(5000)
 
     let res =
         Shell.Exec(
             "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "http://localhost:5000/consoletests /engine Chrome /silent /failOnError /showFailureReport"
+            "http://localhost:5000/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
         )
     webTestsProc.Kill()
     if res <> 0 then
         failwith "Chutzpah test run failed"
 
-targets.AddPrebuild "Prepare"
-
-Target.create "Stop" <| fun _ ->
-    try
-        Process.GetProcessesByName("wsfscservice")
-        |> Array.iter (fun x -> x.Kill())
-        |> ignore
-    with
-    | _ -> ()
-
-"Stop" ==> "WS-Clean"
-"Stop" ==> "WS-Restore"
-
 "WS-BuildRelease"
-    ==> "RunTestsRelease"
+    ?=> "RunSPATestsRelease"
+    ==> "RunMainTestsRelease"
     ?=> "WS-Package"
 
-"RunTestsRelease"
+"RunMainTestsRelease"
     ==> "CI-Release"
-    
+ 
+"WS-Stop" ==> "WS-Clean"
+"WS-Stop" ==> "WS-Restore"
+
 Target.runOrDefaultWithArguments "Build"

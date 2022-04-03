@@ -21,6 +21,8 @@
 module WebSharper.Compiler.FrontEnd
 
 open WebSharper.Core
+open WebSharper.Constants
+
 module M = WebSharper.Core.Metadata
 module B = WebSharper.Core.Binary
 module P = WebSharper.PathConventions

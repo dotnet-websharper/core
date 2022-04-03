@@ -70,7 +70,6 @@ type WsConfig =
         CompilerArgs : string[]        
         ProjectFile : string
         Documentation : string option
-        VSStyleErrors : bool
         PrintJS : bool
         WarnOnly : bool
         DeadCodeElimination : bool
@@ -108,7 +107,6 @@ type WsConfig =
             CompilerArgs = [||]
             ProjectFile = null
             Documentation = None
-            VSStyleErrors = false
             PrintJS  = false
             WarnOnly = false
             DeadCodeElimination = true
@@ -123,10 +121,13 @@ type WsConfig =
             UseJavaScriptSymbol = false
             TargetProfile = "mscorlib"
             Standalone = 
-                try
-                    System.Environment.GetEnvironmentVariable("WebSharperBuildService").ToLower() = "false"
-                with
-                | _ -> false
+                let envVar = System.Environment.GetEnvironmentVariable("WebSharperBuildService")
+                if isNull envVar then
+                    false
+                else
+                    match bool.TryParse(envVar) with
+                    | true, v -> v
+                    | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
         }
 
@@ -235,7 +236,7 @@ type WsConfig =
             | "usejavascriptsymbol" ->
                 res <- { res with UseJavaScriptSymbol = getBool k v }
             | "standalone" ->
-                res <- { res with Standalone = getBool k v }
+                res <- { res with Standalone = res.Standalone || getBool k v }
             | "runtimemetadata" ->
                 let runtimeMetadata =
                     match (getString k v).ToLower() with
@@ -429,7 +430,7 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 
     let printInfo (logger: LoggerBase) helpKind = 
         let lang = if isFSharp then "F#" else "C#"
-        let exe = if isFSharp then "wsfsc.exe" else "zafircs.exe"
+        let exe = if isFSharp then "wsfsc.exe" else "wscsc.exe"
         let compiler = if isFSharp then "fsc.exe" else "csc.exe"
         sprintf "WebSharper %s compiler version %s" lang AssemblyVersionInformation.AssemblyFileVersion
         |> logger.Out
@@ -546,7 +547,7 @@ let RecognizeWebSharperArg a wsArgs =
             Some (wsArgs.AddJson(File.ReadAllText c, Path.GetFileName c))
         else 
             argError (sprintf "Cannot find WebSharper configuration file %s" c)    
-    | Flag "--standalone" v -> Some { wsArgs with Standalone = v }
+    | Flag "--standalone" v -> Some { wsArgs with Standalone = wsArgs.Standalone || v }
     | _ -> 
         None
 
