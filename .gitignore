@@ -27,3 +27,6 @@
 /.paket/.store/
 /.ionide
 /tests/StressTesting/reports/
+/src/compiler/WebSharper.TypeScriptParser/node_modules
+/src/compiler/WebSharper.TypeScriptParser/app.js.map
+/src/compiler/WebSharper.TypeScriptParser/app.js

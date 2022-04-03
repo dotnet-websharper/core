@@ -1,0 +1,19 @@
+{
+  "name": "websharper.typescript.parser",
+  "version": "4.6.0",
+  "description": "WebSharper.TypeScriptParser",
+  "main": "app.js",
+  "author": {
+    "name": "IntelliFactory"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "clean": "tsc --build --clean"
+  },
+  "devDependencies": {
+    "@types/node": "^10.17.17"
+  },
+  "dependencies": {
+    "typescript": "^3.8.3"
+  }
+}
