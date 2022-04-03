@@ -314,6 +314,16 @@ type TypeDefinitionInfo =
         
     override this.ToString() = this.FullName            
 
+    member this.GenericLength =
+        try
+            this.FullName.Split('.', '+') |> Array.sumBy (fun n ->
+                match n.IndexOf '`' with
+                | -1 -> 0
+                | i -> int (n.Substring(i + 1))
+            )
+        with _ ->
+            failwithf "failed to get generics count of type %s" this.FullName
+
 type TypeDefinition = Hashed<TypeDefinitionInfo>
 
 module Definitions =
@@ -468,6 +478,23 @@ module Definitions =
             FullName = "System.Exception"
         }
 
+    let Decimal =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Decimal"
+        }
+
+    let FSharpOption =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpOption`1"
+        }
+    
+    let FSharpValueOption =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.FSharpValueOption`1"
+        }
 
 /// Stores a definition and type parameter information
 type Concrete<'T> =
@@ -826,3 +853,4 @@ type Address with
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress
     static member Empty() = Instances.EmptyAddress
+    static member WSMain x = { Module = WebSharperModule "WebSharper.Main"; Address = Hashed [x; "WebSharper"] }

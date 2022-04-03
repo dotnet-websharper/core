@@ -611,7 +611,7 @@ let serializers =
     let encDecimal (d: decimal) =
         let b = System.Decimal.GetBits(d)
         EncodedArrayInstance (
-            AST.Address [ "Decimal"; "WebSharper" ], 
+            AST.Address.WSMain "Decimal", 
             b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
         )
     let decDecimal = function
@@ -1883,7 +1883,7 @@ module TypedProviderInternals =
     let addTag (i: M.Info) (t: System.Type) =
         let mt = AST.Reflection.ReadTypeDefinition t
         match i.Classes.TryFind mt with
-        | Some { Address = Some a; HasWSPrototype = true } ->
+        | Some (a, _, Some { HasWSPrototype = true }) ->
             function
             | EncodedObject fs -> EncodedInstance (a, fs)
             | EncodedArray xs -> EncodedArrayInstance (a, xs)
@@ -1917,7 +1917,7 @@ module TypedProviderInternals =
             | [] -> failwith "types array must not be empty"
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
-        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Value |> encA []))
+        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Address.Value |> encA []))
         match types, data with
         | _::_, _
         | _, Object (((TYPES | VALUE), _) :: _) ->
@@ -1935,7 +1935,7 @@ module TypedProviderInternals =
             GetEncodedFieldName = fun t ->
                 let typ = AST.Reflection.ReadTypeDefinition t
                 match info.Classes.TryGetValue typ with
-                | true, cls -> 
+                | true, (_, _, Some cls) -> 
                     let fields = cls.Fields
                     fun f ->
                         let getName v =
@@ -1968,15 +1968,13 @@ module TypedProviderInternals =
                         | _ ->
                             failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
                                 f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
-                | _ ->
-                    match info.CustomTypes.TryGetValue typ with
-                    | true, M.FSharpRecordInfo fs -> 
-                        fun f ->
-                            fs |> List.pick (fun rf -> 
-                                if rf.Name = f then 
-                                    Some rf.JSName
-                                else None)
-                    | _ -> id
+                | true, (_, M.FSharpRecordInfo fs, _) -> 
+                    fun f ->
+                        fs |> List.pick (fun rf -> 
+                            if rf.Name = f then 
+                                Some rf.JSName
+                            else None)
+                | _ -> id
             GetUnionTag = defaultGetUnionTag
             EncodeUnionTag = defaultEncodeUnionTag
             GetEncodedUnionFieldName = fun _ i -> "$" + string i
