@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -36,24 +36,24 @@ module IS = IgnoreSourcePos
 let GetMutableExternals (meta: M.Info) =
     let res = HashSet()
 
-    let registerInstanceAddresses (cls: M.ClassInfo) baseAddr =
+    let registerInstanceAddresses (cls: M.ClassInfo) (baseAddr: Hashed<_>) =
         for fi, readOnly, _ in cls.Fields.Values do
             if not readOnly then
                 match fi with
                 | M.InstanceField n
                 | M.OptionalField n ->
-                    res.Add (Address (n :: baseAddr)) |> ignore
+                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> () 
 
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
-                    res.Add (Address (n :: baseAddr)) |> ignore
+                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
 
-        for KeyValue(m, (_, _, e)) in cls.Methods do
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
             addMember m e
        
         for KeyValue((_, m), (_, e)) in cls.Implementations do
@@ -63,35 +63,35 @@ let GetMutableExternals (meta: M.Info) =
         match typ with
         | ConcreteType ct ->
             match meta.Classes.TryGetValue ct.Entity with
-            | true, fcls ->
-                registerInstanceAddresses fcls a.Value
+            | true, (_, _, Some fcls) ->
+                a.JSAddress |> Option.iter (registerInstanceAddresses fcls)
             | _ -> ()
         | _ -> ()
     
-    for KeyValue(_, cls) in meta.Classes do
+    for cls in meta.ClassInfos do
         for fi, readOnly, ftyp in cls.Fields.Values do
             match fi with
             | M.StaticField a ->
                 if not readOnly then
-                    res.Add a |> ignore
+                    a.JSAddress |> Option.iter (res.Add >> ignore)
                 tryRegisterInstanceAddresses ftyp a
             | _ -> () 
 
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
-                    res.Add (Address (n :: a.Value)) |> ignore
+                    a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
                 | _ -> ()
             elif m.Value.MethodName.StartsWith "get_" then
                 match e with
-                | IS.Function(_, IS.Return(IS.GlobalAccess a))
+                | IS.Function(_, _, IS.Return(IS.GlobalAccess a))
                 | IS.GlobalAccess a ->
                     tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
 
-        for KeyValue(m, (_, _, e)) in cls.Methods do
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
             addMember m e
        
         for KeyValue((_, m), (_, e)) in cls.Implementations do
@@ -99,19 +99,20 @@ let GetMutableExternals (meta: M.Info) =
 
     res
 
-type Environment =
+type private Environment =
     {
         Vars : list<IDictionary<string, Expression>>
         Inputs : list<Expression>
         Labels : Map<string, Id>
         This : option<Id>
         Purity : Purity
-        MutableExternals : HashSet<Address>
+        MutableExternals : HashSet<Hashed<list<string>>>
+        FromModule : option<Module>
         ExpectedDollarVars : string[]
         UnknownArgs : HashSet<string>
     }
 
-    static member New(thisArg, isDirect, isPure, args, ext, dollarVars) =
+    static member New(thisArg, isDirect, isPure, args, ext, lib, dollarVars) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -136,6 +137,7 @@ type Environment =
             This = None
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
+            FromModule = lib
             ExpectedDollarVars = dollarVars
             UnknownArgs = HashSet()
         }
@@ -148,31 +150,33 @@ type Environment =
             This = None
             Purity = NonPure
             MutableExternals = HashSet()
+            FromModule = None
             ExpectedDollarVars = [||]
             UnknownArgs = HashSet()
         }
 
     member this.WithNewScope (vars) =
         { this with 
-            Vars = (Dictionary(dict vars) :> _) :: this.Vars 
+            Vars = (Dictionary(vars |> Seq.map (fun (s: S.Id, i) -> s.Name, i) |> dict) :> _) :: this.Vars 
             Purity = NonPure
         }
 
-    member this.NewVar(name) =
-        let v = Id.New name
+    member this.NewVar(id: S.Id) =
+        let n = id.Name
+        let v = Id.New n
         match this.Vars with
         | [] -> failwith "no scope"
         | h :: t ->
-            h.Add(name, Var v)
+            h.Add(n, Var v)
             v
-            //{ this with Vars = (h |> Map.add name (Var v)) :: t }, v
 
-    member this.TryFindVar(name) =
+    member this.TryFindVar(id: S.Id) =
+        let n = id.Name
         let rec findIn scope =
             match scope with
             | [] -> None
             | (h : IDictionary<_,_>) :: t ->
-                match h.TryFind name with
+                match h.TryFind n with
                 | Some _ as res -> res
                 | _ -> findIn t
         findIn this.Vars
@@ -221,23 +225,22 @@ let makePossiblyImmutable expr (v: Id) =
         ReplaceId(v, vi).TransformExpression(expr)
     else expr         
 
-let checkNotMutating (env: Environment) a f =
+let private checkNotMutating (env: Environment) a f =
     if env.IsInput a then
         failwith "arguments of inlined functions should not be mutated"
     else f a
 
-let setValue (env: Environment) expr value =
+let private setValue (env: Environment) expr value =
     match expr with
     | GlobalAccess a ->
-        match a.Value with
-        | i :: m -> ItemSet(GlobalAccess (Address m), Value (String i), value)
+        match a.Address.Value with
+        | i :: m -> ItemSet(GlobalAccess { a with Address = Hashed m }, Value (String i), value)
         | _ -> failwith "cannot set the window object"
     | ItemGet (d, e, _) -> ItemSet(d, e, value)
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
-let glob = Var (Id.Global())
-let wsruntime = Global ["WebSharper"; "Runtime"]
+let wsruntime = GlobalAccess (Address.Runtime())
 
 let jsFunctionMembers =
     System.Collections.Generic.HashSet [
@@ -249,6 +252,7 @@ let jsFunctionMembers =
 let wsRuntimeFunctions =
     System.Collections.Generic.HashSet [
         "Ctor"
+        "Cctor"
         "Class"
         "Clone"
         "NewObject"
@@ -285,7 +289,17 @@ let wsRuntimeFunctions =
         "ScriptPath"
     ]
 
-let rec transformExpression (env: Environment) (expr: S.Expression) =
+let (|JSGlobalAccess|_|) e =
+    match e with
+    | GlobalAccess a ->
+        match a.JSAddress with
+        | Some ja -> Some (a.Module, ja)
+        | _ -> None
+    | _ -> None
+
+let inline private trI (jsId: S.Id) = Id.New(jsId.Name, opt = jsId.Optional)
+
+let rec private transformExpression (env: Environment) (expr: S.Expression) =
     let inline trE e = transformExpression env e
     let checkNotMutating a f =
         if env.IsInput a then
@@ -296,12 +310,12 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
     let mun a op =
         checkNotMutating (trE a) (fun ta -> MutatingUnary(op, ta))
     match expr with
-    | S.Application (a, b) ->
+    | S.Application (a, [], b) ->
         let trA =
             match trE a with
             | ItemGet (a, b, _) -> ItemGet (a, b, Pure)
             | trA -> trA
-        Application (trA, b |> List.map trE, env.Purity, None) 
+        Appl (trA, b |> List.map trE, env.Purity, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)
@@ -326,18 +340,18 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
                 match trC with
                 | Value (String f) ->
                     if wsRuntimeFunctions.Contains f then
-                        Global ["WebSharper"; "Runtime"; f]
+                        GlobalAccess (Address.Runtime f)
                     else
-                        failwithf "Unrecognized WebSharper.Runtime function: %s" f
-                | _ -> failwith "expected a function of WebSharper.Runtime"     
+                        failwithf "Unrecognized WSRuntime function: %s" f
+                | _ -> failwith "expected a function of WSRuntime"     
             else
                 match trA, trC with
-                | GlobalAccess a, Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
-                    let ga = Address (b :: a.Value)
+                | JSGlobalAccess (m, a), Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
+                    let ga = Hashed (b :: a.Value)
                     if env.MutableExternals.Contains ga then 
                         ItemGet(trA, trC, env.Purity)
                     else
-                        GlobalAccess (Address (b :: a.Value))
+                        GlobalAccess { Module = m; Address = Hashed (b :: a.Value) }
                 | _ ->
                     ItemGet(trA, trC, env.Purity) 
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
@@ -380,26 +394,26 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.String x -> String x
         | S.True -> Bool true
         |> Value
-    | S.Lambda (a, b, c) ->
-        let vars = b |> List.map (fun v -> Id.New v)
+    | S.Lambda (a, b, c, _) ->
+        let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
         let fres =
             match a with
-            | None -> Function (vars, transformStatement innerEnv body)
+            | None -> Function (vars, None, transformStatement innerEnv body)
             | Some a -> 
                 let f = env.NewVar a
-                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body), Some f)
+                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body, []), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
-    | S.New (a, b) -> 
-        New(trE a, List.map trE b)
+    | S.New (a, [], b) -> 
+        New(trE a, [], List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
     | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
     | S.NewRegex a -> 
         let closingSlash = a.LastIndexOf '/'
         let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq
-        New (Global ["RegExp"], Value (String a.[1 .. closingSlash - 1]) :: flags)
+        New (Global ["RegExp"], [], Value (String a.[1 .. closingSlash - 1]) :: flags)
     | S.Postfix (a, b) ->
         match b with
         | S.PostfixOperator.``++`` -> mun a MutatingUnaryOperator.``()++``
@@ -420,26 +434,30 @@ let rec transformExpression (env: Environment) (expr: S.Expression) =
         | S.UnaryOperator.``~`` -> Unary(UnaryOperator.``~``, trE b)
         | _ -> failwith "unrecognized unary operator"
     | S.Var a ->
-        match a with
-        | "$global" -> glob
-        | "self" | "window" -> Global []
+        match a.Name with
+        | "$global"
+        | "window" -> Var (Id.Global())
         | "$wsruntime" -> wsruntime
         | "arguments" -> Arguments
         | "undefined" -> Undefined
-        | _ ->
+        | n ->
         match env.TryFindVar a with
         | Some e -> e
-        | None ->
-            if a.StartsWith("$") && a <> "$" && not (env.ExpectedDollarVars |> Array.contains a) then
-                env.UnknownArgs.Add a |> ignore
-            Global [ a ]
+        | None -> 
+            if a.Name.StartsWith("$") && a.Name <> "$" && not (env.ExpectedDollarVars |> Array.contains a.Name) then
+                env.UnknownArgs.Add a.Name |> ignore
+            match env.FromModule with
+            | Some l ->
+                GlobalAccess { Module = l; Address = Hashed [ n ] }
+            | _ ->
+                Global [ n ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
 //        match b with
 //        | S.PostfixOperator.``++`` -> 
                                                                        
-and transformStatement (env: Environment) (statement: S.Statement) =
+and private transformStatement (env: Environment) (statement: S.Statement) =
     let inline trE e = transformExpression env e
     let inline trS s = transformStatement env s
     match statement with
@@ -454,7 +472,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.For (a, b, c, d) -> 
         For (Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | S.ForIn (a, b, c) ->
-        let i = env.NewVar "i"
+        let i = Id.New "i"
         ForIn(i, trE b, Block [ ExprStatement (setValue env (trE a) (Var i)); trS c ])
     | S.ForVarIn (a, b, c, d) -> 
         let v = env.NewVar a
@@ -497,7 +515,7 @@ and transformStatement (env: Environment) (statement: S.Statement) =
         match d with
         | None -> tw
         | Some d -> TryFinally (tw, trS d)
-    | S.Vars a ->
+    | S.Vars (a, _) ->
         match a with
         | [var, value] -> 
             VarDeclaration (env.NewVar var, match value with Some v -> trE v | None -> Undefined)
@@ -507,10 +525,10 @@ and transformStatement (env: Environment) (statement: S.Statement) =
     | S.With (a, b) -> failwith "Unsupported: JS with statement"
     | S.Function (a, b, c) ->
         let f = env.NewVar a
-        let vars = b |> List.map (fun v -> Id.New v)
+        let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
-        FuncDeclaration(f, vars, transformStatement innerEnv body)
+        FuncDeclaration(f, vars, transformStatement innerEnv body, [])
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 type InlinedStatementsTransformer() =
@@ -529,23 +547,23 @@ type InlinedStatementsTransformer() =
         
         VarSetStatement(rv, expr)
 
-    override this.TransformFuncDeclaration(a, b, c)  = FuncDeclaration(a, b, c) 
+    override this.TransformFuncDeclaration(a, b, c, d) = FuncDeclaration(a, b, c, d)
     
     member this.Run(st) =
         let res = this.TransformStatement(st)
         StatementExpr(res, returnVar)
-
+                
 type ParseResult =
     {
         Expr: Expression
         Warnings: string list
     }
 
-let createInline ext thisArg args isPure dollarVars inlineString =
+let createInline ext thisArg args isPure fromLib dollarVars inlineString =        
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
-        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
-    let env = Environment.New(thisArg, false, isPure, args, ext, dollarVars)
+        with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
+    let env = Environment.New(thisArg, false, isPure, args, ext, fromLib, dollarVars)
     let b =
         match parsed with
         | Choice1Of2 e ->
@@ -568,8 +586,8 @@ let createInline ext thisArg args isPure dollarVars inlineString =
 let parseDirect ext thisArg args dollarVars jsString =
     let parsed = 
         try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
-        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2
-    let env = Environment.New(thisArg, true, false, args, ext, dollarVars)
+        with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
+    let env = Environment.New(thisArg, true, false, args, ext, None, dollarVars)
     let body =
         match parsed with
         | Choice1Of2 e ->
@@ -579,7 +597,7 @@ let parseDirect ext thisArg args dollarVars jsString =
             |> S.Block
             |> transformStatement env
     {
-        Expr = Function(args, body)
+        Expr = Function(args, None, body)
         Warnings =
             [
                 if env.UnknownArgs.Count > 0 then

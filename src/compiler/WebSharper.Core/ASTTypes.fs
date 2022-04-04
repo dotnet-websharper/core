@@ -831,7 +831,9 @@ module private Instances =
             Type = None
         }
 
-    let GlobalId = uniqueId "window" -1L
+    let GlobalId = uniqueId "self" -1L
+
+    let ImportId = uniqueId "import" -2L
 
     let DefaultCtor =
         Constructor { CtorParameters = [] }
@@ -843,6 +845,7 @@ module private Instances =
 
 type Id with
     static member Global() = Instances.GlobalId
+    static member Import() = Instances.ImportId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
