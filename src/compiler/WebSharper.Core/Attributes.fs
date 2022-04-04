@@ -47,8 +47,9 @@ type ConstantAttribute private () =
 /// Inline members work by expanding JavaScript code templates
 /// with placeholders of the form such as $0, $x, $this or $value
 /// directly at the place of invocation. See also DirectAttribute.
+/// If `assertReturnType = true` then creates a type assertion for the result type.
 [<Sealed; U(T.Constructor|||T.Method|||T.Property)>]
-type InlineAttribute(template: string) =
+type InlineAttribute(template: string, assertReturnType: bool) =
     inherit A()
 
     /// Comma separated list of variable names starting with a dollar
@@ -59,7 +60,9 @@ type InlineAttribute(template: string) =
 
     member this.Template = template
 
-    new () = InlineAttribute(null)
+    new () = InlineAttribute(null, false)
+
+    new (template: string) = InlineAttribute(template, false)
 
 /// Marks methods and constructors for direct compilation to a JavaScript function.
 /// Direct members work by expanding JavaScript code templates
@@ -141,7 +144,7 @@ type GeneratedAttribute private () =
 /// Provides a runtime name for members when it differs from the F# name.
 /// The constructor accepts either an explicit array of parts,
 /// or a single string, in which case it is assumed to be dot-separated.
-[<Sealed; U(T.Class|||T.Interface|||T.Constructor|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
+[<Sealed; U(T.Class|||T.Interface|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
 type NameAttribute private () =
     inherit A()
 
@@ -153,6 +156,15 @@ type NameAttribute private () =
 
     /// Constructs a qualified name from an explicit array of parts.
     new ([<ParamArray>] names: string []) = NameAttribute()
+
+/// Specifies TypeScript type annotation for a Proxy or Stub type declaration.
+[<Sealed; U(T.Class|||T.Struct|||T.Interface|||T.Enum|||T.GenericParameter)>]
+type TypeAttribute private () =
+    inherit A()
+
+    /// Occurrences of this or the proxied .NET type will be annotated with this TypeScript type.
+    /// Supports generics, generic parameter name must match the .NET generic parameter name.
+    new (tsType: string) = TypeAttribute()
 
 /// Declares a type to be a proxy for another type, identified directly or
 /// by using an assembly-qualified name.
