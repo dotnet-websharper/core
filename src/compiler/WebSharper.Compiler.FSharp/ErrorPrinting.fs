@@ -43,7 +43,7 @@ type WarnSettings =
             WarnAsError = Set []
             AllWarnAsError = false
             DontWarnAsError = Set []
-            VSStyleErrors = false
+            VSStyleErrors = true
         }   
         
     member this.CheckNoWarn(c) =
