@@ -1,10 +1,10 @@
 <!--
 // $begin{copyright}
-//
+// 
 // This file is part of WebSharper
-//
+// 
 // Copyright (c) 2008-2014 IntelliFactory
-//
+// 
 // GNU Affero General Public License Usage
 // WebSharper is free software: you can redistribute it and/or modify it under
 // the terms of the GNU Affero General Public License, version 3, as published
@@ -26,41 +26,43 @@
     <WebSharperRunCompiler Condition=" '$(WebSharperRunCompiler)' == '' ">True</WebSharperRunCompiler>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <OtherFlags>$(OtherFlags) --project:"$(MSBuildProjectFullPath.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperProject)' != '' Or '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --ws:"$(WebSharperProject)"</OtherFlags>
-    <OtherFlags Condition=" '$(WebProjectOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebProjectOutputDir.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperBundleOutputDir)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperBundleOutputDir.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperHtmlDirectory)' != '' ">$(OtherFlags) --wsoutput:"$(WebSharperHtmlDirectory.TrimEnd('\'))"</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperSourceMap)' == 'True' ">$(OtherFlags) --jsmap</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperTypeScriptDeclaration)' == 'True' ">$(OtherFlags) --dts</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperErrorsAsWarnings)' == 'True' ">$(OtherFlags) --wswarnonly</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDeadCodeElimination)' == 'False' ">$(OtherFlags) --dce-</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperDownloadResources)' == 'True' ">$(OtherFlags) --dlres</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperAnalyzeClosures)' != '' ">$(OtherFlags) --closures:$(WebSharperAnalyzeClosures)</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperJsOutput)</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperMinJsOutput)' != '' ">$(OtherFlags) --jsoutput:$(WebSharperMinJsOutput)</OtherFlags>
-    <OtherFlags Condition=" '$(WebSharperStandalone)' == 'True' ">$(OtherFlags) --standalone+</OtherFlags>
+    <WebSharperTaskAssembly Condition=" '$(WebSharperTaskAssembly)' == '' ">$(MSBuildThisFileDirectory)/../tools/netstandard2.0/WebSharper.MSBuild.FSharp.dll</WebSharperTaskAssembly>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe') ">$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.exe</WebSharperToolPath>
+    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">True</WebSharperStandalone>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' == 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net6.0/wsfsc.exe</WebSharperToolPath>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' AND Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh') ">$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/wsfsc.sh</WebSharperToolPath>
+    <WebSharperStandalone Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">True</WebSharperStandalone>
+    <WebSharperToolPath Condition=" '$(WebSharperToolPath)' == '' AND '$(OS)' != 'Windows_NT' ">$(MSBuildThisFileDirectory)/../tools/net6.0/wsfsc.sh</WebSharperToolPath>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json') ">$(MSBuildProjectDirectory)/wsconfig.$(MSBuildProjectName).json</WebSharperConfigFile>
     <WebSharperConfigFile Condition=" '$(WebSharperConfigFile)' == '' AND Exists('$(MSBuildProjectDirectory)/wsconfig.json') ">$(MSBuildProjectDirectory)/wsconfig.json</WebSharperConfigFile>
-    <OtherFlags Condition=" '$(WebSharperConfigFile)' != '' ">$(OtherFlags) --wsconfig:"$(WebSharperConfigFile)"</OtherFlags>
-  </PropertyGroup>
+    <SkipCompilerExecution>True</SkipCompilerExecution>
+    <ProvideCommandLineArgs>True</ProvideCommandLineArgs>
+</PropertyGroup>
   <Target Name="RecompileOnConfigChanges" BeforeTargets="BeforeBuild" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(WebSharperConfigFile)' != '' AND Exists('$(WebSharperConfigFile)') ">
     <ItemGroup>
       <CustomAdditionalCompileInputs Include="$(WebSharperConfigFile)" />
     </ItemGroup>
   </Target>
-
-  <PropertyGroup Condition=" '$(WebSharperRunCompiler)' == 'True' ">
-    <FscToolExe Condition=" '$(OS)' == 'Windows_NT' ">wsfsc.exe</FscToolExe>
-    <FscToolExe Condition=" '$(OS)' != 'Windows_NT' ">wsfsc.sh</FscToolExe>
-    <OtherFlags Condition=" !Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/') ">$(OtherFlags) --standalone+</OtherFlags>
-    <FscToolPath Condition=" !Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/') ">$(MSBuildThisFileDirectory)/../tools/net6.0/</FscToolPath>
-    <FscToolPath Condition=" Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/') ">$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/</FscToolPath>
-    <FscBoosterCmd Condition=" '$(OS)' != 'Windows_NT' ">wsfscservice_start.sh</FscBoosterCmd>
-  </PropertyGroup>
-
-  <Target Name="MakeWsfscExecutable" BeforeTargets="CoreCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '$(OS)' != 'Windows_NT' ">
-    <Exec Command="chmod u+x '$(FscToolPath)/$(FscToolExe)'" />
-    <Exec Condition=" Exists('$(MSBuildThisFileDirectory)/../tools/net6.0/$(NETCoreSdkRuntimeIdentifier)/') " Command="chmod u+x '$(FscToolPath)/$(FscBoosterCmd)'" />
+  <UsingTask AssemblyFile="$(WebSharperTaskAssembly)" TaskName="WebSharper.MSBuild.FSharp.WebSharperTask" Condition=" '$(WebSharperRunCompiler)' == 'True' " />
+  <Target Name="WebSharperCompile" Condition=" '$(WebSharperRunCompiler)' == 'True' AND '@(FscCommandLineArgs)' != '' " AfterTargets="CoreCompile">
+    <Exec Command="chmod u+x '$(WebSharperToolPath)'" Condition="'$(OS)' != 'Windows_NT'" />
+    <WebSharperTask
+      FscCommandLineArgs="@(FscCommandLineArgs)"
+      MSBuildProjectFullPath="$(MSBuildProjectFullPath)"
+      WebProjectOutputDir="$(WebProjectOutputDir)"
+      WebSharperConfigFile="$(WebSharperConfigFile)"
+      WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
+      WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
+      WebSharperProject="$(WebSharperProject)"
+      WebSharperSourceMap="$(WebSharperSourceMap)"
+      WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"
+      WebSharperDeadCodeElimination="$(WebSharperDeadCodeElimination)"
+      WebSharperDownloadResources="$(WebSharperDownloadResources)"
+      WebSharperAnalyzeClosures="$(WebSharperAnalyzeClosures)"
+      WebSharperJsOutput="$(WebSharperJsOutput)"
+      WebSharperMinJsOutput="$(WebSharperMinJsOutput)"
+      WebSharperToolPath="$(WebSharperToolPath)"
+      WebSharperStandalone="$(WebSharperStandalone)"
+  />
   </Target>
 </Project>
