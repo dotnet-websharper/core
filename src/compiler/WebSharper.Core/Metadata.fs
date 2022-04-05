@@ -321,7 +321,6 @@ type Info =
         Dependencies : GraphData
         Interfaces : IDictionary<TypeDefinition, InterfaceInfo>
         Classes : IDictionary<TypeDefinition, Address * CustomTypeInfo * option<ClassInfo>>
-        EntryPoint : option<Statement>
         MacroEntries : IDictionary<MetadataEntry, list<MetadataEntry>>
         Quotations : IDictionary<SourcePos, TypeDefinition * Method * list<string>>
         ResourceHashes : IDictionary<string, int>
@@ -334,7 +333,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Map.empty
             Classes = Map.empty
-            EntryPoint = None
             MacroEntries = Map.empty
             Quotations = Map.empty
             ResourceHashes = Map.empty
@@ -407,11 +405,6 @@ type Info =
             Dependencies = GraphData.Empty
             Interfaces = Dict.union (metas |> Seq.map (fun m -> m.Interfaces))
             Classes = unionMerge (metas |> Seq.map (fun m -> m.Classes))
-            EntryPoint = 
-                match metas |> Array.choose (fun m -> m.EntryPoint) with
-                | [||] -> None
-                | [| ep |] -> Some ep
-                | _ -> failwith "Multiple entry points found."
             MacroEntries = Dict.unionAppend (metas |> Seq.map (fun m -> m.MacroEntries))
             Quotations = 
                 try
@@ -443,7 +436,6 @@ type Info =
                     | None -> t
                     | Some ci -> addr, ct, Some (f ci)
                 )
-            EntryPoint = Option.map (defaultArg fEp id) this.EntryPoint
         }
 
     member this.DiscardExpressions() =
@@ -483,8 +475,7 @@ type Info =
         this.Classes.Count = 0 &&
         this.Interfaces.Count = 0 &&
         this.MacroEntries.Count = 0 &&
-        this.SiteletDefinition.IsNone &&
-        this.EntryPoint.IsNone
+        this.SiteletDefinition.IsNone
 
 type MetadataOptions =
     | FullMetadata
@@ -553,7 +544,7 @@ type ICompilation =
     abstract GetConstructorAttributes : TypeDefinition * Constructor -> option<list<TypeDefinition * ParameterObject[]>>
     abstract GetJavaScriptClasses : unit -> list<TypeDefinition>
     abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
-    abstract ParseJSInline : string * list<Expression> -> Expression
+    abstract ParseJSInline : string * list<Expression> * [<OptionalArgument; DefaultParameterValue null>] position: SourcePos * [<OptionalArgument; DefaultParameterValue null>] dollarVars: string[] -> Expression
     abstract NewGenerated : string list * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
     abstract AddGeneratedCode : Method * Expression -> unit
     abstract AddGeneratedInline : Method * Expression -> unit

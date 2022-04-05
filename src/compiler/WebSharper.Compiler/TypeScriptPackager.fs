@@ -33,24 +33,25 @@ type EntryPointStyle =
     | ForceOnLoad
     | ForceImmediate
 
+let private Address a = { Module = CurrentModule; Address = Hashed a }
+
 let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
-    let imports = ResizeArray()
     let addresses = Dictionary()
     let declarations = ResizeArray()
     let statements = ResizeArray()
 
     let g = Id.New "Global"
     let glob = Var g
+    declarations.Add <| VarDeclaration (g, Var (Id.Global()))
     addresses.Add(Address [], glob)
     addresses.Add(Address [ "self" ], glob)
-    addresses.Add(Address [ "import" ], Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            match address.Value with
+            match address.Address.Value with
             | [] -> glob
             | [ name ] ->
                 let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
@@ -60,7 +61,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
                 addresses.Add(address, res)
                 res
             | name :: r ->
-                let parent = getAddress (Hashed r)
+                let parent = getAddress (Address r)
                 let f = Value (String name)
                 let var = Id.New name
                 declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
@@ -69,39 +70,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
                 res
 
     let getFieldAddress (address: Address) =
-        match address.Value with
+        match address.Address.Value with
         | name :: r ->
-            getAddress (Hashed r), Value (String name)
+            getAddress (Address r), Value (String name)
         | _ -> failwith "packageAssembly: empty address"
     
     let rec getOrImportAddress (full: bool) (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            let getModuleName (from: string) =
-                let fn = from.Split('/') |> Array.last
-                if fn.EndsWith(".js") then
-                    fn.[.. fn.Length - 4].Replace(".", "$")
-                else fn.Replace(".", "$")
-            match address.Value with
+            match address.Address.Value with
             | [] -> glob
-            | [ from; "import" ] ->
-                let name = "def$" + getModuleName from
-                let id = Id.New (name, mut = false)
-                let res = Var id
-                imports.Add (from, None, id)
-                addresses.Add(address, res)
-                res
-            | [ export; from; "import" ] -> 
-                let name = 
-                    match export with
-                    | "*" -> getModuleName from
-                    | n -> n
-                let id = Id.New (name, mut = false) 
-                let res = Var id
-                imports.Add (from, Some export, id)
-                addresses.Add(address, res)
-                res
             | h :: t ->
                 let parent = getOrImportAddress false (Address t)
                 let import = ItemGet(parent, Value (String h), Pure)
@@ -136,9 +115,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
     let packageCctor a expr name =
         let o, x = getFieldAddress a
         match expr with
-        | Function ([], body) ->
+        | Function ([], _, body) ->
             let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
-            let expr = Function([], Block [rem; body])
+            let expr = Function([], None, Block [rem; body])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
             failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
@@ -150,24 +129,24 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let rec packageClass (c: M.ClassInfo) name =
+    let rec packageClass address (c: M.ClassInfo) name =
 
         match c.BaseClass with
         | Some b ->
-            match classes.TryFind b with
-            | Some bc ->
-                classes.Remove b |> ignore
-                packageClass bc b.Value.FullName
+            match classes.TryFind b.Entity with
+            | Some (a, _, Some bc) ->
+                classes.Remove b.Entity |> ignore
+                packageClass (Some a) bc b.Entity.Value.FullName
             | _ -> ()
         | _ -> ()
 
         match c.StaticConstructor with
-        | Some(_, GlobalAccess a) when a.Value = [ "ignore" ] -> ()
+        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
         | Some (ccaddr, body) -> 
             packageCctor ccaddr body name
         | _ -> ()
 
-        match c.Address with 
+        match address with 
         | None -> ()
         | Some addr ->
             
@@ -181,7 +160,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
                     | _ -> None
                     
                 Object [
-                    for info, _, body in c.Methods.Values do
+                    for info, _, _, body in c.Methods.Values do
                         match prop info body with
                         | Some p -> yield p 
                         | _ -> ()
@@ -193,17 +172,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
                             
             let baseType =
                 let tryFindClass c =
-                    match refMeta.Classes.TryFind c with
+                    match refMeta.Classes.TryFind c.Entity with
                     | Some _ as res -> res
-                    | _ -> current.Classes.TryFind c
-                match c.BaseClass |> Option.bind tryFindClass |> Option.bind (fun b -> b.Address) with
+                    | _ -> current.Classes.TryFind c.Entity
+                match c.BaseClass |> Option.bind tryFindClass |> Option.map (fun (a, _, _) -> a) with
                 | Some ba -> getOrImportAddress false ba
                 | _ -> Value Null
              
             if c.HasWSPrototype then
                 packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
 
-        for info, _, body in c.Methods.Values do
+        for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
             | M.Static maddr ->
                 if body <> Undefined then
@@ -213,11 +192,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         for info, _, body in c.Constructors.Values do
             match withoutMacros info with
-            | M.Constructor caddr ->
+            | M.JSConstructor caddr ->
                 if body <> Undefined then
-                    if c.HasWSPrototype && Option.isSome c.Address then
+                    if c.HasWSPrototype && Option.isSome address then
                         package caddr <| 
-                            match c.Address with
+                            match address with
                             | Some addr -> JSRuntime.Ctor body (GlobalAccess addr)
                             | _ -> body
                     else
@@ -228,13 +207,13 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             | _ -> ()
             
     while classes.Count > 0 do
-        let (KeyValue(t, c)) = classes |> Seq.head
+        let (KeyValue(t, (addr, _, c))) = classes |> Seq.head
         classes.Remove t |> ignore
-        packageClass c t.Value.FullName
+        packageClass (Some addr) c.Value t.Value.FullName
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], ep)))
+        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], None, ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->
@@ -245,23 +224,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
     if List.isEmpty trStatements then Undefined else
         let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-        let wsPkg = 
-            Application(Function([g], Block allStatements), [Var (Id.Global())], NonPure, Some 0)
-        if imports.Count = 0 then
-            wsPkg
-        else
-            Sequential (
-                Seq.append (
-                    imports |> Seq.map (fun (from, export, id) ->
-                        let args =
-                            match export with
-                            | None -> [ Value (String from) ]
-                            | Some e -> [  Value (String e); Value (String from) ]
-                        StatementExpr(VarDeclaration(id, Application(Var (Id.Import()), args, NonPure, Some 0)), None)
-                    )
-                ) (Seq.singleton wsPkg)
-                |> List.ofSeq
-            )
+        Appl(Function([], None, Block allStatements), [], NonPure, Some 0)
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
@@ -275,23 +238,10 @@ let readMapFileSources mapFile =
 let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
     let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
     let program =
-        match statement with
-        | Sequential statements ->
-            statements |> List.map (
-                function
-                | StatementExpr (st, None) ->
-                    st 
-                    |> JavaScriptWriter.transformStatement env
-                | e ->
-                    e
-                    |> JavaScriptWriter.transformExpr env
-                    |> WebSharper.Core.JavaScript.Syntax.Ignore
-            )
-        | _ ->
-            statement
-            |> JavaScriptWriter.transformExpr env
-            |> WebSharper.Core.JavaScript.Syntax.Ignore
-            |> List.singleton
+        statement
+        |> JavaScriptWriter.transformExpr env
+        |> WebSharper.Core.JavaScript.Syntax.Ignore
+        |> List.singleton
 
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program

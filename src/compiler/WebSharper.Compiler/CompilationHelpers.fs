@@ -863,6 +863,20 @@ module Resolve =
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
 
+    let rec getRenamedForPrototype name p =
+        let rec isNameOk (Prototype (s, subTypes)) =
+            seq {
+                yield not (s.Contains name)
+                for p in subTypes do 
+                    yield isNameOk p
+            }
+            |> Seq.forall id
+        if isNameOk p then
+            addToPrototype p name |> ignore
+            name
+        else
+            getRenamedForPrototype (newName name) p
+
     let rec getRenamedInDict name v (s: Dictionary<string, _>) =
         if s.ContainsKey name then
             getRenamedInDict name v s
@@ -1055,7 +1069,6 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                     }
                 )
             )
-        EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
     },
     match sp with
     | None -> [||]
@@ -1101,7 +1114,6 @@ let transformToLocalAddressInMetadata (meta: Info) =
                     }
                 )
             )
-        EntryPoint = meta.EntryPoint |> Option.map tr.TransformStatement
     }
 
 type Capturing(?var) =

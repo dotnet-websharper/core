@@ -30,7 +30,6 @@ open WebSharper.Core.Metadata
 module A = WebSharper.Compiler.AttributeReader
 module QR = WebSharper.Compiler.QuotationReader
 
-
 let readReflected (comp: ICompilation) (m: MethodBase) =
     match Expr.TryGetReflectedDefinition m with
     | None -> None
@@ -101,6 +100,6 @@ let readReflected (comp: ICompilation) (m: MethodBase) =
             | _ ->
                 failwithf "Expecting a lambda while detupling arguments a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo
         | _ ->
-            Lambda(args, QR.transformExpression env expr)
+            Lambda(args, None, QR.transformExpression env expr)
 
     Some (decurry [] currying q)
