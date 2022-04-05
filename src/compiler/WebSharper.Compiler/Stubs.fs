@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -55,7 +55,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isModule
         else 
             let l = mdef.Value.Parameters.Length
             let args = List.init l (fun i -> Hole (i + 1))
-            Application(ItemGet(Hole 0, item, NoSideEffect), args, NonPure, None)
+            Appl(ItemGet(Hole 0, item, NoSideEffect), args, NonPure, None)
     else
         let getAddressAndName isProp =
             let n = 
@@ -97,7 +97,7 @@ let GetMethodInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) isModule
                     Global (a @ [n]) 
             let l = mdef.Value.Parameters.Length
             let args = List.init l Hole
-            Application(a, args, NonPure, Some l)
+            Appl(a, args, NonPure, Some l)
     , error
 
 let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (tdef: TypeDefinition) (cdef: Constructor) =
@@ -116,4 +116,4 @@ let GetConstructorInline (tAnnot: TypeAnnotation) (mAnnot: MemberAnnotation) (td
         let l = cdef.Value.CtorParameters.Length
         let args = List.init l Hole
         let f = if a.IsEmpty then errorPlaceholder else Global a
-        New(f, args)
+        New(f, [], args)

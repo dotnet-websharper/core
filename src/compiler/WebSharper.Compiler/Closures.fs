@@ -32,7 +32,7 @@ type CollectVariables() =
 
     let vars = ResizeArray()
 
-    override this.VisitFuncDeclaration(f, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _) =
         vars.Add f
 
     override this.VisitVarDeclaration(v, _) =
@@ -114,30 +114,30 @@ type ExamineClosures (logger: LoggerBase, comp: Compilation, moveNonCapturingFun
                 this.Warning(pos, "This function do not use all retained variables through capture: " + names)    
         res
 
-    override this.TransformFuncDeclaration(f, args, body) =
+    override this.TransformFuncDeclaration(f, args, body, gen) =
         // top scope is not a named function
         this.EnterScope(args, body)
-        let res = base.TransformFuncDeclaration(f, args, body)
+        let res = base.TransformFuncDeclaration(f, args, body, gen)
         if this.ExitScope(f) then
             movedToTop.Add(res)  
             Empty  
         else res
 
-    override this.TransformFunction(args, body) =
+    override this.TransformFunction(args, ret, body) =
         if outerScope then
             outerScope <- false
             CollectVariables.ScopeVars(body) |> Seq.iter (topScopeVars.Add >> ignore)
             let trBody = this.TransformStatement body
             outerScope <- true
-            Function(args, CombineStatements (trBody :: List.ofSeq movedToTop))
+            Function(args, ret, CombineStatements (trBody :: List.ofSeq movedToTop))
         else
             this.EnterScope(args, body)
             let trBody = this.TransformStatement body
             if this.ExitScope() then
                 let f = Id.New("f", mut = false)
-                movedToTop.Add(FuncDeclaration(f, args, body))
+                movedToTop.Add(FuncDeclaration(f, args, body, []))
                 Var f
-            else Function(args, trBody)
+            else Function(args, ret, trBody)
 
     override this.TransformId(i) =
         match scopeChain with
