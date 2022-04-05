@@ -36,7 +36,7 @@ type Environment =
         mutable ScopeNames : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
-        ScopeVars : ResizeArray<J.Id>
+        ScopeVars : ResizeArray<string>
         FuncDecls : ResizeArray<J.Statement>
         mutable InFuncScope : bool
         OuterScope : bool
@@ -67,15 +67,23 @@ type Environment =
 
     member this.Declarations =
         if this.ScopeVars.Count = 0 then [] else
-            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> v, None) |> List.ofSeq) ]
+            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq, J.VarDecl) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
+let undefVar (id: Id) =
+#if DEBUG
+    J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
+#else
+    failwithf "Undefined variable during writing JavaScript: %s" (string id)
+#endif
+
 let transformId (env: Environment) (id: Id) =
-    try Map.find id env.ScopeIds
+    if id.HasStrongName then J.Id.New id.Name.Value else
+    try 
+        J.Id.New (Map.find id env.ScopeIds) 
     with _ -> 
-        "MISSINGVAR" + I.MakeValid (defaultArg id.Name "_")
-        //failwithf "Undefined variable during writing JavaScript: %s" (string id)
+        undefVar id
 
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
@@ -103,6 +111,7 @@ let defineId (env: Environment) addToDecl (id: Id) =
         env.ScopeIds <- env.ScopeIds |> Map.add id name
         if addToDecl then env.ScopeVars.Add(name)
         name
+    |> J.Id.New
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
@@ -119,7 +128,7 @@ let invalidForm c =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _) =
         defineId env false f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
@@ -128,7 +137,7 @@ type CollectVariables(env: Environment) =
 let flattenJS s =
     let res = ResizeArray()
     let rec add a =
-        match J.RemoveOuterStatementSourcePos a with
+        match J.IgnoreStatementPos a with
         | J.Block b -> b |> List.iter add
         | J.Empty -> ()
         | _ -> res.Add a
@@ -143,7 +152,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     match expr with
     | Undefined -> undef
     | This -> J.This
-    | Arguments -> J.Var "arguments"
+    | Arguments -> J.Var (J.Id.New "arguments")
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with
@@ -164,7 +173,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
-    | Application (e, ps, _, _) -> J.Application (trE e, ps |> List.map trE)
+    | Application (e, ps, _) -> J.Application (trE e, [], ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 
         let jpos =
@@ -176,7 +185,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
-    | Function (ids, b) ->
+    | Function (ids, _, b) ->
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
@@ -193,7 +202,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             if env.OuterScope then
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
             else []
-        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body))
+        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body), false)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -242,7 +251,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``??=``  -> J.Binary(trE x, J.BinaryOperator.``??=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
-    | New (x, y) -> J.New(trE x, y |> List.map trE)
+    | New (x, _, y) -> J.New(trE x, [], y |> List.map trE)
     | Sequential x ->
         let x =
             match List.rev x with 
@@ -313,7 +322,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let mutable skip = false
         res |> Seq.filter (fun s ->
             if skip then
-                match J.RemoveOuterStatementSourcePos s with
+                match J.IgnoreStatementPos s with
                 | J.Function _ | J.Vars _ -> 
                     true
                 | J.Labelled _ ->
@@ -322,7 +331,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ ->
                     false
             else
-                match J.RemoveOuterStatementSourcePos s with
+                match J.IgnoreStatementPos s with
                 | J.Return _ | J.Throw _ | J.Break _ | J.Continue _ -> 
                     skip <- true
                 | _ -> ()
@@ -375,7 +384,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | VarDeclaration (id, e) ->
         match e with
         | IgnoreSourcePos.Undefined -> J.Empty 
-        | IgnoreSourcePos.Application(Var importId, args, NonPure, Some 0) when importId = Id.Import() ->
+        | IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
             match args with
             | [ Value (String from) ] ->
                 J.Import(None, defineId env false id, from)  
@@ -383,7 +392,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 J.Import(Some export, defineId env false id, from)  
             | _ -> failwith "unrecognized args for import"
         | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
-    | FuncDeclaration (x, ids, b) ->
+    | FuncDeclaration (x, ids, b, _) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
