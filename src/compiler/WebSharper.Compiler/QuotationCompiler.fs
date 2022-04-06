@@ -37,6 +37,8 @@ type private N = NotResolvedMemberKind
 type QuotationCompiler (meta : M.Info) =
     let comp = Compilation(meta, CustomTypesReflector = A.reflectCustomType)
 
+    let nrInline = N.Inline false
+
     member this.Compilation = comp
 
     member this.CompileReflectedDefinitions(asm: Assembly, ?treatReflectedDefinitionAsJavaScript: bool) =
@@ -54,10 +56,14 @@ type QuotationCompiler (meta : M.Info) =
 
             let clsMembers = ResizeArray()
 
-            let getUnresolved (mAnnot: A.MemberAnnotation) kind compiled expr = 
+            let getUnresolved (m: MethodBase) (mAnnot: A.MemberAnnotation) kind compiled expr = 
                 {
                     Kind = kind
                     StrongName = mAnnot.Name
+                    Generics =
+                        if m.IsGenericMethod then
+                            [] // TODO generic constraints
+                        else []
                     Macros = mAnnot.Macros
                     Generator = 
                         match mAnnot.Kind with
@@ -72,12 +78,6 @@ type QuotationCompiler (meta : M.Info) =
                     Warn = mAnnot.Warn
                     JavaScriptOptions = mAnnot.JavaScriptOptions
                 }
-
-            let addMethod mAnnot mdef kind compiled expr =
-                clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved mAnnot kind compiled expr)))
-
-            let addConstructor mAnnot cdef kind compiled expr =
-                clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved mAnnot kind compiled expr)))
 
             let mutable hasStubMember = false
             let mutable hasNonStubMember = false
@@ -115,7 +115,7 @@ type QuotationCompiler (meta : M.Info) =
                     | Some expr ->
                         let mem = Reflection.ReadMember m |> Option.get
     
-                        let nr k = getUnresolved mAnnot (if isInline then N.Inline else k) false expr
+                        let nr k = getUnresolved m mAnnot (if isInline then nrInline else k) false expr
 
                         match mem with
                         | Member.Constructor ctor ->
@@ -127,7 +127,7 @@ type QuotationCompiler (meta : M.Info) =
                         | Member.Override (td, impl) ->
                             clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Override td)))
                         | Member.StaticConstructor ->
-                            clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], expr)))
+                            clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], None, expr)))
                     | None -> 
                         ()
 
@@ -147,6 +147,11 @@ type QuotationCompiler (meta : M.Info) =
                 | Member.Method (_, mdef) 
                 | Member.Override (_, mdef) 
                 | Member.Implementation (_, mdef) ->
+                    
+                    let addMethod kind compiled expr =
+                        clsMembers.Add (NotResolvedMember.Method (mdef, (getUnresolved m mAnnot kind compiled expr)))
+
+
                     match mAnnot.Kind with
                     | None ->
                         if treatReflectedDefinitionAsJavaScript then
@@ -159,13 +164,13 @@ type QuotationCompiler (meta : M.Info) =
                             hasStubMember <- true
                             let expr, err = Stubs.GetMethodInline annot mAnnot false isInstance def mdef
                             err |> Option.iter error
-                            addMethod mAnnot mdef N.Inline true expr
+                            addMethod nrInline true expr
                         | _ -> failwith "Member kind not expected for astract method"
                     | A.MemberKind.JavaScript when m.IsAbstract -> 
                         match memdef with
                         | Member.Method (isInstance, mdef) ->
                             if not isInstance then failwith "Abstract method should not be static" 
-                            addMethod mAnnot mdef N.Abstract true Undefined
+                            addMethod N.Abstract true Undefined
                         | _ -> failwith "Member kind not expected for astract method"
                     | A.MemberKind.Remote rp ->
                         let remotingKind =
@@ -184,6 +189,7 @@ type QuotationCompiler (meta : M.Info) =
                             {
                                 Kind = N.Remote (remotingKind, handle, rp)
                                 StrongName = mAnnot.Name
+                                Generics = []
                                 Macros = mAnnot.Macros
                                 Generator = None
                                 Compiled = true 
@@ -198,25 +204,25 @@ type QuotationCompiler (meta : M.Info) =
                         clsMembers.Add(NotResolvedMember.Method(mdef, nr))
                     | A.MemberKind.NoFallback ->
                         checkNotAbstract()
-                        addMethod mAnnot mdef N.NoFallback true Undefined
-                    | A.MemberKind.Inline (js, dollarVars) ->
+                        addMethod N.NoFallback true Undefined
+                    | A.MemberKind.Inline (js, ta, dollarVars) ->
                         checkNotAbstract() 
                         let vars = getVars()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
                             List.iter warn parsed.Warnings
-                            addMethod mAnnot mdef N.Inline true parsed.Expr
+                            addMethod (N.Inline ta) true parsed.Expr
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
-                        addMethod mAnnot mdef N.Inline true (Value c)                        
+                        addMethod nrInline true (Value c)                        
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars = getVars()
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
                             List.iter warn parsed.Warnings
-                            addMethod mAnnot mdef (getKind()) true parsed.Expr
+                            addMethod (getKind()) true parsed.Expr
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript ->
@@ -227,15 +233,19 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.OptionalField ->
                         if m.Name.StartsWith("get_") then
                             let i = JSRuntime.GetOptional (ItemGet(Hole 0, Value (String m.Name.[4..]), Pure))
-                            addMethod mAnnot mdef N.Inline true i
+                            addMethod nrInline true i
                         elif m.Name.StartsWith("set_") then  
                             let i = JSRuntime.SetOptional (Hole 0) (Value (String m.Name.[4..])) (Hole 1)
-                            addMethod mAnnot mdef N.Inline true i
+                            addMethod nrInline true i
                         else error "OptionalField attribute not on property"
                     | A.MemberKind.Generated _ ->
-                        addMethod mAnnot mdef (getKind()) false Undefined
+                        addMethod (getKind()) false Undefined
                     | A.MemberKind.AttributeConflict m -> error m
                 | Member.Constructor cdef ->
+
+                    let addConstructor kind compiled expr =
+                        clsMembers.Add (NotResolvedMember.Constructor (cdef, (getUnresolved m mAnnot kind compiled expr)))
+
                     match mAnnot.Kind with
                     | None ->
                         if treatReflectedDefinitionAsJavaScript then
@@ -244,15 +254,15 @@ type QuotationCompiler (meta : M.Info) =
                     match kind with
                     | A.MemberKind.Stub ->
                         let expr = Stubs.GetConstructorInline annot mAnnot def cdef
-                        addConstructor mAnnot cdef N.Inline true expr
+                        addConstructor nrInline true expr
                     | A.MemberKind.NoFallback ->
-                        addConstructor mAnnot cdef N.NoFallback true Undefined
-                    | A.MemberKind.Inline (js, dollarVars) ->
+                        addConstructor N.NoFallback true Undefined
+                    | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars = getVars()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
                             List.iter warn parsed.Warnings
-                            addConstructor mAnnot cdef N.Inline true parsed.Expr
+                            addConstructor (N.Inline ta) true parsed.Expr
                         with e ->
                             error ("Error parsing inline JavaScript: " + e.Message)
                     | A.MemberKind.Direct (js, dollarVars) ->
@@ -260,13 +270,13 @@ type QuotationCompiler (meta : M.Info) =
                         try
                             let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
                             List.iter warn parsed.Warnings
-                            addConstructor mAnnot cdef N.Static true parsed.Expr
+                            addConstructor N.Static true parsed.Expr
                         with e ->
                             error ("Error parsing direct JavaScript: " + e.Message)
                     | A.MemberKind.JavaScript -> jsMember false
                     | A.MemberKind.InlineJavaScript -> jsMember true
                     | A.MemberKind.Generated _ ->
-                        addConstructor mAnnot cdef N.Static false Undefined
+                        addConstructor N.Static false Undefined
                     | A.MemberKind.AttributeConflict m -> error m
                     | A.MemberKind.Remote _
                     | A.MemberKind.Stub -> failwith "should be handled previously"
@@ -296,9 +306,9 @@ type QuotationCompiler (meta : M.Info) =
                     if fsharpSpecificNonException || fsharpModule || t.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
                         None
                     elif annot.Prototype = Some false then
-                        t.BaseType |> Option.ofObj |> Option.bind (fun bt -> Reflection.ReadTypeDefinition(bt) |> ignoreSystemObject)
+                        t.BaseType |> Option.ofObj |> Option.bind (fun bt -> Reflection.ReadType(bt) |> getConcreteType |> ignoreSystemObject)
                     else 
-                        t.BaseType|> Option.ofObj |> Option.map (fun bt -> Reflection.ReadTypeDefinition(bt))
+                        t.BaseType|> Option.ofObj |> Option.map (fun bt -> Reflection.ReadType(bt) |> getConcreteType)
 
                 let strongName =
                     annot.Name |> Option.map (fun n ->
@@ -333,6 +343,8 @@ type QuotationCompiler (meta : M.Info) =
                     {
                         StrongName = strongName
                         BaseClass = baseCls
+                        Implements = []
+                        Generics = []
                         Requires = annot.Requires
                         Members = List.ofSeq clsMembers
                         Kind = ckind
@@ -340,6 +352,8 @@ type QuotationCompiler (meta : M.Info) =
                         Macros = annot.Macros
                         ForceNoPrototype = (annot.Prototype = Some false) // || hasConstantCase
                         ForceAddress = false // hasSingletonCase 
+                        Type = None
+                        SourcePos = { FileName = ""; Start = (0,0); End = (0,0) }
                     }
                 )
         

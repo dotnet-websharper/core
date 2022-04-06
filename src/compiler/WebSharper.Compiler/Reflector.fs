@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -94,6 +94,14 @@ let getName attrs =
         else None
     )
 
+let getTSType attrs =
+    attrs
+    |> Seq.tryPick (fun (a: Mono.Cecil.CustomAttribute) -> 
+        if a.AttributeType.FullName = "WebSharper.TypeAttribute" then
+            Some (TSType.Parse (a.ConstructorArguments.[0].Value :?> string))
+        else None
+    )
+
 let getRequires attrs =
     attrs
     |> Seq.filter (fun (a: Mono.Cecil.CustomAttribute) -> 
@@ -135,7 +143,18 @@ let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
 
-let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) isTSasm =
+let getConstraints (genParams: seq<Mono.Cecil.GenericParameter>) tgen =
+    genParams |> Seq.map (fun p -> 
+        {   
+            Type = None
+            Constraints =
+                p.Constraints |> Seq.map (fun c ->
+                    c.ConstraintType |> getType tgen
+                ) |> List.ofSeq
+        }
+    ) |> List.ofSeq
+
+let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) fromLibrary isTSasm =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -155,6 +174,11 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
     let interfaces = Dictionary()
     let classes = Dictionary()
+
+    let thisModule = 
+        match fromLibrary with
+        | Some js -> js
+        | None -> StandardLibrary
 
     let getMethodAttributes (typ: Mono.Cecil.TypeDefinition) (meth: Mono.Cecil.MethodDefinition) = 
         let propOpt =
@@ -184,18 +208,23 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
         let clsNodeIndex = graph.AddOrLookupNode(TypeNode def)
         graph.AddEdge(clsNodeIndex, asmNodeIndex)
-        for req in getRequires typ.CustomAttributes do
+        let reqs = getRequires typ.CustomAttributes
+        for req in reqs do
             graph.AddEdge(clsNodeIndex, ResourceNode req)
-
+                
         let baseDef =
             let b = typ.BaseType
             if isNull b then None else
-                getTypeDefinition b
+                getType 0 b 
+                |> getConcreteType
                 |> ignoreSystemObject
+
+        let implements = 
+            typ.Interfaces |> Seq.map (fun i -> i.InterfaceType |> getType 0 |> getConcreteType) |> List.ofSeq
 
         match baseDef with 
         | Some b ->
-            graph.AddEdge(TypeNode def, TypeNode b)
+            graph.AddEdge(TypeNode def, TypeNode b.Entity)
         | _ -> ()
 
         let methods = Dictionary()
@@ -233,10 +262,10 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure [||])
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure fromLibrary [||]) 
 
                 let kindWithoutMacros =
-                    if inlAttr.IsSome then Some Inline else 
+                    if inlAttr.IsSome then Some (Inline (true, false)) else 
                         match name with
                         | Some n -> Some (Instance n) // named instance members only for mixin interfaces
                         | _ -> None
@@ -256,7 +285,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let cNode = graph.AddOrLookupNode(ConstructorNode (def, cdef))
                     graph.AddEdge(cNode, clsNodeIndex)
-                    for req in getRequires customAttributes do
+                    for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
@@ -274,7 +303,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let mNode = graph.AddOrLookupNode(MethodNode (def, mdef))
                     graph.AddEdge(mNode, clsNodeIndex)
-                    for req in getRequires customAttributes do
+                    for req in getRequires meth.CustomAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
@@ -297,28 +326,45 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         graph.AddOverride(def, bdef, mdef)
                         abstractAndVirtualMethods.Add(aNode) |> ignore
 
-                    try methods.Add(mdef, (kind, opts, body))
+                    let gc = getConstraints meth.GenericParameters tgen
+
+                    try methods.Add(mdef, (kind, opts, gc, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
-
+        
+        if constructors.Count = 0 && methods.Count = 0 then () else
+        
         // Reflector is used for WIG, where abstract/virtual methods are generally meant to be called externally,
         // so any override of them should never be DCE'd. This enforces it.
         for aNode in abstractAndVirtualMethods do
             graph.AddEdge(clsNodeIndex, aNode)
 
-        classes.Add(def, 
-            {
-                Address = prototypes.TryFind(def.Value.FullName) |> Option.map (fun s -> s.Split('.') |> List.ofArray |> List.rev |> Address)
-                BaseClass = baseDef
-                Constructors = constructors
-                Fields = Map.empty 
-                StaticConstructor = None         
-                Methods = methods 
-                Implementations = Map.empty // TODO
-                QuotedArgMethods = Map.empty // TODO
-                HasWSPrototype = false // do not overwrite external prototype
-                Macros = []
-            }
+        let address =
+             prototypes.TryFind(def.Value.FullName)
+             |> Option.defaultValue def.Value.FullName
+             |> fun s -> 
+                 { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+
+        classes.Add(def,
+            (
+                address,
+                NotCustomType,
+                Some {
+                    BaseClass = baseDef
+                    Implements = implements
+                    Generics = getConstraints typ.GenericParameters 0 
+                    Constructors = constructors
+                    Fields = Map.empty 
+                    StaticConstructor = None         
+                    Methods = methods 
+                    Implementations = Map.empty // TODO
+                    QuotedArgMethods = Map.empty // TODO
+                    HasWSPrototype = false // do not overwrite external prototype
+                    IsStub = true
+                    Macros = []
+                    Type = getTSType typ.CustomAttributes
+                }
+            )
         )
 
     let transformInterface (typ: Mono.Cecil.TypeDefinition) =
@@ -340,26 +386,36 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             for r in reqs do
                 graph.AddEdge(i, ResourceNode r) 
 
+        let address =
+            prototypes.TryFind(def.Value.FullName)
+            |> Option.defaultValue def.Value.FullName
+            |> fun s -> 
+                { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+
+        let methods = Dictionary()
+        for meth in typ.Methods do
+            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
+            let mdef =
+                Hashed {
+                    MethodName = meth.Name
+                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
+                    ReturnType = getType tgen meth.ReturnType
+                    Generics   = meth.GenericParameters |> Seq.length
+                }
+            let name =
+                match getName meth.CustomAttributes with
+                | Some n -> n
+                | _ -> meth.Name
+            let gc = getConstraints meth.GenericParameters tgen
+            methods.Add(mdef, (name, gc))
+
         interfaces.Add(def,
             {
-                Extends = typ.Interfaces |> Seq.map (fun ii -> getTypeDefinition ii.InterfaceType) |> List.ofSeq
-                Methods = 
-                    dict [
-                        for meth in typ.Methods do
-                            let tgen = if typ.HasGenericParameters then typ.GenericParameters.Count else 0
-                            let mdef =
-                                Hashed {
-                                    MethodName = meth.Name
-                                    Parameters = meth.Parameters |> Seq.map (fun p -> getType tgen p.ParameterType) |> List.ofSeq
-                                    ReturnType = getType tgen meth.ReturnType
-                                    Generics   = meth.GenericParameters |> Seq.length
-                                }
-                            let name =
-                                match getName (getMethodAttributes typ meth) with
-                                | Some n -> n
-                                | _ -> meth.Name
-                            yield mdef, name
-                    ]
+                Address = address
+                Extends = typ.Interfaces |> Seq.map (fun ii -> getType 0 ii.InterfaceType |> getConcreteType) |> List.ofSeq
+                Methods = methods
+                Generics = getConstraints typ.GenericParameters 0
+                Type = getTSType typ.CustomAttributes
             }
         )    
     
@@ -371,15 +427,14 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         Dependencies = graph.GetData()
         Interfaces = interfaces
         Classes = classes
-        CustomTypes = Map.empty
         MacroEntries = Map.empty
         Quotations = Map.empty
         ResourceHashes = Dictionary()
         ExtraBundles = Set.empty
     }
 
-let TransformAssembly prototypes assembly =
-    trAsm prototypes assembly false    
+let TransformAssembly prototypes fromLibrary assembly =
+    trAsm prototypes assembly fromLibrary false    
 
 let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
-    trAsm prototypes assembly.Raw true    
+    trAsm prototypes assembly.Raw None true    

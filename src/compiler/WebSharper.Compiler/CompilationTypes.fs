@@ -44,7 +44,7 @@ module NotResolved =
         | Override of TypeDefinition
         | Implementation of TypeDefinition
         | Remote of RemotingKind * MethodHandle * option<TypeDefinition * option<obj>>
-        | Inline of bool
+        | Inline of assertReturnType: bool
         | InlineImplementation of TypeDefinition
         | NoFallback
         | Quotation of SourcePos * string list

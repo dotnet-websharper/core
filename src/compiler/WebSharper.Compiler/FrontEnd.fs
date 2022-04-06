@@ -84,11 +84,11 @@ let ModifyTSAssembly (current: M.Info) (a: Assembly) =
     
 let TransformMetaSources assemblyName (current: M.Info) sourceMap =
     if sourceMap then
-        let current, fileNames = transformAllSourcePositionsInMetadata assemblyName current
+        let current, fileNames = transformAllSourcePositionsInMetadata assemblyName false current
         let sources = fileNames |> Array.map (fun (fn, key) -> key, File.ReadAllText fn)
         current, sources
     else
-        removeSourcePositionFromMetadata current, [||]
+        transformAllSourcePositionsInMetadata assemblyName true current |> fst, [||]
 
 let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
