@@ -245,4 +245,4 @@ let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.Code
 
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
-    writer.GetCodeFile(), writer.GetMapFile()
+    writer.GetCodeFile()
