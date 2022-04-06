@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -72,9 +72,12 @@ type AwaitTransformer() =
     override this.TransformAwait(a) =
         let awaited = Id.New "$await"
         let doneLabel = Id.New "$done"
+        let setStatus s = ItemSet(Var awaited, Value (String "exc"), !~(Int s))
+        let start = Call(Some (Var awaited), NonGeneric Definitions.Task, TaskMethod.Start, [])
         let exc = ItemGet(Var awaited, Value (String "exc"), NoSideEffect)
         Sequential [
             NewVar(awaited, this.TransformExpression a)
+            Conditional (setStatus 0, start, Undefined)
             IgnoredStatementExpr <| Continuation(doneLabel, Var awaited)
             IgnoredStatementExpr <| Labeled(doneLabel, Empty)
             IgnoredStatementExpr <| If (exc, Throw exc, Empty)
@@ -258,8 +261,8 @@ type ExtractVarDeclarations() =
         vars.Add i
         Sequential [ VarSet(i, this.TransformExpression v); this.TransformExpression b ]
 
-    override this.TransformFunction(a, b) =
-        Function(a, b)
+    override this.TransformFunction(a, ret, b) =
+        Function(a, ret, b)
      
 type State =
     | SingleState of ResizeArray<Statement>
@@ -311,8 +314,8 @@ type ContinuationTransformer(labels) =
             this.Yield b
         ]
 
-    override this.TransformFuncDeclaration(f, args, body) =
-        localFunctions.Add(FuncDeclaration(f, args, body))  
+    override this.TransformFuncDeclaration(f, args, body, gen) =
+        localFunctions.Add(FuncDeclaration(f, args, body, gen))
         Empty
             
     member this.TransformMethodBodyInner(s: Statement) =
@@ -451,14 +454,14 @@ type GeneratorTransformer(labels) =
 
         Return <| Object [ 
             "GetEnumerator", 
-                Function ([],
+                Function ([], None,
                     Block [
-                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], Empty)])) // TODO: disposing iterators
+                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], None, Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
                         yield! this.LocalFunctions
                         for v in extract.Vars do
                             yield VarDeclaration(v, Undefined)
-                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], inner))
+                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], None, inner))
                         yield Return (Var en)
                     ]
                 )
@@ -510,7 +513,7 @@ type AsyncTransformer(labels, returns) =
             ]
         else
             Throw(a)
-        
+
     member this.TransformMethodBody(s: Statement) =
         let extract = ExtractVarDeclarations()
         let inner =
@@ -528,8 +531,8 @@ type AsyncTransformer(labels, returns) =
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
             yield! this.LocalFunctions
-            yield ExprStatement <| VarSet(run, Function ([], inner))
-            yield ExprStatement <| Application (Var run, [], NonPure, Some 0)
+            yield ExprStatement <| VarSet(run, Function ([], None, inner))
+            yield ExprStatement <| Appl (Var run, [], NonPure, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)
         ]

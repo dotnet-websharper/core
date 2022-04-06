@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -36,7 +36,7 @@ type HasCapturedDeclarations() =
             vars.Add(a) |> ignore
         this.VisitExpression(b)
 
-    override this.VisitFunction (_, b) =
+    override this.VisitFunction (_, _, b) =
         scope <- scope + 1    
         this.VisitStatement(b)
         scope <- scope - 1   
@@ -64,7 +64,7 @@ type BlockScoping() =
     let breaks = ResizeArray() 
     let conts = ResizeArray() 
 
-    override this.TransformFunction(a, b) = Function(a, b)
+    override this.TransformFunction(a, ret, b) = Function(a, ret, b)
 
     override this.TransformReturn(a) =
         match a with
@@ -88,7 +88,7 @@ type BlockScoping() =
         let res = Id.New()
         if hasReturn || breaks.Count > 0 || conts.Count > 0 then
             Block [
-                VarDeclaration(res, Application(Function([], Block a), [], NonPure, Some 0))
+                VarDeclaration(res, Appl(Function([], None, Block a), [], NonPure, Some 0))
 
                 If (Var res, 
                     Switch(ItemGet(Var res, i0, Pure),
@@ -125,7 +125,7 @@ type BlockScoping() =
                     )
                 , Empty)
             ]
-        else ExprStatement <| Application(Function([], Block a), [], NonPure, Some 0)
+        else ExprStatement <| Appl(Function([], None, Block a), [], NonPure, Some 0)
 
 type FixScoping() =
     inherit Transformer()
