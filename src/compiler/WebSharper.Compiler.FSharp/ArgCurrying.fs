@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -96,7 +96,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, isInstance) 
     override this.VisitHole i =
         this.VisitId(margs.[i])
 
-    override this.VisitFunction(args, body) =
+    override this.VisitFunction(args, ret, body) =
         this.VisitStatement body
 
     override this.VisitLet(var, value, body) =
@@ -125,23 +125,22 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, isInstance) 
             | a -> this.VisitExpression a     
         )
 
-    override this.VisitBaseCtor(expr, typ, ctor, args) =
+    override this.VisitChainedCtor(isBase, expr, typ, ctor, args) =
         args |> List.iteri (fun i a ->
             match IgnoreExprSourcePos a with
             | ArgIndex j ->
                 calls.[j].Add(Constructor (typ.Entity, ctor), i)
             | a -> this.VisitExpression a     
         )
-        this.VisitExpression expr
 
     override this.VisitCurriedApplication(f, args) =
         match IgnoreExprSourcePos f with
         | ArgIndex i ->
             setAppl margs.[i] (List.length args)
         | f -> this.VisitExpression f
-        args |> List.iter this.VisitExpression            
+        args |> List.iter (snd >> this.VisitExpression)            
 
-    override this.VisitApplication(f, args, _, _) =
+    override this.VisitApplication(f, args, _) =
         match IgnoreExprSourcePos f with
         | ArgIndex i ->
             if appl.[i] = 1 then
@@ -177,33 +176,33 @@ type FuncArgTransformer(al: list<Id * FuncArgOptimization>, isInstance) =
             | _ -> Hole i
         else Hole i
 
-    override this.TransformCurriedApplication(func, args: Expression list) =
+    override this.TransformCurriedApplication(func, args: (bool * Expression) list) =
         match func with
         | I.Var f ->
             match cargs.TryGetValue f with
             | true, CurriedFuncArg a ->
-                let ucArgs, restArgs = args |> List.map this.TransformExpression |> List.splitAt a
-                let inner = Application(Var f, ucArgs, NonPure, Some a)
+                let ucArgs, restArgs = args |> List.map (fun (u, a) -> u, this.TransformExpression a) |> List.splitAt a
+                let inner = Appl(Var f, ucArgs |> List.map snd, NonPure, Some a)
                 curriedApplication inner restArgs
             | true, TupledFuncArg a ->
                 match args with
                 | t :: rArgs ->
-                    curriedApplication (this.TransformApplication(func, [t], NonPure, Some 1))
-                        (List.map this.TransformExpression rArgs)
+                    curriedApplication (applyFSharpArg func t)
+                        (List.map (fun (u, a) -> u, this.TransformExpression a) rArgs)
                 | _ -> failwith "tupled func must have arguments"
             | _ -> base.TransformCurriedApplication(func, args)
         | _ -> base.TransformCurriedApplication(func, args)
 
-    override this.TransformApplication(func, args, p, l) =
+    override this.TransformApplication(func, args, info) =
         let normal() =
-            Application(this.TransformExpression func, List.map this.TransformExpression args, p, l)
+            Application(this.TransformExpression func, List.map this.TransformExpression args, info)
         match func with
         | I.Var f ->
             match cargs.TryGetValue f with
             | true, TupledFuncArg a ->
                 match args with
                 | [ I.NewArray es ] ->
-                    Application(Var f, List.map this.TransformExpression es, p, Some (List.length es))
+                    Application(Var f, List.map this.TransformExpression es, { info with KnownLength = Some (List.length es) })
                 | _ ->
                     failwith "tupled function not applied with a known tuple"    
             | _ -> normal()    
@@ -254,9 +253,12 @@ type ResolveFuncArgs(comp: Compilation) =
     member this.GetCompiled(mem, i) =
         match mem with
         | Method(typ, meth) ->
-            comp.TryLookupClassInfo(typ) |> Option.map (fun cls -> cls.Methods.[meth])
+            comp.TryLookupClassInfo(typ) |> Option.map (fun (_, cls) -> 
+                let (m, o, _, e) = cls.Methods.[meth]
+                (m, o, e)
+            )
         | Constructor(typ, ctor) ->
-            comp.TryLookupClassInfo(typ) |> Option.map (fun cls -> cls.Constructors.[ctor])
+            comp.TryLookupClassInfo(typ) |> Option.map (fun (_, cls) -> cls.Constructors.[ctor])
         |> Option.bind (fun (_, opts, _) ->
             opts.FuncArgs |> Option.map (fun ca -> ca.[i])
         )
@@ -265,6 +267,7 @@ type ResolveFuncArgs(comp: Compilation) =
         if resolved.Add(mem) then
             match members.TryGetValue mem with
             | true, (nr, args, isInstance) -> 
+                let nr, args, _ = members.[mem] 
                 let cv = FuncArgVisitor(nr.FuncArgs.Value, args, isInstance)
                 cv.VisitExpression(nr.Body)
                 for i, (c, calls) in cv.Results |> Seq.indexed do
