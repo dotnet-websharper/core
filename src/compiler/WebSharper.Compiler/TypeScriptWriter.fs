@@ -156,22 +156,23 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with
-        | Null     -> J.Literal.Null
-        | Bool   v -> if v then J.Literal.True else J.Literal.False
-        | Byte   v -> J.Number (string v)
-        | Char   v -> J.String (string v)
-        | Double v -> J.Number (string v)
-        | Int    v -> J.Number (string v)
-        | Int16  v -> J.Number (string v)
-        | Int64  v -> J.Number (string v)
-        | SByte  v -> J.Number (string v)
-        | Single v -> J.Number (string v)
-        | String v -> J.String v
-        | UInt16 v -> J.Number (string v)
-        | UInt32 v -> J.Number (string v)
-        | UInt64 v -> J.Number (string v)
+        | Null     -> J.Literal.Null |> J.Constant
+        | Bool   v -> (if v then J.Literal.True else J.Literal.False) |> J.Constant
+        | Byte   v -> J.Number (string v) |> J.Constant
+        | Char   v -> J.String (string v) |> J.Constant
+        | Double v -> J.Number (string v) |> J.Constant
+        | Int    v -> J.Number (string v) |> J.Constant
+        | Int16  v -> J.Number (string v) |> J.Constant
+        | Int64  v -> J.Number (string v) |> J.Constant
+        | SByte  v -> J.Number (string v) |> J.Constant
+        | Single v -> J.Number (string v) |> J.Constant
+        | String v -> J.String v |> J.Constant
+        | UInt16 v -> J.Number (string v) |> J.Constant
+        | UInt32 v -> J.Number (string v) |> J.Constant
+        | UInt64 v -> J.Number (string v) |> J.Constant
+        | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
+        | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
-        |> J.Constant
     | Application (e, ps, _) -> J.Application (trE e, [], ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 

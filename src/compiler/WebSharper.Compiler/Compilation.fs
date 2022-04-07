@@ -531,7 +531,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match c.QuotedArgMethods.TryFind(m) with
                 | Some x -> Some x
                 | None -> None
-            | None -> None
+            | _ -> None
 
     member this.AddClass(typ, cls) =
         try
@@ -1497,6 +1497,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                 None, None, true
                             else 
                                 None, Some false, false
+                        | N.MissingImplementation _ -> None, Some false, false
                         | N.Abstract
                         | N.Instance -> sn, Some false, false
                         | N.InlineImplementation _ -> None, Some false, false
@@ -1910,7 +1911,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match classes.TryFind intf with
                         | Some (_, _, Some i) -> 
                             i.Methods.ContainsKey meth || compilingMethods.ContainsKey (intf, meth)
-                        | None -> false
+                        | _ -> false
                     if not hasStaticImpl then
                         let found = 
                             cls.Value.Methods.Values 

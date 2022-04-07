@@ -157,6 +157,36 @@ let Keywords =
     |]
 let IsKeyword word = Keywords.Contains word
 
+let WriteUnicodeEscapeCodeForId (buf: StringBuilder) (c: char) =
+    buf.AppendFormat(@"u{0:x4}", int c)
+    |> ignore
+
+let EscapeId (id: string) =
+    let buf = StringBuilder()
+    if System.String.IsNullOrEmpty id then
+        invalidArg "id" "Cannot escape null and empty identifiers."
+    let isFirst = function
+        | '_' | '$' -> true
+        | c when System.Char.IsLetter c -> true
+        | _ -> false
+    let isFollow c =
+        isFirst c || System.Char.IsDigit c
+    let writeChar i =
+        let c = id.[i]
+        if isFollow c then
+            buf.Append c |> ignore
+        else
+            WriteUnicodeEscapeCodeForId buf c
+    match id.[0] with
+    | k when not (isFirst k) || IsKeyword id ->
+        WriteUnicodeEscapeCodeForId buf id.[0]
+        for i in 1 .. id.Length - 1 do
+            writeChar i
+    | _ ->
+        for i in 0 .. id.Length - 1 do
+            writeChar i
+    string buf
+
 let WriteUnicodeEscape (buf: StringBuilder) (c: char) =
     buf.AppendFormat(@"\u{0:x4}", int c)
     |> ignore
@@ -223,7 +253,7 @@ let rec startsWithObjectExpression = function
     | _ -> false
 
 let rec Id (id: S.Id) =
-    Word id.Name
+    Word (EscapeId id.Name)
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
@@ -353,6 +383,8 @@ and Expression (expression) =
         Token (string x)
     | S.This ->
         Word "this"
+    | S.ImportFunc ->
+        Word "import"
     | S.Super ->
         Word "super"    
     | S.Cast (t, e) ->
@@ -539,6 +571,28 @@ and Statement canBeEmpty statement =
         ++ Id n 
         ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member false) ms)
+    | S.Import (e, x, f) ->
+        match e with 
+        | None ->
+            Word "import"
+            ++ Id x
+        | Some "*" ->
+            Word "import * as"
+            ++ Id x
+        | Some e ->
+            let ei = EscapeId x.Name
+            if e <> ei then
+                Word "import {"
+                ++ Word e
+                ++ Word "as"
+                ++ Word ei
+                ++ Word "}"
+            else
+                Word "import {"
+                ++ Word e
+                ++ Word "}"
+        ++ Word "from "
+        ++ Token (QuoteString f)
 
 and Member isClass mem =
     match mem with

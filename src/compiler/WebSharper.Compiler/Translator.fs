@@ -1096,6 +1096,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 addTypeDeps meth.Entity.Value.ReturnType
             Appl (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.Purity, Some 2)
         | M.NewIndexed _ -> failwith "Not a valid method info: IndexedConstructor"
+        | M.JSConstructor _ -> failwith "Not a valid method info: JSConstructor"
         | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
@@ -1237,6 +1238,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Inline _ 
             | M.Macro _ 
             | M.Remote _ -> inlined()
+            | M.JSConstructor _
             | M.NewIndexed _
             | M.New _ -> failwith "impossible"
         | CustomTypeMember _ -> inlined()

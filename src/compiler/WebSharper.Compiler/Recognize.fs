@@ -466,9 +466,19 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         a |> List.map trS |> CombineStatements
     | S.Break a   -> Break (a |> Option.map (fun l -> env.Labels.[l]))
     | S.Continue a -> Continue (a |> Option.map (fun l -> env.Labels.[l]))
+    | S.Class (a, b, c, d, e) ->
+        failwith "Currently unsupported: JS class in inline"   
+    | S.Declare a ->
+        failwith "Currently unsupported: TS declare in inline"   
+    | S.DeclareGlobal a ->
+        failwith "Currently unsupported: TS declare global in inline"   
     | S.Debugger -> failwith "Currently unsupported: JS debugger"
     | S.Do (a, b) -> DoWhile (trS a, trE b)
     | S.Empty -> Empty
+    | S.Export a ->
+        failwith "Currently unsupported: JS export in inline"   
+    | S.ExportAlias (a, b) ->
+        failwith "Currently unsupported: JS export in inline"   
     | S.For (a, b, c, d) -> 
         For (Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | S.ForIn (a, b, c) ->
@@ -500,8 +510,16 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
     | S.Ignore a -> ExprStatement (trE a)    
     | S.Import (a, b, c) ->
         failwith "Currently unsupported: JS import in inline"   
+    | S.ImportAlias (a, b) ->
+        failwith "Currently unsupported: JS import in inline"   
+    | S.ImportAll (a, b) ->
+        failwith "Currently unsupported: JS import in inline"   
+    | S.Interface (a, b, c) ->
+        failwith "Currently unsupported: TS interface in inline"   
     | S.Labelled (a, b)  -> 
         failwith "Currently unsupported: JS labels"
+    | S.Namespace (a, b) ->
+        failwith "Currently unsupported: TS namespace in inline"   
     | S.Return a -> Return (match a with Some v -> trE v | _ -> Undefined)
     | S.Switch (a, b) -> 
         Switch(trE a, b |> List.map (function 
@@ -515,6 +533,8 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         match d with
         | None -> tw
         | Some d -> TryFinally (tw, trS d)
+    | S.TypeAlias (a, b) ->
+        failwith "Currently unsupported: TS type alias in inline"   
     | S.Vars (a, _) ->
         match a with
         | [var, value] -> 

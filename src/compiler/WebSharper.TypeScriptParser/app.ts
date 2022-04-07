@@ -175,7 +175,7 @@ function transformType(x: ts.TypeNode): TSType {
   if (ts.isTupleTypeNode(x))
     return {
       Kind: 'tuple',
-      ElementTypes: x.elementTypes.map(transformType)
+      ElementTypes: x.elements.map(transformType)
     }
   if (ts.isFunctionTypeNode(x))
     return {
@@ -393,7 +393,7 @@ function transformStatement(x: ts.Statement): TSStatement {
   if (ts.isExportDeclaration(x)) {
     return {
       Kind: 'exportdeclaration',
-      Expression: x..getText()
+      Expression: x.getText()
     }
   }
   unhandled(x, "type");
