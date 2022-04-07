@@ -615,7 +615,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     match m.ReturnType with
                                     | ConcreteType ct ->
                                         let t = ct.Entity.Value
-                                        t.Assembly = "mscorlib" && t.FullName.StartsWith "System.Collections.Generic.IEnumerable"
+                                        t.Assembly = "netstandard" && t.FullName.StartsWith "System.Collections.Generic.IEnumerable"
                                     | _ -> false
                                 if isSeq && hasYield b1 then
                                     let b = 

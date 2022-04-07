@@ -2,7 +2,7 @@
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2016 IntelliFactory
+// Copyright (c) 2008-2018 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -52,6 +52,7 @@ type Keyword =
     | ``void`` = 26
     | ``while`` = 27
     | ``with`` = 28
+    | ``import`` = 29
 
 /// Represents symbolic keywords.
 type Symbol =
@@ -103,6 +104,7 @@ type Symbol =
     | ``&=`` = 45
     | ``|=`` = 46
     | ``^=`` = 47
+    | ``**`` = 48
 
 /// Represents lexemes: identifiers, literals, keywords and so on.
 type Lexeme =

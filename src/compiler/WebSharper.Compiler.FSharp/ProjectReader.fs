@@ -422,9 +422,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         |> HashSet
 
     let baseCls =
-        if cls.IsFSharpExceptionDeclaration then
-            Some (NonGeneric Definitions.Exception)
-        elif fsharpSpecific || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" then
+        if fsharpSpecificNonException || fsharpModule || cls.IsValueType || annot.IsStub || def.Value.FullName = "System.Object" || isInterfaceProxy then
             None
         elif annot.Prototype = Some false then
             cls.BaseType |> Option.bind (fun t -> t |> sr.ReadType clsTparams |> getConcreteType |> ignoreSystemObject)
@@ -1314,7 +1312,10 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     ReturnType = sr.ReadType tparams inv.ReturnParameter.Type
                 }
             else if entity.IsEnum then
-                CustomTypeInfo.EnumInfo typeDef
+                let sampleField = entity.FSharpFields |> Seq.find (fun f -> f.IsLiteral)
+                let sampleValue = sampleField.LiteralValue.Value
+                let underlyingType = Reflection.ReadTypeDefinition (sampleValue.GetType())
+                CustomTypeInfo.EnumInfo underlyingType
             else if entity.IsFSharpRecord then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
                 entity.FSharpFields |> Seq.map (fun f ->

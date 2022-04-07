@@ -102,7 +102,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
 
     let mutable generatedClass = None
-    let resolver = Resolve.Resolver()
+    let resolver = getAllAddresses meta
     let generatedMethodAddresses = Dictionary()
 
     let typeErrors = HashSet()
@@ -950,7 +950,18 @@ type Compilation(meta: Info, ?hasGraph) =
                 match getter, setter with
                 | None, None ->
                     match this.GetCustomType typ with
-                    | NotCustomType -> LookupFieldError (FieldNotFound (typ, field))
+                    | NotCustomType -> 
+                        let bres =
+                            match cls.BaseClass with
+                            | Some bTyp ->
+                                match this.LookupFieldInfo(bTyp.Entity, field) with
+                                | LookupFieldError _ -> None
+                                | f -> Some f
+                            | _ ->
+                                None
+                        match bres with 
+                        | Some f -> f
+                        | None -> LookupFieldError (FieldNotFound (typ, field))
                     | i -> CustomTypeField i
                 | _ -> 
                     PropertyField (getter, setter)
@@ -1323,7 +1334,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         addTypeDeps f.FieldType
                     | _ -> ()
 
-        //Resolve.addInherits r classes.Current
+        classes.Current
+        |> Dict.choose (fun (_, _, cls) -> cls)
+        |> Resolve.addInherits resolver
 
         if hasGraph then
             for KeyValue(ct, (_, cti, _)) in classes do
@@ -1617,6 +1630,8 @@ type Compilation(meta: Info, ?hasGraph) =
                             printerrf "Failed to look up interface for implementing: %s by type %s" td.Value.FullName typ.Value.FullName
                     | M.Method (mDef, ({ Kind = N.InlineImplementation td } as nr)) ->
                         () // TODO check redirection
+                    | M.Method (mDef, ({ Kind = N.MissingImplementation td } as nr)) ->
+                        missingImplementations.Add (typ, this.FindProxied td, mDef)
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m    
             
@@ -1740,6 +1755,33 @@ type Compilation(meta: Info, ?hasGraph) =
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
             nameStaticMember typ (Hashed addr) m
               
+        for KeyValue((td, m), args) in compilingQuotedArgMethods do
+            let cls =
+                match classes.TryFind td with
+                | Some (_, _, Some cls) -> cls
+                | _ ->
+                    let a = resolver.ClassAddress(td.Value, false)
+                    let cls =
+                        {
+                            //Address = Some (r.ClassAddress(defaultAddressOf td, false))
+                            BaseClass = None
+                            Constructors = Dictionary()
+                            Generics = []
+                            IsStub = false
+                            Fields = Dictionary()
+                            StaticConstructor = None
+                            Methods = Dictionary()
+                            QuotedArgMethods = Dictionary()
+                            Implementations = Dictionary()
+                            HasWSPrototype = false
+                            Macros = []
+                            Implements = []
+                            Type = None
+                        }
+                    classes.Add(td, (this.LocalAddress a, NotCustomType, Some cls))
+                    cls
+            cls.QuotedArgMethods |> add m args
+
         for typ, isClass in remainingTypes do
             let a = resolver.ClassAddress(typ.Value, isClass && (assumeClass typ).HasWSPrototype)
             if isClass then
@@ -2020,7 +2062,15 @@ type Compilation(meta: Info, ?hasGraph) =
             graph.AddOverride(Definitions.Obj, Definitions.Obj, getHashCode)
             graph.AddOverride(Definitions.Obj, Definitions.Obj, toString)
 
-            let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]            
+            let objEqIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, equals)]         
+            let unchmod =
+                graph.Lookup.Keys |> Seq.choose (
+                    function 
+                    | MethodNode (t, m) when t = uncheckedMdl -> Some m
+                    | _ -> None
+                )
+                |> Array.ofSeq
+            unchmod |> Array.iter (printfn "%A")
             let uchEqIndex = graph.Lookup.[MethodNode (uncheckedMdl, uncheckedEquals)]
             let implEqIndex = graph.Lookup.[MethodNode(Definitions.Obj, equalsImpl)]
 

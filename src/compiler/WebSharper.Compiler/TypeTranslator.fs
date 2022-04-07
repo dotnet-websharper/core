@@ -53,7 +53,7 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
         }
     let corlibTyp t =
         TypeDefinition{
-            Assembly = "mscorlib"
+            Assembly = "netstandard"
             FullName = t
         }
     let inv() =

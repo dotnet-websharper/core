@@ -1964,7 +1964,7 @@ type RoslynTransformer(env: Environment) =
         let disp e =
             Call(
                 Some e, 
-                NonGeneric (TypeDefinition { Assembly = "mscorlib"; FullName = "System.IDisposable" }),
+                NonGeneric (TypeDefinition { Assembly = "netstandard"; FullName = "System.IDisposable" }),
                 NonGeneric (Method { MethodName = "Dispose"; Parameters = []; ReturnType = VoidType; Generics = 0 }),
                 []            
             )

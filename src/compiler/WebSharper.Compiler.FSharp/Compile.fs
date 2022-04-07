@@ -424,6 +424,13 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
                 File.Move (intermediaryOutput, failedOutput)
         with _ ->
             PrintGlobalError logger "Failed to clean intermediate output!"
+#if DEBUG
+    let exitCode = 
+        Compile config warnSettings logger checkerFactory tryGetMetadata
+    if exitCode <> 0 then 
+        clearOutput()
+    exitCode            
+#else
     try 
         let exitCode = 
             Compile config warnSettings logger checkerFactory tryGetMetadata
@@ -433,4 +440,4 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
     with _ ->
         clearOutput()
         reraise()
-
+#endif

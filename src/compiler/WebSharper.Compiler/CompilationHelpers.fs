@@ -876,13 +876,60 @@ module Resolve =
             name
         else
             getRenamedForPrototype (newName name) p
-
+       
     let rec getRenamedInDict name v (s: Dictionary<string, _>) =
         if s.ContainsKey name then
             getRenamedInDict name v s
         else
             s.Add(name, v) 
             name
+
+    let addInherits (r: Resolver) (classes: IDictionary<TypeDefinition, ClassInfo>) =
+        let rec inheritMembers typ (cls: ClassInfo) =
+            if not (r.HasPrototype typ) then
+                match cls.BaseClass with
+                | None ->
+                    r.AddPrototype(typ, None)    
+                | Some b ->
+                    // assembly containing base class may not be referenced
+                    match classes.TryFind b.Entity with
+                    | None ->
+                        r.AddPrototype(typ, None)
+                    | Some bCls ->
+                        inheritMembers b.Entity bCls  
+                        r.AddPrototype(typ, Some b.Entity)
+        for KeyValue(typ, cls) in classes do
+            inheritMembers typ cls        
+
+let getAllAddresses (meta: Info) =
+    let r = Resolve.Resolver()
+    let classes =
+        meta.Classes |> Dict.choose (fun (_, _, cls) -> cls)
+    Resolve.addInherits r classes
+    // add members
+    for KeyValue(typ, cls) in classes do
+        if typ.Value.FullName.StartsWith "Generated$" then () else
+        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
+        let rec addMember (m: CompiledMember) =
+            match m with
+            | Instance n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
+            | Static a 
+            | JSConstructor a -> r.ExactStaticAddress a.Address.Value |> ignore
+            | Macro (_, _, Some m) -> addMember m
+            | _ -> ()
+        for m, _, _ in cls.Constructors.Values do addMember m
+        for f, _, _ in cls.Fields.Values do
+            match f with
+            | InstanceField n 
+            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
+            | StaticField a -> r.ExactStaticAddress a.Address.Value |> ignore
+            | IndexedField _ -> ()
+        for m, _ in cls.Implementations.Values do addMember m
+        for m, _, _, _ in cls.Methods.Values do addMember m
+        match cls.StaticConstructor with
+        | Some (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore  
+        | _ -> ()
+    r
  
 open WebSharper.Core.Metadata 
 open System.Collections.Generic

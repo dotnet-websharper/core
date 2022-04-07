@@ -28,10 +28,22 @@ let private getTypeDefinitionUnchecked fullAsmName (t: System.Type) =
     let rec getName (t: System.Type) =
         if t.IsNested then
             getName t.DeclaringType + "+" + t.Name 
-        else t.Namespace + "." + t.Name         
+        elif System.String.IsNullOrEmpty t.Namespace then
+            t.Name
+        else t.Namespace + "." + t.Name
+    let name = getName t
+    let asmName =
+        if fullAsmName then
+            match AssemblyConventions.StandardAssemblyFullNameForTypeNamed name with
+            | Some n -> n
+            | None -> t.Assembly.FullName
+        else
+            match AssemblyConventions.StandardAssemblyNameForTypeNamed name with
+            | Some n -> n
+            | None -> t.Assembly.FullName.Split(',').[0]
     Hashed {
-        Assembly = if fullAsmName then t.Assembly.FullName else t.Assembly.FullName.Split(',').[0]
-        FullName = getName t
+        Assembly = asmName
+        FullName = name
     } 
 
 let ReadTypeDefinition (t: System.Type) =
