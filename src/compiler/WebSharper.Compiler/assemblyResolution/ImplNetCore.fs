@@ -26,6 +26,7 @@ open System.Collections.Concurrent
 open System.IO
 open System.Reflection
 open System.Runtime.Loader
+open WebSharper.Compiler
 
 module internal NetCoreImplemetnation =
 
