@@ -122,7 +122,9 @@ and Id =
     {
         Name : string
         Optional : bool
+        IsTypeName : bool
         Type : option<E>
+        Generics : list<Id>
     }
 
     member this.ToNonTyped() =
@@ -133,11 +135,18 @@ and Id =
     member this.WithType(t) =
         { this with Type = Some t }
 
-    static member New(name, ?opt, ?typ) =
+    member this.WithGenerics(g) =
+        match g with
+        | [] -> this 
+        | _ -> { this with Generics = g }
+
+    static member New(name, ?opt, ?typ, ?gen, ?typn) =
         {
             Name = name
             Optional = defaultArg opt false
+            IsTypeName = defaultArg typn false 
             Type = typ
+            Generics = defaultArg gen []
         }
 
 and Modifiers =

@@ -567,7 +567,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | Some ({ Address = Hashed []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
             | Some (a, _, cls) -> a, cls
             | _ -> getAddr false, None
-        classes.[typ] <- (addr, ct, cls)
+        classes.Current.[typ] <- (addr, ct, cls)
         match ct with
         | FSharpUnionInfo u ->
             for c in u.Cases do
@@ -1417,8 +1417,8 @@ type Compilation(meta: Info, ?hasGraph) =
             
 
         let setClassAddress typ (clAddr: PlainAddress) =
-            match classes.TryFind typ with
-            | Some (addr, ct, cls) -> classes.[typ] <- (this.LocalAddress clAddr, ct, cls)
+            match classes.Current.TryFind typ with
+            | Some (addr, ct, cls) -> classes.Current.[typ] <- (this.LocalAddress clAddr, ct, cls)
             | None -> ()
 
         let setInterfaceAddress typ clAddr =

@@ -253,7 +253,8 @@ let rec startsWithObjectExpression = function
     | _ -> false
 
 let rec Id (id: S.Id) =
-    Word (EscapeId id.Name)
+    Word (if id.IsTypeName then id.Name else EscapeId id.Name)
+    ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
@@ -262,6 +263,9 @@ and IdAndModifiers (id: S.Id, modifiers: S.Modifiers) =
     ++ (if modifiers.HasFlag S.Modifiers.Public then Word "public" else Empty)
     ++ (if modifiers.HasFlag S.Modifiers.ReadOnly then Word "readonly" else Empty)
     ++ Id id
+
+and Generics items =
+    OptionalList (fun g -> Token "<" ++ CommaSeparated Id g ++ Token ">") items
 
 and TypeAnnotation a =
     Optional (fun t -> Token ":" ++ Expression t) a
@@ -277,9 +281,7 @@ and Expression (expression) =
     | S.Application (f, ts, xs) ->
         let call = MemberExpression f
         let args = Parens (CommaSeparated AssignmentExpression xs)
-        if List.isEmpty ts
-        then call ++ args
-        else call ++ Token "<" ++ CommaSeparated Id ts ++ Token ">" ++ args
+        call ++ Generics ts ++ args
     | S.NewArray xs ->
         let element = function
             | None -> Token ", "
@@ -351,9 +353,7 @@ and Expression (expression) =
     | S.New (x, ts, xs) ->
         let call = Word "new" ++ MemberExpression x
         let args = Parens (CommaSeparated AssignmentExpression xs)
-        if List.isEmpty ts
-        then call ++ args
-        else call ++ Token "<" ++ CommaSeparated Id ts ++ Token ">" ++ args
+        call ++ Generics ts ++ args
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->

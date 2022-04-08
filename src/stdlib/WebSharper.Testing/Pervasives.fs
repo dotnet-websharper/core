@@ -52,8 +52,8 @@ module internal Internal =
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([id],
-                            Return (mkSample t (Application(gen, [Var id], Pure, Some 1)) (cInt 100)))
+                        Function([id], None,
+                            Return (mkSample t (Appl(gen, [Var id], Pure, Some 1)) (cInt 100)))
                         attempt
                     ]
                 )
@@ -62,7 +62,7 @@ module internal Internal =
                 Call(c.This, c.DefiningType, m c.Method.Generics,
                     [
                         runner
-                        Function([], Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
+                        Function([], None, Return (mkSample t (mkGenerator c.Method.Generics.Head) (cInt 100)))
                         attempt
                     ]
                 )

@@ -173,12 +173,12 @@ type RoutingMacro() =
                         recurringOn.Remove(t) |> ignore
                         if isTrivial then res else
                         let gtd, gm, call = genCall.Value
-                        comp.AddGeneratedCode(gm, Lambda([], res))
+                        comp.AddGeneratedCode(gm, Lambda([], None, res))
                         comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         call
                 | true, genCall -> 
                     let _, _, call = genCall.Value
-                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], call) ])   
+                    Call(None, NonGeneric routerOpsModule, Generic DelayOp [ t ], [ Lambda([], None, call) ])   
             
             and wildCardRouter (t: Type) =
                 match t with
@@ -272,7 +272,7 @@ type RoutingMacro() =
                         | Some cls -> 
                             deps.Add (M.TypeNode e) |> ignore
                             if cls.HasWSPrototype then
-                                GlobalAccess cls.Address.Value
+                                GlobalAccess cls.Address
                             else
                                 Undefined
                         | _ -> Undefined
@@ -365,13 +365,13 @@ type RoutingMacro() =
                                         let b = 
                                             match cls.BaseClass with
                                             | None -> None
-                                            | Some bc when bc = Definitions.Object -> None
+                                            | Some bc when bc.Entity = Definitions.Object -> None
                                             | Some bc -> Some ( getClassAnnotation bc)
                                         let thisAnnot = comp.GetTypeAttributes(e) |> getAnnot
                                         let annot = match b with Some b -> Annotation.Combine b thisAnnot | _ -> thisAnnot
                                         parsedClassEndpoints.Add(td, annot)
                                         annot
-                                let annot = getClassAnnotation e 
+                                let annot = getClassAnnotation (NonGeneric e) 
                                 let endpoints = 
                                     annot.EndPoints |> List.map (fun e ->
                                         e.Method, Route.FromUrl e.Path |> S.GetPathHoles |> fst
@@ -383,7 +383,7 @@ type RoutingMacro() =
                                     allJSClasses |> Seq.choose (fun (KeyValue(td, cls)) ->
                                         if td.Value.FullName.StartsWith nestedIn then
                                             match cls.BaseClass with
-                                            | Some bc when bc = e -> Some td
+                                            | Some bc when bc.Entity = e -> Some td
                                             | _ -> None
                                         else None
                                     ) |> List.ofSeq
@@ -396,8 +396,8 @@ type RoutingMacro() =
                                         )
                                     match cls.BaseClass with
                                     | None -> currentFields
-                                    | Some bc when bc = Definitions.Object -> currentFields
-                                    | Some bc -> Seq.append currentFields (getAllFields bc allJSClasses.[bc])
+                                    | Some bc when bc.Entity = Definitions.Object -> currentFields
+                                    | Some bc -> Seq.append currentFields (getAllFields bc.Entity allJSClasses.[bc.Entity])
                                 let allFieldsArr = getAllFields e cls |> Array.ofSeq
                                 let allFields = dict allFieldsArr
                                 let allQueryFields =
@@ -462,7 +462,7 @@ type RoutingMacro() =
                                         subClasses |> List.map (fun sc -> getRouter (GenericType sc g))
                                     )
                                 let ctor =
-                                    Lambda([], Ctor(Generic e g, ConstructorInfo.Default(), []))
+                                    Lambda([], None, Ctor(Generic e g, ConstructorInfo.Default(), []))
                                 let unboxed = Call(None, NonGeneric routerOpsModule, NonGeneric ClassOp, [ ctor; fieldRouters; partsAndFields; subClassRouters ]) // todo use ctor instead of getProto   
                                 Call(None, NonGeneric routerOpsModule, Generic BoxOp [ t ], [ unboxed ])
                             | _ -> failwithf "Failed to create Router for type %O, it does not have the JavaScript attribute" t

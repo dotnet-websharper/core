@@ -315,15 +315,15 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
                 failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the assembly needs to be compiled with WsFsc.exe" 
                     (getLocation' elt) declType.Value.FullName meth.Value.MethodName
             match meta.Classes.TryFind declType with
-            | None -> fail()
-            | Some cls ->
+            | Some (_, _, Some cls) ->
                 match cls.Methods.TryFind meth with
-                | Some (M.Static a, _, _) ->
-                    funcName <- Array.ofList (List.rev a.Value)
+                | Some (M.Static a, _, _, _) ->
+                    funcName <- Array.ofList (List.rev a.Address.Value)
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                         (getLocation' elt) declType.Value.FullName meth.Value.MethodName
                 | None -> fail()
+            | _ -> fail()
 
             this.GetBodyNode() :: reqs |> Seq.ofList
 
@@ -414,13 +414,16 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                 match meta.Classes.TryFind declType with
                 | None -> fail()
                 | Some cls ->
-                    match cls.Methods.TryFind meth with
-                    | Some (M.Static a, _, _) ->
-                        funcName <- Array.ofList (List.rev a.Value)
-                    | Some _ -> 
-                        failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
-                            declType.Value.FullName meth.Value.MethodName
-                    | None -> fail()
+                    match meta.Classes.TryFind declType with
+                    | Some (_, _, Some cls) ->
+                        match cls.Methods.TryFind meth with
+                        | Some (M.Static a, _, _, _) ->
+                            funcName <- Array.ofList (List.rev a.Address.Value)
+                        | Some _ -> 
+                            failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
+                                declType.Value.FullName meth.Value.MethodName
+                        | None -> fail()
+                    | _ -> fail()
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
         member this.Requires(_) =
