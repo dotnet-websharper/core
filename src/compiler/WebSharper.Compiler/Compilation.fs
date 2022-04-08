@@ -626,21 +626,23 @@ type Compilation(meta: Info, ?hasGraph) =
     
     member this.GetAbtractMethodGenerics typ meth =
         let typ = this.FindProxied typ
-        try
+        let overrideOpt =
             match classes.TryFind typ with
             | Some (_, _, Some ci) ->
-                let mg =
-                    match ci.Methods.TryFind meth with
-                    | Some (_, _, mg, _) -> mg
-                    | _ ->
-                        let (_, mg, _) =  compilingMethods.[typ, meth]
-                        mg
-                Array.ofList (ci.Generics @ mg)
+                match ci.Methods.TryFind meth with
+                | Some (_, _, mg, _) -> Some (Array.ofList (ci.Generics @ mg))
+                | _ ->
+                    match compilingMethods.TryFind (typ, meth) with
+                    | Some (_, mg, _) -> Some (Array.ofList (ci.Generics @ mg))
+                    | _ -> None
+            | _ -> None
+        match overrideOpt with
+        | Some res -> res
+        | _ ->
+            match interfaces.TryFind typ with
+            | Some ii -> Array.ofList (ii.Generics @ snd ii.Methods.[meth])
             | _ ->
-                let ii = interfaces.[typ]
-                Array.ofList (ii.Generics @ snd ii.Methods.[meth])
-        with _ ->
-            failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
+                failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
 
     member this.GetMethods typ =
         compilingMethods |> Seq.choose (fun (KeyValue ((td, m), _)) ->
@@ -2161,10 +2163,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 SiteletDefinition = this.SiteletDefinition 
                 Dependencies = GraphData.Empty
                 Interfaces = interfaces
-                Classes =
-                    classes |> Dict.filter (fun _ -> function
-                        | (_, NotCustomType, None) -> false
-                        | _ -> true)
+                Classes = classes
                 MacroEntries = macroEntries
                 Quotations = quotations
                 ResourceHashes = Dictionary()

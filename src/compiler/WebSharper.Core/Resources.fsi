@@ -116,6 +116,9 @@ type IDownloadableResource =
     /// Gets the WebSharper output root directory.
     abstract Unpack : string -> unit    
 
+    /// Returns JavaScript imports to include in .ts files depending on this resource.
+    abstract member GetImports : unit -> string[]
+
 /// An interface for resources whose JavaScript code, if any,
 /// is a sequence of external scripts with the given URLs.
 type IExternalScriptResource =

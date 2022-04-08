@@ -183,6 +183,7 @@ and IResource =
 
 type IDownloadableResource =
     abstract Unpack : string -> unit    
+    abstract member GetImports : unit -> string[]
 
 type IExternalScriptResource =
     inherit IResource
@@ -454,6 +455,25 @@ type BaseResource(kind: Kind) as this =
                 download [ spec ]
             | Complex (b, xs) ->
                 download (xs |> List.map (fun x -> b.TrimEnd('/') + "/" + x.TrimStart('/')))
+
+        member this.GetImports() = 
+            let getPath spec =
+                match tryFindWebResource self spec with 
+                | Some f -> "./" + this.GetLocalName() + "/" + f
+                | _ -> spec
+            
+            match kind with
+            | Basic spec ->
+                if spec.EndsWith ".js" then
+                    [| getPath spec |]
+                else [||]
+            | Complex (b, xs) ->
+                xs |> Seq.choose (fun x ->
+                    if x.EndsWith ".js" then 
+                        let spec = b.TrimEnd('/') + "/" + x.TrimStart('/')
+                        Some (getPath spec) 
+                    else None    
+                ) |> Array.ofSeq 
 
 [<Sealed>]
 type Runtime() =

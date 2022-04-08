@@ -222,7 +222,17 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         minMap |> Option.iter (fun m ->
             addRes EMBEDDED_MINMAP None (Some (getBytes m)))
         logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
-        let ts = pkg |> WebSharper.Compiler.TypeScriptPackager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+
+        let resources = 
+            match comp with
+            | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
+            | _ -> []
+
+        let tspkg = 
+            TypeScriptPackager.packageAssembly refMeta current resources None (comp |> Option.bind (fun c -> c.EntryPoint)) TypeScriptPackager.EntryPointStyle.OnLoadIfExists
+            |> List.map removeSourcePos.TransformStatement
+
+        let ts, tsMap = tspkg |> WebSharper.Compiler.TypeScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
         addRes EMBEDDED_TS (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
         logger.TimedStage "Writing .ts"
 
