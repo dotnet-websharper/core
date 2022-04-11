@@ -261,7 +261,7 @@ type GenericInlineResolver (generics, tsGenerics) =
         TraitCall (
             thisObj |> Option.map this.TransformExpression, 
             typs |> List.map subs,
-            Generic meth.Entity (meth.Generics |> List.map subs), 
+            Generic (Method (meth.Entity.Value.SubstituteResolvedGenerics(gs))) (meth.Generics |> List.map subs), 
             args |> List.map this.TransformExpression
         )
 
@@ -966,6 +966,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             if includeTypGen then
                 typ.Generics @ meth.Generics
                 |> List.indexed |> List.choose (fun (i, c) ->
+                    if i >= gcArr.Length then None else //TODO make sure we always have generics
                     match gcArr.[i].Type with
                     | Some _ -> None
                     | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
@@ -974,6 +975,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let cg = typ.Generics.Length
                 meth.Generics 
                 |> List.indexed |> List.choose (fun (i, c) ->
+                    if i + cg >= gcArr.Length then None else //TODO make sure we always have generics
                     match gcArr.[i + cg].Type with
                     | Some _ -> None
                     | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)

@@ -1,7 +1,9 @@
 ﻿<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <PropertyGroup>
-    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">14.0</VisualStudioVersion>
-    <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">17.0</VisualStudioVersion>
+    <VSToolsPath Condition="Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)')">$(ProgramFiles)\Microsoft Visual Studio\2022\Community\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <VSToolsPath Condition="Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Professional\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)')">$(ProgramFiles)\Microsoft Visual Studio\2022\Professional\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+    <VSToolsPath Condition="Exists('$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)')">$(ProgramFiles)\Microsoft Visual Studio\2022\Enterprise\MSBuild\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
     <Name>WebSharper.TypeScriptParser</Name>
     <RootNamespace>WebSharperTypeScriptParser</RootNamespace>
   </PropertyGroup>

@@ -1144,13 +1144,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 if annot.IsJavaScript then
                     match implicitImplementations.TryFind meth with
                     | Some impls ->
-                        for intf, impl in impls do
+                        for intf, imeth in impls do
                             let idef = sr.ReadNamedTypeDefinition intf
-                            let imdef = sr.ReadMethod impl 
                             let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                            let imdef = sr.ReadMethod imeth 
                             // TODO : correct generics
                             Lambda(vars, None, Call(Some This, thisType, NonGeneric mdef, vars |> List.map Var))
-                            |> addMethod (Some (impl, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+                            |> addMethod (Some (meth, memdef)) A.MemberAnnotation.BasicJavaScript imdef (N.Implementation idef) false
+                        implicitImplementations.Remove(meth) |> ignore
                     | _ -> ()
             | Member.Constructor cdef ->
                 let jsCtor isInline =   

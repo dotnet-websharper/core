@@ -399,6 +399,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let requireAttr = resolveType typeof<WebSharper.RequireAttribute>
     let pureAttr = resolveType typeof<WebSharper.PureAttribute>
     let warnAttr = resolveType typeof<WebSharper.WarnAttribute>
+    let typeAttr = resolveType typeof<WebSharper.TypeAttribute>
     let funcWithArgs = resolveType typedefof<WebSharper.JavaScript.FuncWithArgs<_,_>>
     let funcWithThis = resolveType typedefof<WebSharper.JavaScript.FuncWithThis<_,_>> 
     let funcWithOnlyThis = resolveType typedefof<WebSharper.JavaScript.FuncWithOnlyThis<_,_>>
@@ -490,6 +491,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Obsolete = obsolete
     member b.Pure = pureAttr
     member b.Warn = warnAttr
+    member b.TypeAttr = typeAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -675,6 +677,7 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let obsoleteAttributeWithMsgConstructor = findTypedConstructor tB.Obsolete [tB.String.Name]
     let pureAttributeConstructor = findDefaultConstructor tB.Pure 
     let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
+    let typeAttributeConstructor = findTypedConstructor tB.TypeAttr [tB.String.Name]
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -715,6 +718,8 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.ObsoleteAttributeWithMsgConstructor = obsoleteAttributeWithMsgConstructor
     member c.PureAttributeConstructor = pureAttributeConstructor
     member c.WarnAttributeConstructor = warnAttributeConstructor
+    member c.TypeAttributeConstructor = typeAttributeConstructor
+
 
 type CompilationKind =
     | LibraryKind
@@ -827,6 +832,15 @@ type MemberConverter
         | CodeModel.NotObsolete -> ()
         | CodeModel.Obsolete None -> attrs.Add obsoleteAttribute
         | CodeModel.Obsolete (Some msg) -> attrs.Add (obseleteAttributeWithMsg msg)
+
+    let typeAttribute (t: string) =
+        let ca = CustomAttribute(mB.TypeAttributeConstructor)
+        ca.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box t))
+        ca
+    let setTSAttribute (x: CodeModel.TypeDeclaration) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.TSType with
+        | None -> ()
+        | Some t -> attrs.Add (typeAttribute t)
 
     let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
 
@@ -1118,6 +1132,7 @@ type MemberConverter
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
 
     member c.Interface(x: Code.Interface) =
@@ -1131,6 +1146,7 @@ type MemberConverter
             else
                 failwithf "Interface %s is trying to inherit a non-interface type: %s" x.Name tr.FullName
         setObsoleteAttribute x tD.CustomAttributes
+        setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
             match x.Comment with

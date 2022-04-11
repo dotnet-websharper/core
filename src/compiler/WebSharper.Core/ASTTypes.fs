@@ -818,6 +818,12 @@ type MethodInfo =
                 "unit") 
             m.ReturnType
 
+    member this.SubstituteResolvedGenerics (gs : Type[]) =
+        { this with
+            Parameters = this.Parameters |> List.map (fun t -> t.SubstituteGenerics(gs))
+            ReturnType = this.ReturnType.SubstituteGenerics(gs)
+        }
+
 type Method = Hashed<MethodInfo>
 
 type ConstructorInfo =
