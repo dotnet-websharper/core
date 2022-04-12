@@ -137,8 +137,9 @@ let ``Compilation test`` () =
         ]
     let args = mkProjectCommandLineArgs (@"bin\example1.abc.dll", fileNames)
 
-    let stopWatch1 = System.Diagnostics.Stopwatch.StartNew()
     System.Environment.CurrentDirectory <- Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\")
+    
+    let stopWatch1 = System.Diagnostics.Stopwatch.StartNew()
     let res1 = WebSharper.FSharp.Program.main args
     stopWatch1.Stop()
     let time1 = stopWatch1.Elapsed 

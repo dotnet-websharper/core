@@ -180,7 +180,7 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
     else
 
     [
-        "tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
+        //"tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
         "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
         "tests/WebSharper.CSharp.Analyzer.Tests/WebSharper.CSharp.Analyzer.Tests.fsproj"
     ]
