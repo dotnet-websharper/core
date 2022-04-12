@@ -215,6 +215,8 @@ and Expression =
     | Hole of Index:int
     /// TypeScript - type cast <...>...
     | Cast of TargetType:TSType * Expression:Expression
+    /// JavaScript ES6 - class { ... }
+    | ClassExpr of Name:option<string> * BaseClass:option<Expression> * Members:list<Statement>
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -298,13 +300,13 @@ and Statement =
     | Declare of Statement:Statement
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
-    /// TypeScript - class { ... }
+    /// JavaScript ES6 - class { ... }
     | Class of Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     | ClassMethod of IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
-    /// TypeScript - class plain property
+    /// JavaScript ES6 - class plain property
     | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool
     /// TypeScript - interface { ... }
     | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
@@ -485,6 +487,9 @@ type Transformer() =
     /// TypeScript - type cast <...>...
     abstract TransformCast : TargetType:TSType * Expression:Expression -> Expression
     override this.TransformCast (a, b) = Cast (a, this.TransformExpression b)
+    /// JavaScript ES6 - class { ... }
+    abstract TransformClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
+    override this.TransformClassExpr (a, b, c) = ClassExpr (a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -574,16 +579,16 @@ type Transformer() =
     /// TypeScript - namespace { ... }
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
-    /// TypeScript - class { ... }
+    /// JavaScript ES6 - class { ... }
     abstract TransformClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformClass (a, b, c, d, e) = Class (a, b, c, List.map this.TransformStatement d, e)
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     abstract TransformClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (x, m) -> this.TransformId x, m) a, Option.map this.TransformStatement b, c)
-    /// TypeScript - class plain property
+    /// JavaScript ES6 - class plain property
     abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> Statement
     override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, d)
     /// TypeScript - interface { ... }
@@ -654,6 +659,7 @@ type Transformer() =
         | New (a, b, c) -> this.TransformNew (a, b, c)
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
+        | ClassExpr (a, b, c) -> this.TransformClassExpr (a, b, c)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -867,6 +873,9 @@ type Visitor() =
     /// TypeScript - type cast <...>...
     abstract VisitCast : TargetType:TSType * Expression:Expression -> unit
     override this.VisitCast (a, b) = (); this.VisitExpression b
+    /// JavaScript ES6 - class { ... }
+    abstract VisitClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> unit
+    override this.VisitClassExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter this.VisitStatement c
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -954,16 +963,16 @@ type Visitor() =
     /// TypeScript - namespace { ... }
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
-    /// TypeScript - class { ... }
+    /// JavaScript ES6 - class { ... }
     abstract VisitClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitClass (a, b, c, d, e) = (); (); (); List.iter this.VisitStatement d; ()
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     abstract VisitClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
-    /// TypeScript - class method
+    /// JavaScript ES6 - class method
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
-    /// TypeScript - class plain property
+    /// JavaScript ES6 - class plain property
     abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> unit
     override this.VisitClassProperty (a, b, c, d) = (); (); (); ()
     /// TypeScript - interface { ... }
@@ -1034,6 +1043,7 @@ type Visitor() =
         | New (a, b, c) -> this.VisitNew (a, b, c)
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
+        | ClassExpr (a, b, c) -> this.VisitClassExpr (a, b, c)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1137,6 +1147,7 @@ module IgnoreSourcePos =
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
+    let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c) -> Some (a, b, c) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1239,6 +1250,7 @@ module Debug =
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
         | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map PrintObject a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""

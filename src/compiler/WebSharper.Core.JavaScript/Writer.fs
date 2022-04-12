@@ -390,6 +390,12 @@ and Expression (expression) =
     | S.Cast (t, e) ->
         Token "<" ++ Expression t ++ Token ">"
         ++ ParensExpression 1 e 
+    | S.ClassExpr (n, b, i, ms) ->
+        Word "class" 
+        ++ Optional Id n 
+        ++ Optional (fun b -> Word "extends" ++ Expression b) b
+        ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
+        ++ BlockLayout (List.map (Member true) ms)
 
 and Statement canBeEmpty statement =
     match statement with

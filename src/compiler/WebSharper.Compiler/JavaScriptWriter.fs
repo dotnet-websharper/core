@@ -72,11 +72,11 @@ type Environment =
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
 let undefVar (id: Id) =
-#if DEBUG
+//#if DEBUG
     J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
-#else
-    failwithf "Undefined variable during writing JavaScript: %s" (string id)
-#endif
+//#else
+//    failwithf "Undefined variable during writing JavaScript: %s" (string id)
+//#endif
 
 let transformId (env: Environment) (id: Id) =
     if id.HasStrongName then J.Id.New id.Name.Value else
@@ -144,6 +144,26 @@ let flattenJS s =
     s |> Seq.iter add
     List.ofSeq res    
 
+let flattenFuncBody s =
+    let res = ResizeArray()
+    let mutable go = true
+    let rec add a =
+        if go then 
+            match J.IgnoreStatementPos a with
+            | J.Block b -> b |> List.iter add
+            | J.Empty -> ()
+            | J.Return None ->
+                go <- false
+            | J.Return _ ->
+                go <- false
+                res.Add a
+            | J.Throw _ ->
+                go <- false
+                res.Add a
+            | _ -> res.Add a
+    add s
+    List.ofSeq res    
+
 let block s = J.Block (flattenJS s)
 
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
@@ -152,6 +172,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     match expr with
     | Undefined -> undef
     | This -> J.This
+    | Base -> J.Super
     | Arguments -> J.Var (J.Id.New "arguments")
     | Var id -> J.Var (trI id)
     | Value v ->
@@ -189,15 +210,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
-        let body =
-            match b |> transformStatement innerEnv with
-            | J.Block b -> 
-                match List.rev b with
-                | J.Return None :: more -> List.rev more
-                | _ -> b
-            | J.Empty
-            | J.Return None -> []
-            | b -> [ b ]
+        let body = b |> transformStatement innerEnv |> flattenFuncBody
         let useStrict =
             if env.OuterScope then
                 [ J.Ignore (J.Constant (J.String "use strict")) ]
@@ -282,6 +295,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
     | Cast (_, e) ->
         trE e
+    | ClassExpr (n, b, m) ->
+        let innerEnv = env.NewInner()
+        J.ClassExpr(None, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -449,3 +465,31 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         J.StatementComment (J.Empty, a)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
+
+and transformMember (env: Environment) (mem: Statement) : J.Member =
+    let inline trE x = transformExpr env x
+    let inline trS x = transformStatement env x
+    match mem with
+    | ClassMethod (s, n, p, b, _) ->
+        let innerEnv = env.NewInner()
+        let args =
+            p |> List.map (defineId innerEnv false)
+        let body = 
+            b |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                [ b |> transformStatement innerEnv ]
+            )
+        let id = J.Id.New(n)
+        J.Method(s, id, args, body)   
+    | ClassConstructor (p, b, _) ->
+        let innerEnv = env.NewInner()
+        let args =
+            p |> List.map (fun (a, m) -> defineId innerEnv false a, m)
+        let body = 
+            b |> Option.map (fun b -> 
+                CollectVariables(innerEnv).VisitStatement(b)
+                b |> transformStatement innerEnv |> flattenFuncBody
+            )
+        J.Constructor(args, body)   
+    | _ -> 
+        invalidForm (GetUnionCaseName mem)

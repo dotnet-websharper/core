@@ -112,7 +112,6 @@ type CompiledMember =
     | Instance of name:string
     | Static of address:Address
     | AsStatic of address:Address
-    | JSConstructor of address:Address
     | New
     | NewIndexed of index:int
     | Inline of isCompiled:bool * assertReturnType:bool

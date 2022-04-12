@@ -89,11 +89,11 @@ type Environment =
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
 let undefVar (id: Id) =
-#if DEBUG
+//#if DEBUG
     J.Id.New ("MISSINGVAR" + I.MakeValid (defaultArg id.Name "_"))
-#else
-    failwithf "Undefined variable during writing JavaScript: %s" (string id)
-#endif
+//#else
+//    failwithf "Undefined variable during writing TypeScript: %s" (string id)
+//#endif
 
 let transformId (env: Environment) (id: Id) =
     if id.HasStrongName then J.Id.New id.Name.Value else
@@ -156,7 +156,7 @@ let defineImportedId (env: Environment) (id: Id) =
         env.ScopeIds <- env.ScopeIds |> Map.add id iname
        
 let invalidForm c =
-    failwithf "invalid form at writing JavaScript: %s" c
+    failwithf "invalid form at writing TypeScript: %s" c
 
 type CollectStrongNames(env: Environment) =
     inherit StatementVisitor()
@@ -355,7 +355,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | UInt64 v -> J.Number (string v) |> J.Constant
         | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
-        | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
+        | Decimal _ -> failwith "Cannot write Decimal directly to TypeScript output"
     | Application (e, ps, i) ->
         J.Application (trE e, i.Params |> List.map (transformTypeName env false), ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
@@ -473,7 +473,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                     e.[J.Constant (J.String n)]
                 ) (J.Var (J.Id.New h)) t
         | _ -> 
-            failwith "Addresses must be resolved to ImportedModule or CurrentModule before writing JavaScript"
+            failwith "Addresses must be resolved to ImportedModule or CurrentModule before writing TypeScript"
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -750,6 +750,11 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let args =
             match t with 
             | TSType.New (ta, _) -> 
+                let ta =
+                    // TODO remove workaround
+                    if ta.Length < p.Length then
+                        ta @ (List.replicate (p.Length - ta.Length) TSType.Any)
+                    else ta
                 (p, ta) ||> List.map2 (fun (a, m) t -> defineId innerEnv ArgumentId a |> withType env t, m)
             | _ ->
                 p |> List.map (fun (a, m) -> defineId innerEnv ArgumentId a, m)

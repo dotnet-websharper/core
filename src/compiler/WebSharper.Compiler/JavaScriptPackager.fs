@@ -27,6 +27,7 @@ open System.Collections.Generic
 open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
+module I = IgnoreSourcePos
 
 type EntryPointStyle =
     | OnLoadIfExists
@@ -163,43 +164,84 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             | _ -> ()
         | _ -> ()
 
+        let members = ResizeArray<Statement>()
+        
         match c.StaticConstructor with
         | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
         | Some (ccaddr, body) -> 
             packageCctor ccaddr body name
         | _ -> ()
             
-        let prototype = 
-            let prop info body =
-                match withoutMacros info with
-                | M.Instance mname ->
-                    if body <> Undefined then
-                        Some (mname, body)
-                    else None
-                | _ -> None
-                    
-            Object [
-                for info, _, _, body in c.Methods.Values do
-                    match prop info body with
-                    | Some p -> yield p 
-                    | _ -> ()
-                for info, body in c.Implementations.Values do
-                    match prop info body with
-                    | Some p -> yield p 
-                    | _ -> ()
-            ]
+        let mem info body =
+            match withoutMacros info with
+            | M.Instance mname ->
+                match IgnoreExprSourcePos body with
+                | Function (args, _, b) ->
+                    members.Add <| ClassMethod(false, mname, args, Some b, TSType.Any)
+                | _ -> ()                    
+            | _ -> ()
+
+        for info, _, _, body in c.Methods.Values do
+            mem info body
+        
+        for info, body in c.Implementations.Values do
+            mem info body
+
+        let indexedCtors = Dictionary()
+
+        for KeyValue(ctor, (info, opts, body)) in c.Constructors do
+            match withoutMacros info with
+            | M.New ->
+                if body <> Undefined then
+                    match body with
+                    | Function ([], _, I.Empty) 
+                    | Function ([], _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
+                        ()
+                    | Function (args, _, b) ->                  
+                        let args = List.map (fun x -> x, Modifiers.None) args
+                        members.Add (ClassConstructor (args, Some b, TSType.Any))
+                    | _ ->
+                        failwithf "Invalid form for translated constructor"
+            | M.NewIndexed i ->
+                if body <> Undefined then
+                    match body with
+                    | Function (args, _, b) ->  
+                        let index = Id.New("i: " + string i, str = true)
+                        let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
+                        members.Add (ClassConstructor (allArgs, None, TSType.Any))
+                        indexedCtors.Add (i, (args, b))
+                    | _ ->
+                        failwithf "Invalid form for translated constructor"
+            | _ -> ()
                             
+        if indexedCtors.Count > 0 then
+            let index = Id.New("i", mut = false)
+            let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
+            let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
+            let cBody =
+                Switch(Var index, 
+                    indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
+                        Some (Value (Int i)), 
+                        CombineStatements [
+                            ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
+                            Break None
+                        ]
+                    ) |> List.ofSeq
+                )
+            let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
+            members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
+
         let baseType =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
                 | Some _ as res -> res
                 | _ -> current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> getOrImportAddress false ba
-            | _ -> Value Null
-             
+            | Some (ba, _, _) -> Some (getOrImportAddress false ba)
+            | _ -> None
+        
         if c.HasWSPrototype then
-            packageCtor addr <| JSRuntime.Class prototype baseType (GlobalAccess addr)
+            packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
         for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
@@ -211,14 +253,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         for info, _, body in c.Constructors.Values do
             match withoutMacros info with
-            | M.JSConstructor caddr ->
-                if body <> Undefined then
-                    if c.HasWSPrototype then
-                        package caddr <| 
-                            JSRuntime.Ctor body (GlobalAccess addr)
-                    else
-                        package caddr body
-            | M.Static maddr ->
+            | M.Static maddr 
+            | M.AsStatic maddr ->
                 if body <> Undefined then
                     package maddr body
             | _ -> ()

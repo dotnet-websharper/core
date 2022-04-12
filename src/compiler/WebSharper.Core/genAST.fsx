@@ -204,6 +204,9 @@ let ExprDefs =
             , "Temporary - A hole in an expression for inlining"
         "Cast", [ TSType, "targetType"; Expr, "expression" ]
             , "TypeScript - type cast <...>..."
+        "ClassExpr", [ Option Str, "name"; Option Expr, "baseClass"; List Statement, "members" ]
+            , "JavaScript ES6 - class { ... }"
+
     ]    
 
 let StatementDefs =
@@ -273,13 +276,13 @@ let StatementDefs =
         "Namespace", [ Str, "name"; List Statement, "statements" ]
             , "TypeScript - namespace { ... }"
         "Class", [ Str, "name"; Option TSType, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
-            , "TypeScript - class { ... }"
+            , "JavaScript ES6 - class { ... }"
         "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
-            , "TypeScript - class method"
+            , "JavaScript ES6 - class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
-            , "TypeScript - class method"
+            , "JavaScript ES6 - class method"
         "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType"; Bool, "optional" ]
-            , "TypeScript - class plain property"
+            , "JavaScript ES6 - class plain property"
         "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
         "Alias", [ TSType, "alias"; TSType, "origType" ]

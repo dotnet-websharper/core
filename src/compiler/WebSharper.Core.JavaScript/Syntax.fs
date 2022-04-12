@@ -181,6 +181,7 @@ and Expression =
     | ExprPos     of Expression * SourcePos
     | ExprComment of E * string
     | ImportFunc
+    | ClassExpr   of option<Id> * option<E> * list<E> * list<Member>
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)

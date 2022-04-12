@@ -23,11 +23,6 @@
   }
 
   Global.WSRuntime = {
-    Ctor: function (ctor, typeFunction) {
-      ctor.prototype = typeFunction.prototype;
-      return ctor;
-    },
-
     Cctor: function (cctor) {
       var init = true;
       return function () {
@@ -36,24 +31,6 @@
           cctor();
         }
       };
-    },
-
-    Class: function (members, base, statics) {
-      var proto = members;
-      if (base) {
-        proto = new base();
-        for (var m in members) { proto[m] = members[m] }
-      }
-      var typeFunction = function (copyFrom) {
-        if (copyFrom) {
-          for (var f in copyFrom) { this[f] = copyFrom[f] }
-        }
-      }
-      typeFunction.prototype = proto;
-      if (statics) {
-        for (var f in statics) { typeFunction[f] = statics[f] }
-      }
-      return typeFunction;
     },
 
     Create: function (ctor, copyFrom) {

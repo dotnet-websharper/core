@@ -613,8 +613,6 @@ module JSRuntime =
     let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
     let Create obj props = runtimeFunc "Create" Pure [obj; props]
-    let Class members basePrototype statics = runtimeFunc "Class" Pure [members; basePrototype; statics]
-    let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
     let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
     let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
@@ -913,8 +911,7 @@ let getAllAddresses (meta: Info) =
         let rec addMember (m: CompiledMember) =
             match m with
             | Instance n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | Static a 
-            | JSConstructor a -> r.ExactStaticAddress a.Address.Value |> ignore
+            | Static a -> r.ExactStaticAddress a.Address.Value |> ignore
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m, _, _ in cls.Constructors.Values do addMember m
