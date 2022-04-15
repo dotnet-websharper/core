@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "WebSharper.FSharp": {
+      "commandName": "Project",
+      "commandLineArgs": "@\"C:\\repo\\tmpAD36.tmp\"",
+      "workingDirectory": "C:\\repo\\core\\tests\\WebSharper.Tests"
+    }
+  }
+}

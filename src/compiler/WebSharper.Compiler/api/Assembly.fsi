@@ -45,6 +45,9 @@ type Assembly =
     /// Reads the embedded JavaScript.
     member ReadableJavaScript : option<string>
 
+    /// Reads the embedded TypeScript.
+    member TypeScript : option<string>
+
     /// Reads the embedded map file.
     member MapFileForReadable : option<string>
 

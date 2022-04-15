@@ -141,6 +141,7 @@ module UnpackCommand =
                 a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
             emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
                 a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+            emit a.TypeScript (pc.TypeScriptPath aid)
             if cmd.UnpackTypeScript then
                 emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =

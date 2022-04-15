@@ -1113,6 +1113,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let remainingTypes = ResizeArray()
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
+            notResolvedInterfaces.Remove typ |> ignore
             let allMembers = HashSet()
             let allNames = HashSet()
             let extended = Dictionary() // has Some value if directly extended and JavaScript annotated
@@ -1175,7 +1176,6 @@ type Compilation(meta: Info, ?hasGraph) =
                     Type = nr.Type
                 }
             interfaces.Add(typ, resNode)
-            notResolvedInterfaces.Remove typ |> ignore
             match nr.StrongName with
             | Some sn ->
                 stronglyNamedTypes.Add (typ, sn, false)
