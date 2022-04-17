@@ -137,7 +137,7 @@ module Bundling =
                         else meta
                     JavaScriptPackager.packageAssembly current current o.EntryPoint o.EntryPointStyle
                 with e -> 
-                    CommandTools.argError ("Error during bundling: " + e.Message)
+                    CommandTools.argError ("Error during bundling: " + e.Message + " at " + e.StackTrace)
         let resources = graph.GetResourcesOf nodes
 
         let noHtmlWriter = new HtmlTextWriter(TextWriter.Null)

@@ -164,7 +164,9 @@ let WriteUnicodeEscapeCodeForId (buf: StringBuilder) (c: char) =
 let EscapeId (id: string) =
     let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
-        invalidArg "id" "Cannot escape null and empty identifiers."
+        "$$ERROR$$"
+        //invalidArg "id" "Cannot escape null and empty identifiers."
+    else
     let isFirst = function
         | '_' | '$' -> true
         | c when System.Char.IsLetter c -> true

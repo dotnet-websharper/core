@@ -144,7 +144,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             let expr = Function([], None, Block [rem; body])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
-            failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
+            () // TODO investigate
+            //failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
 
     let classes = Dictionary(current.Classes)
 

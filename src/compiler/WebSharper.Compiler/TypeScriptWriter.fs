@@ -390,6 +390,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | BinaryOperator.``&&``         -> J.Binary(trE x, J.BinaryOperator.``&&``        , trE z)
         | BinaryOperator.``&``          -> J.Binary(trE x, J.BinaryOperator.``&``         , trE z)
         | BinaryOperator.``*``          -> J.Binary(trE x, J.BinaryOperator.``*``         , trE z)
+        | BinaryOperator.``**``         -> J.Binary(trE x, J.BinaryOperator.``**``        , trE z)
         | BinaryOperator.``+``          -> J.Binary(trE x, J.BinaryOperator.``+``         , trE z)
         | BinaryOperator.``-``          -> J.Binary(trE x, J.BinaryOperator.``-``         , trE z)
         | BinaryOperator.``/``          -> J.Binary(trE x, J.BinaryOperator.``/``         , trE z)
@@ -407,6 +408,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | BinaryOperator.``instanceof`` -> J.Binary(trE x, J.BinaryOperator.``instanceof``, trE z)
         | BinaryOperator.``|``          -> J.Binary(trE x, J.BinaryOperator.``|``         , trE z)
         | BinaryOperator.``||``         -> J.Binary(trE x, J.BinaryOperator.``||``        , trE z)
+        | BinaryOperator.``??``         -> J.Binary(trE x, J.BinaryOperator.``??``        , trE z)
         | _ -> failwith "invalid BinaryOperator enum value"
     | ItemSet(x, y, z) -> (trE x).[trE y] ^= trE z
     | MutatingBinary(x, y, z) ->
@@ -423,6 +425,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``<<=``  -> J.Binary(trE x, J.BinaryOperator.``<<=``  , trE z)
         | MutatingBinaryOperator.``>>=``  -> J.Binary(trE x, J.BinaryOperator.``>>=``  , trE z)
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
+        | MutatingBinaryOperator.``??=``  -> J.Binary(trE x, J.BinaryOperator.``??=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
     | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
     | New (x, ts, y) -> J.New(trE x, ts |> List.map (transformTypeName env false), y |> List.map trE)

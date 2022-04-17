@@ -331,9 +331,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     try methods.Add(mdef, (kind, opts, gc, body))
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
-        
-        if constructors.Count = 0 && methods.Count = 0 then () else
-        
+                
         // Reflector is used for WIG, where abstract/virtual methods are generally meant to be called externally,
         // so any override of them should never be DCE'd. This enforces it.
         for aNode in abstractAndVirtualMethods do

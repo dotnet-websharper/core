@@ -1013,17 +1013,22 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 eprintfn "WebSharper warning: Assembly needed for bundling but is not referenced: %s (missing type: %s)"
                     td.Value.Assembly td.Value.FullName
                 None
+    let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) key =
+        match fromDic.TryGetValue(key) with
+        | true, value -> toDic.[key] <- value
+        | false, _ ->
+            eprintfn "WebSharper warning: Member implementation not found during bundling for %A" key
     for n in nodes do
         match n with
         | AbstractMethodNode (td, m)
         | MethodNode (td, m) -> 
-            getOrAddClass td |> Option.iter (fun cls -> cls.Methods.[m] <- meta.ClassInfo(td).Methods.[m])
+            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict cls.Methods (meta.ClassInfo(td).Methods))
         | ConstructorNode (td, c) -> 
-            getOrAddClass td |> Option.iter (fun cls -> cls.Constructors.[c] <- meta.ClassInfo(td).Constructors.[c])
+            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict cls.Constructors (meta.ClassInfo(td).Constructors))
         | ImplementationNode (td, i, m) ->
             try
                 //if td = Definitions.Obj then () else
-                getOrAddClass td |> Option.iter (fun cls -> cls.Implementations.Add((i, m), meta.ClassInfo(td).Implementations.[i, m]))
+                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict cls.Implementations (meta.ClassInfo(td).Implementations))
             with _ ->
                 failwithf "implementation node not found %A" n
         | TypeNode td ->

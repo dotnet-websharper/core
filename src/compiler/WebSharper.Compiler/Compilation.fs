@@ -1438,6 +1438,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match expr with
                 | Function (args, ret, body) ->
                     Function(args, ret, CombineStatements [ ExprStatement (Cctor typ); body ])
+                | Undefined -> Undefined
                 // inlines
                 | _ -> Sequential [ Cctor typ; expr ]
             else expr
@@ -1710,9 +1711,20 @@ type Compilation(meta: Info, ?hasGraph) =
         
         let nameInstanceMember typ name m =
             let res = assumeClass typ
-            let add k v (d: IDictionary<_,_>) =
+            let addf k v (d: IDictionary<_,_>) =
                 try d.Add(k, v)
-                with _ -> failwithf "Instance method name already used: %s in type %s" name typ.Value.FullName
+                with _ -> failwithf "Instance field name already used: %s in type %s" name typ.Value.FullName
+            let add k v g (d: IDictionary<_,_>) =
+                match d.TryGetValue(k) with
+                | true, e ->
+                    if g e = Undefined then
+                        d[k] <- v
+                    else
+                        failwithf "Instance method name already used: %s in type %s" name typ.Value.FullName
+                | _ ->
+                    d.Add(k, v)
+            let trd (_, _, x) = x  
+            let frt (_, _, _, x) = x
             match m with
             | M.Field (fName, f) ->
                 let fi =
@@ -1722,22 +1734,22 @@ type Compilation(meta: Info, ?hasGraph) =
                         match System.Int32.TryParse name with
                         | true, i -> IndexedField i
                         | _ -> InstanceField name
-                res.Fields |> add fName (fi, f.IsReadonly, f.FieldType)
+                res.Fields |> addf fName (fi, f.IsReadonly, f.FieldType)
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name nr
                 match nr.Kind with
                 | N.Implementation dtyp 
                 | N.Override dtyp when dtyp <> typ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
-                        res.Implementations |> add (dtyp, mDef) (comp, nr.Body)
+                        res.Implementations |> add (dtyp, mDef) (comp, nr.Body) snd
                     else
-                        compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
+                        compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body) snd
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body)
+                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
                     else
-                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body)
+                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body) trd
             | _ -> failwith "Invalid instance member kind"   
 
         let getClassAddress typ =
