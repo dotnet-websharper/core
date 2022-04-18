@@ -477,7 +477,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
-                [ b |> transformStatement innerEnv ]
+                flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
             )
         let id = J.Id.New(n)
         J.Method(s, id, args, body)   
@@ -488,7 +488,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
-                b |> transformStatement innerEnv |> flattenFuncBody
+                flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
             )
         J.Constructor(args, body)   
     | _ -> 

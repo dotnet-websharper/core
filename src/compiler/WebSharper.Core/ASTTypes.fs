@@ -495,6 +495,30 @@ module Definitions =
             Assembly = "FSharp.Core"
             FullName = "Microsoft.FSharp.Core.FSharpValueOption`1"
         }
+
+    let OptimizedClosuresFSharpFunc3 =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`3"
+        }
+    
+    let OptimizedClosuresFSharpFunc4 =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`4"
+        }
+    
+    let OptimizedClosuresFSharpFunc5 =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`5"
+        }
+    
+    let OptimizedClosuresFSharpFunc6 =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`6"
+        }
     
 /// Stores a definition and type parameter information
 type Concrete<'T> =
@@ -742,6 +766,31 @@ type Type =
             t.Entity = Definitions.FSharpOption 
             || t.Entity = Definitions.FSharpValueOption 
         | _ -> false
+
+module TypeHelpers =
+    let (|OptimizedClosures3|_|) t =
+        match t with
+        | ConcreteType { Entity = e; Generics = [t1; t2; t3] } when e = Definitions.OptimizedClosuresFSharpFunc3 ->
+            Some (t1, t2, t3)
+        | _ -> None
+
+    let (|OptimizedClosures4|_|) t =
+        match t with
+        | ConcreteType { Entity = e; Generics = [t1; t2; t3; t4] } when e = Definitions.OptimizedClosuresFSharpFunc4 ->
+            Some (t1, t2, t3, t4)
+        | _ -> None
+
+    let (|OptimizedClosures5|_|) t =
+        match t with
+        | ConcreteType { Entity = e; Generics = [t1; t2; t3; t4; t5] } when e = Definitions.OptimizedClosuresFSharpFunc5 ->
+            Some (t1, t2, t3, t4, t5)
+        | _ -> None
+
+    let (|OptimizedClosures6|_|) t =
+        match t with
+        | ConcreteType { Entity = e; Generics = [t1; t2; t3; t4; t5; t6] } when e = Definitions.OptimizedClosuresFSharpFunc6 ->
+            Some (t1, t2, t3, t4, t5, t6)
+        | _ -> None
 
 type [<RequireQualifiedAccess>] TSType =
     | Any

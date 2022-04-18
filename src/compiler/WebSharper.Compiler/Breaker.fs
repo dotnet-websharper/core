@@ -1,5 +1,5 @@
 // $begin{copyright}
-//
+//                                                                                                                                              [ a ]
 // This file is part of WebSharper
 //
 // Copyright (c) 2008-2016 IntelliFactory
@@ -546,7 +546,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Variables = brA.Variables |> List.filter (fun (v, _) -> removeVars |> List.contains v |> not)
             }
     | NewTuple ([ a ], b) ->
-        br a |> mapBroken (fun a -> NewTuple ([getExpr a], b))
+        br a |> toBrExpr |> mapBroken (fun a -> NewTuple ([ a ], b))
     | NewTuple (a, b) ->
         brL a |> mapBroken (fun a -> NewTuple(a, b))
     | Conditional (I.Sequential a, b, c) ->

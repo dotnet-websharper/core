@@ -178,21 +178,21 @@ let Tests =
             equal !res 1
         }
 
-        Skip "UsingAsync" {
-            let res = ref 0
-            let d =
-                { new System.IAsyncDisposable with
-                    member x.DisposeAsync() =
-                        incr res
-                        ValueTask.CompletedTask
-                }
-            let x = 
-                task {
-                    use dd = d
-                    return !res
-                }
-            let! xRes = Async.AwaitTask x
-            equal xRes 0
-            equal !res 1
-        }
+        //Skip "UsingAsync" {
+        //    let res = ref 0
+        //    let d =
+        //        { new System.IAsyncDisposable with
+        //            member x.DisposeAsync() =
+        //                incr res
+        //                ValueTask.CompletedTask
+        //        }
+        //    let x = 
+        //        task {
+        //            use dd = d
+        //            return !res
+        //        }
+        //    let! xRes = Async.AwaitTask x
+        //    equal xRes 0
+        //    equal !res 1
+        //}
     }

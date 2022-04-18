@@ -996,13 +996,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             let trThisArg = trThisObj() |> Option.toList
             ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
         | M.Inline (isCompiled, assertReturnType) ->
-            let retTyp = 
-                if assertReturnType then
-                    meth.Entity.Value.ReturnType.SubstituteGenerics(Array.ofList (typ.Generics @ meth.Generics))
-                else
-                    // optimization, return type is only used by ApplyInline if we have assertReturnType = true
-                    VoidType
-            this.ApplyInline(expr, typ.Generics @ meth.Generics, gc, trArgs(), trThisObj(), isCompiled, assertReturnType, retTyp) 
+            match expr with 
+            | Var _ -> 
+                // used for patternInput values 
+                expr 
+            | _ ->
+                let retTyp = 
+                    if assertReturnType then
+                        meth.Entity.Value.ReturnType.SubstituteGenerics(Array.ofList (typ.Generics @ meth.Generics))
+                    else
+                        // optimization, return type is only used by ApplyInline if we have assertReturnType = true
+                        VoidType
+                this.ApplyInline(expr, typ.Generics @ meth.Generics, gc, trArgs(), trThisObj(), isCompiled, assertReturnType, retTyp) 
         | M.Macro (macro, parameter, fallback) ->
             let macroResult = 
                 match comp.GetMacroInstance(macro) with

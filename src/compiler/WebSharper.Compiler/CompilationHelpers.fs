@@ -1566,7 +1566,11 @@ type OptimizeLocalCurriedFunc(var: Id, currying) =
             if i = 0 then List.rev acc, t else
             match t with
             | FSharpFuncType (a, r) -> getTypes (a :: acc) (i - 1) r
-            | _ -> failwith "Trying to optimize currification of a non-function value"
+            | TypeHelpers.OptimizedClosures3 (a1, a2, r) -> getTypes (a2 :: a1 :: acc) (i - 2) r
+            | TypeHelpers.OptimizedClosures4 (a1, a2, a3, r) -> getTypes (a3 :: a2 :: a1 :: acc) (i - 3) r
+            | TypeHelpers.OptimizedClosures5 (a1, a2, a3, a4, r) -> getTypes (a4 :: a3 :: a2 :: a1 :: acc) (i - 4) r
+            | TypeHelpers.OptimizedClosures6 (a1, a2, a3, a4, a5, r) -> getTypes (a5 :: a4 :: a3 :: a2 :: a1 :: acc) (i - 5) r
+            | _ -> failwithf "Trying to optimize currification of a non-function type: %A for var %s" t (var.Name |> Option.defaultValue "noname")
         var.VarType |> Option.map (getTypes [] currying)
 
     override this.TransformVar(v) =

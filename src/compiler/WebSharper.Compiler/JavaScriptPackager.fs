@@ -144,7 +144,9 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             let expr = Function([], None, Block [rem; body])
             statements.Add <| ExprStatement (ItemSet (o, x, expr))    
         | _ ->
-            () // TODO investigate
+            let expr = Function([], None, ExprStatement expr)
+            statements.Add <| ExprStatement (ItemSet (o, x, expr))            
+            // TODO investigate
             //failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
 
     let classes = Dictionary(current.Classes)
@@ -154,14 +156,14 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let rec packageClass (c: M.ClassInfo) addr name =
+    let rec packageClass (c: M.ClassInfo) addr (ct: M.CustomTypeInfo) name =
 
         match c.BaseClass with
         | Some { Entity = b } ->
             match classes.TryFind b with
-            | Some (addr, _, Some bc) ->
+            | Some (addr, ct, Some bc) ->
                 classes.Remove b |> ignore
-                packageClass bc addr b.Value.FullName
+                packageClass bc addr ct b.Value.FullName
             | _ -> ()
         | _ -> ()
 
@@ -207,9 +209,6 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
                 if body <> Undefined then
                     match body with
                     | Function (args, _, b) ->  
-                        let index = Id.New("i: " + string i, str = true)
-                        let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
-                        members.Add (ClassConstructor (allArgs, None, TSType.Any))
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -241,8 +240,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             | Some (ba, _, _) -> Some (getOrImportAddress false ba)
             | _ -> None
         
-        if c.HasWSPrototype then
-            packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
+        match ct with
+        | M.FSharpUnionInfo u when Option.isNone c.Type ->
+            packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, List.ofSeq members)
+        | _ ->
+            if c.HasWSPrototype then
+                packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
         for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
@@ -261,9 +264,32 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             | _ -> ()
             
     while classes.Count > 0 do
-        let (KeyValue(t, (a, _, cOpt))) = classes |> Seq.head
+        let (KeyValue(t, (a, ct, cOpt))) = classes |> Seq.head
         classes.Remove t |> ignore
-        cOpt |> Option.iter (fun c -> packageClass c a t.Value.FullName)
+        cOpt |> Option.iter (fun c -> packageClass c a ct t.Value.FullName)
+
+    for KeyValue(td, i) in current.Interfaces do       
+
+        let methodNames =
+            i.Methods.Values |> Seq.map fst
+
+        let addr =
+            match i.Address.Address.Value with
+            | fn :: a ->
+                { i.Address with Address = PlainAddress (("is" + fn) :: a) }  
+            | _ ->
+                failwithf "Missing address for interface %s" td.Value.FullName
+        
+        let isIntf =
+            let x = Id.New "x"
+            if Seq.isEmpty methodNames then
+                Function([x], None, Return (Value (Bool true)))
+            else         
+                let shortestName = methodNames |> Seq.minBy String.length
+                let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
+                Function([x], None, Return check)
+
+        package addr isIntf
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
