@@ -845,11 +845,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = thisTyp
                                 } : CodeReader.CSharpMethod
                             | ".ctor" ->                                
-                                let baseCall =
-                                    match ri.BaseCall with
-                                    | None -> Empty
-                                    | Some (bTyp, bCtor, args, reorder) ->
-                                        ExprStatement (baseCtor bTyp bCtor args |> reorder)
+                                let baseCall =    
+                                    let bTyp, bCtor, args, reorder = ri.BaseCall
+                                    ExprStatement (baseCtor bTyp bCtor args |> reorder)
                                 let b =
                                     ri.PositionalFields |> List.map (fun (p, getter) ->
                                         let setter = CodeReader.setterOf (NonGeneric getter)
@@ -965,14 +963,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some ri ->
                             let o = CodeReader.CSharpParameter.New ("o", thisTyp)
                             let baseCall =
-                                match ri.BaseCall with
-                                | None -> Empty
-                                | Some (bTyp, _, _, _) ->
-                                    let bCtor = 
-                                        Hashed {
-                                            CtorParameters = [ ConcreteType bTyp ]
-                                        }
-                                    ExprStatement (baseCtor bTyp bCtor [ Var o.ParameterId ])
+                                let bTyp, _, _, _ = ri.BaseCall
+                                let bCtor = 
+                                    Hashed {
+                                        CtorParameters = [ ConcreteType bTyp ]
+                                    }
+                                ExprStatement (baseCtor bTyp bCtor [ Var o.ParameterId ])
                             let b =
                                 ri.PositionalFields |> List.map (fun (_, getter) ->
                                     let setter = CodeReader.setterOf (NonGeneric getter)

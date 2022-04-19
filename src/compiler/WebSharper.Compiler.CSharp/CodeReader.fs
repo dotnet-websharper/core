@@ -100,7 +100,7 @@ type CSharpRecord =
     {
         PositionalFields : list<CSharpParameter * Method>
         OtherFields : list<CSharpRecordDataMember>
-        BaseCall : option<Concrete<TypeDefinition> * Constructor * list<Expression> * (Expression -> Expression)>
+        BaseCall : Concrete<TypeDefinition> * Constructor * list<Expression> * (Expression -> Expression)
     }
 
 type RemoveBreaksTransformer() =
@@ -1531,6 +1531,12 @@ type RoslynTransformer(env: Environment) =
                         Some (NonGeneric typ.TypeDefinition, bCtor, args, reorder)
                     | _ -> None
                 )
+            )
+            |> Option.defaultWith (fun () ->
+                NonGeneric Definitions.Obj,
+                ConstructorInfo.Default(),
+                [],
+                id
             )
 
         {

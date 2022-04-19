@@ -168,13 +168,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         | _ -> ()
 
         let members = ResizeArray<Statement>()
-        
-        match c.StaticConstructor with
-        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
-        | Some (ccaddr, body) -> 
-            packageCctor ccaddr body name
-        | _ -> ()
-            
+                    
         let mem info body =
             match withoutMacros info with
             | M.Instance mname ->
@@ -246,6 +240,12 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         | _ ->
             if c.HasWSPrototype then
                 packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
+
+        match c.StaticConstructor with
+        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
+        | Some (ccaddr, body) -> 
+            packageCctor ccaddr body name
+        | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
