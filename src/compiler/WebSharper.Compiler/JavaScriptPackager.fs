@@ -236,7 +236,23 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->
-            packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, List.ofSeq members)
+            let numArgs =
+                u.Cases |> Seq.map (fun uc -> 
+                    match uc.Kind with
+                    | M.NormalFSharpUnionCase fields -> List.length fields
+                    | M.SingletonFSharpUnionCase -> 0
+                    | M.ConstantFSharpUnionCase _ -> 0
+                )
+                |> Seq.max
+            let genCtor =
+                let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
+                let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
+                let setters = 
+                    Statement.Block (
+                        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
+                    )
+                ClassConstructor(args, Some setters, TSType.Any)
+            packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, genCtor :: List.ofSeq members)
         | _ ->
             if c.HasWSPrototype then
                 packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
