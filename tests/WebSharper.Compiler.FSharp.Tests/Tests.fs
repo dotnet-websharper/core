@@ -138,12 +138,17 @@ let ``Compilation test`` () =
     let args = mkProjectCommandLineArgs (@"bin\example1.abc.dll", fileNames)
 
     System.Environment.CurrentDirectory <- Path.Combine(__SOURCE_DIRECTORY__, @"..\GeneratedProject\")
-    WebSharper.FSharp.Program.main args
-    |> should equal 0
+    
+    let stopWatch1 = System.Diagnostics.Stopwatch.StartNew()
+    let res1 = WebSharper.FSharp.Program.main args
+    stopWatch1.Stop()
+    let time1 = stopWatch1.Elapsed 
+    res1 |> should equal 0
 
-    let stopWatch = System.Diagnostics.Stopwatch.StartNew()
-    WebSharper.FSharp.Program.main args
-    |> should equal 0
-    stopWatch.Stop()
+    let stopWatch2 = System.Diagnostics.Stopwatch.StartNew()
+    let res2 = WebSharper.FSharp.Program.main args
+    stopWatch2.Stop()
+    let time2 = stopWatch2.Elapsed 
+    res2 |> should equal 0
 
-    stopWatch.Elapsed |> should lessThan (System.TimeSpan.FromSeconds(4.0))
+    time2 |> should lessThan time1
