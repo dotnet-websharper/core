@@ -6,6 +6,7 @@
 #r "nuget: Fake.DotNet.Cli"
 #r "nuget: Fake.DotNet.AssemblyInfoFile"
 #r "nuget: Fake.DotNet.Paket"
+#r "nuget: Fake.JavaScript.Npm"
 #r "nuget: Paket.Core"
 #else
 #r "paket:
@@ -17,6 +18,7 @@ nuget Fake.Tools.Git
 nuget Fake.DotNet.Cli
 nuget Fake.DotNet.AssemblyInfoFile
 nuget Fake.DotNet.Paket
+nuget Fake.JavaScript.Npm
 nuget Paket.Core prerelease //"
 #endif
 
@@ -39,6 +41,7 @@ open Fake.Core.TargetOperators
 open Fake.DotNet
 open Fake.IO
 open Fake.IO.FileSystemOperators
+open Fake.JavaScript
 open WebSharper.Fake
 
 let version = "6.0"
@@ -127,6 +130,12 @@ Target.create "Prepare" <| fun _ ->
     minify "src/stdlib/WebSharper.Main/Json.js"
     minify "src/stdlib/WebSharper.Main/AnimFrame.js"
 
+    // install TypeScript
+    Npm.install <| fun o -> 
+        { o with 
+            WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
+        }
+
 let targets = MakeTargets {
     WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
         HasDefaultBuild = false
@@ -147,7 +156,8 @@ Target.create "Build" <| fun o ->
     ]
     |> build o (buildModeFromFlag o) 
 
-"Prepare"
+"WS-Restore"
+    ==> "Prepare"
     ==> "Build"
 
 Target.create "Publish" <| fun o ->
