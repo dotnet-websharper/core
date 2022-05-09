@@ -25,7 +25,6 @@ open WebSharper
 
 [<AutoOpen>]
 module internal Extensions =
-    open System.Diagnostics
 
     let startsWithSlash (s: string) =
         s.Length > 0

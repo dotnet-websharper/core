@@ -56,13 +56,13 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
         | CorsAndCsrfCheckResult.Error (code, msg, text) ->
             ctx.Response.StatusCode <- code
             let bytes = Encoding.UTF8.GetBytes(text)
-            ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+            ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
         | CorsAndCsrfCheckResult.Ok headers ->
-            async {
+            task {
                 addRespHeaders headers
                 let wsctx = Context.GetOrMakeSimple ctx wsService rootPath
                 use reader = new StreamReader(ctx.Request.Body)
-                let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+                let! body = reader.ReadToEndAsync() 
                 let! resp =
                     server.HandleRequest(
                         {
@@ -72,11 +72,11 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
                 ctx.Response.StatusCode <- 200
                 ctx.Response.ContentType <- resp.ContentType
                 let bytes = Encoding.UTF8.GetBytes(resp.Content)
-                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
             }
         | CorsAndCsrfCheckResult.Preflight headers ->
             addRespHeaders headers
-            async.Zero()
+            Task.CompletedTask
         |> Some
     else None
 
@@ -94,7 +94,7 @@ let Middleware (options: WebSharperOptions) =
     let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
         match handleRemote ctx server wsService options.ContentRootPath with
-        | Some rTask -> rTask |> Async.StartAsTask :> Task
+        | Some rTask -> rTask
         | None -> next.Invoke()
     )
 
@@ -122,11 +122,10 @@ let HttpHandler () : RemotingHttpHandler =
             
                 match handleRemote httpCtx server wsService hostingEnv.ContentRootPath with
                 | Some handle ->
-                    async {
+                    task {
                         do! handle
                         return None
                     }
-                    |> Async.StartAsTask
                 | None -> 
                     Task.FromResult None
 

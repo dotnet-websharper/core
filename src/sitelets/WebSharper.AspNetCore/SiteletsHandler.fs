@@ -91,32 +91,60 @@ let Middleware (options: WebSharperOptions) =
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
-        Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-            let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
+        if wsService.IsLogging then
+            Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
+                let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
             
-            let handleRouterResult r =
-               match r with
-               | Some endpoint ->
-                   let content = sitelet.Controller.Handle endpoint
-                   contentHelper httpCtx ctx content
-               | None -> next.Invoke()
+                let handleRouterResult r =
+                   match r with
+                   | Some endpoint ->
+                        let content = wsService.Timed("Handling endpoint", fun () -> sitelet.Controller.Handle endpoint)
+                        wsService.TimedAsync("Writing response", fun () -> contentHelper httpCtx ctx content)
+                   | None -> next.Invoke()
 
-            let routeWithoutBody =
-                try
-                    Some (sitelet.Router.Route ctx.Request)
-                with :? Router.BodyTextNeededForRoute ->
-                    None 
+                let routeWithoutBody =
+                    try
+                        Some (wsService.Timed("Routing request", fun () -> sitelet.Router.Route ctx.Request))
+                    with :? Router.BodyTextNeededForRoute ->
+                        None 
 
-            match routeWithoutBody with
-            | Some r ->
-                handleRouterResult r
-            | None -> 
-                task {
-                    let! _ = ctx.Request.BodyText
-                    let routeWithBody = sitelet.Router.Route ctx.Request
-                    return! handleRouterResult routeWithBody
-                }
-        )
+                match routeWithoutBody with
+                | Some r ->
+                    handleRouterResult r
+                | None -> 
+                    task {
+                        let! _ = ctx.Request.BodyText
+                        let routeWithBody = wsService.Timed("Routing request using content body", fun () -> sitelet.Router.Route ctx.Request)
+                        return! handleRouterResult routeWithBody
+                    }
+            )
+        else
+            Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
+                let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
+            
+                let handleRouterResult r =
+                   match r with
+                   | Some endpoint ->
+                       let content = sitelet.Controller.Handle endpoint
+                       contentHelper httpCtx ctx content
+                   | None -> next.Invoke()
+
+                let routeWithoutBody =
+                    try
+                        Some (sitelet.Router.Route ctx.Request)
+                    with :? Router.BodyTextNeededForRoute ->
+                        None 
+
+                match routeWithoutBody with
+                | Some r ->
+                    handleRouterResult r
+                | None -> 
+                    task {
+                        let! _ = ctx.Request.BodyText
+                        let routeWithBody = sitelet.Router.Route ctx.Request
+                        return! handleRouterResult routeWithBody
+                    }
+            )
 
 // Giraffe/Saturn helpers
 

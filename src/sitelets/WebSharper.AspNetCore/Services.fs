@@ -31,6 +31,8 @@ open WebSharper.Core
 open WebSharper.Core.DependencyGraph
 open WebSharper.Constants
 open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.Logging
+open System.Threading.Tasks
 
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
@@ -43,6 +45,9 @@ type IWebSharperService =
     abstract Json : Json.Provider
     abstract AuthenticationScheme : string
     abstract Configuration : IConfiguration
+    abstract IsLogging : bool
+    abstract Timed: string * (unit -> 'T) ->  'T
+    abstract TimedAsync: string * (unit -> Task) ->  Task
 
 type IWebSharperServiceOptions =
     abstract SiteletAssembly : Assembly
@@ -72,7 +77,7 @@ type WebSharperServiceOptions() =
         member x.AuthenticationScheme = authenticationScheme
         member x.Configuration = configuration
 
-type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions) =
+type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger: ILogger<IWebSharperService>) =
 
     let siteletAssembly =
         serviceOptions.SiteletAssembly
@@ -84,6 +89,39 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions) =
         | null ->
             ConfigurationManager.GetSection("websharper") :?> IConfiguration 
         | c -> c 
+
+    let isDebugLogging = logger.IsEnabled(LogLevel.Debug)
+    
+    let timedInfo (message: string) action =
+        if logger.IsEnabled(LogLevel.Information) then
+            let sw = System.Diagnostics.Stopwatch()
+            sw.Start()
+            let r = action()
+            logger.LogInformation("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+            r
+        else
+            action()
+
+    let timedDebug (message: string) action =
+        if isDebugLogging then
+            let sw = System.Diagnostics.Stopwatch()
+            sw.Start()
+            let r = action()
+            logger.LogInformation("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+            r
+        else
+            action()
+
+    let timedDebugAsync (message: string) (action: unit -> Task) =
+        if isDebugLogging then
+            task {
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                do! action()
+                logger.LogInformation("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+            } :> Task
+        else
+            action()
 
     let metadata, dependencies = 
         match serviceOptions.Metadata with
@@ -102,23 +140,16 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions) =
             | Some "none" ->
                 M.Info.Empty, Graph.Empty
             | _ ->
-                let trace =
-                    System.Diagnostics.TraceSource("WebSharper",
-                        System.Diagnostics.SourceLevels.All)
-                let runtimeMeta =
-                    siteletAssembly
-                    |> M.IO.LoadRuntimeMetadata
-                match runtimeMeta with
-                | None ->
-                    trace.TraceInformation("Runtime WebSharper metadata not found.")
-                    M.Info.Empty, Graph.Empty 
-                | Some meta ->
-                    let after = System.DateTime.UtcNow
-                    let res =
+                timedInfo "Initialized WebSharper" <| fun () ->
+                    let runtimeMeta =
+                        siteletAssembly
+                        |> M.IO.LoadRuntimeMetadata
+                    match runtimeMeta with
+                    | None ->
+                        logger.LogWarning("Runtime WebSharper metadata not found.")
+                        M.Info.Empty, Graph.Empty 
+                    | Some meta ->
                         meta, Graph.FromData meta.Dependencies
-                    trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-                        (after-before).TotalSeconds)
-                    res
 
     let json = J.Provider.CreateTyped metadata
 
@@ -134,6 +165,9 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions) =
         member this.Json = json
         member this.AuthenticationScheme = authenticationScheme
         member this.Configuration = configuration
+        member this.IsLogging = isDebugLogging
+        member this.Timed(message, action) = timedDebug message action
+        member this.TimedAsync(message, action) = timedDebugAsync message action
 
 /// Define the sitelet to serve by WebSharper.
 [<AllowNullLiteral>]
