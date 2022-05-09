@@ -97,7 +97,7 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger
             let sw = System.Diagnostics.Stopwatch()
             sw.Start()
             let r = action()
-            logger.LogInformation("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+            logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
             r
         else
             action()
@@ -107,7 +107,7 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger
             let sw = System.Diagnostics.Stopwatch()
             sw.Start()
             let r = action()
-            logger.LogDebug("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+            logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
             r
         else
             action()
@@ -118,7 +118,7 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger
                 let sw = System.Diagnostics.Stopwatch()
                 sw.Start()
                 do! action()
-                logger.LogDebug("{0} in {1} seconds.", message, sw.Elapsed.TotalSeconds)
+                logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
             } :> Task
         else
             action()
