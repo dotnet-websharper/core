@@ -128,7 +128,6 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger
         | Some metadata ->
             metadata, Graph.FromData metadata.Dependencies
         | None ->
-            let before = System.DateTime.UtcNow
             let metadataSetting =
                 if isNull configuration then
                     None
