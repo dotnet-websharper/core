@@ -44,28 +44,52 @@ type IWebSharperService =
     abstract AuthenticationScheme : string
     abstract Configuration : IConfiguration
 
-type DefaultWebSharperService
-    (
-        [<Optional>] siteletAssembly: Assembly, 
-        [<Optional>] metadata: M.Info, 
-        [<Optional>] authenticationScheme: string,
-        [<Optional>] configuration: IConfiguration) =
+type IWebSharperServiceOptions =
+    abstract SiteletAssembly : Assembly
+    abstract Metadata : M.Info option
+    abstract AuthenticationScheme : string
+    abstract Configuration : IConfiguration
+
+type WebSharperServiceOptions() =
+    
+    let mutable siteletAssembly: Assembly = null
+    let mutable metadata: M.Info option = None
+    let mutable authenticationScheme: string = null
+    let mutable configuration: IConfiguration = null
+
+    member x.SiteletAssembly with set a =
+        if isNull a |> not then siteletAssembly <- a
+    member x.Metadata with set m =
+        if obj.ReferenceEquals(m, null) |> not then metadata <- Some m
+    member x.AuthenticationScheme with set s =
+        if isNull s |> not then authenticationScheme <- s
+    member x.Configuration with set c =
+        if isNull c |> not then configuration <- c
+
+    interface IWebSharperServiceOptions with 
+        member x.SiteletAssembly = siteletAssembly
+        member x.Metadata = metadata
+        member x.AuthenticationScheme = authenticationScheme
+        member x.Configuration = configuration
+
+type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions) =
 
     let siteletAssembly =
-        siteletAssembly
+        serviceOptions.SiteletAssembly
         |> Option.ofObj
         |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
 
     let configuration =
-        if isNull configuration then 
+        match serviceOptions.Configuration with
+        | null ->
             ConfigurationManager.GetSection("websharper") :?> IConfiguration 
-        else 
-            configuration
+        | c -> c 
 
     let metadata, dependencies = 
-        if not (obj.ReferenceEquals(metadata, null)) then
+        match serviceOptions.Metadata with
+        | Some metadata ->
             metadata, Graph.FromData metadata.Dependencies
-        else
+        | None ->
             let before = System.DateTime.UtcNow
             let metadataSetting =
                 if isNull configuration then
@@ -82,7 +106,7 @@ type DefaultWebSharperService
                     System.Diagnostics.TraceSource("WebSharper",
                         System.Diagnostics.SourceLevels.All)
                 let runtimeMeta =
-                    siteletAssembly 
+                    siteletAssembly
                     |> M.IO.LoadRuntimeMetadata
                 match runtimeMeta with
                 | None ->
@@ -99,7 +123,9 @@ type DefaultWebSharperService
     let json = J.Provider.CreateTyped metadata
 
     let authenticationScheme =
-        if isNull authenticationScheme then "WebSharper" else authenticationScheme
+        match serviceOptions.AuthenticationScheme with
+        | null -> "WebSharper"
+        | s -> s
 
     interface IWebSharperService with
         member this.SiteletAssembly = siteletAssembly
@@ -142,6 +168,18 @@ type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
 [<Extension>]
 type ServiceExtensions =
 
+    static member private AddWebSharperService (this: IServiceCollection) =
+        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
+            this.AddSingleton<IWebSharperService, DefaultWebSharperService>() |> ignore
+
+        match this |> Seq.tryFind (fun s -> s.ServiceType = typeof<IWebSharperServiceOptions>) with
+        | Some optsEntry -> 
+            optsEntry.ImplementationInstance :?> WebSharperServiceOptions
+        | None ->
+            let o = WebSharperServiceOptions()
+            this.AddSingleton<IWebSharperServiceOptions>(o) |> ignore
+            o
+    
     /// <summary>
     /// Add a sitelet service to be loaded on startup with <c>UseWebSharper</c>.
     /// </summary>
@@ -150,8 +188,7 @@ type ServiceExtensions =
             when 'TImplementation :> ISiteletService
             and 'TImplementation : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
+        ServiceExtensions.AddWebSharperService this |> ignore
         this.AddSingleton<ISiteletService, 'TImplementation>()
 
     /// <summary>
@@ -160,8 +197,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddSitelet<'T when 'T : equality>
             (this: IServiceCollection, sitelet: Sitelet<'T>) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
+        ServiceExtensions.AddWebSharperService this |> ignore
         this.AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
 
     /// <summary>
@@ -171,8 +207,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
+        ServiceExtensions.AddWebSharperService this |> ignore
         this.AddSingleton<'THandler, 'THandler>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'THandler>>()
 
@@ -183,8 +218,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler, 'TInstance when 'TInstance : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
+        ServiceExtensions.AddWebSharperService this |> ignore
         this.AddSingleton<'TInstance, 'TInstance>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'TInstance>>()
 
@@ -195,8 +229,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection, handler: 'THandler) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
+        ServiceExtensions.AddWebSharperService this |> ignore
         this.AddSingleton<'THandler>(handler)
             .AddSingleton<IRemotingService<'THandler>>(RemotingService handler)
 
@@ -206,7 +239,9 @@ type ServiceExtensions =
             [<Optional>] metadata: M.Info,
             [<Optional>] authenticationScheme: string,
             [<Optional>] configuration: IConfiguration) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) then
-            failwith "IWebSharperService already set when AddWebSharper was called. Call AddWebSharper before AddSitelet and/or AddWebSharperRemoting."
-        this.AddSingleton<IWebSharperService>(DefaultWebSharperService(siteletAssembly, metadata, authenticationScheme, configuration))
+        let opts = ServiceExtensions.AddWebSharperService this
+        opts.SiteletAssembly <- siteletAssembly
+        opts.Metadata <- metadata
+        opts.AuthenticationScheme <- authenticationScheme
+        opts.Configuration <- configuration
         
