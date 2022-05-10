@@ -5,7 +5,7 @@
     <OutputType>Exe</OutputType>
     <Name>wsfsc</Name>
     <Signed>False</Signed>
-    <AutoGenerateBindingRedirects>True</AutoGenerateBindingRedirects>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <FSharpTool>True</FSharpTool>
     <EnableUnsafeBinaryFormatterSerialization>true</EnableUnsafeBinaryFormatterSerialization>
     <RuntimeIdentifiers>win-x64;linux-x64;linux-musl-x64;osx-x64</RuntimeIdentifiers>
