@@ -277,4 +277,4 @@ type ServiceExtensions =
         opts.Metadata <- metadata
         opts.AuthenticationScheme <- authenticationScheme
         opts.Configuration <- configuration
-        
+        this
