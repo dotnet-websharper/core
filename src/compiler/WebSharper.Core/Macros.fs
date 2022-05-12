@@ -945,11 +945,13 @@ let (^+) (a: Expression) (b: Expression) =
 let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list option) fs =
     let parts = FormatString.parseAll fs
     let args = ts |> List.map (fun t -> Id.New(mut = false), Some t)
-        
-    let rArgs = 
-        match intp with
-        | None -> args |> List.map (fun (a, t) -> Var a, t) |> ref
-        | Some intp -> (intp, ts) ||> List.map2 (fun a t -> a, Some t) |> ref
+    let rArgs = args |> List.map (fun (a, t) -> Var a, t) |> ref
+
+        //match intp with
+        //| None -> 
+        //| Some intp -> 
+            
+        //    (intp, ts) ||> List.map2 (fun a t -> a, Some t) |> ref
     let nextHole() =
         match !rArgs with
         | (a, t) :: r ->
@@ -1193,10 +1195,12 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
         Lambda([k],
             args |> List.rev |> List.fold (fun c (a, _) -> Lambda([a], c)) (Var k).[[inner]]
         )
-    | Some _ ->
-        Lambda([k],
-            (Var k).[[inner]]
-        )
+    | Some intp ->
+        let cont =
+            Lambda([k],
+                (Var k).[[inner]]
+            )
+        List.zip args intp |> List.rev |> List.fold (fun c ((a, _), e) -> Let (a, e, c)) cont
   
 let objty, objArrTy =
     let t = typeof<System.Object>
