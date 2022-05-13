@@ -77,7 +77,7 @@ type WebSharperServiceOptions() =
         member x.AuthenticationScheme = authenticationScheme
         member x.Configuration = configuration
 
-type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger: ILogger<IWebSharperService>) =
+type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger: ILogger<IWebSharperService>, rootConfig: IConfiguration) =
 
     let siteletAssembly =
         serviceOptions.SiteletAssembly
@@ -87,7 +87,7 @@ type DefaultWebSharperService (serviceOptions: IWebSharperServiceOptions, logger
     let configuration =
         match serviceOptions.Configuration with
         | null ->
-            ConfigurationManager.GetSection("websharper") :?> IConfiguration 
+            rootConfig.GetSection("websharper") :> IConfiguration 
         | c -> c 
 
     let isDebugLogging = logger.IsEnabled(LogLevel.Debug)
