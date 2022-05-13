@@ -61,7 +61,9 @@ type Bug1248 =
     }
     with
     override this.ToString() = 
-        sprintf "Text=%O," this.Text + $"Again={this.Text}"
+        let text = "Text"
+        let again = "Again"
+        sprintf "%s=%O," text this.Text + $"{again}={this.Text}"
 
 [<JavaScript>]
 let Tests =

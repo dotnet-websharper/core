@@ -1133,7 +1133,10 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                 if skipPParens then
                     skipPParens <- false
                     if s.StartsWith("()") then
-                        Some (cString (s.[2 ..]))
+                        if s.Length = 2 then 
+                            None
+                        else
+                            Some (cString (s.[2 ..]))
                     else
                         Some (cString s)
                 else
