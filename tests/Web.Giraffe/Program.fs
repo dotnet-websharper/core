@@ -69,13 +69,13 @@ let webApp =
         GET >=>
             choose [
                 //route "/" >=> indexHandler "world"
-                routef "/helloyetagain/%s" indexHandler
+                routef "/helloagain/%s" indexHandler
             ]
         Sitelets.HttpHandler <| WebSharper.Tests.Website.WebsiteEntryPoint().Sitelet
         GET >=>
             choose [
                 //route "/" >=> indexHandler "world"
-                routef "/helloagain/%s" indexHandler
+                routef "/helloyetagain/%s" indexHandler
             ]
         setStatusCode 404 >=> text "Not Found" ]
 

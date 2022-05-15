@@ -25,6 +25,7 @@ open Microsoft.Extensions.DependencyInjection
 open System
 open System.Runtime.CompilerServices
 open System.Runtime.InteropServices
+open System.Reflection
 open Microsoft.AspNetCore.Builder
 
 [<Extension>]
@@ -39,7 +40,7 @@ type ApplicationBuilderExtensions =
         ) =
         let builder = WebSharperBuilder(this.ApplicationServices)
         if not (isNull build) then build.Invoke(builder)
-        let options = builder.Build()
+        let options = builder.Build(Assembly.GetCallingAssembly())
         if options.UseRemoting then 
             this.Use(Remoting.Middleware options) |> ignore
         if options.UseSitelets then 
@@ -47,3 +48,26 @@ type ApplicationBuilderExtensions =
         options.UseExtension this options
         this
 
+    /// Use the WebSharper server side for remoting only.
+    [<Extension>]
+    static member UseWebSharperRemoting
+        (
+            this: IApplicationBuilder,
+            [<Optional>] build: Action<WebSharperBuilder>
+        ) =
+        ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
+            builder.UseSitelets(false) |> ignore
+            if not (isNull build) then build.Invoke(builder)
+        )
+
+    /// Use the WebSharper server side for remoting only.
+    [<Extension>]
+    static member UseWebSharperSitelets
+        (
+            this: IApplicationBuilder,
+            [<Optional>] build: Action<WebSharperBuilder>
+        ) =
+        ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
+            builder.UseRemoting(false) |> ignore
+            if not (isNull build) then build.Invoke(builder)
+        )

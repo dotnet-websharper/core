@@ -151,7 +151,7 @@ type private AspNetCoreRequest(req: HttpRequest) =
 let private buildRequest (req: HttpRequest) =
     AspNetCoreRequest req :> Http.Request
 
-type private UserSession(httpCtx: HttpContext, options: IWebSharperService) =
+type private UserSession(httpCtx: HttpContext, options: WebSharperOptions) =
     let scheme = options.AuthenticationScheme
 
     let loginUser (username: string) (expiry: option<TimeSpan>) =
@@ -198,14 +198,14 @@ let private makeEnv (httpCtx: HttpContext)  =
         "WebSharper.AspNetCore.HttpContext", box httpCtx
     |]
 
-let private makeResCtx (httpCtx: HttpContext) (wsService: IWebSharperService) =
+let private makeResCtx (httpCtx: HttpContext) (options: WebSharperOptions) =
     let appPath = httpCtx.Request.PathBase.ToUriComponent() 
     // WebSharper is caching ResourceContext object based on appPath
     let getSetting x =
-        if isNull wsService.Configuration then 
+        if isNull options.Configuration then 
             None
         else
-            wsService.Configuration.[x] |> Option.ofObj 
+            options.Configuration.[x] |> Option.ofObj 
     let isDebug =
         match getSetting RUNTIMESETTING_USEMINIFIEDSCRIPTS with
         | Some ums ->
@@ -214,10 +214,10 @@ let private makeResCtx (httpCtx: HttpContext) (wsService: IWebSharperService) =
             | _ -> true
         | _ -> true
     appPath,
-    WebSharper.Web.ResourceContext.ResourceContext appPath wsService.Metadata isDebug getSetting
+    WebSharper.Web.ResourceContext.ResourceContext appPath options.Metadata isDebug getSetting
 
-let Make (httpCtx: HttpContext) (wsService: IWebSharperService, rootFolder, sitelet: Sitelet<'T>) =
-    let appPath, resCtx = makeResCtx httpCtx wsService
+let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T>) =
+    let appPath, resCtx = makeResCtx httpCtx options
     let link x =
         match sitelet.Router.Link x with
         | None -> failwithf "Failed to link to %O" (box x)
@@ -228,29 +228,29 @@ let Make (httpCtx: HttpContext) (wsService: IWebSharperService, rootFolder, site
         ApplicationPath = appPath,
         Environment = makeEnv httpCtx,
         Link = link,
-        Json = wsService.Json,
-        Metadata = wsService.Metadata,
-        Dependencies = wsService.Dependencies,
+        Json = options.Json,
+        Metadata = options.Metadata,
+        Dependencies = options.Dependencies,
         ResourceContext = resCtx,
         Request = req,
-        RootFolder = rootFolder,
-        UserSession = UserSession(httpCtx, wsService)
+        RootFolder = options.ContentRootPath,
+        UserSession = UserSession(httpCtx, options)
     )
 
-let MakeSimple (httpCtx: HttpContext) (wsService: IWebSharperService, rootFolder) =
-    let appPath, resCtx = makeResCtx httpCtx wsService
+let MakeSimple (httpCtx: HttpContext) (options: WebSharperOptions) =
+    let appPath, resCtx = makeResCtx httpCtx options
     let uri = RequestUri httpCtx.Request
     { new WebSharper.Web.Context() with
         member this.ApplicationPath = appPath
         // TODO use httpCtx.Items? but it's <obj, obj>, not <string, obj>
         member this.Environment = makeEnv httpCtx
-        member this.Json = wsService.Json
-        member this.Metadata = wsService.Metadata
-        member this.Dependencies = wsService.Dependencies
+        member this.Json = options.Json
+        member this.Metadata = options.Metadata
+        member this.Dependencies = options.Dependencies
         member this.ResourceContext = resCtx
         member this.RequestUri = uri
-        member this.RootFolder = rootFolder
-        member this.UserSession = UserSession(httpCtx, wsService) :> _
+        member this.RootFolder = options.ContentRootPath
+        member this.UserSession = UserSession(httpCtx, options) :> _
     }
 
 let private getOrMake<'T, 'A> make (httpCtx: HttpContext) (args: 'A) =
@@ -261,8 +261,8 @@ let private getOrMake<'T, 'A> make (httpCtx: HttpContext) (args: 'A) =
         httpCtx.Items.[EnvKey.Context] <- ctx
         ctx
 
-let GetOrMake httpCtx options rootFolder sitelet =
-    getOrMake<Context<'T>, _> Make httpCtx (options, rootFolder, sitelet)
+let GetOrMake httpCtx options sitelet =
+    getOrMake<Context<'T>, _> Make httpCtx (options, sitelet)
 
-let GetOrMakeSimple httpCtx options rootFolder =
-    getOrMake<WebSharper.Web.Context, _> MakeSimple httpCtx (options, rootFolder)
+let GetOrMakeSimple httpCtx options =
+    getOrMake<WebSharper.Web.Context, _> MakeSimple httpCtx options

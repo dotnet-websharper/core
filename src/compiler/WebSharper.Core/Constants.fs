@@ -48,9 +48,6 @@ module EmbeddedResources =
 module RuntimeSettings =
     
     [<Literal>]
-    let RUNTIMESETTING_SHARED_METADATA = "WebSharperSharedMetadata"
-
-    [<Literal>]
     let RUNTIMESETTING_OLD_CDNFORMAT_PREFIX = "WebSharper.CdnFormat."
 
     [<Literal>]

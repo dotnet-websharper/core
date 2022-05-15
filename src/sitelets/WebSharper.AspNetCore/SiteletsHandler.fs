@@ -29,6 +29,7 @@ open Microsoft.AspNetCore.Mvc
 open Microsoft.AspNetCore.Mvc.Abstractions
 open Microsoft.Extensions.Options
 open WebSharper.Sitelets
+open Microsoft.Extensions.Logging
 
 let internal writeResponse (resp: Http.Response) (out: HttpResponse) : Task =
     let memStr = new MemoryStream()
@@ -40,10 +41,11 @@ let internal writeResponse (resp: Http.Response) (out: HttpResponse) : Task =
         out.Headers.Append(name, values)
     resp.WriteBody(memStr :> Stream)
     memStr.Seek(0L, SeekOrigin.Begin) |> ignore
-    task {
-        do! memStr.CopyToAsync(out.Body)
-        memStr.Dispose()
-    }
+    //task {
+    //    do! memStr.CopyToAsync(out.Body)
+    //    memStr.Dispose()
+    //}
+    memStr.CopyToAsync(out.Body)
 
 let rec internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
     task {
@@ -76,35 +78,40 @@ let rec internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (c
     }
 
 let Middleware (options: WebSharperOptions) =
-    let sitelet =
-        match options.Services.GetService(typeof<ISiteletService>) with
-        | :? ISiteletService as s ->
-            Some s.Sitelet
-        | _ -> 
-            failwith "ISiteletService not found. Use AddSitelet in your ConfigureServices."
-    let wsService = 
-        match options.Services.GetService(typeof<IWebSharperService>) with
-        | :? IWebSharperService as s -> s
-        | _ ->
-            failwith "IWebSharperService not found. Use AddSitelet in your ConfigureServices."
-    match sitelet with
+    match options.Sitelet with
     | None ->
         Func<_,_,_>(fun (_: HttpContext) (next: Func<Task>) -> next.Invoke())
     | Some sitelet ->
-        if wsService.IsLogging then
+        if options.Logger.IsEnabled(LogLevel.Debug) then
+
+            let timedDebug (message: string) action =
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                let r = action()
+                options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                r
+
+            let timedDebugAsync (message: string) (action: unit -> Task) =
+                task {
+                    let sw = System.Diagnostics.Stopwatch()
+                    sw.Start()
+                    do! action()
+                    options.Logger.LogDebug("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                } :> Task
+
             Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-                let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
+                let ctx = Context.GetOrMake httpCtx options sitelet
             
                 let handleRouterResult r =
                    match r with
                    | Some endpoint ->
-                        let content = wsService.Timed("Handling endpoint", fun () -> sitelet.Controller.Handle endpoint)
-                        wsService.TimedAsync("Writing response", fun () -> contentHelper httpCtx ctx content)
+                        let content = timedDebug "Handling endpoint" (fun () -> sitelet.Controller.Handle endpoint)
+                        timedDebugAsync "Writing response" (fun () -> contentHelper httpCtx ctx content)
                    | None -> next.Invoke()
 
                 let routeWithoutBody =
                     try
-                        Some (wsService.Timed("Routing request", fun () -> sitelet.Router.Route ctx.Request))
+                        Some (timedDebug "Routing request" (fun () -> sitelet.Router.Route ctx.Request))
                     with :? Router.BodyTextNeededForRoute ->
                         None 
 
@@ -114,13 +121,13 @@ let Middleware (options: WebSharperOptions) =
                 | None -> 
                     task {
                         let! _ = ctx.Request.BodyText
-                        let routeWithBody = wsService.Timed("Routing request using content body", fun () -> sitelet.Router.Route ctx.Request)
+                        let routeWithBody = timedDebug "Routing request using content body" (fun () -> sitelet.Router.Route ctx.Request)
                         return! handleRouterResult routeWithBody
                     }
             )
         else
             Func<_,_,_>(fun (httpCtx: HttpContext) (next: Func<Task>) ->
-                let ctx = Context.GetOrMake httpCtx wsService options.ContentRootPath sitelet
+                let ctx = Context.GetOrMake httpCtx options sitelet
             
                 let handleRouterResult r =
                    match r with
@@ -149,6 +156,7 @@ let Middleware (options: WebSharperOptions) =
 // Giraffe/Saturn helpers
 
 open Microsoft.AspNetCore.Hosting
+open System.Reflection
     
 type SiteletHttpFuncResult = Task<HttpContext option>
 type SiteletHttpFunc =  HttpContext -> SiteletHttpFuncResult
@@ -158,9 +166,12 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
     let sitelet = sitelet.Box()
     fun (next: SiteletHttpFunc) ->
         let handleSitelet (httpCtx: HttpContext) =
-            let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
-            let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-            let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath sitelet
+            let options =
+                WebSharperBuilder(httpCtx.RequestServices)
+                    .Sitelet(sitelet)
+                    .UseRemoting(false)
+                    .Build(Assembly.GetCallingAssembly())
+            let ctx = Context.GetOrMake httpCtx options sitelet
 
             let handleRouterResult r =
                 match r with
@@ -168,10 +179,10 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
                     let content = sitelet.Controller.Handle endpoint
                     task {
                         do! contentHelper httpCtx ctx content
-                        return None
+                        return! next httpCtx
                     }
                 | None ->
-                    next httpCtx
+                    Task.FromResult None
 
             let routeWithoutBody =
                 try
