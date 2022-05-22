@@ -279,10 +279,12 @@ module Type =
             |> Seq.skipWhile (fun p -> p.Optional)
             |> Seq.toList
             |> List.rev
-        let rec heads = function
+        let rec heads a = 
+            match a with
             | [] -> [[]]
             | x :: xs -> [] :: List.map (fun a -> x :: a) (heads xs)
-        let rec variants : list<Parameter> -> _ = function
+        let rec variants (a: list<Parameter>) =
+            match a with
             | [] -> [[]]
             | x :: xs ->
                 let sub = variants xs
