@@ -55,6 +55,17 @@ type Foo =
 //let GetLastLogged() = X
 
 [<JavaScript>]
+type Bug1248 =
+    {
+        Text: string
+    }
+    with
+    override this.ToString() = 
+        let text = "Text"
+        let again = "Again"
+        sprintf "%s=%O," text this.Text + $"{again}={this.Text}"
+
+[<JavaScript>]
 let Tests =
     TestCategory "Printf" {
 
@@ -178,5 +189,10 @@ let Tests =
             equal $"x=%d{x} hi=%s{hi}" "x=5 hi=hi"
             equal $"%A{(1, 2)}" "(1, 2)"
             equal $"%A{[1; 2]}" "[1; 2]"
+        }
+
+        Test "String interpolation bug #1248" {
+            let o = { Text = "hi" }
+            equal (string o) "Text=hi,Again=hi"
         }
     }

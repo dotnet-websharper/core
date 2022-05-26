@@ -217,6 +217,13 @@ let (|ObjWithPropSetters|_|) expr =
         | setters, res -> Some (Let (objVar, Object (objFields @ setters), res))
     | _ -> None
 
+let (|Lets|) expr =
+    let rec getLets acc expr =
+        match expr with
+        | I.Let (v, e, body) -> getLets ((v, e) :: acc) body
+        | _ -> List.rev acc, expr
+    getLets [] expr
+
 let bind key value body = Let (key, value, body)
 
 let globalId = Address.Runtime "id"
@@ -295,7 +302,13 @@ let optimize expr =
     // eta-reduction
     | Function (vars, _, I.Return (I.Application (f, args, { KnownLength = Some i })))
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
-            f
+        f
+    // created for sprintf
+    | Application(CurriedLambda(i :: vars, ret, I.Application (Var j, [expr], _, _), true), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
+        CurriedLambda(vars, ret, expr)
+    // created for F# string interpolation
+    | Application(Lets(bindings, I.Function ([i], I.Return (I.Application (Var j, [expr], _, _)))), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
+        expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
     | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
         let moreArgsCount = args.Length - vars.Length
         let bind key (isUnit, value) body = 

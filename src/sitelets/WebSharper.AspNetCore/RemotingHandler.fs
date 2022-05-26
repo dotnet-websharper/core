@@ -23,13 +23,14 @@ open System
 open System.IO
 open System.Text
 open System.Threading.Tasks
+open System.Reflection
 open Microsoft.AspNetCore.Http
 open WebSharper.Web
 open Microsoft.AspNetCore.Hosting
 
 module Rem = WebSharper.Core.Remoting
 
-let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IWebSharperService) rootPath =
+let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebSharperOptions) =
 
     let getReqHeader (k: string) =
         match ctx.Request.Headers.TryGetValue(k) with
@@ -56,13 +57,13 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
         | CorsAndCsrfCheckResult.Error (code, msg, text) ->
             ctx.Response.StatusCode <- code
             let bytes = Encoding.UTF8.GetBytes(text)
-            ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+            ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
         | CorsAndCsrfCheckResult.Ok headers ->
-            async {
+            task {
                 addRespHeaders headers
-                let wsctx = Context.GetOrMakeSimple ctx wsService rootPath
+                let wsctx = Context.GetOrMakeSimple ctx options
                 use reader = new StreamReader(ctx.Request.Body)
-                let! body = reader.ReadToEndAsync() |> Async.AwaitTask
+                let! body = reader.ReadToEndAsync() 
                 let! resp =
                     server.HandleRequest(
                         {
@@ -72,29 +73,24 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (wsService: IW
                 ctx.Response.StatusCode <- 200
                 ctx.Response.ContentType <- resp.ContentType
                 let bytes = Encoding.UTF8.GetBytes(resp.Content)
-                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length) |> Async.AwaitTask
+                do! ctx.Response.Body.WriteAsync(bytes, 0, bytes.Length)
             }
         | CorsAndCsrfCheckResult.Preflight headers ->
             addRespHeaders headers
-            async.Zero()
+            Task.CompletedTask
         |> Some
     else None
 
 let Middleware (options: WebSharperOptions) =
-    let wsService = 
-        match options.Services.GetService(typeof<IWebSharperService>) with
-        | :? IWebSharperService as s -> s
-        | _ ->
-            failwith "IWebSharperService not found. Use AddSitelet in your ConfigureServices."
     let getRemotingHandler (t: Type) =
         let service = options.Services.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
         match service with
         | :? IRemotingService as s -> s.Handler
         | _ -> null
-    let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
+    let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
-        match handleRemote ctx server wsService options.ContentRootPath with
-        | Some rTask -> rTask |> Async.StartAsTask :> Task
+        match handleRemote ctx server options with
+        | Some rTask -> rTask
         | None -> next.Invoke()
     )
 
@@ -111,22 +107,23 @@ let HttpHandler () : RemotingHttpHandler =
                 | false, _ -> None
 
             if Rem.IsRemotingRequest getReqHeader then
-                let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
-                let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
+                let options =
+                    WebSharperBuilder(httpCtx.RequestServices)
+                        .UseSitelets(false)
+                        .Build(Assembly.GetCallingAssembly())
                 let getRemotingHandler (t: Type) =
                     let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
                     match service with
                     | :? IRemotingService as s -> s.Handler
                     | _ -> null
-                let server = Rem.Server.Create wsService.Metadata wsService.Json (Func<_,_> getRemotingHandler)
+                let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
             
-                match handleRemote httpCtx server wsService hostingEnv.ContentRootPath with
+                match handleRemote httpCtx server options with
                 | Some handle ->
-                    async {
+                    task {
                         do! handle
-                        return None
+                        return! next httpCtx
                     }
-                    |> Async.StartAsTask
                 | None -> 
                     Task.FromResult None
 

@@ -877,19 +877,23 @@ type MemberConverter
     let virtualMethodAttributes = MethodAttributes.Public ||| MethodAttributes.Virtual ||| MethodAttributes.HideBySig ||| MethodAttributes.NewSlot
 
     let methodAttributes (dt: TypeDefinition) (x: Code.Entity) =
-        match x with
-        | _ when dt.IsInterface -> interfaceMethodAttributes
-        | :? Code.Constructor -> ctorMethodAttributes
-        | :? Code.Member as m when m.IsStatic -> staticMethodAttributes
-        | :? Code.Method as m ->
-            match m.Kind with
-            | Code.Implementation -> implementMethodAttributes
-            | Code.NonVirtual -> instanceMethodAttributes
-            | Code.Virtual -> virtualMethodAttributes
-            | Code.Override -> overrideMethodAttributes
-            | Code.Abstract -> abstractMethodAttributes
-        | :? Code.Property as p when p.IsOverride -> overrideMethodAttributes
-        | _ -> instanceMethodAttributes
+        if dt.IsInterface then 
+            interfaceMethodAttributes 
+        else
+            match x with
+            | :? Code.Constructor -> ctorMethodAttributes
+            | :? Code.Member as m when m.IsStatic -> staticMethodAttributes
+            | _ ->
+            match x with // workaround for https://github.com/dotnet/fsharp/issues/13175
+            | :? Code.Method as m ->
+                match m.Kind with
+                | Code.Implementation -> implementMethodAttributes
+                | Code.NonVirtual -> instanceMethodAttributes
+                | Code.Virtual -> virtualMethodAttributes
+                | Code.Override -> overrideMethodAttributes
+                | Code.Abstract -> abstractMethodAttributes
+            | :? Code.Property as p when p.IsOverride -> overrideMethodAttributes
+            | _ -> instanceMethodAttributes
 
     let addDependencies (ent: Code.IResourceDependable) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
         for d in ent.GetRequires() do

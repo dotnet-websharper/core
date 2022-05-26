@@ -33,6 +33,7 @@ open WebSharper.Core
 open WebSharper.Core.DependencyGraph
 open WebSharper.Sitelets
 open Microsoft.AspNetCore.Builder
+open WebSharper.Constants
 
 module Res = WebSharper.Core.Resources
 module M = WebSharper.Core.Metadata
@@ -43,56 +44,100 @@ type WebSharperOptions
     internal 
     (
         services: IServiceProvider,
+        config: IConfiguration,
+        logger: ILogger,
         contentRoot: string,
-        webRoot: string,
+        useMinifiedScripts: bool,
+        sitelet: option<Sitelet<obj>>,
+        metadata: M.Info,
+        dependencies: Graph,
+        json: Json.Provider,
         useSitelets: bool,
         useRemoting: bool,
         useExtension: IApplicationBuilder -> WebSharperOptions -> unit
     ) =
 
+    member val AuthenticationScheme = "WebSharper" with get, set
+
     member this.Services = services
+
+    member this.Configuration = config
+
+    member this.Logger = logger
 
     member this.UseSitelets = useSitelets
 
     member this.UseRemoting = useRemoting
 
-    member this.WebRootPath = webRoot
+    member this.Metadata = metadata
 
+    member this.Dependencies = dependencies
+
+    member this.Json = json
+
+    member this.UseMinifiedScripts = useMinifiedScripts
+    
     member this.ContentRootPath = contentRoot
+
+    member this.Sitelet = sitelet
 
     member internal this.UseExtension = useExtension
 
-    static member Create
-        (
-            services: IServiceProvider,
-            [<Optional>] logger: ILogger,
-            [<Optional>] binDir: string,
-            [<Optional; DefaultParameterValue true>] useSitelets: bool,
-            [<Optional; DefaultParameterValue true>] useRemoting: bool
-        ) =
-        WebSharperOptions.Create(services, Option.ofObj logger, Option.ofObj binDir, useSitelets, useRemoting, fun _ _ -> ())
-
-    static member internal Create
-        (
-            services: IServiceProvider,
-            logger: option<ILogger>,
-            binDir: option<string>,
-            useSitelets: bool,
-            useRemoting: bool,
-            useExtension
-        ) =
-        let env = services.GetRequiredService<IHostingEnvironment>()
-        //Context.IsDebug <- env.IsDevelopment
-        //Context.GetSetting <- fun key -> Option.ofObj config.[key]
-        WebSharperOptions(services, env.ContentRootPath, env.WebRootPath, useSitelets, useRemoting, useExtension)
-
 /// Defines settings for a WebSharper application.
 type WebSharperBuilder(services: IServiceProvider) =
+    let mutable _sitelet = None
+    let mutable _siteletAssembly = None
+    let mutable _contentRootPath = None
+    let mutable _metadata = None
+    let mutable _config = None
+    let mutable _useMinifiedScripts = None
     let mutable _logger = None
-    let mutable _binDir = None
+    let mutable _authScheme = None
     let mutable _useSitelets = true
     let mutable _useRemoting = true
     let mutable _useExtension = fun _ _ -> ()
+
+    /// <summary>Defines the sitelet to serve.</summary>
+    /// <remarks>
+    /// Using <c>AddSitelet</c> in <c>ConfigureServices</c> is preferred.
+    /// </remarks>
+    member this.Sitelet<'T when 'T : equality>(sitelet: Sitelet<'T>) =
+        if not _useSitelets then
+            failwith "Do not call WebSharperBuilder.Sitelet with UseSitelets(false) or UseWebSharperRemoting"
+        _sitelet <- Some (Sitelet.Box sitelet)
+        this
+
+    /// <summary>Specifies which assembly contains the runtime metadata for the sitelet (WebSharper project type: web).</summary>
+    /// <remarks>Default: the assembly calling the UseWebSharper method or using ANC/Giraffe helpers.</remarks>
+    member this.SiteletAssembly(siteletAssembly: Assembly) =
+        if not _useSitelets then
+            failwith "Do not call WebSharperBuilder.SiteletAssembly with UseSitelets(false) or UseWebSharperRemoting"
+        _siteletAssembly <- Some siteletAssembly
+        this
+
+    /// <summary>Overrides the default runtime metadata used by WebSharper.</summary>
+    /// <remarks>Default: loaded from SiteletAssembly or entry assembly with WebSharper.Core.Metadata.IO.LoadRuntimeMetadata.</remarks>
+    member this.Metadata(meta: M.Info) =
+        _metadata <- Some meta
+        this
+
+    /// <summary>Defines the configuration to be used by WebSharper.</summary>
+    /// <remarks>Default: the host configuration's "websharper" subsection.</remarks>
+    member this.Config(config: IConfiguration) =
+        _config <- Some config
+        this
+
+    /// <summary>Decides if WebSharper writes .min.js script links.</summary>
+    /// <remarks>Default: the value of WebSharper::UseMinifiedScripts configuration if found, otherwise false.</remarks>
+    member this.UseMinifiedScripts(useMinifiedScripts: bool) =
+        _useMinifiedScripts <- Some useMinifiedScripts
+        this
+
+    /// <summary>Defines the content root path to be used by WebSharper.</summary>
+    /// <remarks>Default: IHostingEnvironment.ContentRootPath.</remarks>
+    member this.ContentRootPath(contentRootPath: string) =
+        _contentRootPath <- Some contentRootPath
+        this
 
     /// <summary>Defines the logger for WebSharper internal messages.</summary>
     member this.Logger(logger: ILogger) =
@@ -101,20 +146,20 @@ type WebSharperBuilder(services: IServiceProvider) =
 
     /// <summary>Defines the logger factory for WebSharper internal messages.</summary>
     member this.Logger(loggerFactory: ILoggerFactory) =
-        _logger <- Some (loggerFactory.CreateLogger<WebSharperOptions>() :> ILogger)
+        _logger <- Some (loggerFactory.CreateLogger<IWebSharperService>() :> ILogger)
         this
 
-    /// <summary>Defines the directory to look for assemblies with WebSharper metadata.</summary>
-    /// <remarks>Default: the directory where WebSharper.AspNetCore.dll is located.</remarks>
-    member this.BinDir(binDir: string) =
-        _binDir <- Some binDir
+    /// <summary>Defines the name of the authentication scheme to use for <c>Web.Context.UserSession</c>.</summary>
+    /// <remarks>Default: "WebSharper".</remarks>
+    member this.AuthenticationScheme(scheme: string) =
+        _authScheme <- Some scheme
         this
 
     /// <summary>Defines whether to serve Sitelets.</summary>
     /// <remarks>
     /// <para>
     /// If true and the Sitelet is neither defined here nor in <c>ConfigureServices</c>,
-    /// looks for a Sitelet marked with <c>WebsiteAttribute</c> in the loaded assemblies.
+    /// looks for a Sitelet marked with <c>WebsiteAttribute</c> in assembly calling UseWebSharper.
     /// </para>
     /// <para>Default: true.</para>
     /// </remarks>
@@ -137,5 +182,87 @@ type WebSharperBuilder(services: IServiceProvider) =
                 useExtension.Invoke(appBuilder, options)
 
     /// Builds WebSharper options.
-    member internal this.Build() =
-        WebSharperOptions.Create(services, _logger, _binDir, _useSitelets, _useRemoting, _useExtension)
+    member internal this.Build(defaultSiteletAssembly: Assembly) =
+
+        let config =
+            _config |> Option.defaultWith (fun () ->
+                services.GetRequiredService<IConfiguration>().GetSection("websharper") :> IConfiguration 
+            )
+
+        let contentRootPath = 
+            _contentRootPath |> Option.defaultWith (fun () ->
+                services.GetRequiredService<IHostingEnvironment>().ContentRootPath
+            )
+
+        let useMinifiedScripts =
+            _useMinifiedScripts |> Option.defaultWith (fun () ->
+                match bool.TryParse(config.[RUNTIMESETTING_USEMINIFIEDSCRIPTS]) with
+                | true, ums -> ums
+                | _ -> false
+            )
+
+        let logger =
+            _logger |> Option.defaultWith (fun () ->
+                match services.GetService<ILogger<IWebSharperService>>() with
+                | null -> Abstractions.NullLogger.Instance
+                | l -> l :> ILogger
+            )
+
+        let siteletAssembly = 
+            _siteletAssembly |> Option.defaultValue defaultSiteletAssembly
+
+        let metadata, dependencies, json =
+            match _metadata with
+            | Some m ->
+                m, Graph.FromData m.Dependencies, J.Provider.CreateTyped m
+            | None ->
+                let wsService = 
+                    match services.GetService(typeof<IWebSharperService>) with
+                    | :? IWebSharperService as s -> s
+                    | _ ->
+                        failwith "IWebSharperService not found. Use AddWebSharper in your ConfigureServices."
+                wsService.GetWebSharperMeta(siteletAssembly, logger)
+
+        let timedInfo (message: string) action =
+            if logger.IsEnabled(LogLevel.Information) then
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                let r = action()
+                logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                r
+            else
+                action()
+
+        let sitelet =
+            if not _useSitelets then None else
+            _sitelet |> Option.orElseWith (fun () ->
+                match services.GetService(typeof<ISiteletService>) with
+                | :? ISiteletService as s -> 
+                    Some s.Sitelet
+                | _ ->
+                    let s =
+                        timedInfo "Sitelet discovered via reflection " (fun () -> 
+                            WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly
+                        )
+                    match s with
+                    | None ->
+                        failwithf "Failed to discover sitelet in assembly %s. Mark a static property/value with the Website attribute or specify sitelet via WebSharperBuilder.Sitelet." siteletAssembly.FullName
+                    | res ->
+                        logger.LogWarning("WebSharper sitelet loaded via reflection. It is recommended to pass sitelet object instead in WebSharperBuilder.UseSitelet.")
+                        res
+            )
+
+        WebSharperOptions(
+            services, 
+            config, 
+            logger,
+            contentRootPath, 
+            useMinifiedScripts,
+            sitelet, 
+            metadata, 
+            dependencies,
+            json,
+            _useSitelets, 
+            _useRemoting, 
+            _useExtension
+        )

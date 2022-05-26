@@ -204,6 +204,12 @@ let cleanRuntime force expr =
                     JSRuntime.DeleteEmptyFields obj [for f in toDelete -> !~(String f)]
             else expr
         | _ -> expr
+    // printf and string interpolation translation cleanup
+    | Application(Global "String", [Value Null], _, _) -> !~(String "null")
+    | Application(Global "String", [Value (String _) as s], _, _) -> s
+    | Application(GlobalAccess { Value = [ "toSafe"; "Utils"; "WebSharper" ]}, [Value Null], _, _) -> !~(String "")
+    | Application(GlobalAccess { Value = [ "toSafe"; "Utils"; "WebSharper" ]}, [Value (String _) as s], _, _) -> s
+    | Binary(Value (String s1), BinaryOperator.``+``, Value (String s2)) -> !~(String (s1 + s2))
     | Let (var, value, body) ->
         //transform function if it is always used as JavaScript interop
         let transformIfAlwaysInterop rtFunc getJsFunc =

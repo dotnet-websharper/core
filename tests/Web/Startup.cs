@@ -43,6 +43,11 @@ namespace Web
 
         public static void Main(string[] args)
         {
+            //new WebHostBuilder()
+            //    .UseKestrel()
+            //    .UseContentRoot(System.IO.Directory.GetCurrentDirectory())
+            //    .UseIIS()
+            //    .UseIISIntegration()
             WebHost.CreateDefaultBuilder(args)
                 .UseStartup<Startup>()
                 .Build()

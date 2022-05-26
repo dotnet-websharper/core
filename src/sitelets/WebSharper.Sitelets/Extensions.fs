@@ -25,18 +25,6 @@ open WebSharper
 
 [<AutoOpen>]
 module internal Extensions =
-    open System.Diagnostics
-
-    let private source =
-        TraceSource("WebSharper", SourceLevels.All)
-
-    let Timed message action =
-        let sw = Stopwatch()
-        sw.Start()
-        let r = action()
-        source.TraceInformation("{0} in {1} sec.",
-            message, sw.Elapsed.TotalSeconds)
-        r
 
     let startsWithSlash (s: string) =
         s.Length > 0

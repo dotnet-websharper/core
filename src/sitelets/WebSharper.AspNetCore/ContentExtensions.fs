@@ -20,6 +20,7 @@
 namespace WebSharper.AspNetCore
 
 open System.Runtime.CompilerServices
+open System.Reflection
 open WebSharper
 open WebSharper.Sitelets
 open Microsoft.AspNetCore.Mvc
@@ -35,9 +36,13 @@ type ContentExtensions =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) : Task =
                 let httpCtx = context.HttpContext
-                let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
+                let options =
+                    WebSharperBuilder(httpCtx.RequestServices)
+                        .UseSitelets(false)
+                        .UseRemoting(false)
+                        .Build(Assembly.GetCallingAssembly())
                 let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-                let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath Sitelet.Empty
+                let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
                 task {
                     let! rsp = Content<'T>.ToResponse this ctx
                     do! Sitelets.writeResponse rsp context.HttpContext.Response
@@ -50,9 +55,14 @@ type ContentExtensions =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) : Task =
                 let httpCtx = context.HttpContext
+                let options =
+                    WebSharperBuilder(httpCtx.RequestServices)
+                        .UseSitelets(false)
+                        .UseRemoting(false)
+                        .Build(Assembly.GetCallingAssembly())
                 let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
                 let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-                let ctx = Context.GetOrMake httpCtx wsService hostingEnv.ContentRootPath Sitelet.Empty
+                let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
                 task {
                     let! rsp = Content<obj>.ToResponse this.AsContent ctx
                     do! Sitelets.writeResponse rsp context.HttpContext.Response

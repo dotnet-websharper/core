@@ -31,90 +31,58 @@ open WebSharper.Core
 open WebSharper.Core.DependencyGraph
 open WebSharper.Constants
 open Microsoft.Extensions.Configuration
+open Microsoft.Extensions.Logging
+open System.Threading.Tasks
 
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
 [<AllowNullLiteral>]
 type IWebSharperService =
-    abstract SiteletAssembly : Assembly
-    abstract Metadata : M.Info
-    abstract Dependencies : Graph
-    abstract Json : Json.Provider
-    abstract AuthenticationScheme : string
-    abstract Configuration : IConfiguration
+    abstract GetWebSharperMeta : siteletAssembly: Assembly * logger: ILogger -> (M.Info * Graph * Json.Provider) 
 
-type DefaultWebSharperService
-    (
-        [<Optional>] siteletAssembly: Assembly, 
-        [<Optional>] metadata: M.Info, 
-        [<Optional>] authenticationScheme: string,
-        [<Optional>] configuration: IConfiguration) =
+type WebSharperService() =
 
-    let siteletAssembly =
-        siteletAssembly
-        |> Option.ofObj
-        |> Option.defaultWith System.Reflection.Assembly.GetEntryAssembly
-
-    let configuration =
-        if isNull configuration then 
-            ConfigurationManager.GetSection("websharper") :?> IConfiguration 
-        else 
-            configuration
-
-    let metadata, dependencies = 
-        if not (obj.ReferenceEquals(metadata, null)) then
-            metadata, Graph.FromData metadata.Dependencies
-        else
-            let before = System.DateTime.UtcNow
-            let metadataSetting =
-                if isNull configuration then
-                    None
-                else
-                    configuration.[RUNTIMESETTING_SHARED_METADATA]
-                    |> Option.ofObj
-                    |> Option.map (fun x -> x.ToLower())
-            match metadataSetting with
-            | Some "none" ->
-                M.Info.Empty, Graph.Empty
-            | _ ->
-                let trace =
-                    System.Diagnostics.TraceSource("WebSharper",
-                        System.Diagnostics.SourceLevels.All)
-                let runtimeMeta =
-                    siteletAssembly 
-                    |> M.IO.LoadRuntimeMetadata
-                match runtimeMeta with
-                | None ->
-                    trace.TraceInformation("Runtime WebSharper metadata not found.")
-                    M.Info.Empty, Graph.Empty 
-                | Some meta ->
-                    let after = System.DateTime.UtcNow
-                    let res =
-                        meta, Graph.FromData meta.Dependencies
-                    trace.TraceInformation("Initialized WebSharper in {0} seconds.",
-                        (after-before).TotalSeconds)
-                    res
-
-    let json = J.Provider.CreateTyped metadata
-
-    let authenticationScheme =
-        if isNull authenticationScheme then "WebSharper" else authenticationScheme
-
+    let metaCache = Dictionary<Assembly, M.Info * Graph * Json.Provider>()
+    
     interface IWebSharperService with
-        member this.SiteletAssembly = siteletAssembly
-        member this.Metadata = metadata
-        member this.Dependencies = dependencies
-        member this.Json = json
-        member this.AuthenticationScheme = authenticationScheme
-        member this.Configuration = configuration
+        member this.GetWebSharperMeta (siteletAssembly: Assembly, logger: ILogger) =
 
+            match metaCache.TryGetValue(siteletAssembly) with
+            | true, res -> res
+            | false, _ ->
+                let timedInfo (message: string) action =
+                    if logger.IsEnabled(LogLevel.Information) then
+                        let sw = System.Diagnostics.Stopwatch()
+                        sw.Start()
+                        let r = action()
+                        logger.LogInformation("{0} in {1} ms.", message, sw.Elapsed.TotalMilliseconds)
+                        r
+                    else
+                        action()
+
+                let metadata, dependencies = 
+                    timedInfo "Initialized WebSharper" <| fun () ->
+                        let runtimeMeta =
+                            siteletAssembly
+                            |> M.IO.LoadRuntimeMetadata
+                        match runtimeMeta with
+                        | None ->
+                            logger.LogWarning("Runtime WebSharper metadata not found.")
+                            M.Info.Empty, Graph.Empty 
+                        | Some meta ->
+                            meta, Graph.FromData meta.Dependencies
+
+                let res = metadata, dependencies, J.Provider.CreateTyped metadata
+                metaCache.Add(siteletAssembly, res)
+                res
+            
 /// Define the sitelet to serve by WebSharper.
 [<AllowNullLiteral>]
 type ISiteletService =
     abstract Sitelet : Sitelet<obj>
 
-/// Define the sitelet to serve by WebSharper.
+/// Define the default sitelet to serve by WebSharper.
 [<AbstractClass>]
 type SiteletService<'T when 'T : equality>() =
     abstract Sitelet : Sitelet<'T>
@@ -143,6 +111,16 @@ type RemotingService<'THandler, 'TInstance>(handler: 'TInstance) =
 type ServiceExtensions =
 
     /// <summary>
+    /// Adds a required service to serve as metadata cache for WebSharper.
+    /// Automatically added by any other AddWebSharper... methods.
+    /// </summary>
+    [<Extension>]
+    static member AddWebSharper(this: IServiceCollection) =
+        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
+            this.AddSingleton<IWebSharperService, WebSharperService>() |> ignore
+        this
+
+    /// <summary>
     /// Add a sitelet service to be loaded on startup with <c>UseWebSharper</c>.
     /// </summary>
     [<Extension>]
@@ -150,9 +128,8 @@ type ServiceExtensions =
             when 'TImplementation :> ISiteletService
             and 'TImplementation : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
-        this.AddSingleton<ISiteletService, 'TImplementation>()
+        this.AddWebSharper()
+            .AddSingleton<ISiteletService, 'TImplementation>()
 
     /// <summary>
     /// Add a sitelet to be loaded on startup with <c>UseWebSharper</c>.
@@ -160,9 +137,8 @@ type ServiceExtensions =
     [<Extension>]
     static member AddSitelet<'T when 'T : equality>
             (this: IServiceCollection, sitelet: Sitelet<'T>) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
-        this.AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
+        this.AddWebSharper()
+            .AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
 
     /// <summary>
     /// Add a remoting handler to be loaded on startup with <c>UseWebSharper</c>.
@@ -171,9 +147,8 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
-        this.AddSingleton<'THandler, 'THandler>()
+        this.AddWebSharper()
+            .AddSingleton<'THandler, 'THandler>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'THandler>>()
 
     /// <summary>
@@ -183,9 +158,8 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler, 'TInstance when 'TInstance : not struct>
             (this: IServiceCollection) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
-        this.AddSingleton<'TInstance, 'TInstance>()
+        this.AddWebSharper()
+            .AddSingleton<'TInstance, 'TInstance>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'TInstance>>()
 
     /// <summary>
@@ -195,18 +169,6 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection, handler: 'THandler) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(DefaultWebSharperService()) |> ignore
-        this.AddSingleton<'THandler>(handler)
+        this.AddWebSharper()
+            .AddSingleton<'THandler>(handler)
             .AddSingleton<IRemotingService<'THandler>>(RemotingService handler)
-
-    [<Extension>]
-    static member AddWebSharper(this: IServiceCollection, 
-            [<Optional>] siteletAssembly: Assembly, 
-            [<Optional>] metadata: M.Info,
-            [<Optional>] authenticationScheme: string,
-            [<Optional>] configuration: IConfiguration) =
-        if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) then
-            failwith "IWebSharperService already set when AddWebSharper was called. Call AddWebSharper before AddSitelet and/or AddWebSharperRemoting."
-        this.AddSingleton<IWebSharperService>(DefaultWebSharperService(siteletAssembly, metadata, authenticationScheme, configuration))
-        
