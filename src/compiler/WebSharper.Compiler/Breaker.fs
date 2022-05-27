@@ -304,10 +304,10 @@ let optimize expr =
         when List.length args = i && sameVars vars args && isPureExpr f && VarsNotUsed(vars).Get(f) ->
         f
     // created for sprintf
-    | Application(CurriedLambda(i :: vars, ret, I.Application (Var j, [expr], _, _), true), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
+    | Application(CurriedLambda(i :: vars, ret, I.Application (Var j, [expr], _), true), [ I.Function([x], _, I.Return (Var y))], _) when i = j && x = y ->
         CurriedLambda(vars, ret, expr)
     // created for F# string interpolation
-    | Application(Lets(bindings, I.Function ([i], I.Return (I.Application (Var j, [expr], _, _)))), [ I.Function([x], I.Return (Var y))], _, _) when i = j && x = y ->
+    | Application(Lets(bindings, I.Function ([i], _, I.Return (I.Application (Var j, [expr], _)))), [ I.Function([x], _, I.Return (Var y))], _) when i = j && x = y ->
         expr |> List.foldBack (fun (v, e) b -> Let(v, e, b)) bindings
     | CurriedApplicationSeparate (CurriedLambda(vars, ret, body, isReturn), args) when not (needsScoping vars (List.map snd args) body) ->
         let moreArgsCount = args.Length - vars.Length
