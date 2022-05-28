@@ -551,7 +551,7 @@ let RecognizeWebSharperArg a wsArgs =
     | _ -> 
         None
 
-let SetDefaultProjectFile wsArgs isFSharp =
+let SetDefaultProjectFile isFSharp wsArgs =
     let ext = if isFSharp then ".fsproj" else ".csproj"
     match wsArgs.ProjectFile with
     | null ->
@@ -567,3 +567,14 @@ let SetScriptBaseUrl wsArgs =
     | Some (Bundle | BundleOnly), None -> { wsArgs with ScriptBaseUrl = Some "/Content/" }
     | Some Html, None -> { wsArgs with ScriptBaseUrl = Some "/Scripts/" }
     | _ -> wsArgs
+
+let SetDefaultUutputDir wsArgs =
+    match wsArgs.ProjectType, wsArgs.OutputDir with
+    | Some Website, None -> { wsArgs with OutputDir = Some "wwwroot" }
+    | _ -> wsArgs
+
+let SetDefaults isFSharp wsArgs =
+    wsArgs        
+    |> SetDefaultProjectFile isFSharp
+    |> SetScriptBaseUrl
+    |> SetDefaultUutputDir

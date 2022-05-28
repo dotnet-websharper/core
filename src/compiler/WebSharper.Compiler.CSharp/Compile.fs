@@ -264,8 +264,7 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
             Resources = resources.ToArray()
             CompilerArgs = cscArgs.ToArray() 
         }
-    wsArgs := SetDefaultProjectFile !wsArgs false
-    wsArgs := SetScriptBaseUrl !wsArgs
+    wsArgs := SetDefaults false !wsArgs
 
     if (!wsArgs).UseJavaScriptSymbol then
         let cArgs = (!wsArgs).CompilerArgs

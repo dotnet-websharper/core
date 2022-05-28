@@ -408,9 +408,7 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
             Resources = resources.ToArray()
             CompilerArgs = fscArgs.ToArray() 
         }
-    wsArgs := SetDefaultProjectFile !wsArgs true
-    wsArgs := SetScriptBaseUrl !wsArgs
-
+    wsArgs := SetDefaults true !wsArgs
 
     ParsedOptions (!wsArgs, !warn)
 
