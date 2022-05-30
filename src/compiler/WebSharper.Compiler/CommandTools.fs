@@ -600,13 +600,14 @@ let SetScriptBaseUrl wsArgs =
     | Some Html, None -> { wsArgs with ScriptBaseUrl = Some "/Scripts/" }
     | _ -> wsArgs
 
-let SetDefaultUutputDir wsArgs =
+let SetDefaultOutputDir wsArgs =
     match wsArgs.ProjectType, wsArgs.OutputDir with
     | Some Website, None -> { wsArgs with OutputDir = Some "wwwroot" }
+    | Some Service, Some _ -> { wsArgs with OutputDir = None }
     | _ -> wsArgs
 
 let SetDefaults isFSharp wsArgs =
     wsArgs        
     |> SetDefaultProjectFile isFSharp
     |> SetScriptBaseUrl
-    |> SetDefaultUutputDir
+    |> SetDefaultOutputDir
