@@ -59,6 +59,8 @@ let handleCommandResult logger config warnSettings stageName cmdRes =
     res
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
+    config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
+    
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
     
@@ -226,7 +228,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     
             let runtimeMeta =
                 match config.ProjectType with
-                | Some (Bundle | Website) -> Some (config.RuntimeMetadata, getRefMetas())
+                | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, getRefMetas())
                 | _ -> None
 
             let js, currentMeta, sources =

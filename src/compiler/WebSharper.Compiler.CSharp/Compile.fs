@@ -32,6 +32,8 @@ open WebSharper.Compiler.CSharp.ErrorPrinting
 module C = WebSharper.Compiler.Commands
 
 let Compile config (logger: LoggerBase) tryGetMetadata =
+    config.ArgWarnings |> List.iter (PrintGlobalWarning logger)
+
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
@@ -126,7 +128,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             let runtimeMeta =
                 match config.ProjectType with
-                | Some (Bundle | Website) -> Some (config.RuntimeMetadata, metas)
+                | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, metas)
                 | _ -> None
 
             let js, currentMeta, sources =

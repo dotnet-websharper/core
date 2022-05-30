@@ -38,17 +38,34 @@ type ProjectType =
     | Html
     | WIG
     | Proxy
+    | Service
 
     static member Parse(wsProjectType: string) =
         match wsProjectType.ToLower() with
         | "" | "ignore" | "library" -> None
-        | "bundle" -> Some Bundle
-        | "bundleonly" -> Some BundleOnly
-        | "extension" | "interfacegenerator" -> Some WIG
-        | "html" -> Some Html
-        | "site" | "web" | "website" | "export" -> Some Website
+        | "web" | "site" | "website" | "export" -> Some Website
+        | "spa" | "bundle" -> Some Bundle
+        | "html" | "static" -> Some Html
+        | "binding" | "extension" | "wig" | "interfacegenerator" -> Some WIG
         | "proxy" -> Some Proxy
+        | "bundleonly" -> Some BundleOnly
+        | "microservice" -> Some Service
         | _ -> argError ("Invalid project type: " + wsProjectType)
+
+    static member GetWarning(wsProjectType: string, parsed: ProjectType) =
+        let defValue =
+            match parsed with
+            | Website -> "web"
+            | Bundle -> "spa"
+            | Html -> "html"
+            | WIG -> "binding"
+            | Proxy -> "proxy"
+            | BundleOnly -> "bundleonly"
+            | Service -> "microservice"
+        if wsProjectType.ToLower() = defValue then
+            None
+        else
+            Some (sprintf """Please use "%s" instead of "%s" for your project type""" defValue wsProjectType)
 
 type JavaScriptScope =
     | JSDefault
@@ -85,6 +102,7 @@ type WsConfig =
         TargetProfile : string
         Standalone : bool
         RuntimeMetadata : Metadata.MetadataOptions
+        ArgWarnings : string list
     }
 
     member this.ProjectDir =
@@ -129,6 +147,7 @@ type WsConfig =
                     | true, v -> v
                     | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
+            ArgWarnings = []
         }
 
     static member ParseAnalyzeClosures(c: string) =
@@ -177,7 +196,14 @@ type WsConfig =
         for k, v in settings do
             match k.ToLower() with
             | "project" ->
-                res <- { res with ProjectType = ProjectType.Parse (getString k v) }
+                let s = getString k v
+                let pt = ProjectType.Parse s
+                let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(s, pt))
+                match w with
+                | Some w ->
+                    res <- { res with ProjectType = pt; ArgWarnings = w :: res.ArgWarnings }
+                | None ->
+                    res <- { res with ProjectType = pt }
             | "outputdir" ->
                 res <- { res with OutputDir = Some (getPath k v) }
             | "scriptbaseurl" ->
@@ -521,7 +547,13 @@ let RecognizeWebSharperArg a wsArgs =
     | Flag "--wswarnonly" v -> Some { wsArgs with WarnOnly = v }
     | Flag "--dce" v -> Some { wsArgs with DeadCodeElimination = v }
     | StartsWith "--ws:" wsProjectType ->
-        Some { wsArgs with ProjectType = ProjectType.Parse(wsProjectType) }
+        let pt = ProjectType.Parse wsProjectType
+        let w = pt |> Option.bind (fun pt -> ProjectType.GetWarning(wsProjectType, pt))
+        match w with
+        | Some w -> 
+            Some { wsArgs with ProjectType = pt; ArgWarnings = w :: wsArgs.ArgWarnings }
+        | None ->
+            Some { wsArgs with ProjectType = pt }
     | Flag "--dlres" v -> Some { wsArgs with DownloadResources = if v then Some true else None }
     | Flag "--printjs" v -> Some { wsArgs with PrintJS = v }
     | StartsWith "--wsoutput:" o ->
