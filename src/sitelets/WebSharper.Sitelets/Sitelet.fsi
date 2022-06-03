@@ -77,6 +77,15 @@ module Sitelet =
         site: Sitelet<'T> ->
         Sitelet<'T>
 
+    /// Constructs a singleton sitelet that contains exactly one endpoint with CORS support
+    /// and serves a single content value at a given location.
+    val CorsContent<'T when 'T : equality> :
+        location: string ->
+        endpoint: 'T ->
+        allows: (CorsAllows -> CorsAllows) ->
+        cnt: (Context<'T> -> Async<Content<'T>>) ->
+        Sitelet<Cors<'T>>
+
     /// Constructs a singleton sitelet that contains exactly one endpoint
     /// and serves a single content value at a given location.
     val Content<'T when 'T : equality> :
@@ -163,6 +172,21 @@ module Sitelet =
 
 type RouteHandler<'T> = delegate of Context<obj> * 'T -> Task<CSharpContent> 
 
+[<Class>]
+type CorsBuilder =
+    
+    member WithOrigins : [<ParamArray>] origins: string[] -> CorsBuilder
+
+    member WithMethods : [<ParamArray>] methods: string[] -> CorsBuilder
+
+    member WithHeaders : [<ParamArray>] headers: string[] -> CorsBuilder
+
+    member WithExposeHeaders : [<ParamArray>] exposeHeaders: string[] -> CorsBuilder
+
+    member WithMaxAge :  maxAge: int -> CorsBuilder
+
+    member WithCredentials : unit -> CorsBuilder
+
 [<CompiledName "Sitelet"; Class; Sealed>]
 type CSharpSitelet =
 
@@ -176,6 +200,10 @@ type CSharpSitelet =
     /// and serves a single content value at a given location.
     static member Content<'T when 'T: equality> : location: string * endpoint: 'T * cnt: Func<Context<'T>, Task<Content<'T>>> -> Sitelet<'T>
         
+    /// Constructs a singleton sitelet that contains exactly one endpoint
+    /// and serves a single content value at a given location with CORS support.
+    static member CorsContent<'T when 'T: equality> : location: string * endpoint: 'T * cors: Action<CorsBuilder> * cnt: Func<Context<'T>, Task<Content<'T>>> -> Sitelet<Cors<'T>>
+
     /// Combines several sitelets, leftmost taking precedence.
     /// Is equivalent to folding with the choice operator.
     static member Sum<'T when 'T: equality> : [<ParamArray>] sitelets: Sitelet<'T>[] -> Sitelet<'T>
@@ -207,8 +235,15 @@ type SiteletBuilder =
     member With<'T> : Func<Context, 'T, Task<CSharpContent>> -> SiteletBuilder
         when 'T : equality
 
+    /// Add a handler for an inferred endpoint with CORS support.
+    member WithCors<'T> : Action<CorsBuilder> * Func<Context, 'T, Task<CSharpContent>> -> SiteletBuilder
+        when 'T : equality
+
     /// Add a handler for a specific path.
     member With : string * Func<Context, Task<CSharpContent>> -> SiteletBuilder
+
+    /// Add a handler for a specific path with CORS support.
+    member WithCors : string *  Action<CorsBuilder> * Func<Context, Task<CSharpContent>> -> SiteletBuilder
 
     /// Get the resulting Sitelet.
     member Install : unit -> Sitelet<obj>
