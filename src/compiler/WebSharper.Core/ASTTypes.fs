@@ -379,11 +379,12 @@ module Definitions =
             FullName = "System.Void"
         }
 
-    let Object =
+    let Obj =
         TypeDefinition {
             Assembly = "netstandard"
             FullName = "System.Object"
         }
+    let Object = Obj
 
     let Bool =
         TypeDefinition {
@@ -519,6 +520,48 @@ module Definitions =
             Assembly = "FSharp.Core"
             FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`6"
         }
+
+    let ValueType =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.ValueType"    
+        }
+
+    let Dynamic =
+        TypeDefinition {
+            Assembly = ""
+            FullName = "dynamic"
+        }
+
+    let IResource =
+        TypeDefinition {
+            Assembly = "WebSharper.Core"
+            FullName = "WebSharper.Core.Resources+IResource"    
+        }
+
+    let Async =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Control.FSharpAsync`1"
+        }
+        
+    let Task =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Threading.Tasks.Task"
+        }
+
+    let Task1 =
+        TypeDefinition {
+            Assembly = "netstandard"
+            FullName = "System.Threading.Tasks.Task`1"
+        }
+
+    let IRemotingProvider =
+        TypeDefinition {
+            Assembly = "WebSharper.Main"
+            FullName = "WebSharper.Remoting+IRemotingProvider"
+        } 
     
 /// Stores a definition and type parameter information
 type Concrete<'T> =

@@ -26,8 +26,8 @@
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/CSharp/net6.0/WebSharper.Compiler.dll"
-#r "../../build/Release/CSharp/net6.0/WebSharper.Compiler.CSharp.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.CSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -90,7 +90,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.2\" + a 
+            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.5\" + a 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 
@@ -145,7 +145,7 @@ let translate (source: string) =
 
     let expressions =
         Seq.concat [
-            comp.CompilingMethods.Values |> Seq.map snd
+            comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
@@ -167,13 +167,16 @@ let translate (source: string) =
 
     let currentMeta = comp.ToCurrentMetadata()
     let compiledExpressions = 
-        currentMeta.Classes.Values |> Seq.collect (fun c ->
-            Seq.concat [
-                c.Methods.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                c.Implementations.Values |> Seq.map snd
-                c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
-            ]
+        currentMeta.Classes.Values |> Seq.collect (
+            function
+            | _, _, Some c ->
+                Seq.concat [
+                    c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
+                    c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
+                    c.Implementations.Values |> Seq.map snd
+                    c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
+                ]
+            | _ -> Seq.empty
         )
         |> List.ofSeq 
         
@@ -184,9 +187,9 @@ let translate (source: string) =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.Packager.packageAssembly metadata currentMeta None WebSharper.Compiler.Packager.OnLoadIfExists
+    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
-    let js, map = pkg |> WebSharper.Compiler.Packager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
+    let js, map = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
 
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
     js |> printfn "%s" 
@@ -194,69 +197,20 @@ let translate (source: string) =
 translate """
 using System;
 using WebSharper;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 
 [JavaScript]
-public class Tests
-{
-        interface ITestDefaultImpl
-        {
-            int Foo() => 42;
-            int Bar() => this.Foo();
-        }
-
-        class TestDefaultImpl : ITestDefaultImpl
-        {
-        }
-
-        class TestDefaultImpl2 : ITestDefaultImpl
-        {
-            int ITestDefaultImpl.Foo() => 2;
-        }
-
-        public void InterfaceDefaultImplementations()
-        {
-            var o = new TestDefaultImpl();
-            var f = ((ITestDefaultImpl)o).Foo();
-            var g = ((ITestDefaultImpl)o).Bar();
-            var o2 = new TestDefaultImpl2();
-            var f2 = ((ITestDefaultImpl)o2).Foo();
-            var g2 = ((ITestDefaultImpl)o2).Bar();
-        }
-}
-"""
-
-translate """
-using System;
-using WebSharper;
-using System.Threading.Tasks;
-using System.Collections.Generic;
+public record Person(
+    string FirstName, 
+    string LastName
+);
 
 [JavaScript]
-public class Tests
+public record PersonProp
 {
-        interface ISomething
-        {
-            int Foo();
+    public string LastName { get; }
+    public string FirstName { get; }
 
-            string Bar { get; }
-        }
-
-        class Something : ISomething
-        {
-            public string Bar => "Bar";
-
-            public int Foo() => 42;
-        }
-
-        public void InterfaceImplementations()
-        {
-            var o = new Something();
-            var bar = o.Bar;
-            var ibar = ((ISomething)o).Bar;
-            var foo = o.Foo();
-            var ifoo = ((ISomething)o).Foo();
-        }
+    public PersonProp(string first, string last) => (FirstName, LastName) = (first, last);
 }
+
 """

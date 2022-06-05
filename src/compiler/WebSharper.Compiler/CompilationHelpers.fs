@@ -632,72 +632,6 @@ module JSRuntime =
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 
-    let Obj =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Object"    
-        }
-
-    let ValueType =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.ValueType"    
-        }
-
-    let Dynamic =
-        TypeDefinition {
-            Assembly = ""
-            FullName = "dynamic"
-        }
-
-    let IResource =
-        TypeDefinition {
-            Assembly = "WebSharper.Core"
-            FullName = "WebSharper.Core.Resources+IResource"    
-        }
-
-    let Async =
-        TypeDefinition {
-            Assembly = "FSharp.Core"
-            FullName = "Microsoft.FSharp.Control.FSharpAsync`1"
-        }
-        
-    let Task =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Threading.Tasks.Task"
-        }
-
-    let Task1 =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Threading.Tasks.Task`1"
-        }
-
-    let IRemotingProvider =
-        TypeDefinition {
-            Assembly = "WebSharper.Main"
-            FullName = "WebSharper.Remoting+IRemotingProvider"
-        } 
-
-    let String =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.String"
-        }
-
-    let Int =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Int32"
-        }
-
-    let Bool =
-        TypeDefinition {
-            Assembly = "netstandard"
-            FullName = "System.Boolean"
-        }
-
     // Private static field for single-case unions.
     let SingletonUnionCase name typ =
         Method {
@@ -710,8 +644,8 @@ module Definitions =
     let StringFormat1 =
         Method {
             MethodName = "Format"
-            Parameters = [ NonGenericType String; NonGenericType Obj ]
-            ReturnType = NonGenericType String
+            Parameters = [ NonGenericType Definitions.String; NonGenericType Definitions.Obj ]
+            ReturnType = NonGenericType Definitions.String
             Generics = 0
         }
     

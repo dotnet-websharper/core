@@ -217,8 +217,7 @@ let TextSpans = R.textSpans
 let SaveTextSpans() = R.saveTextSpans <- true
 
 let baseCtor (t: Concrete<TypeDefinition>) c a =
-    if t.Entity = Definitions.Obj then This
-    elif (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
+    if (let fn = t.Entity.Value.FullName in fn = "WebSharper.ExceptionProxy" || fn = "System.Exception") then 
         match a with
         | [] -> Undefined
         | [msg] -> ItemSet(This, Value (String "message"), msg)
@@ -667,7 +666,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     | _ -> Empty
                                 | Some (CodeReader.ThisInitializer (bCtor, args, reorder)) ->
                                     ExprStatement (ChainedCtor(false, None, thisType, bCtor, args) |> reorder)
-                                | None -> Empty
+                                | None -> 
+                                    match baseCls with
+                                    | Some bTyp ->
+                                        ExprStatement (ChainedCtor(true, None, bTyp, ConstructorInfo.Default(), []))
+                                    | None ->
+                                        Empty
                             let b = 
                                 if meth.IsStatic then
                                     match staticInit with
@@ -728,7 +732,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 Call(Some x, NonGeneric def, NonGeneric eqM, [y])    
                             match meth.Name with
                             | "Deconstruct" ->
-                                let b =
+                                let b =    
                                     ri.PositionalFields |> List.map (fun (p, getter) ->
                                         SetRef (Var p.ParameterId) (useGetter getter)
                                     ) |> Sequential |> ExprStatement
@@ -963,12 +967,15 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         | Some ri ->
                             let o = CodeReader.CSharpParameter.New ("o", thisTyp)
                             let baseCall =
-                                let bTyp, _, _, _ = ri.BaseCall
-                                let bCtor = 
-                                    Hashed {
-                                        CtorParameters = [ ConcreteType bTyp ]
-                                    }
-                                ExprStatement (baseCtor bTyp bCtor [ Var o.ParameterId ])
+                                let bTyp, bCtor, _, _ = ri.BaseCall
+                                if bTyp.Entity = Definitions.Obj then
+                                    ExprStatement (baseCtor bTyp bCtor [])
+                                else
+                                    let bCtor = 
+                                        Hashed {
+                                            CtorParameters = [ ConcreteType bTyp ]
+                                        }
+                                    ExprStatement (baseCtor bTyp bCtor [ Var o.ParameterId ])
                             let b =
                                 ri.PositionalFields |> List.map (fun (_, getter) ->
                                     let setter = CodeReader.setterOf (NonGeneric getter)

@@ -49,7 +49,7 @@ type CSharpParameter =
             ParameterId = Id.New()
             Symbol = null
             DefaultValue = None
-            Type = NonGenericType Definitions.Object
+            Type = NonGenericType Definitions.Obj
             RefOrOut = false
         }
 
@@ -520,6 +520,12 @@ module Definitions =
         Constructor {
             CtorParameters = [ ArrayType(NonGenericType Definitions.Int, 1) ]
         }
+
+    let DefaultRecordBaseCall =
+        NonGeneric Definitions.Obj,
+        ConstructorInfo.Default(),
+        ([] : list<Expression>),
+        (id : Expression -> Expression)
 
 type RoslynTransformer(env: Environment) = 
     let getConstantValueOfExpression x =
@@ -1532,12 +1538,7 @@ type RoslynTransformer(env: Environment) =
                     | _ -> None
                 )
             )
-            |> Option.defaultWith (fun () ->
-                NonGeneric Definitions.Obj,
-                ConstructorInfo.Default(),
-                [],
-                id
-            )
+            |> Option.defaultValue Definitions.DefaultRecordBaseCall
 
         {
             PositionalFields = positionalFields
