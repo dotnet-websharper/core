@@ -445,7 +445,7 @@ module internal Internal =
                 wrap, Choice1Of2 (nonGenericGen "Anything" Definitions.Object)
             | T.TypeParameter _ ->
                 wrap, Choice1Of2 (nonGenericGen "Anything" Definitions.Object)
-            | T.ConcreteType { Entity = e } when e.Value.FullName = "System.IComparable" ->
+            | T.ConcreteType { Entity = e } as t when e.Value.FullName = "System.IComparable" ->
                 // We use Choose because it is necessary for a given generated value
                 // that all occurrences of this type are the same type.
                 // With Anything, we could get e.g for IComparable[]: [|1; "test"; (2.3, true)|]
@@ -462,7 +462,7 @@ module internal Internal =
                         ] (generatorOf b)
                     callR (mChoose [!@Definitions.Object; !@Definitions.Object]) [
                         callR (mAllTypes []) []
-                        Function([id], None, Return e)
+                        Function([id], Some t, Return e)
                     ]
                 wrap' >> wrap, Choice1Of2 (Var id)
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.IEquatable`1" ||  e.Value.FullName = "System.IComparable`1" ->

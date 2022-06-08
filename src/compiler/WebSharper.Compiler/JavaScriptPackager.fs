@@ -134,6 +134,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             match getAddress a with
             | Var v -> v
             | _ -> failwith "packageCtor error"
+        //let oaExpr =
+        //    ApplAny(Global ["Object"; "assign"], [])
         statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
 
     let packageCctor a expr name =
