@@ -118,9 +118,11 @@ type ServiceExtensions =
     /// Automatically added by any other AddWebSharper... methods.
     /// </summary>
     [<Extension>]
-    static member AddWebSharper(this: IServiceCollection) =
+    static member AddWebSharper(this: IServiceCollection, [<Optional; DefaultParameterValue(null: Assembly)>] defaultAssembly: Assembly) =
+        let defaultAssembly = 
+            if isNull defaultAssembly then Assembly.GetCallingAssembly() else defaultAssembly
         if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService>(WebSharperService(Assembly.GetCallingAssembly())) |> ignore
+            this.AddSingleton<IWebSharperService>(WebSharperService(defaultAssembly)) |> ignore
         this
 
     /// <summary>
@@ -131,7 +133,7 @@ type ServiceExtensions =
             when 'TImplementation :> ISiteletService
             and 'TImplementation : not struct>
             (this: IServiceCollection) =
-        this.AddWebSharper()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<ISiteletService, 'TImplementation>()
 
     /// <summary>
@@ -140,7 +142,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddSitelet<'T when 'T : equality>
             (this: IServiceCollection, sitelet: Sitelet<'T>) =
-        this.AddWebSharper()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<ISiteletService>(DefaultSiteletService sitelet)
 
     /// <summary>
@@ -150,7 +152,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection) =
-        this.AddWebSharper()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<'THandler, 'THandler>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'THandler>>()
 
@@ -161,7 +163,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler, 'TInstance when 'TInstance : not struct>
             (this: IServiceCollection) =
-        this.AddWebSharper()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<'TInstance, 'TInstance>()
             .AddSingleton<IRemotingService<'THandler>, RemotingService<'THandler, 'TInstance>>()
 
@@ -172,6 +174,6 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharperRemoting<'THandler when 'THandler : not struct>
             (this: IServiceCollection, handler: 'THandler) =
-        this.AddWebSharper()
+        this.AddWebSharper(Assembly.GetCallingAssembly())
             .AddSingleton<'THandler>(handler)
             .AddSingleton<IRemotingService<'THandler>>(RemotingService handler)
