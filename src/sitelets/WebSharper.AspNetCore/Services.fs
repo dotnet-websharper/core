@@ -40,8 +40,9 @@ module J = WebSharper.Core.Json
 [<AllowNullLiteral>]
 type IWebSharperService =
     abstract GetWebSharperMeta : siteletAssembly: Assembly * logger: ILogger -> (M.Info * Graph * Json.Provider) 
+    abstract DefaultAssembly : Assembly 
 
-type WebSharperService() =
+type WebSharperService(defaultAssembly) =
 
     let metaCache = Dictionary<Assembly, M.Info * Graph * Json.Provider>()
     
@@ -76,6 +77,8 @@ type WebSharperService() =
                 let res = metadata, dependencies, J.Provider.CreateTyped metadata
                 metaCache.Add(siteletAssembly, res)
                 res
+
+        member this.DefaultAssembly = defaultAssembly
             
 /// Define the sitelet to serve by WebSharper.
 [<AllowNullLiteral>]
@@ -117,7 +120,7 @@ type ServiceExtensions =
     [<Extension>]
     static member AddWebSharper(this: IServiceCollection) =
         if this |> Seq.exists (fun s -> s.ServiceType = typeof<IWebSharperService>) |> not then
-            this.AddSingleton<IWebSharperService, WebSharperService>() |> ignore
+            this.AddSingleton<IWebSharperService>(WebSharperService(Assembly.GetCallingAssembly())) |> ignore
         this
 
     /// <summary>

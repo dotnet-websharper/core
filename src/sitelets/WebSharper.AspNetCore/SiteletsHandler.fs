@@ -170,7 +170,7 @@ let HttpHandler (sitelet : Sitelet<'T>) : SiteletHttpHandler =
                 WebSharperBuilder(httpCtx.RequestServices)
                     .Sitelet(sitelet)
                     .UseRemoting(false)
-                    .Build(Assembly.GetCallingAssembly())
+                    .Build()
             let ctx = Context.GetOrMake httpCtx options sitelet
 
             let handleRouterResult r =

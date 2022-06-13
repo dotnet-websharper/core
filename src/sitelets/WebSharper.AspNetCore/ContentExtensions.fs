@@ -25,46 +25,68 @@ open WebSharper
 open WebSharper.Sitelets
 open Microsoft.AspNetCore.Mvc
 open System.Threading.Tasks
-open Microsoft.AspNetCore.Hosting
+open Microsoft.AspNetCore.Http
+
+[<AutoOpen>]
+module internal ContentExtensionsHelpers =
+    let createDefaultOptions services = 
+        WebSharperBuilder(services)
+            .UseSitelets(false)
+            .UseRemoting(false)
+            .Build()
 
 [<Extension>]
 type ContentExtensions =
+
+    /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
+    [<Extension>]
+    static member HandleRequest (this: Content<'T>, httpCtx: HttpContext) =
+        task {
+            let options = createDefaultOptions httpCtx.RequestServices
+            let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
+            let! rsp = Content<'T>.ToResponse this ctx
+            do! Sitelets.writeResponse rsp httpCtx.Response
+        } :> Task
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
     [<Extension>]
     static member ToIActionResult (this: Content<'T>) =
         { new IActionResult with
-            member x.ExecuteResultAsync (context: ActionContext) : Task =
-                let httpCtx = context.HttpContext
-                let options =
-                    WebSharperBuilder(httpCtx.RequestServices)
-                        .UseSitelets(false)
-                        .UseRemoting(false)
-                        .Build(Assembly.GetCallingAssembly())
-                let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-                let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
-                task {
-                    let! rsp = Content<'T>.ToResponse this ctx
-                    do! Sitelets.writeResponse rsp context.HttpContext.Response
-                }
+            member x.ExecuteResultAsync (context: ActionContext) =
+                ContentExtensions.HandleRequest(this, context.HttpContext)
         }
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
     [<Extension>]
+    static member ToIActionResult (this: Async<Content<'T>>) =
+        { new IActionResult with
+            member x.ExecuteResultAsync (context: ActionContext) =
+                task {
+                    let! c = this
+                    do! ContentExtensions.HandleRequest(c, context.HttpContext)
+                }
+        }
+
+     /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
+    [<Extension>]
+    static member HandleRequest (this: CSharpContent, httpCtx: HttpContext) =
+        ContentExtensions.HandleRequest(this.AsContent, httpCtx)
+
+   /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
+    [<Extension>]
     static member ToIActionResult (this: CSharpContent) =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) : Task =
-                let httpCtx = context.HttpContext
-                let options =
-                    WebSharperBuilder(httpCtx.RequestServices)
-                        .UseSitelets(false)
-                        .UseRemoting(false)
-                        .Build(Assembly.GetCallingAssembly())
-                let wsService = httpCtx.RequestServices.GetService(typeof<IWebSharperService>) :?> IWebSharperService
-                let hostingEnv = httpCtx.RequestServices.GetService(typeof<IHostingEnvironment>) :?> IHostingEnvironment 
-                let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
+                ContentExtensions.HandleRequest(this, context.HttpContext)
+        }
+
+    /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
+    [<Extension>]
+    static member ToIActionResult (this: Task<CSharpContent>) =
+        { new IActionResult with
+            member x.ExecuteResultAsync (context: ActionContext) =
                 task {
-                    let! rsp = Content<obj>.ToResponse this.AsContent ctx
-                    do! Sitelets.writeResponse rsp context.HttpContext.Response
+                    let! c = this
+                    do! ContentExtensions.HandleRequest(c, context.HttpContext)
                 }
         }
