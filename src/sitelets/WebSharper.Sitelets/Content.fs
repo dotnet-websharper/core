@@ -37,6 +37,16 @@ type Content<'Endpoint> =
         | CustomContent x -> async.Return (x ctx)
         | CustomContentAsync x -> x ctx
 
+    member c.Box() : Content<obj> =
+        match c with
+        | CustomContent x -> CustomContent (fun ctx -> x (Context.Map box ctx))
+        | CustomContentAsync x -> CustomContentAsync (fun ctx -> x (Context.Map box ctx))
+
+    static member Unbox (c: Content<obj>) : Content<'T> =
+        match c with
+        | CustomContent x -> CustomContent (fun ctx -> x (Context.Map unbox ctx))
+        | CustomContentAsync x -> CustomContentAsync (fun ctx -> x (Context.Map unbox ctx))
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Content =
     open System
@@ -161,7 +171,7 @@ module Content =
             return {
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "text/html; charset=utf-8"]
-                WriteBody = writeBody
+                WriteBody = Http.WriteBody writeBody
             }
         }
 
@@ -174,12 +184,13 @@ module Content =
             {
                 Status = Http.Status.Ok
                 Headers = [Http.Header.Custom "Content-Type" "application/json"]
-                WriteBody = fun s ->
+                WriteBody = Http.WriteBody (fun s ->
                     use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                     x
                     |> encoder.Encode
                     |> JsonProvider.Pack
                     |> WebSharper.Core.Json.Write tw
+                )
             }
 
     let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
@@ -190,12 +201,13 @@ module Content =
                 return {
                     Status = Http.Status.Ok
                     Headers = [Http.Header.Custom "Content-Type" "application/json"]
-                    WriteBody = fun s ->
+                    WriteBody = Http.WriteBody (fun s ->
                         use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                         x
                         |> encoder.Encode
                         |> JsonProvider.Pack
                         |> WebSharper.Core.Json.Write tw
+                    )
                 }
             }
 
@@ -269,7 +281,7 @@ module Content =
 
     let SetBody<'T> (writeBody: System.IO.Stream -> unit) (cont: Async<Content<'T>>) =
         cont
-        |> MapResponse (fun resp -> { resp with WriteBody = writeBody })
+        |> MapResponse (fun resp -> { resp with WriteBody = Http.WriteBody writeBody })
 
     /// Emits a 301 Moved Permanently response to a given URL.
     let RedirectToUrl<'T> (url: string) : Content<'T> =
@@ -277,7 +289,7 @@ module Content =
             {
                 Status = Http.Status.Custom 301 (Some "Moved Permanently")
                 Headers = [Http.Header.Custom "Location" url]
-                WriteBody = ignore
+                WriteBody = Http.EmptyBody
             }
 
     /// Emits a 301 Moved Permanently response to a given action.
@@ -295,7 +307,7 @@ module Content =
             {
                 Status = Http.Status.Custom 307 (Some "Temporary Redirect")
                 Headers = [Http.Header.Custom "Location" url]
-                WriteBody = ignore
+                WriteBody = Http.EmptyBody
             }
         |> async.Return
 
@@ -313,7 +325,7 @@ module Content =
             {
                 Status = status
                 Headers = []
-                WriteBody = ignore
+                WriteBody = Http.EmptyBody
             }
         |> async.Return
 
@@ -336,7 +348,7 @@ module Content =
         httpStatusContent Http.Status.MethodNotAllowed
 
     let Ok<'T> : Async<Content<'T>> =
-        httpStatusContent Http.Status.Ok
+        httpStatusContent Http.Status.Ok          
 
     let getOkOrigin (allows: CorsAllows) (request: Http.Request) =
         request.Headers
@@ -376,7 +388,7 @@ module Content =
                 {
                     Status = Http.Status.Ok
                     Headers = headers ctx
-                    WriteBody = ignore
+                    WriteBody = Http.EmptyBody
                 }
             |> async.Return
         | Some ep ->
@@ -411,7 +423,15 @@ type Content<'Endpoint> with
         ({
             Status = defaultArg Status Http.Status.Ok
             Headers = defaultArg Headers Seq.empty
-            WriteBody = defaultArg WriteBody ignore
+            WriteBody = defaultArg (WriteBody |> Option.map Http.WriteBody) Http.EmptyBody
+        } : Http.Response)
+        |> Content.Custom
+
+    static member CustomAsync (?Status: Http.Status, ?Headers: seq<Http.Header>, ?WriteBody: System.IO.Stream -> Task) : Async<Content<'Endpoint>> =
+        ({
+            Status = defaultArg Status Http.Status.Ok
+            Headers = defaultArg Headers Seq.empty
+            WriteBody = defaultArg (WriteBody |> Option.map Http.WriteBodyAsync) Http.EmptyBody
         } : Http.Response)
         |> Content.Custom
 
@@ -434,10 +454,12 @@ type Content<'Endpoint> with
 
     static member Text (text: string, ?encoding: System.Text.Encoding) : Async<Content<'Endpoint>> =
         let encoding = defaultArg encoding Content.defaultEncoding
-        Content.Custom(
+        Content.CustomAsync(
             WriteBody = fun s ->
-                use w = new System.IO.StreamWriter(s, encoding, 1024, leaveOpen = true)
-                w.Write(text)
+                task {
+                    use w = new System.IO.StreamWriter(s, encoding, 1024, leaveOpen = true)
+                    do! w.WriteAsync(text)
+                }
         )
 
     static member File (path: string, ?AllowOutsideRootFolder: bool, ?ContentType) : Async<Content<'Endpoint>> =
@@ -456,17 +478,28 @@ type Content<'Endpoint> with
                 {
                     Status = Http.Status.Ok
                     Headers = [if ContentType.IsSome then yield Http.Header.Custom "Content-Type" ContentType.Value]
-                    WriteBody = fun out ->
-                        use inp = fi.OpenRead()
-                        let buffer = Array.zeroCreate (16 * 1024)
-                        let rec loop () =
-                            let read = inp.Read(buffer, 0, buffer.Length)
-                            if read > 0 then out.Write(buffer, 0, read); loop ()
-                        loop ()
+                    WriteBody = Http.WriteBodyAsync(fun out ->
+                        task {
+                            use inp = fi.OpenRead()
+                            let buffer = Array.zeroCreate (16 * 1024)
+                            let mutable read = inp.Read(buffer, 0, buffer.Length)
+                            while read > 0 do
+                                do! out.WriteAsync(buffer, 0, read)
+                                read <- inp.Read(buffer, 0, buffer.Length)
+                        }
+                    )
                 }
             else
                 failwith "Cannot serve file from outside the application's root folder"
         |> async.Return
+
+    static member MvcResult (result: obj) : Async<Content<'Endpoint>> =
+        ({
+            Status = Http.Status.Ok
+            Headers =Seq.empty
+            WriteBody = Http.MvcBody result
+        } : Http.Response)
+        |> Content.Custom
 
 open System
 open System.Threading.Tasks
@@ -534,6 +567,10 @@ type CSharpContent =
         Content.File(path, AllowOutsideRootFolder, ?ContentType = CSharpContent.Opt ContentType)
         |> CSharpContent.ToContent
 
+    static member MvcResult (result: obj) =
+        Content.MvcResult(result)
+        |> CSharpContent.ToContent
+
     static member Custom (response: Http.Response) =
         Content.Custom(response)
         |> CSharpContent.ToContent
@@ -545,6 +582,15 @@ type CSharpContent =
             [<Optional>] WriteBody: Action<Stream>
         ) =
         Content.Custom(?Status = CSharpContent.Opt Status, ?Headers = CSharpContent.Opt Headers, WriteBody = WriteBody.Invoke)
+        |> CSharpContent.ToContent
+
+    static member CustomAsync
+        (
+            [<Optional>] Status: Http.Status,
+            [<Optional>] Headers: seq<Http.Header>,
+            [<Optional>] WriteBody: Func<Stream, Task>
+        ) =
+        Content.CustomAsync(?Status = CSharpContent.Opt Status, ?Headers = CSharpContent.Opt Headers, WriteBody = WriteBody.Invoke)
         |> CSharpContent.ToContent
 
     static member FromContext (f: Func<Context, Task<CSharpContent>>) =

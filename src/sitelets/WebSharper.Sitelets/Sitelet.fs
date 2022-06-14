@@ -66,7 +66,7 @@ module Sitelet =
                             {
                                 Status = Http.Status.NotFound
                                 Headers = []
-                                WriteBody = ignore
+                                WriteBody = Http.EmptyBody
                             }
                 }
         }
@@ -263,8 +263,7 @@ module Sitelet =
             Router = IRouter.Box sitelet.Router
             Controller =
                 { Handle = fun a ->
-                    C.CustomContentAsync <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle (unbox a)) (Context.Map box ctx)
+                    (sitelet.Controller.Handle (unbox a)).Box()
                 }
         }
 
@@ -276,8 +275,7 @@ module Sitelet =
             Router = IRouter.Unbox sitelet.Router
             Controller =
                 { Handle = fun a ->
-                    C.CustomContentAsync <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle (box a)) (Context.Map unbox ctx)
+                    C.Unbox<'T> (sitelet.Controller.Handle (box a))
                 }
         }
 

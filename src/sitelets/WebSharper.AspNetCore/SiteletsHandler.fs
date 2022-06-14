@@ -31,34 +31,25 @@ open Microsoft.Extensions.Options
 open WebSharper.Sitelets
 open Microsoft.Extensions.Logging
 
-let internal writeResponse (resp: Http.Response) (out: HttpResponse) : Task =
-    let memStr = new MemoryStream()
-    out.StatusCode <- resp.Status.Code
-    for name, hs in resp.Headers |> Seq.groupBy (fun h -> h.Name) do
+let internal writeStatusCodeAndHeader (httpCtx: HttpContext) (rsp: Http.Response) =
+    let httpResponse = httpCtx.Response
+    httpResponse.StatusCode <- rsp.Status.Code
+    for name, hs in rsp.Headers |> Seq.groupBy (fun h -> h.Name) do
         let values =
             [| for h in hs -> h.Value |]
             |> Microsoft.Extensions.Primitives.StringValues
-        out.Headers.Append(name, values)
-    resp.WriteBody(memStr :> Stream)
-    memStr.Seek(0L, SeekOrigin.Begin) |> ignore
-    //task {
-    //    do! memStr.CopyToAsync(out.Body)
-    //    memStr.Dispose()
-    //}
-    memStr.CopyToAsync(out.Body)
+        httpResponse.Headers.Append(name, values)
 
-let rec internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
+let rec internal mvcContentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: obj) : Task =
     task {
         match content with
         | :? string as stringContent ->
             httpCtx.Response.StatusCode <- StatusCodes.Status200OK
             do! httpCtx.Response.WriteAsync(stringContent)
         | :? Content<obj> as wsContent ->
-            let! rsp = Content<obj>.ToResponse wsContent context
-            do! writeResponse rsp httpCtx.Response
+            return! contentHelper httpCtx context wsContent
         | :? CSharpContent as wsCSharpContent ->
-            let! rsp = Content<obj>.ToResponse wsCSharpContent.AsContent context
-            do! writeResponse rsp httpCtx.Response
+            return! contentHelper httpCtx context wsCSharpContent.AsContent
         | :? IActionResult as actionResult ->
             let actionCtx = ActionContext(httpCtx, RouteData(), ActionDescriptor())
             do! actionResult.ExecuteResultAsync(actionCtx)
@@ -70,11 +61,31 @@ let rec internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (c
                 let contentResult =
                     let resultGetter = contentType.GetProperty("Result")
                     resultGetter.GetMethod.Invoke(contentTask, [||])
-                return! contentHelper httpCtx context contentResult
+                return! mvcContentHelper httpCtx context contentResult
             else
                 httpCtx.Response.StatusCode <- StatusCodes.Status200OK
                 let jsonOptions = httpCtx.RequestServices.GetService(typeof<IOptions<JsonSerializerOptions>>) :?> IOptions<JsonSerializerOptions>;
                 do! System.Text.Json.JsonSerializer.SerializeAsync(httpCtx.Response.Body, content, jsonOptions.Value)
+    }
+
+and internal contentHelper (httpCtx: HttpContext) (context: Context<obj>) (content: Content<obj>) : Task =
+    task {
+        let! rsp = Content<obj>.ToResponse content context
+        match rsp.WriteBody with
+        | Http.EmptyBody ->
+            writeStatusCodeAndHeader httpCtx rsp
+        | Http.WriteBody write ->
+            writeStatusCodeAndHeader httpCtx rsp
+            // synchronous writes are not allowed to response stream, writing to memory stream first
+            let memStr = new MemoryStream()
+            write memStr
+            memStr.Seek(0L, SeekOrigin.Begin) |> ignore
+            do! memStr.CopyToAsync(httpCtx.Response.Body)
+        | Http.WriteBodyAsync write ->
+            writeStatusCodeAndHeader httpCtx rsp
+            do! write httpCtx.Response.Body
+        | Http.MvcBody mvcObj ->
+            do! mvcContentHelper httpCtx context mvcObj
     }
 
 let Middleware (options: WebSharperOptions) =

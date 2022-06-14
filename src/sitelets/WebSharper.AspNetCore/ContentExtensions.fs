@@ -44,8 +44,7 @@ type ContentExtensions =
         task {
             let options = createDefaultOptions httpCtx.RequestServices
             let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
-            let! rsp = Content<'T>.ToResponse this ctx
-            do! Sitelets.writeResponse rsp httpCtx.Response
+            do! Sitelets.contentHelper httpCtx ctx (this.Box())
         } :> Task
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
