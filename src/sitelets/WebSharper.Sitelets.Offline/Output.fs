@@ -25,6 +25,7 @@ open System.Collections.Generic
 open System.IO
 open System.Reflection
 open System.Text
+open System.Threading.Tasks
 open System.Text.RegularExpressions
 open System.Web
 open Mono.Cecil
@@ -349,6 +350,40 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
 let trimPath (path: string) =
     path.TrimStart('/')
 
+let rec mvcContentHelper (stream: Stream) (context: Context<obj>) (content: obj) =
+    task {
+        match content with
+        | :? string as stringContent ->
+            let w = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+            do! w.WriteAsync(stringContent)
+        | _ ->
+            let contentType = content.GetType()
+            if contentType.IsGenericType && contentType.GetGenericTypeDefinition() = typedefof<Task<_>> then
+                let contentTask = content :?> Task
+                do! contentTask
+                let contentResult =
+                    let resultGetter = contentType.GetProperty("Result")
+                    resultGetter.GetMethod.Invoke(contentTask, [||])
+                return! mvcContentHelper stream context contentResult
+            else
+                let w = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+                let json = WebSharper.Json.Serialize content
+                do! w.WriteAsync(json)
+    }
+
+and contentHelper (stream: Stream) (context: Context<obj>) (rsp: Http.Response) =
+    task {
+        match rsp.WriteBody with
+        | Http.EmptyBody ->
+            ()
+        | Http.WriteBody write ->
+            write stream
+        | Http.WriteBodyAsync write ->
+            do! write stream
+        | Http.MvcBody mvcObj ->
+            do! mvcContentHelper stream context mvcObj
+    }
+
 let WriteSite (aR: AssemblyResolver) (config: Config) =
     let st = State(config)
     let actionTable = Dictionary()
@@ -404,7 +439,7 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
                 )
             let! response = rC.Respond context
             use stream = createFile config rC.Path
-            return response.WriteBody(stream)
+            do! contentHelper stream context response |> Async.AwaitTask
         // Write resources determined to be necessary.
-        return writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
+        writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
     }
