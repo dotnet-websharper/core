@@ -40,52 +40,62 @@ type ContentExtensions =
 
     /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
     [<Extension>]
-    static member HandleRequest (this: Content<'T>, httpCtx: HttpContext) =
+    static member HandleRequest (this: Content<'T>, httpCtx: HttpContext) : Task =
         task {
             let options = createDefaultOptions httpCtx.RequestServices
             let ctx = Context.GetOrMake httpCtx options Sitelet.Empty
             do! Sitelets.contentHelper httpCtx ctx (this.Box())
-        } :> Task
+        }
+
+    /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
+    [<Extension>]
+    static member HandleRequest (this: Async<Content<'T>>, httpCtx: HttpContext) : Task =
+        task {
+            let! c = this
+            do! c.HandleRequest(httpCtx)
+        } 
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
     [<Extension>]
-    static member ToIActionResult (this: Content<'T>) =
+    static member ToIActionResult (this: Content<'T>) : IActionResult =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) =
-                ContentExtensions.HandleRequest(this, context.HttpContext)
+                this.HandleRequest(context.HttpContext)
         }
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
     [<Extension>]
-    static member ToIActionResult (this: Async<Content<'T>>) =
+    static member ToIActionResult (this: Async<Content<'T>>) : IActionResult =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) =
-                task {
-                    let! c = this
-                    do! ContentExtensions.HandleRequest(c, context.HttpContext)
-                }
+                this.HandleRequest(context.HttpContext)
         }
 
      /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
     [<Extension>]
-    static member HandleRequest (this: CSharpContent, httpCtx: HttpContext) =
-        ContentExtensions.HandleRequest(this.AsContent, httpCtx)
+    static member HandleRequest (this: CSharpContent, httpCtx: HttpContext) : Task =
+        this.AsContent.HandleRequest(httpCtx)
+
+     /// <summary>Use WebSharper content to handle an ASP.NET Core request.</summary>
+    [<Extension>]
+    static member HandleRequest (this: Task<CSharpContent>, httpCtx: HttpContext) : Task =
+        task {
+            let! c = this
+            do! c.AsContent.HandleRequest(httpCtx)
+        } :> Task
 
    /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
     [<Extension>]
-    static member ToIActionResult (this: CSharpContent) =
+    static member ToIActionResult (this: CSharpContent) : IActionResult =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) : Task =
-                ContentExtensions.HandleRequest(this, context.HttpContext)
+                this.HandleRequest(context.HttpContext)
         }
 
     /// <summary>Convert WebSharper Content into ASP.NET Core IActionResult.</summary>
-    [<Extension>]
-    static member ToIActionResult (this: Task<CSharpContent>) =
+    [<Extension>]                                            
+    static member ToIActionResult (this: Task<CSharpContent>) : IActionResult =
         { new IActionResult with
             member x.ExecuteResultAsync (context: ActionContext) =
-                task {
-                    let! c = this
-                    do! ContentExtensions.HandleRequest(c, context.HttpContext)
-                }
+                this.HandleRequest(context.HttpContext)
         }
