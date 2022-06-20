@@ -459,6 +459,7 @@ type Content<'Endpoint> with
                 task {
                     use w = new System.IO.StreamWriter(s, encoding, 1024, leaveOpen = true)
                     do! w.WriteAsync(text)
+                    do! w.FlushAsync()
                 }
         )
 
@@ -481,11 +482,7 @@ type Content<'Endpoint> with
                     WriteBody = Http.WriteBodyAsync(fun out ->
                         task {
                             use inp = fi.OpenRead()
-                            let buffer = Array.zeroCreate (16 * 1024)
-                            let mutable read = inp.Read(buffer, 0, buffer.Length)
-                            while read > 0 do
-                                do! out.WriteAsync(buffer, 0, read)
-                                read <- inp.Read(buffer, 0, buffer.Length)
+                            do! inp.CopyToAsync(out, 16 * 1024)
                         }
                     )
                 }
