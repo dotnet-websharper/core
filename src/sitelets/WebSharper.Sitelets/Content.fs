@@ -457,7 +457,7 @@ type Content<'Endpoint> with
         Content.CustomAsync(
             WriteBody = fun s ->
                 task {
-                    use w = new System.IO.StreamWriter(s, encoding, 1024, leaveOpen = true)
+                    let w = new System.IO.StreamWriter(s, encoding, 1024)
                     do! w.WriteAsync(text)
                     do! w.FlushAsync()
                 }
