@@ -49,8 +49,11 @@ type Context() =
     /// Virtual application root path on the server.
     abstract member ApplicationPath : string
 
-    /// The full path to the application's root folder.
+    /// The full path to the application's content root folder.
     abstract member RootFolder : string
+
+    /// The full path to the application's web root folder.
+    abstract member WebRootFolder : string
 
     /// The URI of the web request.
     abstract member RequestUri : System.Uri

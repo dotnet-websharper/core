@@ -300,6 +300,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
             ResourceContext = resContext,
             Request = Http.Request.Empty locationString,
             RootFolder = projectFolder,
+            WebRootFolder = projectFolder,
             UserSession = IUserSession.NotAvailable,
             Environment = Map []
         )
@@ -434,6 +435,7 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
                     ResourceContext = rC.ResourceContext,
                     Request = Http.Request.Empty (P.ShowPath rC.Path),
                     RootFolder = projectFolder,
+                    WebRootFolder = projectFolder,
                     UserSession = IUserSession.NotAvailable,
                     Environment = Map []
                 )

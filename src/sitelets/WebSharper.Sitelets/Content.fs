@@ -468,7 +468,7 @@ type Content<'Endpoint> with
         Content.CustomContent <| fun ctx ->
             if Path.IsPathRooted path && not allowOutsideRootFolder then
                 failwith "Cannot serve file from outside the application's root folder"
-            let rootFolder = DirectoryInfo(ctx.RootFolder).FullName
+            let rootFolder = DirectoryInfo(ctx.WebRootFolder).FullName
             let path =
                 if path.StartsWith "~/" || path.StartsWith @"~\" then
                     Path.Combine(rootFolder, path.[2..])

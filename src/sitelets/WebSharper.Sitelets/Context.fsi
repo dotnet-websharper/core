@@ -41,6 +41,7 @@ type Context<'Action> =
         * ResourceContext : WebSharper.Core.Resources.Context
         * Request : Http.Request
         * RootFolder : string
+        * WebRootFolder : string
         * UserSession : WebSharper.Web.IUserSession
         * Environment : IDictionary<string, obj>
         -> Context<'Action>

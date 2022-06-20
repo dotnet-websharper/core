@@ -47,6 +47,7 @@ type WebSharperOptions
         config: IConfiguration,
         logger: ILogger,
         contentRoot: string,
+        webRoot: string,
         useMinifiedScripts: bool,
         sitelet: option<Sitelet<obj>>,
         metadata: M.Info,
@@ -79,6 +80,8 @@ type WebSharperOptions
     
     member this.ContentRootPath = contentRoot
 
+    member this.WebRootPath = webRoot
+
     member this.Sitelet = sitelet
 
     member internal this.UseExtension = useExtension
@@ -88,6 +91,7 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _sitelet = None
     let mutable _siteletAssembly = None
     let mutable _contentRootPath = None
+    let mutable _webRootPath = None
     let mutable _metadata = None
     let mutable _config = None
     let mutable _useMinifiedScripts = None
@@ -137,6 +141,12 @@ type WebSharperBuilder(services: IServiceProvider) =
     /// <remarks>Default: IHostingEnvironment.ContentRootPath.</remarks>
     member this.ContentRootPath(contentRootPath: string) =
         _contentRootPath <- Some contentRootPath
+        this
+
+    /// <summary>Defines the web root path to be used by WebSharper.</summary>
+    /// <remarks>Default: IHostingEnvironment.WebRootPath.</remarks>
+    member this.WebRootPath(webRootPath: string) =
+        _webRootPath <- Some webRootPath
         this
 
     /// <summary>Defines the logger for WebSharper internal messages.</summary>
@@ -189,9 +199,18 @@ type WebSharperBuilder(services: IServiceProvider) =
                 services.GetRequiredService<IConfiguration>().GetSection("websharper") :> IConfiguration 
             )
 
+        let hostingEnvironment =
+            lazy
+            services.GetRequiredService<IHostingEnvironment>()
+
         let contentRootPath = 
             _contentRootPath |> Option.defaultWith (fun () ->
-                services.GetRequiredService<IHostingEnvironment>().ContentRootPath
+                hostingEnvironment.Value.ContentRootPath
+            )
+
+        let webRootPath = 
+            _webRootPath |> Option.defaultWith (fun () ->
+                hostingEnvironment.Value.WebRootPath
             )
 
         let useMinifiedScripts =
@@ -260,6 +279,7 @@ type WebSharperBuilder(services: IServiceProvider) =
             config, 
             logger,
             contentRootPath, 
+            webRootPath, 
             useMinifiedScripts,
             sitelet, 
             metadata, 
