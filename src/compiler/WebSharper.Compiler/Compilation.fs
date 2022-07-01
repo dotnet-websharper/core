@@ -931,7 +931,25 @@ type Compilation(meta: Info, ?hasGraph) =
             try 
                 d.Add(k, v)
             with _ ->
-                printerrf "Unexpected error in name resolver, key already added: %A" k
+                printerrf "Duplicate client-side representation found for member: %A" k
+
+        let addType (k: TypeDefinition) v (d: IDictionary<_,_>) =
+            try 
+                d.Add(k, v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for type: %s" k.Value.AssemblyQualifiedName
+
+        let addMethod (t: TypeDefinition) (k: Method) v (d: IDictionary<_,_>) =
+            try 
+                d.Add(k, v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for method: %s.%s" t.Value.FullName k.Value.MethodName
+
+        let addCMethod (t: TypeDefinition, m: Method) v (d: IDictionary<_,_>) =
+            try 
+                d.Add((t, m), v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for method: %s.%s" t.Value.FullName m.Value.MethodName
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             let allMembers = HashSet()
@@ -986,7 +1004,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Extends = nr.Extends
                     Methods = resMethods
                 }
-            interfaces |> add typ resNode
+            interfaces |> addType typ resNode
             notResolvedInterfaces.Remove typ |> ignore
         
         while notResolvedInterfaces.Count > 0 do
@@ -1042,7 +1060,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match classes.TryFind typ with
                 | Some c -> MergedDictionary c.Methods :> IDictionary<_,_>
                 | _ -> Dictionary() :> _
-            classes |> add typ
+            classes |> addType typ
                 {
                     Address = if hasWSPrototype || cls.ForceAddress then someEmptyAddress else None
                     BaseClass = if hasWSPrototype then baseCls else None
@@ -1197,10 +1215,13 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let setClassAddress typ clAddr =
             let res = classes.[typ]
-            if Option.isSome res.Address then
-                classes.[typ] <- { res with Address = Some clAddr }
-            else
-                extraClassAddresses.[typ] <- clAddr.Value
+            try 
+                if Option.isSome res.Address then
+                    classes.[typ] <- { res with Address = Some clAddr }
+                else
+                    extraClassAddresses.[typ] <- clAddr.Value
+            with _ ->
+                printerrf "Duplicate client-side representation found for type: %s" typ.Value.AssemblyQualifiedName
 
         // split to resolve steps
         let stronglyNamedClasses = ResizeArray()
@@ -1298,8 +1319,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Quotation (pos, argNames) -> 
                             match m with 
                             | M.Method (mdef, _) ->                     
-                                try quotations |> add pos (typ, mdef, argNames)
-                                with e ->
+                                try 
+                                    quotations.Add(pos, (typ, mdef, argNames))
+                                with _ ->
                                     printerrf "Cannot have two instances of quoted JavaScript code at the same location of files with the same name: %s (%i, %i - %i, %i)"
                                         pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
                             | _ -> failwith "Quoted javascript code must be inside a method"
@@ -1326,25 +1348,19 @@ type Compilation(meta: Info, ?hasGraph) =
                     | M.Constructor (cDef, nr) ->
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled && Option.isNone cc.StaticConstructor then
-                            try
-                                let isPure =
-                                    nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
-                            with _ ->
-                                printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
+                            let isPure =
+                                nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                            cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
                         else 
                             compilingConstructors |> add (typ, cDef) (toCompilingMember nr comp, addCctorCall typ cc nr.Body)
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled && Option.isNone cc.StaticConstructor then
-                            try
-                                let isPure =
-                                    nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Methods |> add mDef (comp, opts isPure nr, nr.Body)
-                            with _ ->
-                                printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
+                            let isPure =
+                                nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                            cc.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Body)
                         else 
-                            compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, addCctorCall typ cc nr.Body)
+                            compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, addCctorCall typ cc nr.Body)
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
                     Dict.addToMulti remainingStaticMembers typ m
@@ -1413,9 +1429,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods |> add mDef (comp, opts isPure nr, nr.Body)
+                    res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Body)
                 else
-                    compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
+                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 let cls = classes.[typ]
@@ -1445,9 +1461,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods |> add mDef (comp, opts isPure nr, nr.Body)
+                        res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Body)
                     else
-                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
+                        compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body)
             | _ -> failwith "Invalid instance member kind"   
 
         let getClassAddress typ =
@@ -1458,7 +1474,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | Some a -> a
             | _ ->
                 let a = r.ClassAddress(typ.Value.FullName.Split('.') |> List.ofArray |> List.rev, false).Value    
-                extraClassAddresses |> add typ a
+                extraClassAddresses |> addType typ a
                 a
                                      
         for typ, m, sn in fullyNamedStaticMembers do
@@ -1492,7 +1508,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             HasWSPrototype = false
                             Macros = []
                         }
-                    classes |> add td cls
+                    classes |> addType td cls
                     cls
             cls.QuotedArgMethods |> add m args
               
