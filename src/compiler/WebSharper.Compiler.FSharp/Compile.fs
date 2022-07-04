@@ -44,7 +44,7 @@ let createAssemblyResolver (config : WsConfig) =
             .SearchDirectories([compilerDir])
     aR
 
-let handleCommandResult logger config warnSettings stageName cmdRes =  
+let handleCommandResult logger config warnSettings stageName exitContext cmdRes =  
     let res =
         match cmdRes with
         | C.Ok -> 0
@@ -55,6 +55,8 @@ let handleCommandResult logger config warnSettings stageName cmdRes =
             else
                 errors |> List.iter (PrintGlobalError logger)
                 1
+    if exitContext then
+        logger.ExitContext()
     logger.TimedStage stageName
     res
 
@@ -286,6 +288,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage "Bundling"
         0
     | Some Html ->
+        logger.Out "Start writing offline sitelet"
+        logger.EnterContext()
         let rm = comp.ToRuntimeMetadata()
         let runtimeMeta = 
             { rm with
@@ -295,12 +299,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         |> Seq.append [ rm.Dependencies ]
                     ).GetData()
             }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet"
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet" true
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking"
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking" false
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
             1
