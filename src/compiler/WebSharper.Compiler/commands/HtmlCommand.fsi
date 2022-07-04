@@ -56,6 +56,8 @@ module HtmlCommand =
             DownloadResources : bool
 
             Metadata : WebSharper.Core.Metadata.Info
+
+            Logger : LoggerBase
         }
 
         /// Configures with default options.

@@ -195,7 +195,7 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
                         |> Seq.append [ rm.Dependencies ]
                     ).GetData()
             }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult "Writing offline sitelets"
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult "Finished writing offline sitelet"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with

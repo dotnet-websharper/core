@@ -53,6 +53,7 @@ type Config =
         UnpackSourceMap : bool
         UnpackTypeScript : bool
         Metadata: M.Info
+        Logger: LoggerBase
     }
 
     member this.OutputDirectory =
@@ -409,6 +410,7 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
     // Write contents
     async {
         let! results = contents ()
+        config.Logger.TimedStage "Starting file generation"
         for rC in results do
             // Define context
             let context =
@@ -442,6 +444,7 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
             let! response = rC.Respond context
             use stream = createFile config rC.Path
             do! contentHelper stream context response |> Async.AwaitTask
+            config.Logger.TimedStage <| sprintf "Generating %s" (P.ShowPath rC.Path)
         // Write resources determined to be necessary.
         writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
     }
