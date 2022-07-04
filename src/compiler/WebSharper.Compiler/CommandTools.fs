@@ -348,7 +348,7 @@ module ExecuteCommands =
 
     let Html settings meta (logger: LoggerBase) =
         let outputDir = HtmlOutputDirectory settings
-        sprintf "Generating static site into %s" outputDir
+        sprintf "Generating static site into %s" (Uri(outputDir).LocalPath)
         |> logger.Out
         let main = settings.AssemblyFile
         let refs = List.ofArray settings.References
@@ -363,6 +363,7 @@ module ExecuteCommands =
                     UnpackTypeScript = settings.TypeScript
                     DownloadResources = settings.DownloadResources |> Option.defaultValue false
                     Metadata = meta
+                    Logger = logger
             }
         let env = Compiler.Commands.Environment.Create()
         Compiler.HtmlCommand.Instance.Execute(env, cfg)

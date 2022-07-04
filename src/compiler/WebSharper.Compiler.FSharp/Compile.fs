@@ -295,7 +295,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         |> Seq.append [ rm.Dependencies ]
                     ).GetData()
             }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet"
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with

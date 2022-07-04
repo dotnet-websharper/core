@@ -44,6 +44,7 @@ type HtmlCommand() =
             Extra.CopyFiles
                 options.ProjectDirectory
                 options.OutputDirectory
+            options.Logger.TimedStage "Finished copying extra.files"
             let scriptDir =
                 System.IO.Path.Combine(options.OutputDirectory, "Scripts")
                 |> Directory.CreateDirectory
@@ -74,10 +75,14 @@ type HtmlCommand() =
                                 file
                 let (sitelet, actions) = loadSite options.MainAssemblyPath
 
+                options.Logger.TimedStage "Finished loading assemblies"
+
                 if options.DownloadResources then
                     let assemblies = [options.MainAssemblyPath] @ options.ReferenceAssemblyPaths
                     for p in assemblies do
                         D.DownloadResource p options.OutputDirectory |> errors.AddRange
+
+                    options.Logger.TimedStage "Finished downloading resources"
 
                 // Write site content.
                 Output.WriteSite aR {
@@ -87,6 +92,7 @@ type HtmlCommand() =
                     UnpackSourceMap = options.UnpackSourceMap
                     UnpackTypeScript = options.UnpackTypeScript
                     Metadata = options.Metadata
+                    Logger = options.Logger
                 }
                 |> Async.RunSynchronously
             

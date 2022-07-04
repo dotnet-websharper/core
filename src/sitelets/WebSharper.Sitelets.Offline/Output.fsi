@@ -37,6 +37,7 @@ type Config =
         UnpackSourceMap : bool
         UnpackTypeScript : bool
         Metadata: WebSharper.Core.Metadata.Info
+        Logger: LoggerBase
     }
 
 /// Writes a site given the configuration options.
