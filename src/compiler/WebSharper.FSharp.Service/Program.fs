@@ -133,16 +133,16 @@ let startListening() =
                 // all compilation output goes through a logger. This in standalone mode goes to stdout and stderr
                 // in service compilation it's proxied through a NamedPipeStream. prefixed with n: or e: or x: (error code)
                 let logger = { new LoggerBase() with
-                        override _.Out s =
+                        override x.Out s =
                             let sendOut = sprintf "n: %s" |> send
                             let asyncValue = 
-                                s
+                                x.Indent s
                                 |> sendOut
                             Async.RunSynchronously(asyncValue, cancellationToken = token)
-                        override _.Error s =
+                        override x.Error s =
                             let sendErr = sprintf "e: %s" |> send
                             let asyncValue = 
-                                s
+                                x.Indent s
                                 |> sendErr
                             Async.RunSynchronously(asyncValue, cancellationToken = token)
                     }
