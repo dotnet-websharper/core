@@ -85,16 +85,19 @@ type HtmlCommand() =
                     options.Logger.TimedStage "Finished downloading resources"
 
                 // Write site content.
-                Output.WriteSite aR {
-                    Sitelet = sitelet
-                    Options = options
-                    Actions = actions
-                    UnpackSourceMap = options.UnpackSourceMap
-                    UnpackTypeScript = options.UnpackTypeScript
-                    Metadata = options.Metadata
-                    Logger = options.Logger
-                }
-                |> Async.RunSynchronously
+                let writeErrors =
+                    Output.WriteSite aR {
+                        Sitelet = sitelet
+                        Options = options
+                        Actions = actions
+                        UnpackSourceMap = options.UnpackSourceMap
+                        UnpackTypeScript = options.UnpackTypeScript
+                        Metadata = options.Metadata
+                        Logger = options.Logger
+                    }
+                    |> Async.RunSynchronously
+
+                errors.AddRange writeErrors
             
             finally
                 aR.Remove()

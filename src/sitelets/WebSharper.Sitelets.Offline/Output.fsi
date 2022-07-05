@@ -41,4 +41,4 @@ type Config =
     }
 
 /// Writes a site given the configuration options.
-val WriteSite : AssemblyResolver -> config: Config -> Async<unit>
+val WriteSite : AssemblyResolver -> config: Config -> Async<string seq>
