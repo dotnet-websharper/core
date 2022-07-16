@@ -66,7 +66,7 @@ module Sitelet =
                             {
                                 Status = Http.Status.NotFound
                                 Headers = []
-                                WriteBody = ignore
+                                WriteBody = Http.EmptyBody
                             }
                 }
         }
@@ -124,6 +124,21 @@ module Sitelet =
                                 return! failure ctx
                         }
                 }
+        }
+
+    /// Constructs a singleton sitelet that contains exactly one endpoint with CORS support
+    /// and serves a single content value at a given location.
+    let CorsContent (location: string) (endpoint: 'T) allows (cnt: Context<'T> -> Async<Content<'T>>) =
+        {
+            Router = Router.Single endpoint location |> RouterOperators.rCors
+            Controller = { Handle = fun ep ->
+                Content.CustomContentAsync <| fun ctx -> async {
+                    let cctx = Context.Map Cors.Of ctx 
+                    let! ccnt = 
+                        Content.Cors ep allows (fun _ -> cnt cctx)
+                    return! Content.ToResponse ccnt cctx
+                }
+            }
         }
 
     /// Constructs a singleton sitelet that contains exactly one endpoint
@@ -248,8 +263,7 @@ module Sitelet =
             Router = IRouter.Box sitelet.Router
             Controller =
                 { Handle = fun a ->
-                    C.CustomContentAsync <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle (unbox a)) (Context.Map box ctx)
+                    (sitelet.Controller.Handle (unbox a)).Box()
                 }
         }
 
@@ -261,8 +275,7 @@ module Sitelet =
             Router = IRouter.Unbox sitelet.Router
             Controller =
                 { Handle = fun a ->
-                    C.CustomContentAsync <| fun ctx ->
-                        C.ToResponse (sitelet.Controller.Handle (box a)) (Context.Map unbox ctx)
+                    C.Unbox<'T> (sitelet.Controller.Handle (box a))
                 }
         }
 
@@ -325,6 +338,41 @@ module Sitelet =
 
 type RouteHandler<'T> = delegate of Context<obj> * 'T -> Task<CSharpContent> 
 
+type CorsBuilder(corsAllows: CorsAllows) =
+    let mutable corsAllows = corsAllows
+
+    member this.WithOrigins([<ParamArray>] origins: string[]) =
+        corsAllows <- { corsAllows with Origins = List.ofArray origins @ corsAllows.Origins}    
+        this
+
+    member this.WithMethods([<ParamArray>] methods: string[]) =
+        corsAllows <- { corsAllows with Methods = List.ofArray methods @ corsAllows.Methods}    
+        this
+
+    member this.WithHeaders([<ParamArray>] headers: string[]) =
+        corsAllows <- { corsAllows with Headers = List.ofArray headers @ corsAllows.Headers}    
+        this
+
+    member this.WithExposeHeaders([<ParamArray>] exposeHeaders: string[]) =
+        corsAllows <- { corsAllows with ExposeHeaders = List.ofArray exposeHeaders @ corsAllows.ExposeHeaders}    
+        this
+
+    member this.WithMaxAge(maxAge: int) =
+        corsAllows <- { corsAllows with MaxAge = Some maxAge }
+        this
+
+    member this.WithCredentials() =
+        corsAllows <- { corsAllows with Credentials = true }
+        this
+
+    member internal this.CorsAllows = corsAllows
+
+    static member internal FuncOf(cors: Action<CorsBuilder>) =
+        fun corsAllows ->
+            let corsBuilder = CorsBuilder(corsAllows)
+            cors.Invoke(corsBuilder)
+            corsBuilder.CorsAllows
+
 [<CompiledName "Sitelet"; Sealed>]
 type CSharpSitelet =
         
@@ -340,6 +388,9 @@ type CSharpSitelet =
 
     static member Content (location: string, endpoint: 'T, cnt: Func<Context<'T>, Task<Content<'T>>>) =
         Sitelet.Content location endpoint (cnt.Invoke >> Async.AwaitTask) 
+        
+    static member CorsContent (location: string, endpoint: 'T, cors: Action<CorsBuilder>, cnt: Func<Context<'T>, Task<Content<'T>>>) =
+        Sitelet.CorsContent location endpoint (CorsBuilder.FuncOf cors) (cnt.Invoke >> Async.AwaitTask) 
         
     static member Sum ([<ParamArray>] sitelets: Sitelet<'T>[]) =
         Sitelet.Sum sitelets
@@ -403,12 +454,41 @@ type SiteletBuilder() =
                 })
         this
 
+    member this.WithCors<'T when 'T : equality>(cors: Action<CorsBuilder>, content: Func<Context, 'T, Task<CSharpContent>>) =
+        sitelets.Add <|
+            Sitelet.InferPartial
+                box
+                tryUnbox<Cors<'T>>
+                (fun ctx endpoint ->
+                    Content.Cors endpoint (CorsBuilder.FuncOf cors) (fun endpoint ->
+                        async {
+                            let! content =
+                                content.Invoke(Context(ctx), endpoint)
+                                |> Async.AwaitTask
+                            return
+                                match content.AsContent with
+                                | CustomContent f -> CustomContent (f << Context.Map box)
+                                | CustomContentAsync f -> CustomContentAsync (f << Context.Map box)
+                        }
+                    )
+                )
+        this
+
     member this.With(path: string, content: Func<Context, Task<CSharpContent>>) =
         let content ctx =
             content.Invoke(Context(ctx))
                 .ContinueWith(fun (t: Task<CSharpContent>) -> t.Result.AsContent)
             |> Async.AwaitTask
         sitelets.Add <| Sitelet.Content path (box path) content
+        this
+
+    member this.WithCors(path: string, cors: Action<CorsBuilder>, content: Func<Context, Task<CSharpContent>>) =
+        let content ctx =
+            content.Invoke(Context(ctx))
+                .ContinueWith(fun (t: Task<CSharpContent>) -> t.Result.AsContent)
+            |> Async.AwaitTask
+        let cc = Sitelet.CorsContent path (box path) (CorsBuilder.FuncOf cors) content |> Sitelet.Box
+        sitelets.Add <| cc
         this
 
     member this.Install() =

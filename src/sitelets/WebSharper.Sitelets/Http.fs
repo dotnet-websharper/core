@@ -257,10 +257,16 @@ module Http =
                 | None -> ""
             def n m
 
+    type ResponseBody = 
+        | EmptyBody
+        | WriteBody of (Stream -> unit)
+        | WriteBodyAsync of (Stream -> Task)
+        | MvcBody of obj
+
     //// Represents HTTP responses.
     type Response =
         {
             Status : Status
             Headers : seq<Header>
-            WriteBody : Stream -> unit
+            WriteBody : ResponseBody
         }

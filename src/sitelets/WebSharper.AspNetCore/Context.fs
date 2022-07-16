@@ -234,6 +234,7 @@ let Make (httpCtx: HttpContext) (options: WebSharperOptions, sitelet: Sitelet<'T
         ResourceContext = resCtx,
         Request = req,
         RootFolder = options.ContentRootPath,
+        WebRootFolder = options.WebRootPath,
         UserSession = UserSession(httpCtx, options)
     )
 
@@ -250,6 +251,7 @@ let MakeSimple (httpCtx: HttpContext) (options: WebSharperOptions) =
         member this.ResourceContext = resCtx
         member this.RequestUri = uri
         member this.RootFolder = options.ContentRootPath
+        member this.WebRootFolder = options.WebRootPath
         member this.UserSession = UserSession(httpCtx, options) :> _
     }
 

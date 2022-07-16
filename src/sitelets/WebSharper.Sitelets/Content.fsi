@@ -36,6 +36,12 @@ type Content<'Endpoint> =
     /// Generates an HTTP response.
     static member ToResponse<'T> : Content<'T> -> Context<'T> -> Async<Http.Response>        
 
+    /// Boxes endpoint type.
+    member Box : unit -> Content<obj>
+
+    /// Unboxes endpoint type.
+    static member Unbox : Content<obj> -> Content<'T>
+
     /// Creates a JSON content from the given object.
     static member Json : 'U -> Async<Content<'Endpoint>>
 
@@ -56,6 +62,9 @@ type Content<'Endpoint> =
     /// Creates a content that serves a file from disk.
     static member File : path: string * ?AllowOutsideRootFolder: bool * ?ContentType: string -> Async<Content<'Endpoint>>
 
+    /// Creates a content from an object to be handled same as ASP.NET MVC, accepts string, IActionResult and serializable objects.
+    static member MvcResult : result: obj -> Async<Content<'Endpoint>>
+
     /// Creates a custom content.
     static member Custom : Http.Response -> Async<Content<'Endpoint>>
 
@@ -66,7 +75,12 @@ type Content<'Endpoint> =
         * ?WriteBody: (System.IO.Stream -> unit)
         -> Async<Content<'Endpoint>>
     
-    //interface IActionResult
+    /// Creates a custom content with async response stream writer.
+    static member CustomAsync
+        : ?Status: Http.Status
+        * ?Headers: seq<Http.Header>
+        * ?WriteBody: (System.IO.Stream -> Task)
+        -> Async<Content<'Endpoint>>
 
 /// Provides combinators for modifying content.
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -231,6 +245,11 @@ type CSharpContent =
         * [<Optional>] ContentType: string
         -> Task<CSharpContent>
 
+    /// Creates a content from an object to be handled same as ASP.NET MVC, accepts string, IActionResult and serializable objects.
+    static member MvcResult 
+        : result: obj 
+        -> Task<CSharpContent>
+
     /// Creates a custom content.
     static member Custom
         : Http.Response
@@ -241,6 +260,13 @@ type CSharpContent =
         : [<Optional>] Status: Http.Status
         * [<Optional>] Headers: seq<Http.Header>
         * [<Optional>] WriteBody: Action<IO.Stream>
+        -> Task<CSharpContent>
+
+    /// Creates a custom content with async stream writer.
+    static member CustomAsync
+        : [<Optional>] Status: Http.Status
+        * [<Optional>] Headers: seq<Http.Header>
+        * [<Optional>] WriteBody: Func<IO.Stream, Task>
         -> Task<CSharpContent>
 
     /// Creates Content that depends on the Sitelet context.

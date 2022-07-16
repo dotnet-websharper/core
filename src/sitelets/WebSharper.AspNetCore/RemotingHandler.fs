@@ -110,7 +110,7 @@ let HttpHandler () : RemotingHttpHandler =
                 let options =
                     WebSharperBuilder(httpCtx.RequestServices)
                         .UseSitelets(false)
-                        .Build(Assembly.GetCallingAssembly())
+                        .Build()
                 let getRemotingHandler (t: Type) =
                     let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
                     match service with

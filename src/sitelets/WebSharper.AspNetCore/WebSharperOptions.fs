@@ -47,6 +47,7 @@ type WebSharperOptions
         config: IConfiguration,
         logger: ILogger,
         contentRoot: string,
+        webRoot: string,
         useMinifiedScripts: bool,
         sitelet: option<Sitelet<obj>>,
         metadata: M.Info,
@@ -79,6 +80,8 @@ type WebSharperOptions
     
     member this.ContentRootPath = contentRoot
 
+    member this.WebRootPath = webRoot
+
     member this.Sitelet = sitelet
 
     member internal this.UseExtension = useExtension
@@ -88,6 +91,7 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _sitelet = None
     let mutable _siteletAssembly = None
     let mutable _contentRootPath = None
+    let mutable _webRootPath = None
     let mutable _metadata = None
     let mutable _config = None
     let mutable _useMinifiedScripts = None
@@ -139,6 +143,12 @@ type WebSharperBuilder(services: IServiceProvider) =
         _contentRootPath <- Some contentRootPath
         this
 
+    /// <summary>Defines the web root path to be used by WebSharper.</summary>
+    /// <remarks>Default: IHostingEnvironment.WebRootPath.</remarks>
+    member this.WebRootPath(webRootPath: string) =
+        _webRootPath <- Some webRootPath
+        this
+
     /// <summary>Defines the logger for WebSharper internal messages.</summary>
     member this.Logger(logger: ILogger) =
         _logger <- Some logger
@@ -182,16 +192,25 @@ type WebSharperBuilder(services: IServiceProvider) =
                 useExtension.Invoke(appBuilder, options)
 
     /// Builds WebSharper options.
-    member internal this.Build(defaultSiteletAssembly: Assembly) =
+    member internal this.Build() =
 
         let config =
             _config |> Option.defaultWith (fun () ->
                 services.GetRequiredService<IConfiguration>().GetSection("websharper") :> IConfiguration 
             )
 
+        let hostingEnvironment =
+            lazy
+            services.GetRequiredService<IHostingEnvironment>()
+
         let contentRootPath = 
             _contentRootPath |> Option.defaultWith (fun () ->
-                services.GetRequiredService<IHostingEnvironment>().ContentRootPath
+                hostingEnvironment.Value.ContentRootPath
+            )
+
+        let webRootPath = 
+            _webRootPath |> Option.defaultWith (fun () ->
+                hostingEnvironment.Value.WebRootPath
             )
 
         let useMinifiedScripts =
@@ -208,20 +227,23 @@ type WebSharperBuilder(services: IServiceProvider) =
                 | l -> l :> ILogger
             )
 
+        let wsService = 
+            lazy
+            match services.GetService(typeof<IWebSharperService>) with
+            | :? IWebSharperService as s -> s
+            | _ ->
+                failwith "IWebSharperService not found. Use AddWebSharper in your ConfigureServices."
+        
         let siteletAssembly = 
-            _siteletAssembly |> Option.defaultValue defaultSiteletAssembly
+            lazy
+            _siteletAssembly |> Option.defaultWith (fun () -> wsService.Value.DefaultAssembly)
 
         let metadata, dependencies, json =
             match _metadata with
             | Some m ->
                 m, Graph.FromData m.Dependencies, J.Provider.CreateTyped m
             | None ->
-                let wsService = 
-                    match services.GetService(typeof<IWebSharperService>) with
-                    | :? IWebSharperService as s -> s
-                    | _ ->
-                        failwith "IWebSharperService not found. Use AddWebSharper in your ConfigureServices."
-                wsService.GetWebSharperMeta(siteletAssembly, logger)
+                wsService.Value.GetWebSharperMeta(siteletAssembly.Value, logger)
 
         let timedInfo (message: string) action =
             if logger.IsEnabled(LogLevel.Information) then
@@ -242,11 +264,11 @@ type WebSharperBuilder(services: IServiceProvider) =
                 | _ ->
                     let s =
                         timedInfo "Sitelet discovered via reflection " (fun () -> 
-                            WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly
+                            WebSharper.Sitelets.Loading.DiscoverSitelet siteletAssembly.Value
                         )
                     match s with
                     | None ->
-                        failwithf "Failed to discover sitelet in assembly %s. Mark a static property/value with the Website attribute or specify sitelet via WebSharperBuilder.Sitelet." siteletAssembly.FullName
+                        failwithf "Failed to discover sitelet in assembly %s. Mark a static property/value with the Website attribute or specify sitelet via WebSharperBuilder.Sitelet." siteletAssembly.Value.FullName
                     | res ->
                         logger.LogWarning("WebSharper sitelet loaded via reflection. It is recommended to pass sitelet object instead in WebSharperBuilder.UseSitelet.")
                         res
@@ -257,6 +279,7 @@ type WebSharperBuilder(services: IServiceProvider) =
             config, 
             logger,
             contentRootPath, 
+            webRootPath, 
             useMinifiedScripts,
             sitelet, 
             metadata, 

@@ -1107,7 +1107,25 @@ type Compilation(meta: Info, ?hasGraph) =
             try 
                 d.Add(k, v)
             with _ ->
-                printerrf "Unexpected error in name resolver, key already added: %A" k
+                printerrf "Duplicate client-side representation found for member: %A" k
+
+        let addType (k: TypeDefinition) v (d: IDictionary<_,_>) =
+            try 
+                d.Add(k, v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for type: %s" k.Value.AssemblyQualifiedName
+
+        let addMethod (t: TypeDefinition) (k: Method) v (d: IDictionary<_,_>) =
+            try 
+                d.Add(k, v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for method: %s.%s" t.Value.FullName k.Value.MethodName
+
+        let addCMethod (t: TypeDefinition, m: Method) v (d: IDictionary<_,_>) =
+            try 
+                d.Add((t, m), v)
+            with _ ->
+                printerrf "Duplicate client-side representation found for method: %s.%s" t.Value.FullName m.Value.MethodName
 
         let stronglyNamedTypes = ResizeArray()
         let remainingTypes = ResizeArray()
@@ -1175,7 +1193,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = nr.Generics
                     Type = nr.Type
                 }
-            interfaces.Add(typ, resNode)
+            interfaces |> addType typ resNode
             match nr.StrongName with
             | Some sn ->
                 stronglyNamedTypes.Add (typ, sn, false)
@@ -1268,10 +1286,10 @@ type Compilation(meta: Info, ?hasGraph) =
             
             match notResolvedCustomTypes.TryFind typ with
             | Some ct ->
-                classes.Add(typ, (Address.Empty(), ct, Some resCls))
+                classes |> addType typ (Address.Empty(), ct, Some resCls)
                 notResolvedCustomTypes.Remove typ |> ignore
             | _ ->
-                classes.Add(typ, (Address.Empty(), NotCustomType, Some resCls))
+                classes |> addType typ (Address.Empty(), NotCustomType, Some resCls)
             
             // set up dependencies
             if hasGraph then
@@ -1523,8 +1541,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.Quotation (pos, argNames) -> 
                             match m with 
                             | M.Method (mdef, _) ->                     
-                                try quotations |> add pos (typ, mdef, argNames)
-                                with e ->
+                                try 
+                                    quotations.Add(pos, (typ, mdef, argNames))
+                                with _ ->
                                     printerrf "Cannot have two instances of quoted JavaScript code at the same location of files with the same name: %s (%i, %i - %i, %i)"
                                         pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
                             | _ -> failwith "Quoted javascript code must be inside a method"
@@ -1569,25 +1588,19 @@ type Compilation(meta: Info, ?hasGraph) =
                         hasInlinedCtor <- true
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled && Option.isNone cc.StaticConstructor then
-                            try
-                                let isPure =
-                                    nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Constructors.Add (cDef, (comp, opts isPure nr, nr.Body))
-                            with _ ->
-                                printerrf "Duplicate definition for constructor of %s" typ.Value.FullName
+                            let isPure =
+                                nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                            cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
                         else 
                             compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))      
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled && Option.isNone cc.StaticConstructor then
-                            try
-                                let isPure =
-                                    nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                                cc.Methods.Add (mDef, (comp, opts isPure nr, nr.Generics, nr.Body))
-                            with _ ->
-                                printerrf "Duplicate definition for method %s.%s" typ.Value.FullName mDef.Value.MethodName
+                            let isPure =
+                                nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                            cc.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                         else 
-                            compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.Generics, addCctorCall typ cc nr.Body)) 
+                            compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ cc nr.Body)
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
                     match m with 
@@ -1701,9 +1714,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled && Option.isNone res.StaticConstructor then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods.Add(mDef, (comp, opts isPure nr, nr.Generics, nr.Body))
+                    res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                 else
-                    compilingMethods.Add((typ, mDef), (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body))
+                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body)
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 updateClass typ (fun cls -> { cls with StaticConstructor = Some (la, Undefined) })
@@ -1747,7 +1760,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
+                        res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
                     else
                         compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body) trd
             | _ -> failwith "Invalid instance member kind"   
@@ -1792,7 +1805,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             Implements = []
                             Type = None
                         }
-                    classes.Add(td, (this.LocalAddress a, NotCustomType, Some cls))
+                    classes |> addType td (this.LocalAddress a, NotCustomType, Some cls)
                     cls
             cls.QuotedArgMethods |> add m args
 

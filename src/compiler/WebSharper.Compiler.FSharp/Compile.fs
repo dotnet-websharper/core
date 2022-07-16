@@ -44,7 +44,7 @@ let createAssemblyResolver (config : WsConfig) =
             .SearchDirectories([compilerDir])
     aR
 
-let handleCommandResult logger config warnSettings stageName cmdRes =  
+let handleCommandResult logger config warnSettings stageName exitContext cmdRes =  
     let res =
         match cmdRes with
         | C.Ok -> 0
@@ -55,10 +55,14 @@ let handleCommandResult logger config warnSettings stageName cmdRes =
             else
                 errors |> List.iter (PrintGlobalError logger)
                 1
+    if exitContext then
+        logger.ExitContext()
     logger.TimedStage stageName
     res
 
 let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase) (checkerFactory: unit -> FSharpChecker) (tryGetMetadata: Assembly -> Result<WebSharper.Core.Metadata.Info, string> option) =    
+    config.ArgWarnings |> List.iter (PrintGlobalWarning warnSettings logger)
+    
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
     
@@ -226,7 +230,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     
             let runtimeMeta =
                 match config.ProjectType with
-                | Some (Bundle | Website) -> Some (config.RuntimeMetadata, getRefMetas())
+                | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, getRefMetas())
                 | _ -> None
 
             let js, currentMeta, sources =
@@ -284,6 +288,8 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         logger.TimedStage "Bundling"
         0
     | Some Html ->
+        logger.Out "Start writing offline sitelet"
+        logger.EnterContext()
         let rm = comp.ToRuntimeMetadata()
         let runtimeMeta = 
             { rm with
@@ -293,12 +299,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                         |> Seq.append [ rm.Dependencies ]
                     ).GetData()
             }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Writing offline sitelets"
+        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet" true
     | Some Website
     | _ when Option.isSome config.OutputDir ->
         match ExecuteCommands.GetWebRoot config with
         | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking"
+            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking" false
         | None ->
             PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
             1
@@ -408,9 +414,7 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
             Resources = resources.ToArray()
             CompilerArgs = fscArgs.ToArray() 
         }
-    wsArgs := SetDefaultProjectFile !wsArgs true
-    wsArgs := SetScriptBaseUrl !wsArgs
-
+    wsArgs := SetDefaults true !wsArgs
 
     ParsedOptions (!wsArgs, !warn)
 

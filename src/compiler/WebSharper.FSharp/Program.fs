@@ -52,7 +52,16 @@ let main(argv) =
     nLogger.Debug "Debug level is on"
     let argv = formatArgv argv
     let logger = ConsoleLogger()   
-    let parsedOptions = ParseOptions argv logger
+    let parsedOptions = 
+        try
+            ParseOptions argv logger
+        with
+        | ArgumentError msg ->
+            PrintGlobalError logger msg
+            exit 1
+        | e -> 
+            PrintGlobalError logger (sprintf "Global error: %A" e)
+            exit 1
     match parsedOptions with
     | HelpOrCommand r ->
         r
@@ -75,7 +84,7 @@ let main(argv) =
             try StandAloneCompile wsConfig warnSettings logger createChecker tryGetMetadata
             with 
             | ArgumentError msg -> 
-                PrintGlobalError logger (msg + " - args: " + (argv |> String.concat " "))
+                PrintGlobalError logger msg
                 1
             | e -> 
                 PrintGlobalError logger (sprintf "Global error: %A" e)

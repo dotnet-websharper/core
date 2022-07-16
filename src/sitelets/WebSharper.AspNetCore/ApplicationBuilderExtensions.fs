@@ -40,7 +40,7 @@ type ApplicationBuilderExtensions =
         ) =
         let builder = WebSharperBuilder(this.ApplicationServices)
         if not (isNull build) then build.Invoke(builder)
-        let options = builder.Build(Assembly.GetCallingAssembly())
+        let options = builder.Build()
         if options.UseRemoting then 
             this.Use(Remoting.Middleware options) |> ignore
         if options.UseSitelets then 

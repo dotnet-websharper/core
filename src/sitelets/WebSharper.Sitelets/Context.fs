@@ -32,6 +32,7 @@ type Context<'Action>
         ResourceContext : WebSharper.Core.Resources.Context,
         Request : Http.Request,
         RootFolder : string,
+        WebRootFolder : string,
         UserSession : WebSharper.Web.IUserSession,
         Environment : IDictionary<string, obj>
     ) =
@@ -46,12 +47,13 @@ type Context<'Action>
     member this.Request = Request
     override this.RequestUri = Request.Uri
     override this.RootFolder = RootFolder
+    override this.WebRootFolder = WebRootFolder
     override this.UserSession = UserSession
     override this.Environment = Environment
 
 type Context(ctx: Context<obj>) =
     inherit Context<obj>(ctx.ApplicationPath, ctx.Link, ctx.Json, ctx.Metadata, ctx.Dependencies,
-        ctx.ResourceContext, ctx.Request, ctx.RootFolder, ctx.UserSession, ctx.Environment)
+        ctx.ResourceContext, ctx.Request, ctx.RootFolder, ctx.WebRootFolder, ctx.UserSession, ctx.Environment)
 
     static member Map (f: 'T2 -> 'T1) (ctx: Context<'T1>) : Context<'T2> =
         Context<'T2>(
@@ -63,6 +65,7 @@ type Context(ctx: Context<obj>) =
             ResourceContext = ctx.ResourceContext,
             Request = ctx.Request,
             RootFolder = ctx.RootFolder,
+            WebRootFolder = ctx.WebRootFolder,
             UserSession = ctx.UserSession,
             Environment = ctx.Environment
         )
@@ -82,6 +85,7 @@ type Context(ctx: Context<obj>) =
             { ctx.ResourceContext with GetSetting = getSetting },
             ctx.Request,
             ctx.RootFolder,
+            ctx.WebRootFolder,
             ctx.UserSession,
             ctx.Environment
         )

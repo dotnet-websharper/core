@@ -25,6 +25,7 @@ open System.Collections.Generic
 open System.IO
 open System.Reflection
 open System.Text
+open System.Threading.Tasks
 open System.Text.RegularExpressions
 open System.Web
 open Mono.Cecil
@@ -52,6 +53,7 @@ type Config =
         UnpackSourceMap : bool
         UnpackTypeScript : bool
         Metadata: M.Info
+        Logger: LoggerBase
     }
 
     member this.OutputDirectory =
@@ -299,6 +301,7 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
             ResourceContext = resContext,
             Request = Http.Request.Empty locationString,
             RootFolder = projectFolder,
+            WebRootFolder = projectFolder,
             UserSession = IUserSession.NotAvailable,
             Environment = Map []
         )
@@ -349,62 +352,89 @@ let resolveContent (projectFolder: string) (rootFolder: string) (st: State) (loc
 let trimPath (path: string) =
     path.TrimStart('/')
 
+let rec mvcContentHelper (stream: Stream) (context: Context<obj>) (content: obj) =
+    task {
+        match content with
+        | :? string as stringContent ->
+            let w = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+            do! w.WriteAsync(stringContent)
+        | _ ->
+            let contentType = content.GetType()
+            if contentType.IsGenericType && contentType.GetGenericTypeDefinition() = typedefof<Task<_>> then
+                let contentTask = content :?> Task
+                do! contentTask
+                let contentResult =
+                    let resultGetter = contentType.GetProperty("Result")
+                    resultGetter.GetMethod.Invoke(contentTask, [||])
+                return! mvcContentHelper stream context contentResult
+            else
+                let w = new System.IO.StreamWriter(stream, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
+                let json = WebSharper.Json.Serialize content
+                do! w.WriteAsync(json)
+    }
+
+and contentHelper (stream: Stream) (context: Context<obj>) (rsp: Http.Response) =
+    task {
+        match rsp.WriteBody with
+        | Http.EmptyBody ->
+            ()
+        | Http.WriteBody write ->
+            write stream
+        | Http.WriteBodyAsync write ->
+            do! write stream
+        | Http.MvcBody mvcObj ->
+            do! mvcContentHelper stream context mvcObj
+    }
+
 let WriteSite (aR: AssemblyResolver) (config: Config) =
     let st = State(config)
-    let actionTable = Dictionary()
-    let urlTable = Dictionary()
     let projectFolder = config.Options.ProjectDirectory
     let rootFolder = config.Options.OutputDirectory
-    let contents () =
-        async {
-            let res = ResizeArray()
-            for action in config.Actions do
-                match config.Sitelet.Router.Link(action) with
-                | Some location ->
+    let errors = ResizeArray<string>()
+    // Write contents
+    async {
+        config.Logger.TimedStage "Starting file generation"
+        for action in config.Actions do
+            match config.Sitelet.Router.Link(action) with
+            | Some location ->
+                try
                     let content = config.Sitelet.Controller.Handle(action)
                     let link action = config.Sitelet.Router.Link(action).Value.ToString()
                     let! rC = resolveContent projectFolder rootFolder st location link content
-                    do actionTable.[action] <- rC.Path
-                    do urlTable.[location] <- rC.Path
-                    do res.Add(rC)
-                | None -> ()
-            return res.ToArray()
-        }
-    // Write contents
-    async {
-        let! results = contents ()
-        for rC in results do
-            // Define context
-            let context =
-                new Context<_>(
-                    ApplicationPath = ".",
-                    Json = st.Json,
-                    Link = (fun action ->
-                        // First try to find from action table.
-                        match actionTable.TryGetValue(action) with
-                        | true, p -> rC.RelativePath + P.ShowPath p
-                        | false, _ ->
-                            // Otherwise, link to the action using the router
-                            match config.Sitelet.Router.Link action with
-                            | Some loc ->
-                                match urlTable.TryGetValue(loc) with
-                                | true, p -> rC.RelativePath + P.ShowPath p
-                                | false, _ -> rC.RelativePath + trimPath (string loc)
-                            | None ->
-                                let msg = "Failed to link to action from " + P.ShowPath rC.Path
-                                stdout.WriteLine("Warning: " + msg)
-                                "#"),
-                    Metadata = st.Metadata,
-                    Dependencies = st.Dependencies,
-                    ResourceContext = rC.ResourceContext,
-                    Request = Http.Request.Empty (P.ShowPath rC.Path),
-                    RootFolder = projectFolder,
-                    UserSession = IUserSession.NotAvailable,
-                    Environment = Map []
-                )
-            let! response = rC.Respond context
-            use stream = createFile config rC.Path
-            return response.WriteBody(stream)
+                    // Define context
+                    let context =
+                        new Context<_>(
+                            ApplicationPath = ".",
+                            Json = st.Json,
+                            Link = (fun action ->
+                                // Otherwise, link to the action using the router
+                                match config.Sitelet.Router.Link action with
+                                | Some loc ->
+                                    rC.RelativePath + trimPath (string loc)
+                                | None ->
+                                    let msg = "Failed to link to action from " + P.ShowPath rC.Path
+                                    config.Logger.Out("Warning: " + msg)
+                                    "#"),
+                            Metadata = st.Metadata,
+                            Dependencies = st.Dependencies,
+                            ResourceContext = rC.ResourceContext,
+                            Request = Http.Request.Empty (P.ShowPath rC.Path),
+                            RootFolder = projectFolder,
+                            WebRootFolder = projectFolder,
+                            UserSession = IUserSession.NotAvailable,
+                            Environment = Map []
+                        )
+                    let! response = rC.Respond context
+                    use stream = createFile config rC.Path
+                    do! contentHelper stream context response |> Async.AwaitTask
+                    config.Logger.TimedStage <| sprintf "Generating %s" (P.ShowPath rC.Path)
+                with ex ->
+                    let msg = sprintf "%A - %s\n%s" action ex.Message ex.StackTrace
+                    errors.Add(msg)
+            | None ->
+                let msg = sprintf "Could not link to action: %A" action
+                config.Logger.Out("Warning: " + msg)
         // Write resources determined to be necessary.
-        return writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
+        writeResources aR st config.UnpackSourceMap config.UnpackTypeScript
+        return errors :> seq<string>
     }

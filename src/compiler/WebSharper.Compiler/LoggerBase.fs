@@ -20,28 +20,39 @@
 
 namespace WebSharper.Compiler
 
-[<AbstractClass>]
 #if DEBUG
 type LoggerBase() as self =
     static let mutable currentLogger = Unchecked.defaultof<LoggerBase>
     do currentLogger <- self
 #else
-type LoggerBase() =
 #endif
+[<AbstractClass>]
+type LoggerBase() =
     
-    let mutable time = System.DateTime.Now     
+    let mutable timeStamps = [ System.DateTime.Now ]
+
+    member _.Indent (s: string) =
+        String.replicate (timeStamps.Length - 1) "  " + s
 
     abstract Error : string -> unit
     abstract Out : string -> unit
+    
+    member x.EnterContext() =
+        timeStamps <- timeStamps.Head :: timeStamps
+        
+    member x.ExitContext() =
+        timeStamps <- timeStamps.Tail
+
     member x.TimedStage name =
         let now = System.DateTime.Now
-        sprintf "%s: %O" name (now - time)
+        let lastTimestamp = timeStamps.Head
+        sprintf "%s: %O" name (now - lastTimestamp)
         |> x.Out
-        time <- now        
+        timeStamps <- now :: timeStamps.Tail        
 
     [<System.Diagnostics.Conditional "DEBUG">]
-    member _.DebugWrite x =
-        System.Diagnostics.Debug.WriteLine x
+    member x.DebugWrite s =
+        System.Diagnostics.Debug.WriteLine (x.Indent s)
 
 #if DEBUG
     static member Current
@@ -52,7 +63,7 @@ type LoggerBase() =
 type ConsoleLogger() =
     inherit LoggerBase()
     override x.Error s =
-        System.Console.Error.WriteLine(s)
+        System.Console.Error.WriteLine(x.Indent s)
 
     override x.Out s =
-        System.Console.Out.WriteLine(s)
+        System.Console.Out.WriteLine(x.Indent s)

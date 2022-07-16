@@ -400,7 +400,7 @@ module internal ServerRouting =
         if t.IsEnum then enumRouter t
         elif t.IsArray then arrayRouter t
         elif Reflection.FSharpType.IsTuple t then tupleRouter t
-        elif Reflection.FSharpType.IsRecord t then recordRouter t
-        elif Reflection.FSharpType.IsUnion t then unionRouter t
+        elif Reflection.FSharpType.IsRecord(t, flags) then recordRouter t
+        elif Reflection.FSharpType.IsUnion(t, flags) then unionRouter t
         elif t.Namespace = "System" then systemRouter t
         else classRouter t
