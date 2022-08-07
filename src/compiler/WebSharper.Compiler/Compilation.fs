@@ -1760,7 +1760,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     if nr.Compiled && Option.isNone res.StaticConstructor then 
                         let isPure = nr.Pure || isPureFunction nr.Body
-                        res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
+                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
                     else
                         compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body) trd
             | _ -> failwith "Invalid instance member kind"   
