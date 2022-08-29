@@ -97,7 +97,7 @@ let Activate<'T> (json: obj) : 'T =
             for i = 0 to types.Length - 1 do
                 types.[i] <- 
                     match As<string[]> types.[i] with
-                    | [| "WebSharper"; "List"; "T" |] -> box SpecialTypes.List
+                    | [| "WebSharper"; "List"; "T"; "$" |] -> box SpecialTypes.List
                     | [| "WebSharper"; "Decimal" |] -> box SpecialTypes.Decimal
                     | t -> lookup t
             json?("$DATA")

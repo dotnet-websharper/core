@@ -251,9 +251,8 @@ let jsFunctionMembers =
 
 let wsRuntimeFunctions =
     System.Collections.Generic.HashSet [
-        "Ctor"
         "Cctor"
-        "Class"
+        "Create"
         "Clone"
         "NewObject"
         "PrintObject"
