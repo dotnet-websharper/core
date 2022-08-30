@@ -217,6 +217,8 @@ and Expression =
     | Cast of TargetType:TSType * Expression:Expression
     /// JavaScript ES6 - class { ... }
     | ClassExpr of Name:option<string> * BaseClass:option<Expression> * Members:list<Statement>
+    /// .NET - F# object expression
+    | ObjectExpr of ObjectType:Type * Members:list<option<Expression> * Expression>
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -490,6 +492,9 @@ type Transformer() =
     /// JavaScript ES6 - class { ... }
     abstract TransformClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
     override this.TransformClassExpr (a, b, c) = ClassExpr (a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
+    /// .NET - F# object expression
+    abstract TransformObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> Expression
+    override this.TransformObjectExpr (a, b) = ObjectExpr (a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) b)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -587,7 +592,7 @@ type Transformer() =
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
     /// JavaScript ES6 - class method
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
-    override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (x, m) -> this.TransformId x, m) a, Option.map this.TransformStatement b, c)
+    override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (a, b) -> this.TransformId a, b) a, Option.map this.TransformStatement b, c)
     /// JavaScript ES6 - class plain property
     abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> Statement
     override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, d)
@@ -660,6 +665,7 @@ type Transformer() =
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
         | ClassExpr (a, b, c) -> this.TransformClassExpr (a, b, c)
+        | ObjectExpr (a, b) -> this.TransformObjectExpr (a, b)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -876,6 +882,9 @@ type Visitor() =
     /// JavaScript ES6 - class { ... }
     abstract VisitClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> unit
     override this.VisitClassExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter this.VisitStatement c
+    /// .NET - F# object expression
+    abstract VisitObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> unit
+    override this.VisitObjectExpr (a, b) = (); List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) b
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -1044,6 +1053,7 @@ type Visitor() =
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
         | ClassExpr (a, b, c) -> this.VisitClassExpr (a, b, c)
+        | ObjectExpr (a, b) -> this.VisitObjectExpr (a, b)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1148,6 +1158,7 @@ module IgnoreSourcePos =
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
     let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b) -> Some (a, b) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1251,6 +1262,7 @@ module Debug =
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
         | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map PrintObject a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
+        | ObjectExpr (a, b) -> "ObjectExpr" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintExpression b) b) + "]" + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""

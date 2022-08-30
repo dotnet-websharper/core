@@ -206,7 +206,8 @@ let ExprDefs =
             , "TypeScript - type cast <...>..."
         "ClassExpr", [ Option Str, "name"; Option Expr, "baseClass"; List Statement, "members" ]
             , "JavaScript ES6 - class { ... }"
-
+        "ObjectExpr", [ Type, "objectType"; List (Tuple [Option Expr; Expr]), "members" ]
+            , ".NET - F# object expression"
     ]    
 
 let StatementDefs =
@@ -385,8 +386,9 @@ let code =
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
+            | List (Tuple [Option Expr; Expr]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) " + x
             | List (Tuple [List (Option Expr); Statement]) -> "List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) " + x
-            | List (Tuple [Id; Object _]) -> "List.map (fun (x, m) -> this.TransformId x, m) " + x
+            | List (Tuple [Id; Object _]) -> "List.map (fun (a, b) -> this.TransformId a, b) " + x
             | Object _ -> x
             | List (Object _) -> x
             | Option (Object _) -> x
@@ -451,6 +453,7 @@ let code =
             | List Statement -> "List.iter this.VisitStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
+            | List (Tuple [Option Expr; Expr]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) " + x 
             | List (Tuple [List (Option Expr); Statement]) -> "List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) " + x
             | List (Tuple [Id; Object _]) -> "List.iter (fst >> this.VisitId) " + x
             | Object _ -> "()"
@@ -542,6 +545,7 @@ let code =
                 | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
                 | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
+                | List (Tuple [Option Expr; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintExpression b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
                 | List (Tuple [Id; Object _]) -> "\"[\" + String.concat \"; \" (" + x + " |> List.map (fun (i, m) -> i.ToString m)) + \"]\""
                 | Object "TypeDefinition" -> x + ".Value.FullName"

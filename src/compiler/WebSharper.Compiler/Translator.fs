@@ -56,6 +56,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
     override this.TransformCall (_, _, _, _) = invalidForm "Call"
     override this.TransformCctor _ = invalidForm "Cctor"
+    override this.TransformObjectExpr (_, _) = invalidForm "ObjectExpr"
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
@@ -1764,6 +1765,25 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.Error err
         | _ -> 
             this.Error ("Could not get name of abstract method")
+
+    override this.TransformObjectExpr(typ, members) =
+        let addr, cls = comp.TryLookupClassInfo(typ.TypeDefinition).Value
+        let mem =
+            members |> List.map (
+                function 
+                | Some m, e ->                    
+                    let name =
+                        match this.TransformExpression(m) with
+                        | Value (String n) -> n
+                        | _ -> failwith "Unexpected expression for method name in F# object expression"
+                    match e with 
+                    | FuncWithThis (thisParam, pars, ret, body) ->
+                        ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                    | _ -> failwith "Unexpected expression for body in F# object expression"
+                | None, e ->
+                    ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
+            )
+        New(ClassExpr(None, Some (GlobalAccess addr), mem), [], [])
 
     override this.TransformSelf () = 
         match selfAddress with

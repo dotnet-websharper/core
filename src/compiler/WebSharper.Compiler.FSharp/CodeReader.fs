@@ -1116,46 +1116,79 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             | _ -> failwith "AddressSet not on a Value"
         | P.ObjectExpr (typ, expr, overrides, interfaces) ->
             let typ' = sr.ReadType env.TParams typ
-            let o = newId()
-            let r = Id.New(mut = false, typ = typ')
-            let plainObj =
-                Let (o, Object [],
-                    Sequential [
-                        for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
-                            let i = sr.ReadAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
-                            let s = sr.ReadAbstractSlot env.TParams ovr.Signature
-                            let mutable env = env
-                            let thisVar, vars =
-                                match ovr.CurriedParameterGroups with
-                                | [t] :: args ->
-                                    let thisVar = namedId (Some env) false t
-                                    env <- env.WithVar(thisVar, t)
-                                    let args = 
-                                        match args with
-                                        | [[ a ]] when isUnit a.FullType -> [[]]
-                                        | _ -> args
-                                    thisVar,
-                                    args |> Seq.concat |> Seq.map (fun v ->
-                                        let vv = namedId (Some env) false v
-                                        env <- env.WithVar(vv, v)
-                                        vv
-                                    ) |> List.ofSeq 
-                                | _ ->
-                                    failwith "Wrong `this` argument in object expression override"
-                            let b = FuncWithThis (thisVar, vars, Some typ', Return (transformExpression env ovr.Body)) 
-                            yield ItemSet(Var o, OverrideName(i, s), b)
-                        yield Var o
-                    ]
-                )
-            let td = sr.ReadAndRegisterTypeDefinition env.Compilation typ.TypeDefinition
-            let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> t |> sr.ReadType env.TParams |> getConcreteType) 
+            //let o = newId()
+            //let r = Id.New(mut = false, typ = typ')
+            //let plainObj =
+            //    Let (o, Object [],
+            //        Sequential [
+            //            for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
+            //                let i = sr.ReadAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
+            //                let s = sr.ReadAbstractSlot env.TParams ovr.Signature
+            //                let mutable env = env
+            //                let thisVar, vars =
+            //                    match ovr.CurriedParameterGroups with
+            //                    | [t] :: args ->
+            //                        let thisVar = namedId (Some env) false t
+            //                        env <- env.WithVar(thisVar, t)
+            //                        let args = 
+            //                            match args with
+            //                            | [[ a ]] when isUnit a.FullType -> [[]]
+            //                            | _ -> args
+            //                        thisVar,
+            //                        args |> Seq.concat |> Seq.map (fun v ->
+            //                            let vv = namedId (Some env) false v
+            //                            env <- env.WithVar(vv, v)
+            //                            vv
+            //                        ) |> List.ofSeq 
+            //                    | _ ->
+            //                        failwith "Wrong `this` argument in object expression override"
+            //                let b = FuncWithThis (thisVar, vars, Some typ', Return (transformExpression env ovr.Body)) 
+            //                yield ItemSet(Var o, OverrideName(i, s), b)
+            //            yield Var o
+            //        ]
+            //    )
+            //let td = sr.ReadType env.Compilation typ
+            //let baseTyp = typ.TypeDefinition.BaseType |> Option.map (fun t -> t |> sr.ReadType env.TParams |> getConcreteType) 
 
-            Let(r, CopyCtor(td, plainObj),
-                Sequential [
-                    yield FixCtorTransformer(td, baseTyp, r).TransformExpression(tr expr)
-                    yield Var r
+            //Let(r, CopyCtor(td, plainObj),
+            //    Sequential [
+            //        yield FixCtorTransformer(td, baseTyp, r).TransformExpression(tr expr)
+            //        yield Var r
+            //    ]
+            //)
+
+            let members =
+                [
+                    for ovr in Seq.append overrides (interfaces |> Seq.collect snd) do
+                        let i = sr.ReadAndRegisterTypeDefinition env.Compilation ovr.Signature.DeclaringType.TypeDefinition
+                        let s = sr.ReadAbstractSlot env.TParams ovr.Signature
+                        let mutable env = env
+                        let thisVar, vars =
+                            match ovr.CurriedParameterGroups with
+                            | [t] :: args ->
+                                let thisVar = namedId (Some env) false t
+                                env <- env.WithVar(thisVar, t)
+                                let args = 
+                                    match args with
+                                    | [[ a ]] when isUnit a.FullType -> [[]]
+                                    | _ -> args
+                                thisVar,
+                                args |> Seq.concat |> Seq.map (fun v ->
+                                    let vv = namedId (Some env) false v
+                                    env <- env.WithVar(vv, v)
+                                    vv
+                                ) |> List.ofSeq 
+                            | _ ->
+                                failwith "Wrong `this` argument in object expression override"
+                        let b = FuncWithThis (thisVar, vars, Some typ', Return (transformExpression env ovr.Body)) 
+                        yield Some (OverrideName(i, s)), b
+                    match tr expr with
+                    | Undefined -> ()
+                    | e -> yield None, e
                 ]
-            )
+
+            ObjectExpr(typ', members)
+
         | P.DefaultValue typ ->
             if typ.IsGenericParameter && typ.GenericParameter.Constraints |> Seq.exists (fun c -> c.IsReferenceTypeConstraint || c.IsSupportsNullConstraint) then
                 Value Null
