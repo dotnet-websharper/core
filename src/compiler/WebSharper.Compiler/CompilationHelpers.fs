@@ -385,6 +385,7 @@ let varEvalOrder (vars : Id list) expr =
             | OptimizedFSharpArg _
             | RefOrOutParameter _
             | TraitCall _
+            | ObjectExpr _
                 -> fail()
             | _ ->
                 failwith "unexpected form"

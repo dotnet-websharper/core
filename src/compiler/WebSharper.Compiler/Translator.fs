@@ -1767,23 +1767,48 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.Error ("Could not get name of abstract method")
 
     override this.TransformObjectExpr(typ, members) =
-        let addr, cls = comp.TryLookupClassInfo(typ.TypeDefinition).Value
-        let mem =
-            members |> List.map (
-                function 
-                | Some m, e ->                    
-                    let name =
-                        match this.TransformExpression(m) with
-                        | Value (String n) -> n
-                        | _ -> failwith "Unexpected expression for method name in F# object expression"
-                    match e with 
-                    | FuncWithThis (thisParam, pars, ret, body) ->
-                        ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
-                    | _ -> failwith "Unexpected expression for body in F# object expression"
-                | None, e ->
-                    ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
-            )
-        New(ClassExpr(None, Some (GlobalAccess addr), mem), [], [])
+        match comp.TryLookupClassInfo(typ.TypeDefinition) with
+        | Some (addr, _) ->
+            let mem =
+                members |> List.map (
+                    function 
+                    | Some m, e ->                    
+                        let name =
+                            match this.TransformExpression(m) with
+                            | Value (String n) -> n
+                            | _ -> failwith "Unexpected expression for method name in F# object expression"
+                        match e with 
+                        | FuncWithThis (thisParam, pars, ret, body) ->
+                            ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                        | _ -> failwith "Unexpected expression for body in F# object expression"
+                    | None, e ->
+                        ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
+                )
+            New(ClassExpr(None, Some (GlobalAccess addr), mem), [], [])
+
+        | None -> 
+            let ctorExpr, memExprs =
+                members |> List.partition (fst >> Option.isNone)
+            let obj =                
+                Object (
+                    memExprs |> List.map (fun (m, e) ->
+                        let name =
+                            match this.TransformExpression(m.Value) with
+                            | Value (String n) -> n
+                            | _ -> failwith "Unexpected expression for method name in F# object expression"
+                        name, this.TransformExpression e
+                    )
+                )
+            match ctorExpr with 
+            | [] -> obj
+            | (_, c) :: _ ->
+                let r = Id.New(mut = false, typ = typ)
+                Let (r, obj, 
+                    Sequential [
+                        Substitution([], Var r).TransformExpression(this.TransformExpression c)
+                        Var r
+                    ]
+                )  
 
     override this.TransformSelf () = 
         match selfAddress with
