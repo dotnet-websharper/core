@@ -1966,7 +1966,7 @@ module TypedProviderInternals =
                         match tryGet f with
                         | Some n -> n                                     
                         | _ ->
-                            failwithf "Failed to look up translated field name for %s in type %s with fields: %s" 
+                            failwithf "Failed to look up translated field name for \"%s\" in type %s with fields: %s" 
                                 f typ.Value.FullName (cls.Fields.Keys |> String.concat ", ")
                 | _ ->
                     match info.CustomTypes.TryGetValue typ with
