@@ -1188,6 +1188,8 @@ type FSharp.Compiler.Text.Range with
             End = this.EndLine, this.EndColumn
         }
 
+// Searches for calls within server-side code to method with JavaScript-enabled parameters.
+// These quotations or auto-quoted expressions passed are then translated by WebSharper.
 let scanExpression (env: Environment) (containingMethodName: string) (expr: FSharpExpr) =
     let vars = Dictionary<FSharpMemberOrFunctionOrValue, FSharpExpr>()
     let quotations = ResizeArray()
@@ -1209,19 +1211,34 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
                     | Some x ->
                         Option.iter scan this
+                        arguments |> List.iteri (fun i a -> 
+                            if x |> Array.contains i |> not then
+                                scan a
+                        )
+                        let pars = meth.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
                         x |> Array.iter (fun i ->
                             let arg = arguments.[i]
-                            let e =
+                            let p = pars[i]
+                            let e, withValue =
                                 match arg with
-                                | P.Quote e -> Some e
+                                | P.Quote e -> Some e, false
+                                | P.Call(None, wv, _, _, [_; P.Quote e]) 
+                                    when wv.FullName = "Microsoft.FSharp.Quotations.WithValue" -> Some e, true
                                 | P.Value v ->
                                     match vars.TryGetValue v with
-                                    | true, e -> Some e
-                                    | false, _ -> None
-                                | _ -> None
+                                    | true, e -> Some e, false
+                                    | false, _ -> None, false
+                                | _ -> None, false
+                            let expectWithValue =
+                                pars[i].Attributes |> Seq.exists (fun a -> 
+                                    a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute"
+                                    && a.ConstructorArguments |> Seq.exists (fun (_, v) -> v = true)
+                                )
                             match e with
                             | Some e ->
                                 let pos = e.Range.AsSourcePos
+                                if expectWithValue && not withValue then
+                                    env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
                                 let e = transformExpression env e
                                 let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
                                 let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
