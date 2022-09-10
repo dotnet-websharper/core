@@ -1780,7 +1780,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match e with 
                         | FuncWithThis (thisParam, pars, ret, body) ->
                             ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
-                        | _ -> failwith "Unexpected expression for body in F# object expression"
+                        | Function (pars, ret, body) ->
+                            ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                        | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                     | None, e ->
                         ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
                 )

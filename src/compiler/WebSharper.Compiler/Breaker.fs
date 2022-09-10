@@ -849,6 +849,13 @@ let rec breakExpr expr : Broken<BreakResult> =
     | New(a, ts, b) -> 
         brL (a :: b)
         |> mapBroken2L (fun aE bE -> New (aE, ts, bE))
+    | ObjectExpr(typ, mem) ->
+        mem |> List.map snd |> brL |> mapBroken (fun m ->
+            let brMem = List.zip (mem |> List.map fst) m
+            ObjectExpr (typ, brMem)
+        )
+    | ClassExpr(name, baseCls, mem) ->
+        ClassExpr(name, baseCls, mem |> List.map BreakStatement) |> broken
     | e ->
         failwithf "Break expression error, not handled: %s" (Debug.PrintExpression e)
 
@@ -877,6 +884,7 @@ and private breakSt statement : Statement seq =
     | DoNotReturn
     | Yield _ 
     | Goto _ 
+    | ClassProperty _
         -> Seq.singleton statement
     | GotoCase a -> 
         match a with
@@ -1058,6 +1066,10 @@ and private breakSt statement : Statement seq =
         brE b |> toStatements (fun bE -> ForIn (a, bE, combine (brS c)))
     | Continuation(a, b) ->
         brE b |> toStatements (fun bE -> Continuation(a, bE))
+    | ClassMethod(isStatic, name, pars, body, sgn) ->
+        ClassMethod(isStatic, name, pars, body |> Option.map BreakStatement, sgn) |> Seq.singleton
+    | ClassConstructor(pars, body, sgn) ->
+        ClassConstructor(pars, body |> Option.map BreakStatement, sgn) |> Seq.singleton
     | e ->
         failwithf "Break statement error, not handled: %s" (Debug.PrintStatement e)
 
