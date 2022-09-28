@@ -135,7 +135,7 @@ let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
     match x.DeclaringEntity with
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
-                                
+    
 type FixCtorTransformer(typ, btyp, ?thisExpr) =
     inherit Transformer()
 
@@ -294,6 +294,8 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
+    let mutable refAnonRecordCache = Dictionary<string, (string * string[])[]>()
+    
     let readSimpleName (a: FSharpAssembly) typeFullName =
         if Option.isNone a.FileName then // currently compiled assembly
             comp.AssemblyName
@@ -311,6 +313,53 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             override this.GetNamedArgs attr = attr.NamedArguments |> Seq.map (fun (_, n, _, v) -> n, v) |> Array.ofSeq
             override this.GetTypeDef o = (self.ReadType Map.empty (o :?> FSharpType) : Type).TypeDefinition
         }
+
+    member this.ResolveAnonRecord (d: FSharpAnonRecordTypeDetails) =
+        // anon records have a timestamp in their compiled name, use reflection to find name in dll if possible
+        let asmName = comp.FindProxiedAssembly(readSimpleName d.Assembly d.CompiledName)
+        let refAnonRecords =    
+            match refAnonRecordCache.TryGetValue(asmName) with
+            | true, types -> types
+            | _ ->
+                let asmOpt = 
+                    try Some (Reflection.LoadAssembly asmName)
+                    with _ -> None
+                let types = 
+                    match asmOpt with
+                    | Some asm ->
+                        asm.DefinedTypes 
+                        |> Seq.filter (fun t -> t.Name.StartsWith("<>f__AnonymousType")) 
+                        |> Seq.map (fun t ->
+                            let sortedFieldNames = 
+                                t.DeclaredProperties
+                                |> Seq.sortBy(fun p ->
+                                    let a = p.GetCustomAttributes(typeof<CompilationMappingAttribute>, false)[0] :?> CompilationMappingAttribute
+                                    a.SequenceNumber
+                                )
+                                |> Seq.map(fun p -> p.Name)
+                                |> Array.ofSeq
+                            t.Name, sortedFieldNames
+                        )
+                        |> Array.ofSeq
+                    | _ -> [||]
+                refAnonRecordCache.Add(asmName, types)
+                types
+        let sortedFieldNames = d.SortedFieldNames
+        let realAnonRecord =
+            refAnonRecords
+            |> Array.tryFind (fun (_, f) -> f = sortedFieldNames)
+        match realAnonRecord with
+        | Some (rname, _) ->
+            TypeDefinition {
+                Assembly = asmName
+                FullName = rname
+            }
+        | None ->
+            // falback if we don't have compiled dll
+            TypeDefinition {
+                Assembly = asmName
+                FullName = d.CompiledName
+            }
 
     member this.ReadTypeDefinition (td: FSharpEntity) =
         if td.IsArrayType then
@@ -382,12 +431,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             getFunc()
         elif t.IsAnonRecordType then
             let d = t.AnonRecordTypeDetails
-            let cname = d.CompiledName
-            let def =
-                TypeDefinition {
-                    Assembly = comp.FindProxiedAssembly(readSimpleName t.AnonRecordTypeDetails.Assembly cname)
-                    FullName = cname
-                }
+            let def = this.ResolveAnonRecord(d)
             if not (comp.HasCustomTypeInfo def) then
                 let info =
                     d.SortedFieldNames

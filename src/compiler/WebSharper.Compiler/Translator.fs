@@ -984,7 +984,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match t with
                     | ConcreteType c ->
                         this.AddDependency(M.TypeNode c.Entity)
-                        if not (comp.HasType c.Entity) then
+                        if not (comp.HasType c.Entity) && not (c.Entity.Value.FullName.StartsWith("<>f__AnonymousType")) then
                             this.Warning("Remote method is returning a type which is not fully supported on client side. Add a JavaScript attribute or proxy for " + c.Entity.Value.FullName)
                         c.Generics |> List.iter addTypeDeps
                     | ArrayType(t, _) -> addTypeDeps t

@@ -342,6 +342,26 @@ module Server =
         |> async.Return
 
     [<Remote>]
+    let f28 (a: {| x: int; y: int |}) =
+        a.x + a.y
+        |> async.Return
+
+    [<Remote>]
+    let f29 (a: {| x: int; y: {| a: int; b: int |} |}) =
+        a.x + a.y.a + a.y.b
+        |> async.Return
+
+    [<Remote>]
+    let f30 (x: int, y: int) =
+        {| x = x; y = y |}
+        |> async.Return
+
+    [<Remote>]
+    let f31 (x: int, a: int, b: int) =
+        {| x = x; y = {| a = a; b = b |} |}
+        |> async.Return
+
+    [<Remote>]
     let OptionToNullable (x: int option) =
         match x with
         | Some v -> System.Nullable v
@@ -695,5 +715,19 @@ module Remoting =
                 equalAsync (Server.NullableToOption (System.Nullable 3)) (Some 3)
                 jsEqualAsync (Server.OptionToNullable None) (System.Nullable())
                 equalAsync (Server.OptionToNullable (Some 3)) (System.Nullable 3)
+            }
+
+            Test "Anonymous F# records" {
+                equalAsync (Server.f28 {| x = 1; y = 2 |}) 3
+                equalAsync (Server.f29 {| x = 1; y = {| a = 2; b = 3 |} |}) 6
+                equalAsync (Server.f30 (1, 2)) {| x = 1; y = 2 |}
+                equalAsync (Server.f31 (1, 2, 3)) {| x = 1; y = {| a = 2; b = 3 |} |}
+            }
+
+            Test "Anonymous F# records from another project" {
+                equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f28 {| x = 1; y = 2 |}) 3
+                equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f29 {| x = 1; y = {| a = 2; b = 3 |} |}) 6
+                equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f30 (1, 2)) {| x = 1; y = 2 |}
+                equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f31 (1, 2, 3)) {| x = 1; y = {| a = 2; b = 3 |} |}
             }
         }
