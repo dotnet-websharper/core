@@ -65,7 +65,7 @@ module Utils =
         | P.ILFieldSet _ -> "ILFieldSet"
         | P.IfThenElse (a,b,c) -> "(if " + printExpr 0 a + " then " + printExpr 0 b + " else " + printExpr 0 c + ")"
         | P.Lambda(v,e1) -> "fun " + v.CompiledName + " -> " + printExpr 0 e1
-        | P.Let((v,e1),b) -> "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
+        | P.Let((v,e1,_),b) -> "let " + (if v.IsMutable then "mutable " else "") + v.CompiledName + ": " + printTy v.FullType + " = " + printExpr 0 e1 + " in " + printExpr 0 b
         | P.LetRec(vse,b) -> "let rec ... in " + printExpr 0 b
         | P.NewArray(ty,es) -> "[|" + (es |> Seq.map (printExpr 0) |> String.concat "; ") +  "|]" 
         | P.NewDelegate(ty,es) -> "new-delegate" 
@@ -85,8 +85,8 @@ module Utils =
         | P.AnonRecordGet(obj, ty, index) -> printExpr 10 obj + "." + ty.AnonRecordTypeDetails.SortedFieldNames.[index] 
         | P.Sequential(e1,e2) -> "(" + printExpr 0 e1 + "; " + printExpr 0 e2 + ")"
         | P.ThisValue _ -> "this"
-        | P.TryFinally(e1,e2) -> "try " + printExpr 0 e1 + " finally " + printExpr 0 e2
-        | P.TryWith(e1,_,_,vC,eC) -> "try " + printExpr 0 e1 + " with " + vC.CompiledName + " -> " + printExpr 0 eC
+        | P.TryFinally(e1,e2,_,_) -> "try " + printExpr 0 e1 + " finally " + printExpr 0 e2
+        | P.TryWith(e1,_,_,vC,eC,_,_) -> "try " + printExpr 0 e1 + " with " + vC.CompiledName + " -> " + printExpr 0 eC
         | P.TupleGet(ty,n,e1) -> printExpr 10 e1 + ".Item" + string n
         | P.DecisionTree(dtree,targets) -> "match " + printExpr 10 dtree + " targets ..."
         | P.DecisionTreeSuccess (tg,es) -> "$" + string tg
@@ -105,7 +105,7 @@ module Utils =
             | _ -> string obj
         | P.Value(v) -> v.CompiledName
         | P.ValueSet(v,e1) -> quote low (v.CompiledName + " <- " + printExpr 0 e1)
-        | P.WhileLoop(e1,e2) -> "while " + printExpr 0 e1 + " do " + printExpr 0 e2 + " done"
+        | P.WhileLoop(e1,e2,_) -> "while " + printExpr 0 e1 + " do " + printExpr 0 e2 + " done"
         | _ -> failwith (sprintf "unrecognized %+A" e)
 
     and quote low s = if low > 0 then "(" + s + ")" else s
@@ -212,7 +212,7 @@ module Utils =
         | P.Call(None,v,_,_,argsL) -> Seq.concat [ Seq.singleton v; Seq.collect collectMembers argsL ]
         | P.Coerce(_,e) -> collectMembers e
         | P.DefaultValue(_) -> Seq.empty
-        | P.FastIntegerForLoop (fromArg, toArg, body, _) -> Seq.collect collectMembers [ fromArg; toArg; body ]
+        | P.FastIntegerForLoop (fromArg, toArg, body, _, _, _) -> Seq.collect collectMembers [ fromArg; toArg; body ]
         | P.ILAsm(_,_,args) -> Seq.collect collectMembers args 
         | P.ILFieldGet (Some e,_,_) -> collectMembers e
         | P.ILFieldGet _ -> Seq.empty
@@ -220,8 +220,8 @@ module Utils =
         | P.ILFieldSet _ -> Seq.empty
         | P.IfThenElse (a,b,c) -> Seq.collect collectMembers [ a; b; c ]
         | P.Lambda(v,e1) -> collectMembers e1
-        | P.Let((v,e1),b) -> Seq.append (collectMembers e1) (collectMembers b)
-        | P.LetRec(vse,b) -> Seq.append (vse |> Seq.collect (snd >> collectMembers)) (collectMembers b)
+        | P.Let((v,e1,_),b) -> Seq.append (collectMembers e1) (collectMembers b)
+        | P.LetRec(vse,b) -> Seq.append (vse |> Seq.collect (fun (_,e,_) -> collectMembers e)) (collectMembers b)
         | P.NewArray(_,es) -> Seq.collect collectMembers es
         | P.NewDelegate(ty,es) -> collectMembers es
         | P.NewObject(v,tys,args) -> Seq.append (Seq.singleton v) (Seq.collect collectMembers args)
@@ -235,8 +235,8 @@ module Utils =
         | P.FSharpFieldSet(None,_,_,arg) -> collectMembers arg
         | P.Sequential(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
         | P.ThisValue _ -> Seq.empty
-        | P.TryFinally(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2)
-        | P.TryWith(e1,_,f,_,eC) -> Seq.collect collectMembers [ e1; f; eC ]
+        | P.TryFinally(e1,e2,_,_) -> Seq.append (collectMembers e1) (collectMembers e2)
+        | P.TryWith(e1,_,f,_,eC,_,_) -> Seq.collect collectMembers [ e1; f; eC ]
         | P.TupleGet(ty,n,e1) -> collectMembers e1
         | P.DecisionTree(dtree,targets) -> Seq.append (collectMembers dtree) (targets |> Seq.collect (snd >> collectMembers))
         | P.DecisionTreeSuccess (tg,es) -> Seq.collect collectMembers es
@@ -259,7 +259,7 @@ module Utils =
         | P.Const(obj,ty) -> Seq.empty
         | P.Value(v) -> Seq.singleton v
         | P.ValueSet(v,e1) -> Seq.append (Seq.singleton v) (collectMembers e1)
-        | P.WhileLoop(e1,e2) -> Seq.append (collectMembers e1) (collectMembers e2) 
+        | P.WhileLoop(e1,e2,_) -> Seq.append (collectMembers e1) (collectMembers e2) 
         | _ -> failwith (sprintf "unrecognized %+A" e)
 
     let rec printMembersOfDeclatations ds = 
