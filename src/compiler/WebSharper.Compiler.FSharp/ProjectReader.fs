@@ -751,7 +751,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             if not (Array.isEmpty jsArgs) then
                 match sr.ReadMember meth with
                 | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
-                | Member.Constructor con -> comp.AddQuotedConstArgMethod(thisDef, con.Value, jsArgs)
+                | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
             let env = CodeReader.Environment.New ([], tparams, comp, sr)

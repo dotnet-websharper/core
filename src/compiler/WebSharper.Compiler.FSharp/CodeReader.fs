@@ -1241,6 +1241,57 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
         let default'() =
             List.iter scan expr.ImmediateSubExpressions
         try
+            let storeExprTranslation (mem: FSharpMemberOrFunctionOrValue) (indexes: int[]) (arguments: FSharpExpr list) =
+                let pars = mem.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
+                indexes |> Array.iter (fun i ->
+                    let arg = arguments[i]
+                    let p = pars[i]
+                    let e, withValue =
+                        match arg with
+                        | P.Quote e -> Some e, false
+                        | P.Call(None, wv, _, _, [_; P.Quote e]) 
+                            when wv.FullName = "Microsoft.FSharp.Quotations.WithValue" -> Some e, true
+                        | P.Value v ->
+                            match vars.TryGetValue v with
+                            | true, e -> Some e, false
+                            | false, _ -> None, false
+                        | _ -> None, false
+                    let expectWithValue =
+                        pars[i].Attributes |> Seq.exists (fun a -> 
+                            a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute"
+                            && a.ConstructorArguments |> Seq.exists (fun (_, v) -> v = true)
+                        )
+                    match e with
+                    | Some e ->
+                        let pos = e.Range.AsSourcePos
+                        if expectWithValue && not withValue then
+                            env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
+                        let e = transformExpression env e
+                        let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
+                        let retTy = env.SymbolReader.ReadType Map.empty mem.ReturnParameter.Type
+                        let qm =
+                            Hashed {
+                                MethodInfo.Generics = 0
+                                MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
+                                MethodInfo.Parameters = argTypes
+                                MethodInfo.ReturnType = retTy
+                            }
+                        let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
+                        let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
+                        // emptying FreeVars so that env can be reused for reading multiple quotation arguments
+                        env.FreeVars.Clear()
+                        // if the quotation is a single static call, the runtime fallback will be able to 
+                        // handle it without introducing a pre-compiled function for it
+                        let isTrivial =
+                            match e with 
+                            | I.Call(None, _, _, args) ->
+                                args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
+                            | _ -> false
+                        if not isTrivial then
+                            quotations.Add(pos, qm, argNames, f) 
+                    | None -> scan arg
+                )
+            
             match expr with
             | P.Let ((id, (P.Quote value), _), body) ->
                 // I'd rather pass around a Map than do this dictionary mutation,
@@ -1253,120 +1304,26 @@ let scanExpression (env: Environment) (containingMethodName: string) (expr: FSha
                 match env.SymbolReader.ReadMember(meth) with
                 | Member.Method(_, m) ->
                     match env.Compilation.TryLookupQuotedArgMethod(typ, m) with
-                    | Some x ->
+                    | Some indexes ->
                         Option.iter scan this
                         arguments |> List.iteri (fun i a -> 
-                            if x |> Array.contains i |> not then
+                            if indexes |> Array.contains i |> not then
                                 scan a
                         )
-                        let pars = meth.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
-                        x |> Array.iter (fun i ->
-                            let arg = arguments.[i]
-                            let p = pars[i]
-                            let e, withValue =
-                                match arg with
-                                | P.Quote e -> Some e, false
-                                | P.Call(None, wv, _, _, [_; P.Quote e]) 
-                                    when wv.FullName = "Microsoft.FSharp.Quotations.WithValue" -> Some e, true
-                                | P.Value v ->
-                                    match vars.TryGetValue v with
-                                    | true, e -> Some e, false
-                                    | false, _ -> None, false
-                                | _ -> None, false
-                            let expectWithValue =
-                                pars[i].Attributes |> Seq.exists (fun a -> 
-                                    a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute"
-                                    && a.ConstructorArguments |> Seq.exists (fun (_, v) -> v = true)
-                                )
-                            match e with
-                            | Some e ->
-                                let pos = e.Range.AsSourcePos
-                                if expectWithValue && not withValue then
-                                    env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
-                                let e = transformExpression env e
-                                let argTypes = [ for (v, _, _) in env.FreeVars -> env.SymbolReader.ReadType Map.empty v.FullType ]
-                                let retTy = env.SymbolReader.ReadType Map.empty meth.ReturnParameter.Type
-                                let qm =
-                                    Hashed {
-                                        MethodInfo.Generics = 0
-                                        MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
-                                        MethodInfo.Parameters = argTypes
-                                        MethodInfo.ReturnType = retTy
-                                    }
-                                let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
-                                let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
-                                // emptying FreeVars so that env can be reused for reading multiple quotation arguments
-                                env.FreeVars.Clear()
-                                // if the quotation is a single static call, the runtime fallback will be able to 
-                                // handle it without introducing a pre-compiled function for it
-                                let isTrivial =
-                                    match e with 
-                                    | I.Call(None, _, _, args) ->
-                                        args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
-                                    | _ -> false
-                                if not isTrivial then
-                                    quotations.Add(pos, qm, argNames, f) 
-                            | None -> scan arg
-                        )
+                        storeExprTranslation meth indexes arguments
                     | _ -> default'()
                 | _ -> default'()
-            | P.NewObject(meth, typeList, arguments) ->
-                let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity meth)
-                match env.SymbolReader.ReadMember(meth) with
+            | P.NewObject(ctor, typeList, arguments) ->
+                let typ = env.SymbolReader.ReadTypeDefinition(getDeclaringEntity ctor)
+                match env.SymbolReader.ReadMember(ctor) with
                 | Member.Constructor(con) ->
                     match env.Compilation.TryLookupQuotedConstArgMethod(typ, con) with
-                    | Some x ->
+                    | Some indexes ->
                         arguments |> List.iteri (fun i a -> 
-                            if x |> Array.contains i |> not then
+                            if indexes |> Array.contains i |> not then
                                 scan a
                         )
-                        let pars = meth.CurriedParameterGroups |> Seq.concat |> Array.ofSeq
-                        x |> Array.iter (fun i ->
-                            let arg = arguments.[i]
-                            let p = pars[i]
-                            let e, withValue =
-                                match arg with
-                                | P.Quote e -> Some e, false
-                                | P.Call(None, wv, _, _, [_; P.Quote e]) 
-                                    when wv.FullName = "Microsoft.FSharp.Quotations.WithValue" -> Some e, true
-                                | P.Value v ->
-                                    match vars.TryGetValue v with
-                                    | true, e -> Some e, false
-                                    | false, _ -> None, false
-                                | _ -> None, false
-                            let expectWithValue =
-                                pars[i].Attributes |> Seq.exists (fun a -> 
-                                    a.AttributeType.FullName = "Microsoft.FSharp.Core.ReflectedDefinitionAttribute"
-                                    && a.ConstructorArguments |> Seq.exists (fun (_, v) -> v = true)
-                                )
-                            match e with
-                            | Some e ->
-                                let pos = e.Range.AsSourcePos
-                                if expectWithValue && not withValue then
-                                    env.Compilation.AddWarning(Some pos, SourceWarning "Auto-quoted argument expected to have access to server-side value. Use `( )` instead of `<@ @>`.")   
-                                let e = transformExpression env e
-                                let qm =
-                                    Hashed {
-                                        MethodInfo.Generics = 0
-                                        MethodInfo.MethodName = sprintf "%s$%i$%i" containingMethodName (fst pos.Start) (snd pos.Start)
-                                        MethodInfo.Parameters = con.Value.CtorParameters
-                                        MethodInfo.ReturnType = Type.VoidType
-                                    }
-                                let argNames = [ for (v, id, _) in env.FreeVars -> v.LogicalName ]
-                                let f = Lambda([ for (_, id, _) in env.FreeVars -> id ], e)
-                                // emptying FreeVars so that env can be reused for reading multiple quotation arguments
-                                env.FreeVars.Clear()
-                                // if the quotation is a single static call, the runtime fallback will be able to 
-                                // handle it without introducing a pre-compiled function for it
-                                let isTrivial =
-                                    match e with 
-                                    | I.Call(None, _, _, args) ->
-                                        args |> List.forall (function I.Var _ | I.Value _ -> true | _ -> false)
-                                    | _ -> false
-                                if not isTrivial then
-                                    quotations.Add(pos, qm, argNames, f) 
-                            | None -> scan arg
-                        )
+                        storeExprTranslation ctor indexes arguments
                     | _ -> default'()
                 | _ -> default'()
             | _ -> default'()

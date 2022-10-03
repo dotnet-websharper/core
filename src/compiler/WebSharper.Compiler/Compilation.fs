@@ -452,17 +452,6 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.AddQuotedArgMethod(typ, m, a) =
         compilingQuotedArgMethods.Add((typ, m), a)
 
-    member this.AddQuotedConstArgMethod(typ: TypeDefinition, c: ConstructorInfo, a) =
-        // add .ctor
-        let methodInfo : MethodInfo =
-            {
-                MethodName = typ.Value.AssemblyQualifiedName + ".ctor"
-                Parameters = c.CtorParameters
-                ReturnType = Type.VoidType
-                Generics = 0
-            }
-        compilingQuotedArgMethods.Add((typ, Hashed methodInfo), a)
-
     member this.TryLookupQuotedArgMethod(typ, m) =
         match compilingQuotedArgMethods.TryFind(typ, m) with
         | Some x -> Some x
@@ -474,23 +463,19 @@ type Compilation(meta: Info, ?hasGraph) =
                 | None -> None
             | None -> None
 
-    member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, (con: Constructor)) =
-        let methodInfo : Method =
-            Hashed {
-                MethodName = typ.Value.AssemblyQualifiedName + ".ctor"
-                Parameters = con.Value.CtorParameters
-                ReturnType = Type.VoidType
-                Generics = 0
-            }
-        match compilingQuotedArgMethods.TryFind(typ, methodInfo) with
-        | Some x -> Some x
-        | None ->
-            match meta.Classes.TryFind(typ) with
-            | Some c ->
-                match c.QuotedArgMethods.TryFind(methodInfo) with
-                | Some x -> Some x
-                | None -> None
-            | None -> None
+    member this.GetFakeMethodForCtor(c: Constructor) =
+        Method {
+            MethodName = ".ctor"
+            Parameters = c.Value.CtorParameters
+            ReturnType = Type.VoidType
+            Generics = 0
+        }
+        
+    member this.AddQuotedConstArgMethod(typ: TypeDefinition, c: Constructor, a) =
+        compilingQuotedArgMethods.Add((typ, this.GetFakeMethodForCtor(c)), a)
+
+    member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, c: Constructor) =
+        this.TryLookupQuotedArgMethod(typ, this.GetFakeMethodForCtor(c))
 
     member this.AddClass(typ, cls) =
         try

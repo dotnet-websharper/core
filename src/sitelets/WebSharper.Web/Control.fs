@@ -277,7 +277,7 @@ module ClientSideInternals =
 
 open ClientSideInternals
 
-/// Embed the given client-side control body in a server-side control.
+/// Embeds the given client-side control body in a server-side control.
 /// The client-side control body must be an implicit or explicit quotation expression.
 /// It can capture local variables, of the same types which are serializable by WebSharper as RPC results.
 [<CompiledName "FSharpInlineControl">]
