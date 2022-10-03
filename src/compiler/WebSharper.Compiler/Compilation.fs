@@ -463,6 +463,20 @@ type Compilation(meta: Info, ?hasGraph) =
                 | None -> None
             | None -> None
 
+    member this.GetFakeMethodForCtor(c: Constructor) =
+        Method {
+            MethodName = ".ctor"
+            Parameters = c.Value.CtorParameters
+            ReturnType = Type.VoidType
+            Generics = 0
+        }
+        
+    member this.AddQuotedConstArgMethod(typ: TypeDefinition, c: Constructor, a) =
+        compilingQuotedArgMethods.Add((typ, this.GetFakeMethodForCtor(c)), a)
+
+    member this.TryLookupQuotedConstArgMethod(typ: TypeDefinition, c: Constructor) =
+        this.TryLookupQuotedArgMethod(typ, this.GetFakeMethodForCtor(c))
+
     member this.AddClass(typ, cls) =
         try
             notResolvedClasses.Add(typ, cls)

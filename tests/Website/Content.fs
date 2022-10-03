@@ -95,16 +95,16 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
         Title = "WebSharper client-side tests",
         Body = (
             [
-                yield Web.InlineControl.Create ( WebSharper.Tests.Main.RunTests runServerTests autoStart ) :> Web.Control
-                yield Web.InlineControl.Create ( WebSharper.Collections.Tests.Main.RunTests() ) :> Web.Control
+                yield Web.InlineControl ( WebSharper.Tests.Main.RunTests runServerTests autoStart ) :> Web.Control
+                yield Web.InlineControl ( WebSharper.Collections.Tests.Main.RunTests() ) :> Web.Control
                 yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
-                yield Web.InlineControl.Create ( Client.ClientSideTupleTest t12 ) :> Web.Control
-                yield Web.InlineControl.Create ( WebSharper.Html5.Tests.Main.RunTests true ) :> Web.Control
-                yield Web.InlineControl.Create ( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests ) :> Web.Control
+                yield Web.InlineControl ( Client.ClientSideTupleTest t12 ) :> Web.Control
+                yield Web.InlineControl ( WebSharper.Html5.Tests.Main.RunTests true ) :> Web.Control
+                yield Web.InlineControl ( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests ) :> Web.Control
                 if runServerTests then
-                    yield Web.InlineControl.Create ( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri ) :> Web.Control
-                    yield Web.InlineControl.Create ( WebSharper.Module.Tests.Main.RunTests() ) :> Web.Control
-                yield Web.InlineControl.Create ( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests ) :> Web.Control
+                    yield Web.InlineControl ( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri ) :> Web.Control
+                    yield Web.InlineControl ( WebSharper.Module.Tests.Main.RunTests() ) :> Web.Control
+                yield Web.InlineControl ( WebSharperWebTestsMain.RunTests jsonBaseUri runServerTests ) :> Web.Control
             ] : list<Web.Control>
         )
     )
