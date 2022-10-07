@@ -294,7 +294,7 @@ let removeListOfArray (argType: FSharpType) (expr: Expression) =
 
 type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 
-    let mutable refAnonRecordCache = Dictionary<string, (string * string[])[]>()
+    let mutable anonRecords = null : IDictionary<string[], string>
     
     let readSimpleName (a: FSharpAssembly) typeFullName =
         if Option.isNone a.FileName then // currently compiled assembly
@@ -315,18 +315,24 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
         }
 
     member this.ResolveAnonRecord (d: FSharpAnonRecordTypeDetails) =
+        let asmName = readSimpleName d.Assembly d.CompiledName
+        
+        let fallback() =
+            TypeDefinition {
+                Assembly = asmName
+                FullName = d.CompiledName
+            }
+            
         // anon records have a timestamp in their compiled name, use reflection to find name in dll if possible
-        let asmName = comp.FindProxiedAssembly(readSimpleName d.Assembly d.CompiledName)
-        let refAnonRecords =    
-            match refAnonRecordCache.TryGetValue(asmName) with
-            | true, types -> types
-            | _ ->
+        // only for currently compiled assembly
+        if Option.isNone d.Assembly.FileName && Option.isNone comp.ProxyTargetName then
+            if isNull anonRecords then
                 let asmOpt = 
-                    try Some (Reflection.LoadAssembly asmName)
+                    try Some (Reflection.LoadAssembly comp.AssemblyName)
                     with _ -> None
-                let types = 
-                    match asmOpt with
-                    | Some asm ->
+                match asmOpt with
+                | Some asm ->
+                    anonRecords <-
                         asm.DefinedTypes 
                         |> Seq.filter (fun t -> t.Name.StartsWith("<>f__AnonymousType")) 
                         |> Seq.map (fun t ->
@@ -338,28 +344,23 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                                 )
                                 |> Seq.map(fun p -> p.Name)
                                 |> Array.ofSeq
-                            t.Name, sortedFieldNames
+                            sortedFieldNames, t.Name
                         )
-                        |> Array.ofSeq
-                    | _ -> [||]
-                refAnonRecordCache.Add(asmName, types)
-                types
-        let sortedFieldNames = d.SortedFieldNames
-        let realAnonRecord =
-            refAnonRecords
-            |> Array.tryFind (fun (_, f) -> f = sortedFieldNames)
-        match realAnonRecord with
-        | Some (rname, _) ->
-            TypeDefinition {
-                Assembly = asmName
-                FullName = rname
-            }
-        | None ->
-            // falback if we don't have compiled dll
-            TypeDefinition {
-                Assembly = asmName
-                FullName = d.CompiledName
-            }
+                        |> dict
+                | _ -> 
+                    anonRecords <- dict []
+            match anonRecords.TryFind(d.SortedFieldNames) with
+            | Some rname ->
+                TypeDefinition {
+                    Assembly = asmName
+                    FullName = rname
+                }
+            | None ->
+                // fallback for bundle-only projects (no compiled dll)
+                fallback()
+        else
+            // for referenced libs and proxied lib
+            fallback()
 
     member this.ReadTypeDefinition (td: FSharpEntity) =
         if td.IsArrayType then
