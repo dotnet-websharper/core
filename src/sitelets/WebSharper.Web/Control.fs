@@ -277,10 +277,11 @@ module ClientSideInternals =
 
 open ClientSideInternals
 
-/// Implements a web control based on a quotation-wrapped top-level body.
-/// Use the function ClientSide or ctx.ClientSide to create an InlineControl.
+/// Embeds the given client-side control body in a server-side control.
+/// The client-side control body must be an implicit or explicit quotation expression.
+/// It can capture local variables, of the same types which are serializable by WebSharper as RPC results.
 [<CompiledName "FSharpInlineControl">]
-type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
+type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition>] elt: Expr<'T>) =
     inherit Control()
 
     [<System.NonSerialized>]
@@ -329,7 +330,6 @@ type InlineControl<'T when 'T :> IControlBody>(elt: Expr<'T>) =
 
         member this.Encode(meta, json) =
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
-
 
 open System
 open System.Reflection
@@ -438,8 +438,6 @@ module WebExtensions =
     open Microsoft.FSharp.Quotations
     open WebSharper.Web
 
-    /// Embed the given client-side control body in a server-side control.
-    /// The client-side control body must be an implicit or explicit quotation expression.
-    /// It can capture local variables, of the same types which are serializable by WebSharper as RPC results.
+    [<System.Obsolete "Use `new WebSharper.Web.InlineControl(e)` instead">]
     let ClientSide ([<JavaScript; ReflectedDefinition>] e: Expr<#IControlBody>) =
-        new InlineControl<_>(e)
+        new InlineControl<_>(%e)

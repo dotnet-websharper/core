@@ -157,3 +157,24 @@ module Api =
           born = DateTime(1928, 12, 7)
           died = None }
     ]
+
+module AnonRecordServer =
+    [<Remote>]
+    let f28 (a: {| x: int; y: int |}) =
+        a.x + a.y
+        |> async.Return
+
+    [<Remote>]
+    let f29 (a: {| x: int; y: {| a: int; b: int |} |}) =
+        a.x + a.y.a + a.y.b
+        |> async.Return
+
+    [<Remote>]
+    let f30 (x: int, y: int) =
+        {| x = x; y = y |}
+        |> async.Return
+
+    [<Remote>]
+    let f31 (x: int, a: int, b: int) =
+        {| x = x; y = {| a = a; b = b |} |}
+        |> async.Return

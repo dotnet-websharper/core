@@ -57,18 +57,18 @@ module Site =
             Body = [
                 Elt("h1", Text "Welcome to our site!")
                 "About us" => ctx.Link EndPoint.About
-                Elt("div", ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
+                Elt("div", Web.InlineControl ( Client.Elt "b" [|Client.Text "It's working baby"|] ))
                 Elt("div",
                     Text """This should say 'Checking "attribute" encoding':""",
                     Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
                 )
                 Elt("div",
-                    ClientSide
-                        <@ Client.Elt "i" [|
+                    Web.InlineControl
+                        ( Client.Elt "i" [|
                             Client.Text "On the "
                             Client.Elt "b" [|Client.Text "client side"|]
                             Client.Text " too!"
-                        |] @>)
+                        |] ))
                 Elt("div", ClientSide <@ Client.Main() @>)
             ]
         )

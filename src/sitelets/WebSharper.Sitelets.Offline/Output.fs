@@ -386,6 +386,17 @@ and contentHelper (stream: Stream) (context: Context<obj>) (rsp: Http.Response) 
             do! mvcContentHelper stream context mvcObj
     }
 
+let getError (outerException: Exception) action =
+    let errors = ResizeArray<string>()
+    let rec processExceptions (ex: Exception) =
+        if ex.InnerException <> null then
+            sprintf "[%A] - %s\n%A" action ex.Message ex.StackTrace |> errors.Add
+            processExceptions (ex.InnerException)
+        else
+            sprintf "[%A] - %s\n%A" action ex.Message ex.StackTrace |> errors.Add
+    processExceptions outerException
+    errors
+
 let WriteSite (aR: AssemblyResolver) (config: Config) =
     let st = State(config)
     let projectFolder = config.Options.ProjectDirectory
@@ -429,8 +440,8 @@ let WriteSite (aR: AssemblyResolver) (config: Config) =
                     do! contentHelper stream context response |> Async.AwaitTask
                     config.Logger.TimedStage <| sprintf "Generating %s" (P.ShowPath rC.Path)
                 with ex ->
-                    let msg = sprintf "%A - %s\n%s" action ex.Message ex.StackTrace
-                    errors.Add(msg)
+                    let msgs = getError ex action
+                    errors.AddRange(msgs)
             | None ->
                 let msg = sprintf "Could not link to action: %A" action
                 config.Logger.Out("Warning: " + msg)

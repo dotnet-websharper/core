@@ -195,7 +195,7 @@ module SampleSite =
                     yield! t.Login
                     yield! t.Menu
                     yield! t.Body
-                    yield ClientSide <@ Client.Widget () @> :> _
+                    yield Web.InlineControl ( Client.Widget () ) :> _
                 ]
             )
         }
@@ -233,18 +233,18 @@ module SampleSite =
                 [
                     Elt("h1", Text "Welcome to our site!")
                     "Let us know how we can contact you" => ctx.Link Action.Contact
-                    Elt("div", ClientSide <@ Client.Elt "b" [|Client.Text "It's working baby"|] @>)
+                    Elt("div", Web.InlineControl (Client.Elt "b" [|Client.Text "It's working baby"|] ))
                     Elt("div",
                         Text """This should say 'Checking "attribute" encoding':""",
                         Elt("input", Attr("placeholder", """Checking "attribute" encoding"""))
                     )
                     Elt("div",
-                        ClientSide
-                            <@ Client.Elt "i" [|
+                        Web.InlineControl
+                            ( Client.Elt "i" [|
                                 Client.Text "On the "
                                 Client.Elt "b" [|Client.Text "client side"|]
                                 Client.Text " too!"
-                            |] @>)
+                            |] ))
                 ]
 
         /// A page to collect contact information.
