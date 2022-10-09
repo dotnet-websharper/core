@@ -297,7 +297,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         trE e
     | ClassExpr (n, b, m) ->
         let innerEnv = env.NewInner()
-        J.ClassExpr(None, Option.map trE b, [], List.map (transformMember innerEnv) m)
+        J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 

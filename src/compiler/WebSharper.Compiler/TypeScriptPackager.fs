@@ -640,7 +640,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
-            | M.Static maddr ->
+            | M.Static maddr 
+            | M.AsStatic maddr ->
                 let signature =
                     TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType.Value)
                 

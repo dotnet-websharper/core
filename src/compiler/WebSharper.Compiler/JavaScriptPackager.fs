@@ -267,7 +267,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
-            | M.Static maddr ->
+            | M.Static maddr
+            | M.AsStatic maddr ->
                 if body <> Undefined then
                     if body <> Undefined then
                         package maddr body
