@@ -1334,7 +1334,7 @@ let (|AlwaysTupleGet|_|) tupledArg length expr =
 
 let (|TupledLambda|_|) expr =
     match expr with
-    | Lambda ([tupledArg], ret, b, isReturn) ->
+    | Lambda ([tupledArg], ret, b, isReturn) when tupledArg.IsTuple ->
         // when the tuple itself is bound to a name, there will be an extra let expression
         let tupledArg, b =
             match b with

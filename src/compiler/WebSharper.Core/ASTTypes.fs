@@ -82,6 +82,12 @@ type Id =
 
     member this.VarType = this.Type
 
+    member this.IsTuple =
+        match this.Type with
+        | Some (TupleType _)
+        | Some (TSType (TSType.Tuple _)) -> true
+        | _ -> false
+
     member this.ToTSType(toTSType) =
         match this.Type with
         | None -> this
