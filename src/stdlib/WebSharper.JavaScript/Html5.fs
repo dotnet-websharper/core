@@ -557,7 +557,8 @@ module File =
                 "size" =? T<int>
                 "type" =? T<string>
                 "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> TSelf
-                "close" => T<unit> ^-> T<unit>
+                "arrayBuffer" => T<unit> ^-> EcmaPromise.[TypedArrays.ArrayBuffer]
+                "text" => T<unit> ^-> EcmaPromise.[T<string>]
             ]
 
     let File =
@@ -567,7 +568,7 @@ module File =
                 "name" =? T<string>
                 "lastModifiedDate" =? EcmaDate |> Obsolete
                 "lastModifed" =? T<int>
-                "size" =? T<int>
+                "webkitRelativePath" =? T<string>
             ]
 
     let ProgressEvent =
@@ -618,6 +619,7 @@ module File =
                 "readAsArrayBuffer " => Blob ^-> T<unit>
                 "readAsText" => Blob * !?T<string>?encoding ^-> T<unit>
                 "readAsDataURL" => Blob ^-> T<unit>
+                "readAsBinaryString" => Blob * !?T<string>?encoding ^-> T<unit>
         ]
 
     let TextFileReader =
