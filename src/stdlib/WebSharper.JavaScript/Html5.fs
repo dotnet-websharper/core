@@ -23,6 +23,7 @@ namespace WebSharper.JavaScript.Html5
 open WebSharper.InterfaceGenerator
 open WebSharper.JavaScript
 open WebSharper.JavaScript.Ecma.Definition
+open WebSharper.JavaScript.Dom.Definition
 
 module Utils =
     let RenamedEnumStrings n f l =
@@ -535,6 +536,220 @@ module TypedArrays =
     let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
     let Float32Array = MakeTypedArray "Float32Array" T<float32>
     let Float64Array = MakeTypedArray "Float64Array" T<double>
+
+module Streamable =
+
+    let ReadableStream =
+        Class "ReadableStream"
+
+    let WritableStream =
+        Class "WritableStream"
+
+    let ReadableStreamReaderMode =
+        Pattern.EnumStrings "ReadableStreamReaderMode" [
+            "byob"
+        ]
+
+    let ReadableStreamGetReaderOptions =
+        Pattern.Config "ReadableStreamGetReaderOptions"
+            {
+                Required =
+                    [
+                        "mode", ReadableStreamReaderMode.Type
+                    ]
+                Optional = []
+            }
+
+    let QueuingStrategy =
+        Pattern.Config "QueuingStrategy"
+            {
+                Required =
+                    [
+                        "highWaterMark", T<float>
+                        "size", T<obj> ^-> T<float>
+                    ]
+                Optional = []
+            }
+
+    let QueuingStrategyInit =
+        Pattern.Config "QueuingStrategyInit"
+            {
+                Required =
+                    [
+                        "highWaterMark", T<float>
+                    ]
+                Optional = []
+            }
+
+    let ReadableStreamResult =
+        Pattern.Config "ReadableStreamResult"
+            {
+                Required =
+                    [
+                        "value", T<obj>
+                        "done", T<bool>
+                    ]
+                Optional = []
+            }
+
+    let ByteLengthQueuingStrategy =
+        Class "ByteLengthQueuingStrategy"
+        |+> Static [
+            Constructor QueuingStrategyInit
+        ]
+        |+> Instance [
+            "highWaterMark" =? T<float>
+            "size" => !+T<obj> ^-> T<obj>
+        ]
+
+    let CountQueuingStrategy =
+        Class "CountQueuingStrategy"
+        |+> Static [
+            Constructor QueuingStrategyInit
+        ]
+        |+> Instance [
+            "highWaterMark" =? T<float>
+            "size" => !+T<obj> ^-> T<obj>
+        ]
+
+    let ReadableStreamGenericReader =
+        Class "ReadableStreamGenericReader"
+        |+> Instance [
+            "closed" =? EcmaPromise.[T<unit>]
+            "cancel" => !?T<obj>?reason ^-> EcmaPromise.[T<unit>]
+        ]
+
+    let ReadableStreamDefaultReader =
+        Class "ReadableStreamDefaultReader"
+        |=> Inherits ReadableStreamGenericReader
+        |+> Static [
+            Constructor ReadableStream
+        ]
+        |+> Instance [
+            "read" => T<unit> ^-> ReadableStreamResult
+            "releaseLock" => T<unit> ^-> T<unit>
+        ]
+
+    let ReadableStreamBYOBReader =
+        Class "ReadableStreamBYOBReader"
+        |=> Inherits ReadableStreamGenericReader
+        |+> Static [
+            Constructor ReadableStream
+        ]
+        |+> Instance [
+            "read" => TypedArrays.ArrayBufferView?view ^-> ReadableStreamResult
+            "releaseLock" => T<unit> ^-> T<unit>
+        ]
+
+    let ReadableStreamReader = ReadableStreamDefaultReader + ReadableStreamBYOBReader
+
+    let ReadableStreamBYOBRequest =
+        Class "ReadableStreamBYOBRequest"
+        |+> Instance [
+            "view" =? TypedArrays.ArrayBufferView
+
+            "respond" => T<uint>?bytesWritten ^-> T<unit>
+            "respondWithNewView" => TypedArrays.ArrayBufferView?view ^-> T<unit>
+        ]
+
+    let ReadableByteStreamController =
+        Class "ReadableByteStreamController"
+        |+> Instance [
+            "byobRequest" =? !?ReadableStreamBYOBRequest
+            "desiredSize" =? T<float>
+
+            "close" => T<unit> ^-> T<unit>
+            "enqueue" => TypedArrays.ArrayBufferView?chunk ^-> T<unit>
+            "error" => !?T<obj>?e ^-> T<unit>
+        ]
+
+    let ReadableStreamDefaultController =
+        Class "ReadableStreamDefaultController"
+        |+> Instance [
+            "desiredSize" =? T<float>
+
+            "close" => T<unit> ^-> T<unit>
+            "enqueue" => !?T<obj>?chunk ^-> T<unit>
+            "error" => !?T<obj>?e ^-> T<unit>
+        ]
+
+    let WritableStreamDefaultController =
+        Class "WritableStreamDefaultController"
+        |+> Instance [
+            "signal" =? Dom.Interfaces.AbortSignal
+            "error" => !?T<obj>?e ^-> T<unit>
+        ]
+
+    let QS = QueuingStrategy + CountQueuingStrategy + ByteLengthQueuingStrategy
+
+    let StreamPipeOptions =
+        Pattern.Config "StreamPipeOptions"
+            {
+                Required =
+                    [
+                        "signal", Dom.Interfaces.AbortSignal.Type
+                    ]
+                Optional =
+                    [
+                        "preventClose", T<bool>
+                        "preventAbort", T<bool>
+                        "preventCancel", T<bool>
+                    ]
+            }
+
+    let ReadableWritablePair =
+        Pattern.Config "ReadableWritablePair"
+            {
+                Required =
+                    [
+                        "readable", ReadableStream.Type
+                        "writable", WritableStream.Type
+                    ]
+                Optional = []
+            }
+    let RS =
+        ReadableStream
+        |+> Static [
+            Constructor (!?T<obj>?underlyingSource * !?QS?strategy)
+        ]
+        |+> Instance [
+            "locked" =? T<bool>
+
+            "cancel" => !?T<obj>?reason ^-> EcmaPromise.[T<unit>]
+            "getReader" => !?ReadableStreamGetReaderOptions?options ^-> ReadableStreamReader
+            "pipeThrough" => ReadableWritablePair?transform * !? StreamPipeOptions?options ^-> TSelf
+            "pipeTo" => WritableStream?destination * !? StreamPipeOptions?options ^-> EcmaPromise.[T<unit>]
+            "tee" => T<unit>
+        ]
+
+    let WritableStreamDefaultWriter =
+        Class "WritableStreamDefaultWriter"
+        |+> Static [
+            Constructor WritableStream?stream
+        ]
+        |+> Instance [
+            "closed" =? EcmaPromise.[T<unit>]
+            "desiredSize" =? T<double>
+            "ready" =? EcmaPromise.[T<unit>]
+
+            "abort" => !?T<obj>?reason ^-> EcmaPromise.[T<unit>]
+            "close" => T<unit> ^-> EcmaPromise.[T<unit>]
+            "write" => !?T<obj>?chunk ^-> EcmaPromise.[T<unit>]
+            "releaseLock" => T<unit> ^-> T<unit>
+        ]
+
+    let WS =
+        WritableStream
+        |+> Static [
+            Constructor (!?T<obj>?underlyingSink * !?QS?strategy)
+        ]
+        |+> Instance [
+            "locked" =? T<bool>
+
+            "abort" => !?T<obj>?reason ^-> EcmaPromise.[T<unit>]
+            "close" => T<unit> ^-> EcmaPromise.[T<unit>]
+            "getWriter" => T<unit> ^-> WritableStreamDefaultWriter
+        ]
 
 module File =
 
@@ -2761,6 +2976,27 @@ module Definition =
                 Dom.Interfaces.Window
                 General.CSSSD
                 General.MQL
+
+                Streamable.ReadableStream
+                Streamable.WritableStream
+                Streamable.QueuingStrategy
+                Streamable.QueuingStrategyInit
+                Streamable.ByteLengthQueuingStrategy
+                Streamable.CountQueuingStrategy
+                Streamable.StreamPipeOptions
+                Streamable.ReadableStreamDefaultReader
+                Streamable.ReadableByteStreamController
+                Streamable.ReadableStreamBYOBReader
+                Streamable.ReadableStreamBYOBRequest
+                Streamable.ReadableStreamDefaultController
+                Streamable.ReadableStreamGenericReader
+                Streamable.ReadableStreamGetReaderOptions
+                Streamable.ReadableStreamReaderMode
+                Streamable.ReadableStreamResult
+                Streamable.ReadableWritablePair
+                Streamable.WritableStreamDefaultController
+                Streamable.WritableStreamDefaultWriter
+
                 TypedArrays.DataView.Class
                 TypedArrays.ArrayBuffer
                 TypedArrays.ArrayBufferView
