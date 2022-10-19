@@ -774,6 +774,7 @@ module File =
                 "slice" => T<int>?start * T<int>?``end`` * T<string>?contentType ^-> TSelf
                 "arrayBuffer" => T<unit> ^-> EcmaPromise.[TypedArrays.ArrayBuffer]
                 "text" => T<unit> ^-> EcmaPromise.[T<string>]
+                "stream" => T<unit> ^-> Streamable.ReadableStream
             ]
 
     let File =
@@ -1696,13 +1697,13 @@ module Fetch =
                     "referrerPolicy", ReferrerPolicy.Type
                     "integrity", T<string>
                     "keepalive", T<bool>
-                    // "signal", AbortSignal // Experimental
+                    "signal", Dom.Interfaces.AbortSignal.Type
                 ]
         }
 
     let Body =
         Instance [
-            // "body" =? ReadableStream // Experimental
+            "body" =? Streamable.ReadableStream
             "bodyUsed" =? T<bool>
             "arrayBuffer" => T<unit> ^-> EcmaPromise.[TypedArrays.ArrayBuffer]
             "blob" => T<unit> ^-> EcmaPromise.[File.Blob]
@@ -1776,7 +1777,7 @@ module Fetch =
         ]
 
     let Response =
-        let bodyTypes = File.Blob + FormData (*+ ReadableStream *) + URLSearchParams + T<string>
+        let bodyTypes = File.Blob + FormData + Streamable.ReadableStream + URLSearchParams + T<string>
         Class "Response"
         |+> Static [
             Constructor (!?bodyTypes * !?ResponseOptions)
