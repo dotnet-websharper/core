@@ -164,7 +164,7 @@ let WriteUnicodeEscapeCodeForId (buf: StringBuilder) (c: char) =
 let EscapeId (id: string) =
     let buf = StringBuilder()
     if System.String.IsNullOrEmpty id then
-        "$$ERROR$$"
+        "$$EMPTY_ID_ERROR$$"
         //invalidArg "id" "Cannot escape null and empty identifiers."
     else
     let isFirst = function
@@ -260,6 +260,12 @@ let rec Id (id: S.Id) =
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
+and IdOrString (id: S.Id) =
+    if Identifier.IsValid id.Name then Word id.Name else Token (QuoteString id.Name)
+    ++ Generics id.Generics
+    ++ Conditional (Token "?") id.Optional
+    ++ TypeAnnotation id.Type
+
 and IdAndModifiers (id: S.Id, modifiers: S.Modifiers) =
     (if modifiers.HasFlag S.Modifiers.Private then Word "private" else Empty)
     ++ (if modifiers.HasFlag S.Modifiers.Public then Word "public" else Empty)
@@ -271,8 +277,6 @@ and Generics items =
 
 and TypeAnnotation a =
     Optional (fun t -> Token ":" ++ Expression t) a
-
-and NonTypedId (id: S.Id) = Id (id.ToNonTyped())
 
 and Expression (expression) =
     match expression with
@@ -543,7 +547,7 @@ and Statement canBeEmpty statement =
         Word "with" ++ Parens (Expression e) ++ Statement false s
     | S.Function (id, formals, body) ->
         Word "function"
-        ++ NonTypedId id
+        ++ Id (id.ToNonTyped())
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
         ++ BlockLayout (List.map (Statement true) body)
@@ -607,7 +611,7 @@ and Member isClass mem =
     | S.Method (s, n, args, body) ->
         Conditional (Word "abstract") (isClass && Option.isNone body)
         ++ Conditional (Word "static") s
-        ++ NonTypedId n
+        ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)
         ++ TypeAnnotation n.Type 
         ++ Optional (List.map (Statement true) >> BlockLayout) body

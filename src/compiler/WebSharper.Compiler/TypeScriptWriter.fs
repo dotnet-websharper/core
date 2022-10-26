@@ -51,10 +51,10 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window" ] 
+            ScopeNames = Set [ "window"; "self"; "import" ] 
             CurrentScopeNames = HashSet()
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "window" ] 
+            ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ] 
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
@@ -332,6 +332,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | This -> J.This
     | Base -> J.Super
     | Arguments -> J.Var (J.Id.New "arguments")
+    | Var importId when importId = Id.Import() -> J.ImportFunc
     | Var id -> 
         if id.IsGlobal() then
             J.Cast(J.Var (J.Id.New "any"), J.Var (trI id))
@@ -470,7 +471,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             ) a.Address.Value (J.Var (trI v))
         | CurrentModule | JavaScriptFile _ ->
             match a.Address.Value with
-            | [] -> J.Var (J.Id.New "window")
+            | [] -> J.Var (J.Id.New "self")
             | h :: _ as a ->
             match resolveName env (List.rev a) with
             | [] -> J.Var (J.Id.New h)
@@ -563,21 +564,31 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Return IgnoreSourcePos.Undefined -> J.Return None
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
-        let i = transformId env id
-        let typed() =
-            match id.TSType with 
-            | Some t -> i |> withTypeAny env t
-            | _ ->
-                match id.TSType with
-                | Some t -> i |> withTypeAny env t
-                | _ -> i
         match e with
-        | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> 
-            J.Empty
-        | IgnoreSourcePos.Undefined -> 
-            J.Vars ([ typed(), None ], J.VarDecl)
-        | _ -> 
-            J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
+        | IgnoreSourcePos.Undefined -> J.Empty 
+        | IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
+            match args with
+            | [ Value (String from) ] ->
+                J.Import(None, defineId env DeclarationId id, from)  
+            | [ Value (String export); Value (String from) ] ->
+                J.Import(Some export, defineId env DeclarationId id, from)  
+            | _ -> failwith "unrecognized args for import"
+        | _ ->
+            let i = transformId env id
+            let typed() =
+                match id.TSType with 
+                | Some t -> i |> withTypeAny env t
+                | _ ->
+                    match id.TSType with
+                    | Some t -> i |> withTypeAny env t
+                    | _ -> i
+            match e with
+            | IgnoreSourcePos.Var o when o.HasStrongName && o.Name.Value = i.Name -> 
+                J.Empty
+            | IgnoreSourcePos.Undefined -> 
+                J.Vars ([ typed(), None ], J.VarDecl)
+            | _ -> 
+                J.Vars ([ typed(), Some (trE e) ], J.VarDecl)
     | FuncDeclaration (x, ids, b, gen) ->
         let innerEnv = env.NewInner()
         let id = transformId env x

@@ -44,7 +44,7 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window"; "self" ]
+            ScopeNames = Set [ "window"; "self"; "import" ]
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ]
             ScopeVars = ResizeArray()
@@ -174,6 +174,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | This -> J.This
     | Base -> J.Super
     | Arguments -> J.Var (J.Id.New "arguments")
+    | Var importId when importId = Id.Import() -> J.ImportFunc
     | Var id -> J.Var (trI id)
     | Value v ->
         match v with

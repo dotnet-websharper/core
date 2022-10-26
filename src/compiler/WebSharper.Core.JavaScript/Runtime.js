@@ -47,67 +47,73 @@
       return res;
     },
 
-    NewObject: function (kv) {
-      var o = {};
-      for (var i = 0; i < kv.length; i++) {
-        o[kv[i][0]] = kv[i][1];
-      }
-      return o;
-    },
-
-    PrintObject: function (obj) {
-      var res = "{ ";
-      var empty = true;
-      for (var field of Object.getOwnPropertyNames(obj)) {
-        if (empty) {
-          empty = false;
-        } else {
-          res += ", ";
+    NewObject:
+      function (kv) {
+        var o = {};
+        for (var i = 0; i < kv.length; i++) {
+          o[kv[i][0]] = kv[i][1];
         }
-        res += field + " = " + obj[field];
-      }
-      if (empty) {
-        res += "}";
-      } else {
-        res += " }";
-      }
-      return res;
-    },
+        return o;
+      },
 
-    DeleteEmptyFields: function (obj, fields) {
-      for (var i = 0; i < fields.length; i++) {
-        var f = fields[i];
-        if (obj[f] === void (0)) { delete obj[f]; }
-      }
-      return obj;
-    },
+    PrintObject:
+      function (obj) {
+        var res = "{ ";
+        var empty = true;
+        for (var field of Object.getOwnPropertyNames(obj)) {
+          if (empty) {
+            empty = false;
+          } else {
+            res += ", ";
+          }
+          res += field + " = " + obj[field];
+        }
+        if (empty) {
+          res += "}";
+        } else {
+          res += " }";
+        }
+        return res;
+      },
 
-    GetOptional: function (value) {
-      return (value === void (0)) ? null : { $: 1, $0: value };
-    },
+    DeleteEmptyFields:
+      function (obj, fields) {
+        for (var i = 0; i < fields.length; i++) {
+          var f = fields[i];
+          if (obj[f] === void (0)) { delete obj[f]; }
+        }
+        return obj;
+      },
 
-    SetOptional: function (obj, field, value) {
-      if (value) {
-        obj[field] = value.$0;
-      } else {
-        delete obj[field];
-      }
-    },
+    GetOptional:
+      function (value) {
+        return (value === void (0)) ? null : { $: 1, $0: value };
+      },
 
-    SetOrDelete: function (obj, field, value) {
-      if (value === void (0)) {
-        delete obj[field];
-      } else {
-        obj[field] = value;
-      }
-    },
+    SetOptional:
+      function (obj, field, value) {
+        if (value) {
+          obj[field] = value.$0;
+        } else {
+          delete obj[field];
+        }
+      },
+
+    SetOrDelete:
+      function (obj, field, value) {
+        if (value === void (0)) {
+          delete obj[field];
+        } else {
+          obj[field] = value;
+        }
+      },
 
     Apply: function (f, obj, args) {
       return f.apply(obj, args);
     },
 
     Bind: function (f, obj) {
-      return function () { return f.apply(this, arguments) };
+      return function () { return f.apply(obj, arguments) };
     },
 
     CreateFuncWithArgs: function (f) {
@@ -283,36 +289,38 @@
       return this.ScriptBasePath + (this.ScriptSkipAssemblyDir ? "" : a + "/") + f;
     },
 
-    OnLoad: function (f) {
-      if (!("load" in this)) {
-        this.load = [];
-      }
-      this.load.push(f);
-    },
-
-    Start: function () {
-      function run(c) {
-        for (var i = 0; i < c.length; i++) {
-          c[i]();
+    OnLoad:
+      function (f) {
+        if (!("load" in this)) {
+          this.load = [];
         }
-      }
-      if ("load" in this) {
-        run(this.load);
-        this.load = [];
-      }
-    },
+        this.load.push(f);
+      },
+
+    Start:
+      function () {
+        function run(c) {
+          for (var i = 0; i < c.length; i++) {
+            c[i]();
+          }
+        }
+        if ("load" in this) {
+          run(this.load);
+          this.load = [];
+        }
+      },
   }
 
   Global.WSRuntime.OnLoad(function () {
-    if (window.WebSharper && WebSharper.Activator && WebSharper.Activator.Activate)
-      WebSharper.Activator.Activate()
+    if (Global.WebSharper && Global.WebSharper.Activator && Global.WebSharper.Activator.Activate)
+      Global.WebSharper.Activator.Activate()
   });
 
-  Global.ignore = function () { };
-  Global.id = function (x) { return x };
-  Global.fst = function (x) { return x[0] };
-  Global.snd = function (x) { return x[1] };
-  Global.trd = function (x) { return x[2] };
+  Global.ignore = function() { };
+  Global.id = function(x) { return x };
+  Global.fst = function(x) { return x[0] };
+  Global.snd = function(x) { return x[1] };
+  Global.trd = function(x) { return x[2] };
 
   if (!Global.console) {
     Global.console = {
