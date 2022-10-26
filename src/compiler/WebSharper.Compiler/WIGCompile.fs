@@ -838,7 +838,7 @@ type MemberConverter
         attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, warning))
         attr 
 
-    let setWarnAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+    let setWarnAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
         match x.Warning with
         | Some warning -> attrs.Add (warnAttribute warning)
         | _ -> ()
@@ -985,6 +985,7 @@ type MemberConverter
             pD.SetMethod <- mD
         setObsoleteAttribute p pD.CustomAttributes
         addDependencies p pD.CustomAttributes
+        setWarnAttribute p pD.CustomAttributes
         dT.Properties.Add pD
 
     let withGenerics (generics: Code.TypeParameter list, td: Code.TypeDeclaration, owner) =
@@ -1019,6 +1020,7 @@ type MemberConverter
             if x.Generics.Length > 0 then
                 tD.Name <- tD.Name + "`" + string x.Generics.Length
             k (withGenerics (x.Generics, x, tD)) tD
+            setWarnAttribute x tD.CustomAttributes
         | _ -> ()
 
     member private c.AddMethod(dT: TypeDefinition, td: Code.TypeDeclaration, x: Code.Method) =
@@ -1095,6 +1097,7 @@ type MemberConverter
             if not (propNames.Add name) then failwithf "Duplicate property definition: %s on %s" name x.Name
             addProperty tD x name p
         addDependencies x tD.CustomAttributes
+        setWarnAttribute x tD.CustomAttributes
     
     member d.AddDependencies(ent: Code.IResourceDependable, prov: ICustomAttributeProvider) =
         addDependencies ent prov.CustomAttributes
@@ -1122,6 +1125,7 @@ type MemberConverter
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
+        setWarnAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
 
     member c.Interface(x: Code.Interface) =
