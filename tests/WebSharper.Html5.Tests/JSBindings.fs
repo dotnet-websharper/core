@@ -41,6 +41,8 @@ let BrowserVersion() =
     let regexstr = "(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)"
     let regexp = new RegExp(regexstr, "i")
     let m = regexp.Exec(ua)
+    let x = null :> MediaStreamTrackClass
+    let p = x.ContentHint
     let m1, m2 =
         if Array.length m >= 3
             then m.[1], m.[2]
