@@ -266,7 +266,7 @@ module Pervasives =
         x |> Code.Entity.Update (fun x -> x.IsPure <- true)
 
     /// Adds a warning for the given code entity.
-    let WithWarning s (x: 'T when  'T :> Code.Entity) =
+    let WithWarning s (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.Warning <- Some s)
 
     /// Adds an inline.
