@@ -265,8 +265,8 @@ module Pervasives =
     let Pure (x: #Code.MethodBase) =
         x |> Code.Entity.Update (fun x -> x.IsPure <- true)
 
-    /// Marks an method as a pure function call.
-    let WithWarning s (x: #Code.MethodBase) =
+    /// Adds a warning for the given code entity.
+    let WithWarning s (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.Warning <- Some s)
 
     /// Adds an inline.

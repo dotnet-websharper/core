@@ -68,7 +68,7 @@ module SamplesInternals =
         Elt("canvas").OnAfterInsert(fun e ->
             e.SetAttribute("height", string height)
             e.SetAttribute("width", string width)
-            let context = As<CanvasElement>(e).GetContext "2d"
+            let context = As<HTMLCanvasElement>(e).GetContext "2d"
             f context
         )
 

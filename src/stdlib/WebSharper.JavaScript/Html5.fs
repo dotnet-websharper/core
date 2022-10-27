@@ -36,6 +36,610 @@ module Utils =
         |> List.toSeq
         |> Pattern.EnumInlines n
 
+module Decl =
+    let HTMLCanvasElementClass = Class "HTMLCanvasElement"
+    let HTMLImageElementClass = Class "HTMLImageElement"
+    let HTMLVideoElementClass = Class "HTMLVideoElement"
+    let SVGImageElementClass = Class "SVGImageElement"
+
+module TypedArrays =
+
+
+    let ArrayBuffer =
+        Class "ArrayBuffer"
+        |+> Instance [
+                "byteLength" =? T<int>
+                "slice" => T<int> * T<int> ^-> TSelf
+                |> WithComment "Warning: although part of the spec, may not work in IE10 as of 6/6/2013."
+            ]
+        |+> Static [ Constructor T<int> ]
+
+    module DataView =
+
+        let private Getter<'T> name =
+            name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
+
+        let private Setter<'T> name =
+            name => T<int>?byteOffset * T<'T>?value * !? T<bool>?littleEndian ^-> T<unit>
+
+        let Class =
+            Class "DataView"
+            |+> Static [
+                    Constructor ArrayBuffer
+                    Constructor (ArrayBuffer * T<int>?byteOffset)
+                    Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
+                ]
+            |+> Instance [
+                    "getInt8" => T<int>?byteOffset ^-> T<sbyte>
+                    "getUint8" => T<int>?byteOffset ^-> T<byte>
+                    Getter<int16> "getInt16"
+                    Getter<uint16> "getUint16"
+                    Getter<int32> "getInt32"
+                    Getter<uint32> "getUint32"
+                    Getter<float32> "getFloat32"
+                    Getter<double> "getFloat64"
+                    "setInt8" => T<int>?byteOffset * T<sbyte>?value ^-> T<unit>
+                    "setUint8" => T<int>?byteOffset * T<byte>?value ^-> T<unit>
+                    Setter<int16> "setInt16"
+                    Setter<uint16> "setUint16"
+                    Setter<int32> "setInt32"
+                    Setter<uint32> "setUint32"
+                    Setter<float32> "setFloat32"
+                    Setter<double> "setFloat64"
+                ]
+
+    let ArrayBufferView =
+        Class "ArrayBufferView"
+        |+> Instance
+            [
+                "buffer" =? ArrayBuffer
+                "byteOffset" =? T<int>
+                "byteLength" =? T<int>
+            ]
+
+    let private MakeTypedArray typedArray (elementType: Type.Type) =
+        Class typedArray
+        |=> Inherits ArrayBufferView
+        |+> Static [
+                Constructor T<unit>
+                Constructor T<int>
+                Constructor TSelf
+                Constructor (Type.ArrayOf elementType)
+                Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
+                "BYTES_PER_ELEMENT" =? T<int>
+            ]
+        |+> Instance [
+                "length" =? T<int>
+                "get" =>
+                    T<int>?offset ^-> elementType
+                    |> WithInline "$this[$offset]"
+                "set" =>
+                    T<int>?offset * elementType?value ^-> T<unit>
+                    |> WithInline "void($this[$offset]=$value)"
+                "set" => TSelf?array * !? T<int>?offset ^-> T<unit>
+                "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
+                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> TSelf
+            ]
+
+    let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
+    let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
+    let Uint8ClampedArray = MakeTypedArray "Uint8ClampedArray" T<byte>
+    let Int16Array = MakeTypedArray "Int16Array" T<int16>
+    let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
+    let Int32Array = MakeTypedArray "Int32Array" T<int32>
+    let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
+    let Float32Array = MakeTypedArray "Float32Array" T<float32>
+    let Float64Array = MakeTypedArray "Float64Array" T<double>
+
+module Media =
+    let MediaStreamTrackContentHint =
+        Pattern.EnumInlines "MediaStreamTrackContentHint"
+            [
+                "Empty", "''"
+                "Speech", "'speech'"
+                "SpeechRecognition", "'speech-recognition'"
+                "Music", "'music'"
+                "Motion", "'motion'"
+                "Detail", "'detail'"
+                "Text", "'text'"
+            ]
+
+    let MediaStreamTrackClass =
+        Class "MediaStreamTrackClass"
+
+    let ULongRange =
+        Pattern.Config "ULongRange"
+            {
+                Required = []
+                Optional = [
+                    "max", T<uint64>
+                    "min", T<uint64>
+                ]
+            }
+
+    let DoubleRange =
+        Pattern.Config "DoubleRange"
+            {
+                Required = []
+                Optional = [
+                    "max", T<float>
+                    "min", T<float>
+                ]
+            }
+
+    let MediaStreamTrackState =
+        Pattern.EnumStrings "MediaStreamTrackState"
+            [
+                "live"
+                "ended"
+            ]
+
+    let MediaTrackCapabilities =
+        Pattern.Config "MediaTrackCapabilities"
+            {
+                Required = []
+                Optional = [
+                    "facingMode", !| T<string>
+                    "resizeMode", !| T<string>
+
+                    "echoCancellation", !|T<bool>
+                    "autoGainControl", !|T<bool>
+                    "noiseSuppression", !|T<bool>
+                    
+                    "deviceId", T<string>
+                    "groupId", T<string>
+
+                    "width", ULongRange.Type
+                    "height", ULongRange.Type
+                    "channelCount", ULongRange.Type
+                    "sampleRate", ULongRange.Type
+                    "sampleSize", ULongRange.Type
+
+                    "latency", DoubleRange.Type
+                    "aspectRatio", DoubleRange.Type
+                    "frameRate", DoubleRange.Type
+                ]
+            }
+
+    let ConstrainDOMStringParameters =
+        Pattern.Config "ConstrainDOMStringParameters"
+            {
+                Required = []
+                Optional = [
+                    "exact", T<string> + !|T<string>
+                    "ideal", T<string> + !|T<string>
+                ]
+            }
+
+    let ConstrainDOMString = T<string> + !|T<string> + ConstrainDOMStringParameters
+
+    let ConstrainBooleanParameters = 
+        Pattern.Config "ConstrainBooleanParameters" {
+            Required = []
+            Optional = [
+                "exact", T<bool>
+                "ideal", T<bool>
+            ]
+        }       
+
+    let ConstrainBoolean = T<bool> + ConstrainBooleanParameters
+
+    let ConstrainULongRange =
+        Pattern.Config "ConstrainULongRange"
+            {
+                Required = []
+                Optional = [
+                    "exact", T<uint64>
+                    "ideal", T<uint64>
+                ]
+            }
+            |=> Inherits ULongRange
+
+    let ConstrainDoubleRange =
+        Pattern.Config "ConstrainDoubleRange"
+            {
+                Required = []
+                Optional = [
+                    "exact", T<float>
+                    "ideal", T<float>
+                ]
+            }
+            |=> Inherits DoubleRange
+
+    let ConstrainDouble = T<double> + ConstrainDoubleRange
+    let ConstrainULong = T<double> + ConstrainULongRange
+
+    let MediaTrackConstraintSet =
+        Pattern.Config "MediaTrackConstraintSet"
+            {
+                Required = []
+                Optional = [
+                    "facingMode", ConstrainDOMString
+                    "resizeMode", ConstrainDOMString
+
+                    "echoCancellation", ConstrainBoolean
+                    "autoGainControl", ConstrainBoolean
+                    "noiseSuppression", ConstrainBoolean
+                    
+                    "deviceId", ConstrainDOMString
+                    "groupId", ConstrainDOMString
+
+                    "width", ConstrainULong
+                    "height", ConstrainULong
+                    "channelCount", ConstrainULong
+                    "sampleRate", ConstrainULong
+                    "sampleSize", ConstrainULong
+
+                    "latency", ConstrainDouble
+                    "aspectRatio", ConstrainDouble
+                    "frameRate", ConstrainDouble
+                ]
+            }
+
+    let MediaTrackConstraints =
+        Pattern.Config "MediaTrackConstraints"
+            {
+                Required = []
+                Optional = [
+                    "advanced", !| MediaTrackConstraintSet
+                ]
+            }
+            |=> Inherits MediaTrackConstraintSet
+
+    let MediaTrackSettings =
+        Pattern.Config "MediaTrackSettings"
+            {
+                Required = []
+                Optional = [
+                    "facingMode", T<string>
+                    "resizeMode", T<string>
+
+                    "echoCancellation", T<bool>
+                    "autoGainControl", T<bool>
+                    "noiseSuppression", T<bool>
+                        
+                    "deviceId", T<string>
+                    "groupId", T<string>
+
+                    "width", T<uint64>
+                    "height", T<uint64>
+                    "channelCount", T<uint64>
+                    "sampleRate", T<uint64>
+                    "sampleSize", T<uint64>
+
+                    "latency", T<float>
+                    "aspectRatio", T<float>
+                    "frameRate", T<float>
+                ]
+            }
+
+    let MediaTrackSupportedConstraints =
+        Class "MediaTrackSupportedConstraints"
+        |+> Static [
+            "facingMode" =? T<bool>
+            "resizeMode" =? T<bool>
+            "echoCancellation" =? T<bool>
+            "autoGainControl" =? T<bool>
+            "noiseSuppression" =? T<bool>
+            "deviceId" =? T<bool>
+            "groupId" =? T<bool>
+            "width" =? T<bool>
+            "height" =? T<bool>
+            "channelCount" =? T<bool>
+            "sampleRate" =? T<bool>
+            "sampleSize" =? T<bool>
+            "latency" =? T<bool>
+            "aspectRatio" =? T<bool>
+            "frameRate" =? T<bool>
+        ]
+            
+    let MediaStreamTrackEvent =
+        Class "MediaStreamTrackEvent"
+        |=> Inherits Dom.Interfaces.Event
+        |+> Static [
+            Constructor T<unit>
+        ]
+        |+> Instance [
+            "track" =? MediaStreamTrackClass
+        ]
+
+    let MediaStreamTrack =
+        MediaStreamTrackClass
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Instance [
+            "contentHint" =? MediaStreamTrackContentHint.Type
+                |> WithWarning "This is not part of the standard API"
+            "kind" =? T<string>
+            "id" =? T<string>
+            "label" =? T<string>
+            "enabled" =@ T<bool>
+            "muted" => T<bool>
+            "readyState" =? MediaStreamTrackState
+
+            "clone" => T<unit> ^-> TSelf
+            "stop" => T<unit> ^-> T<unit>
+            "getCapabilities" => T<unit> ^-> MediaTrackCapabilities
+            "getConstraints" => T<unit> ^-> MediaTrackConstraints
+            "getSettings" => T<unit> ^-> MediaTrackSettings
+            "applyConstraints" => !?MediaTrackConstraints?constraints ^-> EcmaPromise.[T<unit>]
+
+            "onended" =@ MediaStreamTrackEvent ^-> T<unit>
+            "onmute" =@ MediaStreamTrackEvent ^-> T<unit>
+            "onunmute" =@ MediaStreamTrackEvent ^-> T<unit>
+        ]
+
+    let MediaStream =
+        Class "MediaStream"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Static [
+            Constructor T<unit>
+            Constructor TSelf?stream
+            Constructor !|MediaStreamTrack
+        ]
+        |+> Instance [
+            "active" =? T<bool>
+            "id" =? T<string>
+
+            "addTrack" => MediaStreamTrack ^-> T<unit>
+            "clone" => T<unit> ^-> TSelf
+            "getAudioTracks" => T<unit> ^-> !| MediaStreamTrack
+            "getVideoTracks" => T<unit> ^-> !| MediaStreamTrack
+            "getTracks" => T<unit> ^-> !| MediaStreamTrack
+            "getTrackById" => T<string> ^-> !? MediaStreamTrack
+            "removeTrack" => MediaStreamTrack ^-> T<unit>
+
+            "onaddtrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            "onremovetrack" =@ MediaStreamTrackEvent ^-> T<unit>
+            "onactive" =@ MediaStreamTrackEvent ^-> T<unit>
+            "oninactive" =@ MediaStreamTrackEvent ^-> T<unit>
+        ]
+
+    let MediaDeviceKind =
+        Pattern.EnumStrings "MediaDeviceKind"
+            [
+                "audioinput"
+                "audiooutput"
+                "videoinput"
+            ]
+
+
+    let MediaDeviceInfo =
+        Interface "MediaDeviceInfo"
+        |+> [
+            "deviceId" =? T<string>
+            "kind" =? MediaDeviceKind
+            "label" =? T<string>
+            "groupId" =? T<string>
+        ]
+
+    let InputDeviceInfo =
+        Interface "InputDeviceInfo"
+        |+> [
+            "getCapabilities" => T<unit> ^-> MediaTrackCapabilities
+        ]
+
+    let MediaDevices =
+        Class "MediaDevices"
+        |=> Inherits Dom.Interfaces.EventTarget
+        |+> Instance [
+            "enumerateDevices" => T<unit> ^-> EcmaPromise.[!|MediaDeviceInfo]
+            "ondevicechange" => Dom.Interfaces.Event ^-> T<unit>
+        ]
+
+    let CanvasCaptureMediaStreamTrack =
+        Class "CanvasCaptureMediaStreamTrack"
+        |=> Inherits MediaStreamTrackClass
+        |+> Instance [
+            "canvas" =? Decl.HTMLCanvasElementClass
+            "requestFrame" => T<unit> ^-> T<unit>
+        ]
+
+module Geometry =
+    let DOMPointInit =
+        Pattern.Config "DOMPointInit"
+            {
+                Required = []
+                Optional = [
+                    "x", T<float>
+                    "y", T<float>
+                    "z", T<float>
+                    "w", T<float>
+                ]
+            }
+
+    let DOMMatrix2DInit =
+        Pattern.Config "DOMMatrix2DInit"
+            {
+                Required = []
+                Optional = [
+                    "a" , T<float>
+                    "b" , T<float>
+                    "c" , T<float>
+                    "d" , T<float>
+                    "e" , T<float>
+                    "f" , T<float>
+                    "m11" , T<float>
+                    "m12" , T<float>
+                    "m21" , T<float>
+                    "m22" , T<float>
+                ]
+            }
+
+    let DOMMatrixInit =
+        Pattern.Config "DOMMatrixInit"
+            {
+                Required = []
+                Optional = [
+                    "m13" , T<float>
+                    "m14" , T<float>
+                    "m23" , T<float>
+                    "m24" , T<float>
+                    "m31" , T<float>
+                    "m32" , T<float>
+                    "m33" , T<float>
+                    "m34" , T<float>
+                    "m41" , T<float>
+                    "m42" , T<float>
+                    "m43" , T<float>
+                    "m44" , T<float>
+                    "is2D" , T<bool>
+                ]
+            }
+        |=> Inherits DOMMatrix2DInit
+
+    let DOMPointReadOnly =
+        Class "DOMPointReadOnly"
+        |+> Static [
+            Constructor (!?T<float>?x * !?T<float>?y * !?T<float>?z * !?T<float>?w)
+            "fromPoint" => !?DOMPointInit ^-> TSelf
+        ]
+        |+> Instance [
+            "x" =? T<float>
+            "y" =? T<float>
+            "z" =? T<float>
+            "w" =? T<float>
+
+            "matrixTransform" => !?DOMMatrixInit?matrix ^-> TSelf
+        ]
+
+    let DOMPoint =
+        Class "DOMPoint"
+        |=> Inherits DOMPointReadOnly
+    
+    let DOMMatrixReadOnly =
+        Class "DOMMatrixReadOnly"
+        |+> Static [
+            Constructor T<unit>
+            Constructor T<string>
+            Constructor !|T<float>
+
+            "fromMatrix" => DOMMatrixInit?other ^-> TSelf
+            "fromFloat32Array" => TypedArrays.Float32Array?other ^-> TSelf
+            "fromFloat64Array" => TypedArrays.Float64Array?other ^-> TSelf
+        ]
+        |+> Instance [
+            "a" =? T<float>
+            "b" =? T<float>
+            "c" =? T<float>
+            "d" =? T<float>
+            "e" =? T<float>
+            "f" =? T<float>
+
+            "m11" =? T<float>
+            "m12" =? T<float>
+            "m13" =? T<float>
+            "m14" =? T<float>
+            "m21" =? T<float>
+            "m22" =? T<float>
+            "m23" =? T<float>
+            "m24" =? T<float>
+            "m31" =? T<float>
+            "m32" =? T<float>
+            "m33" =? T<float>
+            "m34" =? T<float>
+            "m41" =? T<float>
+            "m42" =? T<float>
+            "m43" =? T<float>
+            "m44" =? T<float>
+
+            "is2D" =? T<bool>
+            "isIdentity" =? T<bool>
+
+            "flipX" => T<unit> ^-> TSelf
+            "flipY" => T<unit> ^-> TSelf
+            "inverse" => T<unit> ^-> TSelf
+            "translate" => !?T<float>?tx * !?T<float>?ty * !?T<float>?tz ^-> TSelf
+            "scale" => !?T<float>?scaleX * !?T<float>?scaleY * !?T<float>?scaleZ * !?T<float>?originX * !?T<float>?originY * !?T<float>?originZ ^-> TSelf
+            "scaleNonUniform" => !?T<float>?scaleX * !?T<float>?scaleY ^-> TSelf
+            "scale3D" => !?T<float>?scale * !?T<float>?originX * !?T<float>?originY * !?T<float>?originZ ^-> TSelf
+            "rotate" => !?T<float>?rotX * !?T<float>?rotY * !?T<float>?rotZ ^-> TSelf
+            "rotateFromVector" => !?T<float>?x * !?T<float>?y ^-> TSelf
+            "rotateAxisAngle" => !?T<float>?x * !?T<float>?y * !?T<float>?z * !?T<float>?angle ^-> TSelf
+            "skewX" => !?T<float>?sx ^-> TSelf
+            "skewY" => !?T<float>?sY ^-> TSelf
+            "multiply" => !?DOMMatrixInit?other ^-> TSelf
+            "transformPoint" => !?DOMPointInit?point ^-> DOMPoint
+            "toFloat32Array" => T<unit> ^-> TypedArrays.Float32Array
+            "toFloat64Array" => T<unit> ^-> TypedArrays.Float64Array
+            "toJSON" => T<unit> ^-> T<obj>
+        ]
+
+    let DOMMatrix =
+        Class "DOMMatrix"
+        |=> Inherits DOMMatrixReadOnly
+        |+> Instance [
+            "invertSelf" => T<unit> ^-> TSelf
+            "translateSelf" => !?T<float>?tx * !?T<float>?ty * !?T<float>?tz ^-> TSelf
+            "scaleSelf" => !?T<float>?scaleX * !?T<float>?scaleY * !?T<float>?scaleZ * !?T<float>?originX * !?T<float>?originY * !?T<float>?originZ ^-> TSelf
+            "scale3DSelf" => !?T<float>?scale * !?T<float>?originX * !?T<float>?originY * !?T<float>?originZ ^-> TSelf
+            "rotateSelf" => !?T<float>?rotX * !?T<float>?rotY * !?T<float>?rotZ ^-> TSelf
+            "rotateFromVectorSelf" => !?T<float>?x * !?T<float>?y ^-> TSelf
+            "rotateAxisAngleSelf" => !?T<float>?x * !?T<float>?y * !?T<float>?z * !?T<float>?angle ^-> TSelf
+            "skewXSelf" => !?T<float>?sx ^-> TSelf
+            "skewYSelf" => !?T<float>?sY ^-> TSelf
+            "multiplySelf" => !?DOMMatrixInit?other ^-> TSelf
+            "preMultiplySelf" => !?DOMMatrixInit?other ^-> TSelf
+        ]
+
+    let DOMQuadInit =
+        Pattern.Config "DOMQuadInit" {
+            Required = []
+            Optional = [
+                "p1", DOMPointInit.Type
+                "p2", DOMPointInit.Type
+                "p3", DOMPointInit.Type
+                "p4", DOMPointInit.Type
+            ]
+        }
+
+    let DOMRectInit =
+        Pattern.Config "DOMRectInit" {
+            Required = []
+            Optional = [
+                "x", T<float>
+                "y", T<float>
+                "width", T<float>
+                "height", T<float>
+            ]
+        }
+
+    let DOMRectReadOnly =
+        Class "DOMRectReadOnly"
+        |+> Static [
+            Constructor (T<float>?x * T<float>?y * T<float>?width * T<float>?height)
+            "fromRect" => DOMRectInit?other ^-> TSelf
+        ]
+        |+> Instance [
+            "x" =? T<float>
+            "y" =? T<float>
+            "width" =? T<float>
+            "height" =? T<float>
+            "top" =? T<float>
+            "right" =? T<float>
+            "bottom" =? T<float>
+            "left" =? T<float>
+        ]
+
+    let DOMRect =
+        Class "DOMRect"
+        |=> Inherits DOMRectReadOnly
+
+    let DOMQuad =
+        Class "DOMQuad"
+        |+> Static [
+            Constructor (DOMPointInit?p1 * DOMPointInit?p2 * DOMPointInit?p3 * DOMPointInit?p4)
+            "fromRect" => DOMRectInit?other ^-> TSelf
+            "fromQuad" => DOMQuadInit?other ^-> TSelf
+        ]
+        |+> Instance [
+            "p1" =? DOMPoint
+            "p2" =? DOMPoint
+            "p3" =? DOMPoint
+            "p4" =? DOMPoint
+
+            "getBounds" => T<unit> ^-> DOMRect
+        ]
+
 module Canvas =
     open Utils
 
@@ -83,6 +687,9 @@ module Canvas =
             "addColorStop" => (T<float> * T<string>) ^-> T<unit>
         ]
     
+    let OffscreenCanvasClass =
+        Class "OffscreenCanvas"
+
     let Repetition = 
         let renamer n = 
             match n with
@@ -108,21 +715,27 @@ module Canvas =
         ]
 
     let TextDirection =
-        Pattern.EnumStrings "TextDirection" [
+        Pattern.EnumStrings "CanvasTextDirection" [
             "ltr"
             "rtl"
             "inherit"
         ]
+
+    let PredefinedColorSpace =
+        Pattern.EnumInlines "PredefinedColorSpace" [
+            "srgb", "'srgb'"
+            "display-p3", "DisplayP3"
+        ]
     
     let LineJoin = 
-        Pattern.EnumStrings "LineJoin" [
+        Pattern.EnumStrings "CanvasLineJoin" [
             "round"
             "bevel"
             "miter"
         ]
 
     let TextAlign = 
-        Pattern.EnumStrings "TextAlign" [
+        Pattern.EnumStrings "CanvasTextAlign" [
             "start"
             "end"
             "left"
@@ -131,7 +744,7 @@ module Canvas =
         ]
     
     let TextBaseline = 
-        Pattern.EnumStrings "TextBaseLine" [
+        Pattern.EnumStrings "CanvasTextBaseLine" [
             "top"
             "hanging"
             "middle"
@@ -140,6 +753,15 @@ module Canvas =
             "bottom"
         ]
     
+    let ImageDataSettings =
+        Pattern.Config "ImageDataSettings" 
+            {
+                Required = []
+                Optional = [
+                    "colorSpace", PredefinedColorSpace.Type
+                ]
+            }
+
     let TextMetrics = 
         Class "TextMetrics"
         |+> Instance ["width" =@ T<float> ]
@@ -159,105 +781,255 @@ module Canvas =
         |+> Instance [
             "height" =? T<int> 
             "width" =? T<int> 
-            "data" =? CanvasPixelArray
+            "colorSpace" =? PredefinedColorSpace
+            "data" =? TypedArrays.Uint8ClampedArray
         ]
-    
-    let CanvasRenderingContext2D = 
-        Class "CanvasRenderingContext2D"
-        |+> Instance [
-            "canvas" =? Dom.Interfaces.Element // FIXME
-            // push state on state stack
+
+    let CanvasState =
+        Interface "CanvasState"
+        |+> [
             "save" => T<unit> ^-> T<unit>
-            // pop state stack and restore state
             "restore" => T<unit> ^-> T<unit>
-            "scale" => (T<float> * T<float>) ^-> T<unit>
-            "rotate" => (T<float>) ^-> T<unit>
-            "translate" => (T<float> * T<float>) ^-> T<unit>
-            "transform" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "setTransform" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+            "reset" => T<unit> ^-> T<unit>
+            "isContextLost" => T<unit> ^-> T<bool>
+        ]
+
+    let CanvasTransform =
+        Interface "CanvasTransform"
+        |+> [
+            "scale" => (T<float>?x * T<float>?y) ^-> T<unit>
+            "rotate" => (T<float>?angle) ^-> T<unit>
+            "translate" => (T<float>?x * T<float>?y) ^-> T<unit>
+            "transform" => (T<float>?a * T<float>?b * T<float>?c * T<float>?d * T<float>?e * T<float>?f) ^-> T<unit>
+            "setTransform" => (T<float>?a * T<float>?b * T<float>?c * T<float>?d * T<float>?e * T<float>?f) ^-> T<unit>
+            //"getTransform" => T<unit> ^-> DOMMatrix //!!!!!
+            "resetTransform" => T<unit> ^-> T<unit>
+        ]
+
+    let ImageSmoothingQuality =
+        Pattern.EnumStrings "ImageSmoothingQuality"
+            [
+                "low"
+                "medium"
+                "high"
+            ]
+
+    let CanvasCompositing =
+        Interface "CanvasCompositing"
+        |+> [
             "globalAlpha" =@ T<float>
             "globalCompositeOperation" =@ GlobalCompositeOperation
-            // (default black)
-            "strokeStyle" =@ T<obj>
-            // (default black)
-            "fillStyle" =@ T<obj>
-            "createLinearGradient" => (T<float> * T<float> * T<float> * T<float>) ^-> CanvasGradient
-            "createRadialGradient" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> CanvasGradient
-            "createPattern" => (Dom.Interfaces.Element * Repetition) ^-> CanvasPattern
-            // (default 1)
-            "lineWidth" =@ T<float> 
-            // "butt", "round", "square" (default "butt")
-            "lineCap" =@ LineCap  
-            // "round", "bevel", "miter" (default "miter")
-            "lineJoin" =@ LineJoin
-            "getLineDash" => T<unit> ^-> T<float []>
-            "setLineDash" => T<float []> ^-> T<unit>
-            // (default 0.0)
-            "lineDashOffset" =@ T<float>
-            // (default 10)            
-            "miterLimit" =@ T<float>
-            // (default 0)
+        ]
+
+    let CanvasImageSmoothing =
+        Interface "CanvasImageSmoothing"
+        |+> [
+            "imageSmootingEnabled" =@ T<bool>
+            "imageSmoothingQuality" =@ ImageSmoothingQuality
+        ]
+
+    let HTMLOrSVGImageElement =
+        Decl.HTMLImageElementClass + Decl.SVGImageElementClass
+
+    let CanvasImageSource =
+        HTMLOrSVGImageElement + Decl.HTMLVideoElementClass + Decl.HTMLCanvasElementClass + OffscreenCanvasClass //+ ImageBitmap + VideoFrame
+
+    let CanvasFillStrokeStyles =
+        Interface "CanvasFillStrokeStyles"
+        |+> [
+            "strokeStyle" =@ T<string> + CanvasGradient + CanvasPattern
+            "fillStyle" =@ T<string> + CanvasGradient + CanvasPattern
+            "createLinearGradient" => (T<float>?x0 * T<float>?y0 * T<float>?x1 * T<float>?y1) ^-> CanvasGradient
+            "createRadialGradient" => (T<float>?x0 * T<float>?y0 * T<float>?r0 * T<float>?x1 * T<float>?y1 * T<float>?r1) ^-> CanvasGradient
+            "createConicGradient" => (T<float>?angle * T<float>?x * T<float>?y) ^-> CanvasGradient
+            "createPattern" => (CanvasImageSource?image * !?Repetition?repetition) ^-> CanvasPattern
+        ]
+
+    let CanvasShadowStyles =
+        Interface "CanvasShadowStyles"
+        |+> [
             "shadowOffsetX" =@ T<float>
-            // (default 0)
             "shadowOffsetY" =@ T<float>
-            // (default 0)
             "shadowBlur" =@ T<float>
-            // (default transparent black)
             "shadowColor" =@ T<string>
+        ]
 
-            // rects
-            "clearRect" => (T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "fillRect" => (T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "strokeRect" => (T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+    let CanvasFilters =
+        Interface "CanvasFilters"
+        |+> [
+            "filter" =@ T<string>
+        ]
 
-            // path API
-            "beginPath" => T<unit> ^-> T<unit>
+    let CanvasRect =
+        Interface "CanvasRect"
+        |+> [
+            "clearRect" => (T<float>?x * T<float>?y * T<float>?w * T<float>?h) ^-> T<unit>
+            "fillRect" => (T<float>?x * T<float>?y * T<float>?w * T<float>?h) ^-> T<unit>
+            "strokeRect" => (T<float>?x * T<float>?y * T<float>?w * T<float>?h) ^-> T<unit>
+        ]
+
+    let CanvasFillRule =
+        Pattern.EnumStrings "CanvasFillRule" ["nonzero"; "evenodd"]
+
+    let CanvasPath =
+        Interface "CanvasPath"
+        |+> [
             "closePath" => T<unit> ^-> T<unit>
-            "moveTo" => (T<float> * T<float>) ^-> T<unit>
-            "lineTo" => (T<float> * T<float>) ^-> T<unit>
-            "quadraticCurveTo" => (T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "bezierCurveTo" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "arcTo" => (T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "rect" => (T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
-            "arc" => (T<float> * T<float> * T<float> * T<float> * T<float> * T<bool>) ^-> T<unit>
-            "fill" => T<unit> ^-> T<unit>
+            "roundRect" => (T<float>?x * T<float>?y * T<float>?w * T<float>?h * !?(T<float> + Geometry.DOMPointInit + !|(T<float> + Geometry.DOMPointInit))?radii) ^-> T<unit>
+            "moveTo" => T<float>?x * T<float>?y ^-> T<unit>
+            "lineTo" => T<float>?x * T<float>?y ^-> T<unit>
+            "bezierCurveTo" => T<float>?cp1x * T<float>?cp1y * T<float>?cp2x * T<float>?cp2y * T<float>?x * T<float>?y ^-> T<unit>
+            "quadraticCurveTo" => T<float>?cpx * T<float>?cpy * T<float>?x * T<float>?y ^-> T<unit>
+            "arc" => (T<float>?x * T<float>?y * T<float>?radius * T<float>?startAngle * T<float>?endAngle * !?T<bool>?counterclockwise) ^-> T<unit>
+            "arcTo" => (T<float>?x1 * T<float>?y1 * T<float>?x2 * T<float>?y2 * T<float>?radius) ^-> T<unit>
+            "ellipse" => (T<float>?x * T<float>?y * T<float>?radiusX * T<float>?radiusY * T<float>?rotation * T<float>?startAngle * T<float>?endAngle * !?T<bool>?counterclockwise) ^-> T<unit>
+            "rect" => (T<float>?x * T<float>?y * T<float>?width * T<float>?height) ^-> T<unit>
+        ]
+
+    let Path2D =
+        Class "Path2D"
+        |=> Implements [CanvasPath] 
+        |+> Static [
+            Constructor T<unit>
+            Constructor TSelf
+            Constructor T<string>
+        ]
+        |+> Instance [
+            "addPath" => TSelf * !?Geometry.DOMMatrix2DInit?transform ^-> T<unit>
+        ]
+
+    let CanvasDrawPath =
+        Interface "CanvasDrawPath"
+        |+> [
+            "beginPath" => T<unit> ^-> T<unit>
+            "fill" => !?CanvasFillRule ^-> T<unit>
+            "fill" => Path2D * !?CanvasFillRule ^-> T<unit>
             "stroke" => T<unit> ^-> T<unit>
-            "clip" => T<unit> ^-> T<unit>
-            "drawFocusIfNeeded" => Dom.Interfaces.Element ^-> T<unit>
+            "stroke" => Path2D ^-> T<unit>
+            "clip" => !?CanvasFillRule ^-> T<unit>
+            "clip" => Path2D * !?CanvasFillRule ^-> T<unit>
+            "isPointInPath" => (T<float> * T<float> * !?CanvasFillRule) ^-> T<bool>
+            "isPointInPath" => (Path2D * !?CanvasFillRule) ^-> T<bool>
+            "isPointInStroke" => (T<float> * T<float> * !?CanvasFillRule) ^-> T<bool>
+            "isPointInStroke" => (Path2D * T<float> * !?CanvasFillRule) ^-> T<bool>
+        ]
+
+    let CanvasUserInterface =
+        Interface "CanvasUserInterface"
+        |+> [
+            "drawFocusIfNeeded" => Dom.Interfaces.Element?element ^-> T<unit>
+            "drawFocusIfNeeded" => Path2D?path * Dom.Interfaces.Element?element ^-> T<unit>
             "scrollPathIntoView" => T<unit> ^-> T<unit>
-            "isPointInPath" => (T<float> * T<float>) ^-> T<bool>
-            "isPointInStroke" => (T<float> * T<float>) ^-> T<bool>
+            "scrollPathIntoView" => Path2D?path ^-> T<unit>
+        ]
 
-            // focus management
-            "drawFocusRing" => (Dom.Interfaces.Element?el * T<float>?x * T<float>?y * !? T<bool>) ^-> T<bool>
+    let CanvasText =
+        Interface "CanvasText"
+        |+> [
+            "fillText" => T<string>?text * T<float>?x * T<float>?y * !?T<float>?maxWidth ^-> T<unit>
+            "strokeText" => T<string>?text * T<float>?x * T<float>?y * !?T<float>?maxWidth ^-> T<unit>
+            "measureText" => T<string>?text ^-> TextMetrics
+        ]
 
-            // text
-            // (default 10px sans-serif)
-            "font" =@ T<string>
-            "textAlign" =@ TextAlign
-            "textBaseline" =@ TextBaseline
-            // (default inherit)
-            "direction" =@ TextDirection
-
-            "fillText" => T<string> * T<float> * T<float> ^-> T<unit>
-            "fillText" => T<string> * T<float> * T<float> * T<float> ^-> T<unit>
-            "strokeText" => T<string> * T<float> * T<float> ^-> T<unit>
-            "strokeText" => T<string> * T<float> * T<float> * T<float> ^-> T<unit>
-            "measureText" => T<string> ^-> TextMetrics
-
-            // drawing images
+    let CanvasDrawImage =
+        Interface "CanvasDrawImage"
+        |+> [
             "drawImage" => (Dom.Interfaces.Element * T<float> * T<float>) ^-> T<unit>
             "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
             "drawImage" => (Dom.Interfaces.Element * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
+        ]
 
-            // pixel manipulation
-            "createImageData" => (T<float> * T<float>) ^-> ImageData
+    let CanvasImageData =
+        Interface "CanvasImageData"
+        |+> [
+            "createImageData" => (T<float> * T<float> * !?ImageDataSettings) ^-> ImageData
             "createImageData" => (ImageData) ^-> ImageData
-            "getImageData"    => (T<float> * T<float> * T<float> * T<float>) ^-> ImageData
+            "getImageData"    => (T<float> * T<float> * T<float> * T<float> * !?ImageDataSettings) ^-> ImageData
 
             "putImageData" => (ImageData * T<float> * T<float> ) ^-> T<unit>
             "putImageData" => (ImageData * T<float> * T<float> * T<float> * T<float> * T<float> * T<float>) ^-> T<unit>
         ]
+
+    let CanvasPathDrawingStyles =
+        Interface "CanvasPathDrawingStyles"
+        |+> [
+            "lineWidth" =@ T<float> 
+            "lineCap" =@ LineCap  
+            "lineJoin" =@ LineJoin
+            "miterLimit" =@ T<float>
+            "getLineDash" => T<unit> ^-> T<float []>
+            "setLineDash" => T<float []> ^-> T<unit>
+            "lineDashOffset" =@ T<float>
+        ]
+
+    let CanvasFontKerning = Pattern.EnumStrings "CanvasFontKerning" ["auto"; "normal"; "none"]
+
+    let CanvasFontStretch =
+        Pattern.EnumInlines "CanvasFontStretch" [
+            "UltraCondensed", "'ultra-condensed'"
+            "ExtraCondensed", "'extra-condensed'"
+            "Condensed", "'condensed'"
+            "SemiCondensed", "'semi-condensed'"
+            "UltraExpanded", "'ultra-expanded'"
+            "ExtraExpanded", "'extra-expanded'"
+            "Expanded", "'expanded'"
+        ]
+
+    let CanvasFontVariantCaps =
+        Pattern.EnumInlines "CanvasFontVariantCaps" [
+            "Normal", "'normal'"
+            "SmallCaps", "'small-caps'"
+            "AllSmallCaps", "'all-small-caps'"
+            "PetiteCaps", "'petite-caps'"
+            "AllPetiteCaps", "'all-petite-caps'"
+            "Unicase", "'unicase'"
+            "TitlingCaps", "'titling-caps'"
+        ]
+
+    let CanvasTextRendering = Pattern.EnumStrings "CanvasTextRendering" ["auto"; "optimizeSpeed"; "optimizeLegibility"; "geometricPrecision"]
+
+    let CanvasTextDrawingStyles =
+        Interface "CanvasTextDrawingStyles"
+        |+> [
+            "font" =@ T<string>
+            "textAlign" =@ TextAlign
+            "textBaseline" =@ TextBaseline
+            "direction" =@ TextDirection
+            "letterSpacing" =@ T<string>
+            "fontKerning" =@ CanvasFontKerning
+            "fontStretch" =@ CanvasFontStretch
+            "fontVariantCaps" =@ CanvasFontVariantCaps
+            "textRendering" =@ CanvasTextRendering
+            "wordSpacing" =@ T<string>
+        ]
+    
+    let CanvasRenderingContext2D = 
+        Class "CanvasRenderingContext2D"
+        |=> Implements
+            [
+                CanvasState
+                CanvasTransform
+                CanvasCompositing
+                CanvasImageSmoothing
+                CanvasFillStrokeStyles
+                CanvasShadowStyles
+                CanvasFilters
+                CanvasRect
+                CanvasDrawPath
+                CanvasUserInterface
+                CanvasText
+                CanvasDrawImage
+                CanvasImageData
+                CanvasPathDrawingStyles
+                CanvasTextDrawingStyles
+                CanvasPath
+            ]
+        |+> Instance [
+            "canvas" =? Decl.HTMLCanvasElementClass
+        ]
+
+    let OffScreenCanvas =
+        Class "OffScreenCanvas"
 
 module AudioVideoCommon =
     
@@ -447,95 +1219,6 @@ module EventHandlers =
             "oncut" =@ eh
             "onpaste" =@ eh
         ]
-
-module TypedArrays =
-
-
-    let ArrayBuffer =
-        Class "ArrayBuffer"
-        |+> Instance [
-                "byteLength" =? T<int>
-                /// Warning: although part of the spec, may not work in IE10 as of 6/6/2013.
-                "slice" => T<int> * T<int> ^-> TSelf
-            ]
-        |+> Static [ Constructor T<int> ]
-
-    module DataView =
-
-        let private Getter<'T> name =
-            name => T<int>?byteOffset * !? T<bool>?littleEndian ^-> T<'T>
-
-        let private Setter<'T> name =
-            name => T<int>?byteOffset * T<'T>?value * !? T<bool>?littleEndian ^-> T<unit>
-
-        let Class =
-            Class "DataView"
-            |+> Static [
-                    Constructor ArrayBuffer
-                    Constructor (ArrayBuffer * T<int>?byteOffset)
-                    Constructor (ArrayBuffer * T<int>?byteOffset * T<int>?byteLength)
-                ]
-            |+> Instance [
-                    "getInt8" => T<int>?byteOffset ^-> T<sbyte>
-                    "getUint8" => T<int>?byteOffset ^-> T<byte>
-                    Getter<int16> "getInt16"
-                    Getter<uint16> "getUint16"
-                    Getter<int32> "getInt32"
-                    Getter<uint32> "getUint32"
-                    Getter<float32> "getFloat32"
-                    Getter<double> "getFloat64"
-                    "setInt8" => T<int>?byteOffset * T<sbyte>?value ^-> T<unit>
-                    "setUint8" => T<int>?byteOffset * T<byte>?value ^-> T<unit>
-                    Setter<int16> "setInt16"
-                    Setter<uint16> "setUint16"
-                    Setter<int32> "setInt32"
-                    Setter<uint32> "setUint32"
-                    Setter<float32> "setFloat32"
-                    Setter<double> "setFloat64"
-                ]
-
-    let ArrayBufferView =
-        Class "ArrayBufferView"
-        |+> Instance
-            [
-                "buffer" =? ArrayBuffer
-                "byteOffset" =? T<int>
-                "byteLength" =? T<int>
-            ]
-
-    let private MakeTypedArray typedArray (elementType: Type.Type) =
-        Class typedArray
-        |=> Inherits ArrayBufferView
-        |+> Static [
-                Constructor T<unit>
-                Constructor T<int>
-                Constructor TSelf
-                Constructor (Type.ArrayOf elementType)
-                Constructor (ArrayBuffer?buffer * !? T<int>?byteOffset * !? T<int>?length)
-                "BYTES_PER_ELEMENT" =? T<int>
-            ]
-        |+> Instance [
-                "length" =? T<int>
-                "get" =>
-                    T<int>?offset ^-> elementType
-                    |> WithInline "$this[$offset]"
-                "set" =>
-                    T<int>?offset * elementType?value ^-> T<unit>
-                    |> WithInline "void($this[$offset]=$value)"
-                "set" => TSelf?array * !? T<int>?offset ^-> T<unit>
-                "set" => (Type.ArrayOf elementType)?array * !? T<int>?offset ^-> T<unit>
-                "subarray" => T<int64>?``begin`` * T<int>?``end`` ^-> TSelf
-            ]
-
-    let Int8Array = MakeTypedArray "Int8Array" T<sbyte>
-    let Uint8Array = MakeTypedArray "Uint8Array" T<byte>
-    let Uint8ClampedArray = MakeTypedArray "Uint8ClampedArray" T<byte>
-    let Int16Array = MakeTypedArray "Int16Array" T<int16>
-    let Uint16Array = MakeTypedArray "Uint16Array" T<uint16>
-    let Int32Array = MakeTypedArray "Int32Array" T<int32>
-    let Uint32Array = MakeTypedArray "Uint32Array" T<uint32>
-    let Float32Array = MakeTypedArray "Float32Array" T<float32>
-    let Float64Array = MakeTypedArray "Float64Array" T<double>
 
 module Streamable =
 
@@ -1271,14 +1954,36 @@ module Elements =
         ]
 
     let CanvasElement =
-        Class "CanvasElement"
+        Decl.HTMLCanvasElementClass
         |=> Inherits HTMLElement
         |+> Instance [
             "width" =@ T<int>
             "height" =@ T<int>
             "toDataURL" => !? T<string>?a * !? T<float>?b ^-> T<string>
             "getContext" => T<string> ^-> Canvas.CanvasRenderingContext2D
+            "captureStream" => T<int> ^-> Media.MediaStream
+            "toBlob" => T<unit> ^-> File.Blob
+            "transferControlToOffScreen" => T<unit> ^-> Canvas.OffscreenCanvasClass
         ]
+
+    let OldCanvasElement =
+        Class "CanvasElement"
+        |=> Inherits HTMLElement
+        |+> Static [
+            Constructor T<unit>
+                |> ObsoleteWithMessage "CanvasElement is now obsolete, use HTMLCanvasElement instead" 
+                |> WithInline "new HTMLCanvasElement()"
+        ]
+        |+> Instance [
+            "width" =@ T<int>
+            "height" =@ T<int>
+            "toDataURL" => !? T<string>?a * !? T<float>?b ^-> T<string>
+            "getContext" => T<string> ^-> Canvas.CanvasRenderingContext2D
+            "captureStream" => T<int> ^-> Media.MediaStream
+            "toBlob" => T<unit> ^-> File.Blob
+            "transferControlToOffScreen" => T<unit> ^-> Canvas.OffscreenCanvasClass
+        ]
+
 
     let HTMLMediaElement =
         Class "HTMLMediaElement"
@@ -1348,7 +2053,7 @@ module Elements =
         ]
 
     let HTMLVideoElement = 
-        Class "HTMLVideoElement"
+        Decl.HTMLVideoElementClass
         |=> Inherits HTMLMediaElement
         |+> Instance [
             "width" =@ T<string>
@@ -1881,7 +2586,10 @@ module General =
 
     let Navigator =
         Class "Navigator" 
-        |+> Instance ["geolocation" =? Geolocation.Geolocation]
+        |+> Instance [
+            "geolocation" =? Geolocation.Geolocation
+            "mediaDevices" =? Media.MediaDevices
+        ]
 
     let MQL =
         Class "MediaQueryList"
@@ -2905,8 +3613,52 @@ module Definition =
                 Canvas.TextBaseline
                 Canvas.TextDirection
                 Canvas.TextMetrics
+                Canvas.OffscreenCanvasClass
+                Canvas.PredefinedColorSpace
+                Canvas.CanvasState
+                Canvas.CanvasTransform
+                Canvas.CanvasCompositing
+                Canvas.CanvasImageSmoothing
+                Canvas.CanvasFillStrokeStyles
+                Canvas.CanvasShadowStyles
+                Canvas.CanvasFilters
+                Canvas.CanvasRect
+                Canvas.CanvasDrawPath
+                Canvas.CanvasUserInterface
+                Canvas.CanvasText
+                Canvas.CanvasDrawImage
+                Canvas.CanvasImageData
+                Canvas.CanvasPathDrawingStyles
+                Canvas.CanvasTextDrawingStyles
+                Canvas.CanvasPath
+                Canvas.Path2D
+                Canvas.CanvasFillRule
+                Canvas.ImageDataSettings
+                Canvas.ImageSmoothingQuality
+                Canvas.CanvasTextRendering
+                Canvas.CanvasFontVariantCaps
+                Canvas.CanvasFontKerning
+                Canvas.CanvasFontStretch
+
+                Decl.SVGImageElementClass
+                Decl.HTMLImageElementClass
+
+                Geometry.DOMMatrixInit
+                Geometry.DOMMatrix2DInit
+                Geometry.DOMMatrixReadOnly
+                Geometry.DOMMatrix
+                Geometry.DOMQuadInit
+                Geometry.DOMQuad
+                Geometry.DOMRectInit
+                Geometry.DOMRectReadOnly
+                Geometry.DOMRect
+                Geometry.DOMPointInit
+                Geometry.DOMPointReadOnly
+                Geometry.DOMPoint
+
                 Elements.HTMLElement
                 Elements.CanvasElement
+                Elements.OldCanvasElement
                 Elements.HTMLAudioElement
                 Elements.HTMLVideoElement
                 Elements.HTMLMediaElement
@@ -2977,6 +3729,28 @@ module Definition =
                 Dom.Interfaces.Window
                 General.CSSSD
                 General.MQL
+
+                Media.MediaStream
+                Media.MediaStreamTrack
+                Media.CanvasCaptureMediaStreamTrack
+                Media.ConstrainBooleanParameters
+                Media.ConstrainDOMStringParameters
+                Media.ConstrainDoubleRange
+                Media.ConstrainULongRange
+                Media.InputDeviceInfo
+                Media.MediaDeviceInfo
+                Media.MediaDeviceKind
+                Media.MediaStreamTrackContentHint
+                Media.MediaDevices
+                Media.MediaStreamTrackEvent
+                Media.MediaStreamTrackState
+                Media.ULongRange
+                Media.DoubleRange
+                Media.MediaTrackSupportedConstraints
+                Media.MediaTrackSettings
+                Media.MediaTrackCapabilities
+                Media.MediaTrackConstraints
+                Media.MediaTrackConstraintSet
 
                 Streamable.ReadableStream
                 Streamable.WritableStream
