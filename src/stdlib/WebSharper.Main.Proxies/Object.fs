@@ -27,6 +27,8 @@ open WebSharper.JavaScript
 [<Name "WebSharper.Obj">]
 type private ObjectProxy() =
 
+    let mutable hash = JS.Undefined<int>
+
     [<Inline>]
     override this.GetHashCode() = Unchecked.hash this
 
@@ -34,7 +36,11 @@ type private ObjectProxy() =
     override this.Equals(obj: obj) = Unchecked.equals (this :> obj) obj
 
     [<Name "GetHashCode">]
-    member this.GetHashCodeImpl() = -1
+    member this.GetHashCodeImpl() =
+        if (hash .== null) then
+            hash <- System.Random().Next(67108864)
+        Object.DefineProperty(this, "GetHashCode", fun () -> hash)
+        hash
 
     [<Name "Equals">]
     member this.EqualsImpl(obj: obj) = this ===. obj

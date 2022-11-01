@@ -104,6 +104,18 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
     let isModule = Option.isSome moduleName
     let isBundle = Option.isSome entryPoint
 
+    let methodInfo isStatic = 
+        { 
+            IsStatic = isStatic
+            IsPrivate = false
+            Kind = ClassMethodKind.Simple
+        }
+    let propInfo isStatic = 
+        { 
+            IsStatic = isStatic
+            IsPrivate = false
+        }
+
     // TODO: only add what is necessary for bundles
     if isBundle || current.Classes.ContainsKey Definitions.Obj then
 
@@ -112,17 +124,17 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let T = TSType.Basic "T"
             let ic t = TSType.Generic(TSType.Named [ "WebSharper"; "IComparable" ], [ t ])
             [ 
-                Interface ("Error", [], [ ClassProperty (false, "inner", TSType.Basic "Error", false)], []) 
-                Interface ("Object", [], [ ClassMethod (false, "setPrototypeOf", [strId "o"; strId "proto" ], None, TSType.Lambda ([TSType.Any; TSType.Object], TSType.Any)) ], [])  
-                Interface ("Math", [], [ ClassMethod (false, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number))], []) 
+                Interface ("Error", [], [ ClassProperty (propInfo false, "inner", TSType.Basic "Error", false)], []) 
+                Interface ("Object", [], [ ClassMethod (methodInfo false, "setPrototypeOf", [strId "o"; strId "proto" ], None, TSType.Lambda ([TSType.Any; TSType.Object], TSType.Any)) ], [])  
+                Interface ("Math", [], [ ClassMethod (methodInfo false, "trunc", [ strId "x" ], None, TSType.Lambda([TSType.Number], TSType.Number))], []) 
                 Interface ("Array", [ ie T ], [], [ T ])
                 Interface ("String", [ ie (TSType.Basic "string") ], [], [])
                 Interface ("Number", [ ic (TSType.Basic "number") ], [], [])
                 Interface ("RegExp", [], 
                     [ 
-                        ClassProperty (false, "flags", TSType.String, false)
-                        ClassProperty (false, "sticky", TSType.Boolean, false)
-                        ClassProperty (false, "unicode", TSType.Boolean, false)
+                        ClassProperty (propInfo false, "flags", TSType.String, false)
+                        ClassProperty (propInfo false, "sticky", TSType.Boolean, false)
+                        ClassProperty (propInfo false, "unicode", TSType.Boolean, false)
                     ], []) 
             ]
 
@@ -424,10 +436,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
         let cases = 
             u.Cases |> List.mapi (fun tag uc ->
                 let case (fields: list<M.UnionCaseFieldInfo>) =
-                    let tag = ClassProperty (false, "$", TSType.Basic (string tag), false)
+                    let tag = ClassProperty (propInfo false, "$", TSType.Basic (string tag), false)
                     let mem =
                         fields |> List.mapi (fun i f ->
-                            ClassProperty (false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, false)
+                            ClassProperty (propInfo false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, false)
                         )
                     addExport <| Interface(uc.Name, Option.toList unionClass, tag :: mem, gen)
                     TSType.Basic (unionNested + uc.Name) |> addGenerics gen
@@ -453,7 +465,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     else
                         f.RecordFieldType
                     |> tsTypeOf gsArr
-                ClassProperty(false, f.JSName, t, f.Optional)
+                ClassProperty(propInfo false, f.JSName, t, f.Optional)
             )
         packageByName addr <| fun n -> Interface(n, [], fields, getGenerics 0 (List.ofArray gsArr))
 
@@ -482,11 +494,11 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let typ = tsTypeOf gsArr t
             match f with
             | M.InstanceField n ->
-                members.Add (ClassProperty (false, n, typ, false))
+                members.Add (ClassProperty (propInfo false, n, typ, false))
             | M.OptionalField n ->
-                members.Add (ClassProperty (false, n, typ, true))
+                members.Add (ClassProperty (propInfo false, n, typ, true))
             | M.StaticField a ->
-                smem a (fun n -> ClassProperty (true, n, typ, false)) (fun () -> Undefined, typ)
+                smem a (fun n -> ClassProperty (propInfo true, n, typ, false)) (fun () -> Undefined, typ)
             | _ -> ()
 
         match c.StaticConstructor with
@@ -552,16 +564,16 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
             let getMember isStatic n =
                 match IgnoreExprSourcePos body with
                 | Function (args, _, b) ->
-                    ClassMethod(isStatic, n, args, Some b, getSignature false |> addGenerics mgen)
+                    ClassMethod(methodInfo isStatic, n, args, Some b, getSignature false |> addGenerics mgen)
                 | Undefined ->
                     let args = m.Value.Parameters |> List.map (fun _ -> Id.New(mut = false))
-                    ClassMethod(isStatic, n, args, None, TSType.Any |> addGenerics mgen)
+                    ClassMethod(methodInfo isStatic, n, args, None, TSType.Any |> addGenerics mgen)
                 | _ ->
-                    ClassMethod(isStatic, n, [], Some (Return errorPlaceholder), TSType.Any)
+                    ClassMethod(methodInfo isStatic, n, [], Some (Return errorPlaceholder), TSType.Any)
             match withoutMacros info with
-            | M.Instance mname ->
+            | M.Instance (mname, mkind) ->
                 members.Add (getMember false mname)
-            | M.Static maddr ->
+            | M.Static (maddr, mkind) ->
                 smem maddr (getMember true) (fun () -> body, getSignature false |> addGenerics (cgen @ mgen))
             | M.AsStatic maddr ->
                 smem maddr (getMember true) (fun () -> body, getSignature true |> addGenerics (cgen @ mgen))
@@ -640,7 +652,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                         indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
-            | M.Static maddr 
+            | M.Static (maddr, _) 
             | M.AsStatic maddr ->
                 let signature =
                     TSType.Lambda(typeOfParams opts gsArr ctor.Value.CtorParameters, thisTSType.Value)
@@ -649,7 +661,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     (fun n ->
                         match IgnoreExprSourcePos body with
                         | Function (args, _, b) ->
-                            ClassMethod(true, n, args, Some b, signature)
+                            ClassMethod(methodInfo true, n, args, Some b, signature)
                         | _ -> failwith "unexpected form for class constructor"
                     ) 
                     (fun () -> body, signature |> addGenerics cgen)
@@ -744,7 +756,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) (resources: seq<R.IResou
                     ) |> List.unzip
                 let signature = TSType.Lambda(argTypes, tsTypeOf gsArr m.Value.ReturnType)
 
-                ClassMethod(false, n, args, None, signature |> addGenerics (getGenerics igen gc))    
+                ClassMethod(methodInfo false, n, args, None, signature |> addGenerics (getGenerics igen gc))    
             ) |> List.ofSeq
 
         let gen = getGenerics 0 i.Generics

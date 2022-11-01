@@ -481,7 +481,12 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
             )
         let id = J.Id.New(n)
-        J.Method(s, id, args, body)   
+        let acc =
+            match s.Kind with
+            | ClassMethodKind.Getter -> J.Get
+            | ClassMethodKind.Setter -> J.Set
+            | ClassMethodKind.Simple -> J.Simple
+        J.Method(s.IsStatic, acc, id, args, body)   
     | ClassConstructor (p, b, _) ->
         let innerEnv = env.NewInner()
         let args =
@@ -492,5 +497,23 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
             )
         J.Constructor(args, body)   
+    | ClassProperty (s, n, _, _) ->
+        J.Property (s.IsStatic, J.Id.New(n))
+    | ClassStatic (b) ->
+        let innerEnv = env.NewInner()
+        let body = 
+            CollectVariables(innerEnv).VisitStatement(b)
+            flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
+        J.Static body
     | _ -> 
         invalidForm (GetUnionCaseName mem)
+
+let transformProgram pref statements =
+    if List.isEmpty statements then [] else
+    let env = Environment.New(pref)
+    //let cnames = CollectStrongNames(env)
+    //statements |> List.iter cnames.VisitStatement
+    let cvars = CollectVariables(env)
+    statements |> List.iter cvars.VisitStatement
+    //J.Ignore (J.Constant (J.String "use strict")) ::
+    (statements |> List.map (transformStatement env) |> flattenJS)

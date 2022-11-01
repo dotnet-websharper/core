@@ -761,7 +761,12 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             match body with
             | Some (true, _) ->  J.Id.New(n, typ = J.Var (J.Id.New "never"), gen = jsgen)
             | _ -> J.Id.New(n) |> withType env tr 
-        J.Method(s, id, args, body |> Option.map (fun (_, b) -> flattenJS b))   
+        let acc =
+            match s.Kind with
+            | ClassMethodKind.Getter -> J.Get
+            | ClassMethodKind.Setter -> J.Set
+            | ClassMethodKind.Simple -> J.Simple
+        J.Method(s.IsStatic, acc, id, args, body |> Option.map (fun (_, b) -> flattenJS b))   
     | ClassConstructor (p, b, t) ->
         let innerEnv = env.NewInner()
         let args =
@@ -783,6 +788,12 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         J.Constructor(args, body |> Option.map (fun b -> flattenJS b))   
     | ClassProperty (s, n, t, o) ->
         J.Property (s, J.Id.New(n, opt = o) |> withType env t)
+    | ClassStatic (b) ->
+        let innerEnv = env.NewInner()
+        let body = 
+            CollectVariables(innerEnv).VisitStatement(b)
+            b |> transformStatement innerEnv |> flattenFuncBody TSType.Any |> snd
+        J.Static body
     | _ -> 
         invalidForm (GetUnionCaseName mem)
 

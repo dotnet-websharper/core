@@ -122,6 +122,7 @@ and Id =
     {
         Name : string
         Optional : bool
+        IsPrivate : bool
         IsTypeName : bool
         Type : option<E>
         Generics : list<Id>
@@ -140,10 +141,11 @@ and Id =
         | [] -> this 
         | _ -> { this with Generics = g }
 
-    static member New(name, ?opt, ?typ, ?gen, ?typn) =
+    static member New(name, ?opt, ?typ, ?gen, ?typn, ?priv) =
         {
             Name = name
             Optional = defaultArg opt false
+            IsPrivate = defaultArg priv false
             IsTypeName = defaultArg typn false 
             Type = typ
             Generics = defaultArg gen []
@@ -159,6 +161,11 @@ and DeclKind =
     | VarDecl
     | ConstDecl
     | LetDecl
+
+and Accessor =
+    | Get
+    | Set
+    | Simple
 
 /// Represents JavaScript expressions.
 and Expression =
@@ -255,9 +262,10 @@ and Statement =
     | Import       of option<string> * Id * string 
 
 and Member =
-    | Method      of bool * Id * list<Id> * option<list<S>>
+    | Method      of isStatic:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
     | Constructor of list<Id * Modifiers> * option<list<S>>
-    | Property    of bool * Id 
+    | Property    of isStatic:bool * Id 
+    | Static      of list<S>
 
 /// Represents switch elements.
 and SwitchElement =

@@ -85,6 +85,8 @@ let TSType = Object "TSType"
 let VarKind = Object "VarKind"
 let Modifiers = Object "Modifiers"
 let ApplicationInfo = Object "ApplicationInfo"
+let ClassMethodInfo = Object "ClassMethodInfo"
+let ClassPropertyInfo = Object "ClassPropertyInfo"
 
 let ExprDefs = 
     [
@@ -278,12 +280,14 @@ let StatementDefs =
             , "TypeScript - namespace { ... }"
         "Class", [ Str, "name"; Option TSType, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
             , "JavaScript ES6 - class { ... }"
-        "ClassMethod", [ Bool, "isStatic"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
+        "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript ES6 - class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript ES6 - class method"
-        "ClassProperty", [ Bool, "isStatic"; Str, "name"; TSType, "propertyType"; Bool, "optional" ]
+        "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Bool, "body" ]
             , "JavaScript ES6 - class plain property"
+        "ClassStatic", [ Statement, "optional" ]
+            , "JavaScript ES6 - class static block"
         "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
         "Alias", [ TSType, "alias"; TSType, "origType" ]

@@ -283,7 +283,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.Implements = cls.Implements
                     member this.Constructors = MappedDictionary(cls.Constructors, fun (x, _, _) -> x) :> _
                     member this.Fields = cls.Fields
-                    member this.StaticConstructor = cls.StaticConstructor |> Option.map fst
+                    member this.HasStaticConstructor = cls.StaticConstructor |> Option.isSome
                     member this.Methods = MappedDictionary(cls.Methods, fun (x, _, _, _) -> x) :> _
                     member this.Implementations = MappedDictionary(cls.Implementations, fst) :> _
                     member this.HasWSPrototype = cls.HasWSPrototype
@@ -326,7 +326,7 @@ type Compilation(meta: Info, ?hasGraph) =
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let addr = this.LocalAddress generatedMethodAddresses.[meth]
             let td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Static addr, true, Optimizations.None, JavaScriptOptions.None), [], body))
+            compilingMethods.Add((td, meth),(NotCompiled (Static (addr, ClassMethodKind.Simple), true, Optimizations.None, JavaScriptOptions.None), [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let td = this.GetGeneratedClass()
@@ -833,8 +833,8 @@ type Compilation(meta: Info, ?hasGraph) =
             match interfaces.TryFind typ with
             | Some intf -> 
                 match intf.Methods.TryFind meth with
-                | Some (m, gpars) ->
-                    Compiled (Instance m, Optimizations.None, gpars, Undefined)              
+                | Some (m, mt, gpars) ->
+                    Compiled (Instance (m, mt), Optimizations.None, gpars, Undefined)              
                 | _ ->
                     let mName = meth.Value.MethodName
                     let candidates = 
@@ -1407,7 +1407,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | N.Quotation _
             | N.Constructor
             | N.Static -> Static a
-            | N.AsStatic -> AsStatic a
+            | N.AsStatic -> Function a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -1464,16 +1464,6 @@ type Compilation(meta: Info, ?hasGraph) =
         let remainingStaticMembers = Dictionary()
         let remainingInstanceMembers = Dictionary() // includes overrides
         let missingImplementations = ResizeArray()
-
-        let addCctorCall typ (ci: ClassInfo) expr =
-            if Option.isSome ci.StaticConstructor then
-                match expr with
-                | Function (args, ret, body) ->
-                    Function(args, ret, CombineStatements [ ExprStatement (Cctor typ); body ])
-                | Undefined -> Undefined
-                // inlines
-                | _ -> Sequential [ Cctor typ; expr ]
-            else expr
         
         for KeyValue(typ, cls) in notResolvedClasses do
             let namedCls =
@@ -1601,20 +1591,20 @@ type Compilation(meta: Info, ?hasGraph) =
                     | M.Constructor (cDef, nr) ->
                         hasInlinedCtor <- true
                         let comp = compiledNoAddressMember nr
-                        if nr.Compiled && Option.isNone cc.StaticConstructor then
+                        if nr.Compiled then
                             let isPure =
-                                nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                                nr.Pure || isPureFunction nr.Body
                             cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
                         else 
-                            compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))      
+                            compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))      
                     | M.Method (mDef, nr) -> 
                         let comp = compiledNoAddressMember nr
-                        if nr.Compiled && Option.isNone cc.StaticConstructor then
+                        if nr.Compiled then
                             let isPure =
-                                nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                                nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)
                             cc.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                         else 
-                            compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ cc nr.Body)
+                            compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
                     match m with 
@@ -1666,12 +1656,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         Dict.addToMulti remainingInstanceMembers typ m    
             
             let addConstructor (cDef, nr) comp =
-                if nr.Compiled && Option.isNone cc.StaticConstructor then
+                if nr.Compiled then
                     let isPure =
-                        nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
+                        nr.Pure || isPureFunction nr.Body
                     cc.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
                 else
-                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ cc nr.Body))
+                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
             
             match constructors.Count with
             | 0 ->
@@ -1720,17 +1710,17 @@ type Compilation(meta: Info, ?hasGraph) =
                         Function(cargs, typ, Return b)
                     | _ -> 
                         failwith "Expecting a function as compiled form of constructor"
-                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, addCctorCall typ res body))
+                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, body))
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField la, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember la nr
-                if nr.Compiled && Option.isNone res.StaticConstructor then 
+                if nr.Compiled then 
                     let isPure =
-                        nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
+                        nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)
                     res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                 else
-                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body)
+                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
             | M.StaticConstructor expr ->                
                 // TODO: do not rely on address on compiled state
                 updateClass typ (fun cls -> { cls with StaticConstructor = Some (la, Undefined) })
@@ -1767,16 +1757,16 @@ type Compilation(meta: Info, ?hasGraph) =
                 match nr.Kind with
                 | N.Implementation dtyp 
                 | N.Override dtyp when dtyp <> typ ->
-                    if nr.Compiled && Option.isNone res.StaticConstructor then 
+                    if nr.Compiled then 
                         res.Implementations |> add (dtyp, mDef) (comp, nr.Body) snd
                     else
-                        compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, addCctorCall typ res nr.Body) snd
+                        compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, nr.Body) snd
                 | _ ->
-                    if nr.Compiled && Option.isNone res.StaticConstructor then 
+                    if nr.Compiled then 
                         let isPure = nr.Pure || isPureFunction nr.Body
                         res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
                     else
-                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, addCctorCall typ res nr.Body) trd
+                        compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body) trd
             | _ -> failwith "Invalid instance member kind"   
 
         let getClassAddress typ =

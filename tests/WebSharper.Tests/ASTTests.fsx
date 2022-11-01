@@ -459,69 +459,16 @@ let getBody expr =
     | _ -> failwithf "class data not found: %A" typ
 
 
-open WebSharper
-open WebSharper.JavaScript
-
-[<JavaScript(false)>]
-type ITest =
-    [<Name "GetCountShouldNotAppear">]
-    abstract GetCount: unit -> int
-
-[<JavaScript>]
-module M =
-    let getCount (this: ITest) = 1
-
-[<Proxy(typeof<ITest>)>]
-type ITestProxy =
-//    [<Name "GetCountStrongName">]
-    abstract GetCount: unit -> int
-
-    [<Inline>]
-    default this.GetCount () = M.getCount (As<ITest> this) //1
-
-[<JavaScript>]
-module Test =
-
-    let gcTest (o: ITest) = o.GetCount() 
-
-    type ImplTest() =
-
-        interface ITest with
-            member this.GetCount () = 2
-
 translate """
 namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
 
-[<JavaScript(false)>]
-type ITest =
-    [<Name "GetCountShouldNotAppear">]
-    abstract GetCount: unit -> int
-
 [<JavaScript>]
-module M =
-    let getCount (this: ITest) = 1
-
-[<Proxy(typeof<ITest>, [| typeof<System.Collections.IEnumerable> |])>]
-type private ITestProxy =
-//    [<Name "GetCountStrongName">]
-    abstract GetCount: unit -> int
-
-    [<Inline>]
-    default this.GetCount () = M.getCount (As<ITest> this) //1
-
-[<JavaScript>]
-module Test =
-
-    let gcTest (o: ITest) = o.GetCount() 
-
-    type ImplTest() =
-
-        interface ITest with
-            member this.GetCount () = 2
-
+type MyClass(name: string) =
+    member this.Name = name
+    static member Hello = "hello"
 """
 
 //translate """

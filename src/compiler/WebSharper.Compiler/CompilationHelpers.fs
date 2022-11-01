@@ -836,31 +836,31 @@ module Resolve =
 
 let getAllAddresses (meta: Info) =
     let r = Resolve.Resolver()
-    let classes =
-        meta.Classes |> Dict.choose (fun (_, _, cls) -> cls)
-    Resolve.addInherits r classes
-    // add members
-    for KeyValue(typ, cls) in classes do
-        if typ.Value.FullName.StartsWith "Generated$" then () else
-        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
-        let rec addMember (m: CompiledMember) =
-            match m with
-            | Instance n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | Static a -> r.ExactStaticAddress a.Address.Value |> ignore
-            | Macro (_, _, Some m) -> addMember m
-            | _ -> ()
-        for m, _, _ in cls.Constructors.Values do addMember m
-        for f, _, _ in cls.Fields.Values do
-            match f with
-            | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | StaticField a -> r.ExactStaticAddress a.Address.Value |> ignore
-            | IndexedField _ -> ()
-        for m, _ in cls.Implementations.Values do addMember m
-        for m, _, _, _ in cls.Methods.Values do addMember m
-        match cls.StaticConstructor with
-        | Some (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore  
-        | _ -> ()
+    //let classes =
+    //    meta.Classes |> Dict.choose (fun (_, _, cls) -> cls)
+    //Resolve.addInherits r classes
+    //// add members
+    //for KeyValue(typ, cls) in classes do
+    //    if typ.Value.FullName.StartsWith "Generated$" then () else
+    //    let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
+    //    let rec addMember (m: CompiledMember) =
+    //        match m with
+    //        | Instance (n, _) -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
+    //        | Static (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore
+    //        | Macro (_, _, Some m) -> addMember m
+    //        | _ -> ()
+    //    for m, _, _ in cls.Constructors.Values do addMember m
+    //    for f, _, _ in cls.Fields.Values do
+    //        match f with
+    //        | InstanceField n 
+    //        | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
+    //        | StaticField a -> r.ExactStaticAddress a.Address.Value |> ignore
+    //        | IndexedField _ -> ()
+    //    for m, _ in cls.Implementations.Values do addMember m
+    //    for m, _, _, _ in cls.Methods.Values do addMember m
+    //    match cls.StaticConstructor with
+    //    | Some (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore  
+    //    | _ -> ()
     r
  
 open WebSharper.Core.Metadata 
@@ -899,7 +899,7 @@ let refreshAllIds (i: Info) =
             Constructors = 
                 c.Constructors |> Dict.map refreshNotInline
             StaticConstructor = 
-                c.StaticConstructor |> Option.map (fun (x, b) -> x, r.TransformExpression b) 
+                c.StaticConstructor |> Option.map (fun b -> r.TransformStatement b) 
             Methods = 
                 c.Methods |> Dict.map refreshNotInlineM
             Implementations = 
@@ -1022,7 +1022,7 @@ type TransformSourcePositionsAndUpdateModule(asmName) =
 
 let rec private exposeCompiledMember asmName m = 
     match m with
-    | Static a -> Static <| exposeAddress asmName a
+    | Static (a, k) -> Static (exposeAddress asmName a, k)
     | Macro (td, p, Some r) ->
         Macro (td, p, Some (exposeCompiledMember asmName r))
     | _ -> m
@@ -1047,7 +1047,7 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                     { c with 
                         Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
                         Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
-                        StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> exposeAddress asmName a, tr.TransformExpression e)
+                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
                         Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> exposeCompiledMember asmName i, p, c, tr.TransformExpression e)
                         Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
                     }
@@ -1066,7 +1066,7 @@ let private localizeAddress (a: Address) =
 
 let rec private localizeCompiledMember m = 
     match m with
-    | Static a -> Static <| localizeAddress a
+    | Static (a, k) -> Static (localizeAddress a, k)
     | Macro (td, p, Some r) ->
         Macro (td, p, Some (localizeCompiledMember r))
     | _ -> m
@@ -1092,7 +1092,7 @@ let transformToLocalAddressInMetadata (meta: Info) =
                     { c with 
                         Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
                         Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
-                        StaticConstructor = c.StaticConstructor |> Option.map (fun (a, e) -> localizeAddress a, tr.TransformExpression e)
+                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
                         Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
                         Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
                     }

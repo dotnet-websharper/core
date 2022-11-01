@@ -109,9 +109,9 @@ type ParameterObject =
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
 type CompiledMember =
-    | Instance of name:string
-    | Static of address:Address
-    | AsStatic of address:Address
+    | Instance of name:string * kind: ClassMethodKind
+    | Static of name:string * kind: ClassMethodKind
+    | Function of name:string
     | New
     | NewIndexed of index:int
     | Inline of isCompiled:bool * assertReturnType:bool
@@ -162,11 +162,11 @@ type ClassInfo =
         Generics : list<GenericParam>
         Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
         Fields : IDictionary<string, CompiledField * bool * Type>
-        StaticConstructor : option<Address * Expression>
+        StaticConstructor : option<Statement>
         Methods : IDictionary<Method, CompiledMember * Optimizations * list<GenericParam> * Expression>
         QuotedArgMethods : IDictionary<Method, int[]>
         Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
-        HasWSPrototype : bool // is the class defined in WS so it has Runtime.Class created prototype
+        HasWSPrototype : bool // do we need to output a class
         IsStub : bool // is the class just a declaration
         Macros : list<TypeDefinition * option<ParameterObject>>
         Type : option<TSType>
@@ -196,7 +196,7 @@ type IClassInfo =
     abstract member Constructors : IDictionary<Constructor, CompiledMember>
     /// value: field info, is readonly
     abstract member Fields : IDictionary<string, CompiledField * bool * Type>
-    abstract member StaticConstructor : option<Address>
+    abstract member HasStaticConstructor : bool
     abstract member Methods : IDictionary<Method, CompiledMember>
     abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
     abstract member HasWSPrototype : bool
@@ -206,7 +206,7 @@ type InterfaceInfo =
     {
         Address : Address
         Extends : list<Concrete<TypeDefinition>>
-        Methods : IDictionary<Method, string * list<GenericParam>>
+        Methods : IDictionary<Method, string * ClassMethodKind * list<GenericParam>>
         Generics : list<GenericParam>
         Type : option<TSType>
     }
@@ -441,7 +441,7 @@ type Info =
         this.MapClasses((fun ci ->
             { ci with
                 Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
-                StaticConstructor = ci.StaticConstructor |> Option.map (fun (a, _) -> a, Undefined)
+                StaticConstructor = ci.StaticConstructor |> Option.map (fun _ -> Empty)
                 Methods = ci.Methods |> Dict.map (fun (a, b, c, _) -> a, b, c, Undefined)
                 Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
             }), (fun _ -> Empty))

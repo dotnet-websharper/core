@@ -87,6 +87,24 @@ and [<RequireQualifiedAccess>] VarKind =
     | Const
     | Let
 
+and [<RequireQualifiedAccess>] ClassMethodKind =
+    | Simple
+    | Getter
+    | Setter
+
+and ClassMethodInfo =
+    {
+        IsStatic : bool
+        IsPrivate : bool
+        Kind : ClassMethodKind
+    }
+
+and ClassPropertyInfo =
+    {
+        IsStatic : bool
+        IsPrivate : bool
+    }
+
 and ApplicationInfo =
     {
         Purity : Purity
@@ -305,11 +323,13 @@ and Statement =
     /// JavaScript ES6 - class { ... }
     | Class of Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// JavaScript ES6 - class method
-    | ClassMethod of IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
+    | ClassMethod of Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
     /// JavaScript ES6 - class method
     | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
     /// JavaScript ES6 - class plain property
-    | ClassProperty of IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool
+    | ClassProperty of Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool
+    /// JavaScript ES6 - class static block
+    | ClassStatic of Optional:Statement
     /// TypeScript - interface { ... }
     | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// TypeScript - type or import alias
@@ -588,14 +608,17 @@ type Transformer() =
     abstract TransformClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformClass (a, b, c, d, e) = Class (a, b, c, List.map this.TransformStatement d, e)
     /// JavaScript ES6 - class method
-    abstract TransformClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
+    abstract TransformClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
     /// JavaScript ES6 - class method
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (a, b) -> this.TransformId a, b) a, Option.map this.TransformStatement b, c)
     /// JavaScript ES6 - class plain property
-    abstract TransformClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> Statement
+    abstract TransformClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool -> Statement
     override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, d)
+    /// JavaScript ES6 - class static block
+    abstract TransformClassStatic : Optional:Statement -> Statement
+    override this.TransformClassStatic a = ClassStatic (this.TransformStatement a)
     /// TypeScript - interface { ... }
     abstract TransformInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformInterface (a, b, c, d) = Interface (a, b, List.map this.TransformStatement c, d)
@@ -702,6 +725,7 @@ type Transformer() =
         | ClassMethod (a, b, c, d, e) -> this.TransformClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.TransformClassConstructor (a, b, c)
         | ClassProperty (a, b, c, d) -> this.TransformClassProperty (a, b, c, d)
+        | ClassStatic a -> this.TransformClassStatic a
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
         | Alias (a, b) -> this.TransformAlias (a, b)
         | XmlComment a -> this.TransformXmlComment a
@@ -976,14 +1000,17 @@ type Visitor() =
     abstract VisitClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitClass (a, b, c, d, e) = (); (); (); List.iter this.VisitStatement d; ()
     /// JavaScript ES6 - class method
-    abstract VisitClassMethod : IsStatic:bool * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
+    abstract VisitClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
     /// JavaScript ES6 - class method
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
     /// JavaScript ES6 - class plain property
-    abstract VisitClassProperty : IsStatic:bool * Name:string * PropertyType:TSType * Optional:bool -> unit
+    abstract VisitClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool -> unit
     override this.VisitClassProperty (a, b, c, d) = (); (); (); ()
+    /// JavaScript ES6 - class static block
+    abstract VisitClassStatic : Optional:Statement -> unit
+    override this.VisitClassStatic a = (this.VisitStatement a)
     /// TypeScript - interface { ... }
     abstract VisitInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitInterface (a, b, c, d) = (); (); List.iter this.VisitStatement c; ()
@@ -1090,6 +1117,7 @@ type Visitor() =
         | ClassMethod (a, b, c, d, e) -> this.VisitClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.VisitClassConstructor (a, b, c)
         | ClassProperty (a, b, c, d) -> this.VisitClassProperty (a, b, c, d)
+        | ClassStatic a -> this.VisitClassStatic a
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
         | Alias (a, b) -> this.VisitAlias (a, b)
         | XmlComment a -> this.VisitXmlComment a
@@ -1196,6 +1224,7 @@ module IgnoreSourcePos =
     let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c, d) -> Some (a, b, c, d) | _ -> None
+    let (|ClassStatic|_|) x = match ignoreStatementSourcePos x with ClassStatic a -> Some a | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
@@ -1298,6 +1327,7 @@ module Debug =
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + PrintObject d + ")"
+        | ClassStatic a -> "ClassStatic" + "(" + PrintStatement a + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"
         | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"

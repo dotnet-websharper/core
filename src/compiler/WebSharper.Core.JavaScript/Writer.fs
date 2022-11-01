@@ -255,13 +255,14 @@ let rec startsWithObjectExpression = function
     | _ -> false
 
 let rec Id (id: S.Id) =
-    Word (if id.IsTypeName then id.Name else EscapeId id.Name)
+    Word (if id.IsTypeName then id.Name else (if id.IsPrivate then "#" else "") + EscapeId id.Name)
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
 and IdOrString (id: S.Id) =
-    if Identifier.IsValid id.Name then Word id.Name else Token (QuoteString id.Name)
+    let priv = if id.IsPrivate then "#" else ""
+    if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (QuoteString (priv + id.Name))
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
@@ -606,11 +607,18 @@ and Statement canBeEmpty statement =
         ++ Word "from "
         ++ Token (QuoteString f)
 
+and Accessor a =
+    match a with
+    | S.Get -> Word "get"
+    | S.Set -> Word "set"
+    | S.Simple -> Empty
+
 and Member isClass mem =
     match mem with
-    | S.Method (s, n, args, body) ->
+    | S.Method (s, a, n, args, body) ->
         Conditional (Word "abstract") (isClass && Option.isNone body)
         ++ Conditional (Word "static") s
+        ++ Accessor a
         ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)
         ++ TypeAnnotation n.Type 
@@ -623,6 +631,9 @@ and Member isClass mem =
         Conditional (Word "static") s
         ++ Id n
         ++ Token ";"
+    | S.Static body ->
+        Word "static"
+        ++ BlockLayout (List.map (Statement true) body)
 
 and Block statement =
     match S.IgnoreStatementPos statement with

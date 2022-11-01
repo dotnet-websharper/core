@@ -36,7 +36,7 @@ type EntryPointStyle =
 
 let private Address a = { Module = CurrentModule; Address = Hashed a }
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
+let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryPoint entryPointStyle =
     let imports = ResizeArray()
     let addresses = Dictionary()
     let declarations = ResizeArray()
@@ -128,56 +128,39 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         let o, x = getFieldAddress a
         statements.Add <| ExprStatement (ItemSet (o, x, expr))    
 
-    let packageCtor a expr =
-        let o, x = getFieldAddress a
-        let av = 
-            match getAddress a with
-            | Var v -> v
-            | _ -> failwith "packageCtor error"
-        //let oaExpr =
-        //    ApplAny(Global ["Object"; "assign"], [])
-        statements.Add <| ExprStatement (VarSet (av, ItemSet (o, x, expr)))    
-
-    let packageCctor a expr name =
-        let o, x = getFieldAddress a
-        match expr with
-        | Function ([], _, body) ->
-            let rem = ExprStatement (ItemSet (o, x, ItemGet(glob, Value (String "ignore"), Pure)))    
-            let expr = Function([], None, Block [rem; body])
-            statements.Add <| ExprStatement (ItemSet (o, x, expr))    
-        | _ ->
-            let expr = Function([], None, ExprStatement expr)
-            statements.Add <| ExprStatement (ItemSet (o, x, expr))            
-            // TODO investigate
-            //failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
-
-    let classes = Dictionary(current.Classes)
-
     let rec withoutMacros info =
         match info with
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let rec packageClass (c: M.ClassInfo) addr (ct: M.CustomTypeInfo) name =
-
-        match c.BaseClass with
-        | Some { Entity = b } ->
-            match classes.TryFind b with
-            | Some (addr, ct, Some bc) ->
-                classes.Remove b |> ignore
-                packageClass bc addr ct b.Value.FullName
-            | _ -> ()
-        | _ -> ()
+    let packageClass (c: M.ClassInfo) (addr: Address) (ct: M.CustomTypeInfo) name =
 
         let members = ResizeArray<Statement>()
                     
         let mem info body =
             match withoutMacros info with
-            | M.Instance mname ->
+            | M.Instance (mname, mkind) ->
                 match IgnoreExprSourcePos body with
                 | Function (args, _, b) ->
-                    members.Add <| ClassMethod(false, mname, args, Some b, TSType.Any)
-                | _ -> ()                    
+                    let info = 
+                        {
+                            IsStatic = false
+                            IsPrivate = false // TODO
+                            Kind = mkind
+                        }
+                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                | _ -> ()       
+            | M.Static (maddr, mkind) ->
+                match IgnoreExprSourcePos body with
+                | Function (args, _, b) ->
+                    let info = 
+                        {
+                            IsStatic = true
+                            IsPrivate = false // TODO
+                            Kind = mkind
+                        }
+                    members.Add <| ClassMethod(info, maddr.Address.Value.Head, args, Some b, TSType.Any)
+                | _ -> ()       
             | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
@@ -261,13 +244,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         match c.StaticConstructor with
         | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
-        | Some (ccaddr, body) -> 
-            packageCctor ccaddr body name
+        | Some (ccaddr, expr) -> 
+            match expr with
+            | Function ([], _, body) ->
+                members.Add <| ClassStatic(body)
+            | _ ->
+                members.Add <| ClassStatic(ExprStatement expr)
+                // TODO investigate
+                //failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
         | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
             match withoutMacros info with
-            | M.Static maddr
+            //| M.Static maddr
             | M.AsStatic maddr ->
                 if body <> Undefined then
                     if body <> Undefined then
@@ -276,18 +265,19 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         for info, _, body in c.Constructors.Values do
             match withoutMacros info with
-            | M.Static maddr 
+            | M.Static (maddr, _) // TODO 
             | M.AsStatic maddr ->
                 if body <> Undefined then
                     package maddr body
             | _ -> ()
             
-    while classes.Count > 0 do
-        let (KeyValue(t, (a, ct, cOpt))) = classes |> Seq.head
-        classes.Remove t |> ignore
-        cOpt |> Option.iter (fun c -> packageClass c a ct t.Value.FullName)
+    match current.Classes.TryFind(typ) with
+    | Some (a, ct, cOpt) ->
+        cOpt |> Option.iter (fun c -> packageClass c a ct typ.Value.FullName)
+    | None -> ()
 
-    for KeyValue(td, i) in current.Interfaces do       
+    match current.Interfaces.TryFind(typ) with
+    | Some i ->
 
         let methodNames =
             i.Methods.Values |> Seq.map fst
@@ -297,7 +287,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
             | fn :: a ->
                 { i.Address with Address = PlainAddress (("is" + fn) :: a) }  
             | _ ->
-                failwithf "Missing address for interface %s" td.Value.FullName
+                failwithf "Missing address for interface %s" typ.Value.FullName
         
         let isIntf =
             let x = Id.New "x"
@@ -310,6 +300,8 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
 
         package addr isIntf
 
+    | None -> ()
+
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
         statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], None, ep)))
@@ -319,27 +311,20 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointSty
         failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
     | OnLoadIfExists, None -> ()
     
-    let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
+    //let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
+    
+    if statements.Count = 0 then 
+        [] 
+    else
+        List.ofSeq (Seq.concat [ declarations; statements ])
 
-    if List.isEmpty trStatements then Undefined else
-        let allStatements = List.ofSeq (Seq.append declarations trStatements) 
-        let wsPkg = 
-            Appl(Function([g], None, Block allStatements), [Var (Id.Global())], NonPure, Some 0)
-        if imports.Count = 0 then
-            wsPkg
-        else
-            Sequential (
-                Seq.append (
-                    imports |> Seq.map (fun (from, export, id) ->
-                        let args =
-                            match export with
-                            | None -> [ Value (String from) ]
-                            | Some e -> [  Value (String e); Value (String from) ]
-                        StatementExpr(VarDeclaration(id, Appl(Var (Id.Import()), args, NonPure, Some 0)), None)
-                    )
-                ) (Seq.singleton wsPkg)
-                |> List.ofSeq
-            )
+let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
+    Seq.append current.Classes.Keys current.Interfaces.Keys
+    |> Seq.map (fun typ ->
+        typ.Value.FullName, 
+        packageType refMeta current typ entryPoint entryPointStyle
+    )
+    |> Array.ofSeq
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
@@ -350,27 +335,8 @@ let readMapFileSources mapFile =
         List.zip sources sourcesContent
     | _ -> failwith "map file JSON should be an object"
 
-let exprToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statement =
-    let env = WebSharper.Compiler.JavaScriptWriter.Environment.New(pref)
-    let program =
-        match statement with
-        | Sequential statements ->
-            statements |> List.map (
-                function
-                | StatementExpr (st, None) ->
-                    st 
-                    |> JavaScriptWriter.transformStatement env
-                | e ->
-                    e
-                    |> JavaScriptWriter.transformExpr env
-                    |> WebSharper.Core.JavaScript.Syntax.Ignore
-            )
-        | _ ->
-            statement
-            |> JavaScriptWriter.transformExpr env
-            |> WebSharper.Core.JavaScript.Syntax.Ignore
-            |> List.singleton
-
+let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
+    let program = statements |> JavaScriptWriter.transformProgram pref
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile()

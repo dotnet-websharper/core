@@ -885,6 +885,7 @@ and private breakSt statement : Statement seq =
     | Yield _ 
     | Goto _ 
     | ClassProperty _
+    | ClassStatic _
         -> Seq.singleton statement
     | GotoCase a -> 
         match a with

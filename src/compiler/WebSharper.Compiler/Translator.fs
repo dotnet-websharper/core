@@ -992,7 +992,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     trArgs(), opts.Purity, None, funcParams false) 
         | M.Static address ->
             ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
-        | M.AsStatic address ->
+        | M.Function address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
             ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
@@ -1234,7 +1234,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
             match info with 
             | M.Static address 
-            | M.AsStatic address ->
+            | M.Function address ->
                 GlobalAccess address
             | M.Instance name -> 
                 match comp.TryLookupClassInfo typ.Entity with
@@ -1278,7 +1278,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), trArgs())
         | M.NewIndexed (i) ->
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
-        | M.Static address ->
+        | M.Function address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline (isCompiled, assertReturnType) ->
             this.ApplyInline(expr, typ.Generics, gc, trArgs(), None, isCompiled, assertReturnType, ConcreteType typ) 

@@ -1,28 +1,18 @@
 (function (Global) {
   "use strict";
 
-  // Polyfill
-
-  if (!Date.now) {
-    Date.now = function () {
-      return new Date().getTime();
-    };
-  }
-
-  if (!Math.trunc) {
-    Math.trunc = function (x) {
-      return x < 0 ? Math.ceil(x) : Math.floor(x);
-    }
-  }
-
-  if (!Object.setPrototypeOf) {
-    Object.setPrototypeOf = function (obj, proto) {
-      obj.__proto__ = proto;
-      return obj;
-    }
-  }
-
   Global.WSRuntime = {
+    AddLazy: function (obj, name, f) {
+      Object.defineProperty(obj, name, {
+        configurable: true,
+        get() {
+          let c = f();
+          Object.defineProperty(obj, name, { value: c });
+          return c;
+        }
+      });
+    },
+
     Cctor: function (cctor) {
       var init = true;
       return function () {
