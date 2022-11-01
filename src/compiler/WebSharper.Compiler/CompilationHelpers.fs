@@ -608,8 +608,6 @@ let makeExprInline (vars: Id list) expr =
             Let (v, h, body)    
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
 
-let CurrentGlobal a = GlobalAccess { Module = CurrentModule; Address = Hashed (List.rev a) }
-
 module JSRuntime =
     let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
@@ -972,18 +970,6 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | _ -> ()
     { meta with Classes = classes}
 
-let private exposeAddress asmName (a: Address) =
-    match a.Module with
-    | CurrentModule ->
-        { a with Module = WebSharperModule asmName }
-    | _ -> a
-
-type RemoveSourcePositionsAndUpdateModule (asmName) =
-    inherit RemoveSourcePositions ()
-
-    override this.TransformGlobalAccess(a) =
-        GlobalAccess <| exposeAddress asmName a
-
 type TransformSourcePositions(asmName) =
     inherit Transformer()
     
@@ -1014,42 +1000,42 @@ type TransformSourcePositions(asmName) =
             this.TransformStatement s
         )
 
-type TransformSourcePositionsAndUpdateModule(asmName) =
-    inherit TransformSourcePositions(asmName)
+//type TransformSourcePositionsAndUpdateModule(asmName) =
+//    inherit TransformSourcePositions(asmName)
 
-    override this.TransformGlobalAccess(a) =
-        GlobalAccess <| exposeAddress asmName a
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| a
 
-let rec private exposeCompiledMember asmName m = 
-    match m with
-    | Static (a, k) -> Static (exposeAddress asmName a, k)
-    | Macro (td, p, Some r) ->
-        Macro (td, p, Some (exposeCompiledMember asmName r))
-    | _ -> m
+//let rec private exposeCompiledMember asmName m = 
+//    match m with
+//    | Static (a, k) -> Static (exposeAddress asmName a, k)
+//    | Macro (td, p, Some r) ->
+//        Macro (td, p, Some (exposeCompiledMember asmName r))
+//    | _ -> m
 
-let private exposeCompiledField asmName f =
-    match f with
-    | StaticField a -> StaticField <| exposeAddress asmName a
-    | _ -> f
+//let private exposeCompiledField asmName f =
+//    match f with
+//    | StaticField a -> StaticField <| exposeAddress asmName a
+//    | _ -> f
 
 let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
     let tr, sp = 
         if isRemove then
-            RemoveSourcePositionsAndUpdateModule(asmName) :> Transformer, None 
+            RemoveSourcePositions() :> Transformer, None 
         else
-            let tr = TransformSourcePositionsAndUpdateModule(asmName)
+            let tr = TransformSourcePositions(asmName)
             tr :> _, Some tr
     { meta with 
         Classes = 
             meta.Classes |> Dict.map (fun (a, ct, c) ->
-                exposeAddress asmName a, ct,
+                a, ct,
                 c |> Option.map (fun c ->
                     { c with 
-                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> exposeCompiledMember asmName i, p, tr.TransformExpression e)    
-                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> exposeCompiledField asmName i, p, t)
+                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
+                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> i, p, t)
                         StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
-                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> exposeCompiledMember asmName i, p, c, tr.TransformExpression e)
-                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> exposeCompiledMember asmName i, tr.TransformExpression e)
+                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, tr.TransformExpression e)
+                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
                     }
                 )
             )
@@ -1058,47 +1044,47 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
     | None -> [||]
     | Some t -> t.FileMap
 
-let private localizeAddress (a: Address) =
-    match a.Module with
-    | WebSharperModule _ ->
-        { a with Module = CurrentModule }
-    | _ -> a
+//let private localizeAddress (a: Address) =
+//    match a.Module with
+//    | WebSharperModule _ ->
+//        { a with Module = CurrentModule }
+//    | _ -> a
 
-let rec private localizeCompiledMember m = 
-    match m with
-    | Static (a, k) -> Static (localizeAddress a, k)
-    | Macro (td, p, Some r) ->
-        Macro (td, p, Some (localizeCompiledMember r))
-    | _ -> m
+//let rec private localizeCompiledMember m = 
+//    match m with
+//    | Static (a, k) -> Static (localizeAddress a, k)
+//    | Macro (td, p, Some r) ->
+//        Macro (td, p, Some (localizeCompiledMember r))
+//    | _ -> m
 
-let private localizeCompiledField f =
-    match f with
-    | StaticField a -> StaticField <| localizeAddress a
-    | _ -> f
+//let private localizeCompiledField f =
+//    match f with
+//    | StaticField a -> StaticField <| localizeAddress a
+//    | _ -> f
 
-type UpdateModuleToLocal() =
-    inherit Transformer()
+//type UpdateModuleToLocal() =
+//    inherit Transformer()
 
-    override this.TransformGlobalAccess(a) =
-        GlobalAccess <| localizeAddress a
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| localizeAddress a
 
-let transformToLocalAddressInMetadata (meta: Info) =
-    let tr = UpdateModuleToLocal() 
-    { meta with 
-        Classes = 
-            meta.Classes |> Dict.map (fun (a, ct, c) ->
-                localizeAddress a, ct,
-                c |> Option.map (fun c ->
-                    { c with 
-                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
-                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
-                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
-                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
-                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
-                    }
-                )
-            )
-    }
+//let transformToLocalAddressInMetadata (meta: Info) =
+//    let tr = UpdateModuleToLocal() 
+//    { meta with 
+//        Classes = 
+//            meta.Classes |> Dict.map (fun (a, ct, c) ->
+//                localizeAddress a, ct,
+//                c |> Option.map (fun c ->
+//                    { c with 
+//                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> localizeCompiledMember i, p, tr.TransformExpression e)    
+//                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> localizeCompiledField i, p, t)
+//                        StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
+//                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> localizeCompiledMember i, p, c, tr.TransformExpression e)
+//                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> localizeCompiledMember i, tr.TransformExpression e)
+//                    }
+//                )
+//            )
+//    }
 
 type Capturing(?var) =
     inherit Transformer()

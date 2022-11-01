@@ -301,9 +301,9 @@ let formatExceptionTy, formatExceptionCtor =
     | _ -> failwith "Expected constructor call"
 
 let parseInt x =
-    Appl(Global ["parseInt"], [x], Pure, Some 1)
+    Appl(GlobalVal "parseInt", [x], Pure, Some 1)
 let toNumber x =
-    Appl(Global ["Number"], [x], Pure, Some 1)
+    Appl(GlobalVal "Number", [x], Pure, Some 1)
 
 [<Sealed>]
 type NumericMacro() =
@@ -312,7 +312,7 @@ type NumericMacro() =
     let exprParse parsed tru fls =
         let id = Id.New(mut = false)
         Let (id, parsed,
-            Conditional(Appl(Global ["isNaN"], [Var id], Pure, Some 1),
+            Conditional(Appl(GlobalVal "isNaN", [Var id], Pure, Some 1),
                 tru id,
                 fls id
             )
@@ -368,7 +368,7 @@ type NumericMacro() =
                 if c.DefiningType.Entity.Value.AssemblyQualifiedName = "System.Char, netstandard" then
                     self
                 else 
-                    Appl(Global ["String"], [self], Pure, Some 1)
+                    Appl(GlobalVal "String", [self], Pure, Some 1)
                 |> MacroOk 
             | _ -> MacroError "numericMacro error"
         | "Parse" ->
@@ -637,11 +637,11 @@ type String() =
                     | "System.Char" ->
                         x
                     | "System.DateTime" ->
-                        Appl(ItemGet(New(Global [ "Date" ], [], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
+                        Appl(ItemGet(New(GlobalVal "Date", [], [x]), Value (Literal.String "toLocaleString"), Pure), [], Pure, None)
                     | _ ->
-                        Appl(Global ["String"], [x], Pure, Some 1)   
+                        Appl(GlobalVal "String", [x], Pure, Some 1)   
                 | _ -> 
-                    Appl(Global ["String"], [x], Pure, Some 1)   
+                    Appl(GlobalVal "String", [x], Pure, Some 1)   
                 |> MacroOk 
             | _ ->
                 MacroError "stringMacro error"
@@ -1567,7 +1567,7 @@ type Tuple() =
         else
             let t = TupleType (c.DefiningType.Generics, false)
             match mname with
-            | "ToString" -> MacroOk <| Appl(Global ["String"], [c.This.Value], Pure, Some 1)
+            | "ToString" -> MacroOk <| Appl(GlobalVal "String", [c.This.Value], Pure, Some 1)
             | "GetHashCode" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic hashMeth [ t ], [c.This.Value]) 
             | "Equals" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic equalsMeth [ t ], [c.This.Value; c.Arguments.Head]) 
             | "CompareTo" -> MacroOk <| Call (None, NonGeneric opUncheckedTy, Generic compareMeth [ t ], [c.This.Value; c.Arguments.Head]) 

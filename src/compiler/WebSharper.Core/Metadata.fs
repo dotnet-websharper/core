@@ -111,7 +111,7 @@ type ParameterObject =
 type CompiledMember =
     | Instance of name:string * kind: ClassMethodKind
     | Static of name:string * kind: ClassMethodKind
-    | Function of name:string
+    | Func of name:string
     | New
     | NewIndexed of index:int
     | Inline of isCompiled:bool * assertReturnType:bool

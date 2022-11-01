@@ -199,7 +199,9 @@ let ExprDefs =
         "Object", [ List (Object "string" * Expr), "properties" ]
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
-            , "A global value by path, list is reversed"
+            , "A global or imported value"
+        "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
+            , "Set value for a global or imported variable"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
         "Hole", [ Object "int", "index" ]

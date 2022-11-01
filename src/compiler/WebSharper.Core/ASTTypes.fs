@@ -948,34 +948,29 @@ type Member =
 type Module =
     | StandardLibrary
     | JavaScriptFile of string
-    | WebSharperModule of string
-    | CurrentModule
+    | JavaScriptModule of string
     | ImportedModule of Id
-
-type PlainAddress = Hashed<list<string>>
 
 type Address =
     {
         Module : Module
-        Address : PlainAddress
+        Name : string
     }
 
-    member this.JSAddress =
+    member this.JSName =
         match this.Module with
         | StandardLibrary
         | JavaScriptFile _ ->
-            Some this.Address
+            Some this.Name
         | _ -> None
 
     member this.MapName f =
-        match this.Address.Value with
-        | n :: r ->
-            { this with Address = Hashed (f n :: r) }
-        | _ ->
-            failwith "MapName on empty address"
+        { this with Name = f this.Name }
 
-    member this.Sub n =
-        { this with Address = Hashed (n :: this.Address.Value) }
+    member this.Encoded =
+        match this.Module with
+        | JavaScriptModule m -> m + ":" + this.Name
+        | _ -> this.Name
 
 module private Instances =
     let uniqueId name i = 
@@ -995,10 +990,7 @@ module private Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
-    let RuntimeModule = JavaScriptFile "Runtime"
-
-    let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
-    let EmptyAddress = { Module = CurrentModule; Address = Hashed [] }
+    let RuntimeModule = JavaScriptModule "Runtime"
 
 type Id with
     static member Global() = Instances.GlobalId
@@ -1008,9 +1000,9 @@ type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 
 type Address with
-    static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
-    static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f; "WSRuntime"] }
-    static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
-    static member Global() = Instances.GlobalAddress
-    static member Empty() = Instances.EmptyAddress
-    static member WSMain x = { Module = WebSharperModule "WebSharper.Main"; Address = Hashed [x; "WebSharper"] }
+    //static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
+    static member Runtime f = { Module = Instances.RuntimeModule; Name = f }
+    static member Lib a = { Module = StandardLibrary; Name = a }
+    //static member Global() = Instances.GlobalAddress
+    //static member Empty() = Instances.EmptyAddress
+    static member WSMain x n = { Module = JavaScriptModule ("WebSharper.Main." + x); Name = n }

@@ -164,13 +164,21 @@ let CombineExpressions exprs =
     | [ a ] -> a
     | res -> Sequential res
 
-/// Creates a GlobalAccess case from an access list in normal order
-let Global a = GlobalAccess { Module = StandardLibrary; Address = Hashed (List.rev a) }
+/// Creates a GlobalAccess case for standard library items
+let GlobalVal n = GlobalAccess { Module = StandardLibrary; Name = n }
+
+/// Creates a GlobalAccess case for standard library items
+let Global a = 
+    match a with
+    | [] -> Var (Id.Global())
+    | [ n ] -> GlobalVal n
+    | n :: r ->
+        r |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (GlobalVal n)
 
 /// Recognizes a WebSharper Runtime address
 let (|RuntimeAddress|_|) a =
     match a with
-    | { Module = JavaScriptFile "Runtime"; Address = a } -> Some a
+    | { Module = JavaScriptModule "Runtime"; Name = a } -> Some a
     | _ -> None
 
 /// Make a proxy for a by-address value, having two functions for get/set.
@@ -355,11 +363,11 @@ let private toUIntMeth =
 //    | _ -> expr
 
 let MathTrunc expr =
-    Appl(ItemGet(Global ["Math"], Value (String "trunc"), Pure), [expr], Pure, Some 1)
+    Appl(ItemGet(GlobalVal "Math", Value (String "trunc"), Pure), [expr], Pure, Some 1)
 
 let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     let toNumber expr =
-        Appl(Global ["Number"], [expr], Pure, Some 1)
+        Appl(GlobalVal "Number", [expr], Pure, Some 1)
     let toDecimal expr =
         Ctor (NonGeneric Definitions.Decimal, floatCtor, [expr])
     let charCode expr =
@@ -402,7 +410,7 @@ let NumericConversion (fromTyp: TypeDefinition) (toTyp: TypeDefinition) expr =
     | CharType, DecimalType
         -> charCode expr |> toDecimal
     | (SmallIntegralType _ | BigIntegralType | ScalarType | DecimalType | NonNumericType), StringType
-        -> Appl(Global ["String"], [expr], Pure, Some 1)
+        -> Appl(GlobalVal "String", [expr], Pure, Some 1)
     | (StringType | DecimalType | NonNumericType), (BigIntegralType | ScalarType)
         -> toNumber expr
     | (StringType | DecimalType | NonNumericType), SmallIntegralType (neg, mask)
