@@ -2071,10 +2071,6 @@ module Elements =
             Constructor T<string> |> WithInline "new Audio($0)"
         ]
 
-    let HTMLSlotElement =
-        Class "HTMLSlotElement"
-        |=> Inherits HTMLElement
-
 module Geolocation =
     
     let PositionOptions = 
@@ -2633,6 +2629,25 @@ module General =
             "fetch" => Fetch.Request ^-> EcmaPromise.[Fetch.Response]
         ]
 
+    let ElementDefinitionOptions =
+        Pattern.Config "ElementDefinitionOptions" {
+            Required = [
+                "extends", T<string>
+            ]
+            Optional = []
+        }
+
+    let CustomElementConstructor = T<unit> ^-> Dom.Interfaces.Element
+
+    let CustomElementsRegistry =
+        Class "CustomElementsRegistry"
+        |+> Instance [
+            "define" => T<string>?name * CustomElementConstructor?constructor * ElementDefinitionOptions?options ^-> T<unit>
+            "get" => T<string>?name ^-> (T<unit> + CustomElementConstructor)
+            "whenDefined" => T<string>?name ^-> (EcmaPromise.[CustomElementConstructor])
+            "upgrade" => Dom.Interfaces.Node ^-> T<unit>
+        ]
+
     do
         let f = Dom.Interfaces.Event ^-> T<unit>
         Dom.Interfaces.Window
@@ -2717,6 +2732,8 @@ module General =
 
             "postMessage" => T<string> * T<string> * Type.ArrayOf(MessagePort) ^-> T<unit> 
             "postMessage" => T<string> * T<string> ^-> T<unit> 
+
+            "customElements" =? CustomElementsRegistry
 
             "onabort" =@ f
             "onauxclick" =@ f
@@ -3681,8 +3698,10 @@ module Definition =
                 Elements.HTMLOutputElement
                 Elements.HTMLProgressElement
                 Elements.HTMLSelectElement
-                Elements.HTMLSlotElement
                 Elements.HTMLTextAreaElement
+                Dom.Interfaces.AssignedNodesOptions
+                Dom.Interfaces.HTMLSlotElement
+                Dom.Interfaces.HTMLTemplateEvent
                 Elements.SelectionMode
                 EventSource.ReadyState
                 EventSource.EventSourceOptions
@@ -3729,6 +3748,8 @@ module Definition =
                 Dom.Interfaces.Window
                 General.CSSSD
                 General.MQL
+                General.CustomElementsRegistry
+                General.ElementDefinitionOptions
 
                 Media.MediaStream
                 Media.MediaStreamTrack
