@@ -482,11 +482,21 @@ module Interfaces =
         ]
         |+> Instance [
             "name" =@ T<string>
+
+            "assign" => !+Node ^-> T<unit>
             "assignedNodes" => !?AssignedNodesOptions?options ^-> !|Node
             "assignedElements" => !?AssignedNodesOptions?options ^-> !|Element
             "replaceWith" => !+(Element + Text) ^-> T<unit>
+
+            "onslotchange" => Event ^-> T<unit>
         ]
 
+    let HTMLTemplateEvent =
+        Class "HTMLTemplateElement"
+        |=> Inherits Element
+        |+> Instance [
+            "content" =? DocumentFragment
+        ]
     let SlottableMixin = 
         Instance [
             "assignedSlot" => HTMLSlotElement
@@ -962,6 +972,7 @@ module Interfaces =
                 "preventDefault" => T<unit->unit>
                 "stopImmediatePropagation" => T<unit->unit>
                 "stopPropagation" => T<unit->unit>
+                "composedPath" => T<unit> ^-> !|EventTarget
             ]
 
     let CustomEvent  =
@@ -1596,8 +1607,6 @@ module Definition =
                 I.HTMLCollection
                 I.TreeWalker
                 I.Range
-                I.AssignedNodesOptions
-                I.HTMLSlotElement
                 I.FullscreenNavigationUI
                 I.FullscreenOptions
                 I.ScrollAnimateMode
