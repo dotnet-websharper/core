@@ -521,6 +521,13 @@ type Bug1126 [<Inline "{}">] () =
         with [<Inline "$x.Z">] get() = X<int>
         and [<Inline "void($x.Z = $v)">] set (v: int) = X<unit>
 
+module Bug1283 = 
+    [<Inline>]
+    let inline Sum vs =
+        (LanguagePrimitives.GenericZero, vs)
+        ||> Seq.fold(fun x y -> x + y 
+        )
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -1047,5 +1054,9 @@ let Tests =
                 o.Z <- 3
                 o
             deepEqual (createObj true) (JS.Inline "{X: 1, Y: 2, Z: 3}")
+        }
+
+        Test "#1283 better statically resolved handling of operators and GetZero/One" {
+            equal (Bug1283.Sum [1; 2; 3]) 6
         }
     }

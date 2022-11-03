@@ -1057,6 +1057,23 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 hasDelayedTransform <- true
                 TraitCall(thisObj |> Option.map this.TransformExpression, typs, meth, args |> List.map this.TransformExpression) |> Some
             else 
+                let byMacro =
+                    typs |> List.tryPick (fun typ ->
+                        match typ with
+                        | ConcreteType ct ->
+                            match comp.TryLookupClassInfo ct.Entity with
+                            | Some cls when not cls.Macros.IsEmpty ->
+                                try
+                                    try
+                                        this.FailOnError <- true
+                                        this.TransformCall(thisObj, ct, meth, args) |> Some
+                                    with _ -> None
+                                finally
+                                    this.FailOnError <- false
+                            | _ -> None
+                        | _ -> None
+                    )
+                if Option.isSome byMacro then byMacro else
                 err <- match err with | Some p -> Some (p + "; " + e) | _ -> Some e
                 None
         let trmv = meth.Entity.Value

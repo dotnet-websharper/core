@@ -1141,13 +1141,20 @@ type TransformerWithSourcePos(comp: Metadata.ICompilation) =
     let mutable currentSourcePos = None
 
     member this.CurrentSourcePos = currentSourcePos
+    
+    member val FailOnError = false with get, set
 
     member this.Error msg =
-        comp.AddError(currentSourcePos, msg)
-        errorPlaceholder
+        // for trait calls, if the target class is macroed, we run in FailOnError=true mode to catch errors and discard trial
+        if this.FailOnError then
+            failwithf "Experimental compilation failed"
+        else
+            comp.AddError(currentSourcePos, msg)
+            errorPlaceholder
 
     member this.Warning msg =
-        comp.AddWarning(currentSourcePos, msg)
+        if not this.FailOnError then
+            comp.AddWarning(currentSourcePos, msg)
 
     override this.TransformExprSourcePos (pos, expr) =
         let p = currentSourcePos 

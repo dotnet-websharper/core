@@ -18,11 +18,14 @@
 //
 // $end{copyright}
 
+
 [<WebSharper.Proxy
     "Microsoft.FSharp.Core.LanguagePrimitives, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.LanguagePrimitivesProxy
+
+#nowarn "77" // get_Zero, get_One warnings
 
 open WebSharper.JavaScript
 
@@ -44,11 +47,13 @@ let GenericComparisonWithComparer<'T> (c: System.Collections.IComparer) (a: 'T) 
 [<Inline>]
 let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a: 'T) (b: 'T) = c.Equals(a, b)
                                 
-[<Constant 0>]
-let GenericZero<'T>() = X<'T>
+[<Inline>]
+let inline GenericZero< ^T when ^T: (static member get_Zero: unit -> ^T)>() = 
+    (^T: (static member get_Zero: unit -> ^T)())
 
-[<Constant 1>]
-let GenericOne<'T>() = X<'T>
+[<Inline>]
+let inline GenericOne< ^T when ^T: (static member get_One: unit -> ^T)>() = 
+    (^T: (static member get_One: unit -> ^T)())
 
 [<Inline>]
 let FastGenericComparer<'T>() = 
