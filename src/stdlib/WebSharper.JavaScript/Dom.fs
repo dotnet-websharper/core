@@ -1255,7 +1255,7 @@ module Interfaces =
     let MutationRecord =
         Class "MutationRecord"
         |+> Instance [
-            "tpye" =? T<string>
+            "type" =? T<string>
             "target" =? Node
             "addedNodes" =? NodeList
             "removedNodes" =? NodeList
