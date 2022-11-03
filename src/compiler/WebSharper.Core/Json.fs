@@ -2063,8 +2063,6 @@ module PlainProviderInternals =
                             else
                                 fn, f :> System.Reflection.MemberInfo
                         )
-                if t.FullName = "WebSharper.CSharp.Interop.Tests.Person2" then
-                    printfn "This is it"
                 for fn, f in fields do
                     if not (d.ContainsKey fn) then
                         d.Add(fn, TAttrs.GetName f)
