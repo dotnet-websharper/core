@@ -628,6 +628,11 @@ module JSRuntime =
     let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
     let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
 
+    let private propDesc o n = ApplAny(Global [ "Object"; "getOwnPropertyDescriptor" ], [o; Value (String n)])
+
+    let GetterOf o n = ItemGet(propDesc o n, Value (String "get"), Pure)
+    let SetterOf o n = ItemGet(propDesc o n, Value (String "get"), Pure)
+
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 

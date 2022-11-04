@@ -91,7 +91,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
 
-    let mutableExternals = Recognize.GetMutableExternals meta
+    //let mutableExternals = Recognize.GetMutableExternals meta
 
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * list<GenericParam> * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
@@ -162,7 +162,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.CompiledExtraBundles =
         compiledExtraBundles
 
-    member this.MutableExternals = mutableExternals
+    //member this.MutableExternals = mutableExternals
 
     member this.TypeTranslator = typeTranslator
 

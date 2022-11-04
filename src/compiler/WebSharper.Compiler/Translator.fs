@@ -1233,13 +1233,21 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiled (info, _, _, _)
         | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
             match info with 
-            | M.Static address 
-            | M.Func address ->
+            | M.Static name 
+            | M.Func name ->
                 GlobalAccess address
-            | M.Instance name -> 
+            | M.Instance (name, mtyp) -> 
+                // Object.getOwnPropertyDescriptor(o, "a").get
                 match comp.TryLookupClassInfo typ.Entity with
                 | Some (addr, _) ->
-                    let func = GlobalAccess addr |> getItem "prototype" |> getItem name
+                    let func =
+                        match mtyp with
+                        | ClassMethodKind.Getter ->
+                            JSRuntime.GetterOf (GlobalAccess addr |> getItem "prototype") name
+                        | ClassMethodKind.Setter ->
+                            JSRuntime.SetterOf (GlobalAccess addr |> getItem "prototype") name      
+                        | ClassMethodKind.Simple ->
+                            GlobalAccess addr |> getItem "prototype" |> getItem name
                     JSRuntime.BindDelegate func (this.TransformExpression thisObj.Value) 
                 | _ -> this.Error ("Cannot look up prototype for delegate creating")
             | M.Inline _ 

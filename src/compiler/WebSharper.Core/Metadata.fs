@@ -121,7 +121,7 @@ type CompiledMember =
 type CompiledField =
     | InstanceField of name:string
     | OptionalField of name:string
-    | StaticField of address:Address
+    | StaticField of name:string
     | IndexedField of index:int
 
 type Optimizations =

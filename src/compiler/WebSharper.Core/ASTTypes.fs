@@ -949,12 +949,11 @@ type Module =
     | StandardLibrary
     | JavaScriptFile of string
     | JavaScriptModule of string
-    | ImportedModule of Id
 
 type Address =
     {
         Module : Module
-        Name : string
+        Name : list<string>
     }
 
     member this.JSName =

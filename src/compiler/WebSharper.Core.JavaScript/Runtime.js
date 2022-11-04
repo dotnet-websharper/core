@@ -132,7 +132,7 @@ export function CombineDelegates(dels) {
         invokes.push(del);
     }
   }
-  return Global.WSRuntime.CreateDelegate(invokes);
+  return CreateDelegate(invokes);
 }
 
 export function DelegateEqual(d1, d2) {
@@ -202,7 +202,7 @@ export function Curried(f, n, args) {
       return f.apply(null, allArgs);
     if (n == 2)
       return function (a) { return f.apply(null, allArgs.concat([a === void (0) ? null : a])); }
-    return Global.WSRuntime.Curried(f, n - 1, allArgs);
+    return Curried(f, n - 1, allArgs);
   }
 }
 
@@ -267,11 +267,11 @@ export function Start() {
     this.load = [];
   }
 }
-  }
 
-Global.WSRuntime.OnLoad(function () {
-  if (Global.WebSharper && Global.WebSharper.Activator && Global.WebSharper.Activator.Activate)
-    Global.WebSharper.Activator.Activate()
+OnLoad(async () => {
+  if (document && document.getElementById("websharper-data")) {
+    (await import("./WebSharper.Activator.js")).default.Activate();
+  }
 });
 
 export var ignore = () => { };
