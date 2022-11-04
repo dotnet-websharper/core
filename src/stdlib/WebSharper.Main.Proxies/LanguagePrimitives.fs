@@ -29,6 +29,8 @@ module private WebSharper.LanguagePrimitivesProxy
 
 open WebSharper.JavaScript
 
+module M = WebSharper.Core.Macros
+
 [<Inline>]
 let GenericEquality<'T> (a: 'T) (b: 'T) = Unchecked.equals a b
 
@@ -48,12 +50,16 @@ let GenericComparisonWithComparer<'T> (c: System.Collections.IComparer) (a: 'T) 
 let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a: 'T) (b: 'T) = c.Equals(a, b)
                                 
 [<Inline>]
-let inline GenericZero< ^T when ^T: (static member get_Zero: unit -> ^T)>() = 
-    (^T: (static member get_Zero: unit -> ^T)())
+let inline GenericZero< ^T when ^T: (static member Zero: ^T)>() = 
+    (^T: (static member Zero: ^T) ())
 
 [<Inline>]
-let inline GenericOne< ^T when ^T: (static member get_One: unit -> ^T)>() = 
-    (^T: (static member get_One: unit -> ^T)())
+let inline GenericOne< ^T when ^T: (static member One: ^T)>() = 
+    (^T: (static member One: ^T) ())
+
+[<Inline; Macro(typeof<M.DivideByIntMacro>)>]
+let inline DivideByInt< ^T when ^T : (static member DivideByInt : ^T * int -> ^T)>(x: ^T) (y: int): ^T =
+    (^T : (static member DivideByInt : ^T * int -> ^T) (x, y))
 
 [<Inline>]
 let FastGenericComparer<'T>() = 

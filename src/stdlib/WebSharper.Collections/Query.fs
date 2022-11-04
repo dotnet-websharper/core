@@ -55,7 +55,7 @@ type internal QueryBuilderProxy() =
             source.Source |> Seq.choose (fun x ->
                 Option.ofNullable (projection x) 
             ) |> Array.ofSeq
-        if filtered.Length = 0 then Nullable() else Nullable(Array.average filtered) 
+        if filtered.Length = 0 then Nullable() else Nullable(As< ^TValue> (Array.average (As<float[]> filtered))) 
 
     [<Inline>]
     member inline this.AverageByNullable (source, projection) = QueryBuilderProxy.AverageByNullableImpl(source, projection)
@@ -231,7 +231,7 @@ type internal QueryBuilderProxy() =
             source.Source |> Seq.choose (fun x ->
                 Option.ofNullable (projection x) 
             ) |> Array.ofSeq
-        Nullable(Array.sum filtered) 
+        Nullable(As<'TValue>(Array.sum (As<float[]> filtered))) 
 
     [<Inline>]
     member inline this.SumByNullable(source, projection) = QueryBuilderProxy.SumByNullableImpl(source, projection)

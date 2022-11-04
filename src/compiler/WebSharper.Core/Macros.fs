@@ -57,9 +57,9 @@ let isIn (s: string Set) (t: Type) =
 let traitCallOp (c: MacroCall) args =
     match c.Method.Generics with
     | [t; u; v] ->
-        if c.IsInline && t.IsParameter then
+        if t.IsParameter then
             MacroNeedsResolvedTypeArg t
-        elif c.IsInline && v.IsParameter then
+        elif v.IsParameter then
             MacroNeedsResolvedTypeArg v
         else    
             TraitCall(
@@ -442,6 +442,105 @@ type NumericMacro() =
         match c.Arguments with
         | [] -> MacroOk (Value (Int 0))
         | _ -> MacroError "numericMacro error: contructor with arguments"
+
+let decimalDivide =
+    Method {
+        MethodName = "Divide"
+        Parameters = [ NonGenericType Definitions.Decimal; NonGenericType Definitions.Decimal ]
+        ReturnType = NonGenericType Definitions.Decimal
+        Generics = 0
+    } |> NonGeneric
+
+let decimalIntCtor =
+    Constructor {
+        CtorParameters = [ NonGenericType Definitions.Int ]
+    }
+
+[<Sealed>]
+type DivideByIntMacro() =
+    inherit Macro()
+
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [a; b] ->
+            match c.Method.Generics with
+            | [t] ->
+                match t with
+                | ConcreteType d ->
+                    match d.Entity.Value.FullName with
+                    | "System.Double"
+                    | "System.Single" -> a ^/ b |> MacroOk
+                    | "System.Decimal" ->
+                        Call(None, NonGeneric Definitions.Decimal, decimalDivide, [
+                            a
+                            Ctor(NonGeneric Definitions.Decimal, decimalIntCtor, [ b ])
+                        ])
+                        |> MacroOk
+                    | _ -> MacroFallback
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> MacroFallback
+            | _ ->
+                MacroError "divideByIntMacro error"
+        | _ ->
+            MacroError "divideByIntMacro error"
+
+[<Sealed>]
+type SumOrAverageMacro() =
+    inherit Macro()
+
+    override this.TranslateCall(c) =
+        let mname = c.Method.Entity.Value.MethodName
+        let asGeneric() =
+            let genm = Method { c.Method.Entity.Value with MethodName = mname + "Generic" }
+            let typ = TypeDefinition { c.DefiningType.Entity.Value with FullName = c.DefiningType.Entity.Value.FullName.Replace("Array", "Seq") }
+            Call(None, NonGeneric typ, Generic genm c.Method.Generics, c.Arguments) |> MacroOk
+        match mname with
+        | "Sum"
+        | "SumBy" ->
+            match c.Method.Generics with
+            | [ t ]
+            | [ _; t ] ->
+                match t with
+                | ConcreteType d ->
+                    // for these types it's ok to use plain JS +
+                    match d.Entity.Value.FullName with
+                    | "System.SByte"
+                    | "System.Byte"
+                    | "System.Int16"
+                    | "System.UInt16"
+                    | "System.Int32"
+                    | "System.UInt32"
+                    | "System.Int64"
+                    | "System.UInt64"
+                    | "System.Single"
+                    | "System.Double"
+                    | "System.Char" -> MacroFallback
+                    | _ -> asGeneric() 
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> asGeneric() 
+            | _ ->
+                MacroError "sumOrAverageMacro error"
+        | "Average"
+        | "AverageBy" ->
+            match c.Method.Generics with
+            | [ t ]
+            | [ _; t ] ->
+                match t with
+                | ConcreteType d ->
+                    // for these types it's ok to use plain JS + and /
+                    match d.Entity.Value.FullName with
+                    | "System.Single"
+                    | "System.Double" -> MacroFallback
+                    | _ -> asGeneric() 
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> asGeneric() 
+            | _ ->
+                MacroError "sumOrAverageMacro error"
+        | _ ->
+            MacroError "sumOrAverageMacro error"
 
 let charTy, charParse =
     let t = typeof<System.Char>

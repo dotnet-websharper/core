@@ -177,6 +177,9 @@ type internal NS =
     [<Macro(typeof<M.NumericMacro>)>]
     static member TryParse(x: string, r: byref<System.Single>) = X<bool>
 
+    [<Inline "$0 / $1">]
+    static member DivideByInt(a: single, b: int) = X<single>
+
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
 type internal ND =
@@ -198,6 +201,9 @@ type internal ND =
 
     [<Macro(typeof<M.NumericMacro>)>]
     static member TryParse(x: string, r: byref<System.Double>) = X<bool>
+
+    [<Inline "$0 / $1">]
+    static member DivideByInt(a: double, b: int) = X<double>
 
 [<Proxy(typeof<System.Boolean>)>]
 type internal B = 

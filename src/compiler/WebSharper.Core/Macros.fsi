@@ -34,6 +34,16 @@ type NumericMacro =
     new : unit -> NumericMacro
 
 [<Sealed>]
+type DivideByIntMacro =
+    inherit Macro
+    new : unit -> DivideByIntMacro
+
+[<Sealed>]
+type SumOrAverageMacro =
+    inherit Macro
+    new : unit -> SumOrAverageMacro
+
+[<Sealed>]
 type Char =
     new : unit -> Char
     inherit Macro
