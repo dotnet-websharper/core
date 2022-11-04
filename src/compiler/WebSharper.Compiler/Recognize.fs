@@ -33,71 +33,71 @@ module M = WebSharper.Core.Metadata
 
 module IS = IgnoreSourcePos
 
-//let GetMutableExternals (meta: M.Info) =
-//    let res = HashSet()
+let GetMutableExternals (meta: M.Info) =
+    let res = HashSet()
 
-//    let registerInstanceAddresses (cls: M.ClassInfo) (baseAddr: Hashed<_>) =
-//        for fi, readOnly, _ in cls.Fields.Values do
-//            if not readOnly then
-//                match fi with
-//                | M.InstanceField n
-//                | M.OptionalField n ->
-//                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
-//                | _ -> () 
+    let registerInstanceAddresses (cls: M.ClassInfo) (baseAddr: Hashed<_>) =
+        for fi, readOnly, _ in cls.Fields.Values do
+            if not readOnly then
+                match fi with
+                | M.InstanceField n
+                | M.OptionalField n ->
+                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
+                | _ -> () 
 
-//        let addMember (m: Method) e =
-//            if m.Value.MethodName.StartsWith "set_" then
-//                match e with
-//                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
-//                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
-//                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
-//                | _ -> ()
+        let addMember (m: Method) e =
+            if m.Value.MethodName.StartsWith "set_" then
+                match e with
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
+                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
+                | _ -> ()
 
-//        for KeyValue(m, (_, _, _, e)) in cls.Methods do
-//            addMember m e
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
+            addMember m e
        
-//        for KeyValue((_, m), (_, e)) in cls.Implementations do
-//            addMember m e
+        for KeyValue((_, m), (_, e)) in cls.Implementations do
+            addMember m e
 
-//    let tryRegisterInstanceAddresses typ (a: Address) =
-//        match typ with
-//        | ConcreteType ct ->
-//            match meta.Classes.TryGetValue ct.Entity with
-//            | true, (_, _, Some fcls) ->
-//                a.JSAddress |> Option.iter (registerInstanceAddresses fcls)
-//            | _ -> ()
-//        | _ -> ()
+    let tryRegisterInstanceAddresses typ (a: Address) =
+        match typ with
+        | ConcreteType ct ->
+            match meta.Classes.TryGetValue ct.Entity with
+            | true, (_, _, Some fcls) ->
+                a.JSAddress |> Option.iter (registerInstanceAddresses fcls)
+            | _ -> ()
+        | _ -> ()
     
-//    for cls in meta.ClassInfos do
-//        for fi, readOnly, ftyp in cls.Fields.Values do
-//            match fi with
-//            | M.StaticField a ->
-//                if not readOnly then
-//                    a.JSAddress |> Option.iter (res.Add >> ignore)
-//                tryRegisterInstanceAddresses ftyp a
-//            | _ -> () 
+    for cls in meta.ClassInfos do
+        for fi, readOnly, ftyp in cls.Fields.Values do
+            match fi with
+            | M.StaticField a ->
+                if not readOnly then
+                    a.JSAddress |> Option.iter (res.Add >> ignore)
+                tryRegisterInstanceAddresses ftyp a
+            | _ -> () 
 
-//        let addMember (m: Method) e =
-//            if m.Value.MethodName.StartsWith "set_" then
-//                match e with
-//                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
-//                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
-//                    a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
-//                | _ -> ()
-//            elif m.Value.MethodName.StartsWith "get_" then
-//                match e with
-//                | IS.Function(_, _, IS.Return(IS.GlobalAccess a))
-//                | IS.GlobalAccess a ->
-//                    tryRegisterInstanceAddresses m.Value.ReturnType a 
-//                | _ -> ()
+        let addMember (m: Method) e =
+            if m.Value.MethodName.StartsWith "set_" then
+                match e with
+                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
+                | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
+                    a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
+                | _ -> ()
+            elif m.Value.MethodName.StartsWith "get_" then
+                match e with
+                | IS.Function(_, _, IS.Return(IS.GlobalAccess a))
+                | IS.GlobalAccess a ->
+                    tryRegisterInstanceAddresses m.Value.ReturnType a 
+                | _ -> ()
 
-//        for KeyValue(m, (_, _, _, e)) in cls.Methods do
-//            addMember m e
+        for KeyValue(m, (_, _, _, e)) in cls.Methods do
+            addMember m e
        
-//        for KeyValue((_, m), (_, e)) in cls.Implementations do
-//            addMember m e
+        for KeyValue((_, m), (_, e)) in cls.Implementations do
+            addMember m e
 
-//    res
+    res
 
 type private Environment =
     {
@@ -106,7 +106,7 @@ type private Environment =
         Labels : Map<string, Id>
         This : option<Id>
         Purity : Purity
-        //MutableExternals : HashSet<Hashed<list<string>>>
+        MutableExternals : HashSet<Hashed<list<string>>>
         FromModule : option<Module>
         ExpectedDollarVars : string[]
         UnknownArgs : HashSet<string>
@@ -136,7 +136,7 @@ type private Environment =
             Labels = Map.empty
             This = None
             Purity = if isPure then Pure else NonPure
-            //MutableExternals = ext
+            MutableExternals = ext
             FromModule = lib
             ExpectedDollarVars = dollarVars
             UnknownArgs = HashSet()
@@ -149,7 +149,7 @@ type private Environment =
             Labels = Map.empty
             This = None
             Purity = NonPure
-            //MutableExternals = HashSet()
+            MutableExternals = HashSet()
             FromModule = None
             ExpectedDollarVars = [||]
             UnknownArgs = HashSet()
@@ -232,12 +232,15 @@ let private checkNotMutating (env: Environment) a f =
 
 let private setValue (env: Environment) expr value =
     match expr with
-    | GlobalAccess a -> GlobalAccessSet(a, value)
+    | GlobalAccess a ->
+        match a.Address.Value with
+        | i :: m -> ItemSet(GlobalAccess { a with Address = Hashed m }, Value (String i), value)
+        | _ -> failwith "cannot set the window object"
     | ItemGet (d, e, _) -> ItemSet(d, e, value)
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
-let wsruntime = GlobalAccess (Address.Runtime "")
+let wsruntime = GlobalAccess (Address.Runtime())
 
 let jsFunctionMembers =
     System.Collections.Generic.HashSet [
@@ -285,13 +288,13 @@ let wsRuntimeFunctions =
         "ScriptPath"
     ]
 
-//let (|JSGlobalAccess|_|) e =
-//    match e with
-//    | GlobalAccess a ->
-//        match a.JSName with
-//        | Some ja -> Some (a.Module, ja)
-//        | _ -> None
-//    | _ -> None
+let (|JSGlobalAccess|_|) e =
+    match e with
+    | GlobalAccess a ->
+        match a.JSAddress with
+        | Some ja -> Some (a.Module, ja)
+        | _ -> None
+    | _ -> None
 
 let inline private trI (jsId: S.Id) = Id.New(jsId.Name, opt = jsId.Optional)
 
@@ -341,14 +344,14 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
                         failwithf "Unrecognized WSRuntime function: %s" f
                 | _ -> failwith "expected a function of WSRuntime"     
             else
-                //match trA, trC with
-                //| JSGlobalAccess (m, a), Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
-                //    let ga = Hashed (b :: a.Value)
-                //    //if env.MutableExternals.Contains ga then 
-                //    //    ItemGet(trA, trC, env.Purity)
-                //    //else
-                //        GlobalAccess { Module = m; Address = Hashed (b :: a.Value) }
-                //| _ ->
+                match trA, trC with
+                | JSGlobalAccess (m, a), Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
+                    let ga = Hashed (b :: a.Value)
+                    if env.MutableExternals.Contains ga then 
+                        ItemGet(trA, trC, env.Purity)
+                    else
+                        GlobalAccess { Module = m; Address = Hashed (b :: a.Value) }
+                | _ ->
                     ItemGet(trA, trC, env.Purity) 
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
         | SB.``/=``     -> mbin a MutatingBinaryOperator.``/=`` c
@@ -444,7 +447,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
                 env.UnknownArgs.Add a.Name |> ignore
             match env.FromModule with
             | Some l ->
-                GlobalAccess { Module = l; Name = n }
+                GlobalAccess { Module = l; Address = Hashed [ n ] }
             | _ ->
                 Global [ n ]
     | e ->     

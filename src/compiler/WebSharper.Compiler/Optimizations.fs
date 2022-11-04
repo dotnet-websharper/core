@@ -32,12 +32,12 @@ open IgnoreSourcePos
 
 let (|Runtime|_|) e =
     match e with
-    | GlobalAccess { Module = JavaScriptModule "WebSharper.Runtime"; Name = a } -> Some a
+    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ a; "WSRuntime" ] } -> Some a
     | _ -> None
 
 let (|Global|_|) e = 
     match e with 
-    | GlobalAccess { Module = StandardLibrary; Name = r } -> Some r
+    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ r ] } -> Some r
     | _ -> None
     
 let (|AppItem|_|) e =
@@ -95,12 +95,12 @@ let cleanRuntime force expr =
         | "Apply", [GlobalAccess mf; Value Null; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] ->
             ApplAny (GlobalAccess mf, arr @ rest)
 
-        //| "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
-        //    ApplAny (GlobalAccess mf, [])
-        //| "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
-        //    ApplAny (GlobalAccess mf, arr)
-        //| "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Module = m.Module && mf.Address.Value = m.Address.Value ->
-        //    ApplAny (GlobalAccess mf, arr @ rest)
+        | "Apply", [GlobalAccess mf; GlobalAccess m ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
+            ApplAny (GlobalAccess mf, [])
+        | "Apply", [GlobalAccess mf; GlobalAccess m; NewArray arr ] when mf.Module = m.Module && mf.Address.Value.Tail = m.Address.Value ->
+            ApplAny (GlobalAccess mf, arr)
+        | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Module = m.Module && mf.Address.Value = m.Address.Value ->
+            ApplAny (GlobalAccess mf, arr @ rest)
         
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->
             if m1 = globalArray then NewArray []
@@ -207,8 +207,8 @@ let cleanRuntime force expr =
     // printf and string interpolation translation cleanup
     | Application(Global "String", [Value Null], _) -> !~(String "null")
     | Application(Global "String", [Value (String _) as s], _) -> s
-    //| Application(GlobalAccess a, [Value Null], _) when a.Address.Value = [ "toSafe"; "Utils"; "WebSharper" ] -> !~(String "")
-    //| Application(GlobalAccess a, [Value (String _) as s], _) when a.Address.Value = [ "toSafe"; "Utils"; "WebSharper" ] -> s
+    | Application(GlobalAccess a, [Value Null], _) when a.Address.Value = [ "toSafe"; "Utils"; "WebSharper" ] -> !~(String "")
+    | Application(GlobalAccess a, [Value (String _) as s], _) when a.Address.Value = [ "toSafe"; "Utils"; "WebSharper" ] -> s
     | Binary(Value (String s1), BinaryOperator.``+``, Value (String s2)) -> !~(String (s1 + s2))
     | Let (var, value, body) ->
         //transform function if it is always used as JavaScript interop

@@ -125,12 +125,11 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
 
 type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAddress) =
     let defaultTsTypeOfAddress (a: Address) =
-        let t = a.Name
+        let t = a.Address.Value |> List.rev
         match a.Module with
         | StandardLibrary
-        | JavaScriptFile _ -> TSType.Named [t]
-        | JavaScriptModule m -> TSType.Importing (m, [t])
-        | ImportedModule m -> TSType.Imported(m, [t]) 
+        | JavaScriptFile _
+        | JavaScriptModule m -> TSType.Importing (m, t)
 
     let tsTypeOfAddress = defaultArg tsTypeOfAddress defaultTsTypeOfAddress
 

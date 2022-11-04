@@ -975,6 +975,18 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | _ -> ()
     { meta with Classes = classes}
 
+//let private exposeAddress asmName (a: Address) =
+//    match a.Module with
+//    | CurrentModule ->
+//        { a with Module = WebSharperModule asmName }
+//    | _ -> a
+
+//type RemoveSourcePositionsAndUpdateModule (asmName) =
+//    inherit RemoveSourcePositions ()
+
+//    override this.TransformGlobalAccess(a) =
+//        GlobalAccess <| exposeAddress asmName a
+
 type TransformSourcePositions(asmName) =
     inherit Transformer()
     

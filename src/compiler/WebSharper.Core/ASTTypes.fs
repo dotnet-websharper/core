@@ -950,26 +950,30 @@ type Module =
     | JavaScriptFile of string
     | JavaScriptModule of string
 
+type PlainAddress = Hashed<list<string>>
+
 type Address =
     {
         Module : Module
-        Name : list<string>
+        Address : PlainAddress
     }
 
-    member this.JSName =
+    member this.JSAddress =
         match this.Module with
         | StandardLibrary
         | JavaScriptFile _ ->
-            Some this.Name
+            Some this.Address
         | _ -> None
 
     member this.MapName f =
-        { this with Name = f this.Name }
+        match this.Address.Value with
+        | n :: r ->
+            { this with Address = Hashed (f n :: r) }
+        | _ ->
+            failwith "MapName on empty address"
 
-    member this.Encoded =
-        match this.Module with
-        | JavaScriptModule m -> m + ":" + this.Name
-        | _ -> this.Name
+    member this.Sub n =
+        { this with Address = Hashed (n :: this.Address.Value) }
 
 module private Instances =
     let uniqueId name i = 
@@ -989,7 +993,9 @@ module private Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
-    let RuntimeModule = JavaScriptModule "Runtime"
+    let RuntimeModule = JavaScriptModule "WebSharper.Runtime"
+
+    let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
 
 type Id with
     static member Global() = Instances.GlobalId
@@ -1000,8 +1006,7 @@ type ConstructorInfo with
 
 type Address with
     //static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
-    static member Runtime f = { Module = Instances.RuntimeModule; Name = f }
-    static member Lib a = { Module = StandardLibrary; Name = a }
-    //static member Global() = Instances.GlobalAddress
-    //static member Empty() = Instances.EmptyAddress
-    static member WSMain x n = { Module = JavaScriptModule ("WebSharper.Main." + x); Name = n }
+    static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f] }
+    static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
+    static member Global() = Instances.GlobalAddress
+    static member DefaultExport x = { Module = JavaScriptModule x; Address = Hashed [ "default" ] }

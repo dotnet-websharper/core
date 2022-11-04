@@ -611,7 +611,7 @@ let serializers =
     let encDecimal (d: decimal) =
         let b = System.Decimal.GetBits(d)
         EncodedArrayInstance (
-            AST.Address.WSMain "System.Decimal" "Decimal", 
+            AST.Address.DefaultExport "System.Decimal", 
             b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
         )
     let decDecimal = function
@@ -1917,7 +1917,7 @@ module TypedProviderInternals =
             | [] -> failwith "types array must not be empty"
             | [x] -> Array (String x :: acc)
             | y :: x -> encA (String y :: acc) x
-        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> String a.Encoded))
+        let types = List.ofSeq (dict.Keys |> Seq.map (fun a -> a.Address.Value |> encA []))
         match types, data with
         | _::_, _
         | _, Object (((TYPES | VALUE), _) :: _) ->

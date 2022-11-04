@@ -112,6 +112,7 @@ type CompiledMember =
     | Instance of name:string * kind: ClassMethodKind
     | Static of name:string * kind: ClassMethodKind
     | Func of name:string
+    | GlobalFunc of address: Address
     | New
     | NewIndexed of index:int
     | Inline of isCompiled:bool * assertReturnType:bool
