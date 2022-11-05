@@ -1005,7 +1005,7 @@ type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 
 type Address with
-    //static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed ["WSRuntime"] }
+    static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed [] }
     static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f] }
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress

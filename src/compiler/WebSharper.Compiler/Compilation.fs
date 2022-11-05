@@ -91,7 +91,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let hasGraph = defaultArg hasGraph true
     let graph = if hasGraph then Graph.FromData(meta.Dependencies) else Unchecked.defaultof<_>
 
-    //let mutableExternals = Recognize.GetMutableExternals meta
+    let mutableExternals = Recognize.GetMutableExternals meta
 
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * list<GenericParam> * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
@@ -162,7 +162,7 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.CompiledExtraBundles =
         compiledExtraBundles
 
-    //member this.MutableExternals = mutableExternals
+    member this.MutableExternals = mutableExternals
 
     member this.TypeTranslator = typeTranslator
 
@@ -234,15 +234,15 @@ type Compilation(meta: Info, ?hasGraph) =
         match generatedClass with
         | Some cls -> cls
         | _ ->
-            let name = "Generated$" + this.AssemblyName.Replace('.', '_')
+            let addr = { Module = JavaScriptModule (this.AssemblyName + ".$Generated"); Address = Hashed [ "$Generated" ] } 
             let td = 
                 TypeDefinition { 
-                    FullName = name
+                    FullName = "$Generated"
                     Assembly = this.AssemblyName 
                 }
             classes.Add (td,
                 (
-                    { Module = CurrentModule; Address = Hashed [ name ] },
+                    addr,
                     CustomTypeInfo.NotCustomType,
                     Some {
                         BaseClass = None
@@ -261,11 +261,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     }
                 )
             ) 
-            generatedClass <- Some td
-            td
-
-    member this.LocalAddress addr =
-        { Module = CurrentModule; Address = addr }
+            generatedClass <- Some (addr, td)
+            addr, td
     
     interface ICompilation with
         member this.GetCustomTypeInfo typ = 
@@ -312,7 +309,7 @@ type Compilation(meta: Info, ?hasGraph) =
         
         member this.NewGenerated(addr, ?generics, ?args, ?returns) =
             let resolved = resolver.StaticAddress (List.rev addr)
-            let td = this.GetGeneratedClass()
+            let addr, td = this.GetGeneratedClass()
             let meth = 
                 Method {
                     MethodName = resolved.Value |> List.rev |> String.concat "."
@@ -321,15 +318,15 @@ type Compilation(meta: Info, ?hasGraph) =
                     Generics = defaultArg generics 0
                 }
             generatedMethodAddresses.Add(meth, resolved)
-            td, meth, this.LocalAddress resolved
+            td, meth, addr
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
-            let addr = this.LocalAddress generatedMethodAddresses.[meth]
-            let td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Static (addr, ClassMethodKind.Simple), true, Optimizations.None, JavaScriptOptions.None), [], body))
+            let mname = generatedMethodAddresses.[meth]
+            let _, td = this.GetGeneratedClass()
+            compilingMethods.Add((td, meth),(NotCompiled (Func (mname, ClassMethodKind.Simple), true, Optimizations.None, JavaScriptOptions.None), [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
-            let td = this.GetGeneratedClass()
+            let _, td = this.GetGeneratedClass()
             compilingMethods.Add((td, meth),(NotCompiled (Inline (true, false), true, Optimizations.None, JavaScriptOptions.None), [], body))
 
         member this.AssemblyName = this.AssemblyName

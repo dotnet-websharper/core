@@ -128,7 +128,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         let t = a.Address.Value |> List.rev
         match a.Module with
         | StandardLibrary
-        | JavaScriptFile _
+        | JavaScriptFile _ -> TSType.Named t
         | JavaScriptModule m -> TSType.Importing (m, t)
 
     let tsTypeOfAddress = defaultArg tsTypeOfAddress defaultTsTypeOfAddress

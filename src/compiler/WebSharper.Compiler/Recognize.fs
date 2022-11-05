@@ -69,13 +69,13 @@ let GetMutableExternals (meta: M.Info) =
         | _ -> ()
     
     for cls in meta.ClassInfos do
-        for fi, readOnly, ftyp in cls.Fields.Values do
-            match fi with
-            | M.StaticField a ->
-                if not readOnly then
-                    a.JSAddress |> Option.iter (res.Add >> ignore)
-                tryRegisterInstanceAddresses ftyp a
-            | _ -> () 
+        //for fi, readOnly, ftyp in cls.Fields.Values do
+        //    match fi with
+        //    | M.StaticField a ->
+        //        if not readOnly then
+        //            a.JSAddress |> Option.iter (res.Add >> ignore)
+        //        tryRegisterInstanceAddresses ftyp a
+        //    | _ -> () 
 
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
