@@ -150,8 +150,6 @@ let ExprDefs =
             , ".NET - Chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
             , ".NET - Creating an object from a plain object"
-        "Cctor", [ NonGenericTypeDefinition, "typeDefinition" ]
-            , ".NET - Static constructor"
         "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"]
             , ".NET - Field getter"
         "FieldSet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"; Expr, "value" ]
@@ -200,8 +198,6 @@ let ExprDefs =
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
-        "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
-            , "Set value for a global or imported variable"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
         "Hole", [ Object "int", "index" ]

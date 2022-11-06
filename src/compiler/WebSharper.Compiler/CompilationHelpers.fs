@@ -371,7 +371,6 @@ let varEvalOrder (vars : Id list) expr =
             | ChainedCtor _
             | Ctor _
             | CallNeedingMoreArgs _
-            | Cctor _
             | Coalesce _
             | ComplexElement _
             | CopyCtor _
@@ -631,7 +630,7 @@ module JSRuntime =
     let private propDesc o n = ApplAny(Global [ "Object"; "getOwnPropertyDescriptor" ], [o; Value (String n)])
 
     let GetterOf o n = ItemGet(propDesc o n, Value (String "get"), Pure)
-    let SetterOf o n = ItemGet(propDesc o n, Value (String "get"), Pure)
+    let SetterOf o n = ItemGet(propDesc o n, Value (String "set"), Pure)
 
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
@@ -689,7 +688,7 @@ let ignoreSystemObject t =
     let td = t.Entity
     if td = Definitions.Obj || td = Definitions.ValueType then None else Some t
 
-open WebSharper.Core.Metadata 
+open WebSharper.Core.Metadata
 
 module Resolve =
     open System.Collections.Generic
@@ -701,117 +700,146 @@ module Resolve =
             match System.Int32.TryParse (name.Substring(i + 1)) with
             | true, n -> name.Substring(0, i) + "$" + string (n + 1)
             | _ -> name + "$1"
-
-    type private ResolveNode =
-        | Module
-        | Class
-        | Member
     
-    type Prototype = 
-        | Prototype of HashSet<string> * ResizeArray<Prototype>
+    type Class = 
+        {
+            InstanceMembers: HashSet<string>
+            StaticMembers: HashSet<string>
+            Functions: HashSet<string>
+            SubClasses: ResizeArray<Class>
+        } with 
+        static member New() =
+            {
+                InstanceMembers = HashSet()
+                StaticMembers = HashSet()
+                Functions = HashSet()
+                SubClasses = ResizeArray()
+            }
 
-    let rec addToPrototype (Prototype (names, subTypes)) name =
+    let rec addInstanceMemberToClass (c: Class) name =
         [
-            yield names.Add name 
-            for s in subTypes do
-                yield addToPrototype s name
+            yield c.InstanceMembers.Add name 
+            for s in c.SubClasses do
+                yield addInstanceMemberToClass s name
         ]
         |> List.forall id
     
+    let addStaticMemberToClass (c: Class) name =
+        c.StaticMembers.Add name 
+
+    let addFunctionToClass (c: Class) name =
+        c.Functions.Add name 
+
     type Resolver() =
-        let statics = Dictionary<Hashed<list<string>>, ResolveNode>()
-        let prototypes = Dictionary<TypeDefinition, Prototype>()
+        let classes = Dictionary<TypeDefinition, Class>()
 
-        let rec getSubAddress (root: list<string>) (name: string) node =
-            let name = name.Replace('.', '_')
-            let tryAddr = Hashed (name :: root)
-            match statics.TryFind tryAddr, node with
-            | Some _, Member
-            | Some Member, _ 
-            | Some Class, Class -> getSubAddress root (newName name) node
-            | Some (Class | Module), Module -> tryAddr
-            | _ -> 
-                statics.[tryAddr] <- node
-                tryAddr
+        //let rec getSubAddress (root: list<string>) (name: string) node =
+        //    let name = name.Replace('.', '_')
+        //    let tryAddr = Hashed (name :: root)
+        //    match statics.TryFind tryAddr, node with
+        //    | Some _, Member
+        //    | Some Member, _ 
+        //    | Some Class, Class -> getSubAddress root (newName name) node
+        //    | Some (Class | Module), Module -> tryAddr
+        //    | _ -> 
+        //        statics.[tryAddr] <- node
+        //        tryAddr
 
-        let getExactSubAddress (root: list<string>) (name: string) node =
-            let tryAddr = Hashed (name :: root)
-            match statics.TryFind tryAddr, node with
-            | Some (Class | Module), Module -> true
-            | Some Module, Class
-            | None, _ -> 
-                statics.[tryAddr] <- node
-                true
-            | _ -> false
+        //let getExactSubAddress (root: list<string>) (name: string) node =
+        //    let tryAddr = Hashed (name :: root)
+        //    match statics.TryFind tryAddr, node with
+        //    | Some (Class | Module), Module -> true
+        //    | Some Module, Class
+        //    | None, _ -> 
+        //        statics.[tryAddr] <- node
+        //        true
+        //    | _ -> false
 
-        let rec getFullAddress (address: list<string>) node =
-            match address with
-            | [] -> failwith "Empty address"
-            | [ x ] -> getSubAddress [] x node
-            | h :: r -> getSubAddress ((getFullAddress r Module).Value) h node
+        //let rec getFullAddress (address: list<string>) node =
+        //    match address with
+        //    | [] -> failwith "Empty address"
+        //    | [ x ] -> getSubAddress [] x node
+        //    | h :: r -> getSubAddress ((getFullAddress r Module).Value) h node
 
-        let rec getExactFullAddress (address: list<string>) node =
-            match address with
-            | [] -> failwith "Empty address"
-            | [ x ] -> getExactSubAddress [] x node
-            | h :: r -> 
-                getExactFullAddress r Module && getExactSubAddress r h node
+        //let rec getExactFullAddress (address: list<string>) node =
+        //    match address with
+        //    | [] -> failwith "Empty address"
+        //    | [ x ] -> getExactSubAddress [] x node
+        //    | h :: r -> 
+        //        getExactFullAddress r Module && getExactSubAddress r h node
 
-        member this.AddPrototype (typ, bTyp) =
-            let p = Prototype (HashSet(), ResizeArray())
+        member this.AddClass (typ, bTyp) =
+            let c = Class.New()
             match bTyp with
             | Some bTyp ->
-                match prototypes.[bTyp] with
-                | Prototype (_, subTypes) -> subTypes.Add p
+                let bc = classes.[bTyp]
+                bc.SubClasses.Add c
             | None -> ()
             try
-                prototypes.Add(typ, p)
+                classes.Add(typ, c)
             with _ ->
                 failwithf "Failed to add prototype for %A" typ
 
-        member this.HasPrototype typ =
-            prototypes.ContainsKey typ
+        member this.HasClass typ =
+            classes.ContainsKey typ
         
-        member this.LookupPrototype typ =
-            prototypes.[typ]
+        member this.LookupClass typ =
+            classes.[typ]
 
-        member this.ExactClassAddress(addr: list<string>, hasPrototype) =
-            getExactFullAddress addr (if hasPrototype then Class else Module)
-            && if hasPrototype then getExactSubAddress addr "prototype" Member else true 
+        //member this.ExactClassAddress(addr: list<string>, hasPrototype) =
+        //    getExactFullAddress addr (if hasPrototype then Class else Module)
+        //    && if hasPrototype then getExactSubAddress addr "prototype" Member else true 
 
-        member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
-            let removeGen (n: string) =
-                match n.LastIndexOf '`' with
-                | -1 -> n
-                | i -> n.[.. i - 1]
-            let addr = typ.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
-            let res = getFullAddress addr (if hasPrototype then Class else Module)
-            if hasPrototype then
-                getExactSubAddress addr "prototype" Member |> ignore    
-            res
+        //member this.ClassAddress(typ: TypeDefinitionInfo, hasPrototype) =
+        //    let removeGen (n: string) =
+        //        match n.LastIndexOf '`' with
+        //        | -1 -> n
+        //        | i -> n.[.. i - 1]
+        //    let addr = typ.FullName.Split('.', '+') |> List.ofArray |> List.map removeGen |> List.rev 
+        //    let res = getFullAddress addr (if hasPrototype then Class else Module)
+        //    if hasPrototype then
+        //        getExactSubAddress addr "prototype" Member |> ignore    
+        //    res
 
-        member this.ExactStaticAddress addr =
-            getExactFullAddress addr Member 
+        //member this.ExactStaticAddress addr =
+        //    getExactFullAddress addr Member 
 
-        member this.StaticAddress addr =
-            getFullAddress addr Member 
+        //member this.StaticAddress addr =
+        //    getFullAddress addr Member 
                      
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
 
-    let rec getRenamedForPrototype name p =
-        let rec isNameOk (Prototype (s, subTypes)) =
+    let rec getRenamedWithKind name kind (s: HashSet<string * ClassMethodKind>) =
+        if s.Add (name, kind) then name else getRenamedWithKind (newName name) kind s
+
+    let rec getRenamedInstanceMemberForClass name c =
+        let rec isNameOk (c: Class) =
             seq {
-                yield not (s.Contains name)
-                for p in subTypes do 
-                    yield isNameOk p
+                yield not (c.InstanceMembers.Contains name)
+                for sc in c.SubClasses do 
+                    yield isNameOk sc
             }
             |> Seq.forall id
-        if isNameOk p then
-            addToPrototype p name |> ignore
+        if isNameOk c then
+            addInstanceMemberToClass c name |> ignore
             name
         else
-            getRenamedForPrototype (newName name) p
+            getRenamedInstanceMemberForClass (newName name) c
+
+    let rec getRenamedStaticMemberForClass name c =
+        if not (c.StaticMembers.Contains name) then
+            addStaticMemberToClass c name |> ignore
+            name
+        else
+            getRenamedStaticMemberForClass (newName name) c
+
+    let rec getRenamedFunctionForClass name c =
+        if not (c.StaticMembers.Contains name) then
+            addFunctionToClass c name |> ignore
+            name
+        else
+            getRenamedFunctionForClass (newName name) c
        
     let rec getRenamedInDict name v (s: Dictionary<string, _>) =
         if s.ContainsKey name then
@@ -822,18 +850,18 @@ module Resolve =
 
     let addInherits (r: Resolver) (classes: IDictionary<TypeDefinition, ClassInfo>) =
         let rec inheritMembers typ (cls: ClassInfo) =
-            if not (r.HasPrototype typ) then
+            if not (r.HasClass typ) then
                 match cls.BaseClass with
                 | None ->
-                    r.AddPrototype(typ, None)    
+                    r.AddClass(typ, None)    
                 | Some b ->
                     // assembly containing base class may not be referenced
                     match classes.TryFind b.Entity with
                     | None ->
-                        r.AddPrototype(typ, None)
+                        r.AddClass(typ, None)
                     | Some bCls ->
                         inheritMembers b.Entity bCls  
-                        r.AddPrototype(typ, Some b.Entity)
+                        r.AddClass(typ, Some b.Entity)
         for KeyValue(typ, cls) in classes do
             inheritMembers typ cls        
 
@@ -845,25 +873,21 @@ let getAllAddresses (meta: Info) =
     // add members
     for KeyValue(typ, cls) in classes do
         if typ.Value.FullName.StartsWith "Generated$" then () else
-        let pr = if cls.HasWSPrototype then Some (r.LookupPrototype typ) else None 
+        let pr = if cls.HasWSPrototype then Some (r.LookupClass typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance (n, _) -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | Static (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore
+            | Instance (n, _) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p n |> ignore)            
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m, _, _ in cls.Constructors.Values do addMember m
         for f, _, _ in cls.Fields.Values do
             match f with
             | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addToPrototype p n |> ignore)
-            | StaticField a -> r.ExactStaticAddress a.Address.Value |> ignore
+            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p n |> ignore)
             | IndexedField _ -> ()
+            | _ -> ()
         for m, _ in cls.Implementations.Values do addMember m
         for m, _, _, _ in cls.Methods.Values do addMember m
-        match cls.StaticConstructor with
-        | Some (a, _) -> r.ExactStaticAddress a.Address.Value |> ignore  
-        | _ -> ()
     r
  
 open WebSharper.Core.Metadata 

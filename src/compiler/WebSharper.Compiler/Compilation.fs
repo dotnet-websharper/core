@@ -96,14 +96,13 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingMethods = Dictionary<TypeDefinition * Method, CompilingMember * list<GenericParam> * Expression>()
     let compilingImplementations = Dictionary<TypeDefinition * TypeDefinition * Method, CompilingMember * Expression>()
     let compilingConstructors = Dictionary<TypeDefinition * Constructor, CompilingMember * Expression>()
-    let compilingStaticConstructors = Dictionary<TypeDefinition, Address * Expression>()
+    let compilingStaticConstructors = Dictionary<TypeDefinition, Statement>()
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
-    let generatedMethodAddresses = Dictionary()
 
     let typeErrors = HashSet()
 
@@ -234,7 +233,7 @@ type Compilation(meta: Info, ?hasGraph) =
         match generatedClass with
         | Some cls -> cls
         | _ ->
-            let addr = { Module = JavaScriptModule (this.AssemblyName + ".$Generated"); Address = Hashed [ "$Generated" ] } 
+            let addr = { Module = JavaScriptModule (this.AssemblyName + "/$Generated"); Address = Hashed [] } 
             let td = 
                 TypeDefinition { 
                     FullName = "$Generated"
@@ -307,23 +306,23 @@ type Compilation(meta: Info, ?hasGraph) =
             parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
             Substitution(args).TransformExpression(parsed.Expr)
         
-        member this.NewGenerated(addr, ?generics, ?args, ?returns) =
-            let resolved = resolver.StaticAddress (List.rev addr)
-            let addr, td = this.GetGeneratedClass()
+        member this.NewGenerated(name, ?generics, ?args, ?returns) =
+            let caddr, td = this.GetGeneratedClass()
+            let c = resolver.LookupClass(td)
+            let rname = Resolve.getRenamedFunctionForClass name c
+            let addr = caddr.Func(rname)
             let meth = 
                 Method {
-                    MethodName = resolved.Value |> List.rev |> String.concat "."
+                    MethodName = rname
                     Parameters = defaultArg args []
                     ReturnType = defaultArg returns (TSType TSType.Any)
                     Generics = defaultArg generics 0
                 }
-            generatedMethodAddresses.Add(meth, resolved)
             td, meth, addr
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
-            let mname = generatedMethodAddresses.[meth]
             let _, td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Func (mname, ClassMethodKind.Simple), true, Optimizations.None, JavaScriptOptions.None), [], body))
+            compilingMethods.Add((td, meth),(NotCompiled (Func meth.Value.MethodName, true, Optimizations.None, JavaScriptOptions.None), [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
@@ -569,10 +568,16 @@ type Compilation(meta: Info, ?hasGraph) =
         with _ ->
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
+    member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
+        let mname = this.AssemblyName + "/" + typ.Value.FullName
+        if hasWSPrototype then
+            Address.DefaultExport mname
+        else 
+            Address.ModuleRoot mname
+
     member this.ProcessCustomType(typ: TypeDefinition, ct) =
         let getAddr hasWSPrototype = 
-            resolver.ClassAddress(typ.Value, hasWSPrototype)
-            |> this.LocalAddress
+            this.TypeAddress(typ, hasWSPrototype)
         let addr, cls = 
             match classes.TryFind typ with
             | Some ({ Address = Hashed []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
@@ -651,7 +656,9 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some res -> res
         | _ ->
             match interfaces.TryFind typ with
-            | Some ii -> Array.ofList (ii.Generics @ snd ii.Methods.[meth])
+            | Some ii -> 
+                let (_, _, mgen) = ii.Methods.[meth]
+                Array.ofList (ii.Generics @ mgen)
             | _ ->
                 failwithf "Error looking up abstract method generics %s.%s" typ.Value.FullName meth.Value.MethodName
 
@@ -1010,14 +1017,14 @@ type Compilation(meta: Info, ?hasGraph) =
         | Choice2Of2 NotCustomType -> LookupMemberError (TypeNotFound typ)
         | Choice2Of2 i -> CustomTypeMember i
         
-    member this.TryLookupStaticConstructorAddress(typ) =
-        match classes.TryFind(this.FindProxied typ) with
-        | Some (_, _, Some cls) ->
-            match cls.StaticConstructor with
-            | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> None
-            | Some (cctor, _) -> Some cctor
-            | None -> None
-        | _ -> None
+    //member this.TryLookupStaticConstructorAddress(typ) =
+    //    match classes.TryFind(this.FindProxied typ) with
+    //    | Some (_, _, Some cls) ->
+    //        match cls.StaticConstructor with
+    //        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> None
+    //        | Some (cctor, _) -> Some cctor
+    //        | None -> None
+    //    | _ -> None
 
     member this.TryGetRecordConstructor(typ) =
         let typ = this.FindProxied typ
@@ -1066,12 +1073,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.CompilingStaticConstructors = compilingStaticConstructors
 
-    member this.AddCompiledStaticConstructor(typ, addr, cctor) =
+    member this.AddCompiledStaticConstructor(typ, cctor) =
         let typ = this.FindProxied typ 
         compilingStaticConstructors.Remove typ |> ignore
         match classes.TryFind typ with
         | Some (caddr, ct, Some cls) ->
-            classes.[typ] <- (caddr, ct, Some { cls with StaticConstructor = Some (addr, cctor) })
+            classes.[typ] <- (caddr, ct, Some { cls with StaticConstructor = Some cctor })
         | _ -> failwithf "Adding compiled static constructor to %s" typ.Value.FullName
 
     member this.CompilingImplementations = compilingImplementations
@@ -1109,6 +1116,20 @@ type Compilation(meta: Info, ?hasGraph) =
         match export with
         | None -> Global ["import"; from]
         | Some x -> Global ["import"; from; x] 
+
+    member this.GetMethodNameAndKind (m: Method) =
+        let mname = m.Value.MethodName 
+        if mname.StartsWith("get_") && m.Value.Parameters.IsEmpty then
+            mname[4..], ClassMethodKind.Getter         
+        elif mname.StartsWith("set_") && m.Value.Parameters.Length = 1 then
+            mname[4..], ClassMethodKind.Setter                       
+        else
+            mname, ClassMethodKind.Simple
+
+    member this.GetMemberNameAndKind (nr: NotResolvedMember) =
+        match nr with
+        | NotResolvedMember.Method (m, _) -> this.GetMethodNameAndKind m 
+        | _ -> "", ClassMethodKind.Simple
 
     member this.Resolve () =
         
@@ -1154,9 +1175,9 @@ type Compilation(meta: Info, ?hasGraph) =
                     extended.[i] <- None
                     if not alreadyExtended then 
                         interfaces.TryFind i |> Option.iter (addInherited i)
-                for KeyValue(m, (n, c)) in n.Methods do
+                for KeyValue(m, (n, k, _)) in n.Methods do
                     if not (allMembers.Add (i, m)) then
-                        if not (allNames.Add n) then
+                        if not (allNames.Add (n, k)) then
                             printerrf "Interface method name collision: %s on %s" n typ.Value.FullName
             
             for ei in nr.Extends do
@@ -1177,9 +1198,10 @@ type Compilation(meta: Info, ?hasGraph) =
             for m, n, c in nr.NotResolvedMethods do
                 match n with
                 | Some n -> 
-                    if not (allNames.Add n) then
+                    let _, k = this.GetMethodNameAndKind(m)
+                    if not (allNames.Add (n, k)) then
                         printerrf "Explicitly declared interface method name collision: %s on %s" n typ.Value.FullName
-                    resMethods.Add(m, (n, c))
+                    resMethods.Add(m, (n, k, c))
                 | _ -> ()
             
             let intfName = 
@@ -1192,13 +1214,14 @@ type Compilation(meta: Info, ?hasGraph) =
             for m, n, c in nr.NotResolvedMethods do
                 match n with
                 | None ->
-                    let n = Resolve.getRenamed (intfName + m.Value.MethodName) allNames
-                    resMethods.Add(m, (n, c))
+                    let mname, k = this.GetMethodNameAndKind(m)
+                    let n = Resolve.getRenamedWithKind (intfName + mname) k allNames
+                    resMethods.Add(m, (n, k, c))
                 | _ -> ()
 
             let resNode =
                 {
-                    Address = Address.Empty()
+                    Address = this.TypeAddress(typ, false)
                     Extends = extended.Values |> Seq.choose id |> List.ofSeq
                     Methods = resMethods
                     Generics = nr.Generics
@@ -1216,7 +1239,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
             resolveInterface typ nr
 
-        let unresolvedCctor = Some (Address.Empty(), Undefined)
+        let unresolvedCctor = Some Empty
 
         let resNode (t, p) =
             ResourceNode (t, p |> Option.map ParameterObject.OfObj)
@@ -1295,12 +1318,14 @@ type Compilation(meta: Info, ?hasGraph) =
                         | None -> if isStub then Some TSType.Any else None
                 }
             
+            let clAddress = this.TypeAddress(typ, hasWSPrototype)
+
             match notResolvedCustomTypes.TryFind typ with
             | Some ct ->
-                classes |> addType typ (Address.Empty(), ct, Some resCls)
+                classes |> addType typ (clAddress, ct, Some resCls)
                 notResolvedCustomTypes.Remove typ |> ignore
             | _ ->
-                classes |> addType typ (Address.Empty(), NotCustomType, Some resCls)
+                classes |> addType typ (clAddress, NotCustomType, Some resCls)
             
             // set up dependencies
             if hasGraph then
@@ -1399,12 +1424,12 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.foldBack (fun (p, o) fb -> Some (Macro(p, o |> Option.map ParameterObject.OfObj, fb))) nr.Macros
                 |> Option.get
 
-        let compiledStaticMember a (nr : NotResolvedMethod) =
+        let compiledStaticMember a k (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Quotation _
             | N.Constructor
-            | N.Static -> Static a
-            | N.AsStatic -> Function a
+            | N.Static -> Static (a, k)
+            | N.AsStatic -> Func a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -1416,12 +1441,12 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> failwith "Invalid not compiled member kind"
             |> withMacros nr
 
-        let compiledInstanceMember (name: string) (nr: NotResolvedMethod) =
+        let compiledInstanceMember (name: string) k (nr: NotResolvedMethod) =
             match nr.Kind with
             | N.Instance  
             | N.Abstract
             | N.Override _  
-            | N.Implementation _ -> Instance name
+            | N.Implementation _ -> Instance (name, k)
             | _ -> failwith "Invalid instance member kind"
             |> withMacros nr
 
@@ -1445,14 +1470,14 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> NotCompiled (comp, notVirtual nr.Kind, opts nr.Pure nr, nr.JavaScriptOptions)
             
 
-        let setClassAddress typ (clAddr: PlainAddress) =
-            match classes.Current.TryFind typ with
-            | Some (addr, ct, cls) -> classes.Current.[typ] <- (this.LocalAddress clAddr, ct, cls)
-            | None -> ()
+        //let setClassAddress typ (clAddr: PlainAddress) =
+        //    match classes.Current.TryFind typ with
+        //    | Some (addr, ct, cls) -> classes.Current.[typ] <- (this.LocalAddress clAddr, ct, cls)
+        //    | None -> ()
 
-        let setInterfaceAddress typ clAddr =
-            let res = interfaces.[typ]
-            interfaces.[typ] <- { res with Address = this.LocalAddress clAddr }
+        //let setInterfaceAddress typ clAddr =
+        //    let res = interfaces.[typ]
+        //    interfaces.[typ] <- { res with Address = this.LocalAddress clAddr }
             
         // split to resolve steps
         let fullyNamedStaticMembers = ResizeArray()
@@ -1640,7 +1665,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match interfaces.TryFind td with
                         | Some i ->
                             match i.Methods.TryFind mDef with
-                            | Some (n, c) ->    
+                            | Some (n, k, c) ->    
                                 Dict.addToMulti namedInstanceMembers typ (m, n)
                             | _ -> printerrf "Failed to look up name for implemented member: %s.%s in type %s" td.Value.FullName mDef.Value.MethodName typ.Value.FullName 
                         | _ ->
@@ -1685,19 +1710,19 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.rev
             if isClass then
                 let cc = assumeClass typ
-                if not (resolver.ExactClassAddress(addr, cc.HasWSPrototype)) then
-                    this.AddError(None, NameConflict ("Class name conflict", sn))
-                setClassAddress typ (Hashed addr)
+                //if not (resolver.ExactClassAddress(addr, cc.HasWSPrototype)) then
+                //    this.AddError(None, NameConflict ("Class name conflict", sn))
+                //setClassAddress typ (Hashed addr)
                 processCustomType typ
             else
-                setInterfaceAddress typ (Hashed addr)
+                //setInterfaceAddress typ (Hashed addr)
+                ()
 
-        let nameStaticMember typ a m = 
-            let la = this.LocalAddress a
+        let nameStaticMember typ name k m = 
             let res = assumeClass typ
             match m with
             | M.Constructor (cDef, nr) ->
-                let comp = compiledStaticMember la nr
+                let comp = compiledStaticMember name k nr
                 let body =
                     match nr.Body with
                     | Function(cargs, typ, cbody) ->
@@ -1709,21 +1734,19 @@ type Compilation(meta: Info, ?hasGraph) =
                         failwith "Expecting a function as compiled form of constructor"
                 compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, body))
             | M.Field (fName, nr) ->
-                res.Fields.Add(fName, (StaticField la, nr.IsReadonly, nr.FieldType))
+                res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
-                let comp = compiledStaticMember la nr
+                let comp = compiledStaticMember name k nr
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)
                     res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                 else
                     compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
-            | M.StaticConstructor expr ->                
-                // TODO: do not rely on address on compiled state
-                updateClass typ (fun cls -> { cls with StaticConstructor = Some (la, Undefined) })
-                compilingStaticConstructors.Add(typ, (la, expr))
+            | M.StaticConstructor st ->                
+                compilingStaticConstructors.Add(typ, st)
         
-        let nameInstanceMember typ name m =
+        let nameInstanceMember typ name k m =
             let res = assumeClass typ
             let addf k v (d: IDictionary<_,_>) =
                 try d.Add(k, v)
@@ -1750,7 +1773,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ -> InstanceField name
                 res.Fields |> addf fName (fi, f.IsReadonly, f.FieldType)
             | M.Method (mDef, nr) ->
-                let comp = compiledInstanceMember name nr
+                let comp = compiledInstanceMember name k nr
                 match nr.Kind with
                 | N.Implementation dtyp 
                 | N.Override dtyp when dtyp <> typ ->
@@ -1768,27 +1791,32 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let getClassAddress typ =
             let (addr, _, _) = classes.[typ]
-            addr.Address.Value
+            addr
                                      
         for typ, m, sn in fullyNamedStaticMembers do
-            let addr =
+            let c = resolver.LookupClass typ
+            let name =
                 match sn.Split('.') with
                 | [||] ->
                     printerrf "Invalid Name attribute argument on type '%s'" typ.Value.FullName
-                    ["$$ERROR$$"]
+                    "$$ERROR$$"
                 | [| n |] -> 
-                    n :: getClassAddress typ
-                | a -> List.ofArray (Array.rev a)
-            if not (resolver.ExactStaticAddress addr) then
+                    n
+                | a -> 
+                    //List.ofArray (Array.rev a)
+                    printerrf "Invalid Name attribute argument on type '%s'. Full names are no longer allowed." typ.Value.FullName
+                    "$$ERROR$$"
+            if c.StaticMembers.Contains name then
                 this.AddError(None, NameConflict ("Static member name conflict", sn)) 
-            nameStaticMember typ (Hashed addr) m
+            let (_, k) = this.GetMemberNameAndKind(m)
+            nameStaticMember typ name k m
               
         for KeyValue((td, m), args) in compilingQuotedArgMethods do
             let cls =
                 match classes.TryFind td with
                 | Some (_, _, Some cls) -> cls
                 | _ ->
-                    let a = resolver.ClassAddress(td.Value, false)
+                    let a = this.TypeAddress(td, false)
                     let cls =
                         {
                             //Address = Some (r.ClassAddress(defaultAddressOf td, false))
@@ -1806,27 +1834,29 @@ type Compilation(meta: Info, ?hasGraph) =
                             Implements = []
                             Type = None
                         }
-                    classes |> addType td (this.LocalAddress a, NotCustomType, Some cls)
+                    classes |> addType td (a, NotCustomType, Some cls)
                     cls
             cls.QuotedArgMethods |> add m args
 
         for typ, isClass in remainingTypes do
-            let a = resolver.ClassAddress(typ.Value, isClass && (assumeClass typ).HasWSPrototype)
+            let a = this.TypeAddress(typ, isClass && (assumeClass typ).HasWSPrototype)
             if isClass then
-                setClassAddress typ a
+                //setClassAddress typ a
                 processCustomType typ
             else 
-                setInterfaceAddress typ a
+                //setInterfaceAddress typ a
+                ()
         
         // initialize remaining non-TS-class custom types
         for KeyValue(typ, ct) in notResolvedCustomTypes do
-            classes.Add(typ, (Address.Empty(), ct, None))
+            let clAddr = this.TypeAddress(typ, false)
+            classes.Add(typ, (clAddr, ct, None))
             this.ProcessCustomType(typ, ct)
 
         for KeyValue(typ, ms) in remainingNamedStaticMembers do
             let clAddr = getClassAddress typ
             for m, n in ms do
-                let addr = n :: clAddr
+                let addr = clAddr.Sub(n)
                 if not (resolver.ExactStaticAddress addr) then
                     this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
                 nameStaticMember typ (Hashed addr) m
@@ -1837,7 +1867,7 @@ type Compilation(meta: Info, ?hasGraph) =
            
         // TODO: check nothing is hiding (exclude overrides and implementations)
         for KeyValue(typ, ms) in namedInstanceMembers do
-            let pr = resolver.LookupPrototype typ
+            let pr = resolver.LookupClass typ
             for m, n in ms do
                 //pr.Add n |> ignore
                 if not (Resolve.addToPrototype pr n || objectMethods.Contains n || isImplementation m) then
@@ -1914,7 +1944,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
                                 match smi with
-                                | Some (Instance n) -> Some n
+                                | Some (Instance (n, kind)) -> Some n
                                 | None -> None
                                 | _ -> 
                                     printerrf "Abstract method must be compiled as instance member: %s in %s" (string mDef.Value) td.Value.FullName
@@ -1935,13 +1965,13 @@ type Compilation(meta: Info, ?hasGraph) =
                 interfaces.TryFind intf
                 |> Option.bind (fun i -> i.Methods.TryFind meth)
             match mNameOpt with
-            | Some (mName, _) ->
+            | Some (mName, _,_) ->
                 let _, _, cls = classes.[typ]
                 let tryFindByName n =
                     cls.Value.Methods
                     |> Seq.tryPick (fun (KeyValue(m, (cm, _, _, _))) ->
                         match cm with 
-                        | Instance name when name = n -> Some (MethodNode(typ, m))
+                        | Instance (name, kind) when name = n -> Some (MethodNode(typ, m))
                         | _ -> None
                     )
                     |> Option.orElseWith (fun () ->
@@ -1949,8 +1979,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         |> Seq.tryPick(fun (KeyValue((td, m), (cm, _, _))) ->
                             if td = typ then
                                 match cm with 
-                                | NotCompiled (Instance name, _, _, _) 
-                                | NotGenerated (_, _, Instance name, _, _) when name = n -> Some (MethodNode(typ, m))
+                                | NotCompiled (Instance (name, kind), _, _, _) 
+                                | NotGenerated (_, _, Instance (name, kind), _, _) when name = n -> Some (MethodNode(typ, m))
                                 | _ -> None
                             else None
                         )
@@ -1960,8 +1990,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         |> Seq.tryPick(fun (KeyValue((td, i, m), (cm, _))) ->
                             if td = typ then
                                 match cm with 
-                                | NotCompiled (Instance name, _, _, _) 
-                                | NotGenerated (_, _, Instance name, _, _) when name = n -> Some (ImplementationNode(typ, i, m))
+                                | NotCompiled (Instance (name, kind), _, _, _) 
+                                | NotGenerated (_, _, Instance (name, kind), _, _) when name = n -> Some (ImplementationNode(typ, i, m))
                                 | _ -> None
                             else None
                         )
@@ -1969,7 +1999,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 let methFallbackOpt =
                     tryFindByName mName
                     |> Option.orElseWith (fun () ->
-                        if mName.EndsWith("0") then 
+                        if mName.EndsWith("`0") then 
                             tryFindByName (mName[.. mName.Length - 2]) 
                         else None
                     )
@@ -1987,7 +2017,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             cls.Value.Methods.Values 
                             |> Seq.choose (fun (cm, _, _, _) -> 
                                 match cm with 
-                                | Instance name -> Some name
+                                | Instance (name, kind) -> Some name
                                 | _ -> None
                             )
                             |> Seq.append (
@@ -1995,8 +2025,8 @@ type Compilation(meta: Info, ?hasGraph) =
                                 |> Seq.choose(fun (KeyValue((td, m), (cm, _, _))) ->
                                     if td = typ && m = meth then
                                         match cm with 
-                                        | NotCompiled (Instance name, _, _, _) 
-                                        | NotGenerated (_, _, Instance name, _, _) -> Some name
+                                        | NotCompiled (Instance (name, kind), _, _, _) 
+                                        | NotGenerated (_, _, Instance (name, kind), _, _) -> Some name
                                         | _ -> None
                                     else None
                                 )
@@ -2006,8 +2036,8 @@ type Compilation(meta: Info, ?hasGraph) =
                                 |> Seq.choose(fun (KeyValue((td, _, m), (cm, _))) ->
                                     if td = typ && m = meth then
                                         match cm with 
-                                        | NotCompiled (Instance name, _, _, _) 
-                                        | NotGenerated (_, _, Instance name, _, _) -> Some name
+                                        | NotCompiled (Instance (name, kind), _, _, _) 
+                                        | NotGenerated (_, _, Instance (name, kind), _, _) -> Some name
                                         | _ -> None
                                     else None
                                 )

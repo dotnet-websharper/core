@@ -55,7 +55,6 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformCoalesce (_,_,_) = invalidForm "Coalesce"
     override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
     override this.TransformCall (_, _, _, _) = invalidForm "Call"
-    override this.TransformCctor _ = invalidForm "Cctor"
     override this.TransformObjectExpr (_, _) = invalidForm "ObjectExpr"
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
@@ -764,19 +763,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | NotGenerated (_, _, i, _, opts) ->
                 comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
 
-    member this.CompileStaticConstructor(addr, expr, typ) =
+    member this.CompileStaticConstructor(expr, typ) =
         try
             currentNode <- M.TypeNode typ
             cctorCalls <- Set.singleton typ
-            selfAddress <- 
-                let cls = snd (comp.TryLookupClassInfo(typ).Value)
-                let a = fst cls.StaticConstructor.Value 
-                Some { a with Address = Hashed (List.tail a.Address.Value) }
-            let res = this.TransformExpression expr |> breakExpr |> this.CheckResult
-            comp.AddCompiledStaticConstructor(typ, addr, res)
+            selfAddress <- None
+            let res = this.TransformStatement expr |> breakStatement |> this.CheckResult
+            comp.AddCompiledStaticConstructor(typ, res)
         with e ->
-            let res = this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
-            comp.AddCompiledStaticConstructor(typ, addr, res)
+            let res = ExprStatement <| this.Error(sprintf "Unexpected error during JavaScript compilation: %s at %s" e.Message e.StackTrace)
+            comp.AddCompiledStaticConstructor(typ, res)
 
     member this.CompileEntryPoint(stmt, node) =
         try
@@ -794,8 +790,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
         while comp.CompilingStaticConstructors.Count > 0 do
             let toJS = DotNetToJavaScript(comp)
-            let (KeyValue(t, (a, e))) = Seq.head comp.CompilingStaticConstructors
-            toJS.CompileStaticConstructor(a, e, t)
+            let (KeyValue(t, s)) = Seq.head comp.CompilingStaticConstructors
+            toJS.CompileStaticConstructor(s, t)
 
         while comp.CompilingImplementations.Count > 0 do
             let (KeyValue((t, it, m), (i, e))) = Seq.head comp.CompilingImplementations
@@ -982,17 +978,37 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
                 )
         match info with
-        | M.Instance name ->
+        | M.Instance (name, kind) ->
             match baseCall with
             | Some true ->
-                ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams false)
+                match kind with
+                | ClassMethodKind.Getter ->
+                    Base |> getItem name
+                | ClassMethodKind.Setter ->
+                    ItemSet(Base, Value (String name), trArgs()[0])
+                | ClassMethodKind.Simple ->
+                    ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams false)
             | _ ->
-                ApplTyped(
-                    trThisObj() |> Option.get |> getItem name,
-                    trArgs(), opts.Purity, None, funcParams false) 
-        | M.Static address ->
-            ApplTyped(GlobalAccess address, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
-        | M.Func address ->
+                match kind with
+                | ClassMethodKind.Getter ->
+                    trThisObj() |> Option.get |> getItem name
+                | ClassMethodKind.Setter ->
+                    ItemSet(trThisObj() |> Option.get, Value (String name), trArgs()[0])
+                | ClassMethodKind.Simple ->
+                    ApplTyped(
+                        trThisObj() |> Option.get |> getItem name,
+                        trArgs(), opts.Purity, None, funcParams false) 
+        | M.Static (name, kind) ->
+            match kind with
+            | ClassMethodKind.Getter ->
+                this.SelfItem(name)
+            | ClassMethodKind.Setter ->
+                ItemSet(this.TransformSelf(), Value (String name), trArgs()[0])
+            | ClassMethodKind.Simple ->
+                ApplTyped(this.SelfItem(name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+        | M.Func name ->
+            ApplTyped(this.SelfItem(name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+        | M.GlobalFunc address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
             ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
@@ -1233,15 +1249,24 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiled (info, _, _, _)
         | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
             match info with 
-            | M.Static name 
+            | M.Static (name, kind) ->
+                match kind with
+                | ClassMethodKind.Getter ->
+                    JSRuntime.GetterOf (this.TransformSelf()) name
+                | ClassMethodKind.Setter ->
+                    JSRuntime.SetterOf (this.TransformSelf()) name      
+                | ClassMethodKind.Simple ->
+                    this.SelfItem(name)
             | M.Func name ->
+                this.SelfItem(name)   
+            | M.GlobalFunc address ->
                 GlobalAccess address
-            | M.Instance (name, mtyp) -> 
+            | M.Instance (name, kind) -> 
                 // Object.getOwnPropertyDescriptor(o, "a").get
                 match comp.TryLookupClassInfo typ.Entity with
                 | Some (addr, _) ->
                     let func =
-                        match mtyp with
+                        match kind with
                         | ClassMethodKind.Getter ->
                             JSRuntime.GetterOf (GlobalAccess addr |> getItem "prototype") name
                         | ClassMethodKind.Setter ->
@@ -1286,7 +1311,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), trArgs())
         | M.NewIndexed (i) ->
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
-        | M.Function address ->
+        | M.Func name ->
+            Appl(this.SelfItem(name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
+        | M.GlobalFunc address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline (isCompiled, assertReturnType) ->
             this.ApplyInline(expr, typ.Generics, gc, trArgs(), None, isCompiled, assertReturnType, ConcreteType typ) 
@@ -1665,24 +1692,24 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else def()
         |> trBaseCall
 
-    override this.TransformCctor(typ) =
-        let typ = comp.FindProxied typ
-        if cctorCalls |> Set.contains typ then Undefined else
-        cctorCalls <- cctorCalls |> Set.add typ
-        match comp.CompilingStaticConstructors.TryFind typ with
-        | Some (addr, expr) ->
-            this.AnotherNode().CompileStaticConstructor(addr, expr, typ)
-        | _ -> ()
-        match comp.TryLookupStaticConstructorAddress typ with
-        | Some cctor ->
-            if comp.HasGraph then
-                this.AddTypeDependency typ
-            if currentIsInline then 
-                hasDelayedTransform <- true
-                Cctor(typ) 
-            else
-                Appl(GlobalAccess cctor, [], NonPure, Some 0)
-        | None -> Undefined
+    //override this.TransformCctor(typ) =
+    //    let typ = comp.FindProxied typ
+    //    if cctorCalls |> Set.contains typ then Undefined else
+    //    cctorCalls <- cctorCalls |> Set.add typ
+    //    match comp.CompilingStaticConstructors.TryFind typ with
+    //    | Some st ->
+    //        this.AnotherNode().CompileStaticConstructor(st, typ)
+    //    | _ -> ()
+    //    match comp.TryLookupStaticConstructorAddress typ with
+    //    | Some cctor ->
+    //        if comp.HasGraph then
+    //            this.AddTypeDependency typ
+    //        if currentIsInline then 
+    //            hasDelayedTransform <- true
+    //            Cctor(typ) 
+    //        else
+    //            Appl(GlobalAccess cctor, [], NonPure, Some 0)
+    //    | None -> Undefined
 
     override this.TransformFunction(a, ret, b) =
         innerScope <| fun () -> Function(a, ret, this.TransformStatement b)
@@ -1766,8 +1793,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformOverrideName(typ, meth) =
         match comp.LookupMethodInfo(typ, meth, false) with
-        | Compiled (M.Instance name, _, _, _) 
-        | Compiling ((NotCompiled ((M.Instance name), _, _, _) | NotGenerated (_,_,M.Instance name, _, _)), _, _) ->
+        | Compiled (M.Instance (name, kind), _, _, _) 
+        | Compiling ((NotCompiled ((M.Instance (name, kind)), _, _, _) | NotGenerated (_,_,M.Instance (name, kind), _, _)), _, _) ->
             Value (String name)
         | LookupMemberError err ->
             this.Error err
@@ -1787,9 +1814,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             | _ -> failwith "Unexpected expression for method name in F# object expression"
                         match e with 
                         | FuncWithThis (thisParam, pars, ret, body) ->
-                            ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                            ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | Function (pars, ret, body) ->
-                            ClassMethod(false, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                            ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                     | None, e ->
                         ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
@@ -1822,10 +1849,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     override this.TransformSelf () = 
         match selfAddress with
-        | Some self ->
-            match self.Address.Value with
-            | selfName :: _ -> GlobalAccess self
-            | _ -> this.Error ("Self address empty")
+        | Some self -> GlobalAccess self
+        | _ -> this.Error ("Self address missing")
+
+    member this.SelfItem (name: string) =
+        match selfAddress with
+        | Some self -> GlobalAccess (self.Sub(name))
         | _ -> this.Error ("Self address missing")
 
     override this.TransformLet (a, b, c) =
@@ -1847,10 +1876,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match f with
             | M.InstanceField fname ->
                 this.TransformExpression expr.Value |> getItemRO fname ro
-            | M.StaticField faddr ->
+            | M.StaticField fname ->
                 CombineExpressions [
-                    this.TransformCctor typ.Entity
-                    GlobalAccess faddr
+                    //this.TransformCctor typ.Entity
+                    this.SelfItem(fname)
                 ]
             | M.OptionalField fname -> 
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
@@ -1904,11 +1933,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match f with
             | M.InstanceField fname ->
                 ItemSet(this.TransformExpression expr.Value, Value (String fname), this.TransformExpression value) 
-            | M.StaticField faddr ->
-                let f, a = List.head faddr.Address.Value, List.tail faddr.Address.Value
+            | M.StaticField fname ->
                 CombineExpressions [
-                    this.TransformCctor typ.Entity
-                    ItemSet(GlobalAccess { faddr with Address = Hashed a }, Value (String f), this.TransformExpression value)
+                    //this.TransformCctor typ.Entity
+                    ItemSet(this.TransformSelf(), Value (String fname), this.TransformExpression value)
                 ]
             | M.OptionalField fname -> 
                 JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String fname)) (this.TransformExpression value)

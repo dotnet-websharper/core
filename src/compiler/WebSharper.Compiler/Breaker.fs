@@ -505,7 +505,6 @@ let rec breakExpr expr : Broken<BreakResult> =
     | GlobalAccess _
     | Hole _
     | Arguments
-    | Cctor _
         -> broken expr 
     | Function (args, typ, body) ->
         // do not remove unused functions for now until we can fix up call points too.

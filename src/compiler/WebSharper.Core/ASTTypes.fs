@@ -975,6 +975,12 @@ type Address =
     member this.Sub n =
         { this with Address = Hashed (n :: this.Address.Value) }
 
+    member this.Func n =
+        { this with Address = Hashed [ n ] }
+
+    member this.Static n =
+        { this with Address = Hashed [ n; "default" ] }
+
 module private Instances =
     let uniqueId name i = 
         {
@@ -995,7 +1001,11 @@ module private Instances =
 
     let RuntimeModule = JavaScriptModule "WebSharper.Runtime"
 
-    let GlobalAddress = { Module = StandardLibrary; Address = Hashed [] }
+    let EmptyAddress = Hashed []
+    let DefaultAddress = Hashed [ "default" ]
+
+    let GlobalAddress = { Module = StandardLibrary; Address = EmptyAddress }
+    let ErrorAddress = { Module = StandardLibrary; Address = Hashed [ "$$ERROR$$" ] }
 
 type Id with
     static member Global() = Instances.GlobalId
@@ -1005,8 +1015,10 @@ type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 
 type Address with
-    static member Runtime() = { Module = Instances.RuntimeModule; Address = Hashed [] }
+    static member Runtime() = { Module = Instances.RuntimeModule; Address = Instances.EmptyAddress }
     static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f] }
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress
-    static member DefaultExport x = { Module = JavaScriptModule x; Address = Hashed [ "default" ] }
+    static member Error() = Instances.ErrorAddress
+    static member ModuleRoot x = { Module = JavaScriptModule x; Address = Instances.DefaultAddress }
+    static member DefaultExport x = { Module = JavaScriptModule x; Address = Instances.DefaultAddress }

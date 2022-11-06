@@ -80,7 +80,7 @@ module NotResolved =
     type NotResolvedMember =
         | Constructor of Constructor * NotResolvedMethod
         | Field of string * NotResolvedField
-        | StaticConstructor of Expression
+        | StaticConstructor of Statement
         | Method of Method * NotResolvedMethod
 
     [<RequireQualifiedAccess>]

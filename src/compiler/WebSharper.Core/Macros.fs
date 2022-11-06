@@ -1037,7 +1037,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                         | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                             gtd, gm
                         | _ ->
-                            let gtd, gm, _ = comp.NewGenerated([ "GeneratedPrintf"; "p"])
+                            let gtd, gm, _ = comp.NewGenerated("p")
                             comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                             let body = 
                                 let x = Id.New(mut = false)
@@ -1074,7 +1074,7 @@ let createPrinter (comp: M.ICompilation) (ts: Type list) (intp: Expression list 
                             | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                                 gtd, gm
                             | _ ->
-                                let gtd, gm, _ = comp.NewGenerated([ comp.AssemblyName.Replace(".","$") + "_GeneratedPrintf"; "p" ])
+                                let gtd, gm, _ = comp.NewGenerated("p")
                                 comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                                 let gs = ct.Generics |> Array.ofList
                                 let body =

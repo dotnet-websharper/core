@@ -267,7 +267,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some (Inline (true, false)) else 
                         match name with
-                        | Some n -> Some (Instance n) // named instance members only for mixin interfaces
+                        | Some n -> Some (Instance (n, ClassMethodKind.Simple)) // named instance members only for mixin interfaces
                         | _ -> None
                 let kind =
                     if List.isEmpty macros then kindWithoutMacros else
@@ -405,7 +405,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 | Some n -> n
                 | _ -> meth.Name
             let gc = getConstraints meth.GenericParameters tgen
-            methods.Add(mdef, (name, gc))
+            methods.Add(mdef, (name, ClassMethodKind.Simple, gc))
 
         interfaces.Add(def,
             {
