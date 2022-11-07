@@ -127,7 +127,7 @@ type QuotationCompiler (meta : M.Info) =
                         | Member.Override (td, impl) ->
                             clsMembers.Add(NotResolvedMember.Method(impl, nr (N.Override td)))
                         | Member.StaticConstructor ->
-                            clsMembers.Add(NotResolvedMember.StaticConstructor(Lambda([], None, expr)))
+                            clsMembers.Add(NotResolvedMember.StaticConstructor(ExprStatement expr))
                     | None -> 
                         ()
 

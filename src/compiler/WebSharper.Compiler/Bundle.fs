@@ -135,7 +135,8 @@ module Bundling =
                     let current = 
                         if dce then trimMetadata meta nodes 
                         else meta
-                    JavaScriptPackager.packageAssembly current current o.EntryPoint o.EntryPointStyle
+                    //JavaScriptPackager.packageAssembly current current o.EntryPoint o.EntryPointStyle
+                    Undefined
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message + " at " + e.StackTrace)
         let resources = graph.GetResourcesOf nodes
@@ -244,14 +245,14 @@ module Bundling =
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                    let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString pref getCodeWriter
-                    if sourceMap then
-                        if mode = BundleMode.JavaScript then
-                            map <- m
-                        else
-                            minmap <- m
+                    //let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString pref getCodeWriter
+                    //if sourceMap then
+                    //    if mode = BundleMode.JavaScript then
+                    //        map <- m
+                    //    else
+                    //        minmap <- m
 
-                    writer.WriteLine js
+                    //writer.WriteLine js
 
                     Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
                 | _ -> ()

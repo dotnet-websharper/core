@@ -1539,7 +1539,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
 
-        let fromLibrary = Some (AST.WebSharperModule (options.AssemblyName + ".d"))
+        let fromLibrary = Some (AST.JavaScriptModule (options.AssemblyName + ".d"))
         
         // Add WebSharper metadata
         let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes fromLibrary def

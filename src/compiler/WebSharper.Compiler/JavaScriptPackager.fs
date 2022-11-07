@@ -34,7 +34,7 @@ type EntryPointStyle =
     | ForceOnLoad
     | ForceImmediate
 
-let private Address a = { Module = CurrentModule; Address = Hashed a }
+//let private Address a = { Module = CurrentModule; Address = Hashed a }
 
 let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryPoint entryPointStyle =
     let imports = ResizeArray()
@@ -44,9 +44,9 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
 
     let g = Id.New "Global"
     let glob = Var g
-    addresses.Add(Address [], glob)
-    addresses.Add(Address [ "self" ], glob)
-    addresses.Add(Address [ "import" ], Var (Id.Import()))
+    addresses.Add(Address.Global(), glob)
+    addresses.Add(Address.Lib "self", glob)
+    addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     let rec getAddress (address: Address) =

@@ -1855,11 +1855,14 @@ type Compilation(meta: Info, ?hasGraph) =
 
         for KeyValue(typ, ms) in remainingNamedStaticMembers do
             let clAddr = getClassAddress typ
+
+            let pr = resolver.LookupClass typ
             for m, n in ms do
                 let addr = clAddr.Sub(n)
-                if not (resolver.ExactStaticAddress addr) then
-                    this.AddError(None, NameConflict ("Static member name conflict", addr |> String.concat "."))
-                nameStaticMember typ (Hashed addr) m
+                if not (Resolve.addStaticMemberToClass pr n) then
+                    this.AddError(None, NameConflict ("Static member name conflict", addr.Address.Value |> String.concat "."))
+                let (_, k) = this.GetMemberNameAndKind(m)
+                nameStaticMember typ n k m
         let isImplementation m =
             match m with
             | M.Method (_, { Kind = N.Implementation _ }) -> true
@@ -1870,38 +1873,41 @@ type Compilation(meta: Info, ?hasGraph) =
             let pr = resolver.LookupClass typ
             for m, n in ms do
                 //pr.Add n |> ignore
-                if not (Resolve.addToPrototype pr n || objectMethods.Contains n || isImplementation m) then
+                if not (Resolve.addInstanceMemberToClass pr n || objectMethods.Contains n || isImplementation m) then
                     printerrf "Instance member name conflict on type %s name %s" typ.Value.FullName n
-                nameInstanceMember typ n m      
+                let (_, k) = this.GetMemberNameAndKind(m)
+                nameInstanceMember typ n k m      
 
         let simplifyFieldName (f: string) =
             f.Split('@').[0]
 
         for KeyValue(typ, ms) in remainingStaticMembers do
             let clAddr = getClassAddress typ
+            let pr = resolver.LookupClass typ
             for m in ms do
-                let uaddr = 
+                let uname = 
                     match m with
-                    | M.Constructor _ -> "New" :: clAddr
-                    | M.Field (fName, _) -> simplifyFieldName fName :: clAddr
+                    | M.Constructor _ -> "New"
+                    | M.Field (fName, _) -> simplifyFieldName fName
                     | M.Method (meth, _) ->
                         let n = meth.Value.MethodName
                         // Simplify names of active patterns
-                        if n.StartsWith "|" then n.Split('|').[1] :: clAddr
+                        if n.StartsWith "|" then n.Split('|').[1] 
                         // Simplify names of static F# extension members 
-                        elif n.EndsWith ".Static" then
-                            (n.Split('.') |> List.ofArray |> List.rev |> List.tail) @ clAddr
-                        else n :: clAddr
-                    | M.StaticConstructor _ -> "$cctor" :: clAddr
-                let addr = resolver.StaticAddress uaddr
-                nameStaticMember typ addr m
+                        //elif n.EndsWith ".Static" then
+                        //    (n.Split('.') |> List.ofArray |> List.rev |> List.tail) 
+                        else n 
+                    | M.StaticConstructor _ -> "cctor" 
+                let addr = Resolve.getRenamedStaticMemberForClass uname pr
+                let (_, k) = this.GetMemberNameAndKind(m)
+                nameStaticMember typ addr k m
 
         let resolved = HashSet()
         
         // TODO: add abstract/interface methods even if there are no implementations
         let rec resolveRemainingInstanceMembers typ (cls: ClassInfo) ms =
             if resolved.Add typ then
-                let pr = resolver.LookupPrototype typ
+                let pr = resolver.LookupClass typ
                 // inherit members
                 match cls.BaseClass with
                 | None -> ()
@@ -1928,9 +1934,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 for m in ms do
                     let name = 
                         match m with
-                        | M.Field (fName, _) -> Resolve.getRenamedForPrototype (simplifyFieldName fName) pr |> Some
+                        | M.Field (fName, _) -> Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
-                            Resolve.getRenamedForPrototype mDef.Value.MethodName pr |> Some
+                            Resolve.getRenamedInstanceMemberForClass mDef.Value.MethodName pr |> Some
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
                             | Some (_, _, Some tCls) -> 
@@ -1955,7 +1961,8 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ -> 
                             failwith "Invalid instance member kind"
                             None
-                    name |> Option.iter (fun n -> nameInstanceMember typ n m)
+                    let (_, k) = this.GetMemberNameAndKind(m)
+                    name |> Option.iter (fun n -> nameInstanceMember typ n k m)
 
         for KeyValue(typ, ms) in remainingInstanceMembers do
             resolveRemainingInstanceMembers typ (assumeClass typ) ms
