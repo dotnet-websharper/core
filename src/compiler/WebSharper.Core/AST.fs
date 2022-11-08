@@ -313,13 +313,13 @@ and Statement =
     /// TypeScript - import * as ... from ...
     | Import of DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string
     /// TypeScript - export
-    | Export of Statement:Statement
+    | ExportDecl of IsDefault:bool * Statement:Statement
     /// TypeScript - declare ...
     | Declare of Statement:Statement
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
     /// JavaScript ES6 - class { ... }
-    | Class of Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
+    | Class of ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// JavaScript ES6 - class method
     | ClassMethod of Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
     /// JavaScript ES6 - class method
@@ -591,8 +591,8 @@ type Transformer() =
     abstract TransformImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> Statement
     override this.TransformImport (a, b, c, d) = Import (Option.map this.TransformId a, Option.map this.TransformId b, List.map (fun (a, b) -> a, this.TransformId b) c, d)
     /// TypeScript - export
-    abstract TransformExport : Statement:Statement -> Statement
-    override this.TransformExport a = Export (this.TransformStatement a)
+    abstract TransformExportDecl : IsDefault:bool * Statement:Statement -> Statement
+    override this.TransformExportDecl (a, b) = ExportDecl (a, this.TransformStatement b)
     /// TypeScript - declare ...
     abstract TransformDeclare : Statement:Statement -> Statement
     override this.TransformDeclare a = Declare (this.TransformStatement a)
@@ -600,8 +600,8 @@ type Transformer() =
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
     /// JavaScript ES6 - class { ... }
-    abstract TransformClass : Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
-    override this.TransformClass (a, b, c, d, e) = Class (a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e)
+    abstract TransformClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
+    override this.TransformClass (a, b, c, d, e) = Class (this.TransformId a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e)
     /// JavaScript ES6 - class method
     abstract TransformClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
@@ -712,7 +712,7 @@ type Transformer() =
         | GotoCase a -> this.TransformGotoCase a
         | DoNotReturn  -> this.TransformDoNotReturn ()
         | Import (a, b, c, d) -> this.TransformImport (a, b, c, d)
-        | Export a -> this.TransformExport a
+        | ExportDecl (a, b) -> this.TransformExportDecl (a, b)
         | Declare a -> this.TransformDeclare a
         | Namespace (a, b) -> this.TransformNamespace (a, b)
         | Class (a, b, c, d, e) -> this.TransformClass (a, b, c, d, e)
@@ -979,8 +979,8 @@ type Visitor() =
     abstract VisitImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> unit
     override this.VisitImport (a, b, c, d) = Option.iter this.VisitId a; Option.iter this.VisitId b; List.iter (fun (a, b) -> this.VisitId b) c; ()
     /// TypeScript - export
-    abstract VisitExport : Statement:Statement -> unit
-    override this.VisitExport a = (this.VisitStatement a)
+    abstract VisitExportDecl : IsDefault:bool * Statement:Statement -> unit
+    override this.VisitExportDecl (a, b) = (); this.VisitStatement b
     /// TypeScript - declare ...
     abstract VisitDeclare : Statement:Statement -> unit
     override this.VisitDeclare a = (this.VisitStatement a)
@@ -988,8 +988,8 @@ type Visitor() =
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
     /// JavaScript ES6 - class { ... }
-    abstract VisitClass : Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
-    override this.VisitClass (a, b, c, d, e) = (); Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; ()
+    abstract VisitClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
+    override this.VisitClass (a, b, c, d, e) = this.VisitId a; Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; ()
     /// JavaScript ES6 - class method
     abstract VisitClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
@@ -1100,7 +1100,7 @@ type Visitor() =
         | GotoCase a -> this.VisitGotoCase a
         | DoNotReturn  -> this.VisitDoNotReturn ()
         | Import (a, b, c, d) -> this.VisitImport (a, b, c, d)
-        | Export a -> this.VisitExport a
+        | ExportDecl (a, b) -> this.VisitExportDecl (a, b)
         | Declare a -> this.VisitDeclare a
         | Namespace (a, b) -> this.VisitNamespace (a, b)
         | Class (a, b, c, d, e) -> this.VisitClass (a, b, c, d, e)
@@ -1206,7 +1206,7 @@ module IgnoreSourcePos =
     let (|GotoCase|_|) x = match ignoreStatementSourcePos x with GotoCase a -> Some a | _ -> None
     let (|DoNotReturn|_|) x = match ignoreStatementSourcePos x with DoNotReturn  -> Some () | _ -> None
     let (|Import|_|) x = match ignoreStatementSourcePos x with Import (a, b, c, d) -> Some (a, b, c, d) | _ -> None
-    let (|Export|_|) x = match ignoreStatementSourcePos x with Export a -> Some a | _ -> None
+    let (|ExportDecl|_|) x = match ignoreStatementSourcePos x with ExportDecl (a, b) -> Some (a, b) | _ -> None
     let (|Declare|_|) x = match ignoreStatementSourcePos x with Declare a -> Some a | _ -> None
     let (|Namespace|_|) x = match ignoreStatementSourcePos x with Namespace (a, b) -> Some (a, b) | _ -> None
     let (|Class|_|) x = match ignoreStatementSourcePos x with Class (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
@@ -1308,10 +1308,10 @@ module Debug =
         | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
         | DoNotReturn  -> "DoNotReturn" + ""
         | Import (a, b, c, d) -> "Import" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map string b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + string b) c) + "]" + ", " + PrintObject d + ")"
-        | Export a -> "Export" + "(" + PrintStatement a + ")"
+        | ExportDecl (a, b) -> "ExportDecl" + "(" + PrintObject a + ", " + PrintStatement b + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
-        | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
+        | Class (a, b, c, d, e) -> "Class" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + PrintObject d + ")"

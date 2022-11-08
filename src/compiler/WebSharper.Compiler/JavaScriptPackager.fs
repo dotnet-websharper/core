@@ -42,11 +42,17 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     let addresses = Dictionary<Address, Expression>()
     let statements = ResizeArray<Statement>()
 
-    let g = Id.New "Global"
-    let glob = Var g
-    addresses.Add(Address.Global(), glob)
-    addresses.Add(Address.Lib "self", glob)
+    let classId = 
+        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+        Id.New className
+    let currentModuleName = asmName + "/" + typ.Value.FullName
+
+    //let g = Id.New "Global"
+    //let glob = Var g
+    //addresses.Add(Address.Global(), glob)
+    //addresses.Add(Address.Lib "self", glob)
     addresses.Add(Address.Lib "import", Var (Id.Import()))
+    addresses.Add(Address.DefaultExport currentModuleName, Var classId)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     //let rec getAddress (address: Address) =
@@ -91,13 +97,6 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | JavaScriptFile _ ->
                 GlobalAccess address    
             | JavaScriptModule m ->
-                let moduleImports =
-                    match imports.TryGetValue m with
-                    | true, mi -> mi
-                    | _ ->
-                        let mi = Dictionary()
-                        imports.Add(m, mi)
-                        mi
                 let importWhat, importAs =
                     let fromModuleName() = m.Split([| '/'; '.' |]) |> Array.last
                     match address.Address.Value with
@@ -109,18 +108,30 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             n, fromModuleName()
                         else
                             n, n
-                let i =
-                    match moduleImports.TryGetValue importWhat with
-                    | true, i -> i
-                    | _ ->
-                        let i = Id.New(importAs)
-                        moduleImports.Add(importWhat, i)
-                        i
-                let importedAddress =
-                    match address.Address.Value with
-                    | [] -> { address with Module = ImportedModule i }
-                    | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
-                GlobalAccess importedAddress
+                if m = currentModuleName then
+                    let currentAddress =
+                        { address with Module = ImportedModule (Id.Global()) }
+                    GlobalAccess currentAddress
+                else
+                    let moduleImports =
+                        match imports.TryGetValue m with
+                        | true, mi -> mi
+                        | _ ->
+                            let mi = Dictionary()
+                            imports.Add(m, mi)
+                            mi
+                    let i =
+                        match moduleImports.TryGetValue importWhat with
+                        | true, i -> i
+                        | _ ->
+                            let i = Id.New(importAs)
+                            moduleImports.Add(importWhat, i)
+                            i
+                    let importedAddress =
+                        match address.Address.Value with
+                        | [] -> { address with Module = ImportedModule i }
+                        | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
+                    GlobalAccess importedAddress
             | _ -> GlobalAccess address          
                         
 
@@ -203,7 +214,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.Func name ->
                 match IgnoreExprSourcePos body with
                 | Function (args, _, b) ->
-                    statements.Add <| Export (FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
+                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
                 | _ -> ()   
             | _ -> ()
 
@@ -291,10 +302,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             members.Add <| ClassStatic(bodyTransformer.TransformStatement st)
         | _ -> ()
 
-        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Replace('`', '$')
-
         if c.HasWSPrototype then
-            statements.Add <| Export (Class (className, baseType, [], List.ofSeq members, []))
+            statements.Add <| ExportDecl (true, Class (classId, baseType, [], List.ofSeq members, []))
 
             
     match current.Classes.TryFind(typ) with
@@ -321,7 +330,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
                 FuncDeclaration(funcId, [x], Return check, [])
 
-        statements.Add(Export isIntf)
+        statements.Add(ExportDecl (false, isIntf))
 
     | None -> ()
 
@@ -341,28 +350,29 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         [] 
     else
         for KeyValue(m, i) in imports do
-            let defaultImport =
-                match i.TryGetValue("default") with
-                | true, d -> Some d
-                | _ -> None
-            let fullImport =
-                match i.TryGetValue("*") with
-                | true, f -> Some f
-                | _ -> None
-            let namedImports =
-                i |> Seq.choose (fun (KeyValue(n, i)) ->
-                    if n = "default" || n = "*" then
-                        None
+            if m <> currentModuleName then
+                let defaultImport =
+                    match i.TryGetValue("default") with
+                    | true, d -> Some d
+                    | _ -> None
+                let fullImport =
+                    match i.TryGetValue("*") with
+                    | true, f -> Some f
+                    | _ -> None
+                let namedImports =
+                    i |> Seq.choose (fun (KeyValue(n, i)) ->
+                        if n = "default" || n = "*" then
+                            None
+                        else
+                            Some (n, i)
+                    )
+                    |> List.ofSeq
+                let fromModule =
+                    if m.StartsWith (asmName + "/") then
+                        "./" + m[asmName.Length + 1 ..] + ".js"
                     else
-                        Some (n, i)
-                )
-                |> List.ofSeq
-            let fromModule =
-                if m.StartsWith (asmName + "/") then
-                    "./" + m[asmName.Length + 1 ..] + ".js"
-                else
-                    "../" + m + ".js"
-            declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
+                        "../" + m + ".js"
+                declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
         List.ofSeq (Seq.concat [ declarations; statements ])
 
@@ -376,7 +386,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entry
     for typ in current.Interfaces.Keys do
         classes.Remove(typ) |> ignore
         pkgTyp typ
-    for typ in current.Classes.Keys do
+    for typ in classes do
         pkgTyp typ
     pkgs.ToArray()
 

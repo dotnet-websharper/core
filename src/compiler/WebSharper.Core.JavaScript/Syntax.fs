@@ -247,7 +247,7 @@ and Statement =
     | While        of E * S
     | With         of E * S
     | Function     of Id * list<Id> * list<S>
-    | Export       of S 
+    | Export       of bool * S 
     | ExportAlias  of Id * Id 
     | Import       of option<Id> * option<Id> * list<string  * Id> * string
     | ImportAll    of option<Id> * string

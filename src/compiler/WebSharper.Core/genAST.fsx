@@ -194,13 +194,13 @@ let ExprDefs =
             , "Temporary - C# ref or out parameter"
         "ComplexElement", [ List Expr, "items" ]
             , "Temporary - C# complex element in initializer expression"
-        "Object", [ List (Object "string" * Expr), "properties" ]
+        "Object", [ List (Str * Expr), "properties" ]
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
-        "Hole", [ Object "int", "index" ]
+        "Hole", [ Int, "index" ]
             , "Temporary - A hole in an expression for inlining"
         "Cast", [ TSType, "targetType"; Expr, "expression" ]
             , "TypeScript - type cast <...>..."
@@ -270,13 +270,13 @@ let StatementDefs =
         // TypeScript
         "Import", [ Option Id, "defaultImport"; Option Id, "fullImport"; List (Str * Id), "namedImports" ; Str, "moduleName" ]
             , "TypeScript - import * as ... from ..."
-        "Export", [ Statement, "statement" ]
+        "ExportDecl", [ Bool, "isDefault"; Statement, "statement" ]
             , "TypeScript - export"
         "Declare", [ Statement, "statement" ]
             , "TypeScript - declare ..."
         "Namespace", [ Str, "name"; List Statement, "statements" ]
             , "TypeScript - namespace { ... }"
-        "Class", [ Str, "name"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
+        "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
             , "JavaScript ES6 - class { ... }"
         "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript ES6 - class method"

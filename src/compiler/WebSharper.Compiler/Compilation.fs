@@ -1424,11 +1424,11 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.foldBack (fun (p, o) fb -> Some (Macro(p, o |> Option.map ParameterObject.OfObj, fb))) nr.Macros
                 |> Option.get
 
-        let compiledStaticMember a k (nr : NotResolvedMethod) =
+        let compiledStaticMember a k p (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Quotation _
             | N.Constructor
-            | N.Static -> Static (a, k)
+            | N.Static -> if p then Static (a, k) else Func a
             | N.AsStatic -> Func a
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
@@ -1722,7 +1722,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let res = assumeClass typ
             match m with
             | M.Constructor (cDef, nr) ->
-                let comp = compiledStaticMember name k nr
+                let comp = compiledStaticMember name k res.HasWSPrototype nr
                 let body =
                     match nr.Body with
                     | Function(cargs, typ, cbody) ->
@@ -1736,7 +1736,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
-                let comp = compiledStaticMember name k nr
+                let comp = compiledStaticMember name k res.HasWSPrototype nr
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)

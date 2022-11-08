@@ -300,7 +300,14 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | GlobalAccess a ->
-        match a.Module with
+        match a.Module with     
+        | ImportedModule g when g.IsGlobal() ->
+            match a.Address.Value with
+            | [] -> J.Var (J.Id.New "self")
+            | h :: t ->
+                List.foldBack (fun n e -> 
+                    e.[J.Constant (J.String n)]
+                ) t (J.Var (J.Id.New h))
         | ImportedModule v ->
             List.foldBack (fun n e -> 
                 e.[J.Constant (J.String n)]
@@ -483,21 +490,22 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             b |> Option.map (defineId env false), 
             c |> List.map (fun (n, x) -> n, defineId env false x),
             d)
-    | Export a ->
-        J.Export (trS a)
+    | ExportDecl (a, b) ->
+        J.Export (a, trS b)
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
             J.ForVarIn(defineId env false a, None, trE b, trS c)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | Class (n, b, i, m, g) ->
+        let jn = defineId env false n
         let innerEnv = env.NewInner()
         let isAbstract =
             m |> List.exists (function
                 | ClassMethod (_, _, _, None, _) -> true
                 | _ -> false
             )
-        J.Class(J.Id.New(n), isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
+        J.Class(jn, isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 

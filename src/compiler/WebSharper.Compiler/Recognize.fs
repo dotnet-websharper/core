@@ -474,7 +474,7 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
     | S.Debugger -> failwith "Currently unsupported: JS debugger"
     | S.Do (a, b) -> DoWhile (trS a, trE b)
     | S.Empty -> Empty
-    | S.Export a ->
+    | S.Export (a, b) ->
         failwith "Currently unsupported: JS export in inline"   
     | S.ExportAlias (a, b) ->
         failwith "Currently unsupported: JS export in inline"   

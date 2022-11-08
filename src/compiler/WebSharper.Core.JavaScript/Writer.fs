@@ -552,8 +552,8 @@ and Statement canBeEmpty statement =
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
         ++ BlockLayout (List.map (Statement true) body)
-    | S.Export s ->
-        Word "export" ++ Statement false s
+    | S.Export (d, s) ->
+        Word "export" ++ Conditional (Word "default") d  ++ Statement false s
     | S.ExportAlias (a, b) ->
         Word "export" ++ Word "{" ++ Id a ++ Word "as" ++ Id b ++ Word "}"
     | S.ImportAll (None, m) ->
