@@ -1189,14 +1189,17 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.OptionalField
                 | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
             | Member.StaticConstructor ->
-                clsMembers.Add (NotResolvedMember.StaticConstructor (getBody false))
+                let body =
+                    match getBody false with
+                    | Function([], _, body) -> body
+                    | _ -> failwithf "static constructor should be a function"
+                clsMembers.Add (NotResolvedMember.StaticConstructor body)
         | _ -> 
             ()
     
     match staticInit with
     | Some si when not (clsMembers |> Seq.exists (function NotResolvedMember.StaticConstructor _ -> true | _ -> false)) ->
-        let b = Function ([], None, si)
-        clsMembers.Add (NotResolvedMember.StaticConstructor b)  
+        clsMembers.Add (NotResolvedMember.StaticConstructor si)  
     | _ -> ()
     
     for f in members.OfType<IFieldSymbol>() do

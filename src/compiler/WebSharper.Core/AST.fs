@@ -319,7 +319,7 @@ and Statement =
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
     /// JavaScript ES6 - class { ... }
-    | Class of Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
+    | Class of Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// JavaScript ES6 - class method
     | ClassMethod of Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
     /// JavaScript ES6 - class method
@@ -600,8 +600,8 @@ type Transformer() =
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
     /// JavaScript ES6 - class { ... }
-    abstract TransformClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
-    override this.TransformClass (a, b, c, d, e) = Class (a, b, c, List.map this.TransformStatement d, e)
+    abstract TransformClass : Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
+    override this.TransformClass (a, b, c, d, e) = Class (a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e)
     /// JavaScript ES6 - class method
     abstract TransformClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
@@ -988,8 +988,8 @@ type Visitor() =
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
     /// JavaScript ES6 - class { ... }
-    abstract VisitClass : Name:string * BaseClass:option<TSType> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
-    override this.VisitClass (a, b, c, d, e) = (); (); (); List.iter this.VisitStatement d; ()
+    abstract VisitClass : Name:string * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
+    override this.VisitClass (a, b, c, d, e) = (); Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; ()
     /// JavaScript ES6 - class method
     abstract VisitClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
@@ -1311,7 +1311,7 @@ module Debug =
         | Export a -> "Export" + "(" + PrintStatement a + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
-        | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
+        | Class (a, b, c, d, e) -> "Class" + "(" + PrintObject a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
         | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + PrintObject d + ")"

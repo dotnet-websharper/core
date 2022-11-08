@@ -37,10 +37,10 @@ type EntryPointStyle =
 //let private Address a = { Module = CurrentModule; Address = Hashed a }
 
 let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryPoint entryPointStyle =
-    let imports = ResizeArray()
-    let addresses = Dictionary()
-    let declarations = ResizeArray()
-    let statements = ResizeArray()
+    let imports = Dictionary<string, Dictionary<string, Id>>()
+    let declarations = ResizeArray<Statement>()
+    let addresses = Dictionary<Address, Expression>()
+    let statements = ResizeArray<Statement>()
 
     let g = Id.New "Global"
     let glob = Var g
@@ -49,84 +49,120 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
     addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
-    let rec getAddress (address: Address) =
-        match addresses.TryGetValue address with
-        | true, v -> v
-        | _ ->
-            match address.Address.Value with
-            | [] -> glob
-            | [ name ] ->
-                let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
-                let f = Value (String name)
-                declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
-                let res = Var var
-                addresses.Add(address, res)
-                res
-            | name :: r ->
-                let parent = getAddress (Address r)
-                let f = Value (String name)
-                let var = Id.New name
-                declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
-                let res = Var var
-                addresses.Add(address, res)
-                res
+    //let rec getAddress (address: Address) =
+    //    match addresses.TryGetValue address with
+    //    | true, v -> v
+    //    | _ ->
+    //        match address.Address.Value with
+    //        | [] -> glob
+    //        | [ name ] ->
+    //            let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
+    //            let f = Value (String name)
+    //            declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
+    //            let res = Var var
+    //            addresses.Add(address, res)
+    //            res
+    //        | name :: r ->
+    //            let parent = getAddress (Address r)
+    //            let f = Value (String name)
+    //            let var = Id.New name
+    //            declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
+    //            let res = Var var
+    //            addresses.Add(address, res)
+    //            res
 
-    let getFieldAddress (address: Address) =
-        match address.Address.Value with
-        | name :: r ->
-            getAddress (Address r), Value (String name)
-        | _ -> failwith "packageAssembly: empty address"
+    //let getFieldAddress (address: Address) =
+    //    match address.Address.Value with
+    //    | name :: r ->
+    //        getAddress (Address r), Value (String name)
+    //    | _ -> failwith "packageAssembly: empty address"
     
-    let rec getOrImportAddress (full: bool) (address: Address) =
+    let rec getOrImportAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            let getModuleName (from: string) =
-                let fn = from.Split('/') |> Array.last
-                if fn.EndsWith(".js") then
-                    fn.[.. fn.Length - 4].Replace(".", "$")
-                else fn.Replace(".", "$")
-            match address.Address.Value with
-            | [] -> glob
-            | [ from; "import" ] ->
-                let name = "def$" + getModuleName from
-                let id = Id.New (name, mut = false)
-                let res = Var id
-                imports.Add (from, None, id)
-                addresses.Add(address, res)
-                res
-            | [ export; from; "import" ] -> 
-                let name = 
-                    match export with
-                    | "*" -> getModuleName from
-                    | n -> n
-                let id = Id.New (name, mut = false) 
-                let res = Var id
-                imports.Add (from, Some export, id)
-                addresses.Add(address, res)
-                res
-            | h :: t ->
-                let parent = getOrImportAddress false (Address t)
-                let import = ItemGet(parent, Value (String h), Pure)
-                if full then
-                    import
-                else
-                    let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
-                    let importWithCheck =
-                        if List.isEmpty t then import else parent ^&& import
-                    declarations.Add <| VarDeclaration (var, importWithCheck)                
-                    let res = Var var
-                    addresses.Add(address, res)
-                    res
+            //let getModuleName (from: string) =
+            //    let fn = from.Split('/') |> Array.last
+            //    if fn.EndsWith(".js") then
+            //        fn.[.. fn.Length - 4].Replace(".", "$")
+            //    else fn.Replace(".", "$")
+            match address.Module with
+            | StandardLibrary
+            | JavaScriptFile _ ->
+                GlobalAccess address    
+            | JavaScriptModule m ->
+                let moduleImports =
+                    match imports.TryGetValue m with
+                    | true, mi -> mi
+                    | _ ->
+                        let mi = Dictionary()
+                        imports.Add(m, mi)
+                        mi
+                let importWhat, importAs =
+                    match address.Address.Value with
+                    | [] -> 
+                        m.Split([| '/'; '.' |]) |> Array.last,
+                        "*"
+                    | a -> 
+                        let n = List.last a
+                        n, n
+                let i =
+                    match moduleImports.TryGetValue importWhat with
+                    | true, i -> i
+                    | _ ->
+                        let i = Id.New(importAs)
+                        moduleImports.Add(importWhat, i)
+                        i
+                let importedAddress =
+                    match address.Address.Value with
+                    | [] -> { address with Module = ImportedModule i }
+                    | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
+                GlobalAccess importedAddress
+            | _ -> GlobalAccess address          
+                        
 
-    let globalAccessTransformer =
+            
+            //match address.Address.Value with
+            //| [] -> glob
+            //| [ from; "import" ] ->
+            //    let name = "def$" + getModuleName from
+            //    let id = Id.New (name, mut = false)
+            //    let res = Var id
+            //    imports.Add (from, None, id)
+            //    addresses.Add(address, res)
+            //    res
+            //| [ export; from; "import" ] -> 
+            //    let name = 
+            //        match export with
+            //        | "*" -> getModuleName from
+            //        | n -> n
+            //    let id = Id.New (name, mut = false) 
+            //    let res = Var id
+            //    imports.Add (from, Some export, id)
+            //    addresses.Add(address, res)
+            //    res
+            //| h :: t ->
+            //    let parent = getOrImportAddress false (Address t)
+            //    let import = ItemGet(parent, Value (String h), Pure)
+            //    if full then
+            //        import
+            //    else
+            //        let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
+            //        let importWithCheck =
+            //            if List.isEmpty t then import else parent ^&& import
+            //        declarations.Add <| VarDeclaration (var, importWithCheck)                
+            //        let res = Var var
+            //        addresses.Add(address, res)
+            //        res
+
+    let bodyTransformer =
         { new Transformer() with
-            override this.TransformGlobalAccess a = getOrImportAddress true a
+            override this.TransformGlobalAccess a = getOrImportAddress a
         }
             
-    let package a expr =
-        let o, x = getFieldAddress a
-        statements.Add <| ExprStatement (ItemSet (o, x, expr))    
+    //let package a expr =
+    //    let o, x = getFieldAddress a
+    //    statements.Add <| ExprStatement (ItemSet (o, x, expr))    
 
     let rec withoutMacros info =
         match info with
@@ -148,9 +184,9 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, Some (bodyTransformer.TransformStatement b), TSType.Any)
                 | _ -> ()       
-            | M.Static (maddr, mkind) ->
+            | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
                 | Function (args, _, b) ->
                     let info = 
@@ -159,8 +195,13 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, maddr.Address.Value.Head, args, Some b, TSType.Any)
-                | _ -> ()       
+                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                | _ -> ()   
+            | M.Func name ->
+                match IgnoreExprSourcePos body with
+                | Function (args, _, b) ->
+                    statements.Add <| Export (FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
+                | _ -> ()   
             | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
@@ -181,14 +222,14 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                         ()
                     | Function (args, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, Some b, TSType.Any))
+                        members.Add (ClassConstructor (args, Some (bodyTransformer.TransformStatement b), TSType.Any))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.NewIndexed i ->
                 if body <> Undefined then
                     match body with
                     | Function (args, _, b) ->  
-                        indexedCtors.Add (i, (args, b))
+                        indexedCtors.Add (i, (args, bodyTransformer.TransformStatement b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | _ -> ()
@@ -216,60 +257,42 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                 | Some _ as res -> res
                 | _ -> current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress false ba)
+            | Some (ba, _, _) -> Some (getOrImportAddress ba)
             | _ -> None
         
-        match ct with
-        | M.FSharpUnionInfo u when Option.isNone c.Type ->
-            let numArgs =
-                u.Cases |> Seq.map (fun uc -> 
-                    match uc.Kind with
-                    | M.NormalFSharpUnionCase fields -> List.length fields
-                    | M.SingletonFSharpUnionCase -> 0
-                    | M.ConstantFSharpUnionCase _ -> 0
-                )
-                |> Seq.max
-            let genCtor =
-                let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
-                let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
-                let setters = 
-                    Statement.Block (
-                        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
-                    )
-                ClassConstructor(args, Some setters, TSType.Any)
-            packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, genCtor :: List.ofSeq members)
-        | _ ->
-            if c.HasWSPrototype then
-                packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
+        //match ct with
+        //| M.FSharpUnionInfo u when Option.isNone c.Type ->
+        //    let numArgs =
+        //        u.Cases |> Seq.map (fun uc -> 
+        //            match uc.Kind with
+        //            | M.NormalFSharpUnionCase fields -> List.length fields
+        //            | M.SingletonFSharpUnionCase -> 0
+        //            | M.ConstantFSharpUnionCase _ -> 0
+        //        )
+        //        |> Seq.max
+        //    let genCtor =
+        //        let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
+        //        let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
+        //        let setters = 
+        //            Statement.Block (
+        //                args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
+        //            )
+        //        ClassConstructor(args, Some setters, TSType.Any)
+        //    packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, genCtor :: List.ofSeq members)
+        //| _ ->
+        //    if c.HasWSPrototype then
+        //        packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
         match c.StaticConstructor with
-        | Some(_, GlobalAccess a) when a.Address.Value = [ "ignore" ] -> ()
-        | Some (ccaddr, expr) -> 
-            match expr with
-            | Function ([], _, body) ->
-                members.Add <| ClassStatic(body)
-            | _ ->
-                members.Add <| ClassStatic(ExprStatement expr)
-                // TODO investigate
-                //failwithf "Static constructor must be a function for type %s: %A" name (Debug.PrintExpression expr)
+        | Some st -> 
+            members.Add <| ClassStatic(bodyTransformer.TransformStatement st)
         | _ -> ()
 
-        for info, _, _, body in c.Methods.Values do
-            match withoutMacros info with
-            //| M.Static maddr
-            | M.AsStatic maddr ->
-                if body <> Undefined then
-                    if body <> Undefined then
-                        package maddr body
-            | _ -> ()
+        let className = addr.Address.Value |> List.head
 
-        for info, _, body in c.Constructors.Values do
-            match withoutMacros info with
-            | M.Static (maddr, _) // TODO 
-            | M.AsStatic maddr ->
-                if body <> Undefined then
-                    package maddr body
-            | _ -> ()
+        if c.HasWSPrototype then
+            statements.Add <| Export (Class (className, baseType, [], List.ofSeq members, []))
+
             
     match current.Classes.TryFind(typ) with
     | Some (a, ct, cOpt) ->
@@ -280,25 +303,25 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
     | Some i ->
 
         let methodNames =
-            i.Methods.Values |> Seq.map fst
+            i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
 
-        let addr =
+        let isFunctionName =
             match i.Address.Address.Value with
-            | fn :: a ->
-                { i.Address with Address = PlainAddress (("is" + fn) :: a) }  
+            | fn :: a -> "is" + fn
             | _ ->
                 failwithf "Missing address for interface %s" typ.Value.FullName
-        
+        let funcId = Id.New(isFunctionName, str = true) 
+
         let isIntf =
             let x = Id.New "x"
             if Seq.isEmpty methodNames then
-                Function([x], None, Return (Value (Bool true)))
+                FuncDeclaration(funcId, [x], Return (Value (Bool true)), [])
             else         
                 let shortestName = methodNames |> Seq.minBy String.length
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                Function([x], None, Return check)
+                FuncDeclaration(funcId, [x], Return check, [])
 
-        package addr isIntf
+        statements.Add(Export isIntf)
 
     | None -> ()
 

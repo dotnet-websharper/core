@@ -1114,8 +1114,8 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.AddJSImport(export: string option, from: string) =
         match export with
-        | None -> Global ["import"; from]
-        | Some x -> Global ["import"; from; x] 
+        | None -> GlobalAccess (Address.DefaultExport from)
+        | Some x -> GlobalAccess (Address.NamedExport from x)
 
     member this.GetMethodNameAndKind (m: Method) =
         let mname = m.Value.MethodName 

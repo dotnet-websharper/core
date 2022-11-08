@@ -949,6 +949,7 @@ type Module =
     | StandardLibrary
     | JavaScriptFile of string
     | JavaScriptModule of string
+    | ImportedModule of Id
 
 type PlainAddress = Hashed<list<string>>
 
@@ -1020,5 +1021,6 @@ type Address with
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
     static member Global() = Instances.GlobalAddress
     static member Error() = Instances.ErrorAddress
-    static member ModuleRoot x = { Module = JavaScriptModule x; Address = Instances.DefaultAddress }
-    static member DefaultExport x = { Module = JavaScriptModule x; Address = Instances.DefaultAddress }
+    static member ModuleRoot m = { Module = JavaScriptModule m; Address = Instances.EmptyAddress }
+    static member DefaultExport m = { Module = JavaScriptModule m; Address = Instances.DefaultAddress }
+    static member NamedExport m n = { Module = JavaScriptModule m; Address = Hashed [ n ] }

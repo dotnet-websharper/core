@@ -824,7 +824,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.OptionalField
                     | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"
                 | Member.StaticConstructor ->
-                    clsMembers.Add (NotResolvedMember.StaticConstructor (snd (getBody false)))
+                    let body =
+                        match getBody false with
+                        | _, Function([], _, body) -> body
+                        | _ -> failwithf "static constructor should be a function"
+                    clsMembers.Add (NotResolvedMember.StaticConstructor body)
             | None ->
                 if isProxy then
                     let memdef = sr.ReadMember meth
@@ -1475,7 +1479,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 
             let statements, fields = sc            
-            let cctor = Function ([], None, Block (List.ofSeq statements))
+            let cctor = Block (List.ofSeq statements)
             let members =
                 [
                     for KeyValue(f, t) in fields -> 

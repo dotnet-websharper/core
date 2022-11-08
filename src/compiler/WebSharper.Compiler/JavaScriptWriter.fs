@@ -299,6 +299,24 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | ClassExpr (n, b, m) ->
         let innerEnv = env.NewInner()
         J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
+    | GlobalAccess a ->
+        match a.Module with
+        | ImportedModule v ->
+            List.foldBack (fun n e -> 
+                e.[J.Constant (J.String n)]
+            ) a.Address.Value (J.Var (trI v))
+        | StandardLibrary | JavaScriptFile _ ->
+            match a.Address.Value with
+            | [] -> J.Var (J.Id.New "self")
+            | h :: _ as a ->
+            match List.rev a with
+            | [] -> J.Var (J.Id.New h)
+            | h :: t -> 
+                List.fold (fun (e: J.Expression) n ->
+                    e.[J.Constant (J.String n)]
+                ) (J.Var (J.Id.New h)) t
+        | _ -> 
+            failwith "Addresses must be resolved to ImportedModule before writing JavaScript"
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 

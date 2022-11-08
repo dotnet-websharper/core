@@ -276,7 +276,7 @@ let StatementDefs =
             , "TypeScript - declare ..."
         "Namespace", [ Str, "name"; List Statement, "statements" ]
             , "TypeScript - namespace { ... }"
-        "Class", [ Str, "name"; Option TSType, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
+        "Class", [ Str, "name"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
             , "JavaScript ES6 - class { ... }"
         "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript ES6 - class method"
