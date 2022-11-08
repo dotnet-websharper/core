@@ -37,9 +37,9 @@ type private ObjectProxy() =
 
     [<Name "GetHashCode">]
     member this.GetHashCodeImpl() =
-        if (hash .== null) then
+        if (hash ==. null) then
             hash <- System.Random().Next(67108864)
-        Object.DefineProperty(this, "GetHashCode", fun () -> hash)
+        Object.DefineProperty(this, "GetHashCode", {| value = fun () -> hash |}) |> ignore
         hash
 
     [<Name "Equals">]

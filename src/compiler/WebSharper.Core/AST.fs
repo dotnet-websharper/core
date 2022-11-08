@@ -311,7 +311,7 @@ and Statement =
     /// .NET - F# tail call position
     | DoNotReturn
     /// TypeScript - import * as ... from ...
-    | ImportAll of Identifier:option<Id> * ModuleName:string
+    | Import of DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string
     /// TypeScript - export
     | Export of Statement:Statement
     /// TypeScript - declare ...
@@ -588,8 +588,8 @@ type Transformer() =
     abstract TransformDoNotReturn : unit -> Statement
     override this.TransformDoNotReturn () = DoNotReturn 
     /// TypeScript - import * as ... from ...
-    abstract TransformImportAll : Identifier:option<Id> * ModuleName:string -> Statement
-    override this.TransformImportAll (a, b) = ImportAll (Option.map this.TransformId a, b)
+    abstract TransformImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> Statement
+    override this.TransformImport (a, b, c, d) = Import (Option.map this.TransformId a, Option.map this.TransformId b, List.map (fun (a, b) -> a, this.TransformId b) c, d)
     /// TypeScript - export
     abstract TransformExport : Statement:Statement -> Statement
     override this.TransformExport a = Export (this.TransformStatement a)
@@ -711,7 +711,7 @@ type Transformer() =
         | CSharpSwitch (a, b) -> this.TransformCSharpSwitch (a, b)
         | GotoCase a -> this.TransformGotoCase a
         | DoNotReturn  -> this.TransformDoNotReturn ()
-        | ImportAll (a, b) -> this.TransformImportAll (a, b)
+        | Import (a, b, c, d) -> this.TransformImport (a, b, c, d)
         | Export a -> this.TransformExport a
         | Declare a -> this.TransformDeclare a
         | Namespace (a, b) -> this.TransformNamespace (a, b)
@@ -976,8 +976,8 @@ type Visitor() =
     abstract VisitDoNotReturn : unit -> unit
     override this.VisitDoNotReturn () = ()
     /// TypeScript - import * as ... from ...
-    abstract VisitImportAll : Identifier:option<Id> * ModuleName:string -> unit
-    override this.VisitImportAll (a, b) = Option.iter this.VisitId a; ()
+    abstract VisitImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> unit
+    override this.VisitImport (a, b, c, d) = Option.iter this.VisitId a; Option.iter this.VisitId b; List.iter (fun (a, b) -> this.VisitId b) c; ()
     /// TypeScript - export
     abstract VisitExport : Statement:Statement -> unit
     override this.VisitExport a = (this.VisitStatement a)
@@ -1099,7 +1099,7 @@ type Visitor() =
         | CSharpSwitch (a, b) -> this.VisitCSharpSwitch (a, b)
         | GotoCase a -> this.VisitGotoCase a
         | DoNotReturn  -> this.VisitDoNotReturn ()
-        | ImportAll (a, b) -> this.VisitImportAll (a, b)
+        | Import (a, b, c, d) -> this.VisitImport (a, b, c, d)
         | Export a -> this.VisitExport a
         | Declare a -> this.VisitDeclare a
         | Namespace (a, b) -> this.VisitNamespace (a, b)
@@ -1205,7 +1205,7 @@ module IgnoreSourcePos =
     let (|CSharpSwitch|_|) x = match ignoreStatementSourcePos x with CSharpSwitch (a, b) -> Some (a, b) | _ -> None
     let (|GotoCase|_|) x = match ignoreStatementSourcePos x with GotoCase a -> Some a | _ -> None
     let (|DoNotReturn|_|) x = match ignoreStatementSourcePos x with DoNotReturn  -> Some () | _ -> None
-    let (|ImportAll|_|) x = match ignoreStatementSourcePos x with ImportAll (a, b) -> Some (a, b) | _ -> None
+    let (|Import|_|) x = match ignoreStatementSourcePos x with Import (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Export|_|) x = match ignoreStatementSourcePos x with Export a -> Some a | _ -> None
     let (|Declare|_|) x = match ignoreStatementSourcePos x with Declare a -> Some a | _ -> None
     let (|Namespace|_|) x = match ignoreStatementSourcePos x with Namespace (a, b) -> Some (a, b) | _ -> None
@@ -1307,7 +1307,7 @@ module Debug =
         | CSharpSwitch (a, b) -> "CSharpSwitch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> "[" + String.concat "; " (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) "_") a) + "], " + PrintStatement b) b) + "]" + ")"
         | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
         | DoNotReturn  -> "DoNotReturn" + ""
-        | ImportAll (a, b) -> "ImportAll" + "(" + defaultArg (Option.map string a) "_" + ", " + PrintObject b + ")"
+        | Import (a, b, c, d) -> "Import" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map string b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + string b) c) + "]" + ", " + PrintObject d + ")"
         | Export a -> "Export" + "(" + PrintStatement a + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
         | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"

@@ -584,28 +584,29 @@ and Statement canBeEmpty statement =
         ++ Id n 
         ++ OptionalList (fun i -> Word "extends" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member false) ms)
-    | S.Import (e, x, f) ->
-        match e with 
-        | None ->
-            Word "import"
-            ++ Id x
-        | Some "*" ->
-            Word "import * as"
-            ++ Id x
-        | Some e ->
-            let ei = EscapeId x.Name
-            if e <> ei then
-                Word "import {"
-                ++ Word e
-                ++ Word "as"
-                ++ Word ei
-                ++ Word "}"
-            else
-                Word "import {"
-                ++ Word e
-                ++ Word "}"
-        ++ Word "from "
-        ++ Token (QuoteString f)
+    | S.Import (d, f, n, m) ->
+        let defImport =
+            d |> Option.map Id |> Option.toList   
+        let fullImport =
+            f |> Option.map (fun f -> Word "* as" ++ Id f) |> Option.toList
+        let namedImports =
+            n |> List.map (fun (n, i) -> 
+                let ei = EscapeId i.Name
+                if n <> ei then
+                    Word n
+                    ++ Word "as"
+                    ++ Word ei
+                else
+                    Word n
+            ) 
+        let namedImportBlock =
+            match namedImports with
+            | [] ->  []
+            | _ -> [ Word "{" ++ CommaSeparated id namedImports ++ Word "}" ]
+        Word "import"
+        ++ CommaSeparated id (defImport @ fullImport @ namedImportBlock)
+        ++ Word "from"
+        ++ Word (QuoteString m)
 
 and Accessor a =
     match a with

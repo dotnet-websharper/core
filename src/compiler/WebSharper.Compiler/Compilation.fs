@@ -1803,11 +1803,10 @@ type Compilation(meta: Info, ?hasGraph) =
                 | [| n |] -> 
                     n
                 | a -> 
-                    //List.ofArray (Array.rev a)
-                    printerrf "Invalid Name attribute argument on type '%s'. Full names are no longer allowed." typ.Value.FullName
-                    "$$ERROR$$"
+                    this.AddWarning(None, SourceWarning (sprintf "Deprecated Name attribute argument on type '%s'. Full names are no longer used." typ.Value.FullName))
+                    Array.head a
             if c.StaticMembers.Contains name then
-                this.AddError(None, NameConflict ("Static member name conflict", sn)) 
+                this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, sn)) 
             let (_, k) = this.GetMemberNameAndKind(m)
             nameStaticMember typ name k m
               
@@ -1860,7 +1859,7 @@ type Compilation(meta: Info, ?hasGraph) =
             for m, n in ms do
                 let addr = clAddr.Sub(n)
                 if not (Resolve.addStaticMemberToClass pr n) then
-                    this.AddError(None, NameConflict ("Static member name conflict", addr.Address.Value |> String.concat "."))
+                    this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address.Value |> String.concat "."))
                 let (_, k) = this.GetMemberNameAndKind(m)
                 nameStaticMember typ n k m
         let isImplementation m =

@@ -249,6 +249,7 @@ and Statement =
     | Function     of Id * list<Id> * list<S>
     | Export       of S 
     | ExportAlias  of Id * Id 
+    | Import       of option<Id> * option<Id> * list<string  * Id> * string
     | ImportAll    of option<Id> * string
     | ImportAlias  of Id * E
     | TypeAlias    of Id * E
@@ -259,7 +260,6 @@ and Statement =
     | Interface    of Id * list<E> * list<Member>
     | StatementPos of S * SourcePos
     | StatementComment of S * string
-    | Import       of option<string> * Id * string 
 
 and Member =
     | Method      of isStatic:bool * accessor:Accessor * Id * list<Id> * option<list<S>>

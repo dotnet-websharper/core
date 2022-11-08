@@ -36,7 +36,7 @@ type EntryPointStyle =
 
 //let private Address a = { Module = CurrentModule; Address = Hashed a }
 
-let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryPoint entryPointStyle =
+let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition) entryPoint entryPointStyle =
     let imports = Dictionary<string, Dictionary<string, Id>>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
@@ -99,13 +99,16 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                         imports.Add(m, mi)
                         mi
                 let importWhat, importAs =
+                    let fromModuleName() = m.Split([| '/'; '.' |]) |> Array.last
                     match address.Address.Value with
                     | [] -> 
-                        m.Split([| '/'; '.' |]) |> Array.last,
-                        "*"
+                        "*", fromModuleName()
                     | a -> 
                         let n = List.last a
-                        n, n
+                        if n = "default" then
+                            n, fromModuleName()
+                        else
+                            n, n
                 let i =
                     match moduleImports.TryGetValue importWhat with
                     | true, i -> i
@@ -195,7 +198,7 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, Some (bodyTransformer.TransformStatement b), TSType.Any)
                 | _ -> ()   
             | M.Func name ->
                 match IgnoreExprSourcePos body with
@@ -288,7 +291,7 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
             members.Add <| ClassStatic(bodyTransformer.TransformStatement st)
         | _ -> ()
 
-        let className = addr.Address.Value |> List.head
+        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Replace('`', '$')
 
         if c.HasWSPrototype then
             statements.Add <| Export (Class (className, baseType, [], List.ofSeq members, []))
@@ -306,10 +309,7 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
             i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
 
         let isFunctionName =
-            match i.Address.Address.Value with
-            | fn :: a -> "is" + fn
-            | _ ->
-                failwithf "Missing address for interface %s" typ.Value.FullName
+            "is" + (typ.Value.FullName.Split([|'.'; '+'|]) |> Array.last).Replace('`', '$')
         let funcId = Id.New(isFunctionName, str = true) 
 
         let isIntf =
@@ -336,18 +336,49 @@ let packageType (refMeta: M.Info) (current: M.Info) (typ: TypeDefinition) entryP
     
     //let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
     
+
     if statements.Count = 0 then 
         [] 
     else
+        for KeyValue(m, i) in imports do
+            let defaultImport =
+                match i.TryGetValue("default") with
+                | true, d -> Some d
+                | _ -> None
+            let fullImport =
+                match i.TryGetValue("*") with
+                | true, f -> Some f
+                | _ -> None
+            let namedImports =
+                i |> Seq.choose (fun (KeyValue(n, i)) ->
+                    if n = "default" || n = "*" then
+                        None
+                    else
+                        Some (n, i)
+                )
+                |> List.ofSeq
+            let fromModule =
+                if m.StartsWith (asmName + "/") then
+                    "./" + m[asmName.Length + 1 ..] + ".js"
+                else
+                    "../" + m + ".js"
+            declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
+
         List.ofSeq (Seq.concat [ declarations; statements ])
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) entryPoint entryPointStyle =
-    Seq.append current.Classes.Keys current.Interfaces.Keys
-    |> Seq.map (fun typ ->
-        typ.Value.FullName, 
-        packageType refMeta current typ entryPoint entryPointStyle
-    )
-    |> Array.ofSeq
+let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
+    let pkgs = ResizeArray()
+    let classes = HashSet(current.Classes.Keys)
+    let pkgTyp (typ: TypeDefinition) =
+        let p = packageType refMeta current asmName typ entryPoint entryPointStyle
+        if not (List.isEmpty p) then
+            pkgs.Add(typ.Value.FullName, p)
+    for typ in current.Interfaces.Keys do
+        classes.Remove(typ) |> ignore
+        pkgTyp typ
+    for typ in current.Classes.Keys do
+        pkgTyp typ
+    pkgs.ToArray()
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with

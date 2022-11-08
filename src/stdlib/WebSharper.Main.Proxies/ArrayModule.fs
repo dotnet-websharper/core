@@ -18,7 +18,6 @@
 //
 // $end{copyright}
 
-[<WebSharper.Name "Arrays">]
 [<WebSharper.Proxy
     "Microsoft.FSharp.Collections.ArrayModule, \
      FSharp.Core, Culture=neutral, \

@@ -57,11 +57,9 @@ type internal N =
 [<Proxy(typeof<System.Byte>)>]
 type internal NB =
 
-    [<Name "WebSharper.Numeric.ParseByte">]
     static member Parse(s: string) : System.Byte =
         N.Parse(s, System.Byte.MinValue, System.Byte.MaxValue, "Value was either too large or too small for an unsigned byte.")
 
-    [<Name "WebSharper.Numeric.TryParseByte">]
     static member TryParse(s: string, r: byref<System.Byte>) : bool =
         N.TryParse(s, System.Byte.MinValue, System.Byte.MaxValue, &r)
 
@@ -69,11 +67,9 @@ type internal NB =
 [<Proxy(typeof<System.SByte>)>]
 type internal NSB =
 
-    [<Name "WebSharper.Numeric.ParseSByte">]
     static member Parse(s: string) : System.SByte =
         N.Parse(s, System.SByte.MinValue, System.SByte.MaxValue, "Value was either too large or too small for a signed byte.")
 
-    [<Name "WebSharper.Numeric.TryParseSByte">]
     static member TryParse(s: string, r: byref<System.SByte>) : bool =
         N.TryParse(s, System.SByte.MinValue, System.SByte.MaxValue, &r)
 
@@ -82,11 +78,9 @@ type internal NSB =
 [<Name "Int16">]
 type internal NI16 =
 
-    [<Name "WebSharper.Numeric.ParseInt16">]
     static member Parse(s: string) : System.Int16 =
         N.Parse(s, System.Int16.MinValue, System.Int16.MaxValue, "Value was either too large or too small for an Int16.")
 
-    [<Name "WebSharper.Numeric.TryParseInt16">]
     static member TryParse(s: string, r: byref<System.Int16>) : bool =
         N.TryParse(s, System.Int16.MinValue, System.Int16.MaxValue, &r)
 
@@ -95,11 +89,9 @@ type internal NI16 =
 [<Name "Int32">]
 type internal NI32 =
 
-    [<Name "WebSharper.Numeric.ParseInt32">]
     static member Parse(s: string) : System.Int32 =
         N.Parse(s, System.Int32.MinValue, System.Int32.MaxValue, "Value was either too large or too small for an Int32.")
 
-    [<Name "WebSharper.Numeric.TryParseInt32">]
     static member TryParse(s: string, r: byref<System.Int32>) : bool =
         N.TryParse(s, System.Int32.MinValue, System.Int32.MaxValue, &r)
 
@@ -108,11 +100,9 @@ type internal NI32 =
 [<Name "UInt16">]
 type internal NUI16 =
 
-    [<Name "WebSharper.Numeric.ParseUInt16">]
     static member Parse(s: string) : System.UInt16 =
         N.Parse(s, System.UInt16.MinValue, System.UInt16.MaxValue, "Value was either too large or too small for an UInt16.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt16">]
     static member TryParse(s: string, r: byref<System.UInt16>) : bool =
         N.TryParse(s, System.UInt16.MinValue, System.UInt16.MaxValue, &r)
 
@@ -121,11 +111,9 @@ type internal NUI16 =
 [<Name "UInt32">]
 type internal NUI32 =
 
-    [<Name "WebSharper.Numeric.ParseUInt32">]
     static member Parse(s: string) : System.UInt32 =
         N.Parse(s, System.UInt32.MinValue, System.UInt32.MaxValue, "Value was either too large or too small for an UInt32.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt32">]
     static member TryParse(s: string, r: byref<System.UInt32>) : bool =
         N.TryParse(s, System.UInt32.MinValue, System.UInt32.MaxValue, &r)
 
@@ -134,11 +122,9 @@ type internal NUI32 =
 [<Name "Int64">]
 type internal NI64 =
 
-    [<Name "WebSharper.Numeric.ParseInt64">]
     static member Parse(s: string) : System.Int64 =
         N.Parse(s, System.Int64.MinValue, System.Int64.MaxValue, "Value was either too large or too small for an Int64.")
 
-    [<Name "WebSharper.Numeric.TryParseInt64">]
     static member TryParse(s: string, r: byref<System.Int64>) : bool =
         N.TryParse(s, System.Int64.MinValue, System.Int64.MaxValue, &r)
 
@@ -147,11 +133,9 @@ type internal NI64 =
 [<Name "UInt64">]
 type internal NUI64 =
 
-    [<Name "WebSharper.Numeric.ParseUInt64">]
     static member Parse(s: string) : System.UInt64 =
         N.Parse(s, System.UInt64.MinValue, System.UInt64.MaxValue, "Value was either too large or too small for an UInt64.")
 
-    [<Name "WebSharper.Numeric.TryParseUInt64">]
     static member TryParse(s: string, r: byref<System.UInt64>) : bool =
         N.TryParse(s, System.UInt64.MinValue, System.UInt64.MaxValue, &r)
 

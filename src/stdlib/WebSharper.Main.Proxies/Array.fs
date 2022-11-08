@@ -31,7 +31,7 @@ type private Comparer<'T> = System.Collections.Generic.Comparer<'T>
 [<AutoOpen; JavaScript>]
 module ArrayProxy =
 
-    [<Name "WebSharper.Arrays.binarySearch">]
+    [<Name "binarySearch">]
     let binarySearch (haystack: 'T[]) (comparer: 'T -> int) start finish =
         if start < 0 then raise (ArgumentOutOfRangeException("index", "Non-negative number required."))
         if finish > haystack.Length then raise (ArgumentException("Offset and length were out of bounds for the array or count is greater than the number of elements from index to the end of the source collection."))
@@ -52,7 +52,7 @@ module ArrayProxy =
                     search (pivot + 1) right
         search start (finish - 1)
 
-    [<Name "WebSharper.Arrays.binarySearchComparer">]
+    [<Name "binarySearchComparer">]
     let objBinarySearchComparer (needle: obj) =
        // Check for an implementation of IComparable
        if needle?CompareTo0 then
@@ -67,7 +67,7 @@ module ArrayProxy =
                        ArgumentException("At least one object must implement IComparable."))
                    |> raise
 
-    [<Name "WebSharper.Arrays.sortInternal">]
+    [<Name "sortInternal">]
     let sortInternal (keys: 'K[]) (index: int) (length: int) (comp: 'K * 'K -> int) (swap: int -> int -> unit) : unit =
         let partition l r =
             let pivot = keys.JS.[r]
@@ -86,7 +86,7 @@ module ArrayProxy =
                 quicksort (p + 1) r
         quicksort index (index + length - 1)
 
-    [<Name "WebSharper.Arrays.sortSub">]
+    [<Name "sortSub">]
     let sortSub (keys: 'K[]) (index: int) (length: int) (comp: 'K * 'K -> int) : unit =
         let swap i j =
             let k = keys.JS.[i]
@@ -94,7 +94,7 @@ module ArrayProxy =
             keys.JS.[j] <- k
         sortInternal keys index length comp swap
 
-    [<Name "WebSharper.Arrays.sortByKeys">]
+    [<Name "sortByKeys">]
     let sortByKeys (keys: 'K[]) (items: 'V[]) (index: int) (length: int) (comp: 'K * 'K -> int) : unit =
         let swap i j =
             let k = keys.JS.[i]
@@ -142,7 +142,7 @@ type private ArrayProxy =
     static member BinarySearch<'T>(haystack: 'T[], start: int, length: int, needle: 'T, comparer: IComparer<'T>) : int =
         binarySearch haystack (fun o -> comparer.Compare(needle, o)) start (start + length)
 
-    [<Name "WebSharper.Arrays.clear">]
+    [<Name "clear">]
     static member Clear(array: System.Array, index: int, length: int) : unit =
         if isNull array then raise (ArgumentNullException("array"))
         if index < 0 || length < 0 || index + length > array.Length then raise (IndexOutOfRangeException())
@@ -156,7 +156,7 @@ type private ArrayProxy =
     member this.Clone() =
         Array.copy (As<obj[]> this) :> obj
 
-    [<Name "WebSharper.Arrays.constrainedCopy">]
+    [<Name "constrainedCopy">]
     static member ConstrainedCopy(src: System.Array, srcIndex: int, dst: System.Array, dstIndex: int, length: int) =
         if src ===. dst && dstIndex <= srcIndex + length then
             let tmp = Array.init length (fun i -> (As<obj[]> src).[srcIndex + i])
@@ -196,7 +196,7 @@ type private ArrayProxy =
     static member FindAll<'T>(array: 'T[], predicate: Predicate<'T>) : 'T[] =
         Array.filter predicate.Invoke array
 
-    [<Name "WebSharper.Arrays.findIndexBound">]
+    [<Name "findIndexBound">]
     static member FindIndex<'T>(array: 'T[], startIndex: int, count: int, predicate: Predicate<'T>) : int =
         if isNull array then raise (ArgumentNullException("array"))
         if isNull predicate then raise (ArgumentNullException("match"))
@@ -223,7 +223,7 @@ type private ArrayProxy =
     static member FindLast<'T>(array: 'T[], predicate: Predicate<'T>) : 'T =
         defaultArg (Array.tryFindBack predicate.Invoke array) Unchecked.defaultof<'T>
 
-    [<Name "WebSharper.Arrays.findLastIndexBound">]
+    [<Name "findLastIndexBound">]
     static member FindLastIndex<'T>(array: 'T[], startIndex: int, count: int, predicate: Predicate<'T>) : int =
         if isNull array then raise (ArgumentNullException("array"))
         if isNull predicate then raise (ArgumentNullException("match"))
@@ -327,7 +327,7 @@ type private ArrayProxy =
     [<Inline "$array.reverse()">]
     static member Reverse<'T>(array: 'T[]) = X<unit>
 
-    [<Name "WebSharper.Arrays.reverse">]
+    [<Name "reverse">]
     static member Reverse(array: System.Array, offset: int, length: int) =
         let a = Array.rev (Array.sub (As array) offset length)
         Array.blit a 0 (As array) offset a.Length

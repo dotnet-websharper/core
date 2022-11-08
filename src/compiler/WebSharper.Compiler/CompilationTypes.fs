@@ -424,7 +424,7 @@ type internal MappedDictionary<'TKey, 'TOrigValue, 'TValue when 'TKey: equality>
 
 type CompilationError =
     | SourceError of string
-    | NameConflict of string * string
+    | NameConflict of string * string * string
     | TypeNotFound of TypeDefinition
     | MethodNotFound of TypeDefinition * Method * list<Method>
     | MethodNameNotFound of TypeDefinition * Method * list<string>
@@ -435,7 +435,7 @@ type CompilationError =
     override this.ToString() =
         match this with
         | SourceError msg -> msg
-        | NameConflict (msg, a) -> sprintf "%s at JavaScript address: '%s'" msg a
+        | NameConflict (msg, t, n) -> sprintf "%s on type %s JavaScript name: '%s'" msg t n
         | TypeNotFound typ -> sprintf "Type not found in JavaScript compilation: %s" typ.Value.FullName
         | MethodNotFound (typ, meth, candidates) ->
             sprintf "Method not found in JavaScript compilation: %s.%s, Candidates: %s" 

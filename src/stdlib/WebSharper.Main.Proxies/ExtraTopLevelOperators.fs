@@ -31,7 +31,7 @@ module M = WebSharper.Core.Macros
 let DefaultAsyncBuilder : Control.AsyncBuilder =
     As (AsyncBuilderProxy())
 
-[<Name "WebSharper.Arrays.create2D" >]
+[<Name "create2D" >]
 let CreateArray2D (rows : seq<#seq<'T>>) =
     let arr = rows |> Seq.map (Array.ofSeq) |> Array.ofSeq |> As<'T[,]>
     arr?dims <- 2

@@ -268,7 +268,7 @@ let StatementDefs =
             , ".NET - F# tail call position"
 
         // TypeScript
-        "ImportAll", [ Option Id, "identifier"; Str, "moduleName" ]
+        "Import", [ Option Id, "defaultImport"; Option Id, "fullImport"; List (Str * Id), "namedImports" ; Str, "moduleName" ]
             , "TypeScript - import * as ... from ..."
         "Export", [ Statement, "statement" ]
             , "TypeScript - export"
@@ -385,6 +385,7 @@ let code =
             | Option Id -> "Option.map this.TransformId " + x
             | List Id -> "List.map this.TransformId " + x
             | List (Tuple [Id; Expr]) -> "List.map (fun (a, b) -> this.TransformId a, this.TransformExpression b) " + x 
+            | List (Tuple [Object _; Id]) -> "List.map (fun (a, b) -> a, this.TransformId b) " + x 
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
@@ -452,6 +453,7 @@ let code =
             | Option Id -> "Option.iter this.VisitId " + x
             | List Id -> "List.iter this.VisitId " + x
             | List (Tuple [Id; Expr]) -> "List.iter (fun (a, b) -> this.VisitId a; this.VisitExpression b) " + x 
+            | List (Tuple [Object _; Id]) -> "List.iter (fun (a, b) -> this.VisitId b) " + x 
             | List Statement -> "List.iter this.VisitStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
@@ -544,6 +546,7 @@ let code =
                 | Option Id -> "defaultArg (Option.map string " + x + ") \"_\""
                 | List Id -> "\"[\" + String.concat \"; \" (List.map string " + x + ") + \"]\""
                 | List (Tuple [Id; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\"" 
+                | List (Tuple [Object _; Id]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + string b) " + x + ") + \"]\"" 
                 | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
                 | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 

@@ -24,7 +24,7 @@ module internal WebSharper.CollectionInternals
 
 open WebSharper.JavaScript
 
-[<Name "WebSharper.Arrays.splitInto">]
+[<Name "splitInto">]
 let ArraySplitInto count (arr: 'T[]) =
     if count <= 0 then failwith "Count must be positive"
     let len = arr.Length
@@ -43,7 +43,7 @@ let ArraySplitInto count (arr: 'T[]) =
             startIndex <- startIndex + minChunkSize
         res
 
-[<Name "WebSharper.Arrays.contains">]
+[<Name "arrContains">]
 let ArrayContains (item: 'T) (arr: 'T[])  =
     let mutable c = true
     let mutable i = 0
@@ -55,7 +55,7 @@ let ArrayContains (item: 'T) (arr: 'T[])  =
             i <- i + 1
     not c
 
-[<Name "WebSharper.Arrays.tryFindBack">]
+[<Name "tryFindBack">]
 let ArrayTryFindBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
@@ -65,7 +65,7 @@ let ArrayTryFindBack f (arr: _ []) =
         i <- i - 1
     res
 
-[<Name "WebSharper.Arrays.tryFindIndexBack">]
+[<Name "tryFindIndexBack">]
 let ArrayTryFindIndexBack f (arr: _ []) =
     let mutable res = None
     let mutable i = Array.length arr - 1
@@ -74,7 +74,7 @@ let ArrayTryFindIndexBack f (arr: _ []) =
         i <- i - 1
     res
 
-[<Name "WebSharper.Arrays.mapFold">]
+[<Name "mapFold">]
 let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : 'R[] * 'S =
     let r = JavaScript.Array(Array.length arr)
     let mutable acc = zero
@@ -84,7 +84,7 @@ let ArrayMapFold<'T, 'S, 'R> (f: 'S -> 'T -> 'R * 'S) (zero: 'S) (arr: 'T[]) : '
         acc <- b 
     r.Self, acc
 
-[<Name "WebSharper.Arrays.mapFoldBack">]
+[<Name "mapFoldBack">]
 let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) : 'R[] * 'S =
     let r = JavaScript.Array<'R>(Array.length arr)
     let mutable acc = zero
@@ -96,27 +96,27 @@ let ArrayMapFoldBack<'T,'S,'R> (f: 'T -> 'S -> 'R * 'S) (arr: 'T[]) (zero: 'S) :
         acc <- b 
     r.Self, acc
 
-[<Name "WebSharper.Arrays.mapInPlace">]
+[<Name "mapInPlace">]
 let mapInPlace (f: 'T1 -> 'T2) (arr: 'T1 []) =
     for i = 0 to Array.length arr - 1 do
         arr.JS.[i] <- As (f arr.JS.[i])
 
-[<Name "WebSharper.Arrays.mapiInPlace">]
+[<Name "mapiInPlace">]
 let mapiInPlace (f: int -> 'T1 -> 'T2) (arr: 'T1 []) : 'T2[] =
     for i = 0 to Array.length arr - 1 do
         arr.JS.[i] <- As (f i arr.JS.[i])
     As arr
 
-[<Name "WebSharper.Arrays.sortInPlaceByDescending">]
+[<Name "sortInPlaceByDescending">]
 let ArraySortInPlaceByDescending<'T,'U when 'U: comparison> (f: 'T -> 'U) (arr: 'T []) =
     (mapiInPlace (fun i x -> x, (f x, i)) arr).JS.Sort(fun (x, y) -> - compare (snd x) (snd y)) |> mapInPlace fst 
 
-[<Name "WebSharper.Seq.tryHead">]
+[<Name "tryHead">]
 let SeqTryHead (s: seq<'T>) =
     use e = Enumerator.Get s
     if e.MoveNext() then Some e.Current else None
 
-[<Name "WebSharper.Seq.tryItem">]
+[<Name "tryItem">]
 let SeqTryItem i (s: seq<'T>) =
     if i < 0 then None else
     let mutable j = 0
@@ -129,7 +129,7 @@ let SeqTryItem i (s: seq<'T>) =
             go <- false
     if go then Some e.Current else None
 
-[<Name "WebSharper.Seq.tryLast">]
+[<Name "tryLast">]
 let SeqTryLast (s: seq<'T>) =
     use e = Enumerator.Get s
     if e.MoveNext() then 
@@ -139,7 +139,7 @@ let SeqTryLast (s: seq<'T>) =
         Some c 
     else None
 
-[<Name "WebSharper.Seq.chunkBySize">]
+[<Name "chunkBySize">]
 let SeqChunkBySize (size: int) (s: seq<'T>) =
     if size <= 0 then failwith "Chunk size must be positive"
     Enumerable.Of <| fun () ->
@@ -156,7 +156,7 @@ let SeqChunkBySize (size: int) (s: seq<'T>) =
                 true
             else false
 
-[<Name "WebSharper.Arrays.countBy">]
+[<Name "countBy">]
 let ArrayCountBy (f: 'T -> 'K) (a: 'T[]) : ('K * int)[] =
     let d = System.Collections.Generic.Dictionary<'K, int>()
     let keys = JavaScript.Array()
@@ -171,7 +171,7 @@ let ArrayCountBy (f: 'T -> 'K) (a: 'T[]) : ('K * int)[] =
     As<'K[]> keys |> mapInPlace (fun k -> (k, d.[k]))
     As keys
 
-[<Name "WebSharper.Seq.except">]
+[<Name "except">]
 let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
     Enumerable.Of <| fun () ->
         let o  = Enumerator.Get s
@@ -191,7 +191,7 @@ let SeqExcept (itemsToExclude: seq<'T>) (s: seq<'T>) =
             else
                 false
 
-[<Name "WebSharper.List.skip">]
+[<Name "skip">]
 let ListSkip i (l : list<'T>) =
     let mutable res = l
     for j = 1 to i do
@@ -201,7 +201,7 @@ let ListSkip i (l : list<'T>) =
         | [] -> failwith "Input list too short."
     res
 
-[<Name "WebSharper.Arrays.groupBy">]
+[<Name "groupBy">]
 let ArrayGroupBy (f: 'T -> 'K when 'K : equality) (a: 'T[]) : ('K * 'T[])[] =
     let d = System.Collections.Generic.Dictionary<'K, 'T[]>()
     let keys = JavaScript.Array()
@@ -216,11 +216,11 @@ let ArrayGroupBy (f: 'T -> 'K when 'K : equality) (a: 'T[]) : ('K * 'T[])[] =
     As<'K[]> keys |> mapInPlace (fun k -> (k, d.[k]))
     As keys
 
-[<Name "WebSharper.Seq.insufficient">]
+[<Name "insufficient">]
 let InsufficientElements() =
     failwith "The input sequence has an insufficient number of elements."
 
-[<Name "WebSharper.Seq.last">]
+[<Name "last">]
 let SeqLast (s: seq<_>) =
     use e = Enumerator.Get s
     if not <| e.MoveNext() then InsufficientElements()
@@ -230,7 +230,7 @@ let SeqLast (s: seq<_>) =
             res <- e.Current
         res
 
-[<Name "WebSharper.Seq.contains">]
+[<Name "seqContains">]
 let SeqContains (el: 'T) (s: seq<'T>) =
     use e = Enumerator.Get s
     let mutable r = false
@@ -238,18 +238,18 @@ let SeqContains (el: 'T) (s: seq<'T>) =
         r <- e.Current = el
     r
 
-[<Name "WebSharper.List.skipWhile">]
+[<Name "skipWhile">]
 let rec ListSkipWhile<'T> (predicate : 'T -> bool) (list : list<'T>) : list<'T> =
     let mutable rest = list
     while not (List.isEmpty rest) && predicate (List.head rest) do
         rest <- List.tail rest 
     rest
 
-[<Name "WebSharper.Seq.nonNegative">]
+[<Name "nonNegative">]
 let InputMustBeNonNegative() =
     failwith "The input must be non-negative."
 
-[<Name "WebSharper.Arrays.transposeArray">]
+[<Name "transposeArray">]
 let ArrayTranspose (array:'T[][]) : 'T[][] =
     let len = array.Length
     if len = 0 then [||] else

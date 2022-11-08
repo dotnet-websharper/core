@@ -49,7 +49,7 @@ type Environment =
             ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ]
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
-            InFuncScope = false
+            InFuncScope = true
             OuterScope = true
         }
 
@@ -420,13 +420,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | VarDeclaration (id, e) ->
         match e with
         | IgnoreSourcePos.Undefined -> J.Empty 
-        | IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
-            match args with
-            | [ Value (String from) ] ->
-                J.Import(None, defineId env false id, from)  
-            | [ Value (String export); Value (String from) ] ->
-                J.Import(Some export, defineId env false id, from)  
-            | _ -> failwith "unrecognized args for import"
+        //| IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
+        //    match args with
+        //    | [ Value (String from) ] ->
+        //        J.Import(None, defineId env false id, from)  
+        //    | [ Value (String export); Value (String from) ] ->
+        //        J.Import(Some export, defineId env false id, from)  
+        //    | _ -> failwith "unrecognized args for import"
         | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, b, _) ->
         let id = transformId env x
@@ -477,11 +477,27 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | TryFinally(a, b) ->
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
+    | Import(a, b, c, d) ->
+        J.Import(
+            a |> Option.map (defineId env false), 
+            b |> Option.map (defineId env false), 
+            c |> List.map (fun (n, x) -> n, defineId env false x),
+            d)
+    | Export a ->
+        J.Export (trS a)
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
             J.ForVarIn(defineId env false a, None, trE b, trS c)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
+    | Class (n, b, i, m, g) ->
+        let innerEnv = env.NewInner()
+        let isAbstract =
+            m |> List.exists (function
+                | ClassMethod (_, _, _, None, _) -> true
+                | _ -> false
+            )
+        J.Class(J.Id.New(n), isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
 

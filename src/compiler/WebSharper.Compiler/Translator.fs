@@ -668,7 +668,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.FailedCompiledMethod(typ, meth)
             else
             let addr, cls = comp.TryLookupClassInfo(typ).Value
-            // for C# static auto-properties
             selfAddress <- Some addr   
             currentGenerics <- Array.ofList (cls.Generics @ gs)
             currentIsInline <- isInline info
@@ -704,6 +703,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
+            let addr, cls = comp.TryLookupClassInfo(typ).Value
+            selfAddress <- Some addr   
             currentNode <- M.ImplementationNode(typ, intf, meth)
             currentGenerics <- comp.GetAbtractMethodGenerics intf meth
             currentIsInline <- isInline info
@@ -767,7 +768,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         try
             currentNode <- M.TypeNode typ
             cctorCalls <- Set.singleton typ
-            selfAddress <- None
+            let addr, cls = comp.TryLookupClassInfo(typ).Value
+            selfAddress <- Some addr
             let res = this.TransformStatement expr |> breakStatement |> this.CheckResult
             comp.AddCompiledStaticConstructor(typ, res)
         with e ->
@@ -1311,6 +1313,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), trArgs())
         | M.NewIndexed (i) ->
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
+        | M.Static (name, ClassMethodKind.Simple)      
         | M.Func name ->
             Appl(this.SelfItem(name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.GlobalFunc address ->
@@ -1364,7 +1367,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     boundVars.Remove v |> ignore
                     getExpr mres
             getExpr macroResult
-        | _ -> this.Error("Invalid metadata for constructor.")
+        | _ -> this.Error($"Invalid metadata for constructor: %A{info}.")
 
     override this.TransformCopyCtor(typ, objExpr) =
         match comp.TryLookupClassAddressOrCustomType typ with
@@ -2105,7 +2108,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     match comp.TryLookupInterfaceInfo t with
                     | Some ii ->
                         warnIgnoringGenerics()
-                        Appl(GlobalAccess (ii.Address.MapName(fun n -> "is" + n)), [ trExpr ], Pure, Some 1)
+                        // todo have "is" address in metadata
+                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ "is" + (t.Value.FullName.Split('.') |> Array.last) ] }), [ trExpr ], Pure, Some 1)
                     | _ ->
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
         | TypeParameter _ | StaticTypeParameter _ -> 

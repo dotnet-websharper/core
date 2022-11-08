@@ -115,7 +115,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     logger.TimedStage "Source position transformations"
 
     let pkg = 
-        JavaScriptPackager.packageAssembly refMeta current (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+        JavaScriptPackager.packageAssembly refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
     logger.TimedStage "Packaging assembly"
     
@@ -140,13 +140,25 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             pkg |> mapPkg removeSourcePos.TransformStatement
 
     let addRes name path data = 
+        //let rename p =
+        //    let rec renameWithTag i =
+        //        let name = p + "-" + string i
+        //        if current.ResourceHashes.ContainsKey p then  
+        //            renameWithTag (i + 1)
+        //        else
+        //            name
+        //    if current.ResourceHashes.ContainsKey p then
+        //        renameWithTag 1
+        //    else 
+        //        p
+        
         match data with
         | Some d ->
             res.Add(name, d)
-            match path with
-            | Some p ->
-                resToHash.Add(p, d)
-            | _ -> ()
+            //match path with
+            //| Some p ->
+            //    resToHash.Add(p, d)
+            //| _ -> ()
         | None ->
             res.Add(name, [||])
 
@@ -175,7 +187,10 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         for (p, d) in resToHash do
-            current.ResourceHashes.Add(p, AST.StableHash.data d)
+            try                                   
+                current.ResourceHashes.Add(p, AST.StableHash.data d)
+            with _ ->
+                failwithf "Resource name collision: %s" p
             rMeta |> Option.iter (fun rm -> rm.ResourceHashes.Add(p, AST.StableHash.data d))
 
         logger.TimedStage "Hashing resources"
@@ -218,8 +233,6 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         for (n, p) in pkg do
-            let n = n.Split('/') |> Array.last
-
             let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter
             addRes (n + ".js") (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
