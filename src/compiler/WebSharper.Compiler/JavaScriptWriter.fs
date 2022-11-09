@@ -34,6 +34,7 @@ type Environment =
     {
         Preference : WebSharper.Core.JavaScript.Preferences
         mutable ScopeNames : Set<string>
+        mutable VisibleGlobals : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         ScopeVars : ResizeArray<string>
@@ -44,9 +45,10 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window"; "self"; "import" ]
+            ScopeNames = Set [ "window"; "self"; "globalThis"; "import" ]
+            VisibleGlobals = Set [ "window"; "self"; "globalThis"; "import" ]
             CompactVars = 0 
-            ScopeIds = Map [ Id.Global(), "self"; Id.Import(), "import" ]
+            ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
             ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
@@ -57,6 +59,7 @@ type Environment =
         {
             Preference = this.Preference    
             ScopeNames = this.ScopeNames
+            VisibleGlobals = this.VisibleGlobals
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             ScopeVars = ResizeArray()
@@ -70,6 +73,8 @@ type Environment =
             [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq, J.VarDecl) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
+
+let globalThis = J.Var (J.Id.New "globalThis")
 
 let undefVar (id: Id) =
 //#if DEBUG
@@ -97,21 +102,27 @@ let getCompactName (env: Environment) =
     name
 
 let defineId (env: Environment) addToDecl (id: Id) =
-    if env.Preference = P.Compact then
-        let name = getCompactName env    
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name 
-    else 
-        let vars = env.ScopeNames
-        let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
-        while vars |> Set.contains name do
-            name <- Resolve.newName name 
-        env.ScopeNames <- vars |> Set.add name
-        env.ScopeIds <- env.ScopeIds |> Map.add id name
-        if addToDecl then env.ScopeVars.Add(name)
-        name
-    |> J.Id.New
+    if id.HasStrongName then
+        let name = id.Name.Value 
+        env.ScopeNames <- env.ScopeNames |> Set.add name
+        env.VisibleGlobals <- env.VisibleGlobals |> Set.remove name
+        J.Id.New name
+    else
+        if env.Preference = P.Compact then
+            let name = getCompactName env    
+            env.ScopeIds <- env.ScopeIds |> Map.add id name
+            if addToDecl then env.ScopeVars.Add(name)
+            name 
+        else 
+            let vars = env.ScopeNames
+            let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
+            while vars |> Set.contains name do
+                name <- Resolve.newName name 
+            env.ScopeNames <- vars |> Set.add name
+            env.ScopeIds <- env.ScopeIds |> Map.add id name
+            if addToDecl then env.ScopeVars.Add(name)
+            name
+        |> J.Id.New
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
@@ -300,28 +311,27 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | GlobalAccess a ->
+        let fromGlobal() =
+            match List.rev a.Address.Value with
+            | [] -> globalThis
+            | h :: t ->
+                let ha =
+                    if env.VisibleGlobals.Contains(h) then
+                        J.Var (J.Id.New h)
+                    else
+                        globalThis.[J.Constant (J.String h)]
+                List.fold (fun e n ->
+                    e.[J.Constant (J.String n)]
+                ) ha t
         match a.Module with     
         | ImportedModule g when g.IsGlobal() ->
-            match a.Address.Value with
-            | [] -> J.Var (J.Id.New "self")
-            | h :: t ->
-                List.foldBack (fun n e -> 
-                    e.[J.Constant (J.String n)]
-                ) t (J.Var (J.Id.New h))
+            fromGlobal()
         | ImportedModule v ->
             List.foldBack (fun n e -> 
                 e.[J.Constant (J.String n)]
             ) a.Address.Value (J.Var (trI v))
         | StandardLibrary | JavaScriptFile _ ->
-            match a.Address.Value with
-            | [] -> J.Var (J.Id.New "self")
-            | h :: _ as a ->
-            match List.rev a with
-            | [] -> J.Var (J.Id.New h)
-            | h :: t -> 
-                List.fold (fun (e: J.Expression) n ->
-                    e.[J.Constant (J.String n)]
-                ) (J.Var (J.Id.New h)) t
+            fromGlobal()
         | _ -> 
             failwith "Addresses must be resolved to ImportedModule before writing JavaScript"
     | _ -> 
@@ -484,6 +494,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | TryFinally(a, b) ->
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
+    | Import(None, None, namedImports, "") ->
+        for (n, _) in namedImports do 
+            env.ScopeNames.Add(n) |> ignore
+            env.VisibleGlobals.Add(n) |> ignore
+        J.Empty
     | Import(a, b, c, d) ->
         J.Import(
             a |> Option.map (defineId env false), 

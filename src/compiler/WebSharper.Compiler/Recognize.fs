@@ -435,7 +435,9 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
     | S.Var a ->
         match a.Name with
         | "$global"
-        | "window" -> Var (Id.Global())
+        | "window" 
+        | "self"
+        | "globalThis" -> Var (Id.Global())
         | "$wsruntime" -> wsruntime
         | "arguments" -> Arguments
         | "undefined" -> Undefined

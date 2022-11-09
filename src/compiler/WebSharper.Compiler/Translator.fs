@@ -936,6 +936,24 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             Cast(t, trRes)
         else trRes
 
+    member this.Static(typ: Concrete<TypeDefinition>, ?name: string) =
+        match comp.TryLookupClassInfo(typ.Entity) with
+        | Some (a, _) ->
+            match name with
+            | Some n ->
+                GlobalAccess (a.Sub(n))     
+            | _ ->
+                GlobalAccess a
+        | _ ->
+            this.Error($"Failed to resolve address for type {typ.Entity.Value.AssemblyQualifiedName}")
+
+    member this.StaticSet(typ: Concrete<TypeDefinition>, name: string, value) =
+        match comp.TryLookupClassInfo(typ.Entity) with
+        | Some (a, _) ->
+            ItemSet(GlobalAccess a, Value (String name), value)
+        | _ ->
+            this.Error($"Failed to resolve address for type {typ.Entity.Value.AssemblyQualifiedName}")
+
     member this.CompileCall (info, gc: list<M.GenericParam>, opts: M.Optimizations, expr, thisObj, typ, meth, args, ?baseCall) =
         let opts =
             match opts.Warn with
@@ -1003,13 +1021,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.Static (name, kind) ->
             match kind with
             | ClassMethodKind.Getter ->
-                this.SelfItem(name)
+                this.Static(typ, name)
             | ClassMethodKind.Setter ->
-                ItemSet(this.TransformSelf(), Value (String name), trArgs()[0])
+                this.StaticSet(typ, name, trArgs()[0])
             | ClassMethodKind.Simple ->
-                ApplTyped(this.SelfItem(name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+                ApplTyped(this.Static(typ, name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
         | M.Func name ->
-            ApplTyped(this.SelfItem(name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+            ApplTyped(this.Static(typ, name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
         | M.GlobalFunc address ->
             // for methods compiled as static because of Prototype(false)
             let trThisArg = trThisObj() |> Option.toList
@@ -1254,13 +1272,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Static (name, kind) ->
                 match kind with
                 | ClassMethodKind.Getter ->
-                    JSRuntime.GetterOf (this.TransformSelf()) name
+                    JSRuntime.GetterOf (this.Static(typ)) name
                 | ClassMethodKind.Setter ->
-                    JSRuntime.SetterOf (this.TransformSelf()) name      
+                    JSRuntime.SetterOf (this.Static(typ)) name      
                 | ClassMethodKind.Simple ->
-                    this.SelfItem(name)
+                    this.Static(typ, name)
             | M.Func name ->
-                this.SelfItem(name)   
+                this.Static(typ, name)   
             | M.GlobalFunc address ->
                 GlobalAccess address
             | M.Instance (name, kind) -> 
@@ -1315,7 +1333,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static (name, ClassMethodKind.Simple)      
         | M.Func name ->
-            Appl(this.SelfItem(name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
+            Appl(this.Static(typ, name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.GlobalFunc address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline (isCompiled, assertReturnType) ->
@@ -1855,11 +1873,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some self -> GlobalAccess self
         | _ -> this.Error ("Self address missing")
 
-    member this.SelfItem (name: string) =
-        match selfAddress with
-        | Some self -> GlobalAccess (self.Sub(name))
-        | _ -> this.Error ("Self address missing")
-
     override this.TransformLet (a, b, c) =
         if CountVarOccurence(a).Get(c) = 1 then
             boundVars.Add(a, b)
@@ -1882,7 +1895,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.StaticField fname ->
                 CombineExpressions [
                     //this.TransformCctor typ.Entity
-                    this.SelfItem(fname)
+                    this.Static(typ, fname)
                 ]
             | M.OptionalField fname -> 
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
@@ -1939,7 +1952,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.StaticField fname ->
                 CombineExpressions [
                     //this.TransformCctor typ.Entity
-                    ItemSet(this.TransformSelf(), Value (String fname), this.TransformExpression value)
+                    this.StaticSet(typ, fname, this.TransformExpression value)
                 ]
             | M.OptionalField fname -> 
                 JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String fname)) (this.TransformExpression value)

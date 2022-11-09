@@ -38,6 +38,7 @@ type EntryPointStyle =
 
 let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition) entryPoint entryPointStyle =
     let imports = Dictionary<string, Dictionary<string, Id>>()
+    let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
     let statements = ResizeArray<Statement>()
@@ -95,6 +96,10 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             match address.Module with
             | StandardLibrary
             | JavaScriptFile _ ->
+                match address.Address.Value with
+                | [] -> ()
+                | l -> 
+                    jsUsed.Add(List.last l) |> ignore
                 GlobalAccess address    
             | JavaScriptModule m ->
                 let importWhat, importAs =
@@ -349,6 +354,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     if statements.Count = 0 then 
         [] 
     else
+        if jsUsed.Count > 0 then
+            let namedImports = 
+                jsUsed |> Seq.map (fun n -> n, Id.New(n, str = true)) |> List.ofSeq
+            declarations.Add(Import(None, None, namedImports, ""))
+
         for KeyValue(m, i) in imports do
             if m <> currentModuleName then
                 let defaultImport =
