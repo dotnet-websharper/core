@@ -48,7 +48,7 @@ let GetMutableExternals (meta: M.Info) =
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Function(_, _, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
                     res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
@@ -80,13 +80,13 @@ let GetMutableExternals (meta: M.Info) =
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
+                | IS.Function(_, _, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
                     a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
                 | _ -> ()
             elif m.Value.MethodName.StartsWith "get_" then
                 match e with
-                | IS.Function(_, _, IS.Return(IS.GlobalAccess a))
+                | IS.Function(_, _, _, IS.Return(IS.GlobalAccess a))
                 | IS.GlobalAccess a ->
                     tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
@@ -393,13 +393,13 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.String x -> String x
         | S.True -> Bool true
         |> Value
-    | S.Lambda (a, b, c, _) ->
+    | S.Lambda (a, b, c, d) ->
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
         let body = S.Block c
         let fres =
             match a with
-            | None -> Function (vars, None, transformStatement innerEnv body)
+            | None -> Function (vars, d, None, transformStatement innerEnv body)
             | Some a -> 
                 let f = env.NewVar a
                 StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body, []), Some f)
@@ -618,7 +618,7 @@ let parseDirect ext thisArg args dollarVars jsString =
             |> S.Block
             |> transformStatement env
     {
-        Expr = Function(args, None, body)
+        Expr = Function(args, false, None, body)
         Warnings =
             [
                 if env.UnknownArgs.Count > 0 then

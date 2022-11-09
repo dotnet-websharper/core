@@ -196,7 +196,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, b) ->
+                | Function (args, _, _, b) ->
                     let info = 
                         {
                             IsStatic = false
@@ -207,7 +207,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 | _ -> ()       
             | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, b) ->
+                | Function (args, _, _, b) ->
                     let info = 
                         {
                             IsStatic = true
@@ -218,7 +218,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 | _ -> ()   
             | M.Func name ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, b) ->
+                | Function (args, _, _, b) ->
                     statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
                 | _ -> ()   
             | _ -> ()
@@ -236,10 +236,10 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.New ->
                 if body <> Undefined then
                     match body with
-                    | Function ([], _, I.Empty) 
-                    | Function ([], _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
+                    | Function ([], _, _, I.Empty) 
+                    | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
                         ()
-                    | Function (args, _, b) ->                  
+                    | Function (args, _, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
                         members.Add (ClassConstructor (args, Some (bodyTransformer.TransformStatement b), TSType.Any))
                     | _ ->
@@ -247,7 +247,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.NewIndexed i ->
                 if body <> Undefined then
                     match body with
-                    | Function (args, _, b) ->  
+                    | Function (args, _, _, b) ->  
                         indexedCtors.Add (i, (args, bodyTransformer.TransformStatement b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
@@ -341,7 +341,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], None, ep)))
+        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], true, None, ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->

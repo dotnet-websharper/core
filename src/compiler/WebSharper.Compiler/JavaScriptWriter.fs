@@ -37,7 +37,7 @@ type Environment =
         mutable VisibleGlobals : Set<string>
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
-        ScopeVars : ResizeArray<string>
+        //ScopeVars : ResizeArray<string>
         FuncDecls : ResizeArray<J.Statement>
         mutable InFuncScope : bool
         OuterScope : bool
@@ -49,7 +49,7 @@ type Environment =
             VisibleGlobals = Set [ "window"; "self"; "globalThis"; "import" ]
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
-            ScopeVars = ResizeArray()
+            //ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
             OuterScope = true
@@ -62,15 +62,16 @@ type Environment =
             VisibleGlobals = this.VisibleGlobals
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
-            ScopeVars = ResizeArray()
+            //ScopeVars = ResizeArray()
             FuncDecls = ResizeArray()
             InFuncScope = true
             OuterScope = false
         }
 
     member this.Declarations =
-        if this.ScopeVars.Count = 0 then [] else
-            [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq, J.VarDecl) ]
+        []
+        //if this.ScopeVars.Count = 0 then [] else
+        //    [ J.Vars (this.ScopeVars |> Seq.map (fun v -> J.Id.New v, None) |> List.ofSeq, J.VarDecl) ]
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
 
@@ -111,7 +112,7 @@ let defineId (env: Environment) addToDecl (id: Id) =
         if env.Preference = P.Compact then
             let name = getCompactName env    
             env.ScopeIds <- env.ScopeIds |> Map.add id name
-            if addToDecl then env.ScopeVars.Add(name)
+            //if addToDecl then env.ScopeVars.Add(name)
             name 
         else 
             let vars = env.ScopeNames
@@ -120,7 +121,7 @@ let defineId (env: Environment) addToDecl (id: Id) =
                 name <- Resolve.newName name 
             env.ScopeNames <- vars |> Set.add name
             env.ScopeIds <- env.ScopeIds |> Map.add id name
-            if addToDecl then env.ScopeVars.Add(name)
+            //if addToDecl then env.ScopeVars.Add(name)
             name
         |> J.Id.New
 
@@ -218,16 +219,16 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
-    | Function (ids, _, b) ->
+    | Function (ids, a, _, b) ->
         let innerEnv = env.NewInner()
         let args = ids |> List.map (defineId innerEnv false) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
-        let useStrict =
-            if env.OuterScope then
-                [ J.Ignore (J.Constant (J.String "use strict")) ]
-            else []
-        J.Lambda(None, args, flattenJS (useStrict @ innerEnv.Declarations @ body), false)
+        //let useStrict =
+        //    if env.OuterScope then
+        //        [ J.Ignore (J.Constant (J.String "use strict")) ]
+        //    else []
+        J.Lambda(None, args, flattenJS (innerEnv.Declarations @ body), a)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -311,7 +312,19 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         let innerEnv = env.NewInner()
         J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | GlobalAccess a ->
-        let fromGlobal() =
+        match a.Module with     
+        | ImportedModule g when g.IsGlobal() ->
+            match List.rev a.Address.Value with
+            | [] -> failwith "top scope of current module not accessible directly"
+            | h :: t ->
+                List.fold (fun e n ->
+                    e.[J.Constant (J.String n)]
+                ) (J.Var (J.Id.New h)) t
+        | ImportedModule v ->
+            List.foldBack (fun n e -> 
+                e.[J.Constant (J.String n)]
+            ) a.Address.Value (J.Var (trI v))
+        | StandardLibrary | JavaScriptFile _ ->
             match List.rev a.Address.Value with
             | [] -> globalThis
             | h :: t ->
@@ -323,15 +336,6 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 List.fold (fun e n ->
                     e.[J.Constant (J.String n)]
                 ) ha t
-        match a.Module with     
-        | ImportedModule g when g.IsGlobal() ->
-            fromGlobal()
-        | ImportedModule v ->
-            List.foldBack (fun n e -> 
-                e.[J.Constant (J.String n)]
-            ) a.Address.Value (J.Var (trI v))
-        | StandardLibrary | JavaScriptFile _ ->
-            fromGlobal()
         | _ -> 
             failwith "Addresses must be resolved to ImportedModule before writing JavaScript"
     | _ -> 
@@ -436,7 +440,9 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Return a -> J.Return (Some (trE a))
     | VarDeclaration (id, e) ->
         match e with
-        | IgnoreSourcePos.Undefined -> J.Empty 
+        | IgnoreSourcePos.Undefined -> 
+            J.Vars([transformId env id, None], J.LetDecl)
+            //J.Empty 
         //| IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
         //    match args with
         //    | [ Value (String from) ] ->
@@ -444,7 +450,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         //    | [ Value (String export); Value (String from) ] ->
         //        J.Import(Some export, defineId env false id, from)  
         //    | _ -> failwith "unrecognized args for import"
-        | _ -> J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
+        | _ -> 
+            let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
+            J.Vars([transformId env id, Some (trE e)], kind)
+            //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, b, _) ->
         let id = transformId env x
         let innerEnv = env.NewInner()

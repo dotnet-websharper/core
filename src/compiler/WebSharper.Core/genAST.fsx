@@ -102,11 +102,11 @@ let ExprDefs =
             , "Contains a literal value"
         "Application", [ Expr, "func" ; List Expr, "arguments"; ApplicationInfo, "info" ]
             , "Function application with extra information. \
-               The `pure` field should be true only when the function called has no side effects, so the side effects of \
+               The `Purity` field should be true only when the function called has no side effects, so the side effects of \
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
-               The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
+               The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
                and does not use the `this` value."
-        "Function", [ List Id, "parameters"; Option Type, "return"; Statement, "body" ]
+        "Function", [ List Id, "parameters"; Bool, "isArrow"; Option Type, "return"; Statement, "body" ]
             , "Function declaration"
         "VarSet", [ Id, "variable"; Expr, "value" ]
             , "Variable set"
@@ -135,7 +135,7 @@ let ExprDefs =
         "Self", []
             , "Temporary - Refers to the class from a static method"
         "Base", []
-            , "Temporary - Refers to the base class from an instance method"
+            , "Refers to the base class from an instance method, `super` in JavaScript"
         "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
             , ".NET - Method call"
         "CallNeedingMoreArgs", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
@@ -205,7 +205,7 @@ let ExprDefs =
         "Cast", [ TSType, "targetType"; Expr, "expression" ]
             , "TypeScript - type cast <...>..."
         "ClassExpr", [ Option Str, "name"; Option Expr, "baseClass"; List Statement, "members" ]
-            , "JavaScript ES6 - class { ... }"
+            , "JavaScript - class { ... }"
         "ObjectExpr", [ Type, "objectType"; List (Tuple [Option Expr; Expr]), "members" ]
             , ".NET - F# object expression"
     ]    
@@ -267,25 +267,25 @@ let StatementDefs =
         "DoNotReturn", []
             , ".NET - F# tail call position"
 
-        // TypeScript
+        // JavaScript/TypeScript
         "Import", [ Option Id, "defaultImport"; Option Id, "fullImport"; List (Str * Id), "namedImports" ; Str, "moduleName" ]
-            , "TypeScript - import * as ... from ..."
+            , "JavaScript - import * as ... from ..."
         "ExportDecl", [ Bool, "isDefault"; Statement, "statement" ]
-            , "TypeScript - export"
+            , "JavaScript - export"
         "Declare", [ Statement, "statement" ]
             , "TypeScript - declare ..."
         "Namespace", [ Str, "name"; List Statement, "statements" ]
             , "TypeScript - namespace { ... }"
         "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
-            , "JavaScript ES6 - class { ... }"
+            , "JavaScript - class { ... }"
         "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
-            , "JavaScript ES6 - class method"
+            , "JavaScript - class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
-            , "JavaScript ES6 - class method"
+            , "JavaScript - class method"
         "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Bool, "body" ]
-            , "JavaScript ES6 - class plain property"
+            , "JavaScript - class plain property"
         "ClassStatic", [ Statement, "optional" ]
-            , "JavaScript ES6 - class static block"
+            , "JavaScript - class static block"
         "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
         "Alias", [ TSType, "alias"; TSType, "origType" ]

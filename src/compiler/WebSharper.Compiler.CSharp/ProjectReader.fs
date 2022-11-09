@@ -486,7 +486,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let hasInit =
         if inits.Count = 0 then false else 
-        Function([], None, ExprStatement (Sequential (inits |> List.ofSeq)))
+        Function([], true, None, ExprStatement (Sequential (inits |> List.ofSeq)))
         |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
@@ -1025,7 +1025,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     if obj.ReferenceEquals(parsed.ReturnType, Unchecked.defaultof<_>) then None
                     else Some parsed.ReturnType
                 if isInline then
-                    let b = Function(args, returnType, parsed.Body)
+                    let b = Function(args, true, returnType, parsed.Body)
                     let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
                     let b = 
                         match thisVar with
@@ -1037,9 +1037,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     if isInterface then
                         let thisVar = Id.New "$this"
                         let b = ReplaceThisWithVar(thisVar).TransformStatement(parsed.Body)
-                        Function(thisVar :: args, returnType, b)
+                        Function(thisVar :: args, true, returnType, b)
                     else
-                        Function(args, returnType, parsed.Body)
+                        Function(args, true, returnType, parsed.Body)
 
             let getVars() =
                 // TODO: do not parse method body
@@ -1191,7 +1191,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.StaticConstructor ->
                 let body =
                     match getBody false with
-                    | Function([], _, body) -> body
+                    | Function([], _, _, body) -> body
                     | _ -> failwithf "static constructor should be a function"
                 clsMembers.Add (NotResolvedMember.StaticConstructor body)
         | _ -> 

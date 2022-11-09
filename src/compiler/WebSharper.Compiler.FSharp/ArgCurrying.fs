@@ -96,7 +96,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, isInstance) 
     override this.VisitHole i =
         this.VisitId(margs.[i])
 
-    override this.VisitFunction(args, ret, body) =
+    override this.VisitFunction(args, arr, ret, body) =
         this.VisitStatement body
 
     override this.VisitLet(var, value, body) =

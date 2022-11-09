@@ -656,7 +656,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             mdef.Value.ReturnType
                                         | _ -> VoidType
                                     if returnType = VoidType then
-                                        Function(vars, None, ExprStatement b)
+                                        Function(vars, true, None, ExprStatement b)
                                     else
                                         Lambda(vars, Some returnType, b)
                         let currentMethod =
@@ -703,9 +703,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     }
                                 let setb =
                                     match body with
-                                    | Function([], ret, Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
+                                    | Function([], arr, ret, Return (FieldGet(None, {Entity = scDef; Generics = []}, name))) ->
                                         let value = CodeReader.newId()                          
-                                        Function ([value], ret, (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
+                                        Function ([value], arr, ret, (ExprStatement <| FieldSet(None, NonGeneric scDef, name, Var value)))
                                     | _ -> 
                                         error "unexpected form in module let body"
                                         Undefined
@@ -826,7 +826,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Member.StaticConstructor ->
                     let body =
                         match getBody false with
-                        | _, Function([], _, body) -> body
+                        | _, Function([], _, _, body) -> body
                         | _ -> failwithf "static constructor should be a function"
                     clsMembers.Add (NotResolvedMember.StaticConstructor body)
             | None ->

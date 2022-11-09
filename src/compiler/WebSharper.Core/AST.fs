@@ -131,10 +131,10 @@ and Expression =
     | Var of Variable:Id
     /// Contains a literal value
     | Value of Value:Literal
-    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     | Application of Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo
     /// Function declaration
-    | Function of Parameters:list<Id> * Return:option<Type> * Body:Statement
+    | Function of Parameters:list<Id> * IsArrow:bool * Return:option<Type> * Body:Statement
     /// Variable set
     | VarSet of Variable:Id * Value:Expression
     /// Sequential evaluation of expressions, value is taken from the last
@@ -161,7 +161,7 @@ and Expression =
     | FuncWithThis of ThisParam:Id * Parameters:list<Id> * Return:option<Type> * Body:Statement
     /// Temporary - Refers to the class from a static method
     | Self
-    /// Temporary - Refers to the base class from an instance method
+    /// Refers to the base class from an instance method, `super` in JavaScript
     | Base
     /// .NET - Method call
     | Call of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> * Arguments:list<Expression>
@@ -231,7 +231,7 @@ and Expression =
     | Hole of Index:int
     /// TypeScript - type cast <...>...
     | Cast of TargetType:TSType * Expression:Expression
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     | ClassExpr of Name:option<string> * BaseClass:option<Expression> * Members:list<Statement>
     /// .NET - F# object expression
     | ObjectExpr of ObjectType:Type * Members:list<option<Expression> * Expression>
@@ -310,23 +310,23 @@ and Statement =
     | GotoCase of CaseExpression:option<Expression>
     /// .NET - F# tail call position
     | DoNotReturn
-    /// TypeScript - import * as ... from ...
+    /// JavaScript - import * as ... from ...
     | Import of DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string
-    /// TypeScript - export
+    /// JavaScript - export
     | ExportDecl of IsDefault:bool * Statement:Statement
     /// TypeScript - declare ...
     | Declare of Statement:Statement
     /// TypeScript - namespace { ... }
     | Namespace of Name:string * Statements:list<Statement>
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     | Class of ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     | ClassMethod of Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
-    /// JavaScript ES6 - class plain property
+    /// JavaScript - class plain property
     | ClassProperty of Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool
-    /// JavaScript ES6 - class static block
+    /// JavaScript - class static block
     | ClassStatic of Optional:Statement
     /// TypeScript - interface { ... }
     | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
@@ -352,12 +352,12 @@ type Transformer() =
     /// Contains a literal value
     abstract TransformValue : Value:Literal -> Expression
     override this.TransformValue a = Value (a)
-    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract TransformApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> Expression
     override this.TransformApplication (a, b, c) = Application (this.TransformExpression a, List.map this.TransformExpression b, c)
     /// Function declaration
-    abstract TransformFunction : Parameters:list<Id> * Return:option<Type> * Body:Statement -> Expression
-    override this.TransformFunction (a, b, c) = Function (List.map this.TransformId a, b, this.TransformStatement c)
+    abstract TransformFunction : Parameters:list<Id> * IsArrow:bool * Return:option<Type> * Body:Statement -> Expression
+    override this.TransformFunction (a, b, c, d) = Function (List.map this.TransformId a, b, c, this.TransformStatement d)
     /// Variable set
     abstract TransformVarSet : Variable:Id * Value:Expression -> Expression
     override this.TransformVarSet (a, b) = VarSet (this.TransformId a, this.TransformExpression b)
@@ -399,7 +399,7 @@ type Transformer() =
     /// Temporary - Refers to the class from a static method
     abstract TransformSelf : unit -> Expression
     override this.TransformSelf () = Self 
-    /// Temporary - Refers to the base class from an instance method
+    /// Refers to the base class from an instance method, `super` in JavaScript
     abstract TransformBase : unit -> Expression
     override this.TransformBase () = Base 
     /// .NET - Method call
@@ -504,7 +504,7 @@ type Transformer() =
     /// TypeScript - type cast <...>...
     abstract TransformCast : TargetType:TSType * Expression:Expression -> Expression
     override this.TransformCast (a, b) = Cast (a, this.TransformExpression b)
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     abstract TransformClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
     override this.TransformClassExpr (a, b, c) = ClassExpr (a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
     /// .NET - F# object expression
@@ -587,10 +587,10 @@ type Transformer() =
     /// .NET - F# tail call position
     abstract TransformDoNotReturn : unit -> Statement
     override this.TransformDoNotReturn () = DoNotReturn 
-    /// TypeScript - import * as ... from ...
+    /// JavaScript - import * as ... from ...
     abstract TransformImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> Statement
     override this.TransformImport (a, b, c, d) = Import (Option.map this.TransformId a, Option.map this.TransformId b, List.map (fun (a, b) -> a, this.TransformId b) c, d)
-    /// TypeScript - export
+    /// JavaScript - export
     abstract TransformExportDecl : IsDefault:bool * Statement:Statement -> Statement
     override this.TransformExportDecl (a, b) = ExportDecl (a, this.TransformStatement b)
     /// TypeScript - declare ...
@@ -599,19 +599,19 @@ type Transformer() =
     /// TypeScript - namespace { ... }
     abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
     override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     abstract TransformClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformClass (a, b, c, d, e) = Class (this.TransformId a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e)
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     abstract TransformClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassMethod (a, b, c, d, e) = ClassMethod (a, b, List.map this.TransformId c, Option.map this.TransformStatement d, e)
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (a, b) -> this.TransformId a, b) a, Option.map this.TransformStatement b, c)
-    /// JavaScript ES6 - class plain property
+    /// JavaScript - class plain property
     abstract TransformClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool -> Statement
     override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, d)
-    /// JavaScript ES6 - class static block
+    /// JavaScript - class static block
     abstract TransformClassStatic : Optional:Statement -> Statement
     override this.TransformClassStatic a = ClassStatic (this.TransformStatement a)
     /// TypeScript - interface { ... }
@@ -632,7 +632,7 @@ type Transformer() =
         | Var a -> this.TransformVar a
         | Value a -> this.TransformValue a
         | Application (a, b, c) -> this.TransformApplication (a, b, c)
-        | Function (a, b, c) -> this.TransformFunction (a, b, c)
+        | Function (a, b, c, d) -> this.TransformFunction (a, b, c, d)
         | VarSet (a, b) -> this.TransformVarSet (a, b)
         | Sequential a -> this.TransformSequential a
         | NewTuple (a, b) -> this.TransformNewTuple (a, b)
@@ -744,12 +744,12 @@ type Visitor() =
     /// Contains a literal value
     abstract VisitValue : Value:Literal -> unit
     override this.VisitValue a = (())
-    /// Function application with extra information. The `pure` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `knownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
+    /// Function application with extra information. The `Purity` field should be true only when the function called has no side effects, so the side effects of the expression is the same as evaluating `func` then the expressions in the `arguments` list. The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments and does not use the `this` value.
     abstract VisitApplication : Func:Expression * Arguments:list<Expression> * Info:ApplicationInfo -> unit
     override this.VisitApplication (a, b, c) = this.VisitExpression a; List.iter this.VisitExpression b; ()
     /// Function declaration
-    abstract VisitFunction : Parameters:list<Id> * Return:option<Type> * Body:Statement -> unit
-    override this.VisitFunction (a, b, c) = List.iter this.VisitId a; (); this.VisitStatement c
+    abstract VisitFunction : Parameters:list<Id> * IsArrow:bool * Return:option<Type> * Body:Statement -> unit
+    override this.VisitFunction (a, b, c, d) = List.iter this.VisitId a; (); (); this.VisitStatement d
     /// Variable set
     abstract VisitVarSet : Variable:Id * Value:Expression -> unit
     override this.VisitVarSet (a, b) = this.VisitId a; this.VisitExpression b
@@ -789,7 +789,7 @@ type Visitor() =
     /// Temporary - Refers to the class from a static method
     abstract VisitSelf : unit -> unit
     override this.VisitSelf () = ()
-    /// Temporary - Refers to the base class from an instance method
+    /// Refers to the base class from an instance method, `super` in JavaScript
     abstract VisitBase : unit -> unit
     override this.VisitBase () = ()
     /// .NET - Method call
@@ -894,7 +894,7 @@ type Visitor() =
     /// TypeScript - type cast <...>...
     abstract VisitCast : TargetType:TSType * Expression:Expression -> unit
     override this.VisitCast (a, b) = (); this.VisitExpression b
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     abstract VisitClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> unit
     override this.VisitClassExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter this.VisitStatement c
     /// .NET - F# object expression
@@ -975,10 +975,10 @@ type Visitor() =
     /// .NET - F# tail call position
     abstract VisitDoNotReturn : unit -> unit
     override this.VisitDoNotReturn () = ()
-    /// TypeScript - import * as ... from ...
+    /// JavaScript - import * as ... from ...
     abstract VisitImport : DefaultImport:option<Id> * FullImport:option<Id> * NamedImports:list<string * Id> * ModuleName:string -> unit
     override this.VisitImport (a, b, c, d) = Option.iter this.VisitId a; Option.iter this.VisitId b; List.iter (fun (a, b) -> this.VisitId b) c; ()
-    /// TypeScript - export
+    /// JavaScript - export
     abstract VisitExportDecl : IsDefault:bool * Statement:Statement -> unit
     override this.VisitExportDecl (a, b) = (); this.VisitStatement b
     /// TypeScript - declare ...
@@ -987,19 +987,19 @@ type Visitor() =
     /// TypeScript - namespace { ... }
     abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
     override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
-    /// JavaScript ES6 - class { ... }
+    /// JavaScript - class { ... }
     abstract VisitClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitClass (a, b, c, d, e) = this.VisitId a; Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; ()
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     abstract VisitClassMethod : Info:ClassMethodInfo * Name:string * Parameters:list<Id> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassMethod (a, b, c, d, e) = (); (); List.iter this.VisitId c; Option.iter this.VisitStatement d; ()
-    /// JavaScript ES6 - class method
+    /// JavaScript - class method
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
-    /// JavaScript ES6 - class plain property
+    /// JavaScript - class plain property
     abstract VisitClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Body:bool -> unit
     override this.VisitClassProperty (a, b, c, d) = (); (); (); ()
-    /// JavaScript ES6 - class static block
+    /// JavaScript - class static block
     abstract VisitClassStatic : Optional:Statement -> unit
     override this.VisitClassStatic a = (this.VisitStatement a)
     /// TypeScript - interface { ... }
@@ -1020,7 +1020,7 @@ type Visitor() =
         | Var a -> this.VisitVar a
         | Value a -> this.VisitValue a
         | Application (a, b, c) -> this.VisitApplication (a, b, c)
-        | Function (a, b, c) -> this.VisitFunction (a, b, c)
+        | Function (a, b, c, d) -> this.VisitFunction (a, b, c, d)
         | VarSet (a, b) -> this.VisitVarSet (a, b)
         | Sequential a -> this.VisitSequential a
         | NewTuple (a, b) -> this.VisitNewTuple (a, b)
@@ -1125,7 +1125,7 @@ module IgnoreSourcePos =
     let (|Var|_|) x = match ignoreExprSourcePos x with Var a -> Some a | _ -> None
     let (|Value|_|) x = match ignoreExprSourcePos x with Value a -> Some a | _ -> None
     let (|Application|_|) x = match ignoreExprSourcePos x with Application (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|Function|_|) x = match ignoreExprSourcePos x with Function (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|VarSet|_|) x = match ignoreExprSourcePos x with VarSet (a, b) -> Some (a, b) | _ -> None
     let (|Sequential|_|) x = match ignoreExprSourcePos x with Sequential a -> Some a | _ -> None
     let (|NewTuple|_|) x = match ignoreExprSourcePos x with NewTuple (a, b) -> Some (a, b) | _ -> None
@@ -1229,7 +1229,7 @@ module Debug =
         | Var a -> "Var" + "(" + string a + ")"
         | Value a -> "Value" + "(" + PrintObject a.Value + ")"
         | Application (a, b, c) -> "Application" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + PrintObject c + ")"
-        | Function (a, b, c) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + defaultArg (Option.map PrintObject b) "_" + ", " + PrintStatement c + ")"
+        | Function (a, b, c, d) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + PrintObject b + ", " + defaultArg (Option.map PrintObject c) "_" + ", " + PrintStatement d + ")"
         | VarSet (a, b) -> "VarSet" + "(" + string a + ", " + PrintExpression b + ")"
         | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | NewTuple (a, b) -> "NewTuple" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ")"
@@ -1358,14 +1358,14 @@ module ClassMethodInfo =
 module ExtraForms =
     module I = IgnoreSourcePos
 
-    let Lambda (a, ret, b) = Function (a, ret, Return b)
+    let Lambda (a, ret, b) = Function (a, true, ret, Return b)
     let (|Lambda|_|) expr =
         match expr with
-        | Function (a, ret, I.Return b) -> Some (a, ret, b)
-        | Function (a, ret, I.ExprStatement b) -> Some (a, ret, Sequential [ b; Value Null ])
+        | Function (a, true, ret, I.Return b) -> Some (a, ret, b)
+        | Function (a, true, ret, I.ExprStatement b) -> Some (a, ret, Sequential [ b; Value Null ])
         | _ -> None
 
-    let CurriedLambda (a, ret, b) = List.foldBack (fun a b -> Function ([a], ret, Return b)) a b
+    let CurriedLambda (a, ret, b) = List.foldBack (fun a b -> Function ([a], true, ret, Return b)) a b
     
     let IgnoredStatementExpr(a) = StatementExpr(a, None)
     

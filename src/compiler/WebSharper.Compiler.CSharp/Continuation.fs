@@ -261,8 +261,8 @@ type ExtractVarDeclarations() =
         vars.Add i
         Sequential [ VarSet(i, this.TransformExpression v); this.TransformExpression b ]
 
-    override this.TransformFunction(a, ret, b) =
-        Function(a, ret, b)
+    override this.TransformFunction(a, arr, ret, b) =
+        Function(a, arr, ret, b)
      
 type State =
     | SingleState of ResizeArray<Statement>
@@ -454,14 +454,14 @@ type GeneratorTransformer(labels) =
 
         Return <| Object [ 
             "GetEnumerator", 
-                Function ([], None,
+                Function ([], true, None,
                     Block [
-                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], None, Empty)])) // TODO: disposing iterators
+                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], true, None, Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
                         yield! this.LocalFunctions
                         for v in extract.Vars do
                             yield VarDeclaration(v, Undefined)
-                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], None, inner))
+                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], true, None, inner))
                         yield Return (Var en)
                     ]
                 )
@@ -531,7 +531,7 @@ type AsyncTransformer(labels, returns) =
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
             yield! this.LocalFunctions
-            yield ExprStatement <| VarSet(run, Function ([], None, inner))
+            yield ExprStatement <| VarSet(run, Function ([], true, None, inner))
             yield ExprStatement <| Appl (Var run, [], NonPure, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)

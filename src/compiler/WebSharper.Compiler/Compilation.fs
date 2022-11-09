@@ -1262,9 +1262,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         mi.Kind <- NotResolvedMemberKind.AsStatic         
                         mi.Body <- 
                             match mi.Body with
-                            | Function(args, typ, b) ->
+                            | Function(args, _, typ, b) ->
                                 let thisVar = Id.New("$this", mut = false)
-                                Function (thisVar :: args, typ,
+                                Function (thisVar :: args, false, typ,
                                     ReplaceThisWithVar(thisVar).TransformStatement(b) 
                                 )
                             | _ ->
@@ -1725,11 +1725,11 @@ type Compilation(meta: Info, ?hasGraph) =
                 let comp = compiledStaticMember name k res.HasWSPrototype nr
                 let body =
                     match nr.Body with
-                    | Function(cargs, typ, cbody) ->
+                    | Function(cargs, _, typ, cbody) ->
                         let o = Id.New "o"
                         let b = 
                             Let(o, Object[], Sequential [ StatementExpr (ReplaceThisWithVar(o).TransformStatement(cbody), None); Var o ])
-                        Function(cargs, typ, Return b)
+                        Function(cargs, false, typ, Return b)
                     | _ -> 
                         failwith "Expecting a function as compiled form of constructor"
                 compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, body))

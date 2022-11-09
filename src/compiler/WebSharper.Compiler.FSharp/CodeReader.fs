@@ -701,7 +701,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             
             let lam vars typ body isUnitReturn =
                 if isUnitReturn then
-                    Function(vars, None, ExprStatement body)
+                    Function(vars, true, None, ExprStatement body)
                 else
                     Lambda(vars, typ, body)   
             match loop [] expr with
@@ -911,7 +911,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let j = newId()
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
-                | Function ([i], _, ExprStatement b) -> i, b
+                | Function ([i], _, _, ExprStatement b) -> i, b
                 | _ -> parsefailf "Unexpected form of consumeExpr in FastIntegerForLoop pattern"     
             For (
                 Some (Sequential [NewVar(i, tr start); NewVar (j, tr end_)]), 

@@ -1293,7 +1293,7 @@ type RoslynTransformer(env: Environment) =
             | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 // when right is also a ref, this is a ref local set
                 match r, right with
-                | Var id, Object [ "get", (Function ([], _, Return getVal)); "set", (Function ([_], _, ExprStatement _)) ] ->
+                | Var id, Object [ "get", (Function ([], true, _, Return getVal)); "set", (Function ([_], true, _, ExprStatement _)) ] ->
                     VarSet(id, right)
                 | _ ->
                     withResultValue right <| SetRef r
@@ -2126,9 +2126,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function(ids, ret, body)
+            Function(ids, true, ret, body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -2149,9 +2149,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function([id], ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function([id], true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function([id], ret, body)
+            Function([id], true, ret, body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2177,9 +2177,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function(ids, ret, body)
+            Function(ids, true, ret, body)
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with

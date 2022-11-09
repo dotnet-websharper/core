@@ -59,7 +59,7 @@ let AppItem (obj, item, args) =
     ApplAny(ItemGet(obj, Value (String item), Pure), args)
 
 let func vars ret body isReturn =
-    if isReturn then Lambda(vars, ret, body) else Function(vars, ret, ExprStatement body)
+    if isReturn then Lambda(vars, ret, body) else Function(vars, true, ret, ExprStatement body)
 
 let thisFunc (this: Id) vars ret body isReturn =
     func vars ret (FixThisScope(this.VarType).Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn

@@ -123,13 +123,13 @@ type ExamineClosures (logger: LoggerBase, comp: Compilation, moveNonCapturingFun
             Empty  
         else res
 
-    override this.TransformFunction(args, ret, body) =
+    override this.TransformFunction(args, arr, ret, body) =
         if outerScope then
             outerScope <- false
             CollectVariables.ScopeVars(body) |> Seq.iter (topScopeVars.Add >> ignore)
             let trBody = this.TransformStatement body
             outerScope <- true
-            Function(args, ret, CombineStatements (trBody :: List.ofSeq movedToTop))
+            Function(args, arr, ret, CombineStatements (trBody :: List.ofSeq movedToTop))
         else
             this.EnterScope(args, body)
             let trBody = this.TransformStatement body
@@ -137,7 +137,7 @@ type ExamineClosures (logger: LoggerBase, comp: Compilation, moveNonCapturingFun
                 let f = Id.New("f", mut = false)
                 movedToTop.Add(FuncDeclaration(f, args, body, []))
                 Var f
-            else Function(args, ret, trBody)
+            else Function(args, arr, ret, trBody)
 
     override this.TransformId(i) =
         match scopeChain with

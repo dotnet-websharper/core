@@ -61,10 +61,10 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
     override this.TransformCoerce (a, b, c) = if isInline then base.TransformCoerce(a, b, c) else invalidForm "Coerce"
 
-    override this.TransformFunction(a, ret, b) =
+    override this.TransformFunction(a, arr, ret, b) =
         let l = insideLoop
         insideLoop <- false
-        let res = base.TransformFunction(a, ret, b)
+        let res = base.TransformFunction(a, arr, ret, b)
         insideLoop <- l
         res
 
@@ -158,8 +158,8 @@ let private inlineOptimizer = Breaker(true)
 type CollectCurried() =
     inherit Transformer()
 
-    override this.TransformFunction(args, ret, body) =
-        match Function(args, ret, body) with
+    override this.TransformFunction(args, arr, ret, body) =
+        match Function(args, arr, ret, body) with
         | CurriedFunction(a, ret, b) ->
             let trFunc, moreArgs, n =
                 match b with
@@ -169,11 +169,11 @@ type CollectCurried() =
                         let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
                         if sameVars a lastArgs && VarsNotUsed(args).Get(Sequential moreArgs) then
                             this.TransformExpression f, moreArgs, ar.Length
-                        else base.TransformFunction(a, ret, b), [], a.Length
-                    else base.TransformFunction(a, ret, b), [], a.Length
-                | _ -> base.TransformFunction(a, ret, b), [], a.Length
+                        else base.TransformFunction(a, true, ret, b), [], a.Length
+                    else base.TransformFunction(a, true, ret, b), [], a.Length
+                | _ -> base.TransformFunction(a, true, ret, b), [], a.Length
             if n = 2 then
-                base.TransformFunction(args, ret, body)    
+                base.TransformFunction(args, true, ret, body)    
             elif n < 4 || moreArgs.Length = 0 then
                 let curr =
                     match n with
@@ -186,7 +186,7 @@ type CollectCurried() =
                 
         | SimpleFunction f ->
             f
-        | _ -> base.TransformFunction(args, ret, body)   
+        | _ -> base.TransformFunction(args, arr, ret, body)   
    
 let collectCurriedTr = CollectCurried() 
 
@@ -195,8 +195,8 @@ let collectCurried isCtor body =
     // function identity is important for Runtime.Ctor
     if isCtor then
         match body with
-        | Function(args, ret, cbody) ->
-            Function (args, ret, collectCurriedTr.TransformStatement cbody)
+        | Function(args, arr, ret, cbody) ->
+            Function (args, arr, ret, collectCurriedTr.TransformStatement cbody)
         | _ ->
             collectCurriedTr.TransformExpression body
     else   
@@ -300,9 +300,10 @@ type GenericInlineResolver (generics, tsGenerics) =
             expr |> this.TransformExpression
         )
 
-    override this.TransformFunction(args, ret, body) =
+    override this.TransformFunction(args, arr, ret, body) =
         Function(
             args |> List.map this.TransformId, 
+            arr,
             ret |> Option.map subs, 
             body |> this.TransformStatement
         )
@@ -1676,7 +1677,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             norm
                         | _ ->
                         match expr with
-                        | I.Function (cargs, _, cbody) ->
+                        | I.Function (cargs, _, _, cbody) ->
                             let args =
                                 match info with
                                 | M.NewIndexed _ ->
@@ -1732,8 +1733,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     //            Appl(GlobalAccess cctor, [], NonPure, Some 0)
     //    | None -> Undefined
 
-    override this.TransformFunction(a, ret, b) =
-        innerScope <| fun () -> Function(a, ret, this.TransformStatement b)
+    override this.TransformFunction(a, arr, ret, b) =
+        innerScope <| fun () -> Function(a, arr, ret, this.TransformStatement b)
 
     override this.TransformFuncWithThis(a, ret, b, c) =
         innerScope <| fun () -> FuncWithThis(a, ret, b, this.TransformStatement c)
@@ -1836,7 +1837,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match e with 
                         | FuncWithThis (thisParam, pars, ret, body) ->
                             ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
-                        | Function (pars, ret, body) ->
+                        | Function (pars, _, ret, body) ->
                             ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                     | None, e ->

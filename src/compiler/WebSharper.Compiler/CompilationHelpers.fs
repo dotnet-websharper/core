@@ -99,8 +99,8 @@ let rec isPureExpr expr =
 
 let isPureFunction expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, _, (I.Return body | I.ExprStatement body)) -> isPureExpr body
-    | Function (_, _, (I.Empty | I.Block [])) -> true
+    | Function (_, _, _, (I.Return body | I.ExprStatement body)) -> isPureExpr body
+    | Function (_, _, _, (I.Empty | I.Block [])) -> true
     | _ -> false
 
 let rec isTrivialValue expr =
@@ -161,14 +161,14 @@ let rec isStronglyPureExpr expr =
 
 let getFunctionPurity expr =
     match IgnoreExprSourcePos expr with
-    | Function (_, _, (I.Return body | I.ExprStatement body)) -> 
+    | Function (_, _, _, (I.Return body | I.ExprStatement body)) -> 
         if isStronglyPureExpr body then
             Pure
         elif isPureExpr body then
             NoSideEffect
         else 
             NonPure
-    | Function (_, _, (I.Empty | I.Block [])) -> Pure
+    | Function (_, _, _, (I.Empty | I.Block [])) -> Pure
     | _ -> NonPure
 
 /// Checks if a specific Id is mutated or accessed within a function body
@@ -198,9 +198,9 @@ type private NotMutatedOrCaptured(v) =
             this.VisitExpression a
             this.VisitExpression b
 
-    override this.VisitFunction(a, t, b) =
+    override this.VisitFunction(a, i, t, b) =
         scope <- scope + 1
-        base.VisitFunction(a, t, b)
+        base.VisitFunction(a, i, t, b)
         scope <- scope - 1
 
     override this.VisitExpression(a) =
@@ -361,7 +361,7 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            | Function(_, _, a)
+            | Function(_, _, _, a)
             | FuncWithThis(_, _, _, a) ->
                 if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
@@ -502,8 +502,8 @@ type Substitution(args, ?thisObj) =
     override this.TransformHole i = 
         if i <= args.Length - 1 then args.[i] else Undefined
 
-    override this.TransformFunction(args, typ, body) =
-        let res = base.TransformFunction(args, typ, body)
+    override this.TransformFunction(args, isArr, typ, body) =
+        let res = base.TransformFunction(args, isArr, typ, body)
         res
 
     override this.TransformId i =
@@ -531,11 +531,14 @@ type FixThisScope(typ) =
     let mutable chainedCtor = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
-    override this.TransformFunction(args, typ, body) =
-        scope <- scope + 1
-        let res = base.TransformFunction(args, typ, body)
-        scope <- scope - 1
-        res
+    override this.TransformFunction(args, isArrow, typ, body) =
+        if isArrow then
+            base.TransformFunction(args, isArrow, typ, body)    
+        else
+            scope <- scope + 1
+            let res = base.TransformFunction(args, isArrow, typ, body)
+            scope <- scope - 1
+            res
      
     override this.TransformFuncWithThis (thisArg, args, typ, body) =
         scope <- scope + 1
@@ -544,9 +547,9 @@ type FixThisScope(typ) =
         let trBody = this.TransformStatement body
         scope <- scope - 1
         if !used then
-            Function(args, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
+            Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
         else
-            Function(args, typ, trBody)
+            Function(args, true, typ, trBody)
     
     override this.TransformChainedCtor(a, b, c, d, e) =
         let cc = Id.New()
@@ -1173,9 +1176,9 @@ type Capturing(?var) =
                 i
         else i
 
-    override this.TransformFunction (args, typ, body) =
+    override this.TransformFunction (args, isArr, typ, body) =
         scope <- scope + 1
-        let res = Function (args, typ, this.TransformStatement body)
+        let res = Function (args, isArr, typ, this.TransformStatement body)
         scope <- scope - 1
         res
 
@@ -1183,8 +1186,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Appl (Function ([], None, Return res), [], NonPure, None)
-            | Some c -> Appl (Function ([c], None, Return res), [Var var.Value], NonPure, None)        
+            | None -> Appl (Function ([], true, None, Return res), [], NonPure, None)
+            | Some c -> Appl (Function ([c], true, None, Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -1208,7 +1211,7 @@ type NeedsScoping() =
         if scope > 0 && defined.Contains i then 
             needed <- true
 
-    override this.VisitFunction (args, typ, body) =
+    override this.VisitFunction (args, isArr, typ, body) =
         scope <- scope + 1
         this.VisitStatement body
         scope <- scope - 1
@@ -1227,22 +1230,21 @@ type NeedsScoping() =
 let needsScoping args values body =
     NeedsScoping().Check(args, values, body)    
     
-type HasNoThisVisitor() =
-    inherit Visitor()
+//type HasNoThisVisitor() =
+//    inherit Visitor()
 
-    let mutable ok = true
+//    let mutable ok = true
 
-    override this.VisitThis() = 
-        ok <- false
+//    override this.VisitThis() = 
+//        ok <- false
 
-    override this.VisitFunction (_, _, _) = ()
-        
+//    override this.VisitFunction (_, isArrow, _, _) = ()
 
-    override this.VisitFuncDeclaration (_, _, _, _) = ()
+//    override this.VisitFuncDeclaration (_, _, _, _) = ()
     
-    member this.Check(e) =
-        this.VisitStatement e
-        ok
+//    member this.Check(e) =
+//        this.VisitStatement e
+//        ok
 
 /// A placeholder expression when encountering a translation error
 /// so that collection of all errors can occur.
@@ -1320,8 +1322,8 @@ let sliceFromArguments slice =
 
 let (|Lambda|_|) e = 
     match e with
-    | Function(args, typ, Return body) -> Some (args, typ, body, true)
-    | Function(args, typ, ExprStatement body) -> Some (args, typ, body, false)
+    | Function(args, true, typ, Return body) -> Some (args, typ, body, true)
+    | Function(args, true, typ, ExprStatement body) -> Some (args, typ, body, false)
     | _ -> None
 
 let (|SimpleFunction|_|) expr =
@@ -1437,12 +1439,12 @@ let (|CurriedFunction|_|) expr =
             if not (List.isEmpty args) then
                 Some (List.rev (a.ToNonOptional() :: args), ret, ExprStatement b) 
             else None
-        | Function ([], ret, b) ->
+        | Function ([], true, ret, b) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
                 Some (List.rev (a :: args), ret, b) 
             else None
-        | Function ([a], ret, b) ->
+        | Function ([a], true, ret, b) ->
             if not (List.isEmpty args) then
                 Some (List.rev (a.ToNonOptional() :: args), ret, b) 
             else None
