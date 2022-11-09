@@ -577,7 +577,7 @@ type FixThisScope(typ) =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New ("$this", mut = false, ?typ = typ)
+                let t = Id.New ("_this", mut = false, ?typ = typ)
                 thisVar <- Some t
                 Var t
         else This
@@ -697,12 +697,12 @@ module Resolve =
     open System.Collections.Generic
 
     let newName (name: string) =
-        match name.LastIndexOf '$' with
-        | -1 -> name + "$1"
+        match name.LastIndexOf '_' with
+        | -1 -> name + "_1"
         | i -> 
             match System.Int32.TryParse (name.Substring(i + 1)) with
-            | true, n -> name.Substring(0, i) + "$" + string (n + 1)
-            | _ -> name + "$1"
+            | true, n -> name.Substring(0, i) + "_" + string (n + 1)
+            | _ -> name + "_1"
     
     type Class = 
         {

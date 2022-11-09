@@ -103,7 +103,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 GlobalAccess address    
             | JavaScriptModule m ->
                 let importWhat, importAs =
-                    let fromModuleName() = m.Split([| '/'; '.' |]) |> Array.last
+                    let fromModuleName() = (m.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
                     match address.Address.Value with
                     | [] -> 
                         "*", fromModuleName()

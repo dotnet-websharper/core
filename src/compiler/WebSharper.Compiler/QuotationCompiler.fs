@@ -209,7 +209,7 @@ type QuotationCompiler (meta : M.Info) =
                         checkNotAbstract() 
                         let vars = getVars()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars js
                             List.iter warn parsed.Warnings
                             addMethod (N.Inline ta) true parsed.Expr
                         with e ->
@@ -260,7 +260,7 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars = getVars()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars js
                             List.iter warn parsed.Warnings
                             addConstructor (N.Inline ta) true parsed.Expr
                         with e ->

@@ -121,7 +121,7 @@ let IsValid x =
 
 let MakeValid x =
     if IsValid x then x else
-        "$" + InvalidCharacterPattern.Replace(x, "")
+        InvalidCharacterPattern.Replace(x, "_")
 
 let MakeFormatter () =
     let b = System.Text.StringBuilder()

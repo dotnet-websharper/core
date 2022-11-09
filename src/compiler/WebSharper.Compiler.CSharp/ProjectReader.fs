@@ -1099,7 +1099,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline (js, ta, dollarVars) ->
                     checkNotAbstract() 
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure None dollarVars js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.Inline ta) true parsed.Expr
                     with e ->
@@ -1167,7 +1167,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addConstructor (Some (meth, memdef)) mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline (js, ta, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure None dollarVars js
                         List.iter warn parsed.Warnings
                         addConstructor (Some (meth, memdef)) mAnnot cdef (N.Inline ta) true parsed.Expr 
                     with e ->

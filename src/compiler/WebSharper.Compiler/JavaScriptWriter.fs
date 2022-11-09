@@ -116,7 +116,7 @@ let defineId (env: Environment) addToDecl (id: Id) =
             name 
         else 
             let vars = env.ScopeNames
-            let mutable name = (I.MakeValid (defaultArg id.Name "$1"))
+            let mutable name = (I.MakeValid (defaultArg id.Name "_1"))
             while vars |> Set.contains name do
                 name <- Resolve.newName name 
             env.ScopeNames <- vars |> Set.add name
@@ -504,10 +504,15 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
     | Import(None, None, namedImports, "") ->
-        for (n, _) in namedImports do 
-            env.ScopeNames.Add(n) |> ignore
-            env.VisibleGlobals.Add(n) |> ignore
+        let jsNames = namedImports |> Seq.map fst |> Set
+        env.ScopeNames <- Set.union env.ScopeNames jsNames
+        env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
         J.Empty
+        //J.Import(
+        //    None,
+        //    None,
+        //    namedImports |> List.map (fun (n, _) -> n, J.Id.New n),
+        //    "")
     | Import(a, b, c, d) ->
         J.Import(
             a |> Option.map (defineId env false), 

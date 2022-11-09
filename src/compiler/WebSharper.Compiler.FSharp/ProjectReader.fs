@@ -743,7 +743,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let vars, thisVar = getVarsAndThis()
                         try 
                             let nr = N.Inline ta
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure None dollarVars js
                             List.iter warn parsed.Warnings
                             if addModuleValueProp nr parsed.Expr then
                                 addMethod None mAnnot mdef nr true None parsed.Expr   
@@ -801,7 +801,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (Some (JavaScriptFile "")) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure None dollarVars js
                             List.iter warn parsed.Warnings
                             addC (N.Inline ta) true None parsed.Expr 
                         with e ->

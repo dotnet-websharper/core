@@ -298,11 +298,11 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.ParseJSInline(inl: string, args: Expression list, position: SourcePos, dollarVars: string[]): Expression = 
             let vars = args |> List.map (fun _ -> Id.New(mut = false))
-            //let parsed = Recognize.createInline mutableExternals None vars false (Some (JavaScriptFile "")) inl
+            //let parsed = Recognize.createInline mutableExternals None vars false None inl
             //Substitution(args).TransformExpression(parsed)
             let dollarVars = if isNull dollarVars then [||] else dollarVars
             let position = if obj.ReferenceEquals(position, null) then None else Some position
-            let parsed = Recognize.createInline mutableExternals None vars false (Some (JavaScriptFile "")) dollarVars inl
+            let parsed = Recognize.createInline mutableExternals None vars false None dollarVars inl
             parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
             Substitution(args).TransformExpression(parsed.Expr)
         
