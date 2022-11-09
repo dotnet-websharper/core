@@ -838,7 +838,7 @@ module Resolve =
             getRenamedStaticMemberForClass (newName name) c
 
     let rec getRenamedFunctionForClass name c =
-        if not (c.StaticMembers.Contains name) then
+        if not (c.Functions.Contains name) then
             addFunctionToClass c name |> ignore
             name
         else

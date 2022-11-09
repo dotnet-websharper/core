@@ -260,6 +260,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     }
                 )
             ) 
+            resolver.AddClass(td, None)
             generatedClass <- Some (addr, td)
             addr, td
     

@@ -462,7 +462,7 @@ module internal Internal =
                         ] (generatorOf b)
                     callR (mChoose [!@Definitions.Object; !@Definitions.Object]) [
                         callR (mAllTypes []) []
-                        Function([id], Some t, Return e)
+                        Function([id], true, Some t, Return e)
                     ]
                 wrap' >> wrap, Choice1Of2 (Var id)
             | T.ConcreteType { Entity = e; Generics = [t] } when e.Value.FullName = "System.IEquatable`1" ||  e.Value.FullName = "System.IComparable`1" ->

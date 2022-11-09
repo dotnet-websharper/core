@@ -69,42 +69,42 @@ module Server =
         async.Return [|
             
             testWithMatch <@ Optimizations.TupledArgWithGlobal() @> <| function
-            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
+            | Function (_, _, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.TupledArgWithLocal() @> <| function
-            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
+            | Function (_, _, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _, _) ], _))) -> true
             | _ -> false
         
             testWithMatch <@ Optimizations.CurriedArgWithGlobal() @> <| function
-            | Function (_, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
+            | Function (_, _, _, Return (Application (GlobalAccess _, [ GlobalAccess _ ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CurriedArgWithLocal() @> <| function
-            | Function (_, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _) ], _))) -> true
+            | Function (_, _, _, Return (Application (GlobalAccess _, [ Function ([ _; _], _, _, _) ], _))) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
-            | Function (_, _, Return (Object ["a", MayCastAny (Value (Int 1));
-                                              "b", MayCastAny (Sequential [_; Value (Int 2)]);
-                                              "c", MayCastAny (Sequential [_; Value (Int 3)]);
-                                             ])) -> true
+            | Function (_, _, _, Return (Object ["a", MayCastAny (Value (Int 1));
+                                                 "b", MayCastAny (Sequential [_; Value (Int 2)]);
+                                                 "c", MayCastAny (Sequential [_; Value (Int 3)]);
+                                                ])) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues() @> <| function
-            | Function (_, _, ExprStatement (Application(_, [MayCastAny(Value (String "a"));
+            | Function (_, _, _, ExprStatement (Application(_, [MayCastAny(Value (String "a"));
                                                              MayCastAny(Value (String "b"));
                                                             ], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues2() @> <| function
-            | Function (_, _, ExprStatement (Application(_, [MayCastAny(Sequential [_; Value (String "a")]);
+            | Function (_, _, _, ExprStatement (Application(_, [MayCastAny(Sequential [_; Value (String "a")]);
                                                              MayCastAny(Sequential [_; Value (String "b")]);
                                                             ], { Purity = NonPure; KnownLength = None }) )) -> true
             | _ -> false
 
             testWithMatch <@ Optimizations.InlineValues3() @> <| function
-            | Function (_, _, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
+            | Function (_, _, _, Return (NewArray [Sequential [_; Value (String "a")]; Sequential [_; Value (String "b")]])) -> true
             | _ -> false
         
         |]

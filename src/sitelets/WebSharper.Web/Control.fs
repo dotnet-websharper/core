@@ -289,6 +289,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
 
     let mutable args = [||]
     let mutable funcName = [||]
+    let mutable moduleName = ""
 
     [<JavaScript>]
     override this.Body =
@@ -316,10 +317,18 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the assembly needs to be compiled with WsFsc.exe" 
                     (getLocation' elt) declType.Value.FullName meth.Value.MethodName
             match meta.Classes.TryFind declType with
-            | Some (_, _, Some cls) ->
+            | Some (clsAddr, _, Some cls) ->
                 match cls.Methods.TryFind meth with
-                | Some (M.Static a, _, _, _) ->
-                    funcName <- Array.ofList (List.rev a.Address.Value)
+                | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
+                    funcName <- [| a; "default" |]
+                    match clsAddr.Module with
+                    | AST.JavaScriptModule m -> moduleName <- m
+                    | _ -> ()
+                | Some (M.Func a, _, _, _) ->
+                    funcName <- [| a |]
+                    match clsAddr.Module with
+                    | AST.JavaScriptModule m -> moduleName <- m
+                    | _ -> ()
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                         (getLocation' elt) declType.Value.FullName meth.Value.MethodName
@@ -398,6 +407,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     let args = fst bodyAndReqs
     let mutable funcName = [||]
+    let mutable moduleName = ""
 
     [<JavaScript>]
     override this.Body =
@@ -415,10 +425,18 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                 | None -> fail()
                 | Some cls ->
                     match meta.Classes.TryFind declType with
-                    | Some (_, _, Some cls) ->
+                    | Some (clsAddr, _, Some cls) ->
                         match cls.Methods.TryFind meth with
-                        | Some (M.Static a, _, _, _) ->
-                            funcName <- Array.ofList (List.rev a.Address.Value)
+                        | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
+                            funcName <- [| a; "default" |]
+                            match clsAddr.Module with
+                            | AST.JavaScriptModule m -> moduleName <- m
+                            | _ -> ()
+                        | Some (M.Func a, _, _, _) ->
+                            funcName <- [| a |]
+                            match clsAddr.Module with
+                            | AST.JavaScriptModule m -> moduleName <- m
+                            | _ -> ()
                         | Some _ -> 
                             failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
                                 declType.Value.FullName meth.Value.MethodName

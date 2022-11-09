@@ -166,7 +166,7 @@ type RoutingMacro() =
                     | _ ->
                         let genCall =
                             lazy 
-                            let gtd, gm, _ = comp.NewGenerated([top; "r"])
+                            let gtd, gm, _ = comp.NewGenerated("r")
                             gtd, gm, Call(None, NonGeneric gtd, NonGeneric gm, [])
                         recurringOn.Add(t, genCall)
                         let isTrivial, res = createRouter t
