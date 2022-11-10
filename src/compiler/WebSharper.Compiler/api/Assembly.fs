@@ -85,6 +85,21 @@ module AssemblyUtility =
             ParseWebResourcesUnchecked def
         else Seq.empty
 
+    let ReadAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
+        def.MainModule.Resources
+        |> Seq.choose (function
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name.EndsWith(".js") ->
+                use s = r.GetResourceStream()
+                let c = ReadStream s
+                Some (EmbeddedFile.Create(string def.FullName, r.Name, c, CT.Text.JavaScript))
+            | _ -> None)
+        |> Array.ofSeq
+
+    let ParseAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
+        if IsWebSharperAssembly def then
+            ReadAllScriptResources def
+        else Array.empty
+
 type Assembly =
     {
         Debug : option<Symbols>
@@ -105,7 +120,7 @@ type Assembly =
         this.Definition.Name.Name
 
     member this.GetScripts() =
-        ParseWebResources this.Definition
+        ParseAllScriptResources this.Definition
         |> Seq.filter (fun r -> r.IsScript)
 
     member this.GetContents() =

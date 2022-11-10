@@ -137,13 +137,13 @@ module UnpackCommand =
             | None -> () 
             | Some a ->
             let aid = PC.AssemblyId.Create(a.Name)
-            emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
-                a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
-            emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
-                a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
-            emit a.TypeScript (pc.TypeScriptPath aid)
-            if cmd.UnpackTypeScript then
-                emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
+            //emitWithMap a.ReadableJavaScript (pc.JavaScriptPath aid)
+            //    a.MapFileForReadable (pc.MapFileName aid) (pc.MapFilePath aid)
+            //emitWithMap a.CompressedJavaScript (pc.MinifiedJavaScriptPath aid)
+            //    a.MapFileForCompressed (pc.MinifiedMapFileName aid) (pc.MinifiedMapFilePath aid)
+            //emit a.TypeScript (pc.TypeScriptPath aid)
+            //if cmd.UnpackTypeScript then
+            //    emit a.TypeScriptDeclarations (pc.TypeScriptDefinitionsPath aid)
             let writeText k fn c =
                 let p = pc.EmbeddedPath(PC.EmbeddedResource.Create(k, aid, fn))
                 writeTextFile (p, c)
