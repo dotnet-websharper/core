@@ -321,6 +321,15 @@ type Compilation(meta: Info, ?hasGraph) =
                 }
             td, meth, addr
 
+        member this.NewGeneratedVar(name, ?typ) =
+            let _, td = this.GetGeneratedClass()
+            let c = resolver.LookupClass(td)
+            let rname = Resolve.getRenamedFunctionForClass name c
+            let fvar = Id.New(rname, str = true, ?typ = typ)
+            let _, _, cls = classes[td]
+            cls.Value.Fields.Add(rname, (VarField fvar, false, defaultArg typ (TSType TSType.Any)))
+            fvar
+
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
             compilingMethods.Add((td, meth),(NotCompiled (Func meth.Value.MethodName, true, Optimizations.None, JavaScriptOptions.None), [], body))

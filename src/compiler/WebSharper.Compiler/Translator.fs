@@ -711,7 +711,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentIsInline <- isInline info
             match info with
             | NotCompiled (i, _, _, jsOpts) -> 
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> breakExpr
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
                 let res = this.CheckResult(res)
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
             | NotGenerated (g, p, i, _, _) ->
@@ -1902,6 +1902,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 JSRuntime.GetOptional (this.TransformExpression expr.Value |> getItem fname)
             | M.IndexedField i ->
                 this.TransformExpression expr.Value |> getIndexRO i ro
+            | M.VarField v ->
+                Var v
         | CustomTypeField ct ->
             match ct with
             | M.FSharpUnionCaseInfo case ->
@@ -1959,6 +1961,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 JSRuntime.SetOptional (this.TransformExpression expr.Value) (Value (String fname)) (this.TransformExpression value)
             | M.IndexedField i ->
                 ItemSet(this.TransformExpression expr.Value, Value (Int i), this.TransformExpression value) 
+            | M.VarField v ->
+                VarSet(v, this.TransformExpression value)
         | CustomTypeField ct ->
             match ct with
             | M.FSharpRecordInfo fields ->

@@ -30,7 +30,6 @@
     <ProjectReference Include="..\WebSharper.InterfaceGenerator.Tests\WebSharper.InterfaceGenerator.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Module.Tests\WebSharper.Module.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Sitelets.Tests\WebSharper.Sitelets.Tests.fsproj" />
-    <ProjectReference Include="..\WebSharper.SPA.Tests\WebSharper.SPA.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Tests\WebSharper.Tests.fsproj" />
     <ProjectReference Include="..\WebSharper.Web.Tests\WebSharper.Web.Tests.fsproj" />
     <ProjectReference Include="..\Website\Website.fsproj" />

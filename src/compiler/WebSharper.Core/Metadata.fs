@@ -124,6 +124,7 @@ type CompiledField =
     | OptionalField of name:string
     | StaticField of name:string
     | IndexedField of index:int
+    | VarField of Id
 
 type Optimizations =
     {
@@ -546,6 +547,7 @@ type ICompilation =
     abstract GetTSTypeOf : Type * ?context: list<GenericParam> -> TSType
     abstract ParseJSInline : string * list<Expression> * [<OptionalArgument; DefaultParameterValue null>] position: SourcePos * [<OptionalArgument; DefaultParameterValue null>] dollarVars: string[] -> Expression
     abstract NewGenerated : string * ?generics: int * ?args: list<Type> * ?returns: Type -> TypeDefinition * Method * Address
+    abstract NewGeneratedVar : string * ?typ: Type -> Id
     abstract AddGeneratedCode : Method * Expression -> unit
     abstract AddGeneratedInline : Method * Expression -> unit
     abstract AssemblyName : string with get

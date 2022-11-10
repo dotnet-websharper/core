@@ -568,7 +568,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 flattenJS (innerEnv.Declarations @ [ b |> transformStatement innerEnv ])
             )
         J.Constructor(args, body)   
-    | ClassProperty (s, n, _, _) ->
+    | ClassProperty (s, n, _) ->
         J.Property (s.IsStatic, J.Id.New(n))
     | ClassStatic (b) ->
         let innerEnv = env.NewInner()

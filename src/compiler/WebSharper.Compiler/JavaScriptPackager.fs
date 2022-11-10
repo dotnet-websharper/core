@@ -223,11 +223,30 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 | _ -> ()   
             | _ -> ()
 
+        for f in c.Fields.Values do
+            let info isStatic isPrivate =
+                {
+                    IsStatic = isStatic
+                    IsPrivate = isPrivate
+                    IsOptional = false
+                }
+
+            match f with
+            | M.InstanceField name, _, _ 
+            | M.OptionalField name, _, _ -> 
+                members.Add <| ClassProperty(info false false, name, TSType.Any)
+            | M.StaticField name, _, _ ->
+                members.Add <| ClassProperty(info true false, name, TSType.Any)
+            | M.IndexedField _, _, _ ->
+                ()
+            | M.VarField v, _, _ ->
+                statements.Add <| VarDeclaration(v, Undefined)
+
         for info, _, _, body in c.Methods.Values do
             mem info body
         
         for info, body in c.Implementations.Values do
-            mem info body
+            mem info body            
 
         let indexedCtors = Dictionary()
 

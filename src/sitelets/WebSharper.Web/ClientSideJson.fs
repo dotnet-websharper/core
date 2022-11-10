@@ -453,8 +453,6 @@ module Macro =
                         Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
                         let gtd, gm, _ = comp.NewGenerated("j")
-                        let _, gv, va = comp.NewGenerated("v")
-                        comp.AddGeneratedCode(gv, Undefined)
                         comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                         ((fun es ->
                             let enc = encRecType t args es
@@ -464,10 +462,9 @@ module Macro =
                                 enc
                             else
                                 enc >>= fun e ->
-                                let v = Lambda([], None, Call (None, NonGeneric gtd, NonGeneric gv, []))
-                                let vn = Value (String va.Address.Value.Head)
-                                let a = { va with Address = PlainAddress va.Address.Value.Tail }
-                                let b = Lambda ([], None, Conditional(v, v, ItemSet(GlobalAccess a, vn, Appl(e, [], NonPure, Some 0))))
+                                let gv = comp.NewGeneratedVar("v")
+                                let v = Var gv
+                                let b = Lambda ([], None, Conditional(v, v, VarSet(gv, Appl(e, [], NonPure, Some 0))))
                                 comp.AddGeneratedCode(gm, b)
                                 Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                          ), args)

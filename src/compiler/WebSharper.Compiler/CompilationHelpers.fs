@@ -1076,7 +1076,6 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                 c |> Option.map (fun c ->
                     { c with 
                         Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
-                        Fields = c.Fields |> Dict.map (fun (i, p, t) -> i, p, t)
                         StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
                         Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, tr.TransformExpression e)
                         Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
