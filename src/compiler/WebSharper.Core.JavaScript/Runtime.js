@@ -1,10 +1,9 @@
 
-//export function Create(ctor, copyFrom) {
-//  var obj = new ctor();
-//  //Object.setPrototypeOf(obj, ctor.prototype);
-//  Object.assign(obj, copyFrom);
-//  return obj;
-//}
+export function Create(ctor, copyFrom) {
+  var obj = new ctor();
+  Object.assign(obj, copyFrom);
+  return obj;
+}
 
 export function Clone(obj) {
   var res = { ...obj };
@@ -12,14 +11,46 @@ export function Clone(obj) {
   return res;
 }
 
-//NewObject:
-//  function (kv) {
-//    var o = {};
-//    for (var i = 0; i < kv.length; i++) {
-//      o[kv[i][0]] = kv[i][1];
-//    }
-//    return o;
-//  }
+export function NewObject(kv) {
+  var o = {};
+  for (var i = 0; i < kv.length; i++) {
+    o[kv[i][0]] = kv[i][1];
+  }
+  return o;
+}
+
+const forceSymbol = Symbol("force")
+export function Force(obj) { obj[forceSymbol] }
+
+function emptyClass() { }
+Object.setPrototypeOf(emptyClass, {})
+
+export function Lazy(factory, setVar) {
+  var instance;
+  function getInstance() {
+    if (!instance) {
+      instance = factory();
+      setVar(instance);
+    }
+    return instance;
+  }
+  let res = new Proxy(emptyClass, {
+    get(_, key) {
+      if (key == forceSymbol) {
+        getInstance();
+      }
+      return getInstance()[key];
+    },
+    set(_, key, value) {
+      getInstance()[key] = value;
+      return true;
+    },
+    construct(_, args, newTarget) {
+      return Reflect.construct(getInstance(), args, newTarget);
+    }
+  });
+  return res;
+}
 
 export function PrintObject(obj) {
   let res = "{ ";
@@ -43,13 +74,13 @@ export function PrintObject(obj) {
 export function DeleteEmptyFields(obj, fields) {
   for (var i = 0; i < fields.length; i++) {
     var f = fields[i];
-    if (obj[f] === void (0)) { delete obj[f]; }
+    if (obj[f] === void 0) { delete obj[f]; }
   }
   return obj;
 }
 
 export function GetOptional(value) {
-  return (value === void (0)) ? null : { $: 1, $0: value };
+  return (value === void 0) ? null : { $: 1, $0: value };
 }
 
 export function SetOptional(obj, field, value) {
@@ -61,7 +92,7 @@ export function SetOptional(obj, field, value) {
 }
 
 export function SetOrDelete(obj, field, value) {
-  if (value === void (0)) {
+  if (value === void 0) {
     delete obj[field];
   } else {
     obj[field] = value;
@@ -73,11 +104,11 @@ export function Apply(f, obj, args) {
 }
 
 export function Bind(f, obj) {
-  return function () { return f.apply(obj, arguments) };
+  return function (...args) { return f.apply(obj, args) };
 }
 
 export function CreateFuncWithArgs(f) {
-  return function () { return f(Array.prototype.slice.call(arguments)) };
+  return function (...args) { return f(args) };
 }
 
 export function CreateFuncWithOnlyThis(f) {
@@ -85,19 +116,19 @@ export function CreateFuncWithOnlyThis(f) {
 }
 
 export function CreateFuncWithThis(f) {
-  return function () { return f(this).apply(null, arguments) };
+  return function (...args) { return f(this)(...args) };
 }
 
 export function CreateFuncWithThisArgs(f) {
-  return function () { return f(this)(Array.prototype.slice.call(arguments)) };
+  return function (...args) { return f(this)(args) };
 }
 
 export function CreateFuncWithRest(length, f) {
-  return function () { return f(Array.prototype.slice.call(arguments, 0, length).concat([Array.prototype.slice.call(arguments, length)])) };
+  return function (...args) { return f([...(args.slice(0, length)), args.slice(length)]) };
 }
 
 export function CreateFuncWithArgsRest(length, f) {
-  return function () { return f([Array.prototype.slice.call(arguments, 0, length), Array.prototype.slice.call(arguments, length)]) };
+  return function (...args) { return f([args.slice(0, length), args.slice(length)]) };
 }
 
 export function BindDelegate(func, obj) {
@@ -151,67 +182,61 @@ export function DelegateEqual(d1, d2) {
 }
 
 export function ThisFunc(d) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     args.unshift(this);
     return d.apply(null, args);
   };
 }
 
 export function ThisFuncOut(f) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     return f.apply(args.shift(), args);
   };
 }
 
 export function ParamsFunc(length, d) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     return d.apply(null, args.slice(0, length).concat([args.slice(length)]));
   };
 }
 
 export function ParamsFuncOut(length, f) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     return f.apply(null, args.slice(0, length).concat(args[length]));
   };
 }
 
 export function ThisParamsFunc(length, d) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     args.unshift(this);
     return d.apply(null, args.slice(0, length + 1).concat([args.slice(length + 1)]));
   };
 }
 
 export function ThisParamsFuncOut(length, f) {
-  return function () {
-    var args = Array.prototype.slice.call(arguments);
+  return function (...args) {
     return f.apply(args.shift(), args.slice(0, length).concat(args[length]));
   };
 }
 
 export function Curried(f, n, args) {
   args = args || [];
-  return function (a) {
-    var allArgs = args.concat([a === void (0) ? null : a]);
+  return (a) => {
+    var allArgs = args.concat([a === void 0 ? null : a]);
     if (n == 1)
-      return f.apply(null, allArgs);
+      return f(...allArgs);
     if (n == 2)
-      return function (a) { return f.apply(null, allArgs.concat([a === void (0) ? null : a])); }
+      return (a) => f(...allArgs, a === void 0 ? null : a);
     return Curried(f, n - 1, allArgs);
   }
 }
 
 export function Curried2(f) {
-  return function (a) { return function (b) { return f(a, b); } }
+  return (a) => (b) => f(a, b);
 }
 
 export function Curried3(f) {
-  return function (a) { return function (b) { return function (c) { return f(a, b, c); } } }
+  return (a) => (b) => (c) => f(a, b, c);
 }
 
 export function UnionByType(types, value, optional) {
@@ -249,6 +274,14 @@ export function ScriptPath(a, f) {
   return this.ScriptBasePath + (this.ScriptSkipAssemblyDir ? "" : a + "/") + f;
 }
 
+export function GetterOf(o, n) {
+  return Object.getOwnPropertyDescriptor(o, n).get;
+}
+
+export function SetterOf(o, n) {
+  return Object.getOwnPropertyDescriptor(o, n).set;
+}
+
 export function OnLoad(f) {
   if (!("load" in this)) {
     this.load = [];
@@ -274,11 +307,11 @@ OnLoad(async () => {
   }
 });
 
-export var ignore = () => { };
-export var id = (x) => x;
-export var fst = (x) => x[0];
-export var snd = (x) => x[1];
-export var trd = (x) => x[2];
+export function ignore() { }
+export function id(x) { return x }
+export function fst(x) { return x[0] }
+export function snd(x) { return x[1] }
+export function trd(x) { return x[2] }
 
 //  if (!Global.console) {
 //    Global.console = {

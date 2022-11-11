@@ -43,8 +43,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     let addresses = Dictionary<Address, Expression>()
     let statements = ResizeArray<Statement>()
 
+    let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
     let classId = 
-        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         Id.New className
     let currentModuleName = asmName + "/" + typ.Value.FullName
 
@@ -203,7 +203,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some (bodyTransformer.TransformStatement b), TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
                 | _ -> ()       
             | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
@@ -214,7 +214,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some (bodyTransformer.TransformStatement b), TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
                 | _ -> ()   
             | M.Func name ->
                 match IgnoreExprSourcePos body with
@@ -260,14 +260,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         ()
                     | Function (args, _, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, Some (bodyTransformer.TransformStatement b), TSType.Any))
+                        members.Add (ClassConstructor (args, Some b, TSType.Any))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | M.NewIndexed i ->
                 if body <> Undefined then
                     match body with
                     | Function (args, _, _, b) ->  
-                        indexedCtors.Add (i, (args, bodyTransformer.TransformStatement b))
+                        indexedCtors.Add (i, (args, b))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
             | _ -> ()
@@ -323,12 +323,24 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
         match c.StaticConstructor with
         | Some st -> 
-            members.Add <| ClassStatic(bodyTransformer.TransformStatement st)
+            members.Add <| ClassStatic(st)
         | _ -> ()
 
-        if c.HasWSPrototype then
-            statements.Add <| ExportDecl (true, Class (classId, baseType, [], List.ofSeq members, []))
+        let lazyClass classExpr =
+            statements.Add <| VarDeclaration(classId, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr classId))
 
+        if c.HasWSPrototype || members.Count > 0 then
+            match baseType with
+            | Some b ->
+                lazyClass <| 
+                    Sequential [
+                        JSRuntime.Force(b)
+                        ClassExpr(Some className, baseType, List.ofSeq members)
+                    ]
+            | None ->
+                lazyClass <| ClassExpr(Some className, None, List.ofSeq members)
+                
+            //statements.Add <| ExportDecl (true, Class (classId, baseType, [], List.ofSeq members, []))
             
     match current.Classes.TryFind(typ) with
     | Some (a, ct, cOpt) ->

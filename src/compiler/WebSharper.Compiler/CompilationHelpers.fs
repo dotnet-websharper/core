@@ -614,8 +614,14 @@ module JSRuntime =
     let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
     let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
     let Create obj props = runtimeFunc "Create" Pure [obj; props]
-    let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
+    //let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
+    let Force obj = runtimeFunc "Force" NonPure [obj]
+    let Lazy value var = 
+        let factory = Lambda([], None, value)
+        let v = Id.New("v")
+        let setVar = Lambda([v], None, VarSet(var, Var v))
+        runtimeFunc "Lazy" Pure [factory; setVar]
     let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
     let GetOptional value = runtimeFunc "GetOptional" Pure [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
@@ -630,10 +636,8 @@ module JSRuntime =
     let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
     let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
 
-    let private propDesc o n = ApplAny(Global [ "Object"; "getOwnPropertyDescriptor" ], [o; Value (String n)])
-
-    let GetterOf o n = ItemGet(propDesc o n, Value (String "get"), Pure)
-    let SetterOf o n = ItemGet(propDesc o n, Value (String "set"), Pure)
+    let GetterOf o n = runtimeFunc "GetterOf" Pure [o; Value (String n)]
+    let SetterOf o n = runtimeFunc "SetterOf" Pure [o; Value (String n)]
 
 module Definitions =
     open WebSharper.InterfaceGenerator.Type

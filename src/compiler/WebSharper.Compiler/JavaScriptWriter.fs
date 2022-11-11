@@ -315,7 +315,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         match a.Module with     
         | ImportedModule g when g.IsGlobal() ->
             match List.rev a.Address.Value with
-            | [] -> failwith "top scope of current module not accessible directly"
+            | [] ->
+                //J.Var (J.Id.New "exports")
+                failwith "top scope of current module not accessible directly"
             | h :: t ->
                 List.fold (fun e n ->
                     e.[J.Constant (J.String n)]

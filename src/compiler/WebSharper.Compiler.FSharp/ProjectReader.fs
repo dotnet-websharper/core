@@ -1418,7 +1418,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | FSIFD.InitAction a -> a.Range.FileName
         let sc =
             lazy
-            let name = "StartupCode$" + assemblyName.Replace('.', '_') + "$" + (System.IO.Path.GetFileNameWithoutExtension filePath).Replace('.', '_')
+            let name = "$StartupCode_" + System.IO.Path.GetFileNameWithoutExtension filePath
             let def =
                 TypeDefinition {
                     Assembly = comp.FindProxiedAssembly(assemblyName)

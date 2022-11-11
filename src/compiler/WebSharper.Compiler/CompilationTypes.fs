@@ -127,13 +127,21 @@ module NotResolved =
             | _ -> true
         match ckind with
         | NotResolvedClassKind.Stub -> false
-        | NotResolvedClassKind.Static -> nonObjBaseClass()
+        | NotResolvedClassKind.Static -> 
+            nonObjBaseClass() ||
+            cmembers
+            |> Seq.exists (
+                function
+                | M.StaticConstructor _ -> true
+                | _ -> false
+            )
         | NotResolvedClassKind.WithPrototype -> true
         | _ ->
             nonObjBaseClass() ||
             cmembers
             |> Seq.exists (
                 function
+                | M.StaticConstructor _ -> true
                 | M.Constructor (_, nr)
                 | M.Method (_, nr) ->
                     match nr.Kind with

@@ -142,8 +142,14 @@ type FuncArgOptimization =
     | TupledFuncArg of int    
 
 type Purity =
+    /// Marks that a function call/property get has a side effect or depends on execution order.
+    /// Cannot be dropped or execution order swapped with other non-pure expressions.
     | NonPure
+    /// Marks that a function call/property get has no side effect but depends on execution order.
+    /// Can be dropped if result is unused. Cannot have execution order swapped with other non-pure expressions.
     | NoSideEffect
+    /// Marks that a function call/property get has no side effect and only depends on its arguments.
+    /// Can be dropped if result is unused. Execution order can swapped.
     | Pure
 
 /// A range in original source code
