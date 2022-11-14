@@ -90,7 +90,7 @@ module Content =
                 |> Seq.collect (fun c -> c.Requires ctx.Metadata)
                 |> Set
             ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
-                ctx.Dependencies.GetResources nodes
+                ctx.Dependencies.GetResources ctx.Metadata nodes
             )
         let hasResources = not (List.isEmpty resources)
         if hasResources then

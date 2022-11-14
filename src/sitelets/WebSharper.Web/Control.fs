@@ -293,8 +293,14 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
 
     [<JavaScript>]
     override this.Body =
-        let f = Array.fold (?) JS.Window funcName
-        As<Function>(f).ApplyUnsafe(null, args) :?> _
+        { new IControlBody with
+            member this.ReplaceInDom(node) =
+                JS.ImportDynamic(moduleName).Then(fun a ->
+                    let f = Array.fold (?) a funcName
+                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                    b.ReplaceInDom(node)
+                ) |> ignore
+        } 
 
     interface IRequiresResources with
         member this.Requires(meta) =
@@ -411,8 +417,14 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     [<JavaScript>]
     override this.Body =
-        let f = Array.fold (?) JS.Window funcName
-        As<Function>(f).ApplyUnsafe(null, args) :?> _
+        { new IControlBody with
+            member this.ReplaceInDom(node) =
+                JS.ImportDynamic(moduleName).Then(fun a ->
+                    let f = Array.fold (?) a funcName
+                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                    b.ReplaceInDom(node)
+                ) |> ignore
+        } 
 
     interface IRequiresResources with
         member this.Encode(meta, json) =

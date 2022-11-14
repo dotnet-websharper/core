@@ -282,28 +282,24 @@ export function SetterOf(o, n) {
   return Object.getOwnPropertyDescriptor(o, n).set;
 }
 
+let load = [];
+
 export function OnLoad(f) {
-  if (!("load" in this)) {
-    this.load = [];
-  }
-  this.load.push(f);
+  load.push(f);
 }
 
 export function Start() {
-  function run(c) {
-    for (var i = 0; i < c.length; i++) {
-      c[i]();
-    }
-  }
   if ("load" in this) {
-    run(this.load);
-    this.load = [];
+    for (var i = 0; i < load.length; i++) {
+      load[i]();
+    }
+    load = [];
   }
 }
 
 OnLoad(async () => {
   if (document && document.getElementById("websharper-data")) {
-    (await import("./WebSharper.Activator.js")).default.Activate();
+    (await import("../WebSharper.Main/WebSharper.Activator.js")).default.Activate();
   }
 });
 

@@ -118,31 +118,35 @@ module Activator =
             if (As meta) then
                 onReady <| fun () ->
                     let text = meta.GetAttribute("content")
-                    let obj = Json.Activate (Json.Parse text)
-                    Instances <- obj
-                    let fields = JS.GetFields obj
-                    // PreInitialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IInitializer as i ->
-                            i.PreInitialize(k)
-                        | _ -> ()
-                    )
-                    // Initialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IControl as v ->
-                            let p = v.Body
-                            let old = JS.Document.GetElementById k
-                            p.ReplaceInDom old
-                        | :? IInitializer as i ->
-                            i.Initialize(k)
-                        | _ -> ()
-                    )
-                    // PostInitialize
-                    fields |> Array.iter (fun (k, v) ->
-                        match v with
-                        | :? IInitializer as i ->
-                            i.PostInitialize(k)
-                        | _ -> ()
-                    )
+                    async {
+                        let! obj = Json.Activate (Json.Parse text)
+                        do
+                            Instances <- obj
+                            let fields = JS.GetFields obj
+                            // PreInitialize
+                            fields |> Array.iter (fun (k, v) ->
+                                match v with
+                                | :? IInitializer as i ->
+                                    i.PreInitialize(k)
+                                | _ -> ()
+                            )
+                            // Initialize
+                            fields |> Array.iter (fun (k, v) ->
+                                match v with
+                                | :? IControl as v ->
+                                    let p = v.Body
+                                    let old = JS.Document.GetElementById k
+                                    p.ReplaceInDom old
+                                | :? IInitializer as i ->
+                                    i.Initialize(k)
+                                | _ -> ()
+                            )
+                            // PostInitialize
+                            fields |> Array.iter (fun (k, v) ->
+                                match v with
+                                | :? IInitializer as i ->
+                                    i.PostInitialize(k)
+                                | _ -> ()
+                            )
+                    }
+                    |> Async.StartImmediate

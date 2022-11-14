@@ -44,6 +44,16 @@ type AssemblyResource(name, isModule) =
                 | None -> ctx.GetAssemblyRendering name
             fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
 
+/// A resource class for including the compiled .js module for an type in Sitelets
+[<Sealed>]
+type ModuleResource(typ: TypeDefinition) =
+    interface R.IResource with
+        member this.Render ctx =
+            let r =
+                let filename = typ.Value.Assembly + "/" + typ.Value.FullName + ".js"
+                R.RenderLink filename
+            fun writer -> r.Emit(writer R.Scripts, R.JsModule)
+
 /// The compilation-time mutable representation of a code dependency graph
 type Graph =
     {
@@ -219,8 +229,8 @@ type Graph =
         let addNode n i =
             if allNodes.Add i then
                 match n with
-                | ResourceNode _ 
-                | AssemblyNode _ ->
+                | ResourceNode _ ->
+                //| AssemblyNode _ ->
                     resNodes.Add i |> ignore
                 | _ -> ()
                 newNodes.Add i |> ignore
@@ -260,12 +270,14 @@ type Graph =
 
     /// Gets all resource class instances for a set of graph nodes.
     /// Resource nodes are ordered by graph edges, assembly nodes by assembly dependencies.
-    member this.GetResources (nodes : seq<Node>) =
+    member this.GetResources (metadata: Info) (nodes : seq<Node>) =
         let activate i n =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
-                | AssemblyNode (name, true, isModule) ->
-                    AssemblyResource(name, isModule) :> R.IResource
+                //| AssemblyNode (name, true, isModule) ->
+                //    AssemblyResource(name, isModule) :> R.IResource
+                | TypeNode typ ->
+                    ModuleResource(typ) :> R.IResource
                 | ResourceNode (t, p) ->
                     try
                         match p with
@@ -308,10 +320,20 @@ type Graph =
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
-                | AssemblyNode (_, true, _) ->
-                    Some (true, (i, n))
+                //| AssemblyNode (_, true, _) ->
+                //    Some (true, (i, n))
                 | ResourceNode _ ->
                     Some (false, (i, n))
+                | TypeNode typ ->
+                    match metadata.Classes.TryGetValue(typ) with
+                    | true, (addr, _, Some cls) ->
+                        // todo make recursive
+                        if cls.BaseClass.IsSome && cls.BaseClass.Value.Entity.Value.FullName = "WebSharper.Web.Control" then
+                            match addr.Module with
+                            | JavaScriptModule m -> Some(true, (i, n))
+                            | _ -> None
+                        else None
+                    | _ -> None
                 | _ -> None
             )    
             |> List.ofSeq
@@ -351,7 +373,7 @@ type Graph =
             | _ -> false
         )
         |> Seq.distinct
-        |> this.GetResources
+        |> this.GetResources Info.Empty
 
     member this.AddOrLookupNode n =
         match this.Lookup.TryFind n with

@@ -54,19 +54,31 @@ let Stringify (obj: obj) = X<string>
 
 /// Lookups an object by its FQN.
 [<JavaScript>]
-let lookup<'T> (x: string []) : obj =
-    let k = x.Length
-    let mutable r = JS.Global
-    let mutable i = 0
-    while i < k do
-        let n  = x.[i]
-        let rn = (?) r n
-        if JS.TypeOf rn <> JS.Undefined then
-            r <- rn
-            i <- i + 1
-        else
-            failwith ("Invalid server reply. Failed to find type: " + n)
-    r
+let lookup<'T> (x: string) : Async<'T> =
+    let lookupFrom (root: obj) (x: string[]) =
+        let k = x.Length
+        let mutable r = root // JS.Global
+        let mutable i = 0
+        while i < k do
+            let n  = x.[i]
+            let rn = (?) r n
+            if JS.TypeOf rn <> JS.Undefined then
+                r <- rn
+                i <- i + 1
+            else
+                failwith ("Invalid server reply. Failed to find type: " + n)
+        r |> As<'T>
+        
+    match x.IndexOf("::") with
+    | -1 ->
+        lookupFrom JS.Global (x.Split('.')) |> async.Return
+    | i ->
+        let m = x[..i-1]
+        let x = x[i+2..]
+        async {
+            let! mi = JS.ImportDynamic(m).AsAsync()
+            return lookupFrom mi (x.Split('.'))
+        }
 
 /// Does a shallow generic mapping over an object.
 [<JavaScript>]
@@ -88,18 +100,24 @@ type SpecialTypes =
 
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
-let Activate<'T> (json: obj) : 'T =
+let Activate<'T> (json: obj) : Async<'T> =
     let types = if As json then json?("$TYPES") : obj[] else JS.Undefined
+    let typeLoads = JavaScript.Array<Async<unit>>()
     let data =
         if types ===. JS.Undefined then
-            json
+            json |> async.Return
         else
             for i = 0 to types.Length - 1 do
-                types.[i] <- 
-                    match As<string[]> types.[i] with
-                    | [| "WebSharper"; "List"; "T"; "$" |] -> box SpecialTypes.List
-                    | [| "WebSharper"; "Decimal" |] -> box SpecialTypes.Decimal
-                    | t -> lookup t
+                match As<string> types.[i] with
+                | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
+                    types.[i] <- box SpecialTypes.List
+                | "WebSharper.Decimal" -> 
+                    types.[i] <- box SpecialTypes.Decimal
+                | t -> 
+                    typeLoads.Push (async { 
+                        let! c = lookup t
+                        types.[i] <- c
+                    }) |> ignore
             json?("$DATA")
     let rec decode (x: obj) : obj =
         if x = null then x else
@@ -122,5 +140,9 @@ let Activate<'T> (json: obj) : 'T =
                             r
             | _ ->
                 x
-    As (decode data)
+    async {
+        do! Async.Parallel (typeLoads.Self) |> Async.Ignore
+        return As (decode data)
+    }
+    
 

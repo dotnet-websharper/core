@@ -53,7 +53,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     //addresses.Add(Address.Global(), glob)
     //addresses.Add(Address.Lib "self", glob)
     addresses.Add(Address.Lib "import", Var (Id.Import()))
-    addresses.Add(Address.DefaultExport currentModuleName, Var classId)
+    let currentClassAdds = Address.DefaultExport currentModuleName
+    addresses.Add(currentClassAdds, Var classId)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     //let rec getAddress (address: Address) =
@@ -179,6 +180,15 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             override this.TransformGlobalAccess a = getOrImportAddress a
         }
             
+    let staticThisTransformer =
+        { new Transformer() with
+            override this.TransformGlobalAccess a = 
+                if a = currentClassAdds then
+                    This
+                else
+                    GlobalAccess a
+        }
+
     //let package a expr =
     //    let o, x = getFieldAddress a
     //    statements.Add <| ExprStatement (ItemSet (o, x, expr))    
@@ -214,7 +224,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, Some (staticThisTransformer.TransformStatement b), TSType.Any)
                 | _ -> ()   
             | M.Func name ->
                 match IgnoreExprSourcePos body with
@@ -298,36 +308,41 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | Some (ba, _, _) -> Some (getOrImportAddress ba)
             | _ -> None
         
-        //match ct with
-        //| M.FSharpUnionInfo u when Option.isNone c.Type ->
-        //    let numArgs =
-        //        u.Cases |> Seq.map (fun uc -> 
-        //            match uc.Kind with
-        //            | M.NormalFSharpUnionCase fields -> List.length fields
-        //            | M.SingletonFSharpUnionCase -> 0
-        //            | M.ConstantFSharpUnionCase _ -> 0
-        //        )
-        //        |> Seq.max
-        //    let genCtor =
-        //        let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
-        //        let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
-        //        let setters = 
-        //            Statement.Block (
-        //                args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
-        //            )
-        //        ClassConstructor(args, Some setters, TSType.Any)
-        //    packageCtor (addr.Sub("$")) <| ClassExpr(None, baseType, genCtor :: List.ofSeq members)
+        match ct with
+        | M.FSharpUnionInfo u when Option.isNone c.Type ->         
+            let tags = u.Cases |> List.mapi (fun i c -> c.Name, Value (Int i)) |> Object
+            statements.Add <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
+
+            let numArgs =
+                u.Cases |> Seq.map (fun uc -> 
+                    match uc.Kind with
+                    | M.NormalFSharpUnionCase fields -> List.length fields
+                    | M.SingletonFSharpUnionCase -> 0
+                    | M.ConstantFSharpUnionCase _ -> 0
+                )
+                |> Seq.max
+            let genCtor =
+                let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
+                let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
+                let setters = 
+                    Statement.Block (
+                        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
+                    )
+                ClassConstructor(args, Some setters, TSType.Any)
+            members.Add <| genCtor
+        | _ -> ()
         //| _ ->
         //    if c.HasWSPrototype then
         //        packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
         match c.StaticConstructor with
         | Some st -> 
-            members.Add <| ClassStatic(st)
+            members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
         | _ -> ()
 
         let lazyClass classExpr =
             statements.Add <| VarDeclaration(classId, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr classId))
+            statements.Add <| ExportDecl(true, ExprStatement(Var classId))
 
         if c.HasWSPrototype || members.Count > 0 then
             match baseType with
@@ -339,9 +354,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     ]
             | None ->
                 lazyClass <| ClassExpr(Some className, None, List.ofSeq members)
-                
-            //statements.Add <| ExportDecl (true, Class (classId, baseType, [], List.ofSeq members, []))
-            
+                            
     match current.Classes.TryFind(typ) with
     | Some (a, ct, cOpt) ->
         cOpt |> Option.iter (fun c -> packageClass c a ct typ.Value.FullName)
@@ -372,16 +385,13 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], true, None, ep)))
+        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], true, None, bodyTransformer.TransformStatement ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->
         failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
     | OnLoadIfExists, None -> ()
-    
-    //let trStatements = statements |> Seq.map globalAccessTransformer.TransformStatement |> List.ofSeq
-    
-
+        
     if statements.Count = 0 then 
         [] 
     else
@@ -421,7 +431,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entry
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType refMeta current asmName typ entryPoint entryPointStyle
+        let p = packageType refMeta current asmName typ None entryPointStyle
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName, p)
     for typ in current.Interfaces.Keys do
@@ -429,6 +439,10 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entry
         pkgTyp typ
     for typ in classes do
         pkgTyp typ
+    if Option.isSome entryPoint then
+        let epTyp = TypeDefinition { Assembly = ""; FullName = "$EntryPoint" }     
+        let p = packageType refMeta current asmName epTyp entryPoint entryPointStyle
+        pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 
 let readMapFileSources mapFile =
