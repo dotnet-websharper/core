@@ -50,8 +50,7 @@ type ModuleResource(typ: TypeDefinition) =
     interface R.IResource with
         member this.Render ctx =
             let r =
-                let filename = typ.Value.Assembly + "/" + typ.Value.FullName + ".js"
-                R.RenderLink filename
+                ctx.GetWebResourceRendering (Reflection.LoadTypeDefinition typ) (typ.Value.FullName + ".js")
             fun writer -> r.Emit(writer R.Scripts, R.JsModule)
 
 /// The compilation-time mutable representation of a code dependency graph
@@ -214,7 +213,7 @@ type Graph =
         allNodes |> Seq.map (fun n -> this.Nodes.[n]) |> List.ofSeq
 
     /// Get all resource nodes used by a graph node.
-    member private this.GetRequires (nodes : seq<Node>) =
+    member private this.GetRequires (metadata: Info) (nodes : seq<Node>) =
         let allNodes = HashSet()
         let newNodes = HashSet()
         let allTypesWithOverrides = HashSet()
@@ -232,6 +231,22 @@ type Graph =
                 | ResourceNode _ ->
                 //| AssemblyNode _ ->
                     resNodes.Add i |> ignore
+                | TypeNode typ ->
+                    match metadata.Classes.TryGetValue(typ) with
+                    | true, (addr, _, Some cls) when cls.BaseClass.IsSome ->
+                        let rec isWebControl (def: TypeDefinition) =
+                            def.Value.FullName = "WebSharper.Web.Control" || (
+                                match metadata.Classes.TryGetValue(def) with
+                                | true, (_, _, Some cls) when cls.BaseClass.IsSome ->
+                                    isWebControl cls.BaseClass.Value.Entity
+                                | _ ->
+                                    false
+                            )
+                        if isWebControl cls.BaseClass.Value.Entity then
+                            match addr.Module with
+                            | JavaScriptModule m -> resNodes.Add i |> ignore
+                            | _ -> ()
+                    | _ -> ()
                 | _ -> ()
                 newNodes.Add i |> ignore
                 match n with
@@ -315,7 +330,7 @@ type Graph =
 
         let asmNodes, resNodes =
             nodes 
-            |> this.GetRequires
+            |> this.GetRequires metadata
             |> Seq.distinct
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
@@ -325,15 +340,7 @@ type Graph =
                 | ResourceNode _ ->
                     Some (false, (i, n))
                 | TypeNode typ ->
-                    match metadata.Classes.TryGetValue(typ) with
-                    | true, (addr, _, Some cls) ->
-                        // todo make recursive
-                        if cls.BaseClass.IsSome && cls.BaseClass.Value.Entity.Value.FullName = "WebSharper.Web.Control" then
-                            match addr.Module with
-                            | JavaScriptModule m -> Some(true, (i, n))
-                            | _ -> None
-                        else None
-                    | _ -> None
+                    Some(true, (i, n))
                 | _ -> None
             )    
             |> List.ofSeq

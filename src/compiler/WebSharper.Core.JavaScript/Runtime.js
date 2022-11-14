@@ -268,10 +268,15 @@ export function MarkReadOnly(arr) {
   return arr;
 }
 
-export var ScriptBasePath = "./";
+const Runtime = {
+  ScriptBasePath: "./",
+  ScriptSkipAssemblyDir: false
+}
+
+export default Runtime;
 
 export function ScriptPath(a, f) {
-  return this.ScriptBasePath + (this.ScriptSkipAssemblyDir ? "" : a + "/") + f;
+  return Runtime.ScriptBasePath + (Runtime.ScriptSkipAssemblyDir ? "" : a + "/") + f;
 }
 
 export function GetterOf(o, n) {
@@ -289,12 +294,10 @@ export function OnLoad(f) {
 }
 
 export function Start() {
-  if ("load" in this) {
-    for (var i = 0; i < load.length; i++) {
-      load[i]();
-    }
-    load = [];
+  for (var i = 0; i < load.length; i++) {
+    load[i]();
   }
+  load = [];
 }
 
 OnLoad(async () => {

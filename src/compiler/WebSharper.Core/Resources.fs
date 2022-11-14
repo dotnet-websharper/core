@@ -127,15 +127,15 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
         if includeScriptTag then
-            this.WriteLine("""<script type="{0}">""", CT.Text.JavaScript.Text)
-        this.WriteLine """if (typeof WSRuntime !=='undefined') {"""
+            this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
         match scriptBaseUrl with
-        | Some url -> this.WriteLine("""  WSRuntime.ScriptBasePath = '{0}';""", url)
+        | Some url -> 
+            this.WriteLine("""import Runtime, {{ Start }} from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
+            this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
         | None -> ()
         if skipAssemblyDir then
-            this.WriteLine("""  WSRuntime.ScriptSkipAssemblyDir = true;""")
-        this.WriteLine """  WSRuntime.Start();"""
-        this.WriteLine """}"""
+            this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
+        this.WriteLine """Start();"""
         if includeScriptTag then
             this.WriteLine("""</script>""")
 

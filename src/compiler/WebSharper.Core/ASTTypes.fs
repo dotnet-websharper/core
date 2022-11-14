@@ -1006,7 +1006,7 @@ module private Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
-    let RuntimeModule = JavaScriptModule "WebSharper.Runtime"
+    let RuntimeModule = JavaScriptModule "WebSharper.Core.JavaScript/Runtime"
 
     let EmptyAddress = Hashed []
     let DefaultAddress = Hashed [ "default" ]

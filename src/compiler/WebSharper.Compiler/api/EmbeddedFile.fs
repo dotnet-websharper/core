@@ -29,15 +29,17 @@ type EmbeddedFile =
         ResContentBytes : byte []
         ResContentType : CT.ContentType
         ResName : string
+        OrigResName : string
     }
 
-    static member Create(assemblyFullName, resourceName, bytes, contentType) =
+    static member Create(assemblyFullName, resourceName, bytes, contentType, ?origResName) =
         {
             ResAssembly = assemblyFullName
             ResContent = null
             ResContentBytes = bytes
             ResContentType = contentType
             ResName = resourceName
+            OrigResName = defaultArg origResName resourceName
         }
 
     member ri.GetContentData() =
@@ -57,6 +59,7 @@ type EmbeddedFile =
 
     member ri.ContentType = ri.ResContentType
     member ri.FileName = ri.ResName
+    member ri.EmbeddedFileName = ri.OrigResName
 
     member ri.IsScript =
         match ri.ResContentType with

@@ -45,8 +45,8 @@ module AssemblyUtility =
         def.MainModule.Resources
         |> Seq.tryPick (function
             | :? Mono.Cecil.EmbeddedResource as r when r.Name = name || r.Name = longName ->
-                use r = r.GetResourceStream()
-                Some (ReadStream r)
+                use rs = r.GetResourceStream()
+                Some (ReadStream rs, r.Name)
             | _ -> None)
 
     let (|StringArg|_|) (attr: Mono.Cecil.CustomAttributeArgument) =
@@ -75,8 +75,8 @@ module AssemblyUtility =
                 match Seq.toList attr.ConstructorArguments with
                 | [StringArg resourceName; StringArg contentType] ->
                     ReadResourceBytes resourceName def
-                    |> Option.map (fun c ->
-                        EmbeddedFile.Create(string def.FullName, resourceName, c, CT.Parse contentType))
+                    |> Option.map (fun (c, r) ->
+                        EmbeddedFile.Create(string def.FullName, resourceName, c, CT.Parse contentType, r))
                 | _ -> None
             else None)
     
@@ -86,17 +86,21 @@ module AssemblyUtility =
         else Seq.empty
 
     let ReadAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
+        let byAttr = ParseWebResourcesUnchecked def |> Array.ofSeq
+        let byAttrNames = byAttr |> Seq.map (fun r -> r.EmbeddedFileName) |> System.Collections.Generic.HashSet
         def.MainModule.Resources
         |> Seq.choose (function
-            | :? Mono.Cecil.EmbeddedResource as r when r.Name.EndsWith(".js") ->
+            | :? Mono.Cecil.EmbeddedResource as r when r.Name.EndsWith(".js") && not (byAttrNames.Contains r.Name) ->
                 use s = r.GetResourceStream()
                 let c = ReadStream s
                 Some (EmbeddedFile.Create(string def.FullName, r.Name, c, CT.Text.JavaScript))
             | _ -> None)
+        |> Seq.append byAttr
         |> Array.ofSeq
 
     let ParseAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
         if IsWebSharperAssembly def then
+
             ReadAllScriptResources def
         else Array.empty
 
