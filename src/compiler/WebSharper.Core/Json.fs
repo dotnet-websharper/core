@@ -1923,7 +1923,7 @@ module TypedProviderInternals =
             | AST.JavaScriptFile _ ->
                  a.Address.Value |> List.rev |> String.concat "." |> String
             | AST.JavaScriptModule m ->
-                ".." + m + ".js::" + (a.Address.Value |> List.rev |> String.concat ".") |> String
+                "../" + m + ".js::" + (a.Address.Value |> List.rev |> String.concat ".") |> String
             | _ ->
                 failwith "ImportedModule address not expected for JSON"
         let types = List.ofSeq (dict.Keys |> Seq.map encA)

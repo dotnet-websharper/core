@@ -1684,7 +1684,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                                     // remove index parameter
                                     List.tail args
                                 | _ -> args
-                            List.foldBack2 bind cargs args (StatementExpr (cbody, None))   
+                            List.foldBack2 bind cargs args (StatementExpr (cbody, None)) |> Substitution([]).TransformExpression  
                         | _ ->
                             failwith "Expecting a function as compiled form of constructor"
                     match comp.LookupConstructorInfo(typ.Entity, ctor) with

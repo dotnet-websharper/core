@@ -347,11 +347,11 @@ and Expression (expression) =
         let args = Parens (CommaSeparated Id formals) 
         if isArrow then
             match body with
-            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word "=>" ++ Word "{ }"
+            | [ S.IgnoreSPos (S.Return None) ] -> args ++ Word " =>" ++ Word " { }"
             | [ S.IgnoreSPos (S.Return (Some e)) ] -> 
-                args ++ Word "=>" 
+                args ++ Word " =>" 
                 ++ (if startsWithObjectExpression e then Parens (Expression e) else Expression e)
-            | _ -> args ++ Word "=>" ++ BlockLayout (List.map (Statement true) body)
+            | _ -> args ++ Word " =>" ++ BlockLayout (List.map (Statement true) body)
         else
             Word "function"
             ++ Optional Id name

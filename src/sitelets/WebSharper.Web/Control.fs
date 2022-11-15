@@ -328,12 +328,12 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
                     funcName <- [| a; "default" |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> moduleName <- m
+                    | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                     | _ -> ()
                 | Some (M.Func a, _, _, _) ->
                     funcName <- [| a |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> moduleName <- m
+                    | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                     | _ -> ()
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
@@ -442,12 +442,12 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                         | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
                             funcName <- [| a; "default" |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> moduleName <- m
+                            | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                             | _ -> ()
                         | Some (M.Func a, _, _, _) ->
                             funcName <- [| a |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> moduleName <- m
+                            | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                             | _ -> ()
                         | Some _ -> 
                             failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"

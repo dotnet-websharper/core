@@ -506,13 +506,27 @@ type Substitution(args, ?thisObj) =
         let res = base.TransformFunction(args, isArr, typ, body)
         res
 
+    member this.RefreshVar(i: Id) =
+        let n = i.Clone()
+        refresh.Add(i, n)
+        n
+
+    override this.TransformVarDeclaration(i, v) =
+        VarDeclaration(this.RefreshVar i, this.TransformExpression v)
+
+    override this.TransformLet(i, v, b) =
+        Let(this.RefreshVar i, this.TransformExpression v, this.TransformExpression b)
+
+    override this.TransformLetRec(vs, b) =
+        LetRec(vs |> List.map (fun (i, v) -> this.RefreshVar i, this.TransformExpression v), this.TransformExpression b)
+
+    override this.TransformNewVar(i, v) =
+        NewVar(this.RefreshVar i, this.TransformExpression v)
+
     override this.TransformId i =
         match refresh.TryFind i with
         | Some n -> n
-        | _ ->
-            let n = i.Clone()
-            refresh.Add(i, n)
-            n
+        | _ -> i
 
 type TransformBaseCall(f) =
     inherit Transformer()

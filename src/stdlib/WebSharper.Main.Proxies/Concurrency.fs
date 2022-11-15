@@ -250,6 +250,14 @@ let StartImmediate (c: C<unit>, ctOpt) =
             ct = ct
         }
 
+//export function StartImmediate(c, ctOpt){
+//  const ct=ctOpt==null?d:ctOpt.$0;
+//  const d=(defCTS())[0];
+//  if(!ct.c)c(New((a) =>  {
+//    if(a.$==1)UncaughtAsyncError(a.$0);
+//  }, ct));
+//}
+
 #nowarn "40"
 
 [<JavaScript; Pure>]

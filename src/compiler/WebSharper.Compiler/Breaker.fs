@@ -629,16 +629,16 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Variables = brB.Variables
             }
         | ResultExpr e ->
-            //{
-            //    Body = ResultExpr (Void (VarSet(a, e)))
-            //    Statements = brB.Statements
-            //    Variables = [ a, None ] @ brB.Variables
-            //}
-             {
-                Body = ResultExpr Undefined
-                Statements = brB.Statements @ [ VarDeclaration(a, e) ]
-                Variables = brB.Variables
+            {
+                Body = ResultExpr (Void (VarSet(a, e)))
+                Statements = brB.Statements
+                Variables = [ a, None ] @ brB.Variables
             }
+            // {
+            //    Body = ResultExpr Undefined
+            //    Statements = brB.Statements @ [ VarDeclaration(a, e) ]
+            //    Variables = brB.Variables
+            //}
     | StatementExpr (I.ExprStatement a, Some b) ->
         let brA = br a
         match brA.Body with
@@ -738,16 +738,16 @@ let rec breakExpr expr : Broken<BreakResult> =
                                 Variables = brB.Variables @ brC.Variables
                             }
                         else
-                            //{
-                            //    Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
-                            //    Statements = []
-                            //    Variables = (a, None) :: brB.Variables @ brC.Variables
-                            //}
                             {
-                                Body = ResultExpr(brC.Body)
+                                Body = ResultExpr(Sequential [VarSet (a, brB.Body); brC.Body ])
                                 Statements = []
-                                Variables = (a, Some (VarDeclaration(a, brB.Body))) :: brB.Variables @ brC.Variables
+                                Variables = (a, None) :: brB.Variables @ brC.Variables
                             }
+                            //{
+                            //    Body = ResultExpr(brC.Body)
+                            //    Statements = []
+                            //    Variables = (a, Some (VarDeclaration(a, brB.Body))) :: brB.Variables @ brC.Variables
+                            //}
                     else
                         {
                             Body = brC.Body

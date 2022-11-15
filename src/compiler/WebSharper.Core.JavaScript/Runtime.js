@@ -302,7 +302,8 @@ export function Start() {
 
 OnLoad(async () => {
   if (document && document.getElementById("websharper-data")) {
-    (await import("../WebSharper.Main/WebSharper.Activator.js")).default.Activate();
+    const Activator = await import("../WebSharper.Main/WebSharper.Activator.js");
+    Activator.Activate();
   }
 });
 
