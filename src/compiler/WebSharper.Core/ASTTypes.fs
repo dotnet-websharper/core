@@ -1025,6 +1025,7 @@ type Address with
     static member Runtime() = { Module = Instances.RuntimeModule; Address = Instances.EmptyAddress }
     static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f] }
     static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
+    static member Lib a = { Module = StandardLibrary; Address = Hashed (List.rev a) }
     static member Global() = Instances.GlobalAddress
     static member Error() = Instances.ErrorAddress
     static member ModuleRoot m = { Module = JavaScriptModule m; Address = Instances.EmptyAddress }

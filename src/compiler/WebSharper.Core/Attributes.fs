@@ -154,7 +154,7 @@ type NameAttribute private () =
     /// Constructs an indexed field.
     new (index: int) = NameAttribute()
 
-    /// Constructs a qualified name from an explicit array of parts.
+    [<Obsolete("Full names are no longer usable, specify a simple name.")>]
     new ([<ParamArray>] names: string []) = NameAttribute()
 
 /// Specifies TypeScript type annotation for a Proxy or Stub type declaration.

@@ -579,7 +579,7 @@ type Compilation(meta: Info, ?hasGraph) =
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
     member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
-        let mname = this.AssemblyName + "/" + typ.Value.FullName
+        let mname = this.AssemblyName + "/" + typ.Value.FullName.Replace("+", ".")
         if hasWSPrototype then
             Address.DefaultExport mname
         else 
@@ -1328,7 +1328,12 @@ type Compilation(meta: Info, ?hasGraph) =
                         | None -> if isStub then Some TSType.Any else None
                 }
             
-            let clAddress = this.TypeAddress(typ, hasWSPrototype)
+            let clAddress = 
+                match cls.Type with
+                | Some (TSType.Named a) ->
+                    Address.Lib a
+                | _ ->
+                    this.TypeAddress(typ, hasWSPrototype)
 
             match notResolvedCustomTypes.TryFind typ with
             | Some ct ->

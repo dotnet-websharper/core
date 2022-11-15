@@ -294,6 +294,7 @@ type private IDictionaryEnumeratorProxy =
     member this.Value = (As<System.Collections.DictionaryEntry> (As<System.Collections.IEnumerator> this).Current).Value
 
 [<Proxy(typeof<System.Collections.DictionaryEntry>)>]
+[<Prototype false>]
 type private DictionaryEntryProxy [<Inline "{K: $key, V: $value}">] (key: obj, value: obj) =
     member this.Key
         with [<Inline "$this.K">] get () = (As<System.Collections.Generic.KeyValuePair<obj,obj>> this).Key

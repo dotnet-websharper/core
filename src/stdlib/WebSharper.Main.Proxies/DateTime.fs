@@ -104,6 +104,7 @@ module private DateTimeHelpers =
 // This is inconsistent, but covers most common uses.
 // If you need UTC time details, use .JS and its UTC methods.
 [<Proxy(typeof<System.DateTime>)>]
+[<Type "number">]
 type private DateTimeProxy =
     [<Inline "0">]
     new () = {}

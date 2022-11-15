@@ -29,8 +29,9 @@ module Exception =
         e?inner <- inner
         e
 
-[<Name [| "Error" |]>]
+[<Name "Error">]
 [<Proxy(typeof<System.Exception>)>]
+[<Type "Error">]
 type private ExceptionProxy =
     [<Inline "new Error()">]
     new () = { }

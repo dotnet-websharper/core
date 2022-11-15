@@ -24,6 +24,7 @@ open WebSharper.JavaScript
 
 [<Name "Char">]
 [<Proxy(typeof<System.Char>)>]
+[<Type "string">]
 type private CharProxy =
 
     [<Inline "'\u0000'">]

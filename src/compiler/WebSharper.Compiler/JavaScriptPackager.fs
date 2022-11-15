@@ -299,14 +299,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
             members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
 
-        let baseType =
+        let baseType, isObjBase =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
                 | Some _ as res -> res
                 | _ -> current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress ba)
-            | _ -> None
+            | Some (ba, _, _) -> Some (getOrImportAddress ba), c.BaseClass.Value.Entity = Definitions.Object
+            | _ -> None, false
         
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
@@ -340,20 +340,35 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
         | _ -> ()
 
-        let lazyClass classExpr =
+        let packageLazyClass classExpr =
             statements.Add <| VarDeclaration(classId, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr classId))
-            statements.Add <| ExportDecl(true, ExprStatement(Var classId))
+            statements.Add <| ExportDecl(true, ExprStatement(Var classId))                
+
+        let packageClass classExpr = 
+            statements.Add <| ExportDecl(true, ExprStatement(classExpr))                
 
         if c.HasWSPrototype || members.Count > 0 then
+            let classExpr = ClassExpr(Some className, baseType, List.ofSeq members)
             match baseType with
             | Some b ->
-                lazyClass <| 
-                    Sequential [
-                        JSRuntime.Force(b)
-                        ClassExpr(Some className, baseType, List.ofSeq members)
-                    ]
+                let needsLazy = Option.isNone c.Type
+                if needsLazy then
+                    packageLazyClass <| 
+                        if isObjBase then
+                            classExpr
+                        else
+                            Sequential [
+                                JSRuntime.Force(b)
+                                classExpr
+                            ]
+                else
+                    packageClass classExpr
             | None ->
-                lazyClass <| ClassExpr(Some className, None, List.ofSeq members)
+                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object
+                if needsLazy then
+                    packageLazyClass classExpr
+                else
+                    packageClass classExpr
                             
     match current.Classes.TryFind(typ) with
     | Some (a, ct, cOpt) ->
@@ -433,7 +448,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entry
     let pkgTyp (typ: TypeDefinition) =
         let p = packageType refMeta current asmName typ None entryPointStyle
         if not (List.isEmpty p) then
-            pkgs.Add(typ.Value.FullName, p)
+            pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
         classes.Remove(typ) |> ignore
         pkgTyp typ
