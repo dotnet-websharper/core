@@ -230,7 +230,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 match IgnoreExprSourcePos body with
                 | Function (args, _, _, b) ->
                     statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
-                | _ -> ()   
+                | e ->
+                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(name, mut = false, str = true), bodyTransformer.TransformExpression e))
             | _ -> ()
 
         if c.HasWSPrototype then

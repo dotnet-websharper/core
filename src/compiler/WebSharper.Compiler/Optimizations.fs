@@ -75,10 +75,10 @@ let cleanRuntime force expr =
         Unary(UnaryOperator.``void``, x)
     | Application (AppRuntime ("Bind", [f; obj]), args, _) -> 
         AppItem(f, "call", obj :: args)
-    | Application(Application(AppRuntime("Curried2", [ f ]), [ a ], _), [ b ], info) ->
-        Application(f, [ a; b ], { info with KnownLength = Some 2 })
-    | Application(Application(Application(AppRuntime("Curried3", [ f ]), [ a ], _), [ b ], _), [ c ], info) ->
-        Application(f, [ a; b; c ], { info with KnownLength = Some 3 })
+    //| Application(Application(AppRuntime("Curried2", [ f ]), [ a ], _), [ b ], info) ->
+    //    Application(f, [ a; b ], { info with KnownLength = Some 2 })
+    //| Application(Application(Application(AppRuntime("Curried3", [ f ]), [ a ], _), [ b ], _), [ c ], info) ->
+    //    Application(f, [ a; b; c ], { info with KnownLength = Some 3 })
 
     | AppItem(NewArray arr, "concat", [ NewArray rest ]) ->
         NewArray (arr @ rest)    

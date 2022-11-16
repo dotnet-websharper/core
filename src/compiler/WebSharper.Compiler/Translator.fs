@@ -155,52 +155,52 @@ type Breaker(isInline) =
 let private breaker = Breaker(false)
 let private inlineOptimizer = Breaker(true)
 
-type CollectCurried() =
-    inherit Transformer()
+//type CollectCurried() =
+//    inherit Transformer()
 
-    override this.TransformFunction(args, arr, ret, body) =
-        match Function(args, arr, ret, body) with
-        | CurriedFunction(a, ret, b) ->
-            let trFunc, moreArgs, n =
-                match b with
-                | I.Return (I.Application (f, ar, { KnownLength = Some _ })) ->
-                    let moreArgsLength = ar.Length - a.Length
-                    if moreArgsLength >= 0 then
-                        let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
-                        if sameVars a lastArgs && VarsNotUsed(args).Get(Sequential moreArgs) then
-                            this.TransformExpression f, moreArgs, ar.Length
-                        else base.TransformFunction(a, true, ret, b), [], a.Length
-                    else base.TransformFunction(a, true, ret, b), [], a.Length
-                | _ -> base.TransformFunction(a, true, ret, b), [], a.Length
-            if n = 2 then
-                base.TransformFunction(args, true, ret, body)    
-            elif n < 4 || moreArgs.Length = 0 then
-                let curr =
-                    match n with
-                    | 2 -> JSRuntime.Curried2 trFunc 
-                    | 3 -> JSRuntime.Curried3 trFunc 
-                    | _ -> JSRuntime.Curried trFunc n
-                List.fold (fun f x -> Appl(f, [this.TransformExpression x], NonPure, Some 1)) curr moreArgs
-            else
-                JSRuntime.CurriedA trFunc (n - moreArgs.Length) (NewArray moreArgs)
+//    override this.TransformFunction(args, arr, ret, body) =
+//        match Function(args, arr, ret, body) with
+//        | CurriedFunction(a, ret, b) ->
+//            let trFunc, moreArgs, n =
+//                match b with
+//                | I.Return (I.Application (f, ar, { KnownLength = Some _ })) ->
+//                    let moreArgsLength = ar.Length - a.Length
+//                    if moreArgsLength >= 0 then
+//                        let moreArgs, lastArgs = ar |> List.splitAt moreArgsLength
+//                        if sameVars a lastArgs && VarsNotUsed(args).Get(Sequential moreArgs) then
+//                            this.TransformExpression f, moreArgs, ar.Length
+//                        else base.TransformFunction(a, true, ret, b), [], a.Length
+//                    else base.TransformFunction(a, true, ret, b), [], a.Length
+//                | _ -> base.TransformFunction(a, true, ret, b), [], a.Length
+//            if n = 2 then
+//                base.TransformFunction(args, true, ret, body)    
+//            elif n < 4 || moreArgs.Length = 0 then
+//                let curr =
+//                    match n with
+//                    | 2 -> JSRuntime.Curried2 trFunc 
+//                    | 3 -> JSRuntime.Curried3 trFunc 
+//                    | _ -> JSRuntime.Curried trFunc n
+//                List.fold (fun f x -> Appl(f, [this.TransformExpression x], NonPure, Some 1)) curr moreArgs
+//            else
+//                JSRuntime.CurriedA trFunc (n - moreArgs.Length) (NewArray moreArgs)
                 
-        | SimpleFunction f ->
-            f
-        | _ -> base.TransformFunction(args, arr, ret, body)   
+//        | SimpleFunction f ->
+//            f
+//        | _ -> base.TransformFunction(args, arr, ret, body)   
    
-let collectCurriedTr = CollectCurried() 
+//let collectCurriedTr = CollectCurried() 
 
-let collectCurried isCtor body =
-    // do not optimize away top function if it is a constructor
-    // function identity is important for Runtime.Ctor
-    if isCtor then
-        match body with
-        | Function(args, arr, ret, cbody) ->
-            Function (args, arr, ret, collectCurriedTr.TransformStatement cbody)
-        | _ ->
-            collectCurriedTr.TransformExpression body
-    else   
-        collectCurriedTr.TransformExpression body
+//let collectCurried isCtor body =
+//    // do not optimize away top function if it is a constructor
+//    // function identity is important for Runtime.Ctor
+//    if isCtor then
+//        match body with
+//        | Function(args, arr, ret, cbody) ->
+//            Function (args, arr, ret, collectCurriedTr.TransformStatement cbody)
+//        | _ ->
+//            collectCurriedTr.TransformExpression body
+//    else   
+//        collectCurriedTr.TransformExpression body
 
 let defaultRemotingProvider =
     TypeDefinition {
@@ -462,7 +462,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> runtimeCleaner.TransformExpression
             |> breaker.TransformExpression
             |> runtimeCleanerForced.TransformExpression
-            |> collectCurried isCtor
+            //|> collectCurried isCtor
     
     let breakStatement e = 
         e 
@@ -470,7 +470,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         |> runtimeCleaner.TransformStatement
         |> breaker.TransformStatement
         |> runtimeCleanerForced.TransformStatement
-        |> collectCurriedTr.TransformStatement
+        //|> collectCurriedTr.TransformStatement
 
     let getCurrentName() =
         match currentNode with

@@ -1908,9 +1908,10 @@ type Compilation(meta: Info, ?hasGraph) =
                         // Simplify names of active patterns
                         if n.StartsWith "|" then n.Split('|').[1] 
                         // Simplify names of static F# extension members 
-                        //elif n.EndsWith ".Static" then
-                        //    (n.Split('.') |> List.ofArray |> List.rev |> List.tail) 
-                        else n 
+                        elif n.EndsWith ".Static" then
+                            let s = n.Split('.')
+                            s[.. s.Length - 2] |> String.concat("_")
+                        else n.Replace('.', '_') 
                     | M.StaticConstructor _ -> "cctor" 
                 let addr = Resolve.getRenamedStaticMemberForClass uname pr
                 let (_, k) = this.GetMemberNameAndKind(m)
@@ -1950,7 +1951,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match m with
                         | M.Field (fName, _) -> Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
-                            Resolve.getRenamedInstanceMemberForClass mDef.Value.MethodName pr |> Some
+                            Resolve.getRenamedInstanceMemberForClass (mDef.Value.MethodName.Replace('.', '_')) pr |> Some
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
                             | Some (_, _, Some tCls) -> 
