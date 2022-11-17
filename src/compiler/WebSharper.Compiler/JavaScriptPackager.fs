@@ -226,12 +226,19 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         }
                     members.Add <| ClassMethod(info, mname, args, Some (staticThisTransformer.TransformStatement b), TSType.Any)
                 | _ -> ()   
-            | M.Func name ->
+            | M.Func fname ->
                 match IgnoreExprSourcePos body with
                 | Function (args, _, _, b) ->
-                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
+                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, bodyTransformer.TransformStatement b, []))
                 | e ->
-                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(name, mut = false, str = true), bodyTransformer.TransformExpression e))
+                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
+            | M.GlobalFunc addr ->
+                let fname = addr.Address.Value.Head
+                match IgnoreExprSourcePos body with
+                | Function (args, _, _, b) ->
+                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, bodyTransformer.TransformStatement b, []))
+                | e ->
+                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
             | _ -> ()
 
         if c.HasWSPrototype then

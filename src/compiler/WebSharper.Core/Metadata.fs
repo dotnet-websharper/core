@@ -351,27 +351,41 @@ type Info =
             && Option.isNone c.StaticConstructor
             && c.Methods.Values |> Seq.forall (function | Instance _,_,_,_ -> false | _ -> true)
 
-        let tryMergeClassInfo (a: ClassInfo) (b: ClassInfo) =
+        let tryMergeClassInfo (a: ClassInfo, aAddr: Address) (b: ClassInfo, bAddr: Address) =
             let combine (left: 'a option) (right: 'a option) =
                 match left with
                 | Some _ -> left
                 | None -> right
+            let isUsingAAddr = isStaticPart b
             if isStaticPart a || isStaticPart b then
-                Some {
-                    BaseClass = combine a.BaseClass b.BaseClass
-                    Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
-                    Generics = a.Generics
-                    Constructors = Dict.union [a.Constructors; b.Constructors]
-                    Fields = Dict.union [a.Fields; b.Fields]
-                    HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
-                    Implementations = Dict.union [a.Implementations; b.Implementations]
-                    Macros = List.concat [a.Macros; b.Macros]
-                    Methods = Dict.union [a.Methods; b.Methods]
-                    QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
-                    IsStub = a.IsStub && b.IsStub
-                    StaticConstructor = combine a.StaticConstructor b.StaticConstructor
-                    Type = combine a.Type b.Type
-                }
+                let transformFuncAddrs (addr: Address) methods =
+                    methods |> Dict.map (fun (m, o, p, e) ->
+                        match m with
+                        | Func n -> GlobalFunc (addr.Sub(n)), o, p, e
+                        | _ -> m, o, p, e
+                    )
+                Some (
+                    {
+                        BaseClass = combine a.BaseClass b.BaseClass
+                        Implements = Seq.distinct (Seq.append a.Implements b.Implements) |> List.ofSeq
+                        Generics = a.Generics
+                        Constructors = Dict.union [a.Constructors; b.Constructors]
+                        Fields = Dict.union [a.Fields; b.Fields]
+                        HasWSPrototype = a.HasWSPrototype || b.HasWSPrototype
+                        Implementations = Dict.union [a.Implementations; b.Implementations]
+                        Macros = List.concat [a.Macros; b.Macros]
+                        Methods = 
+                            if isUsingAAddr then
+                                Dict.union [a.Methods; transformFuncAddrs bAddr b.Methods]
+                            else    
+                                Dict.union [transformFuncAddrs aAddr a.Methods; b.Methods]
+                        QuotedArgMethods = Dict.union [a.QuotedArgMethods; b.QuotedArgMethods]
+                        IsStub = a.IsStub && b.IsStub
+                        StaticConstructor = combine a.StaticConstructor b.StaticConstructor
+                        Type = combine a.Type b.Type
+                    },
+                    if isUsingAAddr then aAddr else bAddr
+                )
             else
                 None
 
@@ -384,19 +398,19 @@ type Info =
                         | false, _ -> result.Add cls
                         | true, (rAddr, rCt, rCl) ->
                             let (addr, ct, cl) = cls.Value
-                            let newAddr = rAddr
                             let newCt =
                                 match ct, rCt with
                                 | NotCustomType, ct | ct, NotCustomType -> ct
                                 | ct, rCt -> if ct = rCt then ct else failwithf "Different values found for the same key: %A" cls.Key
-                            let newCls =
+                            let newCls, newAddr =
                                 match cl, rCl with
                                 | Some cl, Some rCl ->
-                                    match tryMergeClassInfo rCl cl with
-                                    | Some mergedInfo -> Some mergedInfo
+                                    match tryMergeClassInfo (rCl, rAddr) (cl, addr) with
+                                    | Some (mergedInfo, newAddr) -> Some mergedInfo, newAddr
                                     | None -> failwithf "Error merging class info on key: %A" cls.Key
-                                | Some cls, None | None, Some cls -> Some cls
-                                | None, None -> None
+                                | Some cls, None -> Some cls, addr
+                                | None, Some cls -> Some cls, rAddr
+                                | None, None -> None, rAddr
                             result.[cls.Key] <- (newAddr, newCt, newCls)
             result
 

@@ -74,6 +74,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
+    let mergedProxies = HashSet<TypeDefinition>()
     let assumeClass typ =
         match classes.TryFind typ with
         | Some (_, _, Some cls) -> cls
@@ -632,8 +633,13 @@ type Compilation(meta: Info, ?hasGraph) =
         | Some (_, c, None) -> Choice2Of2 c
         | None -> Choice2Of2 (this.GetCustomType typ)
 
-    member this.TryLookupClassInfo typ =   
-        match classes.TryFind(this.FindProxied typ) with
+    member this.TryLookupClassInfo (typ, ?staticAccess) =   
+        let cl =
+            if defaultArg staticAccess false && mergedProxies.Contains typ then
+                classes.Original
+            else
+                classes
+        match cl.TryFind(this.FindProxied typ) with
         | Some (a, _, Some cls) -> Some (a, cls)
         | _ -> None
 
@@ -1123,6 +1129,7 @@ type Compilation(meta: Info, ?hasGraph) =
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
     member this.AddJSImport(export: string option, from: string) =
+        let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
         match export with
         | None -> GlobalAccess (Address.DefaultExport from)
         | Some x -> GlobalAccess (Address.NamedExport from x)
@@ -1306,7 +1313,9 @@ type Compilation(meta: Info, ?hasGraph) =
             let isStub = cls.Kind = NotResolvedClassKind.Stub
             let methods =
                 match classes.TryFind typ with
-                | Some (_, _, Some c) -> MergedDictionary c.Methods :> IDictionary<_,_>
+                | Some (_, _, Some c) -> 
+                    mergedProxies.Add typ |> ignore
+                    MergedDictionary c.Methods :> IDictionary<_,_>
                 | _ -> Dictionary() :> _
             let resCls =
                 {
@@ -1439,12 +1448,20 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> List.foldBack (fun (p, o) fb -> Some (Macro(p, o |> Option.map ParameterObject.OfObj, fb))) nr.Macros
                 |> Option.get
 
-        let compiledStaticMember a k p (nr : NotResolvedMethod) =
+        let compiledStaticMember n k p typ (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Quotation _
             | N.Constructor
-            | N.Static -> if p then Static (a, k) else Func a
-            | N.AsStatic -> Func a
+            | N.Static -> 
+                if mergedProxies.Contains typ then
+                    match this.TryLookupClassInfo(typ, true) with
+                    | Some (a, _) -> GlobalFunc (a.Sub(n))
+                    | _ -> Func n
+                elif p then 
+                    Static (n, k) 
+                else 
+                    Func n
+            | N.AsStatic -> Func n
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
 
@@ -1737,7 +1754,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let res = assumeClass typ
             match m with
             | M.Constructor (cDef, nr) ->
-                let comp = compiledStaticMember name k res.HasWSPrototype nr
+                let comp = compiledStaticMember name k res.HasWSPrototype typ nr
                 let body =
                     match nr.Body with
                     | Function(cargs, _, typ, cbody) ->
@@ -1751,7 +1768,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
-                let comp = compiledStaticMember name k res.HasWSPrototype nr
+                let comp = compiledStaticMember name k res.HasWSPrototype typ nr
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)

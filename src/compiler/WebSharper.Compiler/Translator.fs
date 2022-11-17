@@ -938,7 +938,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         else trRes
 
     member this.Static(typ: Concrete<TypeDefinition>, ?name: string) =
-        match comp.TryLookupClassInfo(typ.Entity) with
+        match comp.TryLookupClassInfo(typ.Entity, true) with
         | Some (a, _) ->
             match name with
             | Some n ->
@@ -949,7 +949,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.Error($"Failed to resolve address for type {typ.Entity.Value.AssemblyQualifiedName}")
 
     member this.StaticSet(typ: Concrete<TypeDefinition>, name: string, value) =
-        match comp.TryLookupClassInfo(typ.Entity) with
+        match comp.TryLookupClassInfo(typ.Entity, true) with
         | Some (a, _) ->
             ItemSet(GlobalAccess a, Value (String name), value)
         | _ ->
