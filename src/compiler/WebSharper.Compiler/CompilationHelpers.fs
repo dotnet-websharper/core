@@ -653,6 +653,8 @@ module JSRuntime =
     let GetterOf o n = runtimeFunc "GetterOf" Pure [o; Value (String n)]
     let SetterOf o n = runtimeFunc "SetterOf" Pure [o; Value (String n)]
 
+    let ObjectAssign toObj fromObj = Appl(GlobalAccess (Address.Lib ["Object"; "assign"]), [toObj; fromObj], NonPure, Some 2)
+
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 

@@ -645,8 +645,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.TryLookupClassAddressOrCustomType typ =   
         match classes.TryFind(this.FindProxied typ), this.GetCustomType typ with
-        | Some (addr, _, Some c), (FSharpUnionInfo _) when c.HasWSPrototype -> 
-            Choice1Of2 (addr.Sub("$"))
         | Some (addr, _, Some c), _ when c.HasWSPrototype -> 
             Choice1Of2 addr
         | Some (addr, _, _), NotCustomType -> 

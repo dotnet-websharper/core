@@ -337,13 +337,16 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 )
                 |> Seq.max
             let genCtor =
-                let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
-                let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
-                let setters = 
-                    Statement.Block (
-                        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
-                    )
-                ClassConstructor(args, Some setters, TSType.Any)
+                let arg = Id.New("$")
+                let assign = ExprStatement (JSRuntime.ObjectAssign This (Var arg))
+                ClassConstructor([ arg, Modifiers.None ], Some assign, TSType.Any)
+                //let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
+                //let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
+                //let setters = 
+                //    Statement.Block (
+                //        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
+                //    )
+                //ClassConstructor(args, Some setters, TSType.Any)
             members.Add <| genCtor
         | _ -> ()
         //| _ ->

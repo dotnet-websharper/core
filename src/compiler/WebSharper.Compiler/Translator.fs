@@ -1403,7 +1403,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | Some a ->
                 if comp.HasGraph then
                     this.AddTypeDependency typ.Entity
-                New (GlobalAccess (a.Sub("$")), [], Value (Int i) :: trArgs)
+                New (GlobalAccess a, [], Value (Int i) :: trArgs)
             | _ -> 
                 Object (
                     ("$", Value (Int i)) ::
