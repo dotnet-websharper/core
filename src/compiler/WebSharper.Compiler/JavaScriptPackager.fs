@@ -94,53 +94,54 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             //    if fn.EndsWith(".js") then
             //        fn.[.. fn.Length - 4].Replace(".", "$")
             //    else fn.Replace(".", "$")
-            match address.Module with
-            | StandardLibrary
-            | JavaScriptFile _ ->
-                match address.Address.Value with
-                | [] -> ()
-                | l -> 
-                    jsUsed.Add(List.last l) |> ignore
-                GlobalAccess address    
-            | JavaScriptModule m ->
-                let importWhat, importAs =
-                    let fromModuleName() = (m.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+            let res =
+                match address.Module with
+                | StandardLibrary
+                | JavaScriptFile _ ->
                     match address.Address.Value with
-                    | [] -> 
-                        "*", fromModuleName()
-                    | a -> 
-                        let n = List.last a
-                        if n = "default" then
-                            n, fromModuleName()
-                        else
-                            n, n
-                if m = currentModuleName then
-                    let currentAddress =
-                        { address with Module = ImportedModule (Id.Global()) }
-                    GlobalAccess currentAddress
-                else
-                    let moduleImports =
-                        match imports.TryGetValue m with
-                        | true, mi -> mi
-                        | _ ->
-                            let mi = Dictionary()
-                            imports.Add(m, mi)
-                            mi
-                    let i =
-                        match moduleImports.TryGetValue importWhat with
-                        | true, i -> i
-                        | _ ->
-                            let i = Id.New(importAs)
-                            moduleImports.Add(importWhat, i)
-                            i
-                    let importedAddress =
+                    | [] -> ()
+                    | l -> 
+                        jsUsed.Add(List.last l) |> ignore
+                    GlobalAccess address    
+                | JavaScriptModule m ->
+                    let importWhat, importAs =
+                        let fromModuleName() = (m.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
                         match address.Address.Value with
-                        | [] -> { address with Module = ImportedModule i }
-                        | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
-                    GlobalAccess importedAddress
-            | _ -> GlobalAccess address          
-                        
-
+                        | [] -> 
+                            "*", fromModuleName()
+                        | a -> 
+                            let n = List.last a
+                            if n = "default" then
+                                n, fromModuleName()
+                            else
+                                n, n
+                    if m = currentModuleName then
+                        let currentAddress =
+                            { address with Module = ImportedModule (Id.Global()) }
+                        GlobalAccess currentAddress
+                    else
+                        let moduleImports =
+                            match imports.TryGetValue m with
+                            | true, mi -> mi
+                            | _ ->
+                                let mi = Dictionary()
+                                imports.Add(m, mi)
+                                mi
+                        let i =
+                            match moduleImports.TryGetValue importWhat with
+                            | true, i -> i
+                            | _ ->
+                                let i = Id.New(importAs)
+                                moduleImports.Add(importWhat, i)
+                                i
+                        let importedAddress =
+                            match address.Address.Value with
+                            | [] -> { address with Module = ImportedModule i }
+                            | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
+                        GlobalAccess importedAddress
+                | _ -> GlobalAccess address          
+            addresses.Add(address, res)
+            res
             
             //match address.Address.Value with
             //| [] -> glob
@@ -178,6 +179,31 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     let bodyTransformer =
         { new Transformer() with
             override this.TransformGlobalAccess a = getOrImportAddress a
+
+            override this.TransformGlobalAccessSet (a, v) = 
+                match getOrImportAddress a with
+                | GlobalAccess ga ->
+                    GlobalAccessSet(ga, this.TransformExpression v)
+                | _ ->
+                    failwith "invalid address import"
+
+            override this.TransformItemGet(e, i, p) =
+                match e, i with
+                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.Value.IsEmpty ->
+                    a.Sub(n) |> getOrImportAddress
+                | _ ->
+                    base.TransformItemGet(e, i, p)
+
+            override this.TransformItemSet(e, i, v) =
+                match e, i with
+                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.Value.IsEmpty ->
+                    match a.Sub(n) |> getOrImportAddress with
+                    | GlobalAccess ga ->
+                        GlobalAccessSet(ga, this.TransformExpression v)
+                    | _ ->
+                        failwith "invalid address import"
+                | _ ->
+                    base.TransformItemSet(e, i, v)
         }
             
     let staticThisTransformer =

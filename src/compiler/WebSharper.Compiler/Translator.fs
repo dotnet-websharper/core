@@ -951,7 +951,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.StaticSet(typ: Concrete<TypeDefinition>, name: string, value) =
         match comp.TryLookupClassInfo(typ.Entity, true) with
         | Some (a, _) ->
-            ItemSet(GlobalAccess a, Value (String name), value)
+            GlobalAccessSet (a.Sub(name), value)
         | _ ->
             this.Error($"Failed to resolve address for type {typ.Entity.Value.AssemblyQualifiedName}")
 

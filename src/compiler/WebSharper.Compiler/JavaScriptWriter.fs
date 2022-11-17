@@ -340,6 +340,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 ) ha t
         | _ -> 
             failwith "Addresses must be resolved to ImportedModule before writing JavaScript"
+    | GlobalAccessSet (a, v) ->
+        trE (GlobalAccess a) ^= trE v
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 

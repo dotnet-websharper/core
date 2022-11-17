@@ -522,6 +522,9 @@ let rec breakExpr expr : Broken<BreakResult> =
     | VarSet (a, b) ->
         br b |> toBrExpr
         |> mapBroken (fun bE -> VarSet (a, bE))
+    | GlobalAccessSet (a, b) ->
+        br b |> toBrExpr
+        |> mapBroken (fun bE -> GlobalAccessSet (a, bE))
     | Sequential a ->
         let rec collect a =
             a |> List.collect (

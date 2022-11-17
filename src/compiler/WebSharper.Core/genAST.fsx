@@ -198,6 +198,8 @@ let ExprDefs =
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
+        "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
+            , "A global or imported value setter"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
             , "JavaScript 'new' call"
         "Hole", [ Int, "index" ]

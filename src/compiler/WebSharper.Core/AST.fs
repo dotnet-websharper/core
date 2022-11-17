@@ -226,6 +226,8 @@ and Expression =
     | Object of Properties:list<string * Expression>
     /// A global or imported value
     | GlobalAccess of Address:Address
+    /// A global or imported value setter
+    | GlobalAccessSet of Address:Address * Value:Expression
     /// JavaScript 'new' call
     | New of Func:Expression * Param:list<TSType> * Arguments:list<Expression>
     /// Temporary - A hole in an expression for inlining
@@ -496,6 +498,9 @@ type Transformer() =
     /// A global or imported value
     abstract TransformGlobalAccess : Address:Address -> Expression
     override this.TransformGlobalAccess a = GlobalAccess (a)
+    /// A global or imported value setter
+    abstract TransformGlobalAccessSet : Address:Address * Value:Expression -> Expression
+    override this.TransformGlobalAccessSet (a, b) = GlobalAccessSet (a, this.TransformExpression b)
     /// JavaScript 'new' call
     abstract TransformNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> Expression
     override this.TransformNew (a, b, c) = New (this.TransformExpression a, b, List.map this.TransformExpression c)
@@ -679,6 +684,7 @@ type Transformer() =
         | ComplexElement a -> this.TransformComplexElement a
         | Object a -> this.TransformObject a
         | GlobalAccess a -> this.TransformGlobalAccess a
+        | GlobalAccessSet (a, b) -> this.TransformGlobalAccessSet (a, b)
         | New (a, b, c) -> this.TransformNew (a, b, c)
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
@@ -886,6 +892,9 @@ type Visitor() =
     /// A global or imported value
     abstract VisitGlobalAccess : Address:Address -> unit
     override this.VisitGlobalAccess a = (())
+    /// A global or imported value setter
+    abstract VisitGlobalAccessSet : Address:Address * Value:Expression -> unit
+    override this.VisitGlobalAccessSet (a, b) = (); this.VisitExpression b
     /// JavaScript 'new' call
     abstract VisitNew : Func:Expression * Param:list<TSType> * Arguments:list<Expression> -> unit
     override this.VisitNew (a, b, c) = this.VisitExpression a; (); List.iter this.VisitExpression c
@@ -1067,6 +1076,7 @@ type Visitor() =
         | ComplexElement a -> this.VisitComplexElement a
         | Object a -> this.VisitObject a
         | GlobalAccess a -> this.VisitGlobalAccess a
+        | GlobalAccessSet (a, b) -> this.VisitGlobalAccessSet (a, b)
         | New (a, b, c) -> this.VisitNew (a, b, c)
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
@@ -1172,6 +1182,7 @@ module IgnoreSourcePos =
     let (|ComplexElement|_|) x = match ignoreExprSourcePos x with ComplexElement a -> Some a | _ -> None
     let (|Object|_|) x = match ignoreExprSourcePos x with Object a -> Some a | _ -> None
     let (|GlobalAccess|_|) x = match ignoreExprSourcePos x with GlobalAccess a -> Some a | _ -> None
+    let (|GlobalAccessSet|_|) x = match ignoreExprSourcePos x with GlobalAccessSet (a, b) -> Some (a, b) | _ -> None
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
@@ -1276,6 +1287,7 @@ module Debug =
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) a) + "]" + ")"
         | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
+        | GlobalAccessSet (a, b) -> "GlobalAccessSet" + "(" + PrintObject a + ", " + PrintExpression b + ")"
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
         | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
