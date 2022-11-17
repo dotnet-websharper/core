@@ -1615,7 +1615,7 @@ type WebWorker() =
             let filename = c.Compilation.AddBundle(name, ExprStatement e, includeJsExports).FileName
             let path = 
                 Appl(
-                    Global ["WSRuntime"; "ScriptPath"],
+                    GlobalAccess (Address.Runtime "ScriptPath"),
                     [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
                     NonPure, Some 2)
             Ctor(worker, workerCtor, [path])

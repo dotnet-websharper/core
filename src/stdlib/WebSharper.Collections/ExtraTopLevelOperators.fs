@@ -28,7 +28,7 @@ open WebSharper
 
 open System.Collections.Generic
 
-[<Name("WebSharper.Collections.dict")>]
+[<Name("dict")>]
 let private MakeDict (s : seq<('K * 'V)>) =
     let d = Dictionary()
     for a, b in s do
