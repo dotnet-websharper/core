@@ -1155,35 +1155,35 @@ type TestBuilder (run: (QUnit.Asserter -> unit) -> unit) =
                 asserter.Equal(e, null, "Test threw an unexpected synchronous exception")
         )
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Test name = new TestBuilder(QUnit.Test name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let TestIf bool name = new TestBuilder(if bool then QUnit.Test name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Skip name = new TestBuilder(QUnit.Skip name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let SkipIf bool name = new TestBuilder(if bool then QUnit.Skip name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Todo name = new TestBuilder(QUnit.Todo name)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let TodoIf bool name = new TestBuilder(if bool then QUnit.Todo name else ignore)
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let Do = new SubtestBuilder()
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let PropertyWith name gen f =
     Test name { propertyWith gen f }
 
-[<JavaScript>]
+[<JavaScript; Pure>]
 let PropertyWithSample name set f =
     Test name { propertyWithSample set f }
 
-[<Macro(typeof<Internal.PropertyMacro>)>]
+[<Macro(typeof<Internal.PropertyMacro>); Pure>]
 let Property<'T, 'O> name (f: 'T -> Runner<'O>) =
     PropertyWith name (RandomValues.Auto<'T>()) f

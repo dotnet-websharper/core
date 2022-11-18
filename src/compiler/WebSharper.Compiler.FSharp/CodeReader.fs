@@ -912,7 +912,8 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let i, trBody =
                 match IgnoreExprSourcePos (tr body) with
                 | Function ([i], _, _, ExprStatement b) -> i, b
-                | _ -> parsefailf "Unexpected form of consumeExpr in FastIntegerForLoop pattern"     
+                | _ -> parsefailf "Unexpected form of consumeExpr in FastIntegerForLoop pattern"    
+            let i = i.ToMutable()
             For (
                 Some (Sequential [NewVar(i, tr start); NewVar (j, tr end_)]), 
                 Some (if up then Binary(Var i, BinaryOperator.``<=``, Var j) else Binary(Var i, BinaryOperator.``>=``, Var j)), 

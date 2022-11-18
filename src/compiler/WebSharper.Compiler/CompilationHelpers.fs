@@ -1361,6 +1361,22 @@ let (|SimpleFunction|_|) expr =
     //| _ -> None
     None
 
+let rec (|NewVars|_|) expr =
+    let (|SingleNewVar|_|) e =
+        match e with
+        | NewVar(i, Undefined) -> Some (i, None)
+        | NewVar(i, v) -> Some (i, Some v)
+        | _ -> None
+    match expr with
+    | SingleNewVar r -> Some [ r ]
+    | Sequential s ->
+        let m = s |> List.map (|SingleNewVar|_|)
+        if m |> List.forall Option.isSome then
+            Some (m |> List.map Option.get)
+        else 
+            None
+    | _ -> None
+
 let (|AlwaysTupleGet|_|) tupledArg length expr =
     let (|TupleGet|_|) e =
         match e with 

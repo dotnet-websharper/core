@@ -40,10 +40,10 @@ let TypeTestGeneric<'T> (value: obj) = X<bool>
 [<Macro(typeof<M.TypeTest>)>]
 let TypeTestFast<'T> (value: obj) = X<bool>
 
-[<Inline "$arr.length">]
+[<Inline "$arr.length"; Pure>]
 let GetArray2DLength1 (arr: 'T[,]) = X<int>
 
-[<Inline "$arr.length ? $arr[0].length : 0">]
+[<Inline "$arr.length ? $arr[0].length : 0"; Pure>]
 let GetArray2DLength2 (arr: 'T[,]) =  X<int>
 
 [<Name "checkBounds">]
@@ -63,7 +63,7 @@ let checkRange (arr: 'T []) (start: int) (size: int) : unit =
     if (size < 0) || (start < 0) || (Array.length arr < start + size) then
         failwith "Index was outside the bounds of the array."
 
-[<Inline "$arr[$n]">]
+[<Inline "$arr[$n]"; Pure>]
 let GetArrayInternal<'T> (arr: 'T[]) (n:int) = X<'T>
 
 [<Inline "void ($arr[$n] = $x)">]
@@ -74,11 +74,11 @@ let SetArray<'T> (arr: 'T[]) (n: int) (x: 'T) =
     checkBounds arr n
     SetArrayInternal arr n x
 
-[<Inline "$s[$ix]">]
+[<Inline "$s[$ix]"; Pure>]
 [<Name "WebSharper.Strings.get">]
 let GetString (s: string) (ix: int) = X<char>
 
-[<Name "get">]
+[<Name "get"; Pure>]
 let GetArray<'T> (arr: 'T[]) (n: int) =
     checkBounds arr n
     GetArrayInternal arr n
@@ -86,7 +86,7 @@ let GetArray<'T> (arr: 'T[]) (n: int) =
 [<Inline "$x.slice($start,$start+$length)">]
 let private subArray (x: 'T) start length = X<'T>
 
-[<Name "sub">]
+[<Name "sub"; Pure>]
 let GetArraySub<'T> (arr: 'T[]) start length =
     checkRange arr start length
     subArray arr start length
@@ -96,10 +96,10 @@ let SetArraySub<'T> (arr: 'T[]) start len (src: 'T[]) =
     for i = 0 to len - 1 do
         arr.[start+i] <- src.[i]
 
-[<Inline "$arr[$n1][$n2]">]
+[<Inline "$arr[$n1][$n2]"; Pure>]
 let GetArray2DInternal (arr: 'T[,]) (n1:int) (n2:int) = X<'T>
 
-[<Name "get2D" >]
+[<Name "get2D"; Pure >]
 let GetArray2D (arr: 'T[,]) (n1: int) (n2: int) =
     checkBounds2D arr n1 n2
     GetArray2DInternal arr n1 n2
@@ -113,13 +113,13 @@ let SetArray2D (arr: 'T[,]) (n1: int) (n2: int) (x: 'T) =
     checkBounds2D arr n1 n2
     SetArray2DInternal arr n1 n2 x
 
-[<Name "zeroCreate2D" >]
+[<Name "zeroCreate2D"; Pure >]
 let Array2DZeroCreate<'T> (n:int) (m:int) =
     let arr = As<'T[,]>(Array.init n (fun _ -> Array.zeroCreate m))
     arr?dims <- 2
     arr
 
-[<Name "sub2D" >]
+[<Name "sub2D"; Pure >]
 let GetArray2DSub<'T> (src: 'T[,]) src1 src2 len1 len2 =
     let len1 = (if len1 < 0 then 0 else len1)
     let len2 = (if len2 < 0 then 0 else len2)
@@ -135,7 +135,7 @@ let SetArray2DSub<'T> (dst: 'T[,]) src1 src2 len1 len2 (src: 'T[,]) =
         for j = 0 to len2 - 1 do
             dst.[src1+i, src2+j] <- src.[i, j]
 
-[<Name "length" >]
+[<Name "length"; Pure >]
 let GetLength<'T> (arr: System.Array) =
     match arr?dims with
     | 2 -> GetArray2DLength1 (As arr) * GetArray2DLength1 (As arr)

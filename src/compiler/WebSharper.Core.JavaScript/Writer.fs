@@ -454,7 +454,7 @@ and Statement canBeEmpty statement =
         ++ Statement false body
     | S.ForVars (vs, e1, e2, body) ->
         Word "for"
-        ++ Parens (Word "var"
+        ++ Parens (Word "let"
                    ++ VarsNoIn vs
                    ++ Token ";"
                    ++ Optional Expression e1
