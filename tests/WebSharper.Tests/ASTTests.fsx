@@ -475,22 +475,19 @@ open WebSharper.JavaScript
 
 [<JavaScript>]
 module Helpers =
-    let checkRange (arr: 'T []) (start: int) (size: int) : unit =
-        ()
 
-    let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
-        checkRange arr start length
-        for i = start to start + length - 1 do
-            arr.JS.[i] <- value
+    let test a b =
+        let x = 
+            if a > b then 
+                let mutable s = 0
+                for i = 1 to 2 do s <- s + a 
+                s
+            else 
+                b
+        x + 1 + x
 
-
-//[<JavaScript>]
-//module Array =
-//    let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
-//        Helpers.checkRange arr start length
-//        for i = start to start + length - 1 do
-//            arr.JS.[i] <- value
 """
+
 
 //translate """
 //module M

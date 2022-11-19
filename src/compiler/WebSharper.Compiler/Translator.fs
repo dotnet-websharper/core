@@ -155,6 +155,40 @@ type Breaker(isInline) =
 let private breaker = Breaker(false)
 let private inlineOptimizer = Breaker(true)
 
+type CollectEmptyVars() =
+    inherit Visitor()
+
+    let emptyVars = HashSet()
+
+    member this.EmptyVars = emptyVars
+
+    override this.VisitVarDeclaration(v, e) =
+        if Option.isNone v.Name then
+            emptyVars.Add v |> ignore
+        this.VisitExpression e
+
+    override this.VisitId(v) =
+        emptyVars.Remove v |> ignore
+
+type RemoveEmptyVars(emptyVars: HashSet<Id>) =
+    inherit Transformer()
+
+    override this.TransformVarDeclaration(v, e) =
+        if emptyVars.Contains(v) then
+            ExprStatement(e)
+        else
+            base.TransformVarDeclaration(v, e)
+
+let removeEmptyVarsExpr (s: Expression) =
+    let c = CollectEmptyVars()
+    c.VisitExpression(s)
+    RemoveEmptyVars(c.EmptyVars).TransformExpression(s)    
+
+let removeEmptyVarsSt (s: Statement) =
+    let c = CollectEmptyVars()
+    c.VisitStatement(s)
+    RemoveEmptyVars(c.EmptyVars).TransformStatement(s)    
+
 //type CollectCurried() =
 //    inherit Transformer()
 
@@ -461,6 +495,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             |> removeLetsTr.TransformExpression
             |> runtimeCleaner.TransformExpression
             |> breaker.TransformExpression
+            |> removeEmptyVarsExpr
             |> runtimeCleanerForced.TransformExpression
             //|> collectCurried isCtor
     
@@ -469,6 +504,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         |> removeLetsTr.TransformStatement
         |> runtimeCleaner.TransformStatement
         |> breaker.TransformStatement
+        |> removeEmptyVarsSt
         |> runtimeCleanerForced.TransformStatement
         //|> collectCurriedTr.TransformStatement
 
