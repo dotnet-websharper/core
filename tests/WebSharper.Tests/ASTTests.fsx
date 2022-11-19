@@ -22,8 +22,8 @@
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/FSharp/netstandard2.0/WebSharper.Compiler.FSharp.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -333,6 +333,8 @@ let metadata =
 
 metadata.ResourceHashes |> Seq.iter (fun (KeyValue(k, v)) -> printfn "%sk?h=%d" k v)
 
+let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
+
 open System.IO
 
 let translate source = 
@@ -372,7 +374,7 @@ let translate source =
             comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
-            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
+            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,a)) -> stExpr a)
         ]
         |> List.ofSeq
 
@@ -398,7 +400,7 @@ let translate source =
                     c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
                     c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
                     c.Implementations.Values |> Seq.map snd
-                    c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
+                    c.StaticConstructor |> Option.map stExpr |> Option.toList |> Seq.ofList
                 ]
             | _ -> Seq.empty
         )
@@ -411,12 +413,19 @@ let translate source =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
-    let js, map = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
+    let jsFiles = 
+        pkg 
+        |> Array.map (fun (file, p) ->
+            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+            file, js
+        )
 
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
-    js |> printfn "%s" 
+    for (name, js) in jsFiles do 
+        printfn "File: %s" name
+        printfn "%s" js
 
 let translateQ q =
     let comp = 
@@ -454,8 +463,7 @@ let getBody expr =
             let _, _, expr = cls.Constructors.[ctor]
             expr
         | AST.Member.StaticConstructor ->
-            let _, expr = cls.StaticConstructor |> Option.get
-            expr
+            cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
 
@@ -466,9 +474,22 @@ open WebSharper
 open WebSharper.JavaScript
 
 [<JavaScript>]
-type MyClass(name: string) =
-    member this.Name = name
-    static member Hello = "hello"
+module Helpers =
+    let checkRange (arr: 'T []) (start: int) (size: int) : unit =
+        ()
+
+    let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
+        checkRange arr start length
+        for i = start to start + length - 1 do
+            arr.JS.[i] <- value
+
+
+//[<JavaScript>]
+//module Array =
+//    let Fill<'T> (arr: 'T []) (start: int) (length: int) (value: 'T) =
+//        Helpers.checkRange arr start length
+//        for i = start to start + length - 1 do
+//            arr.JS.[i] <- value
 """
 
 //translate """

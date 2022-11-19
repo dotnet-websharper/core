@@ -413,7 +413,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                                 bL true (b.Declarations @ accVar, accSt, b.Body :: accE) bRest
                             else
                                 let v = Id.New()
-                                bL true (b.Declarations @ accVar, VarDeclaration (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
+                                bL true (b.Declarations @ accVar, VarSetStatement (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
                         else
                             bL false (b.Declarations @ accVar, accSt, b.Body :: accE) bRest
                     else
@@ -421,7 +421,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                             bL true (b.Declarations @ accVar, b.Statements @ accSt, b.Body :: accE) bRest
                         else
                             let v = Id.New()
-                            bL true (b.Declarations @ accVar, b.Statements @ VarDeclaration (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
+                            bL true (b.Declarations @ accVar, b.Statements @ VarSetStatement (v, getExpr b.Body) :: accSt, ResultVar v :: accE) bRest
             let vars, st, e = bL false ([], [], []) (List.rev bb)
             {
                 Body = e

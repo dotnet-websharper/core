@@ -58,7 +58,6 @@ let checkBounds2D<'T> (arr: 'T[,]) (n1: int) (n2: int) =
         raise (new IndexOutOfRangeException())
 
 [<Name "checkRange">]
-
 let checkRange (arr: 'T []) (start: int) (size: int) : unit =
     if (size < 0) || (start < 0) || (Array.length arr < start + size) then
         failwith "Index was outside the bounds of the array."

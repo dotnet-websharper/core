@@ -501,14 +501,14 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         let decls =
             a |> List.map (fun (i, v) ->
                 let id = env.NewVar i
-                VarDeclaration(id, match v with Some v -> trE v | _ -> Undefined)
+                NewVar(id, match v with Some v -> trE v | _ -> Undefined)
             )
-        Block (
-            decls @
-            [
-                For (None, Option.map trE b, Option.map trE c, trS d)
-            ]    
-        )
+        let trA =
+            match decls with
+            | [] -> None
+            | [ x ] -> Some x
+            | xs -> Some (Sequential xs)
+        For (trA, Option.map trE b, Option.map trE c, trS d)
     | S.If (a, b, c) -> If (trE a, trS b, trS c)
     | S.Ignore a -> ExprStatement (trE a)    
     | S.Import (a, b, c, d) ->
