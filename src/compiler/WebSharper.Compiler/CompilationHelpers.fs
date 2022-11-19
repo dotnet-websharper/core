@@ -502,14 +502,13 @@ type Substitution(args, ?thisObj) =
     override this.TransformHole i = 
         if i <= args.Length - 1 then args.[i] else Undefined
 
-    override this.TransformFunction(args, isArr, typ, body) =
-        let res = base.TransformFunction(args, isArr, typ, body)
-        res
-
     member this.RefreshVar(i: Id) =
         let n = i.Clone()
         refresh.Add(i, n)
         n
+
+    override this.TransformFunction(args, isArr, typ, body) =
+        Function(args |> List.map this.RefreshVar, isArr, typ, this.TransformStatement body)
 
     override this.TransformVarDeclaration(i, v) =
         VarDeclaration(this.RefreshVar i, this.TransformExpression v)
@@ -522,6 +521,9 @@ type Substitution(args, ?thisObj) =
 
     override this.TransformNewVar(i, v) =
         NewVar(this.RefreshVar i, this.TransformExpression v)
+
+    override this.TransformFuncDeclaration(i, a, b, t) =
+        FuncDeclaration(this.RefreshVar i, a, this.TransformStatement b, t)
 
     override this.TransformId i =
         match refresh.TryFind i with
@@ -722,7 +724,8 @@ module Resolve =
         | i -> 
             match System.Int32.TryParse (name.Substring(i + 1)) with
             | true, n -> name.Substring(0, i) + "_" + string (n + 1)
-            | _ -> name + "_1"
+            | _ -> 
+                if name.EndsWith "_" then name + "1" else name + "_1"
     
     type Class = 
         {

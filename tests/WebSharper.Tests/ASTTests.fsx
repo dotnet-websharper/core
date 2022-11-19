@@ -28,6 +28,8 @@
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Main.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.MathJS.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.MathJS.Extensions.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Collections.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Control.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Web.dll"
@@ -286,6 +288,8 @@ let wsRefs =
         "WebSharper.Collections"
         "WebSharper.Control"
         "WebSharper.Web"
+        "WebSharper.MathJS"
+        "WebSharper.MathJS.Extensions"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
@@ -354,6 +358,8 @@ let translate source =
         for err in wholeProjectResults.Diagnostics |> Seq.filter (fun e -> e.Severity = Diagnostics.FSharpDiagnosticSeverity.Error) do
             printfn "F# Error: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
     else
+    for err in wholeProjectResults.Diagnostics do
+        printfn "F# Error/Warning: %d:%d-%d:%d %s" err.StartLine err.StartColumn err.EndLine err.EndColumn err.Message
     let file1 = wholeProjectResults.AssemblyContents.ImplementationFiles.[0]
 
     let fsDeclarations = 
@@ -472,20 +478,31 @@ namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
+open WebSharper.MathJS
 
 [<JavaScript>]
-module Helpers =
+module Decimal =
+    let WSDecimalMath: MathJS.MathInstance =
+        MathJS.Math.Create(Config(Number = "BigNumber", Precision = 29., Predictable = true))
 
-    let test a b =
-        let x = 
-            if a > b then 
-                let mutable s = 0
-                for i = 1 to 2 do s <- s + a 
-                s
-            else 
-                b
-        x + 1 + x
-
+    let CreateDecimal(lo: int32, mid: int32, hi: int32, isNegative: bool, scale: byte) : decimal =
+        let n(x:int) = (WSDecimalMath.Bignumber x) |> As<decimal>
+        if lo = 0 && hi = 0 && mid = 0 then
+            n 0
+        else
+            let uint_sup =
+                System.Decimal.Add(System.Decimal.Multiply((n 429496729), (n 10)), (n 6))
+            let reinterpret (x: int) = 
+                if x >= 0 then
+                    n(x)
+                else
+                    uint_sup + (n x)
+            let quotient =
+                WSDecimalMath.Pow((n 10 |> As<MathNumber>), WSDecimalMath.UnaryMinus((n <| int scale )|>As<MathNumber>)) |> As<decimal>
+            let value =
+                (((reinterpret hi) * uint_sup + reinterpret mid) * uint_sup + reinterpret lo)
+            let sign = if isNegative then (n -1) else (n 1)
+            sign * value * quotient
 """
 
 
