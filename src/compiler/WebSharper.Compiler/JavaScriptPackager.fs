@@ -46,7 +46,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
     let classId = 
         Id.New className
-    let currentModuleName = asmName + "/" + typ.Value.FullName
+    let currentModuleName = asmName + "/" + typ.Value.FullName.Replace('+', '.')
 
     //let g = Id.New "Global"
     //let glob = Var g
@@ -321,6 +321,18 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     statements.Add <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
+            | M.Static (name, kind) ->
+                match body with 
+                | Function (args, _, _, b) ->  
+                    let info =
+                        {
+                            IsStatic = true
+                            IsPrivate = false
+                            Kind = kind
+                        }
+                    members.Add (ClassMethod(info, name, args, Some b, TSType.Any))
+                | _ ->
+                    failwithf "Invalid form for translated constructor"
             | _ -> ()
                             
         if indexedCtors.Count > 0 then
@@ -349,6 +361,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | Some (ba, _, _) -> Some (getOrImportAddress ba), c.BaseClass.Value.Entity = Definitions.Object
             | _ -> None, false
         
+        let mutable isFSharpType = false
+
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
             let tags = u.Cases |> List.mapi (fun i c -> c.Name, Value (Int i)) |> Object
@@ -374,6 +388,21 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 //    )
                 //ClassConstructor(args, Some setters, TSType.Any)
             members.Add <| genCtor
+            isFSharpType <- true
+        | M.FSharpRecordInfo r when Option.isNone c.Type ->     
+            let genCtor = 
+                let arg = Id.New("$")
+                let assign = ExprStatement (JSRuntime.ObjectAssign This (Var arg))
+                ClassConstructor([ arg, Modifiers.None ], Some assign, TSType.Any)
+            members.Add <| genCtor
+            //let newFunc =
+            //    let args = r |> List.map (fun f -> Id.New(f.Name, mut = false))
+            //    let newId = Id.New("New", str = true)
+            //    let body =
+            //        New(Var classId, [], [ Object (args |> List.map ) ])
+            //    FuncDeclaration(newId, args, )
+            //statements.Add <| ExportDecl(false, newFunc)
+            isFSharpType <- true
         | _ -> ()
         //| _ ->
         //    if c.HasWSPrototype then
@@ -388,31 +417,32 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             statements.Add <| VarDeclaration(classId, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr classId))
             statements.Add <| ExportDecl(true, ExprStatement(Var classId))                
 
-        let packageClass classExpr = 
-            statements.Add <| ExportDecl(true, ExprStatement(classExpr))                
+        let packageClass classDecl = 
+            statements.Add <| ExportDecl(true, bodyTransformer.TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
-            let classExpr = ClassExpr(Some className, baseType, List.ofSeq members)
+            let classExpr() = ClassExpr(Some className, baseType, List.ofSeq members)
+            let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with
             | Some b ->
                 let needsLazy = Option.isNone c.Type
                 if needsLazy then
                     packageLazyClass <| 
                         if isObjBase then
-                            classExpr
+                            classExpr()
                         else
                             Sequential [
                                 JSRuntime.Force(b)
-                                classExpr
+                                classExpr()
                             ]
                 else
-                    packageClass classExpr
+                    packageClass <| classDecl()
             | None ->
-                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object
+                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType
                 if needsLazy then
-                    packageLazyClass classExpr
+                    packageLazyClass <| classExpr()
                 else
-                    packageClass classExpr
+                    packageClass <| classDecl()
                             
     match current.Classes.TryFind(typ) with
     | Some (a, ct, cOpt) ->

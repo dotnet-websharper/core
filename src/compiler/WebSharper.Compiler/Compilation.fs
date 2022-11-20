@@ -580,7 +580,7 @@ type Compilation(meta: Info, ?hasGraph) =
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
     member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
-        let mname = this.AssemblyName + "/" + typ.Value.FullName.Replace("+", ".")
+        let mname = this.AssemblyName + "/" + typ.Value.FullName.Replace('+', '.')
         if hasWSPrototype then
             Address.DefaultExport mname
         else 
@@ -1452,7 +1452,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | N.Constructor
             | N.Static -> 
                 if mergedProxies.Contains typ then
-                    match this.TryLookupClassInfo(typ, true) with
+                    match this.TryLookupClassInfo(typ) with
                     | Some (a, _) -> GlobalFunc (a.Sub(n))
                     | _ -> Func n
                 elif p then 

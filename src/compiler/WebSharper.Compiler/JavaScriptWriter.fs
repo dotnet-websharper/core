@@ -305,6 +305,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         trE e
     | ClassExpr (n, b, m) ->
         let innerEnv = env.NewInner()
+        //let jn = defineId innerEnv n
         J.ClassExpr(n |> Option.map J.Id.New, Option.map trE b, [], List.map (transformMember innerEnv) m)
     | GlobalAccess a ->
         match a.Module with     

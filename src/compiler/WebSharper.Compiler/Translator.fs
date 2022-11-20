@@ -1429,7 +1429,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Choice1Of2 a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            JSRuntime.Create (GlobalAccess a) (this.TransformExpression objExpr)
+            New(GlobalAccess a, [], [this.TransformExpression objExpr])
+            //JSRuntime.Create (GlobalAccess a) ()
         | _ -> this.TransformExpression objExpr
 
     member this.UnionCtor(typ, i, args) =
@@ -2163,7 +2164,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | Some ii ->
                         warnIgnoringGenerics()
                         // todo have "is" address in metadata
-                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ "is" + (t.Value.FullName.Split('.') |> Array.last) ] }), [ trExpr ], Pure, Some 1)
+                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last) ] }), [ trExpr ], Pure, Some 1)
                     | _ ->
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
         | TypeParameter _ | StaticTypeParameter _ -> 
