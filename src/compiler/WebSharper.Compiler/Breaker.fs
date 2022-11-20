@@ -869,12 +869,8 @@ and toStatementsSpec f b =
     match b.Body with
     | ResultExpr _ -> toStatements f b
     | ResultVar v -> 
-        seq {
-            yield! b.Declarations
-            yield! 
-                b.Statements 
-                |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt)
-        }
+        Seq.append b.Declarations b.Statements
+        |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt)
 
 and private breakSt statement : Statement seq =
     let inline brE x = breakExpr x

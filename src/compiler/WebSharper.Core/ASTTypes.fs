@@ -1003,6 +1003,8 @@ module private Instances =
 
     let ImportId = uniqueId "import" -2L
 
+    let SourceTypeId = uniqueId "type" -3L
+
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
@@ -1017,6 +1019,7 @@ module private Instances =
 type Id with
     static member Global() = Instances.GlobalId
     static member Import() = Instances.ImportId
+    static member SourceType() = Instances.SourceTypeId
 
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor

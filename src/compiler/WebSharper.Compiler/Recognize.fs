@@ -316,7 +316,18 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
             match trE a with
             | ItemGet (a, b, _) -> ItemGet (a, b, Pure)
             | trA -> trA
-        Appl (trA, b |> List.map trE, env.Purity, None) 
+        match trA with
+        | Var t when t = Id.SourceType() ->
+            match b |> List.map trE with
+            | [ Value (String tn) ] ->
+                GlobalAccess {
+                    Module = JavaScriptModule tn
+                    Address = Hashed [ "default" ]
+                }   
+            | _ ->
+                failwithf "$type can be only used with a single string argument in inlines"
+        | _->
+            Appl (trA, b |> List.map trE, env.Purity, None) 
     | S.Binary (a, b, c) ->
         match b with    
         | SB.``!=``     -> Binary(trE a, BinaryOperator.``!=``, trE c)
@@ -441,6 +452,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | "self"
         | "globalThis" -> Var (Id.Global())
         | "$wsruntime" -> wsruntime
+        | "$type" -> Var (Id.SourceType())
         | "arguments" -> Arguments
         | "undefined" -> Undefined
         | n ->
