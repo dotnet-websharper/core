@@ -482,21 +482,11 @@ open WebSharper.MathJS
 
 [<JavaScript>]
 module Test =
-    let getSlice this start finish : list<'T> =
-        try
-            match start, finish with
-            | None, None -> this
-            | Some i, None -> this |> List.skip i
-            | None, Some j -> 
-                if j < 0 then As List.empty else
-                this |> Seq.take (j + 1) |> List.ofSeq  
-            | Some i, Some j -> 
-                if j < 0 then As List.empty else
-                this |> List.skip i |> Seq.take (j - i + 1) |> List.ofSeq    
-        with _ ->
-            List.empty
+    type UOption =
+        | UNone 
+        | USome of int
+        with member this.X() = 1
 """
-
 
 //translate """
 //module M

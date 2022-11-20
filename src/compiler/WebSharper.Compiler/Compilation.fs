@@ -1914,22 +1914,21 @@ type Compilation(meta: Info, ?hasGraph) =
             let clAddr = getClassAddress typ
             let pr = resolver.LookupClass typ
             for m in ms do
-                let uname = 
+                let uname, k = 
                     match m with
-                    | M.Constructor _ -> "New"
-                    | M.Field (fName, _) -> simplifyFieldName fName
+                    | M.Constructor _ -> "New", ClassMethodKind.Simple
+                    | M.Field (fName, _) -> simplifyFieldName fName, ClassMethodKind.Simple
                     | M.Method (meth, _) ->
-                        let n = meth.Value.MethodName
+                        let n, k = this.GetMemberNameAndKind(m)
                         // Simplify names of active patterns
-                        if n.StartsWith "|" then n.Split('|').[1] 
+                        if n.StartsWith "|" then n.Split('|').[1], k 
                         // Simplify names of static F# extension members 
                         elif n.EndsWith ".Static" then
                             let s = n.Split('.')
-                            s[.. s.Length - 2] |> String.concat("_")
-                        else n.Replace('.', '_') 
-                    | M.StaticConstructor _ -> "cctor" 
+                            s[.. s.Length - 2] |> String.concat("_"), k
+                        else n.Replace('.', '_'), k 
+                    | M.StaticConstructor _ -> "cctor", ClassMethodKind.Simple 
                 let addr = Resolve.getRenamedStaticMemberForClass uname pr
-                let (_, k) = this.GetMemberNameAndKind(m)
                 nameStaticMember typ addr k m
 
         let resolved = HashSet()
@@ -1962,11 +1961,15 @@ type Compilation(meta: Info, ?hasGraph) =
                     Seq.append nonOverrides overrides
 
                 for m in ms do
-                    let name = 
+                    let name, k = 
                         match m with
-                        | M.Field (fName, _) -> Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some
+                        | M.Field (fName, _) -> 
+                            Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some,
+                            ClassMethodKind.Simple
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
-                            Resolve.getRenamedInstanceMemberForClass (mDef.Value.MethodName.Replace('.', '_')) pr |> Some
+                            let n, k = this.GetMemberNameAndKind(m)
+                            Resolve.getRenamedInstanceMemberForClass (n.Replace('.', '_')) pr |> Some,
+                            k
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
                             | Some (_, _, Some tCls) -> 
@@ -1980,18 +1983,17 @@ type Compilation(meta: Info, ?hasGraph) =
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
                                 match smi with
-                                | Some (Instance (n, kind)) -> Some n
-                                | None -> None
+                                | Some (Instance (n, kind)) -> Some n, kind
+                                | None -> None, ClassMethodKind.Simple
                                 | _ -> 
                                     printerrf "Abstract method must be compiled as instance member: %s in %s" (string mDef.Value) td.Value.FullName
-                                    None
+                                    None, ClassMethodKind.Simple
                             | _ ->
                                 printerrf "Base type not found in compilation: %s" td.Value.FullName
-                                None
+                                None, ClassMethodKind.Simple
                         | _ -> 
                             failwith "Invalid instance member kind"
-                            None
-                    let (_, k) = this.GetMemberNameAndKind(m)
+                            None, ClassMethodKind.Simple
                     name |> Option.iter (fun n -> nameInstanceMember typ n k m)
 
         for KeyValue(typ, ms) in remainingInstanceMembers do

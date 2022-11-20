@@ -1435,17 +1435,19 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.UnionCtor(typ, i, args) =
         let trArgs = args |> List.map this.TransformExpression
+        let plainObj =
+            Object (
+                ("$", Value (Int i)) ::
+                (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
+            )
         let objExpr =
             match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
             | Some a ->
                 if comp.HasGraph then
                     this.AddTypeDependency typ.Entity
-                New (GlobalAccess a, [], Value (Int i) :: trArgs)
-            | _ -> 
-                Object (
-                    ("$", Value (Int i)) ::
-                    (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
-                )
+                New (GlobalAccess a, [], [plainObj])
+            | _ ->
+                plainObj
         match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
         | TSType.Any -> objExpr
         | t -> Cast (t, objExpr)

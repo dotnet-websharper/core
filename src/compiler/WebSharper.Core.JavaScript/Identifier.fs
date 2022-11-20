@@ -92,7 +92,6 @@ let ReservedWords =
         "while"
         "with" 
         "yield"
-        "_this"
     |]
 
 let IsReserved x = ReservedWords.Contains x
@@ -120,8 +119,10 @@ let IsValid x =
     && not (IsReserved x)
 
 let MakeValid x =
-    if IsValid x then x else
-        InvalidCharacterPattern.Replace(x, "_")
+    if x = null then "_"
+    elif not (ValidIdentifierPattern.Match(x).Success) then InvalidCharacterPattern.Replace(x, "_")
+    elif IsReserved x then x + "_1"
+    else x
 
 let MakeFormatter () =
     let b = System.Text.StringBuilder()

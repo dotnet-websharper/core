@@ -392,7 +392,11 @@ let negate expr =
     | _ -> Unary(UnaryOperator.Not, expr)
 
 let rec breakExpr expr : Broken<BreakResult> =
-    let inline br x = breakExpr x
+    let inline br x = 
+        breakExpr x
+        //let res = breakExpr x
+        //printfn "Breaker: %s ---> %s" (Debug.PrintExpression x) (debugPrintBroken res)
+        //res
 
     let brLR l : Broken<BreakResult list> =
         let bb = l |> List.map br
@@ -500,8 +504,20 @@ let rec breakExpr expr : Broken<BreakResult> =
         brL (a :: b)
         |> mapBroken2L (fun aE bE -> Application (aE, bE, c))
     | VarSet (a, b) ->
-        br b |> toBrExpr
-        |> mapBroken (fun bE -> VarSet (a, bE))
+        let brB = br b
+        match brB.Body with
+        | ResultVar v ->
+            {
+                Body = ResultExpr(Var a)
+                Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
+                Declarations = brB.Declarations
+            }
+        | ResultExpr e ->
+            {
+                Body = ResultExpr (VarSet (a, e))
+                Statements = brB.Statements
+                Declarations = brB.Declarations
+            }
     | GlobalAccessSet (a, b) ->
         br b |> toBrExpr
         |> mapBroken (fun bE -> GlobalAccessSet (a, bE))
@@ -873,8 +889,16 @@ and toStatementsSpec f b =
         |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt)
 
 and private breakSt statement : Statement seq =
-    let inline brE x = breakExpr x
-    let inline brS x = breakSt x
+    let inline brE x = 
+        breakExpr x
+        //let res = breakExpr x
+        //printfn "Breaker: %s ---> %s" (Debug.PrintExpression x) (debugPrintBroken res)
+        //res
+    let inline brS x = 
+        breakSt x
+        //let res = breakSt x
+        //printfn "Breaker: %s ===> %s" (Debug.PrintStatement x) (res |> Seq.map Debug.PrintStatement |> String.concat "; ")
+        //res
     let combine x = 
         x |> List.ofSeq |> CombineStatements
     match statement with

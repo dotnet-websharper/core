@@ -251,7 +251,7 @@ let inline Label (l: S.Label) =
 
 let rec startsWithObjectExpression = function
     | S.IgnoreEPos (S.NewObject _) -> true
-    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _)) -> startsWithObjectExpression e
+    | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _)) -> startsWithObjectExpression e
     | _ -> false
 
 let rec Id (id: S.Id) =

@@ -980,6 +980,36 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i)
 
+            for c in cases do
+                match c.Kind with
+                | NormalFSharpUnionCase fields ->
+                    let newCase =
+                        Method {
+                            MethodName = "New" + c.Name
+                            Parameters = fields |> List.map (fun f -> f.UnionFieldType) 
+                            ReturnType = ConcreteType thisType
+                            Generics = cls.GenericParameters.Count       
+                        }
+                    let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false)) 
+                    let newCaseM =
+                        {
+                            Kind = NotResolvedMemberKind.Static
+                            StrongName = Some ("New" + c.Name)
+                            Generics = []
+                            Macros = []
+                            Generator = None
+                            Compiled = false
+                            Pure = true
+                            FuncArgs = None
+                            Args = args
+                            Body = Function(args, false, Some (ConcreteType thisType), Return (NewUnionCase(thisType, c.Name, args |> List.map Var)))
+                            Requires = []
+                            Warn = None
+                            JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                        }
+                    clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
+                | _ -> ()
+
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
             let cdef =
                 Hashed {
