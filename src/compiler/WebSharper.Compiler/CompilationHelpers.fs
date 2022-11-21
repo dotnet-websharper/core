@@ -633,11 +633,10 @@ module JSRuntime =
     //let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
     let Clone obj = runtimeFunc "Clone" Pure [obj]
     let Force obj = runtimeFunc "Force" NonPure [obj]
-    let Lazy value var = 
-        let factory = Lambda([], None, value)
-        let v = Id.New("v")
-        let setVar = Lambda([v], None, VarSet(var, Var v))
-        runtimeFunc "Lazy" Pure [factory; setVar]
+    let Lazy (factory: (Expression -> Expression) -> Expression) =  
+        let i = Id.New("$i")
+        let setInstance x = Appl(Var i, [x], NonPure, Some 1)
+        runtimeFunc "Lazy" Pure [Lambda([i], None, factory setInstance)]
     let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
     let GetOptional value = runtimeFunc "GetOptional" Pure [value]
     let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]

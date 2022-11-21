@@ -175,9 +175,9 @@ type RemoveEmptyVars(emptyVars: HashSet<Id>) =
 
     override this.TransformVarDeclaration(v, e) =
         if emptyVars.Contains(v) then
-            ExprStatement(e)
+            ExprStatement(this.TransformExpression(e))
         else
-            base.TransformVarDeclaration(v, e)
+            VarDeclaration(v, this.TransformExpression(e))
 
 let removeEmptyVarsExpr (s: Expression) =
     let c = CollectEmptyVars()
@@ -965,7 +965,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let gcArr = Array.ofList gc
                 let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
                 try GenericInlineResolver(gen, tsGen).TransformExpression expr
-                with e -> this.Error (sprintf "Failed to resolve generics: %s" e.Message)
+                with e -> this.Error (sprintf "Failed to resolve generics: %s Expr: %s Generics %A" e.Message (Debug.PrintExpression expr) gcArr)
         let res = Substitution(args, ?thisObj = thisObj).TransformExpression(ge)
         let trRes = if isCompiled then res else this.TransformExpression res
         if assertReturnType then

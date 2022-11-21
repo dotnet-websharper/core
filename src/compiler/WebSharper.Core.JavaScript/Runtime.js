@@ -25,12 +25,11 @@ export function Force(obj) { obj[forceSymbol] }
 function emptyClass() { }
 Object.setPrototypeOf(emptyClass, {})
 
-export function Lazy(factory, setVar) {
+export function Lazy(factory) {
   var instance;
   function getInstance() {
     if (!instance) {
-      instance = factory();
-      setVar(instance);
+      instance = factory(i => instance = i);
     }
     return instance;
   }

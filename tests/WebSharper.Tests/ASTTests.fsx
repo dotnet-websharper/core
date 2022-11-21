@@ -290,6 +290,7 @@ let wsRefs =
         "WebSharper.Web"
         "WebSharper.MathJS"
         "WebSharper.MathJS.Extensions"
+        "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
@@ -472,20 +473,30 @@ let getBody expr =
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
+translate """module WebSharper.Tests.Regression
 
-translate """
-namespace WebSharper.Tests
-
+open System
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.MathJS
+open WebSharper.Testing
 
 [<JavaScript>]
-module Test =
-    type UOption =
-        | UNone 
-        | USome of int
-        with member this.X() = 1
+let Tests =
+    TestCategory "Regression" {
+
+        Test "#737 Local mutual tail recursive optimization switch case falling over" {
+            let a() =
+                let rec f x =
+                    if x = 0 then g x 1 else f (x - 1)
+                and g x y =
+                    x + y
+                f 5    
+            equal (a()) 1
+        }
+
+        Test "#747 Property set" {
+            equal 1 1
+        }
 """
 
 //translate """

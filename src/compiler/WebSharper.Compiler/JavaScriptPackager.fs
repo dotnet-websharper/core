@@ -413,34 +413,39 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
         | _ -> ()
 
+        let lazyClassId = lazy Id.New("$c")
+
         let packageLazyClass classExpr =
-            statements.Add <| VarDeclaration(classId, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr classId))
-            statements.Add <| ExportDecl(true, ExprStatement(Var classId))                
+            statements.Add <| VarDeclaration(lazyClassId.Value, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr))
+            statements.Add <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
 
         let packageClass classDecl = 
             statements.Add <| ExportDecl(true, bodyTransformer.TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
-            let classExpr() = ClassExpr(Some className, baseType, List.ofSeq members)
+            let classExpr setInstance = 
+                ClassExpr(Some className, baseType, 
+                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(This))) 
+                    :: List.ofSeq members)
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with
             | Some b ->
                 let needsLazy = Option.isNone c.Type
                 if needsLazy then
-                    packageLazyClass <| 
+                    packageLazyClass <| fun i ->
                         if isObjBase then
-                            classExpr()
+                            classExpr i
                         else
                             Sequential [
                                 JSRuntime.Force(b)
-                                classExpr()
+                                classExpr i
                             ]
                 else
                     packageClass <| classDecl()
             | None ->
                 let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType
                 if needsLazy then
-                    packageLazyClass <| classExpr()
+                    packageLazyClass <| classExpr
                 else
                     packageClass <| classDecl()
                             

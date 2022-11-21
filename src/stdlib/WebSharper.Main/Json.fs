@@ -94,14 +94,16 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
         | _ ->
             x
 
-type SpecialTypes =
-    | List = 1
-    | Decimal = 2
+[<JavaScript; RequireQualifiedAccess>]
+type private SpecialTypes =
+    | List 
+    | Decimal of (obj -> obj)
+    | Object of obj
 
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
 let Activate<'T> (json: obj) : Async<'T> =
-    let types = if As json then json?("$TYPES") : obj[] else JS.Undefined
+    let types = if As json then json?("$TYPES") : SpecialTypes[] else JS.Undefined
     let typeLoads = JavaScript.Array<Async<unit>>()
     let data =
         if types ===. JS.Undefined then
@@ -110,13 +112,16 @@ let Activate<'T> (json: obj) : Async<'T> =
             for i = 0 to types.Length - 1 do
                 match As<string> types.[i] with
                 | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
-                    types.[i] <- box SpecialTypes.List
-                | "WebSharper.Decimal" -> 
-                    types.[i] <- box SpecialTypes.Decimal
+                    types.[i] <- SpecialTypes.List
+                | "../WebSharper.MathJS.Extensions/System.Decimal::default"  -> 
+                    typeLoads.Push (async { 
+                        let! c = lookup "../WebSharper.MathJS.Extensions/System.Decimal::CreateDecimalBits"
+                        types.[i] <- SpecialTypes.Decimal c
+                    }) |> ignore
                 | t -> 
                     typeLoads.Push (async { 
                         let! c = lookup t
-                        types.[i] <- c
+                        types.[i] <- SpecialTypes.Object c
                     }) |> ignore
             json?("$DATA")
     let rec decode (x: obj) : obj =
@@ -130,14 +135,14 @@ let Activate<'T> (json: obj) : Async<'T> =
                     let ti = x?("$T")
                     if ti ===. JS.Undefined then o else
                         let t = types.[ti]
-                        if t ===. SpecialTypes.List then
+                        match t with
+                        | SpecialTypes.List ->  
                             box (List.ofArray (As<obj[]> o))
-                        elif t ===. SpecialTypes.Decimal then
-                            box (JS.Global?WebSharper?Decimal?CreateDecimalBits(o))
-                        else
+                        | SpecialTypes.Decimal c ->  
                             let r = JS.New types.[ti]
-                            JS.ForEach o (fun k -> (?<-) r k ((?) o k); false)
-                            r
+                            c(o)
+                        | SpecialTypes.Object ctor ->  
+                            Object.Assign(JS.New ctor, o)
             | _ ->
                 x
     async {
