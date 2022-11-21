@@ -2166,7 +2166,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | Some ii ->
                         warnIgnoringGenerics()
                         // todo have "is" address in metadata
-                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last) ] }), [ trExpr ], Pure, Some 1)
+                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ isFunctionNameForInterface t ] }), [ trExpr ], Pure, Some 1)
                     | _ ->
                         this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
         | TypeParameter _ | StaticTypeParameter _ -> 

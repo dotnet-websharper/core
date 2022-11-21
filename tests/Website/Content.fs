@@ -99,7 +99,7 @@ let TestsPage runServerTests autoStart (ctx: Context<FullAction>) =
                 yield Web.InlineControl ( WebSharper.Collections.Tests.Main.RunTests() ) :> Web.Control
                 yield WebSharper.CSharp.Tests.InlineControlTest.RunTestsControl runServerTests
                 yield Web.InlineControl ( Client.ClientSideTupleTest t12 ) :> Web.Control
-                yield Web.InlineControl ( WebSharper.Html5.Tests.Main.RunTests true ) :> Web.Control
+                //yield Web.InlineControl ( WebSharper.Html5.Tests.Main.RunTests true ) :> Web.Control
                 yield Web.InlineControl ( WebSharper.Sitelets.Tests.ClientServerTests.RunTests apiBaseUri corsBaseUri runServerTests ) :> Web.Control
                 if runServerTests then
                     yield Web.InlineControl ( WebSharper.Sitelets.Tests.ApiTests.RunTests apiBaseUri ) :> Web.Control

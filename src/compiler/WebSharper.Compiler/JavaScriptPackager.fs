@@ -456,7 +456,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
 
         let isFunctionName =
-            "is" + (typ.Value.FullName.Split([|'.'; '+'|]) |> Array.last).Replace('`', '$')
+            isFunctionNameForInterface typ
         let funcId = Id.New(isFunctionName, str = true) 
 
         let isIntf =

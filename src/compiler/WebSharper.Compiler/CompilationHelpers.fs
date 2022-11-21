@@ -657,6 +657,9 @@ module JSRuntime =
 
     let ObjectAssign toObj fromObj = Appl(GlobalAccess (Address.Lib ["Object"; "assign"]), [toObj; fromObj], NonPure, Some 2)
 
+let isFunctionNameForInterface (t: TypeDefinition) =
+    "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Split('`')[0]
+
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 
