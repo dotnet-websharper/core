@@ -473,31 +473,38 @@ let getBody expr =
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
-translate """module WebSharper.Tests.Regression
+translate """
+namespace WebSharper.Tests
 
-open System
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.Testing
 
 [<JavaScript>]
-let Tests =
-    TestCategory "Regression" {
+module Test =
+    let X() =
+        let logs = ResizeArray()
+        let add (x: int) = logs.Add(x); x
+        let arr = 
+            [|
+                add(1)
+                add(2)
+                (
+                    for i = 3 to 4 do
+                        add(i) |> ignore
+                    add(5)
+                )
+            |]
+        printfn "%O %O" logs arr
 
-        Test "#737 Local mutual tail recursive optimization switch case falling over" {
-            let a() =
-                let rec f x =
-                    if x = 0 then g x 1 else f (x - 1)
-                and g x y =
-                    x + y
-                f 5    
-            equal (a()) 1
-        }
-
-        Test "#747 Property set" {
-            equal 1 1
-        }
 """
+
+let a() = 1
+
+let arr =
+    [|
+        1
+        (if a() = 1 then a() else a())
+    |]
 
 //translate """
 //module M

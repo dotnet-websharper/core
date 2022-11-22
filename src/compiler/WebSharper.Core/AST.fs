@@ -235,7 +235,7 @@ and Expression =
     /// TypeScript - type cast <...>...
     | Cast of TargetType:TSType * Expression:Expression
     /// JavaScript - class { ... }
-    | ClassExpr of Name:option<string> * BaseClass:option<Expression> * Members:list<Statement>
+    | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement>
     /// .NET - F# object expression
     | ObjectExpr of ObjectType:Type * Members:list<option<Expression> * Expression>
     with
@@ -511,8 +511,8 @@ type Transformer() =
     abstract TransformCast : TargetType:TSType * Expression:Expression -> Expression
     override this.TransformCast (a, b) = Cast (a, this.TransformExpression b)
     /// JavaScript - class { ... }
-    abstract TransformClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
-    override this.TransformClassExpr (a, b, c) = ClassExpr (a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
+    abstract TransformClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
+    override this.TransformClassExpr (a, b, c) = ClassExpr (Option.map this.TransformId a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
     /// .NET - F# object expression
     abstract TransformObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> Expression
     override this.TransformObjectExpr (a, b) = ObjectExpr (a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) b)
@@ -905,8 +905,8 @@ type Visitor() =
     abstract VisitCast : TargetType:TSType * Expression:Expression -> unit
     override this.VisitCast (a, b) = (); this.VisitExpression b
     /// JavaScript - class { ... }
-    abstract VisitClassExpr : Name:option<string> * BaseClass:option<Expression> * Members:list<Statement> -> unit
-    override this.VisitClassExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter this.VisitStatement c
+    abstract VisitClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> unit
+    override this.VisitClassExpr (a, b, c) = Option.iter this.VisitId a; Option.iter this.VisitExpression b; List.iter this.VisitStatement c
     /// .NET - F# object expression
     abstract VisitObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> unit
     override this.VisitObjectExpr (a, b) = (); List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) b
@@ -1291,7 +1291,7 @@ module Debug =
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + PrintObject a + ")"
         | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
-        | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map PrintObject a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
+        | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
         | ObjectExpr (a, b) -> "ObjectExpr" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintExpression b) b) + "]" + ")"
     and PrintStatement x =
         match x with

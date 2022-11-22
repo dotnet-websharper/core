@@ -283,9 +283,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 | M.StaticField name, _, _ ->
                     members.Add <| ClassProperty(info true false, name, TSType.Any)
                 | M.IndexedField _, _, _ ->
-                    ()
-                | M.VarField v, _, _ ->
-                    statements.Add <| VarDeclaration(v, Undefined)
+                    () //TODO
+                | M.VarField v, _, _ -> ()
+
+        for f in c.Fields.Values do
+            match f with
+            | M.VarField v, _, _ ->
+                statements.Add <| VarDeclaration(v, Undefined)
+            | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
             mem info body
@@ -424,7 +429,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
-                ClassExpr(Some className, baseType, 
+                ClassExpr(Some classId, baseType, 
                     ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(This))) 
                     :: List.ofSeq members)
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])

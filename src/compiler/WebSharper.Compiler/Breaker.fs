@@ -460,7 +460,7 @@ let rec breakExpr expr : Broken<BreakResult> =
             {
                 Body = ResultVar res
                 Statements = brA.Statements @ [If (brA.Body, setRes brB, setRes brC)]
-                Declarations = brA.Declarations @ brB.Declarations @ brC.Declarations
+                Declarations = brA.Declarations @ brB.Declarations @ brC.Declarations @ [VarDeclaration(res, Undefined)]
             }
 
     let boolOp a b c =
@@ -620,24 +620,11 @@ let rec breakExpr expr : Broken<BreakResult> =
         |> bindBroken (function ResultVar v -> ResultVar v | ResultExpr e -> ResultExpr (ExprSourcePos(a, IgnoreExprSourcePos e)))
     | StatementExpr (I.VarDeclaration(a, b), None) ->
         let brB = br b
-        match brB.Body with
-        | ResultVar v ->
-            {
-                Body = ResultVar a
-                Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
-                Declarations = brB.Declarations
-            }
-        | ResultExpr e ->
-            //{
-            //    Body = ResultExpr (Void (VarSet(a, e)))
-            //    Statements = brB.Statements
-            //    Declarations = [ a, None ] @ brB.Declarations
-            //}
-            {
-                Body = ResultExpr Undefined
-                Statements = brB.Statements @ [ VarDeclaration(a, e) ]
-                Declarations = brB.Declarations
-            }
+        {
+            Body = ResultExpr Undefined
+            Statements = brB.Statements @ [ VarDeclaration(a, getExpr brB.Body) ]
+            Declarations = brB.Declarations
+        }
     | StatementExpr (I.ExprStatement a, Some b) ->
         let brA = br a
         match brA.Body with
@@ -645,17 +632,23 @@ let rec breakExpr expr : Broken<BreakResult> =
             {
                 Body = ResultVar b
                 Statements = brA.Statements
-                Declarations = brA.Declarations
+                Declarations = brA.Declarations @ [ VarDeclaration(b, Undefined) ]
             }
         | ResultExpr ae ->
             {
                 Body = ResultExpr (Sequential [ae; Var b])
-                Statements = brA.Statements @ [ VarDeclaration(b, Undefined) ]
-                Declarations = brA.Declarations
+                Statements = brA.Statements 
+                Declarations = brA.Declarations @ [ VarDeclaration(b, Undefined) ]
             }
-    | StatementExpr (st, v) ->
+    | StatementExpr (st, Some v) ->
         {
-            Body = match v with Some v -> ResultVar v | _ -> ResultExpr Undefined
+            Body = ResultVar v
+            Statements = st |> breakSt |> List.ofSeq
+            Declarations = [ VarDeclaration(v, Undefined) ]
+        }
+    | StatementExpr (st, None) ->
+        {
+            Body = ResultExpr Undefined
             Statements = st |> breakSt |> List.ofSeq
             Declarations = []
         }
@@ -784,10 +777,9 @@ let rec breakExpr expr : Broken<BreakResult> =
             {
                 Body = brC.Body
                 Statements = 
-                    VarDeclaration(a, Undefined) 
-                        :: (brB.Statements |> List.map (TransformVarSets(bv, fun e -> VarSet(a, e)).TransformStatement)) 
+                        (brB.Statements |> List.map (TransformVarSets(bv, fun e -> VarSet(a, e)).TransformStatement)) 
                         @ brC.Statements
-                Declarations = brB.Declarations @ brC.Declarations
+                Declarations = brB.Declarations @ brC.Declarations @ [ VarDeclaration(a, Undefined) ]
             }
     | NewVar(a, Undefined) ->
         {
@@ -799,16 +791,23 @@ let rec breakExpr expr : Broken<BreakResult> =
         let brB = br b
         match brB.Body with
         | ResultExpr e ->
-            { 
-                Body = ResultExpr(Undefined)
-                Statements = brB.Statements @ [ VarDeclaration(a, e) ]
-                Declarations = brB.Declarations    
-            }
+            if hasNoStatements brB then
+                { 
+                    Body = ResultExpr(VarSet (a, e))
+                    Statements = brB.Statements
+                    Declarations = brB.Declarations @ [ VarDeclaration(a, Undefined) ]       
+                }
+            else
+                { 
+                    Body = ResultVar a
+                    Statements = brB.Statements @ [ VarDeclaration(a, e) ]
+                    Declarations = brB.Declarations    
+                }
         | ResultVar v ->
             { 
                 Body = ResultVar a
                 Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
-                Declarations = brB.Declarations    
+                Declarations = brB.Declarations @ [ VarDeclaration(a, Undefined) ]   
             }
     | Object [n, a] ->
         br a |> mapBroken (fun a -> Object [n, getExpr a])
