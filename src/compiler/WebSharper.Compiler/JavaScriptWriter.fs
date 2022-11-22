@@ -401,16 +401,16 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     // collect function declarations to be on top level of functions to satisfy strict mode
     // requirement by some JavaScript engines
     let withFuncDecls f =
-        if env.InFuncScope then
-            env.InFuncScope <- false
-            let woFuncDecls = f()
-            env.InFuncScope <- true
-            if env.FuncDecls.Count > 0 then
-                let res = block (Seq.append env.FuncDecls (Seq.singleton woFuncDecls))
-                env.FuncDecls.Clear()
-                res
-            else woFuncDecls
-        else 
+        //if env.InFuncScope then
+        //    env.InFuncScope <- false
+        //    let woFuncDecls = f()
+        //    env.InFuncScope <- true
+        //    if env.FuncDecls.Count > 0 then
+        //        let res = block (Seq.append env.FuncDecls (Seq.singleton woFuncDecls))
+        //        env.FuncDecls.Clear()
+        //        res
+        //    else woFuncDecls
+        //else 
             f()
     match statement with
     | Empty -> J.Empty
