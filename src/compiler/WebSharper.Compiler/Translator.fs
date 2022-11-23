@@ -179,15 +179,21 @@ type RemoveEmptyVars(emptyVars: HashSet<Id>) =
         else
             VarDeclaration(v, this.TransformExpression(e))
 
-let removeEmptyVarsExpr (s: Expression) =
+let removeEmptyVarsExpr (e: Expression) =
     let c = CollectEmptyVars()
-    c.VisitExpression(s)
-    RemoveEmptyVars(c.EmptyVars).TransformExpression(s)    
+    c.VisitExpression(e)
+    if c.EmptyVars.Count > 0 then
+        RemoveEmptyVars(c.EmptyVars).TransformExpression(e) 
+    else 
+        e
 
 let removeEmptyVarsSt (s: Statement) =
     let c = CollectEmptyVars()
     c.VisitStatement(s)
-    RemoveEmptyVars(c.EmptyVars).TransformStatement(s)    
+    if c.EmptyVars.Count > 0 then
+        RemoveEmptyVars(c.EmptyVars).TransformStatement(s)    
+    else
+        s
 
 //type CollectCurried() =
 //    inherit Transformer()

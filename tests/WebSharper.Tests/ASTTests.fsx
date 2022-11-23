@@ -481,22 +481,26 @@ open WebSharper.JavaScript
 
 [<JavaScript>]
 module Test =
-    let X() =
-        let logs = ResizeArray()
-        let add (x: int) = logs.Add(x); x
-        let arr = 
-            [|
-                add(1)
-                add(2)
-                (
-                    for i = 3 to 4 do
-                        add(i) |> ignore
-                    add(5)
-                )
-            |]
-        printfn "%O %O" logs arr
+    [<Name "">]
+    type IControlBody =
+        abstract ReplaceInDom : string -> unit
 
+    let X() =
+        async {
+            try
+                
+                let x = obj()
+                let a = obj()
+                Console.Log("module loaded", a)
+                let f = Array.fold (?) a [|"a"; "b" |]
+                let b = obj() |> As<IControlBody>
+                b.ReplaceInDom("")
+            with e ->
+                Console.Error("InlineControl: Failure during loading module", e)
+        }
 """
+
+
 
 let a() = 1
 

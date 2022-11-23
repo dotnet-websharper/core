@@ -108,6 +108,11 @@ type TransformVarSets(v, tr) =
              tr (this.TransformExpression b)    
         else base.TransformVarSet(a, b)    
 
+    override this.TransformVarDeclaration(a, b) =
+        if a = v then
+             ExprStatement(tr (this.TransformExpression b))
+        else base.TransformVarDeclaration(a, b)    
+
 type TransformMoreVarSets(vs, tr) =
     inherit Transformer()
 
@@ -115,6 +120,11 @@ type TransformMoreVarSets(vs, tr) =
         if vs |> List.contains a then
              tr (this.TransformExpression b)    
         else base.TransformVarSet(a, b)    
+
+    override this.TransformVarDeclaration(a, b) =
+        if vs |> List.contains a then
+             ExprStatement(tr (this.TransformExpression b))
+        else base.TransformVarDeclaration(a, b)    
 
 type MarkApplicationsPure(v, purity) =
     inherit Transformer()
@@ -562,7 +572,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                     else
                         brA.Statements |> List.map (TransformMoreVarSets(removeVars, id).TransformStatement)
                     @ (extraExprs |> List.map ExprStatement)
-                Variables = brA.Variables
+                Variables = brA.Variables |> List.filter (fun v -> removeVars |> List.contains v |> not)
             }
     | NewTuple ([ a ], b) ->
         br a |> toBrExpr |> mapBroken (fun a -> NewTuple ([ a ], b))

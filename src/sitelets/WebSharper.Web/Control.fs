@@ -295,11 +295,16 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                JS.ImportDynamic(moduleName).Then(fun a ->
-                    let f = Array.fold (?) a funcName
-                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                    b.ReplaceInDom(node)
-                ) |> ignore
+                async {
+                    try
+                        let! a = JS.ImportDynamic(moduleName) |> Promise.AsAsync
+                        let f = Array.fold (?) a funcName
+                        let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                        b.ReplaceInDom(node)
+                    with e ->
+                        Console.Error("InlineControl: Failure during loading module " + moduleName, e)
+                }
+                |> Async.StartImmediate
         } 
 
     interface IRequiresResources with
@@ -419,11 +424,16 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                JS.ImportDynamic(moduleName).Then(fun a ->
-                    let f = Array.fold (?) a funcName
-                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                    b.ReplaceInDom(node)
-                ) |> ignore
+                async {
+                    try
+                        let! a = JS.ImportDynamic(moduleName) |> Promise.AsAsync
+                        let f = Array.fold (?) a funcName
+                        let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                        b.ReplaceInDom(node)
+                    with e ->
+                        JavaScript.Console.Error("InlineControl: Failure during loading module " + moduleName, e)
+                }
+                |> Async.StartImmediate
         } 
 
     interface IRequiresResources with
