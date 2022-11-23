@@ -1449,7 +1449,6 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledStaticMember n k p typ (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Quotation _
-            | N.Constructor
             | N.Static -> 
                 if mergedProxies.Contains typ then
                     match this.TryLookupClassInfo(typ) with
@@ -1459,6 +1458,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     Static (n, k) 
                 else 
                     Func n
+            | N.Constructor -> New (Some n)
             | N.AsStatic -> Func n
             | _ -> failwith "Invalid static member kind"
             |> withMacros nr        
@@ -1567,7 +1567,6 @@ type Compilation(meta: Info, ?hasGraph) =
 
                 Seq.append mergedMethods otherMembers
 
-            let constructors = ResizeArray()
             let mutable hasInlinedCtor = false
 
             for m in cls.Members do
@@ -1659,14 +1658,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
                     | _ -> failwith "Fields and static constructors are always named"     
                 | None, Some true ->
-                    match m with 
-                    | M.Constructor (cDef, nr) ->
-                        if canHavePrototype && nr.Kind = N.Constructor then
-                            constructors.Add (cDef, nr)
-                        else
-                            Dict.addToMulti remainingStaticMembers typ m
-                    | _ ->
-                        Dict.addToMulti remainingStaticMembers typ m
+                    Dict.addToMulti remainingStaticMembers typ m
                 | None, Some false ->
                     match m with
                     | M.Method (mDef, ({ Kind = N.Override td } as nr)) ->
@@ -1707,22 +1699,22 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _ -> 
                         Dict.addToMulti remainingInstanceMembers typ m    
             
-            let addConstructor (cDef, nr) comp =
-                if nr.Compiled then
-                    let isPure =
-                        nr.Pure || isPureFunction nr.Body
-                    cc.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
-                else
-                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
+            //let addConstructor (cDef, nr) comp =
+            //    if nr.Compiled then
+            //        let isPure =
+            //            nr.Pure || isPureFunction nr.Body
+            //        cc.Constructors.Add(cDef, (comp, opts isPure nr, nr.Body))
+            //    else
+            //        compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
             
-            match constructors.Count with
-            | 0 ->
-                if hasInlinedCtor && Option.isNone cls.Type && cls.Kind <> NotResolvedClassKind.Stub && not (TypeTranslator.CustomTranslations.ContainsKey typ) then
-                    this.AddWarning(Some cls.SourcePos, SourceWarning ("Class " + typ.Value.FullName + " only has inlined constructors, consider adding a Type attribute" ))
-            | 1 -> addConstructor constructors.[0] New
-            | _ -> 
-                for i, ctor in Seq.indexed constructors do
-                    addConstructor ctor (NewIndexed i)
+            //match constructors.Count with
+            //| 0 ->
+            //    if hasInlinedCtor && Option.isNone cls.Type && cls.Kind <> NotResolvedClassKind.Stub && not (TypeTranslator.CustomTranslations.ContainsKey typ) then
+            //        this.AddWarning(Some cls.SourcePos, SourceWarning ("Class " + typ.Value.FullName + " only has inlined constructors, consider adding a Type attribute" ))
+            ////| 1 -> addConstructor constructors.[0] New
+            //| _ -> 
+            //    for i, ctor in Seq.indexed constructors do
+            //        addConstructor ctor (NewIndexed i)
 
         let processCustomType typ  =
             match classes.TryFind typ with
@@ -1753,16 +1745,16 @@ type Compilation(meta: Info, ?hasGraph) =
             match m with
             | M.Constructor (cDef, nr) ->
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr
-                let body =
-                    match nr.Body with
-                    | Function(cargs, _, typ, cbody) ->
-                        let o = Id.New "o"
-                        let b = 
-                            Let(o, Object[], Sequential [ StatementExpr (ReplaceThisWithVar(o).TransformStatement(cbody), None); Var o ])
-                        Function(cargs, false, typ, Return b)
-                    | _ -> 
-                        failwith "Expecting a function as compiled form of constructor"
-                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, body))
+                //let body =
+                //    match nr.Body with
+                //    | Function(cargs, _, typ, cbody) ->
+                //        let o = Id.New "o"
+                //        let b = 
+                //            Let(o, Object[], Sequential [ StatementExpr (ReplaceThisWithVar(o).TransformStatement(cbody), None); Var o ])
+                //        Function(cargs, false, typ, Return b)
+                //    | _ -> 
+                //        failwith "Expecting a function as compiled form of constructor"
+                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->

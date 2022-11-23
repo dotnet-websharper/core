@@ -576,8 +576,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 flattenJS [ b |> transformStatement innerEnv ]
             )
         J.Constructor(args, body)   
-    | ClassProperty (s, n, _) ->
-        J.Property (s.IsStatic, J.Id.New(n))
+    | ClassProperty (s, n, _, v) ->
+        J.Property (s.IsStatic, J.Id.New(n), v |> Option.map (transformExpr env))
     | ClassStatic (b) ->
         let innerEnv = env.NewInner()
         let body = 

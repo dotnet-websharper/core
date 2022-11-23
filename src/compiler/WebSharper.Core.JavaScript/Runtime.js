@@ -1,29 +1,23 @@
 
 export function Create(ctor, copyFrom) {
-  var obj = new ctor();
-  Object.assign(obj, copyFrom);
-  return obj;
+  return Object.assign(Object.create(ctor.prototype), copyFrom);
 }
 
 export function Clone(obj) {
-  var res = { ...obj };
-  Object.setPrototypeOf(res, Object.getPrototypeOf(obj));
-  return res;
+  return Object.assign(Object.create(Object.getPrototypeOf(obj)), obj);
 }
 
-export function NewObject(kv) {
-  var o = {};
-  for (var i = 0; i < kv.length; i++) {
-    o[kv[i][0]] = kv[i][1];
-  }
-  return o;
+export function Ctor(ctor, typeFunction) {
+  ctor.prototype = typeFunction.prototype;
+  return ctor;
+}
+
+export function Base(obj, base, ...args) {
+  return Object.assign(obj, Reflect.construct(base, args, obj.constructor));
 }
 
 const forceSymbol = Symbol("force")
 export function Force(obj) { obj[forceSymbol] }
-
-function emptyClass() { }
-Object.setPrototypeOf(emptyClass, {})
 
 export function Lazy(factory) {
   var instance;
@@ -33,7 +27,7 @@ export function Lazy(factory) {
     }
     return instance;
   }
-  let res = new Proxy(emptyClass, {
+  let res = new Proxy(Function(), {
     get(_, key) {
       if (key == forceSymbol) {
         getInstance();

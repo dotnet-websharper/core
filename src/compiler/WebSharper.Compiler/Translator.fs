@@ -1176,7 +1176,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     | _ -> ()
                 addTypeDeps meth.Entity.Value.ReturnType
             Appl (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.Purity, Some 2)
-        | M.NewIndexed _ -> failwith "Not a valid method info: IndexedConstructor"
+        //| M.NewIndexed _ -> failwith "Not a valid method info: IndexedConstructor"
         | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
@@ -1335,7 +1335,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.Inline _ 
             | M.Macro _ 
             | M.Remote _ -> inlined()
-            | M.NewIndexed _
+            //| M.NewIndexed _
             | M.New _ -> failwith "impossible"
         | CustomTypeMember _ -> inlined()
         | LookupMemberError err -> this.Error err
@@ -1364,10 +1364,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
             )
         match info with
-        | M.New ->
+        | M.New None ->
             New(GlobalAccess (typAddress()), typParams(), trArgs())
-        | M.NewIndexed (i) ->
-            New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
+        | M.New (Some name) ->
+            New(GlobalAccess (typAddress().Sub(name)), typParams(), trArgs())
+        //| M.NewIndexed (i) ->
+        //    New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static (name, ClassMethodKind.Simple)      
         | M.Func name ->
             Appl(this.Static(typ, name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
@@ -1429,8 +1431,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Choice1Of2 a ->
             if comp.HasGraph then
                 this.AddTypeDependency typ
-            New(GlobalAccess a, [], [this.TransformExpression objExpr])
-            //JSRuntime.Create (GlobalAccess a) ()
+            //New(GlobalAccess a, [], [this.TransformExpression objExpr])
+            JSRuntime.Create (GlobalAccess a) objExpr
         | _ -> this.TransformExpression objExpr
 
     member this.UnionCtor(typ, i, args) =
@@ -1671,26 +1673,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                   
     override this.TransformChainedCtor(isBase, thisVar, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
+        let baseAddr() =
+            if isBase then
+                match comp.TryLookupClassInfo(typ.Entity) with
+                | Some (a, _) -> Some a
+                | _ -> None
+            else
+                match comp.TryLookupClassInfo(typ.Entity) with
+                | Some (_, { BaseClass = Some { Entity = bTyp } }) ->
+                    match comp.TryLookupClassInfo(bTyp) with
+                    | Some (a, _) -> Some a
+                    | _ -> None
+                | _ -> None
         let trBaseCall x =
             match thisVar with
             | None -> x 
             | Some v ->
-                let baseAddr =
-                    if isBase then
-                        match comp.TryLookupClassInfo(typ.Entity) with
-                        | Some (a, _) -> Some a
-                        | _ -> None
-                    else
-                        match comp.TryLookupClassInfo(typ.Entity) with
-                        | Some (_, { BaseClass = Some { Entity = bTyp } }) ->
-                            match comp.TryLookupClassInfo(bTyp) with
-                            | Some (a, _) -> Some a
-                            | _ -> None
-                        | _ -> None
-                match baseAddr with
+                match baseAddr() with
                 | Some a ->
                     TransformBaseCall(fun args ->
-                        Appl(GlobalAccess a |> getItem "call", Var v :: args, NonPure, None)    
+                        JSRuntime.Base (Var v) (GlobalAccess a) args
+                        //Appl(GlobalAccess a |> getItem "call", Var v :: args, NonPure, None)    
                     ).TransformExpression(x)
                 | None -> Undefined
         let def () =
@@ -1704,8 +1707,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | _ -> false
             let bind key value body = Let (key, value, body)
             let bcall func args =
-                if isBase && isSuper then
-                    Appl(Base, args, NonPure, None)
+                let baseAddr = baseAddr()
+                if isBase && Option.isSome baseAddr then
+                    //Appl(Base, args, NonPure, None)
+                    JSRuntime.Base This (GlobalAccess baseAddr.Value) args
                 elif currentIsInline || Option.isSome thisVar then
                     let t = match thisVar with Some v -> Var v | _ -> This
                     Appl(func |> getItem "call", t :: args, NonPure, None)
@@ -1717,12 +1722,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | _ ->
                         match expr with
                         | I.Function (cargs, _, _, cbody) ->
-                            let args =
-                                match info with
-                                | M.NewIndexed _ ->
-                                    // remove index parameter
-                                    List.tail args
-                                | _ -> args
+                            //let args =
+                            //    match info with
+                            //    | M.NewIndexed _ ->
+                            //        // remove index parameter
+                            //        List.tail args
+                            //    | _ -> args
                             List.foldBack2 bind cargs args (StatementExpr (cbody, None)) |> Substitution([]).TransformExpression  
                         | _ ->
                             failwith "Expecting a function as compiled form of constructor"
@@ -1742,6 +1747,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // This is allowing some simple inlines
             | Let (i1, a1, New(func, ts, Var v1 :: r)) when i1 = v1 ->
                 bcall func (a1 :: r)
+            | Let (i1, a1, Let (i2, a2, New(func, ts, Var v1 :: Var v2 :: r))) when i1 = v1 && i2 = v2 ->
+                bcall func (a1 :: a2 :: r)
             | _ ->
                 let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)

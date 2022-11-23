@@ -113,8 +113,7 @@ type CompiledMember =
     | Static of name:string * kind: ClassMethodKind
     | Func of name:string
     | GlobalFunc of address: Address
-    | New
-    | NewIndexed of index:int
+    | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
     | Remote of kind:RemotingKind * handle:MethodHandle * remotingProvider:option<TypeDefinition * option<ParameterObject>>

@@ -279,9 +279,9 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 match f with
                 | M.InstanceField name, _, _ 
                 | M.OptionalField name, _, _ -> 
-                    members.Add <| ClassProperty(info false false, name, TSType.Any)
+                    members.Add <| ClassProperty(info false false, name, TSType.Any, None)
                 | M.StaticField name, _, _ ->
-                    members.Add <| ClassProperty(info true false, name, TSType.Any)
+                    members.Add <| ClassProperty(info true false, name, TSType.Any, None)
                 | M.IndexedField _, _, _ ->
                     () //TODO
                 | M.VarField v, _, _ -> ()
@@ -301,25 +301,45 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let indexedCtors = Dictionary()
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
+            //let (|EmptyCtorBody|_|) expr =
+            //    match body with
+            //    | Function ([], _, _, I.Empty) 
+            //    | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> Some()
+            //    | _ -> None
             match withoutMacros info with
-            | M.New ->
+            | M.New None ->
                 if body <> Undefined then
                     match body with
-                    | Function ([], _, _, I.Empty) 
-                    | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
-                        ()
+                    //| EmptyCtorBody -> 
+                    //    ()
                     | Function (args, _, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
                         members.Add (ClassConstructor (args, Some b, TSType.Any))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
-            | M.NewIndexed i ->
-                if body <> Undefined then
-                    match body with
-                    | Function (args, _, _, b) ->  
-                        indexedCtors.Add (i, (args, b))
-                    | _ ->
-                        failwithf "Invalid form for translated constructor"
+
+            | M.New (Some name) ->
+                match body with
+                | Function (args, _, _, b) ->                  
+                    let info =
+                        {
+                            IsStatic = true
+                            IsPrivate = false
+                            IsOptional = false
+                        }
+                    let ctorBody =
+                        JSRuntime.Ctor (Function (args, false, None, b)) This
+
+                    members.Add (ClassProperty (info, name, TSType.Any, Some ctorBody))
+                | _ ->
+                    failwithf "Invalid form for translated constructor"
+            //| M.NewIndexed i ->
+            //    if body <> Undefined then
+            //        match body with
+            //        | Function (args, _, _, b) ->  
+            //            indexedCtors.Add (i, (args, b))
+            //        | _ ->
+            //            failwithf "Invalid form for translated constructor"
             | M.Func name ->
                 match body with 
                 | Function (args, _, _, b) ->  

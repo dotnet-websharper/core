@@ -185,12 +185,11 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
                     | [msg; inner] -> [msg], Some inner 
                     | _ -> failwith "Too many arguments for Error"
                 Sequential [
-                    yield Appl (Base, args, NonPure, None)
+                    yield JSRuntime.Base This (Global ["Error"]) args
                     match inner with
                     | Some i ->
                         yield ItemSet(thisExpr, Value (String "inner"), i)
                     | None -> ()
-                    yield restorePrototype
                 ]
             else
                 ChainedCtor(isBase, thisVar, t, c, a) 

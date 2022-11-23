@@ -284,7 +284,7 @@ let StatementDefs =
             , "JavaScript - class method"
         "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript - class method"
-        "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType" ]
+        "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Option Expr, "value" ]
             , "JavaScript - class plain property"
         "ClassStatic", [ Statement, "optional" ]
             , "JavaScript - class static block"

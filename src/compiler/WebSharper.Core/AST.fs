@@ -328,7 +328,7 @@ and Statement =
     /// JavaScript - class method
     | ClassConstructor of Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType
     /// JavaScript - class plain property
-    | ClassProperty of Info:ClassPropertyInfo * Name:string * PropertyType:TSType
+    | ClassProperty of Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression>
     /// JavaScript - class static block
     | ClassStatic of Optional:Statement
     /// TypeScript - interface { ... }
@@ -615,8 +615,8 @@ type Transformer() =
     abstract TransformClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> Statement
     override this.TransformClassConstructor (a, b, c) = ClassConstructor (List.map (fun (a, b) -> this.TransformId a, b) a, Option.map this.TransformStatement b, c)
     /// JavaScript - class plain property
-    abstract TransformClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType -> Statement
-    override this.TransformClassProperty (a, b, c) = ClassProperty (a, b, c)
+    abstract TransformClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression> -> Statement
+    override this.TransformClassProperty (a, b, c, d) = ClassProperty (a, b, c, Option.map this.TransformExpression d)
     /// JavaScript - class static block
     abstract TransformClassStatic : Optional:Statement -> Statement
     override this.TransformClassStatic a = ClassStatic (this.TransformStatement a)
@@ -725,7 +725,7 @@ type Transformer() =
         | Class (a, b, c, d, e) -> this.TransformClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e) -> this.TransformClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.TransformClassConstructor (a, b, c)
-        | ClassProperty (a, b, c) -> this.TransformClassProperty (a, b, c)
+        | ClassProperty (a, b, c, d) -> this.TransformClassProperty (a, b, c, d)
         | ClassStatic a -> this.TransformClassStatic a
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
         | Alias (a, b) -> this.TransformAlias (a, b)
@@ -1007,8 +1007,8 @@ type Visitor() =
     abstract VisitClassConstructor : Parameters:list<Id * Modifiers> * Body:option<Statement> * Signature:TSType -> unit
     override this.VisitClassConstructor (a, b, c) = List.iter (fst >> this.VisitId) a; Option.iter this.VisitStatement b; ()
     /// JavaScript - class plain property
-    abstract VisitClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType -> unit
-    override this.VisitClassProperty (a, b, c) = (); (); ()
+    abstract VisitClassProperty : Info:ClassPropertyInfo * Name:string * PropertyType:TSType * Value:option<Expression> -> unit
+    override this.VisitClassProperty (a, b, c, d) = (); (); (); Option.iter this.VisitExpression d
     /// JavaScript - class static block
     abstract VisitClassStatic : Optional:Statement -> unit
     override this.VisitClassStatic a = (this.VisitStatement a)
@@ -1117,7 +1117,7 @@ type Visitor() =
         | Class (a, b, c, d, e) -> this.VisitClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e) -> this.VisitClassMethod (a, b, c, d, e)
         | ClassConstructor (a, b, c) -> this.VisitClassConstructor (a, b, c)
-        | ClassProperty (a, b, c) -> this.VisitClassProperty (a, b, c)
+        | ClassProperty (a, b, c, d) -> this.VisitClassProperty (a, b, c, d)
         | ClassStatic a -> this.VisitClassStatic a
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
         | Alias (a, b) -> this.VisitAlias (a, b)
@@ -1224,7 +1224,7 @@ module IgnoreSourcePos =
     let (|Class|_|) x = match ignoreStatementSourcePos x with Class (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|ClassStatic|_|) x = match ignoreStatementSourcePos x with ClassStatic a -> Some a | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
@@ -1327,7 +1327,7 @@ module Debug =
         | Class (a, b, c, d, e) -> "Class" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
         | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
         | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
-        | ClassProperty (a, b, c) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ")"
+        | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + defaultArg (Option.map PrintExpression d) "_" + ")"
         | ClassStatic a -> "ClassStatic" + "(" + PrintStatement a + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
         | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"
@@ -1409,3 +1409,34 @@ module ExtraForms =
     let Appl (a, b, c, d) = Application(a, b, { Purity = c; KnownLength = d; Params = [] })
     let ApplAny (a, b) = Application(a, b, ApplicationInfo.None)
     let ApplTyped (a, b, c, d, e) = Application(a, b, { Purity = c; KnownLength = d; Params = e })
+
+module JSRuntime =
+    let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
+    let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
+    let Create obj props = runtimeFunc "Create" Pure [obj; props]
+    let Ctor ctor typeFunction = runtimeFunc "Ctor" Pure [ctor; typeFunction]
+    let Base obj baseFunc args = runtimeFunc "Base" NonPure (obj :: baseFunc :: args)
+    let Clone obj = runtimeFunc "Clone" Pure [obj]
+    let Force obj = runtimeFunc "Force" NonPure [obj]
+    let Lazy (factory: (Expression -> Expression) -> Expression) =  
+        let i = Id.New("$i")
+        let setInstance x = Appl(Var i, [x], NonPure, Some 1)
+        runtimeFunc "Lazy" Pure [Lambda([i], None, factory setInstance)]
+    let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
+    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
+    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
+    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" NonPure [obj; NewArray fields] 
+    let CombineDelegates dels = runtimeFunc "CombineDelegates" Pure [dels]  
+    let BindDelegate func obj = runtimeFunc "BindDelegate" Pure [func; obj]    
+    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" Pure [d1; d2]
+    //let Curried f n = runtimeFuncI "Curried" Pure 3 [f; Value (Int n)]
+    //let Curried2 f = runtimeFuncI "Curried2" Pure 1 [f]
+    //let Curried3 f = runtimeFuncI "Curried3" Pure 1 [f]
+    //let CurriedA f n arr = runtimeFuncI "Curried" Pure 3 [f; Value (Int n); arr]
+    let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
+    let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
+
+    let GetterOf o n = runtimeFunc "GetterOf" Pure [o; Value (String n)]
+    let SetterOf o n = runtimeFunc "SetterOf" Pure [o; Value (String n)]
+
+    let ObjectAssign toObj fromObj = Appl(GlobalAccess (Address.Lib ["Object"; "assign"]), [toObj; fromObj], NonPure, Some 2)

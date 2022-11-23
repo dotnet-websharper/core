@@ -264,7 +264,7 @@ and Statement =
 and Member =
     | Method      of isStatic:bool * accessor:Accessor * Id * list<Id> * option<list<S>>
     | Constructor of list<Id * Modifiers> * option<list<S>>
-    | Property    of isStatic:bool * Id 
+    | Property    of isStatic:bool * Id * option<E>
     | Static      of list<S>
 
 /// Represents switch elements.

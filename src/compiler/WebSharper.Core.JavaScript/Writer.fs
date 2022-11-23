@@ -628,9 +628,10 @@ and Member isClass mem =
         Word "constructor"
         ++ Parens (CommaSeparated IdAndModifiers args)
         ++ Optional (List.map (Statement true) >> BlockLayout) body
-    | S.Property (s, n) ->
+    | S.Property (s, n, v) ->
         Conditional (Word "static") s
         ++ Id n
+        ++ Optional (fun v -> Token "=" ++ Expression v) v
         ++ Token ";"
     | S.Static body ->
         Word "static"

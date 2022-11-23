@@ -612,8 +612,8 @@ type ReplaceThisWithVar(v) =
 
     override this.TransformThis () = Var v
     
-    override this.TransformBase () =
-        failwith "Base call is not allowed inside inlined member on constructor compiled to static"
+    //override this.TransformBase () =
+    //    failwith "Base call is not allowed inside inlined member on constructor compiled to static"
     
     override this.TransformChainedCtor(a, b, c, d, e) =
         base.TransformChainedCtor(a, (match b with None -> Some v | _ -> b), c, d, e)
@@ -625,36 +625,6 @@ let makeExprInline (vars: Id list) expr =
         List.foldBack (fun (v, h) body ->
             Let (v, h, body)    
         ) (vars |> List.mapi (fun i a -> a, Hole i)) expr
-
-module JSRuntime =
-    let private runtimeFunc f p args = Appl(GlobalAccess (Address.Runtime f), args, p, Some (List.length args))
-    let private runtimeFuncI f p i args = Appl(GlobalAccess (Address.Runtime f), args, p, Some i)
-    let Create obj props = runtimeFunc "Create" Pure [obj; props]
-    //let Cctor cctor = runtimeFunc "Cctor" Pure [cctor]
-    let Clone obj = runtimeFunc "Clone" Pure [obj]
-    let Force obj = runtimeFunc "Force" NonPure [obj]
-    let Lazy (factory: (Expression -> Expression) -> Expression) =  
-        let i = Id.New("$i")
-        let setInstance x = Appl(Var i, [x], NonPure, Some 1)
-        runtimeFunc "Lazy" Pure [Lambda([i], None, factory setInstance)]
-    let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
-    let GetOptional value = runtimeFunc "GetOptional" Pure [value]
-    let SetOptional obj field value = runtimeFunc "SetOptional" NonPure [obj; field; value]
-    let DeleteEmptyFields obj fields = runtimeFunc "DeleteEmptyFields" NonPure [obj; NewArray fields] 
-    let CombineDelegates dels = runtimeFunc "CombineDelegates" Pure [dels]  
-    let BindDelegate func obj = runtimeFunc "BindDelegate" Pure [func; obj]    
-    let DelegateEqual d1 d2 = runtimeFunc "DelegateEqual" Pure [d1; d2]
-    //let Curried f n = runtimeFuncI "Curried" Pure 3 [f; Value (Int n)]
-    //let Curried2 f = runtimeFuncI "Curried2" Pure 1 [f]
-    //let Curried3 f = runtimeFuncI "Curried3" Pure 1 [f]
-    //let CurriedA f n arr = runtimeFuncI "Curried" Pure 3 [f; Value (Int n); arr]
-    let Apply f obj args = runtimeFunc "Apply" Pure [f; obj; NewArray args]
-    let OnLoad f = runtimeFunc "OnLoad" NonPure [f]
-
-    let GetterOf o n = runtimeFunc "GetterOf" Pure [o; Value (String n)]
-    let SetterOf o n = runtimeFunc "SetterOf" Pure [o; Value (String n)]
-
-    let ObjectAssign toObj fromObj = Appl(GlobalAccess (Address.Lib ["Object"; "assign"]), [toObj; fromObj], NonPure, Some 2)
 
 let isFunctionNameForInterface (t: TypeDefinition) =
     "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Split('`')[0]
