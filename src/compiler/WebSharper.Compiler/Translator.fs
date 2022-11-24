@@ -1039,10 +1039,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 meth.Generics 
                 |> List.indexed |> List.choose (fun (i, c) ->
                     if i + cg >= gcArr.Length then None else //TODO make sure we always have generics
-                    match gcArr.[i + cg].Type with
+                    match gcArr.[i + cg].Type with  
                     | Some _ -> None
                     | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
                 )
+        let staticCall func =
+            // for methods compiled as static because of Prototype(false)
+            let trThisArg = trThisObj()
+            ApplTyped(func, (Option.toList trThisArg) @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + Option.count trThisArg), funcParams true)
         match info with
         | M.Instance (name, kind) ->
             match baseCall with
@@ -1071,13 +1075,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | ClassMethodKind.Setter ->
                 this.StaticSet(typ, name, trArgs()[0])
             | ClassMethodKind.Simple ->
-                ApplTyped(this.Static(typ, name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+                staticCall (this.Static(typ, name))
         | M.Func name ->
-            ApplTyped(this.Static(typ, name), trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+            staticCall (this.Static(typ, name))
         | M.GlobalFunc address ->
-            // for methods compiled as static because of Prototype(false)
-            let trThisArg = trThisObj() |> Option.toList
-            ApplTyped(GlobalAccess address, trThisArg @ trArgs(), opts.Purity, Some (meth.Entity.Value.Parameters.Length + 1), funcParams true)
+            staticCall (GlobalAccess address) 
         | M.Inline (isCompiled, assertReturnType) ->
             match expr with 
             | Var _ -> 
