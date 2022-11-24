@@ -296,13 +296,10 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
         { new IControlBody with
             member this.ReplaceInDom(node) =
                 async {
-                    try
-                        let! a = JS.ImportDynamic(moduleName) |> Promise.AsAsync
-                        let f = Array.fold (?) a funcName
-                        let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                        b.ReplaceInDom(node)
-                    with e ->
-                        Console.Error("InlineControl: Failure during loading module " + moduleName, e)
+                    let! (a: obj) = JS.ImportDynamic(moduleName) |> Promise.AsAsync
+                    let f = Array.fold (?) a funcName
+                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                    b.ReplaceInDom(node)
                 }
                 |> Async.StartImmediate
         } 
@@ -331,7 +328,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
             | Some (clsAddr, _, Some cls) ->
                 match cls.Methods.TryFind meth with
                 | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
-                    funcName <- [| a; "default" |]
+                    funcName <- [| "default"; a |]
                     match clsAddr.Module with
                     | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                     | _ -> ()
@@ -425,13 +422,10 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
         { new IControlBody with
             member this.ReplaceInDom(node) =
                 async {
-                    try
-                        let! a = JS.ImportDynamic(moduleName) |> Promise.AsAsync
-                        let f = Array.fold (?) a funcName
-                        let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                        b.ReplaceInDom(node)
-                    with e ->
-                        JavaScript.Console.Error("InlineControl: Failure during loading module " + moduleName, e)
+                    let! (a: obj) = JS.ImportDynamic(moduleName) |> Promise.AsAsync
+                    let f = Array.fold (?) a funcName
+                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                    b.ReplaceInDom(node)
                 }
                 |> Async.StartImmediate
         } 
@@ -450,7 +444,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     | Some (clsAddr, _, Some cls) ->
                         match cls.Methods.TryFind meth with
                         | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
-                            funcName <- [| a; "default" |]
+                            funcName <- [| "default"; a |]
                             match clsAddr.Module with
                             | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
                             | _ -> ()

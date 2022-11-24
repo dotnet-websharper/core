@@ -481,22 +481,18 @@ open WebSharper.JavaScript
 
 [<JavaScript>]
 module Test =
-    [<Name "">]
-    type IControlBody =
-        abstract ReplaceInDom : string -> unit
-
-    let X() =
+    let lookup (moduleName: string) (funcName: string[]) =
         async {
-            try
-                
-                let x = obj()
-                let a = obj()
-                Console.Log("module loaded", a)
-                let f = Array.fold (?) a [|"a"; "b" |]
-                let b = obj() |> As<IControlBody>
-                b.ReplaceInDom("")
-            with e ->
-                Console.Error("InlineControl: Failure during loading module", e)
+            let! f =
+                async {
+                    try
+                        let! a : obj = JS.ImportDynamic(moduleName) |> Promise.AsAsync
+                        return Array.fold (?) a funcName
+                    with e ->
+                        JavaScript.Console.Error("InlineControl: Failure during loading module " + moduleName, e)
+                }
+            let b = As<Function>(f).ApplyUnsafe(null, [||]) |> As<IControlBody>
+            b.ReplaceInDom(null)
         }
 """
 

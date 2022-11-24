@@ -85,7 +85,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
     //        getAddress (Address r), Value (String name)
     //    | _ -> failwith "packageAssembly: empty address"
     
-    let rec getOrImportAddress (address: Address) =
+    let getOrImportAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
@@ -116,9 +116,13 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             else
                                 n, n
                     if m = currentModuleName then
-                        let currentAddress =
-                            { address with Module = ImportedModule (Id.Global()) }
-                        GlobalAccess currentAddress
+                        match address.Address.Value |> List.rev with
+                        | "default" :: res ->
+                            res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var classId)
+                        | _ ->
+                            let currentAddress =
+                                { address with Module = ImportedModule (Id.Global()) }
+                            GlobalAccess currentAddress
                     else
                         let moduleImports =
                             match imports.TryGetValue m with
@@ -184,6 +188,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 match getOrImportAddress a with
                 | GlobalAccess ga ->
                     GlobalAccessSet(ga, this.TransformExpression v)
+                | ItemGet(e, i, _) ->
+                    ItemSet(this.TransformExpression e, this.TransformExpression i, this.TransformExpression v)
                 | _ ->
                     failwith "invalid address import"
 
@@ -200,6 +206,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     match a.Sub(n) |> getOrImportAddress with
                     | GlobalAccess ga ->
                         GlobalAccessSet(ga, this.TransformExpression v)
+                    | ItemGet(e, i, _) ->
+                        ItemSet(this.TransformExpression e, this.TransformExpression i, this.TransformExpression v)
                     | _ ->
                         failwith "invalid address import"
                 | _ ->
@@ -251,7 +259,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             Kind = mkind
                         }
                     members.Add <| ClassMethod(info, mname, args, Some (staticThisTransformer.TransformStatement b), TSType.Any)
-                | _ -> ()   
+                | _ ->
+                    let info = 
+                        {
+                            IsStatic = true
+                            IsPrivate = false // TODO
+                            IsOptional = false
+                        }
+                    members.Add <| ClassProperty(info, mname, TSType.Any, Some body)
             | M.Func fname ->
                 match IgnoreExprSourcePos body with
                 | Function (args, _, _, b) ->

@@ -1025,14 +1025,32 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     if obj.ReferenceEquals(parsed.ReturnType, Unchecked.defaultof<_>) then None
                     else Some parsed.ReturnType
                 if isInline then
-                    let b = Function(args, true, returnType, parsed.Body)
-                    let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
-                    let b = 
-                        match thisVar with
-                        | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
-                        | _ -> b
-                    let allVars = Option.toList thisVar @ args
-                    makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
+                    match parsed.Body with
+                    | IgnoreSourcePos.Return e ->
+                        let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
+                        let b = 
+                            match thisVar with
+                            | Some t -> ReplaceThisWithVar(t).TransformExpression(e)
+                            | _ -> e
+                        let allVars = Option.toList thisVar @ args
+                        makeExprInline allVars b
+                    | IgnoreSourcePos.ExprStatement e ->
+                        let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
+                        let b = 
+                            match thisVar with
+                            | Some t -> ReplaceThisWithVar(t).TransformExpression(e)
+                            | _ -> e
+                        let allVars = Option.toList thisVar @ args
+                        makeExprInline allVars (Void(b))
+                    | _ ->
+                        let b = Function(args, true, returnType, parsed.Body)
+                        let thisVar = if meth.IsStatic then None else Some (Id.New "$this")
+                        let b = 
+                            match thisVar with
+                            | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
+                            | _ -> b
+                        let allVars = Option.toList thisVar @ (args |> List.map (fun i -> i.Clone()))
+                        makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
                 else
                     if isInterface then
                         let thisVar = Id.New "$this"
@@ -1115,7 +1133,23 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript ->
-                    jsMethod false
+                    let isInlinedRecordMember =
+                        if decls.Length > 0 then
+                            try
+                                let syntax = decls.[0].GetSyntax()
+                                match syntax with
+                                | :? ParameterSyntax -> true
+                                | :? RecordDeclarationSyntax ->
+                                    match meth.Name with
+                                    | "<Clone>$"
+                                    | "get_EqualityContract" -> true
+                                    | _ -> false
+                                | _ -> false
+                            with _ ->
+                                false
+                        else
+                            false
+                    jsMethod isInlinedRecordMember
                 | A.MemberKind.InlineJavaScript ->
                     checkNotAbstract()
                     jsMethod true
@@ -1218,7 +1252,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         | Some k ->
             let jsName =
                 match backingForProp with
-                | Some p -> Some ("$" + p.Name)
+                | Some p -> mAnnot.Name |> Option.defaultValue p.Name |> Some
                 | None -> mAnnot.Name                       
             let nr =
                 {

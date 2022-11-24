@@ -972,12 +972,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
                 try GenericInlineResolver(gen, tsGen).TransformExpression expr
                 with e -> this.Error (sprintf "Failed to resolve generics: %s Expr: %s Generics %A" e.Message (Debug.PrintExpression expr) gcArr)
-        let res = Substitution(args, ?thisObj = thisObj).TransformExpression(ge)
-        let trRes = if isCompiled then res else this.TransformExpression res
-        if assertReturnType then
-            let t = comp.TypeTranslator.TSTypeOf currentGenerics retTyp
-            Cast(t, trRes)
-        else trRes
+        try
+            let res = Substitution(args, ?thisObj = thisObj).TransformExpression(ge)
+            let trRes = if isCompiled then res else this.TransformExpression res
+            if assertReturnType then
+                let t = comp.TypeTranslator.TSTypeOf currentGenerics retTyp
+                Cast(t, trRes)
+            else trRes
+        with _ ->
+            failwithf "Error during applying inline: %s" (Debug.PrintExpression expr)
 
     member this.Static(typ: Concrete<TypeDefinition>, ?name: string) =
         match comp.TryLookupClassInfo(typ.Entity, true) with

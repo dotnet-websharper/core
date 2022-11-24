@@ -44,12 +44,12 @@ let Tests =
     TestCategory "Import" {
 
         Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "sayHi.js")
+            let sayHi = JS.Import<string -> string>("sayHi", "WebSharper.Module.Tests/sayHi.js")
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDynamic" {
-            let! sayHiModule = JS.ImportDynamic("sayHi.js") |> Promise.AsAsync
+            let! sayHiModule = JS.ImportDynamic("./sayHi.js") |> Promise.AsAsync
             let sayHi = As<string -> string>(sayHiModule?sayHi)
             equal (sayHi "World") "Hello, World!"
         }

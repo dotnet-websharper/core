@@ -809,7 +809,20 @@ module Resolve =
         if s.Add name then name else getRenamed (newName name) s
 
     let rec getRenamedWithKind name kind (s: HashSet<string * ClassMethodKind>) =
-        if s.Add (name, kind) then name else getRenamedWithKind (newName name) kind s
+        let hasConflict = 
+            match kind with
+            | ClassMethodKind.Simple ->
+                s.Contains (name, ClassMethodKind.Simple) 
+                || s.Contains (name, ClassMethodKind.Getter) 
+                || s.Contains (name, ClassMethodKind.Setter)
+            | _ ->
+                s.Contains (name, ClassMethodKind.Simple) 
+                || s.Contains (name, kind) 
+        if hasConflict then 
+            getRenamedWithKind (newName name) kind s
+        else
+            s.Add (name, kind) |> ignore
+            name
 
     let rec getRenamedInstanceMemberForClass name c =
         let rec isNameOk (c: Class) =
