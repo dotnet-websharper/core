@@ -46,6 +46,8 @@ let VALUE = "$V"
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 
+type JSModule = JSModule of string
+
 type Value =
     | Null
     | True
@@ -623,6 +625,11 @@ let serializers =
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
+    let encJSModule (JSModule m) =
+        EncodedInstance (AST.Address.ModuleRoot m, [])    
+    let decJSModule (_: Value) : JSModule = 
+        failwithf "cannot decode JSModule"
+    add encJSModule decJSModule d
     d
 
 let tupleEncoder dE (i: FormatSettings) (ta: TAttrs) =

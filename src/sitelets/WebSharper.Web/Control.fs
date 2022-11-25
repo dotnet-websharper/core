@@ -289,19 +289,15 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
 
     let mutable args = [||]
     let mutable funcName = [||]
-    let mutable moduleName = ""
+    let mutable jsModule = Json.JSModule ""
 
     [<JavaScript>]
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                async {
-                    let! (a: obj) = JS.ImportDynamic(moduleName) |> Promise.AsAsync
-                    let f = Array.fold (?) a funcName
-                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                    b.ReplaceInDom(node)
-                }
-                |> Async.StartImmediate
+                let f = Array.fold (?) jsModule funcName
+                let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                b.ReplaceInDom(node)
         } 
 
     interface IRequiresResources with
@@ -330,12 +326,12 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
                     funcName <- [| "default"; a |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
+                    | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                     | _ -> ()
                 | Some (M.Func a, _, _, _) ->
                     funcName <- [| a |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
+                    | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                     | _ -> ()
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
@@ -415,19 +411,15 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     let args = fst bodyAndReqs
     let mutable funcName = [||]
-    let mutable moduleName = ""
+    let mutable jsModule = Json.JSModule ""
 
     [<JavaScript>]
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                async {
-                    let! (a: obj) = JS.ImportDynamic(moduleName) |> Promise.AsAsync
-                    let f = Array.fold (?) a funcName
-                    let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                    b.ReplaceInDom(node)
-                }
-                |> Async.StartImmediate
+                let f = Array.fold (?) jsModule funcName
+                let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
+                b.ReplaceInDom(node)
         } 
 
     interface IRequiresResources with
@@ -446,12 +438,12 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                         | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
                             funcName <- [| "default"; a |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
+                            | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                             | _ -> ()
                         | Some (M.Func a, _, _, _) ->
                             funcName <- [| a |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> moduleName <- "../" + m + ".js"
+                            | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                             | _ -> ()
                         | Some _ -> 
                             failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"

@@ -68,18 +68,22 @@ let lookupFrom (root: obj) (x: string[]) =
             failwith ("Invalid server reply. Failed to find type: " + n)
     r |> As<'T>
 
+[<JavaScript>]
+let splitAddress (s: string) =
+    s.Split([| "." |], System.StringSplitOptions.RemoveEmptyEntries)   
+
 /// Lookups an object by full address string.
 [<JavaScript>]
 let lookup<'T> (x: string) : Async<'T> =
     match x.IndexOf("::") with
     | -1 ->
-        lookupFrom JS.Global (x.Split('.')) |> async.Return
+        lookupFrom JS.Global (splitAddress x) |> async.Return
     | i ->
         let m = x[..i-1]
         let x = x[i+2..]
         async {
             let! mi = JS.ImportDynamic(m).AsAsync()
-            return lookupFrom mi (x.Split('.'))
+            return lookupFrom mi (splitAddress x)
         }
 
 /// Does a shallow generic mapping over an object.
@@ -101,6 +105,7 @@ type private SpecialTypes =
     | List 
     | Decimal of (obj -> obj)
     | Object of obj
+    | JSModule of obj
 
 [<JavaScript>]
 let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
@@ -122,6 +127,8 @@ let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
                         c(o)
                     | SpecialTypes.Object ctor ->  
                         Object.Assign(JS.New ctor, o)
+                    | SpecialTypes.JSModule m ->
+                        m
         | _ ->
             x
 
@@ -145,10 +152,16 @@ let ActivateAsync<'T> (json: obj) : Async<'T> =
                         types.[i] <- SpecialTypes.Decimal c
                     }) |> ignore
                 | t -> 
-                    typeLoads.Push (async { 
-                        let! c = lookup t
-                        types.[i] <- SpecialTypes.Object c
-                    }) |> ignore
+                    if t.EndsWith "::" then
+                        typeLoads.Push (async { 
+                            let! c = lookup t
+                            types.[i] <- SpecialTypes.JSModule c
+                        }) |> ignore
+                    else
+                        typeLoads.Push (async { 
+                            let! c = lookup t
+                            types.[i] <- SpecialTypes.Object c
+                        }) |> ignore
             json?("$DATA")
     async {
         do! Async.Parallel (typeLoads.Self) |> Async.Ignore
@@ -173,11 +186,14 @@ let Activate<'T> (json: obj) (imported: obj[]) : 'T =
                     let fn =
                         match t.IndexOf("::") with
                         | -1 ->
-                            t.Split('.')
+                            splitAddress t
                         | i ->
                             let m = t[..i-1]
                             let x = t[i+2..]
-                            x.Split('.')
-                    types.[i] <- SpecialTypes.Object (lookupFrom (imported.[i]) fn)
+                            splitAddress x
+                    if Array.isEmpty fn then
+                        types.[i] <- SpecialTypes.JSModule (imported.[i])
+                    else
+                        types.[i] <- SpecialTypes.Object (lookupFrom (imported.[i]) fn)
             json?("$DATA")
     As (decode types data)

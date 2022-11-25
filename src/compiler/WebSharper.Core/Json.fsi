@@ -24,6 +24,8 @@ module WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
 module Re = WebSharper.Core.Resources
 
+type JSModule = JSModule of string
+
 /// Represents JSON values.
 type Value =
     | Null
