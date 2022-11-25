@@ -102,6 +102,13 @@ let cleanRuntime force expr =
         | "Apply", [GlobalAccess mf; GlobalAccess m; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when mf.Module = m.Module && mf.Address.Value = m.Address.Value ->
             ApplAny (GlobalAccess mf, arr @ rest)
         
+        | "Apply", [ItemGet (Var x, _, _) as f; Var y ] when x = y ->
+            ApplAny (f, [])
+        | "Apply", [ItemGet (Var x, _, _) as f; Var y; NewArray arr ] when x = y ->
+            ApplAny (f, arr)
+        | "Apply", [ItemGet (Var x, _, _) as f; Var y; AppItem(NewArray arr, "concat", [ NewArray rest ]) ] when x = y ->
+            ApplAny (f, arr @ rest)
+
         | "Apply", [GetPrototypeConstuctor m1; GlobalAccess m2 ] when m1 = m2 ->
             if m1 = globalArray then NewArray []
             else New(GlobalAccess m1, [], [])

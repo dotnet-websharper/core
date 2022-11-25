@@ -251,6 +251,8 @@ let defaultRemotingProvider =
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
 
+let private getItemNP n x = ItemGet(x, Value (String n), NonPure)
+
 let private getItemRO n isReadonly x =
     if isReadonly then
         getItem n x
@@ -1053,7 +1055,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | Some true ->
                 match kind with
                 | ClassMethodKind.Getter ->
-                    Base |> getItem name
+                    Base |> getItemNP name
                 | ClassMethodKind.Setter ->
                     ItemSet(Base, Value (String name), trArgs()[0])
                 | ClassMethodKind.Simple ->
@@ -1061,7 +1063,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ ->
                 match kind with
                 | ClassMethodKind.Getter ->
-                    trThisObj() |> Option.get |> getItem name
+                    trThisObj() |> Option.get |> getItemNP name
                 | ClassMethodKind.Setter ->
                     ItemSet(trThisObj() |> Option.get, Value (String name), trArgs()[0])
                 | ClassMethodKind.Simple ->

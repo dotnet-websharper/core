@@ -999,7 +999,7 @@ module private Instances =
             Type = None
         }
 
-    let GlobalId = uniqueId "self" -1L
+    let GlobalId = uniqueId "globalThis" -1L
 
     let ImportId = uniqueId "import" -2L
 

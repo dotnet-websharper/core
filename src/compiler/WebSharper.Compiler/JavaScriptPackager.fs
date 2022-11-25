@@ -101,7 +101,9 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     match address.Address.Value with
                     | [] -> ()
                     | l -> 
-                        jsUsed.Add(List.last l) |> ignore
+                        let fromJS = List.last l
+                        if StandardLibNames.Set.Contains fromJS then
+                            jsUsed.Add(fromJS) |> ignore
                     GlobalAccess address    
                 | JavaScriptModule m ->
                     let importWhat, importAs =

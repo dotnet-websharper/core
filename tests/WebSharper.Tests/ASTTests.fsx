@@ -479,24 +479,16 @@ namespace WebSharper.Tests
 open WebSharper
 open WebSharper.JavaScript
 
+
 [<JavaScript>]
 module Test =
-    let lookup (moduleName: string) (funcName: string[]) =
-        async {
-            let! f =
-                async {
-                    try
-                        let! a : obj = JS.ImportDynamic(moduleName) |> Promise.AsAsync
-                        return Array.fold (?) a funcName
-                    with e ->
-                        JavaScript.Console.Error("InlineControl: Failure during loading module " + moduleName, e)
-                }
-            let b = As<Function>(f).ApplyUnsafe(null, [||]) |> As<IControlBody>
-            b.ReplaceInDom(null)
-        }
+    [<Inline "inlineStatementTest = true;">]
+    let inlineStatement () = X<unit>
+
+    let res() =
+        inlineStatement()
+        As<bool> JS.Window?inlineStatementTest
 """
-
-
 
 let a() = 1
 

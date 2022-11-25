@@ -877,7 +877,7 @@ let rec breakExpr expr : Broken<BreakResult> =
                         yield! v.Statements
                         match v.Body with
                         | Some b ->
-                            yield VarSetStatement(i, b)
+                            yield VarDeclaration(i, b)
                         | _ -> ()
                     yield! brB.Statements
                 ]

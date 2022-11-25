@@ -296,7 +296,7 @@ and Expression (expression) =
         Token "[" ++ CommaSeparated element xs ++ Token "]"
     | S.Binary (x, op, y) ->
         match op, y with
-        | B.``.``, S.Constant (S.String y) when Identifier.IsValid y ->
+        | B.``.``, S.IgnoreEPos (S.Constant (S.String y)) when Identifier.IsValid y ->
             let e = Expression x
             let eL =
                 match S.IgnoreExprPos x with
