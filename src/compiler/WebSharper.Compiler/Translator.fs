@@ -1684,82 +1684,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                   
     override this.TransformChainedCtor(isBase, thisVar, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
-        let baseAddr() =
-            if isBase then
-                match comp.TryLookupClassInfo(typ.Entity) with
-                | Some (a, _) -> Some a
-                | _ -> None
-            else
-                match comp.TryLookupClassInfo(typ.Entity) with
-                | Some (_, { BaseClass = Some { Entity = bTyp } }) ->
-                    match comp.TryLookupClassInfo(bTyp) with
-                    | Some (a, _) -> Some a
-                    | _ -> None
-                | _ -> None
-        let trBaseCall x =
-            match thisVar with
-            | None -> x 
-            | Some v ->
-                match baseAddr() with
-                | Some a ->
-                    TransformBaseCall(fun args ->
-                        JSRuntime.Base (Var v) (GlobalAccess a) args
-                        //Appl(GlobalAccess a |> getItem "call", Var v :: args, NonPure, None)    
-                    ).TransformExpression(x)
-                | None -> Undefined
+        let bcall func args = JSRuntime.Base This func args
         let def () =
-            let isSuper =
-                match thisVar with
-                | None -> 
-                    match currentNode with
-                    | M.ConstructorNode(typ, ctor) ->
-                        comp.TryLookupClassInfo typ |> Option.exists (fun (_, cls) -> Option.isSome cls.BaseClass)
-                    | _ -> false
-                | _ -> false
-            let bind key value body = Let (key, value, body)
-            let bcall func args =
-                let baseAddr = baseAddr()
-                if isBase && Option.isSome baseAddr then
-                    //Appl(Base, args, NonPure, None)
-                    JSRuntime.Base This (GlobalAccess baseAddr.Value) args
-                elif currentIsInline || Option.isSome thisVar then
-                    let t = match thisVar with Some v -> Var v | _ -> This
-                    Appl(func |> getItem "call", t :: args, NonPure, None)
-                else
-                    let subs info expr =
-                        match info with
-                        | M.Inline _ ->
-                            norm
-                        | _ ->
-                        match expr with
-                        | I.Function (cargs, _, _, cbody) ->
-                            //let args =
-                            //    match info with
-                            //    | M.NewIndexed _ ->
-                            //        // remove index parameter
-                            //        List.tail args
-                            //    | _ -> args
-                            List.foldBack2 bind cargs args (StatementExpr (cbody, None)) |> Substitution([]).TransformExpression  
-                        | _ ->
-                            failwith "Expecting a function as compiled form of constructor"
-                    match comp.LookupConstructorInfo(typ.Entity, ctor) with
-                    | Compiled (info, _, _, expr) ->
-                        subs info expr
-                    | Compiling (info, _, expr) ->
-                        this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
-                        match comp.LookupConstructorInfo(typ.Entity, ctor) with
-                        | Compiled (info, _, _, expr) ->
-                            subs info expr
-                        | _ -> failwith "should be compiled"
-                    | _ -> failwith "should be compiled"
             match norm with
-            | New (func, ts, a) ->
+            | New (func, _, a) ->
                 bcall func a
             // This is allowing some simple inlines
-            | Let (i1, a1, New(func, ts, Var v1 :: r)) when i1 = v1 ->
-                bcall func (a1 :: r)
-            | Let (i1, a1, Let (i2, a2, New(func, ts, Var v1 :: Var v2 :: r))) when i1 = v1 && i2 = v2 ->
-                bcall func (a1 :: a2 :: r)
+            | Let (i1, a1, New(func, _, [Var v1])) when i1 = v1 ->
+                bcall func [a1]
+            | Let (i1, a1, Let (i2, a2, New(func, _, [Var v1; Var v2]))) when i1 = v1 && i2 = v2 ->
+                bcall func [a1; a2]
             | _ ->
                 let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
@@ -1769,7 +1703,94 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | None -> norm
             | Some _ -> def()
         else def()
-        |> trBaseCall
+        
+        //let norm = this.TransformCtor(typ, ctor, args)
+        //let baseAddr() =
+        //    if isBase then
+        //        match comp.TryLookupClassInfo(typ.Entity) with
+        //        | Some (a, _) -> Some a
+        //        | _ -> None
+        //    else
+        //        match comp.TryLookupClassInfo(typ.Entity) with
+        //        | Some (_, { BaseClass = Some { Entity = bTyp } }) ->
+        //            match comp.TryLookupClassInfo(bTyp) with
+        //            | Some (a, _) -> Some a
+        //            | _ -> None
+        //        | _ -> None
+        //let trBaseCall x =
+        //    match thisVar with
+        //    | None -> x 
+        //    | Some v ->
+        //        match baseAddr() with
+        //        | Some a ->
+        //            TransformBaseCall(fun args ->
+        //                JSRuntime.Base (Var v) (GlobalAccess a) args
+        //                //Appl(GlobalAccess a |> getItem "call", Var v :: args, NonPure, None)    
+        //            ).TransformExpression(x)
+        //        | None -> Undefined
+        //let def () =
+        //    let isSuper =
+        //        match thisVar with
+        //        | None -> 
+        //            match currentNode with
+        //            | M.ConstructorNode(typ, ctor) ->
+        //                comp.TryLookupClassInfo typ |> Option.exists (fun (_, cls) -> Option.isSome cls.BaseClass)
+        //            | _ -> false
+        //        | _ -> false
+        //    let bind key value body = Let (key, value, body)
+        //    let bcall func args =
+        //        let baseAddr = baseAddr()
+        //        if isBase && Option.isSome baseAddr then
+        //            //Appl(Base, args, NonPure, None)
+        //            JSRuntime.Base This (GlobalAccess baseAddr.Value) args
+        //        elif currentIsInline || Option.isSome thisVar then
+        //            let t = match thisVar with Some v -> Var v | _ -> This
+        //            Appl(func |> getItem "call", t :: args, NonPure, None)
+        //        else
+        //            let subs info expr =
+        //                match info with
+        //                | M.Inline _ ->
+        //                    norm
+        //                | _ ->
+        //                match expr with
+        //                | I.Function (cargs, _, _, cbody) ->
+        //                    //let args =
+        //                    //    match info with
+        //                    //    | M.NewIndexed _ ->
+        //                    //        // remove index parameter
+        //                    //        List.tail args
+        //                    //    | _ -> args
+        //                    List.foldBack2 bind cargs args (StatementExpr (cbody, None)) |> Substitution([]).TransformExpression  
+        //                | _ ->
+        //                    failwith "Expecting a function as compiled form of constructor"
+        //            match comp.LookupConstructorInfo(typ.Entity, ctor) with
+        //            | Compiled (info, _, _, expr) ->
+        //                subs info expr
+        //            | Compiling (info, _, expr) ->
+        //                this.AnotherNode().CompileConstructor(info, expr, typ.Entity, ctor)
+        //                match comp.LookupConstructorInfo(typ.Entity, ctor) with
+        //                | Compiled (info, _, _, expr) ->
+        //                    subs info expr
+        //                | _ -> failwith "should be compiled"
+        //            | _ -> failwith "should be compiled"
+        //    match norm with
+        //    | New (func, ts, a) ->
+        //        bcall func a
+        //    // This is allowing some simple inlines
+        //    | Let (i1, a1, New(func, ts, Var v1 :: r)) when i1 = v1 ->
+        //        bcall func (a1 :: r)
+        //    | Let (i1, a1, Let (i2, a2, New(func, ts, Var v1 :: Var v2 :: r))) when i1 = v1 && i2 = v2 ->
+        //        bcall func (a1 :: a2 :: r)
+        //    | _ ->
+        //        let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
+        //        comp.AddError (this.CurrentSourcePos, SourceError err)
+        //        Appl(errorPlaceholder, args |> List.map this.TransformExpression, NonPure, None)
+        //if currentIsInline then
+        //    match thisVar with
+        //    | None -> norm
+        //    | Some _ -> def()
+        //else def()
+        //|> trBaseCall
 
     //override this.TransformCctor(typ) =
     //    let typ = comp.FindProxied typ
