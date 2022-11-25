@@ -364,7 +364,7 @@ type Graph =
         for _, (i, n) in resNodes do registerResNode i n
 
         [
-            yield Resources.Runtime.Instance
+            //yield Resources.Runtime.Instance
             for i, n in resNodesOrdered -> activate i n
             //for i, n in asmNodes -> activate i n
         ]

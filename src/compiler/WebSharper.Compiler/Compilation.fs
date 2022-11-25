@@ -1176,6 +1176,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let stronglyNamedTypes = ResizeArray()
         let remainingTypes = ResizeArray()
+        let clStatics = Dictionary<TypeDefinition, Address>()
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             notResolvedInterfaces.Remove typ |> ignore
@@ -1338,6 +1339,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let clAddress = 
                 match cls.Type with
                 | Some (TSType.Named a) ->
+                    clStatics.Add(typ, this.TypeAddress(typ, false))
                     Address.Lib a
                 | _ ->
                     this.TypeAddress(typ, hasWSPrototype)
@@ -1447,21 +1449,25 @@ type Compilation(meta: Info, ?hasGraph) =
                 |> Option.get
 
         let compiledStaticMember n k p typ (nr : NotResolvedMethod) =
-            match nr.Kind with
-            | N.Quotation _
-            | N.Static -> 
-                if mergedProxies.Contains typ then
-                    match this.TryLookupClassInfo(typ) with
-                    | Some (a, _) -> GlobalFunc (a.Sub(n))
-                    | _ -> Func n
-                elif p then 
-                    Static (n, k) 
-                else 
-                    Func n
-            | N.Constructor -> New (Some n)
-            | N.AsStatic -> Func n
-            | _ -> failwith "Invalid static member kind"
-            |> withMacros nr        
+            match clStatics.TryGetValue(typ) with
+            | true, a ->
+                GlobalFunc (a.Sub(n))
+            | _ ->
+                match nr.Kind with
+                | N.Quotation _
+                | N.Static -> 
+                    if mergedProxies.Contains typ then
+                        match this.TryLookupClassInfo(typ) with
+                        | Some (a, _) -> GlobalFunc (a.Sub(n))
+                        | _ -> Func n
+                    elif p then 
+                        Static (n, k) 
+                    else 
+                        Func n
+                | N.Constructor -> New (Some n)
+                | N.AsStatic -> Func n
+                | _ -> failwith "Invalid static member kind"
+                |> withMacros nr        
 
         let compiledNoAddressMember (nr : NotResolvedMethod) =
             match nr.Kind with

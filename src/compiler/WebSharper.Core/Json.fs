@@ -615,7 +615,7 @@ let serializers =
     let encDecimal (d: decimal) =
         let b = System.Decimal.GetBits(d)
         EncodedArrayInstance (
-            AST.Address.DefaultExport "System.Decimal", 
+            AST.Address.ModuleRoot "WebSharper.MathJS.Extensions/WebSharper.Decimal", 
             b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
         )
     let decDecimal = function
