@@ -382,7 +382,7 @@ type Encoded =
         | Object x -> EncodedObject (List.map enc x)
 
     static member Array x = EncodedArray x
-    static member Object x = EncodedObject x
+    static member Object x = EncodedObject x        
 
 [<Sealed>]
 type Decoder(dec: Value -> obj) =
@@ -430,7 +430,9 @@ type FormatSettings =
         /// * Inline single record argument of a union into the union object itself.
         ConciseRepresentation : bool
         /// Pack an encoded value to JSON.
-        Pack : Encoded -> Value
+        Pack : Encoded -> Value * list<AST.Address>
+        /// Get list of types used by encoded value.
+        AddTypes : Value -> list<AST.Address> -> Value
         EncodeDateTime : TAttrs -> System.DateTime -> Encoded
         DecodeDateTime : TAttrs -> Value -> option<System.DateTime>
     }
@@ -1912,11 +1914,9 @@ module TypedProviderInternals =
         and pko xs =
             Object (xs |> List.map (fun (a, b) -> (a, pk b)))
         let data = pk encoded
-        //let rec encA acc x =
-        //    match x with
-        //    | [] -> failwith "types array must not be empty"
-        //    | [x] -> Array (String x :: acc)
-        //    | y :: x -> encA (String y :: acc) x
+        data, List.ofSeq dict.Keys
+
+    let addTypes data types =
         let encA (a: AST.Address) =
             match a.Module with
             | AST.StandardLibrary
@@ -1926,7 +1926,7 @@ module TypedProviderInternals =
                 "../" + m + ".js::" + (a.Address.Value |> List.rev |> String.concat ".") |> String
             | _ ->
                 failwith "ImportedModule address not expected for JSON"
-        let types = List.ofSeq (dict.Keys |> Seq.map encA)
+        let types = types |> List.map encA
         match types, data with
         | _::_, _
         | _, Object (((TYPES | VALUE), _) :: _) ->
@@ -1997,6 +1997,7 @@ module TypedProviderInternals =
                 | _ -> None
             ConciseRepresentation = false
             Pack = pack
+            AddTypes = addTypes
         }
 
 let culture = System.Globalization.CultureInfo.InvariantCulture
@@ -2047,7 +2048,7 @@ module PlainProviderInternals =
             | EncodedInstance (_, xs) -> pko xs
         and pko xs =
             Object (xs |> List.map (fun (a, b) -> (a, pk b)))
-        pk encoded
+        pk encoded, []
 
     let format =
         {
@@ -2109,6 +2110,7 @@ module PlainProviderInternals =
                 defaultFormatOptions.DecodeDateTime ta.DateTimeFormat
             ConciseRepresentation = true
             Pack = flatten
+            AddTypes = fun v _ -> v
         }
 
 [<Sealed>]
@@ -2170,4 +2172,10 @@ type Provider(fo: FormatSettings) =
     member this.BuildDefaultValue<'T>() =
         this.BuildDefaultValue typeof<'T> :?> 'T
 
-    member this.Pack x = fo.Pack x
+    member this.Pack x = 
+        let v, ts = fo.Pack x 
+        fo.AddTypes v ts
+
+    member this.PackWithTypes x = 
+        let v, ts = fo.Pack x
+        fo.AddTypes v ts, ts

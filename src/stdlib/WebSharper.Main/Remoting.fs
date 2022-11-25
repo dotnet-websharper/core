@@ -147,31 +147,33 @@ type AjaxRemotingProvider() =
             let headers = makeHeaders m
             let payload = makePayload data
             let! token = Async.CancellationToken
-            return! Async.FromContinuations (fun (ok, err, cc) ->
-                let waiting = ref true
-                let reg =
-                    token.Register(fun () ->
+            let! data =
+                Async.FromContinuations (fun (ok, err, cc) ->
+                    let waiting = ref true
+                    let reg =
+                        token.Register(fun () ->
+                            if !waiting then
+                                waiting := false
+                                cc (new System.OperationCanceledException(token))
+                        )
+                    let ok (x: Data) = 
                         if !waiting then
                             waiting := false
-                            cc (new System.OperationCanceledException(token))
-                    )
-                let ok (x: Data) = 
-                    if !waiting then
-                        waiting := false
-                        reg.Dispose()
-                        ok (Json.Activate (Json.Parse x))
-                let err (e: exn) =
-                    if !waiting then
-                        waiting := false
-                        reg.Dispose()
-                        err e
-                AjaxProvider.Async this.EndPoint headers payload ok err)
+                            reg.Dispose()
+                            ok x
+                    let err (e: exn) =
+                        if !waiting then
+                            waiting := false
+                            reg.Dispose()
+                            err e
+                    AjaxProvider.Async this.EndPoint headers payload ok err)
+            return! Json.ActivateAsync (Json.Parse data)
         }
 
     interface IRemotingProvider with
         member this.Sync m data : obj =
             let data = AjaxProvider.Sync this.EndPoint (makeHeaders m) (makePayload data)
-            Json.Activate (Json.Parse data)
+            Json.Activate (Json.Parse data) [||]
 
         member this.Async m data : Async<obj> =
             this.AsyncBase(m, data)

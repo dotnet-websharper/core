@@ -160,7 +160,7 @@ module Provider =
     let EncodeLinkedList (encEl:(unit -> 'T -> obj)) : (unit -> LinkedList<'T> -> obj) =
         ()
         fun () (d: LinkedList<'T>) ->
-            let o = Array<'T>()
+            let o = Array<obj>()
             let e = encEl()
             for x in d :> seq<'T> do o.Push(e x) |> ignore
             box o
@@ -693,7 +693,8 @@ module Macro =
                                     | M.InstanceField n -> isOption n false
                                     | M.IndexedField i -> isOption (string i) false
                                     | M.OptionalField n -> isOption n true
-                                    | M.StaticField _ -> None
+                                    | M.StaticField _
+                                    | M.VarField _ -> None
                                 jsNameTypeAndOption |> Option.map (fun (jsName, t, optionKind) ->
                                     jsName, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
                                 )

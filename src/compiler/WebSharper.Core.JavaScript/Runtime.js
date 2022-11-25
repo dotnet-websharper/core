@@ -293,13 +293,6 @@ export function Start() {
   load = [];
 }
 
-OnLoad(async () => {
-  if (document && document.getElementById("websharper-data")) {
-    const Activator = await import("../WebSharper.Main/WebSharper.Activator.js");
-    Activator.Activate();
-  }
-});
-
 export function ignore() { }
 export function id(x) { return x }
 export function fst(x) { return x[0] }

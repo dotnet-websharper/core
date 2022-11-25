@@ -40,8 +40,8 @@ type HtmlTextWriter =
     new : System.IO.TextWriter -> HtmlTextWriter
     new : System.IO.TextWriter * indent: string -> HtmlTextWriter
     static member IsSelfClosingTag : string -> bool
-    member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
-    static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool -> unit
+    member WriteStartCode : scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool * ?types: list<AST.Address> -> unit
+    static member WriteStartCode : writer: System.IO.TextWriter * scriptBaseUrl: option<string> * ?includeScriptTag: bool * ?skipAssemblyDir: bool * ?types: list<AST.Address> -> unit
 
 type MediaType =
     | Css

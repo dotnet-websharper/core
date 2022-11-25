@@ -64,12 +64,14 @@ module Content =
     let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
-        controls
-        |> List.ofSeq
-        |> List.collect (fun c -> c.Encode(m, jP))
-        |> J.Encoded.Object
-        |> jP.Pack
-        |> J.Stringify
+        let jVal, types =        
+            controls
+            |> List.ofSeq
+            |> List.collect (fun c -> c.Encode(m, jP))
+            |> J.Encoded.Object
+            |> jP.PackWithTypes
+
+        J.Stringify jVal, types
 
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
@@ -95,7 +97,7 @@ module Content =
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let mJson = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
+            let mJson, types = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
             // Render meta
             (tw Core.Resources.Meta).WriteLine(
                 "<meta id='{0}' name='{0}' content='{1}' />",
@@ -105,7 +107,9 @@ module Content =
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
-        hasResources
+            Some types
+        else    
+            None
 
     type RenderedResources =
         {
@@ -129,13 +133,14 @@ module Content =
         let stylesTw = new HtmlTextWriter(stylesW, " ")
         use metaW = new StringWriter()
         let metaTw = new HtmlTextWriter(metaW, " ")
-        let hasResources =
+        let resourceTypes =
             writeResources ctx controls (function
                 | Core.Resources.Scripts -> scriptsTw
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
-        if hasResources then
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
+        resourceTypes |> Option.iter (fun types ->
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
+        )
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -145,8 +150,10 @@ module Content =
     let getResourcesAndScripts ctx controls =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
-        let hasResources = writeResources ctx controls (fun _ -> tw)
-        if hasResources then tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl)
+        let resourceTypes = writeResources ctx controls (fun _ -> tw)
+        resourceTypes |> Option.iter (fun types ->
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
+        )
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -155,10 +162,12 @@ module Content =
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
                 let renderHead (tw: HtmlTextWriter) =
-                    let hasResources = writeResources context body (fun _ -> tw)
+                    let resourceTypes = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
-                    if hasResources then tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl)
+                    resourceTypes |> Option.iter (fun types ->
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, types = types)
+                    )
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)

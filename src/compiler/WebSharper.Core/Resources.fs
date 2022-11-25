@@ -123,7 +123,7 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             "wbr"
         ]
 
-    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?types: list<AST.Address>) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
         if includeScriptTag then
@@ -132,17 +132,43 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
         | Some url -> 
             this.WriteLine("""import Runtime, {{ Start }} from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
             this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
+            if skipAssemblyDir then
+                this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
+            match types with
+            | None | Some [] -> ()
+            | Some types ->
+                this.WriteLine("""import {{ Activate }} from "{0}WebSharper.Main/WebSharper.Activator.js";""", url)
+                let imported = System.Collections.Generic.Dictionary<string, string>()
+                let activate = System.Text.StringBuilder("Activate([")
+                let mutable first = true
+                for t in types do
+                    if first then
+                        first <- false
+                    else
+                        activate.Append(",") |> ignore
+                    match t.Module with  
+                    | AST.JavaScriptModule m ->
+                        match imported.TryGetValue(m) with
+                        | true, i ->
+                            activate.Append(i) |> ignore
+                        | _ ->
+                            let i = "i" + string (imported.Count + 1)
+                            imported.Add(m, i)
+                            this.WriteLine("""import * as {0} from "{1}{2}.js";""", i, url, m)
+                            activate.Append(i) |> ignore
+                    | _ ->
+                        ()
+                activate.Append("]);") |> ignore
+                this.WriteLine(string activate)
+            this.WriteLine """Start();"""
         | None -> ()
-        if skipAssemblyDir then
-            this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
-        this.WriteLine """Start();"""
         if includeScriptTag then
             this.WriteLine("""</script>""")
 
-    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool) =
+    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?types: list<AST.Address>) =
         writer.WriteLine()
         use w = new HtmlTextWriter(writer)
-        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir)
+        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?types = types)
 
 type Rendering =
     | RenderInline of string

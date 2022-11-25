@@ -146,6 +146,7 @@ type Provider =
 
     /// Packs an encoded value to JSON.
     member Pack : Encoded -> Value
+    member PackWithTypes : Encoded -> Value * list<AST.Address>
 
 /// Common functions about the JSON encoding.
 module Internal =

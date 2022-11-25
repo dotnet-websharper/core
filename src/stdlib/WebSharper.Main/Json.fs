@@ -54,21 +54,23 @@ let Stringify (obj: obj) = X<string>
 
 /// Lookups an object by its FQN.
 [<JavaScript>]
+let lookupFrom (root: obj) (x: string[]) =
+    let k = x.Length
+    let mutable r = root
+    let mutable i = 0
+    while i < k do
+        let n  = x.[i]
+        let rn = (?) r n
+        if JS.TypeOf rn <> JS.Undefined then
+            r <- rn
+            i <- i + 1
+        else
+            failwith ("Invalid server reply. Failed to find type: " + n)
+    r |> As<'T>
+
+/// Lookups an object by full address string.
+[<JavaScript>]
 let lookup<'T> (x: string) : Async<'T> =
-    let lookupFrom (root: obj) (x: string[]) =
-        let k = x.Length
-        let mutable r = root // JS.Global
-        let mutable i = 0
-        while i < k do
-            let n  = x.[i]
-            let rn = (?) r n
-            if JS.TypeOf rn <> JS.Undefined then
-                r <- rn
-                i <- i + 1
-            else
-                failwith ("Invalid server reply. Failed to find type: " + n)
-        r |> As<'T>
-        
     match x.IndexOf("::") with
     | -1 ->
         lookupFrom JS.Global (x.Split('.')) |> async.Return
@@ -94,26 +96,50 @@ let shallowMap (f: obj -> obj) (x: obj) : obj =
         | _ ->
             x
 
-[<JavaScript; RequireQualifiedAccess>]
+[<JavaScript; RequireQualifiedAccess; Prototype(false)>]
 type private SpecialTypes =
     | List 
     | Decimal of (obj -> obj)
     | Object of obj
 
 [<JavaScript>]
+let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
+    if x = null then x else
+        match JS.TypeOf x with
+        | JS.Object ->
+            if x :? System.Array then
+                shallowMap (decode types) x
+            else
+                let o  = shallowMap (decode types) (x?("$V"))
+                let ti = x?("$T")
+                if ti ===. JS.Undefined then o else
+                    let t = types.[ti]
+                    match t with
+                    | SpecialTypes.List ->  
+                        box (List.ofArray (As<obj[]> o))
+                    | SpecialTypes.Decimal c ->  
+                        let r = JS.New types.[ti]
+                        c(o)
+                    | SpecialTypes.Object ctor ->  
+                        Object.Assign(JS.New ctor, o)
+        | _ ->
+            x
+
+
+[<JavaScript>]
 [<Require(typeof<Resource>)>]
-let Activate<'T> (json: obj) : Async<'T> =
+let ActivateAsync<'T> (json: obj) : Async<'T> =
     let types = if As json then json?("$TYPES") : SpecialTypes[] else JS.Undefined
     let typeLoads = JavaScript.Array<Async<unit>>()
     let data =
         if types ===. JS.Undefined then
-            json |> async.Return
+            json
         else
             for i = 0 to types.Length - 1 do
                 match As<string> types.[i] with
                 | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
                     types.[i] <- SpecialTypes.List
-                | "../WebSharper.MathJS.Extensions/System.Decimal::default"  -> 
+                | "../WebSharper.MathJS.Extensions/System.Decimal::default" -> 
                     typeLoads.Push (async { 
                         let! c = lookup "../WebSharper.MathJS.Extensions/System.Decimal::CreateDecimalBits"
                         types.[i] <- SpecialTypes.Decimal c
@@ -124,30 +150,34 @@ let Activate<'T> (json: obj) : Async<'T> =
                         types.[i] <- SpecialTypes.Object c
                     }) |> ignore
             json?("$DATA")
-    let rec decode (x: obj) : obj =
-        if x = null then x else
-            match JS.TypeOf x with
-            | JS.Object ->
-                if x :? System.Array then
-                    shallowMap decode x
-                else
-                    let o  = shallowMap decode (x?("$V"))
-                    let ti = x?("$T")
-                    if ti ===. JS.Undefined then o else
-                        let t = types.[ti]
-                        match t with
-                        | SpecialTypes.List ->  
-                            box (List.ofArray (As<obj[]> o))
-                        | SpecialTypes.Decimal c ->  
-                            let r = JS.New types.[ti]
-                            c(o)
-                        | SpecialTypes.Object ctor ->  
-                            Object.Assign(JS.New ctor, o)
-            | _ ->
-                x
     async {
         do! Async.Parallel (typeLoads.Self) |> Async.Ignore
-        return As (decode data)
+        return As (decode types data)
     }
     
-
+[<JavaScript>]
+[<Require(typeof<Resource>)>]
+let Activate<'T> (json: obj) (imported: obj[]) : 'T =
+    let types = if As json then json?("$TYPES") : SpecialTypes[] else JS.Undefined
+    let data =
+        if types ===. JS.Undefined then
+            json
+        else
+            for i = 0 to types.Length - 1 do
+                match As<string> types.[i] with
+                | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
+                    types.[i] <- SpecialTypes.List
+                | "../WebSharper.MathJS.Extensions/System.Decimal::default" -> 
+                    types.[i] <- SpecialTypes.Decimal (lookupFrom (imported.[i]) [| "CreateDecimalBits" |])
+                | t -> 
+                    let fn =
+                        match t.IndexOf("::") with
+                        | -1 ->
+                            t.Split('.')
+                        | i ->
+                            let m = t[..i-1]
+                            let x = t[i+2..]
+                            x.Split('.')
+                    types.[i] <- SpecialTypes.Object (lookupFrom (imported.[i]) fn)
+            json?("$DATA")
+    As (decode types data)

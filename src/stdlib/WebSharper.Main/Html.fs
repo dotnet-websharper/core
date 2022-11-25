@@ -112,41 +112,37 @@ module Activator =
             JS.Document.AddEventListener("DOMContentLoaded", ready, false)
             JS.Window.AddEventListener("load", ready, false)
 
-    let private Activate() =
+    let private Activate(types) =
         if As JS.Document then
             let meta = JS.Document.GetElementById(META_ID)
             if (As meta) then
                 onReady <| fun () ->
                     let text = meta.GetAttribute("content")
-                    async {
-                        let! obj = Json.Activate (Json.Parse text)
-                        do
-                            Instances <- obj
-                            let fields = JS.GetFields obj
-                            // PreInitialize
-                            fields |> Array.iter (fun (k, v) ->
-                                match v with
-                                | :? IInitializer as i ->
-                                    i.PreInitialize(k)
-                                | _ -> ()
-                            )
-                            // Initialize
-                            fields |> Array.iter (fun (k, v) ->
-                                match v with
-                                | :? IControl as v ->
-                                    let p = v.Body
-                                    let old = JS.Document.GetElementById k
-                                    p.ReplaceInDom old
-                                | :? IInitializer as i ->
-                                    i.Initialize(k)
-                                | _ -> ()
-                            )
-                            // PostInitialize
-                            fields |> Array.iter (fun (k, v) ->
-                                match v with
-                                | :? IInitializer as i ->
-                                    i.PostInitialize(k)
-                                | _ -> ()
-                            )
-                    }
-                    |> Async.StartImmediate
+                    let obj = Json.Activate (Json.Parse text) types
+                    Instances <- obj
+                    let fields = JS.GetFields obj
+                    // PreInitialize
+                    fields |> Array.iter (fun (k, v) ->
+                        match v with
+                        | :? IInitializer as i ->
+                            i.PreInitialize(k)
+                        | _ -> ()
+                    )
+                    // Initialize
+                    fields |> Array.iter (fun (k, v) ->
+                        match v with
+                        | :? IControl as v ->
+                            let p = v.Body
+                            let old = JS.Document.GetElementById k
+                            p.ReplaceInDom old
+                        | :? IInitializer as i ->
+                            i.Initialize(k)
+                        | _ -> ()
+                    )
+                    // PostInitialize
+                    fields |> Array.iter (fun (k, v) ->
+                        match v with
+                        | :? IInitializer as i ->
+                            i.PostInitialize(k)
+                        | _ -> ()
+                    )

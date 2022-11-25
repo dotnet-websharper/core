@@ -44,4 +44,7 @@ val Parse : string -> obj
 val Stringify : obj -> string
 
 /// Parses a JSON object returned by the server.
-val Activate : obj -> Async<'T>
+val ActivateAsync : obj -> Async<'T>
+
+/// Parses a JSON object returned by the server using imported types.
+val Activate : obj -> obj[] -> 'T

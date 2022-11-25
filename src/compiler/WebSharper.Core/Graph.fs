@@ -366,7 +366,7 @@ type Graph =
         [
             yield Resources.Runtime.Instance
             for i, n in resNodesOrdered -> activate i n
-            for i, n in asmNodes -> activate i n
+            //for i, n in asmNodes -> activate i n
         ]
    
      /// Gets the resource nodes of a set of already explored graph nodes.
