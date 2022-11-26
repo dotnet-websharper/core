@@ -44,8 +44,8 @@ open Fake.IO.FileSystemOperators
 open Fake.JavaScript
 open WebSharper.Fake
 
-let version = "6.1"
-let pre = None
+let version = "7.0"
+let pre = Some "preview"
 
 let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
