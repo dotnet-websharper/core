@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-#r "../../build/Release/FSharp/net6.0/FSharp.Compiler.Service.dll"
+#r "nuget: FSharp.Compiler.Service"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
@@ -480,14 +480,18 @@ open WebSharper
 open WebSharper.JavaScript
 
 
+[<Prototype false>]
+type DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: System.DateTime, o: int) =
+    [<Inline>]
+    new (d: System.DateTime, o: System.TimeSpan) = DateTimeOffsetProxy(d, int o.TotalMinutes)
+
+
 [<JavaScript>]
 module Test =
-    [<Inline "inlineStatementTest = true;">]
-    let inlineStatement () = X<unit>
-
     let res() =
-        inlineStatement()
-        As<bool> JS.Window?inlineStatementTest
+        let now = System.DateTime.Now
+        let res = DateTimeOffsetProxy(now, System.TimeSpan.FromHours 1.)
+        Console.Log(res)
 """
 
 let a() = 1

@@ -540,11 +540,10 @@ type TransformBaseCall(f) =
         | _ ->
             base.TransformApplication(a, b, c)
    
-type FixThisScope(typ) =
+type FixThisScope(thisTyp) =
     inherit Transformer()
     let mutable scope = 0
     let mutable thisVar = None
-    let mutable chainedCtor = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
 
     override this.TransformFunction(args, isArrow, typ, body) =
@@ -567,25 +566,16 @@ type FixThisScope(typ) =
         else
             Function(args, true, typ, trBody)
     
-    override this.TransformChainedCtor(a, b, c, d, e) =
-        let cc = Id.New()
-        chainedCtor <- Some cc 
-        Sequential [ ChainedCtor(a, b, c, d, e |> List.map this.TransformExpression); Var cc ] 
-
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
-        match thisVar, chainedCtor with
-        | Some t, Some cc -> SubstituteVar(cc, NewVar(t, This)).TransformExpression(b) 
-        | Some t, _ -> Let (t, This, b)
-        | _, Some cc -> SubstituteVar(cc, Undefined).TransformExpression(b) 
+        match thisVar with
+        | Some t -> Let (t, This, b)
         | _ -> b
 
     member this.Fix(statement) =
         let b = this.TransformStatement(statement)
-        match thisVar, chainedCtor with
-        | Some t, Some cc -> SubstituteVar(cc, NewVar(t, This)).TransformStatement(b) 
-        | Some t, _ -> CombineStatements [ VarDeclaration(t, This); b ]
-        | _, Some cc -> SubstituteVar(cc, Undefined).TransformStatement(b) 
+        match thisVar with
+        | Some t -> CombineStatements [ VarDeclaration(t, This); b ]
         | _ -> b
                 
     override this.TransformThis () =
@@ -593,7 +583,7 @@ type FixThisScope(typ) =
             match thisVar with
             | Some t -> Var t
             | None ->
-                let t = Id.New ("_this", mut = false, ?typ = typ)
+                let t = Id.New ("$this", mut = false, ?typ = thisTyp)
                 thisVar <- Some t
                 Var t
         else This

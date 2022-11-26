@@ -595,7 +595,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
                                         errorPlaceholder
                                 | _ -> b
-                            let b = FixThisScope(thisTypeForFixer).Fix(b)      
+                            let b = FixThisScope(thisTypeForFixer).Fix(b)   
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
                                     let scDef, (scContent, scFields) = sc.Value   
@@ -656,9 +656,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             mdef.Value.ReturnType
                                         | _ -> VoidType
                                     if returnType = VoidType then
-                                        Function(vars, true, None, ExprStatement b)
+                                        Function(vars, false, None, ExprStatement b)
                                     else
-                                        Lambda(vars, Some returnType, b)
+                                        Function(vars, false, Some returnType, Return b)
                         let currentMethod =
                             match memdef with
                             | Member.Method (_, m) -> 
@@ -1116,7 +1116,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     DefaultValueOf (sr.ReadType clsTparams f.FieldType)
                 )
                 |> List.ofSeq
-            let body = Lambda([], None, Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v))))
+            let body = Function([], false, None, ExprStatement (Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v)))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 
