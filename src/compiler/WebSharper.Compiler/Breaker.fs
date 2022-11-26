@@ -409,6 +409,48 @@ let negate expr =
         | _ -> Unary(UnaryOperator.Not, expr)
     | _ -> Unary(UnaryOperator.Not, expr)
 
+type HasArgumentsOrThis() =
+    inherit Visitor()
+
+    let mutable hasArguments = false
+    let mutable hasThis = false
+
+    member this.HasArguments = hasArguments
+    member this.HasThis = hasThis
+
+    override this.VisitArguments() =
+        hasArguments <- true
+
+    override this.VisitThis() =
+        hasThis <- true
+
+    override this.VisitFuncDeclaration(_, _, _, _) = ()
+
+    override this.VisitFunction(_, isArrow, _, body) =
+        if isArrow then 
+            this.VisitStatement(body)
+
+type HasThis() =
+    inherit Visitor()
+
+    let mutable found = false
+
+    member this.Found = found
+
+    override this.VisitThis() =
+        found <- true
+
+let funcFromLambda(funcId, isArrow, isRec, args, body, ts) =
+    let v = HasArgumentsOrThis()
+    v.VisitStatement(body)
+    if isArrow && not v.HasArguments && not isRec then
+        VarDeclaration(funcId, Function(args, true, None, body))
+    elif isArrow && v.HasThis then
+        let thisVar = Id.New("$this", mut = false)
+        FuncDeclaration(funcId, args, ReplaceThisWithVar(thisVar).TransformStatement(body), ts)
+    else
+        FuncDeclaration(funcId, args, body, ts)
+
 let rec breakExpr expr : Broken<BreakResult> =
     let inline br x = 
         breakExpr x
@@ -702,14 +744,14 @@ let rec breakExpr expr : Broken<BreakResult> =
             br d |> toBrExpr |> mapBroken (fun dE -> FieldSet (None, b, c, dE))            
     | Let(var, (SimpleFunction _ as f), c) ->
         SubstituteVar(var, f).TransformExpression c |> br
-    | Let(var, I.Function(args, _, ret, body), c) ->
+    | Let(var, I.Function(args, isArrow, ret, body), c) ->
         if CountVarOccurence(var).Get(c) = 0 then
             br c
         else
             let brC = br c
             {
                 Body = brC.Body
-                Statements = FuncDeclaration(var.WithType(ret), args, BreakStatement body, []) :: brC.Statements
+                Statements = funcFromLambda(var.WithType(ret), isArrow, false, args, BreakStatement body, []) :: brC.Statements
                 Variables = brC.Variables
             }
     | Let(a, b, c) ->
@@ -855,10 +897,10 @@ let rec breakExpr expr : Broken<BreakResult> =
                 i, 
                 let brA = br v |> toBrExpr
                 match brA.Body with
-                | I.Function(args, _, ret, body) when not i.IsMutable ->
+                | I.Function(args, isArrow, ret, body) when not i.IsMutable ->
                     { 
                         Body = None 
-                        Statements = brA.Statements @ [ FuncDeclaration(i.WithType(ret), args, body, []) ]
+                        Statements = brA.Statements @ [ funcFromLambda(i.WithType(ret), isArrow, true, args, body, []) ]
                         Variables = brA.Variables
                     }
                 | _ -> 
@@ -952,8 +994,8 @@ and private breakSt statement : Statement seq =
                 [
                     for var, value in notInlined do
                         match value with
-                        | I.Function (args, _, ret, body) ->    
-                            yield FuncDeclaration(var.WithType(ret), args, body, [])
+                        | I.Function (args, isArrow, ret, body) ->    
+                            yield funcFromLambda(var.WithType(ret), isArrow, false, args, body, [])
                         | _ ->
                             yield VarDeclaration(var, value)
                     yield! toDecls brA.Variables
