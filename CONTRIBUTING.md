@@ -34,7 +34,7 @@ It is possible to work on WebSharper on Windows, Linux and OSX.
 
 To compile WebSharper, you need the following installed:
 
-* The .NET Core SDK 6.0.0 or newer 6.x. You can download it [here](https://www.microsoft.com/net/download).
+* The .NET SDK 6.0.10 or newer. You can download it [here](https://www.microsoft.com/net/download).
 
 <a name="build-cli"></a>
 ### Building WebSharper from the command line
@@ -60,6 +60,10 @@ Simply running `build` compiles the WebSharper compiler, standard libraries and 
 
     Deletes temporary and output directories.
 
+* `build ci-release`
+
+    Full build as is used for releases. Update non-fixed dependencies, build everything, run unit tests, package.
+    
 The following options are available:
 
 * `build [TARGET] -ef verbose`
@@ -75,24 +79,6 @@ We recommend that you use one of the following development environments:
 * On all platforms: [Visual Studio Code](https://code.visualstudio.com/) with the following extensions:
   * `ionide-fsharp` for F# support
   * `ms-vscode.csharp` for C# support
-
-#### Single-target projects
-
-Most of the projects in this repository are multi-targeting, ie. they compile to both .NET Standard and .NET Framework. This works well when running from the command line, but tooling can have some difficulty with such projects. In particular the F# code service is quite slow. To circumvent this issue, you can set up ad-hoc single-target projects, and work on them instead. This is done by running the project duplication script:
-
-```
-# On Windows:
-tools\GenSingleFw.cmd
-
-# On Unix:
-tools/GenSingleFw.sh
-```
-
-This creates two folders, `netcore` and `netfx`. Each of them contains duplicates of the solutions and projects in this repository. These projects point back to the original F# / C# source files, so you can just work on them in your editor. 
-
-You should first do a full build with the `build` command as described above in "Building WebSharper from the command line". You can then open `netcore/WebSharper.sln` or `netfx/WebSharper.sln` in your editor.
-
-If you need to make a change to a project file itself, you should edit the original project file and re-run `GenSingleFw` to apply the change to the `net*` subfolders. Similarly, if you `git pull`ed a change to a project file and want to apply it to the single-target duplicates, you can re-run `GenSingleFw`.
 
 <a name="tests"></a>
 ### Running the tests

@@ -57,19 +57,25 @@ let isIn (s: string Set) (t: Type) =
 let traitCallOp (c: MacroCall) args =
     match c.Method.Generics with
     | [t; u; v] ->
-        TraitCall(
-            None,
-            [ t; u ], 
-            NonGeneric (
-                Method {
-                    MethodName = c.Method.Entity.Value.MethodName
-                    Parameters = [ t; u ]
-                    ReturnType = v
-                    Generics = 0
-                }
-            ),
-            args
-        )
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        elif v.IsParameter then
+            MacroNeedsResolvedTypeArg v
+        else    
+            TraitCall(
+                None,
+                [ t; u ], 
+                NonGeneric (
+                    Method {
+                        MethodName = c.Method.Entity.Value.MethodName
+                        Parameters = [ t; u ]
+                        ReturnType = v
+                        Generics = 0
+                    }
+                ),
+                args
+            )
+            |> MacroOk
     | _ ->
         failwith "F# Operator value expecting 3 type arguments"
     
@@ -92,25 +98,24 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
                 Var a, Var b, fun res -> CurriedLambda([a; b], None, res)
             else
                 x, y, id
-        let res =
+        let resm =
             if op = BinaryOperator.``/`` then
                 if isIn smallIntegralTypes t
-                then (a ^/ b) ^>> !~(Int 0)
+                then (a ^/ b) ^>> !~(Int 0) |> MacroOk
                 elif isIn bigIntegralTypes t
-                then MathTrunc (a ^/ b)
+                then MathTrunc (a ^/ b) |> MacroOk
                 elif isIn scalarTypes t
-                then a ^/ b
+                then a ^/ b |> MacroOk
                 else traitCallOp c [a; b]
             else
                 if isIn scalarTypes t then
-                    Binary(a, op, y)
+                    Binary(a, op, y) |> MacroOk
                 else traitCallOp c [a; b]
-        match leftNble, rightNble with
-        | false, false -> res
-        | true , false -> utils c.Compilation "nullableOpL" [ x; y; lambda res ]
-        | false, true  -> utils c.Compilation "nullableOpR" [ x; y; lambda res ]
-        | true , true  -> utils c.Compilation "nullableOp"  [ x; y; lambda res ]
-        |> MacroOk
+        match leftNble, rightNble, resm with
+        | true , false, MacroOk res -> utils c.Compilation "nullableOpL" [ x; y; lambda res ] |> MacroOk
+        | false, true , MacroOk res -> utils c.Compilation "nullableOpR" [ x; y; lambda res ] |> MacroOk
+        | true , true , MacroOk res -> utils c.Compilation "nullableOp"  [ x; y; lambda res ] |> MacroOk
+        | _    , _    , res         -> res
     | _ -> MacroError "arithmetic macro error"
 
 [<Sealed>]
@@ -130,8 +135,11 @@ type Arith() =
             | "op_Percent" -> BinaryOperator.``%``
             | n -> failwithf "unrecognized operator for Arith macro: %s" n
         match c.Method.Generics with
-        | t :: _ ->
-            translateOperation c t c.Arguments leftNble rightNble op
+        | t1 :: t2 :: _ ->
+            if t1 = t2 then
+                translateOperation c t1 c.Arguments leftNble rightNble op
+            else
+                traitCallOp c c.Arguments
         | _ -> MacroError "arithmetic macro error"
 
 type Comparison =
@@ -333,34 +341,57 @@ type NumericMacro() =
             | ConcreteType { Entity = td } when td.Value.FullName = "System.Nullable`1" -> true
             | _ -> false
 
-        match c.Method.Entity.Value.MethodName with
+        let mname = c.Method.Entity.Value.MethodName
+
+        let checkCorrectType f =
+            let isParamTypesOk =
+                if mname.EndsWith "Shift" then
+                    match c.Method.Entity.Value.Parameters with
+                    | [ ConcreteType { Entity = td1 }; ConcreteType { Entity = td2 } ] ->
+                        td1 = c.DefiningType.Entity && td2 = Definitions.Int32
+                    | _ -> false
+                else
+                    c.Method.Entity.Value.Parameters 
+                    |> List.forall (
+                        function
+                        | ConcreteType { Entity = td } when td = c.DefiningType.Entity -> true
+                        | _ -> false
+                    )
+            if isParamTypesOk then f() else MacroError "numericMacro error"
+        
+        match mname with
         | BinaryOpName op when isOperation op ->
-            let leftNble, rightNble =
-                match c.Method.Generics with
-                | [lt; rt] -> isNble lt, isNble rt
-                | _ -> false, false
-            translateOperation c (ConcreteType c.DefiningType) c.Arguments leftNble rightNble op
+            checkCorrectType <| fun () ->
+                let leftNble, rightNble =
+                    match c.Method.Generics with
+                    | [lt; rt] -> isNble lt, isNble rt
+                    | _ -> false, false
+                translateOperation c (ConcreteType c.DefiningType) c.Arguments leftNble rightNble op
         | BinaryOpName op when isComparison op ->
-            let leftNble, rightNble =
-                match c.Method.Generics with
-                | [lt; rt] -> isNble lt, isNble rt
-                | _ -> false, false
-            let cmp = toComparison op
-            translateComparison c.Compilation (ConcreteType c.DefiningType) c.Arguments leftNble rightNble cmp
+            checkCorrectType <| fun () ->
+                let leftNble, rightNble =
+                    match c.Method.Generics with
+                    | [lt; rt] -> isNble lt, isNble rt
+                    | _ -> false, false
+                let cmp = toComparison op
+                translateComparison c.Compilation (ConcreteType c.DefiningType) c.Arguments leftNble rightNble cmp
         | UnaryOpName op ->
-            match c.Arguments with
-            | [x] -> Unary (op, x) |> MacroOk
-            | _ -> MacroError "numericMacro error"
+            checkCorrectType <| fun () ->
+                match c.Arguments with
+                | [x] -> Unary (op, x) |> MacroOk
+                | _ -> MacroError "numericMacro error"
         | "op_Increment" ->
-            match c.Arguments with
-            | [x] ->
-                MacroOk (Binary(x, BinaryOperator.``+``, Value (Int 1)))
-            | _ -> MacroError "numericMacro error"
+            checkCorrectType <| fun () ->
+                match c.Arguments with
+                | [x] ->
+                    MacroOk (Binary(x, BinaryOperator.``+``, Value (Int 1)))
+                | _ -> MacroError "numericMacro error"
         | "op_Decrement" ->
-            match c.Arguments with
-            | [x] ->
-                MacroOk (Binary(x, BinaryOperator.``-``, Value (Int 1)))
-            | _ -> MacroError "numericMacro error"
+            checkCorrectType <| fun () ->
+                match c.Arguments with
+                | [x] ->
+                    MacroOk (Binary(x, BinaryOperator.``-``, Value (Int 1)))
+                | _ -> MacroError "numericMacro error"
         | "ToString" ->
             match c.This with
             | Some self ->
@@ -401,7 +432,115 @@ type NumericMacro() =
             translateComparison c.Compilation (ConcreteType c.DefiningType) (c.This.Value :: c.Arguments) false false Comparison.``=``
         | "CompareTo" ->
             translateCompareTo c.Compilation (ConcreteType c.DefiningType) c.This.Value c.Arguments.Head
+        | "get_Zero" ->
+            Value (Int 0) |> MacroOk
+        | "get_One" ->
+            Value (Int 1) |> MacroOk
         | _ -> MacroFallback
+
+    override this.TranslateCtor(c) =
+        match c.Arguments with
+        | [] -> MacroOk (Value (Int 0))
+        | _ -> MacroError "numericMacro error: contructor with arguments"
+
+let decimalDivide =
+    Method {
+        MethodName = "Divide"
+        Parameters = [ NonGenericType Definitions.Decimal; NonGenericType Definitions.Decimal ]
+        ReturnType = NonGenericType Definitions.Decimal
+        Generics = 0
+    } |> NonGeneric
+
+let decimalIntCtor =
+    Constructor {
+        CtorParameters = [ NonGenericType Definitions.Int ]
+    }
+
+[<Sealed>]
+type DivideByIntMacro() =
+    inherit Macro()
+
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [a; b] ->
+            match c.Method.Generics with
+            | [t] ->
+                match t with
+                | ConcreteType d ->
+                    match d.Entity.Value.FullName with
+                    | "System.Double"
+                    | "System.Single" -> a ^/ b |> MacroOk
+                    | "System.Decimal" ->
+                        Call(None, NonGeneric Definitions.Decimal, decimalDivide, [
+                            a
+                            Ctor(NonGeneric Definitions.Decimal, decimalIntCtor, [ b ])
+                        ])
+                        |> MacroOk
+                    | _ -> MacroFallback
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> MacroFallback
+            | _ ->
+                MacroError "divideByIntMacro error"
+        | _ ->
+            MacroError "divideByIntMacro error"
+
+[<Sealed>]
+type SumOrAverageMacro() =
+    inherit Macro()
+
+    override this.TranslateCall(c) =
+        let mname = c.Method.Entity.Value.MethodName
+        let asGeneric() =
+            let genm = Method { c.Method.Entity.Value with MethodName = mname + "Generic" }
+            let typ = TypeDefinition { c.DefiningType.Entity.Value with FullName = c.DefiningType.Entity.Value.FullName.Replace("Array", "Seq") }
+            Call(None, NonGeneric typ, Generic genm c.Method.Generics, c.Arguments) |> MacroOk
+        match mname with
+        | "Sum"
+        | "SumBy" ->
+            match c.Method.Generics with
+            | [ t ]
+            | [ _; t ] ->
+                match t with
+                | ConcreteType d ->
+                    // for these types it's ok to use plain JS +
+                    match d.Entity.Value.FullName with
+                    | "System.SByte"
+                    | "System.Byte"
+                    | "System.Int16"
+                    | "System.UInt16"
+                    | "System.Int32"
+                    | "System.UInt32"
+                    | "System.Int64"
+                    | "System.UInt64"
+                    | "System.Single"
+                    | "System.Double"
+                    | "System.Char" -> MacroFallback
+                    | _ -> asGeneric() 
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> asGeneric() 
+            | _ ->
+                MacroError "sumOrAverageMacro error"
+        | "Average"
+        | "AverageBy" ->
+            match c.Method.Generics with
+            | [ t ]
+            | [ _; t ] ->
+                match t with
+                | ConcreteType d ->
+                    // for these types it's ok to use plain JS + and /
+                    match d.Entity.Value.FullName with
+                    | "System.Single"
+                    | "System.Double" -> MacroFallback
+                    | _ -> asGeneric() 
+                | t when t.IsParameter ->
+                    MacroNeedsResolvedTypeArg t
+                | _ -> asGeneric() 
+            | _ ->
+                MacroError "sumOrAverageMacro error"
+        | _ ->
+            MacroError "sumOrAverageMacro error"
 
 let charTy, charParse =
     let t = typeof<System.Char>

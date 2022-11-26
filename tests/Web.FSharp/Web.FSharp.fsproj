@@ -10,6 +10,7 @@
     <Content Include="Main.html" CopyToPublishDirectory="Always" />
     <Compile Include="Startup.fs" />
     <None Include="wsconfig.json" />
+    <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core.JavaScript\WebSharper.Core.JavaScript.fsproj" />

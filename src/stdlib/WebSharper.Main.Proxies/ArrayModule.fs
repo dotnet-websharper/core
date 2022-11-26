@@ -28,6 +28,7 @@ open WebSharper.JavaScript
 open WebSharper.CollectionInternals
 
 module F = WebSharper.IntrinsicFunctionProxy
+module M = WebSharper.Core.Macros
 
 let checkLength (arr1: 'T1[]) (arr2: 'T2[]) =
     if Array.length arr1 <> Array.length arr2 then
@@ -48,12 +49,6 @@ let AllPairs (array1: 'T1 []) (array2: 'T2 []) =
         for j = 0 to len2-1 do
             res.[i * len2 + j] <- (array1.JS.[i],array2.JS.[j])
     res |> As<('T1 * 'T2) []>
-
-[<Name "average">]
-let inline Average (arr: 'T []): 'T = As (As<float> (Array.sum arr) / As<float> (Array.length arr))
-
-[<Name "averageBy">]
-let inline AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = As (As<float> (Array.sumBy f arr) / As<float> (Array.length arr))
 
 [<Name "blit">]
 let CopyTo<'T> (arr1: 'T [], start1, arr2: 'T [], start2, length) =
@@ -465,13 +460,30 @@ let private subArray (x: 'T) start length = X<'T>
 let GetSubArray (arr: 'T []) (start: int) (length: int) : 'T []=
     F.GetArraySub arr start length
 
-[<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $arr[i]; return sum">]
 [<Name "sum">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+[<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $arr[i]; return sum">]
 let Sum (arr: 'T []) : 'T = X<'T>
 
-[<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $f($arr[i]); return sum">]
 [<Name "sumBy">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<Direct "var sum = 0; for (var i = 0; i < $arr.length; i++) sum += $f($arr[i]); return sum">]
 let SumBy (f: 'T -> 'U) (arr: 'T []) : 'U =  X<'U>
+
+[<Name "average">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+let Average (arr: 'T []): 'T = 
+    nonEmpty arr
+    As ((Array.sum (As<float[]> arr)) / As<float> (Array.length arr))
+
+[<Name "averageBy">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+let AverageBy (f: 'T -> 'U) (arr: 'T []) : 'U = 
+    nonEmpty arr
+    As ((Array.sumBy (As<float -> float> f) (As<float[]> arr)) / As<float> (Array.length arr))
 
 [<Name "transpose">]
 let Transpose (x: 'T[] seq) : 'T[][] =

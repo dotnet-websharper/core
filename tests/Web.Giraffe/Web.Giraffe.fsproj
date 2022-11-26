@@ -15,6 +15,7 @@
   <ItemGroup>
     <None Include="wsconfig.json" />
     <Compile Include="Program.fs" />
+    <None Include="paket.references" />
   </ItemGroup>
 
   <ItemGroup>

@@ -25,8 +25,12 @@
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.SeqModuleProxy
 
+#nowarn "77" // op_Addition warnings
+
 open WebSharper.JavaScript
 open WebSharper.CollectionInternals
+
+module M = WebSharper.Core.Macros
 
 [<Inline>]
 let safeDispose (x: System.IDisposable) =
@@ -64,30 +68,6 @@ let Append (s1: seq<'T>) (s2: seq<'T>) : seq<'T> =
                         false
                 else 
                     false)) 
-
-[<Name "average">]
-let Average<'T> (s: seq<'T>) : 'T =
-    let (count, sum) =
-        Seq.fold
-            (fun (n, s) x -> (n + 1, s + As<float> x))
-            (0, 0.)
-            s
-    if count = 0 then
-        seqEmpty()
-    else
-        As<'T> (sum / As<float> count)
-
-[<Name "averageBy">]
-let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
-    let (count, sum) =
-        Seq.fold
-            (fun (n, s) x -> (n + 1, s + As<float> (f x)))
-            (0, 0.)
-            s
-    if count = 0 then
-        seqEmpty()
-    else
-        As<'U> (sum / As<float> count)
 
 [<Name "cache">]
 let Cache<'T> (s: seq<'T>) : seq<'T> =
@@ -584,13 +564,71 @@ let SortByDescending<'T, 'U when 'U: comparison>
 let SortDescending<'T when 'T : comparison> (s: seq<'T>) =
     SortByDescending id s
 
+[<Inline>]
+let inline private SumGeneric< ^T when ^T : (static member (+) : ^T * ^T -> ^T) and ^T : (static member Zero : ^T)> (s: seq< ^T>) : ^T =
+    let mutable res = LanguagePrimitives.GenericZero< ^T>
+    for x in s do
+        res <- (^T: (static member (+) : ^T * ^T -> ^T) (res, x))
+    res
+
 [<Name "sum">]
-let Sum<'T> (s: seq<'T>) : 'T =
-    box (Seq.fold (fun s x -> s + (box x :?> _)) 0. s) :?> _
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+let Sum<'T> (s: seq<'T> ) : 'T =
+    As<'T>(SumGeneric<int> (As<seq<int>> s))
+
+[<Inline>]
+let inline private SumByGeneric< ^T, ^U when ^U : (static member (+) : ^U * ^U -> ^U) and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (s: seq< ^T>) : ^U =
+    let mutable res = LanguagePrimitives.GenericZero< ^U>
+    for x in s do
+        res <- (^U: (static member (+) : ^U * ^U -> ^U) (res, f x))
+    res
 
 [<Name "sumBy">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
 let SumBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
-    box (Seq.fold (fun s x -> s + (box (f x) :?> _)) 0. s) :?> _
+    As<'U>(SumByGeneric<int, int> (As<int -> int> f) (As<seq<int>> s))
+
+[<Inline>]
+let inline AverageGeneric< ^T when ^T : (static member ( + ) : ^T * ^T -> ^T) 
+                and ^T : (static member DivideByInt : ^T * int -> ^T)
+                and ^T : (static member Zero : ^T)> (s: seq< ^T>) : ^T =
+    let mutable res = LanguagePrimitives.GenericZero< ^T>
+    let mutable count = 0
+    for x in s do
+        res <- (^T: (static member (+) : ^T * ^T -> ^T) (res, x))
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        (^T: (static member DivideByInt : ^T * int -> ^T) (res, count))
+
+[<Name "average">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+let Average<'T> (s: seq<'T>) : 'T =
+    As<'T>(AverageGeneric<float> (As<seq<float>> s))
+
+[<Inline>]
+let inline AverageByGeneric< ^T, ^U when ^U : (static member ( + ) : ^U * ^U -> ^U) 
+                and ^U : (static member DivideByInt : ^U * int -> ^U)
+                and ^U : (static member Zero : ^U)> (f: ^T -> ^U) (s: seq< ^T>) : ^U =
+    let mutable res = LanguagePrimitives.GenericZero< ^U>
+    let mutable count = 0
+    for x in s do
+        res <- (^U: (static member (+) : ^U * ^U -> ^U) (res, f x))
+        count <- count + 1
+    if count = 0 then
+        seqEmpty()
+    else
+        (^U: (static member DivideByInt : ^U * int -> ^U) (res, count))
+
+[<Name "averageBy">]
+[<Macro(typeof<M.SumOrAverageMacro>)>]
+[<JavaScript>]
+let AverageBy<'T,'U> (f: 'T -> 'U) (s: seq<'T>) : 'U =
+    As<'U>(AverageByGeneric<float, float> (As<float -> float> f) (As<seq<float>> s))
 
 [<Name "take">]
 let Take (n: int) (s: seq<'T>) : seq<'T> =

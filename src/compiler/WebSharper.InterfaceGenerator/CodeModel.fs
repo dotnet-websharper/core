@@ -41,6 +41,7 @@ module CodeModel =
         val mutable DependsOn : list<Dependency>
         val mutable Comment : option<string>
         val mutable ObsoleteStatus : ObsoleteStatus
+        val mutable Warning : option<string>
 
         internal new (name, t) =
             {
@@ -50,6 +51,7 @@ module CodeModel =
                 DependsOn = []
                 Comment = None
                 ObsoleteStatus = NotObsolete
+                Warning = None
             }
 
         /// On type definitions, applies the update.
@@ -291,7 +293,6 @@ module CodeModel =
         val mutable Inline : option<Inline>
         val mutable IsPure : bool
         val mutable Macro : option<T>
-        val mutable Warning : option<string>
 
         internal new (name, t) =
             {
@@ -299,7 +300,6 @@ module CodeModel =
                 Inline = None
                 IsPure = false
                 Macro = None
-                Warning = None
             }
 
     and Constructor =

@@ -521,6 +521,26 @@ type Bug1126 [<Inline "{}">] () =
         with [<Inline "$x.Z">] get() = X<int>
         and [<Inline "void($x.Z = $v)">] set (v: int) = X<unit>
 
+module Bug1283 = 
+    [<Inline>]
+    let inline Sum vs =
+        (LanguagePrimitives.GenericZero, vs)
+        ||> Seq.fold(fun x y -> x + y 
+        )
+
+[<JavaScript>]
+module Bug1284 = 
+    type Record = {
+        Field: float
+    } with 
+        static member Zero = {Field = 0.}
+        static member (+) (a,b) = {Field = a.Field + b.Field}
+        static member DivideByInt (a, b: int) = {Field = a.Field / float b}
+
+    let addOne { Field = x } = { Field = x + 1. }
+
+    let records = [ {Field = 1.}; {Field = 2.} ]
+
 [<JavaScript>]
 let Tests =
     TestCategory "Regression" {
@@ -1047,5 +1067,16 @@ let Tests =
                 o.Z <- 3
                 o
             deepEqual (createObj true) (JS.Inline "{X: 1, Y: 2, Z: 3}")
+        }
+
+        Test "#1283 better statically resolved handling of operators and GetZero/One" {
+            equal (Bug1283.Sum [1; 2; 3]) 6
+        }
+
+        Test "#1284 Generic support for Seq.sum/average" {
+            equal (Seq.sum Bug1284.records).Field 3.
+            equal (Seq.sumBy Bug1284.addOne Bug1284.records).Field 5.
+            equal (Seq.average Bug1284.records).Field 1.5
+            equal (Seq.averageBy Bug1284.addOne Bug1284.records).Field 2.5
         }
     }

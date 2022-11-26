@@ -18,13 +18,18 @@
 //
 // $end{copyright}
 
+
 [<WebSharper.Proxy
     "Microsoft.FSharp.Core.LanguagePrimitives, \
      FSharp.Core, Culture=neutral, \
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private WebSharper.LanguagePrimitivesProxy
 
+#nowarn "77" // get_Zero, get_One warnings
+
 open WebSharper.JavaScript
+
+module M = WebSharper.Core.Macros
 
 [<Inline>]
 let GenericEquality<'T> (a: 'T) (b: 'T) = Unchecked.equals a b
@@ -44,11 +49,17 @@ let GenericComparisonWithComparer<'T> (c: System.Collections.IComparer) (a: 'T) 
 [<Inline>]
 let GenericEqualityWithComparer<'T> (c: System.Collections.IEqualityComparer) (a: 'T) (b: 'T) = c.Equals(a, b)
                                 
-[<Constant 0>]
-let GenericZero<'T>() = X<'T>
+[<Inline>]
+let inline GenericZero< ^T when ^T: (static member Zero: ^T)>() = 
+    (^T: (static member Zero: ^T) ())
 
-[<Constant 1>]
-let GenericOne<'T>() = X<'T>
+[<Inline>]
+let inline GenericOne< ^T when ^T: (static member One: ^T)>() = 
+    (^T: (static member One: ^T) ())
+
+[<Inline; Macro(typeof<M.DivideByIntMacro>)>]
+let inline DivideByInt< ^T when ^T : (static member DivideByInt : ^T * int -> ^T)>(x: ^T) (y: int): ^T =
+    (^T : (static member DivideByInt : ^T * int -> ^T) (x, y))
 
 [<Inline>]
 let FastGenericComparer<'T>() = 
