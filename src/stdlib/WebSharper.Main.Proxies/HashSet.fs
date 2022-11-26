@@ -39,9 +39,8 @@ open DictionaryUtil
 [<Proxy(typeof<HashSet<_>.Enumerator>)>]
 [<Stub>]
 type private HashSetEnumeratorProxy<'T> [<JavaScript(false)>] () =
-    [<Inline "$this.Current()">]
-    member this.get_Current() = As<'T> 0        
-    member this.MoveNext() = false
+    member this.Current with get() = X<'T>        
+    member this.MoveNext() = X<bool>
     member this.Dispose() = ()
 
 [<Proxy(typeof<HashSet<_>>)>]
