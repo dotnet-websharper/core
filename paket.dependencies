@@ -20,7 +20,7 @@ nuget Microsoft.Extensions.DependencyModel 2.0.0
 nuget Microsoft.AspNetCore.Mvc.Abstractions 2.0.0
 
 nuget System.Net.Http 4.3.0
-nuget FSharp.Core
+nuget FSharp.Core 6.0.0
 
 nuget System.Text.RegularExpressions 4.3.0
 nuget System.Text.Json 4.7.0

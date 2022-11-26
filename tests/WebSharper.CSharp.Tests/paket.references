@@ -1,2 +1,3 @@
 Microsoft.CSharp
-FSharp.Core
+group fcs
+   FSharp.Core
