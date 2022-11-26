@@ -1260,7 +1260,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         match typ with
                         | ConcreteType ct ->
                             match comp.TryLookupClassInfo ct.Entity with
-                            | Some cls when not cls.Macros.IsEmpty ->
+                            | Some (_, cls) when not cls.Macros.IsEmpty ->
                                 try
                                     try
                                         this.FailOnError <- true
