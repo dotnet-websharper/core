@@ -191,7 +191,7 @@ module Type =
         }
 
         /// Joins parameters.
-        static member ( * ) (a: Parameter, b: IParameter) =
+        static member ( * ) (a: Parameter, b: IParameter) : Parameters =
             {
                 This = None
                 Arguments = [a; b.Parameter]
