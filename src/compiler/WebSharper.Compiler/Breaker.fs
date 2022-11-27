@@ -409,48 +409,6 @@ let negate expr =
         | _ -> Unary(UnaryOperator.Not, expr)
     | _ -> Unary(UnaryOperator.Not, expr)
 
-type HasArgumentsOrThis() =
-    inherit Visitor()
-
-    let mutable hasArguments = false
-    let mutable hasThis = false
-
-    member this.HasArguments = hasArguments
-    member this.HasThis = hasThis
-
-    override this.VisitArguments() =
-        hasArguments <- true
-
-    override this.VisitThis() =
-        hasThis <- true
-
-    override this.VisitFuncDeclaration(_, _, _, _) = ()
-
-    override this.VisitFunction(_, isArrow, _, body) =
-        if isArrow then 
-            this.VisitStatement(body)
-
-type HasThis() =
-    inherit Visitor()
-
-    let mutable found = false
-
-    member this.Found = found
-
-    override this.VisitThis() =
-        found <- true
-
-let funcFromLambda(funcId, isArrow, isRec, args, body, ts) =
-    let v = HasArgumentsOrThis()
-    v.VisitStatement(body)
-    if isArrow && not v.HasArguments && not isRec then
-        VarDeclaration(funcId, Function(args, true, None, body))
-    elif isArrow && v.HasThis then
-        let thisVar = Id.New("$this", mut = false)
-        FuncDeclaration(funcId, args, ReplaceThisWithVar(thisVar).TransformStatement(body), ts)
-    else
-        FuncDeclaration(funcId, args, body, ts)
-
 let rec breakExpr expr : Broken<BreakResult> =
     let inline br x = 
         breakExpr x

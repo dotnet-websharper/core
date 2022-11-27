@@ -608,6 +608,51 @@ type ReplaceThisWithVar(v) =
     override this.TransformChainedCtor(a, b, c, d, e) =
         base.TransformChainedCtor(a, (match b with None -> Some v | _ -> b), c, d, e)
 
+type HasArgumentsOrThis() =
+    inherit Visitor()
+
+    let mutable hasArguments = false
+    let mutable hasThis = false
+
+    member this.HasArguments = hasArguments
+    member this.HasThis = hasThis
+
+    override this.VisitArguments() =
+        hasArguments <- true
+
+    override this.VisitThis() =
+        hasThis <- true
+
+    override this.VisitFuncDeclaration(_, _, _, _) = ()
+
+    override this.VisitFunction(_, isArrow, _, body) =
+        if isArrow then 
+            this.VisitStatement(body)
+
+type HasThis() =
+    inherit Visitor()
+
+    let mutable found = false
+
+    member this.Found = found
+
+    override this.VisitThis() =
+        found <- true
+
+let funcFromLambda(funcId, isArrow, isRec, args, body, ts) =
+    let v = HasArgumentsOrThis()
+    v.VisitStatement(body)
+    if isArrow && not v.HasArguments && not isRec then
+        VarDeclaration(funcId, Function(args, true, None, body))
+    elif isArrow && v.HasThis then
+        let thisVar = Id.New("$this", mut = false)
+        Block [
+            VarDeclaration(thisVar, This)
+            FuncDeclaration(funcId, args, ReplaceThisWithVar(thisVar).TransformStatement(body), ts)
+        ]
+    else
+        FuncDeclaration(funcId, args, body, ts)
+        
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
         SubstituteVars(vars |> Seq.mapi (fun i a -> a, Hole i) |> dict).TransformExpression(expr)

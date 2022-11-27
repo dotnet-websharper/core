@@ -289,7 +289,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             // TODO: handle dynamic by cheking symbol.ContainingSymbol before calling sr.ReadNamedType
             NonGeneric Definitions.Dynamic     
         else          
-            let x = if x.IsTupleType then x.TupleUnderlyingType else x
+            //let x = if x.IsTupleType then x.TupleUnderlyingType else x
             let ta = this.GetTypeArguments x
             let td = this.ReadNamedTypeDefinition x
             Generic td ta
@@ -1000,12 +1000,7 @@ type RoslynTransformer(env: Environment) =
  
         // TODO : optional?
         // TODO : generics?
-        FuncDeclaration(
-            id, 
-            parameterList |> List.map (fun p -> p.ParameterId), 
-            b,
-            []
-        )
+        funcFromLambda(id, true, true, parameterList |> List.map (fun p -> p.ParameterId), b, [])
         |> withStatementSourcePos x.Node
 
     member this.TransformLocalDeclarationStatement (x: LocalDeclarationStatementData) : Statement =
