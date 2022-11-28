@@ -477,21 +477,17 @@ translate """
 namespace WebSharper.Tests
 
 open WebSharper
-open WebSharper.JavaScript
+open WebSharper.Testing
 
-
-[<Prototype false>]
-type DateTimeOffsetProxy [<Inline "{d: $d, o: $o}">] (d: System.DateTime, o: int) =
-    [<Inline>]
-    new (d: System.DateTime, o: System.TimeSpan) = DateTimeOffsetProxy(d, int o.TotalMinutes)
-
+type private BI = System.Numerics.BigInteger
 
 [<JavaScript>]
-module Test =
-    let res() =
-        let now = System.DateTime.Now
-        let res = DateTimeOffsetProxy(now, System.TimeSpan.FromHours 1.)
-        Console.Log(res)
+module BigIntTest =
+    let test() =
+        [| (1, 2); (3, 4) |]
+        |> Array.map (fun ((p, _) as o) ->
+            p, o
+        )
 """
 
 let a() = 1

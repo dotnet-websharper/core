@@ -112,6 +112,8 @@ and ApplicationInfo =
         KnownLength : option<int>
         Params: list<TSType>
     }
+    override this.ToString() =
+        sprintf "%A%s" this.Purity (match this.KnownLength with Some l -> "L" + string l | _ -> "")
 
     static member None =
         {
@@ -260,8 +262,8 @@ and Expression =
     static member (^^) (a, b) = Binary (a, BinaryOperator.``^``, b)
     static member (^|) (a, b) = Binary (a, BinaryOperator.``|``, b)
     static member (^||) (a, b) = Binary (a, BinaryOperator.``||``, b)
-    member a.Item b = ItemGet (a, b, NonPure)
-    member a.Item b = Application (a, b, ApplicationInfo.None)
+    [<System.Obsolete>] member a.Item b = ItemGet (a, b, Pure)
+    [<System.Obsolete>] member a.Item b = Application (a, b, ApplicationInfo.None)
 and Statement =
     /// Empty statement
     | Empty
@@ -1230,7 +1232,6 @@ module IgnoreSourcePos =
     let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
 module Debug =
-    let private PrintObject x = sprintf "%A" x
     let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
     let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
     let rec PrintExpression x =
@@ -1239,60 +1240,60 @@ module Debug =
         | This  -> "This" + ""
         | Arguments  -> "Arguments" + ""
         | Var a -> "Var" + "(" + string a + ")"
-        | Value a -> "Value" + "(" + PrintObject a.Value + ")"
-        | Application (a, b, c) -> "Application" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + PrintObject c + ")"
-        | Function (a, b, c, d) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + PrintObject b + ", " + defaultArg (Option.map PrintObject c) "_" + ", " + PrintStatement d + ")"
+        | Value a -> "Value" + "(" + string a.Value + ")"
+        | Application (a, b, c) -> "Application" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ", " + string c + ")"
+        | Function (a, b, c, d) -> "Function" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + string b + ", " + defaultArg (Option.map string c) "_" + ", " + PrintStatement d + ")"
         | VarSet (a, b) -> "VarSet" + "(" + string a + ", " + PrintExpression b + ")"
         | Sequential a -> "Sequential" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
-        | NewTuple (a, b) -> "NewTuple" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ")"
+        | NewTuple (a, b) -> "NewTuple" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ", " + "[" + String.concat "; " (List.map string b) + "]" + ")"
         | Conditional (a, b, c) -> "Conditional" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
-        | ItemGet (a, b, c) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintObject c + ")"
+        | ItemGet (a, b, c) -> "ItemGet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + string c + ")"
         | ItemSet (a, b, c) -> "ItemSet" + "(" + PrintExpression a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
-        | Binary (a, b, c) -> "Binary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
-        | MutatingBinary (a, b, c) -> "MutatingBinary" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
-        | Unary (a, b) -> "Unary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
-        | MutatingUnary (a, b) -> "MutatingUnary" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | Binary (a, b, c) -> "Binary" + "(" + PrintExpression a + ", " + string b + ", " + PrintExpression c + ")"
+        | MutatingBinary (a, b, c) -> "MutatingBinary" + "(" + PrintExpression a + ", " + string b + ", " + PrintExpression c + ")"
+        | Unary (a, b) -> "Unary" + "(" + string a + ", " + PrintExpression b + ")"
+        | MutatingUnary (a, b) -> "MutatingUnary" + "(" + string a + ", " + PrintExpression b + ")"
         | ExprSourcePos (_, b) -> PrintExpression b
-        | FuncWithThis (a, b, c, d) -> "FuncWithThis" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + defaultArg (Option.map PrintObject c) "_" + ", " + PrintStatement d + ")"
+        | FuncWithThis (a, b, c, d) -> "FuncWithThis" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + defaultArg (Option.map string c) "_" + ", " + PrintStatement d + ")"
         | Self  -> "Self" + ""
         | Base  -> "Base" + ""
         | Call (a, b, c, d) -> "Call" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | CallNeedingMoreArgs (a, b, c, d) -> "CallNeedingMoreArgs" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
-        | CurriedApplication (a, b) -> "CurriedApplication" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) b) + "]" + ")"
-        | OptimizedFSharpArg (a, b) -> "OptimizedFSharpArg" + "(" + PrintExpression a + ", " + PrintObject b + ")"
+        | CurriedApplication (a, b) -> "CurriedApplication" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) b) + "]" + ")"
+        | OptimizedFSharpArg (a, b) -> "OptimizedFSharpArg" + "(" + PrintExpression a + ", " + string b + ")"
         | Ctor (a, b, c) -> "Ctor" + "(" + PrintTypeDefinition a + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
-        | ChainedCtor (a, b, c, d, e) -> "ChainedCtor" + "(" + PrintObject a + ", " + defaultArg (Option.map string b) "_" + ", " + PrintTypeDefinition c + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression e) + "]" + ")"
+        | ChainedCtor (a, b, c, d, e) -> "ChainedCtor" + "(" + string a + ", " + defaultArg (Option.map string b) "_" + ", " + PrintTypeDefinition c + ", " + ".ctor" + ", " + "[" + String.concat "; " (List.map PrintExpression e) + "]" + ")"
         | CopyCtor (a, b) -> "CopyCtor" + "(" + a.Value.FullName + ", " + PrintExpression b + ")"
-        | FieldGet (a, b, c) -> "FieldGet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintObject c + ")"
-        | FieldSet (a, b, c, d) -> "FieldSet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintObject c + ", " + PrintExpression d + ")"
+        | FieldGet (a, b, c) -> "FieldGet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + string c + ")"
+        | FieldSet (a, b, c, d) -> "FieldSet" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + string c + ", " + PrintExpression d + ")"
         | Let (a, b, c) -> "Let" + "(" + string a + ", " + PrintExpression b + ", " + PrintExpression c + ")"
         | NewVar (a, b) -> "NewVar" + "(" + string a + ", " + PrintExpression b + ")"
-        | Coalesce (a, b, c) -> "Coalesce" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintExpression c + ")"
-        | TypeCheck (a, b) -> "TypeCheck" + "(" + PrintExpression a + ", " + PrintObject b + ")"
-        | Coerce (a, b, c) -> "Coerce" + "(" + PrintExpression a + ", " + PrintObject b + ", " + PrintObject c + ")"
-        | OverrideName (a, b) -> "OverrideName" + "(" + a.Value.FullName + ", " + PrintObject b + ")"
+        | Coalesce (a, b, c) -> "Coalesce" + "(" + PrintExpression a + ", " + string b + ", " + PrintExpression c + ")"
+        | TypeCheck (a, b) -> "TypeCheck" + "(" + PrintExpression a + ", " + string b + ")"
+        | Coerce (a, b, c) -> "Coerce" + "(" + PrintExpression a + ", " + string b + ", " + string c + ")"
+        | OverrideName (a, b) -> "OverrideName" + "(" + a.Value.FullName + ", " + string b + ")"
         | NewDelegate (a, b, c) -> "NewDelegate" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ")"
         | StatementExpr (a, b) -> "StatementExpr" + "(" + PrintStatement a + ", " + defaultArg (Option.map string b) "_" + ")"
         | LetRec (a, b) -> "LetRec" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) a) + "]" + ", " + PrintExpression b + ")"
         | NewRecord (a, b) -> "NewRecord" + "(" + PrintTypeDefinition a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
-        | NewUnionCase (a, b, c) -> "NewUnionCase" + "(" + PrintTypeDefinition a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
-        | UnionCaseTest (a, b, c) -> "UnionCaseTest" + "(" + PrintExpression a + ", " + PrintTypeDefinition b + ", " + PrintObject c + ")"
-        | UnionCaseGet (a, b, c, d) -> "UnionCaseGet" + "(" + PrintExpression a + ", " + PrintTypeDefinition b + ", " + PrintObject c + ", " + PrintObject d + ")"
+        | NewUnionCase (a, b, c) -> "NewUnionCase" + "(" + PrintTypeDefinition a + ", " + string b + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | UnionCaseTest (a, b, c) -> "UnionCaseTest" + "(" + PrintExpression a + ", " + PrintTypeDefinition b + ", " + string c + ")"
+        | UnionCaseGet (a, b, c, d) -> "UnionCaseGet" + "(" + PrintExpression a + ", " + PrintTypeDefinition b + ", " + string c + ", " + string d + ")"
         | UnionCaseTag (a, b) -> "UnionCaseTag" + "(" + PrintExpression a + ", " + PrintTypeDefinition b + ")"
-        | MatchSuccess (a, b) -> "MatchSuccess" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
-        | TraitCall (a, b, c, d) -> "TraitCall" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
+        | MatchSuccess (a, b) -> "MatchSuccess" + "(" + string a + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
+        | TraitCall (a, b, c, d) -> "TraitCall" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | Await a -> "Await" + "(" + PrintExpression a + ")"
-        | NamedParameter (a, b) -> "NamedParameter" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | NamedParameter (a, b) -> "NamedParameter" + "(" + string a + ", " + PrintExpression b + ")"
         | RefOrOutParameter a -> "RefOrOutParameter" + "(" + PrintExpression a + ")"
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
-        | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> PrintObject a + ", " + PrintExpression b) a) + "]" + ")"
-        | GlobalAccess a -> "GlobalAccess" + "(" + PrintObject a + ")"
-        | GlobalAccessSet (a, b) -> "GlobalAccessSet" + "(" + PrintObject a + ", " + PrintExpression b + ")"
-        | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
-        | Hole a -> "Hole" + "(" + PrintObject a + ")"
-        | Cast (a, b) -> "Cast" + "(" + PrintObject a + ", " + PrintExpression b + ")"
+        | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) a) + "]" + ")"
+        | GlobalAccess a -> "GlobalAccess" + "(" + string a + ")"
+        | GlobalAccessSet (a, b) -> "GlobalAccessSet" + "(" + string a + ", " + PrintExpression b + ")"
+        | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
+        | Hole a -> "Hole" + "(" + string a + ")"
+        | Cast (a, b) -> "Cast" + "(" + string a + ", " + PrintExpression b + ")"
         | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
-        | ObjectExpr (a, b) -> "ObjectExpr" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintExpression b) b) + "]" + ")"
+        | ObjectExpr (a, b) -> "ObjectExpr" + "(" + string a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintExpression b) b) + "]" + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""
@@ -1302,7 +1303,7 @@ module Debug =
         | Return a -> "Return" + "(" + PrintExpression a + ")"
         | Block a -> "Block" + "(" + "[" + String.concat "; " (List.map PrintStatement a) + "]" + ")"
         | VarDeclaration (a, b) -> "VarDeclaration" + "(" + string a + ", " + PrintExpression b + ")"
-        | FuncDeclaration (a, b, c, d) -> "FuncDeclaration" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
+        | FuncDeclaration (a, b, c, d) -> "FuncDeclaration" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + PrintStatement c + ", " + "[" + String.concat "; " (List.map string d) + "]" + ")"
         | While (a, b) -> "While" + "(" + PrintExpression a + ", " + PrintStatement b + ")"
         | DoWhile (a, b) -> "DoWhile" + "(" + PrintStatement a + ", " + PrintExpression b + ")"
         | For (a, b, c, d) -> "For" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + defaultArg (Option.map PrintExpression c) "_" + ", " + PrintStatement d + ")"
@@ -1320,18 +1321,18 @@ module Debug =
         | CSharpSwitch (a, b) -> "CSharpSwitch" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> "[" + String.concat "; " (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) "_") a) + "], " + PrintStatement b) b) + "]" + ")"
         | GotoCase a -> "GotoCase" + "(" + defaultArg (Option.map PrintExpression a) "_" + ")"
         | DoNotReturn  -> "DoNotReturn" + ""
-        | Import (a, b, c, d) -> "Import" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map string b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + string b) c) + "]" + ", " + PrintObject d + ")"
-        | ExportDecl (a, b) -> "ExportDecl" + "(" + PrintObject a + ", " + PrintStatement b + ")"
+        | Import (a, b, c, d) -> "Import" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map string b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + string b) c) + "]" + ", " + string d + ")"
+        | ExportDecl (a, b) -> "ExportDecl" + "(" + string a + ", " + PrintStatement b + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
-        | Namespace (a, b) -> "Namespace" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
-        | Class (a, b, c, d, e) -> "Class" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintObject c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject e) + "]" + ")"
-        | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + PrintObject a + ", " + PrintObject b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + PrintObject e + ")"
-        | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + PrintObject c + ")"
-        | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + PrintObject a + ", " + PrintObject b + ", " + PrintObject c + ", " + defaultArg (Option.map PrintExpression d) "_" + ")"
+        | Namespace (a, b) -> "Namespace" + "(" + string a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
+        | Class (a, b, c, d, e) -> "Class" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map string e) + "]" + ")"
+        | ClassMethod (a, b, c, d, e) -> "ClassMethod" + "(" + string a + ", " + string b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map PrintStatement d) "" + ", " + string e + ")"
+        | ClassConstructor (a, b, c) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map PrintStatement b) "" + ", " + string c + ")"
+        | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + string a + ", " + string b + ", " + string c + ", " + defaultArg (Option.map PrintExpression d) "_" + ")"
         | ClassStatic a -> "ClassStatic" + "(" + PrintStatement a + ")"
-        | Interface (a, b, c, d) -> "Interface" + "(" + PrintObject a + ", " + "[" + String.concat "; " (List.map PrintObject b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map PrintObject d) + "]" + ")"
-        | Alias (a, b) -> "Alias" + "(" + PrintObject a + ", " + PrintObject b + ")"
-        | XmlComment a -> "XmlComment" + "(" + PrintObject a + ")"
+        | Interface (a, b, c, d) -> "Interface" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ")"
+        | Alias (a, b) -> "Alias" + "(" + string a + ", " + string b + ")"
+        | XmlComment a -> "XmlComment" + "(" + string a + ")"
 // }}
 
     let PrintExpressionWithPos x =

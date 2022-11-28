@@ -126,7 +126,7 @@ type Id =
             | _ -> invalidArg "other" "Invalid comparison."
 
     override this.ToString() =
-        (match this.Name with Some n -> n | _ -> "") + "$" + string this.Id + (if this.Mutable then "M" else "")
+        (match this.Name with Some n -> n | _ -> "") + "#" + string this.Id + (if this.Mutable then "M" else "")
 
     member this.ToString(m: Modifiers) =
         String.concat "" [
@@ -964,6 +964,14 @@ type Address =
         Module : Module
         Address : PlainAddress
     }
+
+    override this.ToString() =
+        match this.Module with
+        | StandardLibrary
+        | JavaScriptFile _ -> ""
+        | JavaScriptModule m -> m + "::"
+        | ImportedModule i -> string i + "::"
+        + (this.Address.Value |> List.rev |> String.concat ".")
 
     member this.JSAddress =
         match this.Module with

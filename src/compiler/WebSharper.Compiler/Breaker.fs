@@ -233,6 +233,14 @@ let rec removeLets expr =
         Let (var, value, Application (body, xs, info)) |> removeLets
     | Application (I.GlobalAccess g, [x], _) when g = globalId ->
         x
+    | Application (I.Function (args, true, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
+        when List.length args <= List.length xs && not (needsScoping args xs body) ->
+        let xs, more = xs |> List.splitAt args.Length
+        match more with
+        | [] -> List.foldBack2 bind args xs body
+        | _ -> List.foldBack2 bind args xs (CombineExpressions (more @ [ body ]))
+    | Application (I.Function (_, true, _, (I.Empty | I.Block [])), xs, _) ->
+        Sequential xs
     | Let (a, CurriedFunction (bArgs, ret, bBody), c) ->
         Let(a, Function(bArgs, true, ret, bBody), OptimizeLocalCurriedFunc(a, List.length bArgs).TransformExpression(c))
         |> removeLets
@@ -275,10 +283,12 @@ let rec removeLets expr =
         | 0 ->
             if isPureExpr b then c else Sequential [ b; c ]
         | 1 -> 
-            if isStronglyPureExpr b then 
-                if isTrivialValue b || notMutatedOrCaptured a c then
-                    SubstituteVar(a, b).TransformExpression(c)
-                else expr
+            let notmut() =
+                match b with
+                | I.Function _ -> notMutatedOrCapturedExceptAppl a c
+                | _ -> notMutatedOrCaptured a c
+            if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
+                SubstituteVar(a, b).TransformExpression(c)
             else
                 let accVars = HashSet [a]
                 let rec collectVars acc expr =
@@ -290,8 +300,10 @@ let rec removeLets expr =
                 let varsAndVals, innerExpr = collectVars [a, b] c 
                 if varEvalOrder (varsAndVals |> List.map fst) innerExpr then
                     SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
-                else expr
-        | _ -> expr
+                else 
+                    expr
+        | _ -> 
+            expr
     | _ -> expr
 
 let optimize expr =
@@ -336,7 +348,7 @@ let optimize expr =
         else 
             List.foldBack2 bind vars args (Sequential [body; Value Null])
     | Application(I.ItemGet(I.Function (vars, true, _, I.Return body), I.Value (String "apply"), _), [ I.Value Null; argArr ], _) ->
-        List.foldBack2 bind vars (List.init vars.Length (fun i -> argArr.[Value (Int i)])) body                   
+        List.foldBack2 bind vars (List.init vars.Length (fun i -> ItemGet(argArr, Value (Int i), Pure))) body                   
     | Application (I.Function (args, true, _, (I.ExprStatement body | I.Return body)), xs, { KnownLength = Some _ }) 
         when List.length args <= List.length xs && not (needsScoping args xs body) ->
         let xs, more = xs |> List.splitAt args.Length
@@ -700,12 +712,15 @@ let rec breakExpr expr : Broken<BreakResult> =
             comb2 (fun (aE, dE) -> FieldSet (Some aE, b, c, dE)) a d
         | None ->
             br d |> toBrExpr |> mapBroken (fun dE -> FieldSet (None, b, c, dE))            
-    | Let(var, (SimpleFunction _ as f), c) ->
-        SubstituteVar(var, f).TransformExpression c |> br
-    | Let(var, I.Function(args, isArrow, ret, body), c) ->
-        if CountVarOccurence(var).Get(c) = 0 then
+    //| Let(var, (SimpleFunction _ as f), c) ->
+    //    SubstituteVar(var, f).TransformExpression c |> br
+    | Let(var, (I.Function(args, isArrow, ret, body) as f), c) ->
+        match CountVarOccurence(var).Get(c) with
+        | 0 ->
             br c
-        else
+        | 1 when notMutatedOrCapturedExceptAppl var c ->
+            br (SubstituteVar(var, f).TransformExpression(c))
+        | _ ->
             let brC = br c
             {
                 Body = brC.Body

@@ -343,8 +343,8 @@ let code =
             cprintfn "    with"
             for opSym in binaryOps do
                 cprintfn "    static member (^%s) (a, b) = Binary (a, BinaryOperator.``%s``, b)" opSym opSym
-            cprintfn "    member a.Item b = ItemGet (a, b, NonPure)"
-            cprintfn "    member a.Item b = Application (a, b, ApplicationInfo.None)"
+            cprintfn "    [<System.Obsolete>] member a.Item b = ItemGet (a, b, Pure)"
+            cprintfn "    [<System.Obsolete>] member a.Item b = Application (a, b, ApplicationInfo.None)"
 
     let ExprAndStatementDefs =
         seq {
@@ -521,7 +521,6 @@ let code =
             cprintfn "    let (|%s|_|) x = match ignore%sSourcePos x with %s %s -> Some %s | _ -> None" n t n args trArgs
 
     cprintfn "module Debug =" 
-    cprintfn "    let private PrintObject x = sprintf \"%%A\" x" 
     cprintfn "    let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
     cprintfn "    let private PrintMethod (x:Concrete<Method>) = x.Entity.Value.MethodName + match x.Generics with [] -> \"\" | g -> (g |> List.map string |> String.concat \", \")" 
     for isExrps, tl in [ true, ExprDefs; false, StatementDefs ] do
@@ -550,7 +549,7 @@ let code =
                 | List (Tuple [Id; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\"" 
                 | List (Tuple [Object _; Id]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + string b) " + x + ") + \"]\"" 
                 | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
-                | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> PrintObject a + \", \" + PrintExpression b) " + x + ") + \"]\""
+                | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
                 | List (Tuple [Option Expr; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintExpression b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""
@@ -559,10 +558,10 @@ let code =
                 | Object "Concrete<TypeDefinition>" -> "PrintTypeDefinition " + x
                 | Object "Concrete<Method>" -> "PrintMethod " + x
                 | Object "Constructor" -> "\".ctor\""
-                | Object "Literal" -> "PrintObject " + x + ".Value"
-                | Object _ -> "PrintObject " + x
-                | List (Object _) -> "\"[\" + String.concat \"; \" (List.map PrintObject " + x + ") + \"]\""
-                | Option (Object _) -> "defaultArg (Option.map PrintObject " + x + ") \"_\""
+                | Object "Literal" -> "string " + x + ".Value"
+                | Object _ -> "string " + x
+                | List (Object _) -> "\"[\" + String.concat \"; \" (List.map string " + x + ") + \"]\""
+                | Option (Object _) -> "defaultArg (Option.map string " + x + ") \"_\""
                 | Empty -> ""
                 | _ -> failwithf "no debug printer defined for %A" c
             match c with

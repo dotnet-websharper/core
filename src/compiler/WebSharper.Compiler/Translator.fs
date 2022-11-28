@@ -125,6 +125,8 @@ type RemoveLets() =
     
     override this.TransformExpression (a) =
         base.TransformExpression(removeLets a)
+    //override this.TransformLet(a, b, c) =
+    //    base.TransformLet(a, b, c) |> removeLets
                                 
 let removeLetsTr = RemoveLets()
 

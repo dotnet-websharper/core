@@ -103,8 +103,16 @@ let isPureFunction expr =
     | Function (_, _, _, (I.Empty | I.Block [])) -> true
     | _ -> false
 
+let isTrivialFunction (args: Id list) body =
+    let rec check expr =
+        match IgnoreExprSourcePos expr with
+        | Var v -> args |> List.contains v
+        | NewTuple (e, _) -> e |> List.forall check
+        | _ -> false
+    check body
+
 let rec isTrivialValue expr =
-    match expr with
+    match IgnoreExprSourcePos expr with
     | Undefined
     | Value _
     | GlobalAccess _
@@ -113,6 +121,9 @@ let rec isTrivialValue expr =
         not v.IsMutable
     | ExprSourcePos (_, a) ->
         isTrivialValue a
+    | Function (args, _, _, (I.Empty | I.Block [])) -> true
+    | Function (args, _, _, (I.Return body)) ->
+        isTrivialValue body || isTrivialFunction args body
     | _ -> false
 
 /// Determine if expression has no side effect and value does not depend on execution order
@@ -173,7 +184,7 @@ let getFunctionPurity expr =
 
 /// Checks if a specific Id is mutated or accessed within a function body
 /// (captured) inside an Expression
-type private NotMutatedOrCaptured(v) =
+type private NotMutatedOrCaptured(v, ?allowApplication) =
     inherit Visitor()
 
     let mutable scope = 0
@@ -209,12 +220,25 @@ type private NotMutatedOrCaptured(v) =
     override this.VisitId a =
         if a = v && scope > 0 then ok <- false
 
+    override this.VisitApplication(a, b, c) =
+        if defaultArg allowApplication false then
+            match a with
+            | I.Var av when av = v ->
+                b |> List.iter this.VisitExpression
+            | _ ->
+                base.VisitApplication(a, b, c)
+        else
+            base.VisitApplication(a, b, c)
+
     member this.Check(a) =
         this.VisitExpression(a)
         ok
 
-let notMutatedOrCaptured (v: Id) expr =
+let notMutatedOrCaptured (v: Id)  expr =
     NotMutatedOrCaptured(v).Check(expr)   
+
+let notMutatedOrCapturedExceptAppl (v: Id)  expr =
+    NotMutatedOrCaptured(v, true).Check(expr)   
 
 type VarsNotUsed(vs : HashSet<Id>) =
     inherit Visitor()
@@ -1280,6 +1304,10 @@ type NeedsScoping() =
         if not needed then
             base.VisitExpression expr
 
+    override this.VisitArguments() =
+        if scope = 0 then
+            needed <- true
+
     member this.Check(args: seq<Id>, values, expr) =
         for a, v in Seq.zip args values do
             if a.IsMutable && not (isTrivialValue v) then
@@ -1475,8 +1503,11 @@ let (|TupledLambda|_|) expr =
             | _ ->                                                        
                 // if we would use the arguments object for anything else than getting
                 // a tuple item, convert it to an array
-                if List.isEmpty vars then None else
-                Some (vars, ret, Let (tupledArg, sliceFromArguments [], body), isReturn)
+                //if List.isEmpty vars then None else
+                //Some (vars, ret, Let (tupledArg, sliceFromArguments [], body), isReturn)
+                
+                // we don't want arguments hack any more, does not work inside => functions
+                None
         else
             if List.isEmpty vars then None else
             Some (vars, ret, body, isReturn)
@@ -1565,7 +1596,7 @@ type OptimizeLocalTupledFunc(var: Id , tupling) =
     override this.TransformVar(v) =
         if v = var then
             let t = Id.New(mut = false, ?typ = Option.map fst tupleAndRetType)
-            Lambda([t], Option.map snd tupleAndRetType, Appl(Var v, List.init tupling (fun i -> (Var t).[Value (Int i)]), NonPure, Some tupling))
+            Lambda([t], Option.map snd tupleAndRetType, Appl(Var v, List.init tupling (fun i -> ItemGet(Var t, Value (Int i), Pure)), NonPure, Some tupling))
         else Var v  
 
     override this.TransformApplication(func, args, info) =

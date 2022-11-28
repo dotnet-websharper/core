@@ -45,7 +45,7 @@ type Environment =
     static member New(pref) =
         {
             Preference = pref    
-            ScopeNames = Set [ "window"; "self"; "globalThis"; "import" ]
+            ScopeNames = Set [ "window"; "self"; "globalThis"; "import"; "_" ]
             VisibleGlobals = Set [ "window"; "self"; "globalThis"; "import" ]
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
@@ -96,8 +96,6 @@ let getCompactName (env: Environment) =
         name <- formatter env.CompactVars   
         env.CompactVars <- env.CompactVars + 1   
     name
-
-let unusedId = J.Id.New "_"
 
 let defineId (env: Environment) (id: Id) =
     if id.HasStrongName then
@@ -175,6 +173,18 @@ let flattenFuncBody s =
 
 let block s = J.Block (flattenJS s)
 
+let getUsedArgs (args: Id list) b env = 
+    if List.isEmpty args then [] else
+    let unusedArgs = CollectUnusedVars(args).GetSt(b)
+    let argNum =
+        args |> Seq.mapi (fun i a -> if unusedArgs.Contains a then 0 else i + 1) |> Seq.max
+    args |> List.take argNum |> List.map (fun a -> 
+        if unusedArgs.Contains a then 
+            defineId env (Id.New())
+        else 
+            defineId env a
+    ) 
+
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
     let inline trI x = transformId env x
@@ -218,8 +228,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (trE e, jpos)
     | Function (ids, a, _, b) ->
         let innerEnv = env.NewInner()
-        let unusedArgs = CollectUnusedVars(ids).GetSt(b)
-        let args = ids |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
+        let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
         //let useStrict =
@@ -461,8 +470,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | FuncDeclaration (x, ids, b, _) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
-        let unusedArgs = CollectUnusedVars(ids).GetSt(b)
-        let args = ids |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
+        let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with
@@ -557,8 +565,10 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     match mem with
     | ClassMethod (s, n, p, b, _) ->
         let innerEnv = env.NewInner()
-        let unusedArgs = b |> Option.map (CollectUnusedVars(p).GetSt) |> Option.defaultWith System.Collections.Generic.HashSet
-        let args = p |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
+        let args = 
+            match b with
+            | Some b -> getUsedArgs p b innerEnv
+            | _-> p |> List.map (defineId innerEnv)
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
@@ -573,8 +583,11 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         J.Method(s.IsStatic, acc, id, args, body)   
     | ClassConstructor (p, b, _) ->
         let innerEnv = env.NewInner()
-        let unusedArgs = b |> Option.map (CollectUnusedVars(p |> Seq.map fst).GetSt) |> Option.defaultWith System.Collections.Generic.HashSet
-        let args = p |> List.map (fun (i, _) -> if unusedArgs.Contains i then unusedId, Modifiers.None else defineId innerEnv i, Modifiers.None) 
+        let args = 
+            match b with
+            | Some b -> getUsedArgs (p |> List.map fst) b innerEnv
+            | _-> p |> List.map (fst >> defineId innerEnv)
+            |> List.map (fun a -> a, Modifiers.None)
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
