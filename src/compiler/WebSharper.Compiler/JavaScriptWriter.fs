@@ -97,6 +97,8 @@ let getCompactName (env: Environment) =
         env.CompactVars <- env.CompactVars + 1   
     name
 
+let unusedId = J.Id.New "_"
+
 let defineId (env: Environment) (id: Id) =
     if id.HasStrongName then
         let name = id.Name.Value 
@@ -216,13 +218,15 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         J.ExprPos (trE e, jpos)
     | Function (ids, a, _, b) ->
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv) 
+        let unusedArgs = CollectUnusedVars(ids).GetSt(b)
+        let args = ids |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body = b |> transformStatement innerEnv |> flattenFuncBody
         //let useStrict =
         //    if env.OuterScope then
         //        [ J.Ignore (J.Constant (J.String "use strict")) ]
         //    else []
+
         J.Lambda(None, args, flattenJS body, a)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
@@ -457,7 +461,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | FuncDeclaration (x, ids, b, _) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
-        let args = ids |> List.map (defineId innerEnv) 
+        let unusedArgs = CollectUnusedVars(ids).GetSt(b)
+        let args = ids |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with
@@ -552,8 +557,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     match mem with
     | ClassMethod (s, n, p, b, _) ->
         let innerEnv = env.NewInner()
-        let args =
-            p |> List.map (defineId innerEnv)
+        let unusedArgs = b |> Option.map (CollectUnusedVars(p).GetSt) |> Option.defaultWith System.Collections.Generic.HashSet
+        let args = p |> List.map (fun i -> if unusedArgs.Contains i then unusedId else defineId innerEnv i) 
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
@@ -568,8 +573,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         J.Method(s.IsStatic, acc, id, args, body)   
     | ClassConstructor (p, b, _) ->
         let innerEnv = env.NewInner()
-        let args =
-            p |> List.map (fun (a, m) -> defineId innerEnv a, m)
+        let unusedArgs = b |> Option.map (CollectUnusedVars(p |> Seq.map fst).GetSt) |> Option.defaultWith System.Collections.Generic.HashSet
+        let args = p |> List.map (fun (i, _) -> if unusedArgs.Contains i then unusedId, Modifiers.None else defineId innerEnv i, Modifiers.None) 
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)

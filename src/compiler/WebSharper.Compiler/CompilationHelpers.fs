@@ -243,6 +243,24 @@ type VarsNotUsed(vs : HashSet<Id>) =
         this.VisitStatement(s) 
         ok
 
+type CollectUnusedVars(vs : HashSet<Id>) =
+    inherit Visitor()
+
+    new (vs: seq<Id>) = CollectUnusedVars(HashSet vs)
+    
+    override this.VisitId(a) =
+        vs.Remove(a) |> ignore
+
+    member this.Get(e) =
+        if vs.Count > 0 then
+            this.VisitExpression(e) 
+        vs
+
+    member this.GetSt(s) =
+        if vs.Count > 0 then
+            this.VisitStatement(s) 
+        vs
+
 /// Optimization for inlining: if arguments are always accessed in
 /// the same order as they are provided, and there are no side effects
 /// between then, then extra Let forms and variables for them are not needed
