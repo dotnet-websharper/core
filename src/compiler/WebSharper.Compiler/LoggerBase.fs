@@ -20,14 +20,14 @@
 
 namespace WebSharper.Compiler
 
+[<AbstractClass>]
 #if DEBUG
 type LoggerBase() as self =
     static let mutable currentLogger = Unchecked.defaultof<LoggerBase>
     do currentLogger <- self
 #else
-#endif
-[<AbstractClass>]
 type LoggerBase() =
+#endif
     
     let mutable timeStamps = [ System.DateTime.Now ]
 
