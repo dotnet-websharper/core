@@ -141,37 +141,60 @@ type MarkApplicationsPure(v, purity) =
             ReplaceId(id, v).TransformExpression(body) |> this.TransformExpression        
         | _ -> base.TransformLet(id, value, body)
 
-let toDecls (vars: Id list) = 
-    vars |> Seq.map (fun v -> VarDeclaration(v, Undefined))
+type ContainsIds (ids : Id list) =
+    inherit Visitor()
+
+    let searched = HashSet(ids)
+    let found = HashSet()
+
+    member this.Searched = searched
+    member this.All = Seq.append searched found
+
+    override this.VisitId i =        
+        if searched.Remove(i) then 
+            found.Add i |> ignore
+
+let toDecls (vars: Id list) (statements: Statement list) = 
+    if List.isEmpty vars then
+        Seq.ofList statements
+    else
+        let c = ContainsIds(vars)
+        let trStatements =
+            statements |> List.map (fun s ->
+                match s with
+                | I.ExprStatement (I.VarSet(a, b)) when c.Searched.Contains a ->
+                    c.Searched.Remove a |> ignore
+                    c.VisitExpression(b)
+                    VarDeclaration(a, b)
+                | _ ->
+                    c.VisitStatement(s)
+                    s
+            )
+        Seq.append 
+            (c.All |> Seq.map (fun v -> VarDeclaration(v, Undefined)))
+            trStatements
     
 let toStatements f b =
     let b = toBrExpr b
     seq {
-        yield! toDecls b.Variables
-        yield! b.Statements 
+        yield! toDecls b.Variables b.Statements 
         yield f b.Body
     }
 
 let toStatementsL f (b: Broken<BreakResult>)=
     let b = toBrExpr b
     seq {
-        yield! toDecls b.Variables
-        yield! b.Statements 
+        yield! toDecls b.Variables b.Statements 
         yield! f b.Body
     }
 
 let toStatementExpr b =
     match b.Body with
     | ResultVar v ->
-        seq {
-            yield! toDecls b.Variables
-            for st in b.Statements ->
-                TransformVarSets(v, id).TransformStatement(st)    
-        }
+        toDecls b.Variables (b.Statements |> List.map (TransformVarSets(v, id).TransformStatement))
     | ResultExpr e ->
         seq {
-            yield! toDecls b.Variables
-            yield! b.Statements 
+            yield! toDecls b.Variables b.Statements 
             if not (isPureExpr e) then
                 yield ExprStatement (removePureParts e)
         }
@@ -917,9 +940,8 @@ and toStatementsSpec f b =
     match b.Body with
     | ResultExpr _ -> toStatements f b
     | ResultVar v -> 
-        Seq.append 
-            (toDecls b.Variables) 
-            (b.Statements |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt))
+         toDecls b.Variables
+            (b.Statements |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt) |> List.ofSeq)
 
 and private breakSt statement : Statement seq =
     let inline brE x = 
@@ -971,8 +993,7 @@ and private breakSt statement : Statement seq =
                             yield funcFromLambda(var.WithType(ret), isArrow, false, args, body, [])
                         | _ ->
                             yield VarDeclaration(var, value)
-                    yield! toDecls brA.Variables
-                    yield! brA.Statements 
+                    yield! toDecls brA.Variables brA.Statements 
                     if List.isEmpty inlined then
                         yield body
                     else
@@ -1027,11 +1048,7 @@ and private breakSt statement : Statement seq =
             brB |> toStatements (fun bE -> DoWhile (combine(brS a), bE))
         else
             let brB = brB |> toBrExpr
-            [
-                yield! toDecls brB.Variables
-                yield DoWhile (combine (Seq.append (brS a) brB.Statements), brB.Body)   
-            ]            
-            |> Seq.ofList
+            toDecls brB.Variables [ DoWhile (combine (Seq.append (brS a) brB.Statements), brB.Body) ]
     //| For(Some (NewVars setters) as a, b, c, d) ->
     //    let brA = Option.map brE a
     //    let brB = Option.map brE b
@@ -1084,42 +1101,61 @@ and private breakSt statement : Statement seq =
                         NewVar(i, get brV |> Option.defaultValue Undefined)
                     )
                     |> Sequential |> Some
-                [
-                    for (_, brS) in brSetters do
-                        match brS with
-                        | Some brS ->
-                            yield! toDecls brS.Variables
-                            yield! brS.Statements
+                let vars =
+                    [
+                        for (_, brS) in brSetters do
+                            match brS with
+                            | Some brS ->
+                                yield! brS.Variables
+                            | _ -> ()
+                        match brB with
+                        | Some brB -> 
+                            yield! brB.Variables
                         | _ -> ()
-                    match brB with
-                    | Some brB -> 
-                        yield! toDecls brB.Variables
-                    | _ -> ()
-                    match brC with
-                    | Some brC -> 
-                        yield! toDecls brC.Variables
-                    | _ -> ()
+                        match brC with
+                        | Some brC -> 
+                            yield! brC.Variables
+                        | _ -> ()
+                    ]
+
+                let st =
+                    [
+                        for (_, brS) in brSetters do
+                            match brS with
+                            | Some brS ->
+                                yield! brS.Statements
+                            | _ -> ()
+                    ]
+                [
+                    yield! toDecls vars st
                     yield For(brAS, get brB, get brC, combine (brS d))
                 ]            
                 |> Seq.ofList
             | _ ->
+                let vars = 
+                    [
+                        match brA with
+                        | Some brA -> 
+                            yield! brA.Variables
+                        | _ -> ()
+                        match brB with
+                        | Some brB -> 
+                            yield! brB.Variables
+                        | _ -> ()
+                        match brC with
+                        | Some brC -> 
+                            yield! brC.Variables
+                        | _ -> ()
+                    ]  
+                let st = 
+                    [
+                        match brA with
+                        | Some brA -> 
+                            yield! brA.Statements
+                        | _ -> ()
+                    ]
                 [
-                    match brA with
-                    | Some brA -> 
-                        yield! toDecls brA.Variables
-                    | _ -> ()
-                    match brB with
-                    | Some brB -> 
-                        yield! toDecls brB.Variables
-                    | _ -> ()
-                    match brC with
-                    | Some brC -> 
-                        yield! toDecls brC.Variables
-                    | _ -> ()
-                    match brA with
-                    | Some brA -> 
-                        yield! brA.Statements
-                    | _ -> ()
+                    yield! toDecls vars st
                     yield For(get brA, get brB, get brC, combine (brS d))
                 ]            
                 |> Seq.ofList

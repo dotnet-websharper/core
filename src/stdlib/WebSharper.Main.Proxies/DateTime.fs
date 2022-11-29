@@ -109,13 +109,13 @@ type private DateTimeProxy =
     [<Inline "0">]
     new () = {}
 
-    [<Inline "new Date($y,$mo-1,$d).getTime()">]
+    [<Inline "new Date($y,$mo-1,$d).getTime()"; Pure>]
     new (y: int, mo: int, d: int) = {}
 
-    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s).getTime()">]
+    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s).getTime()"; Pure>]
     new (y: int, mo: int, d: int, h: int, m: int, s: int) = {}
 
-    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()">]
+    [<Inline "new Date($y,$mo-1,$d,$h,$m,$s,$ms).getTime()"; Pure>]
     new (y: int, mo: int, d: int, h: int, m: int, s: int, ms: int) = {}
     
     static member Now

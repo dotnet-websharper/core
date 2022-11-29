@@ -311,8 +311,9 @@ type TestBuilder with
             r: Runner<'A>,
             [<ProjectionParameter>] el: 'A -> Elt
         ) : Runner<'A> =
+        Runner <|
         fun isTrueer ->
-            let v = r isTrueer
+            let v = r.Invoke isTrueer
             Choice2Of2 (async {
                 let! args =
                     match v with
