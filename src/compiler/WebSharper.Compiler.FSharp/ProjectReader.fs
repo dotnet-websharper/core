@@ -582,7 +582,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = CodeReader.transformExpression env expr 
                             let b = 
                                 match memdef with
-                                | Member.Constructor _ -> 
+                                | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
                                     try 
                                         let b, cgenFieldNames = CodeReader.fixCtor def baseCls b
                                         selfCtorFields <- cgenFieldNames

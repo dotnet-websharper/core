@@ -26,7 +26,6 @@ open WebSharper.JavaScript
 [<JavaScript>]
 module internal BigIntProxyHelpers =
     let ToBin (n: byte) =
-
         [0 .. 7]
         |> List.fold (fun (num, binstr) i ->
             if num / (int)(Math.Pow((float)2, (float)(7 - i))) = 1 then
@@ -37,7 +36,6 @@ module internal BigIntProxyHelpers =
         |> snd
 
     let ToBinaryStr (arr: byte[]) =
-
         arr
         |> Array.rev
         |> Array.map(ToBin)
@@ -48,25 +46,25 @@ module internal BigIntProxyHelpers =
 [<Prototype(false)>]
 type private BigIntegerProxy =     
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     new (v: int64) = {}
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     new (v: int32) = {}
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     new (v: uint64) = {}
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     new (v: uint32) = {}
 
-    [<Inline "BigInt(math.floor($v))">]
+    [<Inline "BigInt(math.floor($v))"; Pure>]
     new (v: double) = {}
 
-    [<Inline "BigInt(math.floor($v))">]
+    [<Inline "BigInt(math.floor($v))"; Pure>]
     new (v: decimal) = {}
 
-    [<Inline>]
+    [<Inline; Pure>]
     static member CtorProxy (v: byte[]) =
         let binString = BigIntProxyHelpers.ToBinaryStr v
         As<BigIntegerProxy> (WebSharper.JavaScript.BigInt binString)
@@ -104,7 +102,7 @@ type private BigIntegerProxy =
     [<Inline "$n1 <= $n2">]
     static member op_LessThanOrEqual(n1 : bigint, n2 : bigint) = X<bool>
 
-    [<Inline "$n1 ** BigInt($n2)">]
+    [<Inline "$n1 ** BigInt($n2)"; Pure>]
     static member Pow(n1 : bigint, n2 : int) = X<bigint>
 
 [<Proxy
@@ -113,23 +111,23 @@ type private BigIntegerProxy =
      PublicKeyToken=b03f5f7f11d50a3a">]
 module private NumericLiteralIProxy =
     
-    [<Inline "BigInt(0)">]
+    [<Inline "BigInt(0)"; Pure>]
     let FromZero<'T>() = X<'T>
 
-    [<Inline "BigInt(1)">]
+    [<Inline "BigInt(1)"; Pure>]
     let FromOne<'T>() = X<'T>
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     let FromInt32<'T>(v: int32) = X<'T>
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     let FromInt64<'T>(v: int64) = X<'T>
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     let FromString<'T>(v: string) = X<'T>
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     let FromInt64Dynamic(v: int64) = X<obj>
 
-    [<Inline "BigInt($v)">]
+    [<Inline "BigInt($v)"; Pure>]
     let FromStringDynamic(v: string) = X<obj>

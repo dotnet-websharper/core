@@ -477,17 +477,25 @@ translate """
 namespace WebSharper.Tests
 
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 
-type private BI = System.Numerics.BigInteger
+type Proxied(v: byte[]) =
 
-[<JavaScript>]
-module BigIntTest =
-    let test() =
-        [| (1, 2); (3, 4) |]
-        |> Array.map (fun ((p, _) as o) ->
-            p, o
-        )
+    member this.Arr = v
+
+[<Proxy(typeof<Proxied>)>]
+[<Prototype(false)>]
+type private BigIntegerProxy =     
+
+    [<Inline>]
+    static member CtorProxy (v: byte[]) =
+        let binString = string v
+        As<BigIntegerProxy> (WebSharper.JavaScript.BigInt binString)
+
+    static member testThis() =
+        new Proxied([|232uy; 3uy; 0uy; 0uy|])
+
 """
 
 let a() = 1
