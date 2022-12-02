@@ -315,7 +315,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         for info, body in c.Implementations.Values do
             mem info body            
 
-        let indexedCtors = Dictionary()
+        let constructors = ResizeArray<string * Id list * Statement>()
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             //let (|EmptyCtorBody|_|) expr =
@@ -338,16 +338,16 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.New (Some name) ->
                 match body with
                 | Function (args, _, _, b) ->                  
+                    constructors.Add(name, args, b)
                     let info =
                         {
                             IsStatic = true
                             IsPrivate = false
-                            IsOptional = false
+                            Kind = ClassMethodKind.Simple
                         }
                     let ctorBody =
-                        JSRuntime.Ctor (Function (args, false, None, b)) This
-
-                    members.Add (ClassProperty (info, name, TSType.Any, Some ctorBody))
+                        Return (New (This, [], Value (String name) :: (args |> List.map Var)))
+                    members.Add (ClassMethod(info, name, args, Some ctorBody, TSType.Any))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             //| M.NewIndexed i ->
@@ -375,24 +375,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     members.Add (ClassMethod(info, name, args, Some b, TSType.Any))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
-            | _ -> ()
-                            
-        if indexedCtors.Count > 0 then
-            let index = Id.New("i", mut = false)
-            let maxArgs = indexedCtors.Values |> Seq.map (fst >> List.length) |> Seq.max
-            let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
-            let cBody =
-                Switch(Var index, 
-                    indexedCtors |> Seq.map (fun (KeyValue(i, (args, b))) ->
-                        Some (Value (Int i)), 
-                        CombineStatements [
-                            ReplaceIds(Seq.zip args cArgs |> dict).TransformStatement(b)
-                            Break None
-                        ]
-                    ) |> List.ofSeq
-                )
-            let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-            members.Add (ClassConstructor (allArgs, Some cBody, TSType.Any))   
+            | _ -> ()                            
 
         let baseType, isObjBase =
             let tryFindClass c =
@@ -402,6 +385,117 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
             | Some (ba, _, _) -> Some (getOrImportAddress ba), c.BaseClass.Value.Entity = Definitions.Object
             | _ -> None, false
+
+        if constructors.Count > 0 then
+            let index = Id.New("i", mut = false)
+            let maxArgs = constructors |> Seq.map (fun (_, a, _) -> List.length a) |> Seq.max
+            let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
+            
+            let ctorData = Dictionary()
+            for (name, args, body) in constructors do
+                // TODO what if not at start
+                let chainedCtor, bodyRest =
+                    match body with
+                    | I.Block (I.ExprStatement (I.Application(I.Self, I.Value(String baseName) :: baseArgs, _)) :: r) ->
+                        Some (baseName, baseArgs), Some (Block r)                                        
+                    | I.ExprStatement (I.Application(I.Self, I.Value(String baseName) :: baseArgs, _)) ->
+                        Some (baseName, baseArgs), None
+                    | I.ExprStatement (I.Sequential(I.Application(I.Self, I.Value(String baseName) :: baseArgs, _) :: r)) ->
+                        Some (baseName, baseArgs), Some (ExprStatement (Sequential r))
+                    
+                    | I.ExprStatement (I.Application(I.Base, [], _)) ->
+                        if Option.isSome baseType then
+                            None, Some body
+                        else
+                            None, None
+                    | _ -> 
+                        None, Some body
+                ctorData.Add(name, (args, chainedCtor, bodyRest))
+
+            // calculate order of constructors so chained constructors work,
+            // adding those with no dependencies first, so we will need to reverse in the end
+            let addedCtors = HashSet()
+            let orderedCtorData = ResizeArray<string * Id list * (string * Expression list) option * Statement option>()
+            while ctorData.Count > 0 do
+                for KeyValue(name, (args, chainedCtor, bodyRest)) in ctorData |> Array.ofSeq do
+                    let okToAdd =
+                        match chainedCtor with
+                        | None -> true
+                        | Some (ccName, _) -> addedCtors.Contains ccName
+                    if okToAdd then
+                        addedCtors.Add name |> ignore
+                        //let chainedCtorArgsNum = match chainedCtor with Some (_, a) -> a.Length | None -> 0
+                        orderedCtorData.Add (name, args, 
+                            chainedCtor |> Option.map (fun (n, a) -> n, a), 
+                            bodyRest
+                        )
+                        ctorData.Remove name |> ignore
+            orderedCtorData.Reverse()
+
+            let cBody =
+                let origIndices = Dictionary()
+                [ 
+                    if baseType.IsSome then
+                        yield 
+                            If (Unary(UnaryOperator.TypeOf, Var index) ^!= Value (String "string"), 
+                                Block [
+                                    ExprStatement (Appl(Base, [Var index], NonPure, None))
+                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign This (Var index)), Empty)
+                                ], Empty)
+                    else
+                        yield 
+                            If (Unary(UnaryOperator.TypeOf, Var index) ^== Value (String "object"), 
+                                ExprStatement (JSRuntime.ObjectAssign This (Var index)), Empty)
+                    for (name, args, chainedCtor, bodyRest) in orderedCtorData do
+                        match chainedCtor with
+                        | Some (ccName, ccArgs) ->
+                            let mutable oiOpt = None
+                            match bodyRest with 
+                            | Some _ ->
+                                let oi = Id.New(mut=false)
+                                yield VarDeclaration(oi, Undefined)
+                                origIndices.Add(name, oi)
+                                oiOpt <- Some oi
+                            | _ -> ()
+                            for a in args do
+                                yield VarDeclaration (a, Undefined)
+                            let setters =
+                                [
+                                    // set original arg vars
+                                    match oiOpt with
+                                    | Some oi -> 
+                                        yield VarSetStatement (oi, Value (Bool true))
+                                    | _ -> ()
+                                    for (a, ca) in Seq.zip args cArgs do
+                                        yield VarSetStatement (a, Var ca)
+                                    // redirect to chained constructor
+                                    yield VarSetStatement(index, Value (String ccName))
+                                    for v, vv in Seq.zip cArgs ccArgs do
+                                        yield VarSetStatement(v, vv)    
+                                ]
+                            yield If((Var index) ^== Value (String name), Block setters, Empty)
+                        | _ -> ()
+                    for (name, args, chainedCtor, bodyRest) in orderedCtorData do
+                        match chainedCtor, bodyRest with
+                        | None, Some br ->
+                            let settersAndBody =
+                                [
+                                    // set original arg vars
+                                    for (a, ca) in Seq.zip args cArgs do
+                                        yield VarDeclaration (a, Var ca)
+                                    yield br
+                                ]
+                            yield If((Var index) ^== Value (String name), Block settersAndBody, Empty)
+                        | _ -> ()
+                    for (name, args, _, bodyRest) in orderedCtorData do
+                        match origIndices.TryGetValue name, bodyRest with
+                        | (true, oi), Some br ->
+                            yield If(Var oi, br, Empty)
+                        | _ -> ()
+                ]
+
+            let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
+            members.Add (ClassConstructor (allArgs, Some (Block cBody), TSType.Any))   
         
         let mutable isFSharpType = false
 

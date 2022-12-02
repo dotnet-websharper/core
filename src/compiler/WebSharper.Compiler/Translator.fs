@@ -40,7 +40,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
 
     let mutable insideLoop = false
 
-    override this.TransformSelf () = invalidForm "Self"
+    //override this.TransformSelf () = invalidForm "Self"
     //override this.TransformBase () = invalidForm "Base"
     override this.TransformHole a = if isInline then base.TransformHole(a) else invalidForm "Hole"
     override this.TransformFieldGet (_,_,_) = invalidForm "FieldGet"
@@ -1399,7 +1399,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | M.New None ->
             New(GlobalAccess (typAddress()), typParams(), trArgs())
         | M.New (Some name) ->
-            New(GlobalAccess (typAddress().Sub(name)), typParams(), trArgs())
+            New(GlobalAccess (typAddress()), typParams(), Value (String name) :: trArgs())
         //| M.NewIndexed (i) ->
         //    New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
         | M.Static (name, ClassMethodKind.Simple)      
@@ -1705,7 +1705,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                   
     override this.TransformChainedCtor(isBase, thisVar, typ, ctor, args) =
         let norm = this.TransformCtor(typ, ctor, args)
-        let bcall func args = JSRuntime.Base This func args
+        let bcall func args = 
+            if isBase then 
+                Appl(Base, args, NonPure, None)
+            else 
+                Appl(Self, args, NonPure, None)
         let def () =
             match norm with
             | New (func, _, a) ->
@@ -1715,6 +1719,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 bcall func [a1]
             | Let (i1, a1, Let (i2, a2, New(func, _, [Var v1; Var v2]))) when i1 = v1 && i2 = v2 ->
                 bcall func [a1; a2]
+            | Application (func, a, _) ->
+                bcall func a
             | _ ->
                 let err = sprintf "Base constructor is an Inline that is not a single 'new' call: %s" (Debug.PrintExpression norm)
                 comp.AddError (this.CurrentSourcePos, SourceError err)
@@ -1724,6 +1730,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | None -> norm
             | Some _ -> def()
         else def()
+        |> fun res ->
+            printfn "TransformChainedCtor %s" (Debug.PrintExpression res)
+            res
         
         //let norm = this.TransformCtor(typ, ctor, args)
         //let baseAddr() =

@@ -185,7 +185,7 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
                     | [msg; inner] -> [msg], Some inner 
                     | _ -> failwith "Too many arguments for Error"
                 Sequential [
-                    yield JSRuntime.Base This (Global ["Error"]) args
+                    yield Appl(Base, args, NonPure, None)
                     match inner with
                     | Some i ->
                         yield ItemSet(thisExpr, Value (String "inner"), i)

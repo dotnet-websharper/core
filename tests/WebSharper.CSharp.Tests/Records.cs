@@ -55,10 +55,10 @@ namespace WebSharper.CSharp.Tests
         [Test("C# record struct", TestKind.Skip)]
         public void RecordStruct()
         {
-            var person = new PersonStruct("Bill", "Wagner");
-            var person2 = new PersonStruct("Bill", "Wagner");
-            IsTrue(person == person2);
-            Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
+            //var person = new PersonStruct("Bill", "Wagner");
+            //var person2 = new PersonStruct("Bill", "Wagner");
+            //IsTrue(person == person2);
+            //Equal(person.ToString(), "Person { LastName = Wagner, FirstName = Bill }");
         }
 
         [Test("C# record inheritance")]
@@ -205,14 +205,14 @@ namespace WebSharper.CSharp.Tests
         public string LastName { get; set; }
     }
 
-    [JavaScript]
-    public record struct PersonStruct
-    {
-        public readonly string LastName;
-        public readonly string FirstName;
+    //[JavaScript]
+    //public record struct PersonStruct
+    //{
+    //    public readonly string LastName;
+    //    public readonly string FirstName;
 
-        public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
-    }
+    //    public PersonStruct(string first, string last) => (FirstName, LastName) = (first, last);
+    //}
 
     [JavaScript]
     public class InitOnlyTest

@@ -480,21 +480,23 @@ open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
 
-type Proxied(v: byte[]) =
+//[<JavaScript>] exception E2 of int * string
 
-    member this.Arr = v
+//type E3 [<JavaScript>] (message) =
+//    inherit exn(message)
 
-[<Proxy(typeof<Proxied>)>]
-[<Prototype(false)>]
-type private BigIntegerProxy =     
+module Test =
+    [<JavaScript>]
+    let mutable ThenTest = 0
 
-    [<Inline>]
-    static member CtorProxy (v: byte[]) =
-        let binString = string v
-        As<BigIntegerProxy> (WebSharper.JavaScript.BigInt binString)
+    [<JavaScript>]
+    type ClassC =
+        val x : int
+        val y : int
 
-    static member testThis() =
-        new Proxied([|232uy; 3uy; 0uy; 0uy|])
+        new() = { x = 1; y = 1 } 
+    
+        new(a) = ClassC() then ThenTest <- 1
 
 """
 
