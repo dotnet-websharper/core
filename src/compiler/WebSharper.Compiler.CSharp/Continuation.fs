@@ -453,10 +453,10 @@ type GeneratorTransformer(labels) =
             this.TransformMethodBodyInner s |> extract.TransformStatement
 
         Return <| Object [ 
-            "GetEnumerator", 
+            "GetEnumerator", MemberKind.Simple,
                 Function ([], true, None,
                     Block [
-                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", Function ([], true, None, Empty)])) // TODO: disposing iterators
+                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", MemberKind.Simple, Function ([], true, None, Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
                         yield! this.LocalFunctions
                         for v in extract.Vars do
@@ -523,8 +523,8 @@ type AsyncTransformer(labels, returns) =
             yield VarDeclaration(task, 
                 CopyCtor ((if returns = ReturnsResultTask then Definitions.Task1 else Definitions.Task), 
                     Object [
-                        "status", Value (Int (int System.Threading.Tasks.TaskStatus.Running))
-                        "continuations", NewArray []
+                        "status", MemberKind.Simple, Value (Int (int System.Threading.Tasks.TaskStatus.Running))
+                        "continuations", MemberKind.Simple, NewArray []
                     ]))
             yield VarDeclaration(run, Undefined)
             yield VarDeclaration(this.StateVar, Value (Int 0))

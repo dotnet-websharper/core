@@ -112,7 +112,7 @@ let Tests =
         }
 
         Test "Naming" {
-            equal (ClassB()?x()) 2    
+            equal (ClassB()?x) 2    
             equal (ClassB()?a()) 3    
         }
 

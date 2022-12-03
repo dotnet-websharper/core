@@ -86,6 +86,7 @@ let VarKind = Object "VarKind"
 let Modifiers = Object "Modifiers"
 let ApplicationInfo = Object "ApplicationInfo"
 let ClassMethodInfo = Object "ClassMethodInfo"
+let MemberKind = Object "MemberKind"
 let ClassPropertyInfo = Object "ClassPropertyInfo"
 
 let ExprDefs = 
@@ -164,8 +165,6 @@ let ExprDefs =
             , ".NET - Type check, returns bool"
         "Coerce", [ Expr, "expression"; Type, "fromType"; Type, "toType" ]
             , ".NET - Type coercion"
-        "OverrideName", [ NonGenericTypeDefinition, "typeDefinition"; NonGenericMethod, "method" ]
-            , ".NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions"
         "NewDelegate", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method" ]
             , ".NET - Creates a new delegate"
         "StatementExpr", [ Statement, "statement"; Option Id, "result" ]
@@ -194,7 +193,7 @@ let ExprDefs =
             , "Temporary - C# ref or out parameter"
         "ComplexElement", [ List Expr, "items" ]
             , "Temporary - C# complex element in initializer expression"
-        "Object", [ List (Str * Expr), "properties" ]
+        "Object", [ List (Str * MemberKind * Expr), "properties" ]
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
@@ -208,7 +207,7 @@ let ExprDefs =
             , "TypeScript - type cast <...>..."
         "ClassExpr", [ Option Id, "classId"; Option Expr, "baseClass"; List Statement, "members" ]
             , "JavaScript - class { ... }"
-        "ObjectExpr", [ Type, "objectType"; List (Tuple [Option Expr; Expr]), "members" ]
+        "ObjectExpr", [ Type, "objectType"; Option Expr, "constructor"; List (Tuple [NonGenericTypeDefinition; NonGenericMethod; Expr]), "overrides" ]
             , ".NET - F# object expression"
     ]    
 
@@ -390,6 +389,7 @@ let code =
             | List (Tuple [Object _; Id]) -> "List.map (fun (a, b) -> a, this.TransformId b) " + x 
             | List Statement -> "List.map this.TransformStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.map (fun (a, b) -> a, this.TransformExpression b) " + x
+            | List (Tuple [Object _; Object _; Expr]) -> "List.map (fun (a, b, c) -> a, b, this.TransformExpression c) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformStatement b) " + x 
             | List (Tuple [Option Expr; Expr]) -> "List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) " + x
             | List (Tuple [List (Option Expr); Statement]) -> "List.map (fun (a, b) -> List.map (Option.map this.TransformExpression) a, this.TransformStatement b) " + x
@@ -458,6 +458,7 @@ let code =
             | List (Tuple [Object _; Id]) -> "List.iter (fun (a, b) -> this.VisitId b) " + x 
             | List Statement -> "List.iter this.VisitStatement " + x
             | List (Tuple [Object _; Expr]) -> "List.iter (fun (a, b) -> this.VisitExpression b) " + x
+            | List (Tuple [Object _; Object _; Expr]) -> "List.iter (fun (a, b, c) -> this.VisitExpression c) " + x
             | List (Tuple [Option Expr; Statement]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitStatement b) " + x 
             | List (Tuple [Option Expr; Expr]) -> "List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) " + x 
             | List (Tuple [List (Option Expr); Statement]) -> "List.iter (fun (a, b) -> List.iter (Option.iter this.VisitExpression) a; this.VisitStatement b) " + x
@@ -550,6 +551,7 @@ let code =
                 | List (Tuple [Object _; Id]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + string b) " + x + ") + \"]\"" 
                 | List Statement -> "\"[\" + String.concat \"; \" (List.map PrintStatement " + x + ") + \"]\""
                 | List (Tuple [Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> string a + \", \" + PrintExpression b) " + x + ") + \"]\""
+                | List (Tuple [Object _; Object _; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b, c) -> string a + \", \" + string b + \", \" + PrintExpression c) " + x + ") + \"]\""
                 | List (Tuple [Option Expr; Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintStatement b) " + x + ") + \"]\"" 
                 | List (Tuple [Option Expr; Expr]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) \"_\" + \", \" + PrintExpression b) " + x + ") + \"]\"" 
                 | List (Tuple [List (Option Expr); Statement]) -> "\"[\" + String.concat \"; \" (List.map (fun (a, b) -> \"[\" + String.concat \"; \" (List.map (fun aa -> defaultArg (Option.map PrintExpression aa) \"_\") a) + \"], \" + PrintStatement b) " + x + ") + \"]\""

@@ -421,7 +421,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
     | S.New (a, [], b) -> 
         New(trE a, [], List.map trE b)
     | S.NewArray a -> NewArray (a |> List.map (function Some i -> trE i | _ -> Undefined))
-    | S.NewObject a -> Object(a |> List.map (fun (b, c) -> b, trE c))
+    | S.NewObject a -> Object(a |> List.map (fun (b, _, c) -> b, MemberKind.Simple, trE c))
     | S.NewRegex a -> 
         let closingSlash = a.LastIndexOf '/'
         let flags = a.[closingSlash + 1 ..] |> Seq.map (string >> String >> Value) |> List.ofSeq

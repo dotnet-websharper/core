@@ -158,9 +158,9 @@ let cleanRuntime force expr =
             | _ -> expr
         | "SetOptional", [obj; field; optValue] ->
             match optValue with
-            | Object ["$", Value (Int 0)] ->
+            | Object ["$", _, Value (Int 0)] ->
                 MutatingUnary(MutatingUnaryOperator.delete, ItemGet(obj, field, NonPure)) |> WithSourcePosOfExpr expr
-            | Object ["$", Value (Int 1); "$0", value] ->
+            | Object ["$", _, Value (Int 1); "$0", _, value] ->
                 ItemSet (obj, field, value) |> WithSourcePosOfExpr expr
             | _ -> expr     
         | "SetOrDelete", [obj; field; value] ->
@@ -177,7 +177,7 @@ let cleanRuntime force expr =
                     | NewArray [Value (String k); v] -> Some (k, v) 
                     | _ -> None)
             if withConstantKey.Length = keyValuePairs.Length then
-                Object (withConstantKey |> List.map (fun (k, v) -> k, v)) |> WithSourcePosOfExpr expr
+                Object (withConstantKey |> List.map (fun (k, v) -> k, MemberKind.Simple, v)) |> WithSourcePosOfExpr expr
             else expr
         | "DeleteEmptyFields", [Object fs; NewArray names] ->
             let toDelete = HashSet (names |> Seq.choose (function Value (String n) -> Some n | _ -> None))
@@ -195,15 +195,15 @@ let cleanRuntime force expr =
                     | LetRec (_, b) -> alwaysHasValue b     
                     | Sequential b -> alwaysHasValue (List.last b)     
                     | _ -> false    
-                for (n, v) in fs do
+                for (n, k, v) in fs do
                     if toDelete.Contains n then
                         if v = Undefined then 
                             toDelete.Remove n |> ignore
                         else
                             if alwaysHasValue v then
                                 toDelete.Remove n |> ignore
-                            remaining.Add (n, v)
-                    else remaining.Add (n, v)
+                            remaining.Add (n, k, v)
+                    else remaining.Add (n, k, v)
                 let obj = Object (List.ofSeq remaining)
                 if toDelete.Count = 0 then
                     obj
@@ -248,7 +248,7 @@ let cleanRuntime force expr =
         let mutable nonPureBefore = []
         let mutable nonPureAfter = []
         let mutable fieldValue = None
-        for n, v in fs do
+        for n, _, v in fs do
             if n = fieldName then
                 fieldValue <- Some v
             else 
@@ -291,6 +291,6 @@ let cleanRuntime force expr =
                 Sequential (List.rev (Var resVar :: nonPureAfter))
             )
     // created by FSharpRef if using record constructor
-    | Object [ "0", x ] ->
+    | Object [ "0", MemberKind.Simple, x ] ->
         NewArray [ x ]
     | _ -> expr

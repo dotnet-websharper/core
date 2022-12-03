@@ -87,7 +87,7 @@ and [<RequireQualifiedAccess>] VarKind =
     | Const
     | Let
 
-and [<RequireQualifiedAccess>] ClassMethodKind =
+and [<RequireQualifiedAccess>] MemberKind =
     | Simple
     | Getter
     | Setter
@@ -96,7 +96,7 @@ and ClassMethodInfo =
     {
         IsStatic : bool
         IsPrivate : bool
-        Kind : ClassMethodKind
+        Kind : MemberKind
     }
 
 and ClassPropertyInfo =
@@ -194,8 +194,6 @@ and Expression =
     | TypeCheck of Expression:Expression * Type:Type
     /// .NET - Type coercion
     | Coerce of Expression:Expression * FromType:Type * ToType:Type
-    /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
-    | OverrideName of TypeDefinition:TypeDefinition * Method:Method
     /// .NET - Creates a new delegate
     | NewDelegate of ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method>
     /// .NET - Statement inside an expression. Result can be an identifier for a variable which is not explicitly defined inside the statement
@@ -225,7 +223,7 @@ and Expression =
     /// Temporary - C# complex element in initializer expression
     | ComplexElement of Items:list<Expression>
     /// JavaSript object
-    | Object of Properties:list<string * Expression>
+    | Object of Properties:list<string * MemberKind * Expression>
     /// A global or imported value
     | GlobalAccess of Address:Address
     /// A global or imported value setter
@@ -239,7 +237,7 @@ and Expression =
     /// JavaScript - class { ... }
     | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement>
     /// .NET - F# object expression
-    | ObjectExpr of ObjectType:Type * Members:list<option<Expression> * Expression>
+    | ObjectExpr of ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression>
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -449,9 +447,6 @@ type Transformer() =
     /// .NET - Type coercion
     abstract TransformCoerce : Expression:Expression * FromType:Type * ToType:Type -> Expression
     override this.TransformCoerce (a, b, c) = Coerce (this.TransformExpression a, b, c)
-    /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
-    abstract TransformOverrideName : TypeDefinition:TypeDefinition * Method:Method -> Expression
-    override this.TransformOverrideName (a, b) = OverrideName (a, b)
     /// .NET - Creates a new delegate
     abstract TransformNewDelegate : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> -> Expression
     override this.TransformNewDelegate (a, b, c) = NewDelegate (Option.map this.TransformExpression a, b, c)
@@ -495,8 +490,8 @@ type Transformer() =
     abstract TransformComplexElement : Items:list<Expression> -> Expression
     override this.TransformComplexElement a = ComplexElement (List.map this.TransformExpression a)
     /// JavaSript object
-    abstract TransformObject : Properties:list<string * Expression> -> Expression
-    override this.TransformObject a = Object (List.map (fun (a, b) -> a, this.TransformExpression b) a)
+    abstract TransformObject : Properties:list<string * MemberKind * Expression> -> Expression
+    override this.TransformObject a = Object (List.map (fun (a, b, c) -> a, b, this.TransformExpression c) a)
     /// A global or imported value
     abstract TransformGlobalAccess : Address:Address -> Expression
     override this.TransformGlobalAccess a = GlobalAccess (a)
@@ -516,8 +511,8 @@ type Transformer() =
     abstract TransformClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> Expression
     override this.TransformClassExpr (a, b, c) = ClassExpr (Option.map this.TransformId a, Option.map this.TransformExpression b, List.map this.TransformStatement c)
     /// .NET - F# object expression
-    abstract TransformObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> Expression
-    override this.TransformObjectExpr (a, b) = ObjectExpr (a, List.map (fun (a, b) -> Option.map this.TransformExpression a, this.TransformExpression b) b)
+    abstract TransformObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> Expression
+    override this.TransformObjectExpr (a, b, c) = ObjectExpr (a, Option.map this.TransformExpression b, List.map (fun (a, b, c) -> a, b, this.TransformExpression c) c)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -669,7 +664,6 @@ type Transformer() =
         | Coalesce (a, b, c) -> this.TransformCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.TransformTypeCheck (a, b)
         | Coerce (a, b, c) -> this.TransformCoerce (a, b, c)
-        | OverrideName (a, b) -> this.TransformOverrideName (a, b)
         | NewDelegate (a, b, c) -> this.TransformNewDelegate (a, b, c)
         | StatementExpr (a, b) -> this.TransformStatementExpr (a, b)
         | LetRec (a, b) -> this.TransformLetRec (a, b)
@@ -691,7 +685,7 @@ type Transformer() =
         | Hole a -> this.TransformHole a
         | Cast (a, b) -> this.TransformCast (a, b)
         | ClassExpr (a, b, c) -> this.TransformClassExpr (a, b, c)
-        | ObjectExpr (a, b) -> this.TransformObjectExpr (a, b)
+        | ObjectExpr (a, b, c) -> this.TransformObjectExpr (a, b, c)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -843,9 +837,6 @@ type Visitor() =
     /// .NET - Type coercion
     abstract VisitCoerce : Expression:Expression * FromType:Type * ToType:Type -> unit
     override this.VisitCoerce (a, b, c) = this.VisitExpression a; (); ()
-    /// .NET - Looks up the JavaScript name of an override/implementation, used inside F# object expressions
-    abstract VisitOverrideName : TypeDefinition:TypeDefinition * Method:Method -> unit
-    override this.VisitOverrideName (a, b) = (); ()
     /// .NET - Creates a new delegate
     abstract VisitNewDelegate : ThisObject:option<Expression> * TypeDefinition:Concrete<TypeDefinition> * Method:Concrete<Method> -> unit
     override this.VisitNewDelegate (a, b, c) = Option.iter this.VisitExpression a; (); ()
@@ -889,8 +880,8 @@ type Visitor() =
     abstract VisitComplexElement : Items:list<Expression> -> unit
     override this.VisitComplexElement a = (List.iter this.VisitExpression a)
     /// JavaSript object
-    abstract VisitObject : Properties:list<string * Expression> -> unit
-    override this.VisitObject a = (List.iter (fun (a, b) -> this.VisitExpression b) a)
+    abstract VisitObject : Properties:list<string * MemberKind * Expression> -> unit
+    override this.VisitObject a = (List.iter (fun (a, b, c) -> this.VisitExpression c) a)
     /// A global or imported value
     abstract VisitGlobalAccess : Address:Address -> unit
     override this.VisitGlobalAccess a = (())
@@ -910,8 +901,8 @@ type Visitor() =
     abstract VisitClassExpr : ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement> -> unit
     override this.VisitClassExpr (a, b, c) = Option.iter this.VisitId a; Option.iter this.VisitExpression b; List.iter this.VisitStatement c
     /// .NET - F# object expression
-    abstract VisitObjectExpr : ObjectType:Type * Members:list<option<Expression> * Expression> -> unit
-    override this.VisitObjectExpr (a, b) = (); List.iter (fun (a, b) -> Option.iter this.VisitExpression a; this.VisitExpression b) b
+    abstract VisitObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> unit
+    override this.VisitObjectExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter (fun (a, b, c) -> this.VisitExpression c) c
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -1061,7 +1052,6 @@ type Visitor() =
         | Coalesce (a, b, c) -> this.VisitCoalesce (a, b, c)
         | TypeCheck (a, b) -> this.VisitTypeCheck (a, b)
         | Coerce (a, b, c) -> this.VisitCoerce (a, b, c)
-        | OverrideName (a, b) -> this.VisitOverrideName (a, b)
         | NewDelegate (a, b, c) -> this.VisitNewDelegate (a, b, c)
         | StatementExpr (a, b) -> this.VisitStatementExpr (a, b)
         | LetRec (a, b) -> this.VisitLetRec (a, b)
@@ -1083,7 +1073,7 @@ type Visitor() =
         | Hole a -> this.VisitHole a
         | Cast (a, b) -> this.VisitCast (a, b)
         | ClassExpr (a, b, c) -> this.VisitClassExpr (a, b, c)
-        | ObjectExpr (a, b) -> this.VisitObjectExpr (a, b)
+        | ObjectExpr (a, b, c) -> this.VisitObjectExpr (a, b, c)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1167,7 +1157,6 @@ module IgnoreSourcePos =
     let (|Coalesce|_|) x = match ignoreExprSourcePos x with Coalesce (a, b, c) -> Some (a, b, c) | _ -> None
     let (|TypeCheck|_|) x = match ignoreExprSourcePos x with TypeCheck (a, b) -> Some (a, b) | _ -> None
     let (|Coerce|_|) x = match ignoreExprSourcePos x with Coerce (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|OverrideName|_|) x = match ignoreExprSourcePos x with OverrideName (a, b) -> Some (a, b) | _ -> None
     let (|NewDelegate|_|) x = match ignoreExprSourcePos x with NewDelegate (a, b, c) -> Some (a, b, c) | _ -> None
     let (|StatementExpr|_|) x = match ignoreExprSourcePos x with StatementExpr (a, b) -> Some (a, b) | _ -> None
     let (|LetRec|_|) x = match ignoreExprSourcePos x with LetRec (a, b) -> Some (a, b) | _ -> None
@@ -1189,7 +1178,7 @@ module IgnoreSourcePos =
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
     let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c) -> Some (a, b, c) | _ -> None
-    let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b) -> Some (a, b) | _ -> None
+    let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b, c) -> Some (a, b, c) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1271,7 +1260,6 @@ module Debug =
         | Coalesce (a, b, c) -> "Coalesce" + "(" + PrintExpression a + ", " + string b + ", " + PrintExpression c + ")"
         | TypeCheck (a, b) -> "TypeCheck" + "(" + PrintExpression a + ", " + string b + ")"
         | Coerce (a, b, c) -> "Coerce" + "(" + PrintExpression a + ", " + string b + ", " + string c + ")"
-        | OverrideName (a, b) -> "OverrideName" + "(" + a.Value.FullName + ", " + string b + ")"
         | NewDelegate (a, b, c) -> "NewDelegate" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ")"
         | StatementExpr (a, b) -> "StatementExpr" + "(" + PrintStatement a + ", " + defaultArg (Option.map string b) "_" + ")"
         | LetRec (a, b) -> "LetRec" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) a) + "]" + ", " + PrintExpression b + ")"
@@ -1286,14 +1274,14 @@ module Debug =
         | NamedParameter (a, b) -> "NamedParameter" + "(" + string a + ", " + PrintExpression b + ")"
         | RefOrOutParameter a -> "RefOrOutParameter" + "(" + PrintExpression a + ")"
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
-        | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + PrintExpression b) a) + "]" + ")"
+        | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) a) + "]" + ")"
         | GlobalAccess a -> "GlobalAccess" + "(" + string a + ")"
         | GlobalAccessSet (a, b) -> "GlobalAccessSet" + "(" + string a + ", " + PrintExpression b + ")"
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + string a + ")"
         | Cast (a, b) -> "Cast" + "(" + string a + ", " + PrintExpression b + ")"
         | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
-        | ObjectExpr (a, b) -> "ObjectExpr" + "(" + string a + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> defaultArg (Option.map PrintExpression a) "_" + ", " + PrintExpression b) b) + "]" + ")"
+        | ObjectExpr (a, b, c) -> "ObjectExpr" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) c) + "]" + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""
@@ -1358,14 +1346,14 @@ module ClassMethodInfo =
         {
             IsStatic = true
             IsPrivate = false
-            Kind = ClassMethodKind.Simple
+            Kind = MemberKind.Simple
         }
 
     let SimpleInstance = 
         {
             IsStatic = false
             IsPrivate = false
-            Kind = ClassMethodKind.Simple
+            Kind = MemberKind.Simple
         }
 
 [<AutoOpen>]

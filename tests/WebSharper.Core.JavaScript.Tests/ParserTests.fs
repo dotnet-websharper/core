@@ -88,10 +88,10 @@ let Run () =
         let num s = !~ (S.Number s)
         let one   = num "1"
         p @"{}"             =? S.NewObject []
-        p @"{a: 1}"         =? S.NewObject ["a", one]
-        p @"{""a\nb"": 1}"  =? S.NewObject ["a\nb", one]
-        p @"{1.25: 1}"      =? S.NewObject ["1.25", one]
-        p "{a: 1, b: 2, }"  =? S.NewObject ["a", one; "b", num "2"]
+        p @"{a: 1}"         =? S.NewObject ["a", S.Simple, one]
+        p @"{""a\nb"": 1}"  =? S.NewObject ["a\nb", S.Simple, one]
+        p @"{1.25: 1}"      =? S.NewObject ["1.25", S.Simple, one]
+        p "{a: 1, b: 2, }"  =? S.NewObject ["a", S.Simple, one; "b", S.Simple, num "2"]
     }
 
     Test "regex" {

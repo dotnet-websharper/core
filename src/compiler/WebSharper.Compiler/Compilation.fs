@@ -1135,16 +1135,16 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.GetMethodNameAndKind (m: Method) =
         let mname = m.Value.MethodName 
         if mname.StartsWith("get_") && m.Value.Parameters.IsEmpty then
-            mname[4..], ClassMethodKind.Getter         
+            mname[4..], MemberKind.Getter         
         elif mname.StartsWith("set_") && m.Value.Parameters.Length = 1 then
-            mname[4..], ClassMethodKind.Setter                       
+            mname[4..], MemberKind.Setter                       
         else
-            mname, ClassMethodKind.Simple
+            mname, MemberKind.Simple
 
     member this.GetMemberNameAndKind (nr: NotResolvedMember) =
         match nr with
         | NotResolvedMember.Method (m, _) -> this.GetMethodNameAndKind m 
-        | _ -> "", ClassMethodKind.Simple
+        | _ -> "", MemberKind.Simple
 
     member this.Resolve () =
         
@@ -1914,8 +1914,8 @@ type Compilation(meta: Info, ?hasGraph) =
             for m in ms do
                 let uname, k = 
                     match m with
-                    | M.Constructor _ -> "New", ClassMethodKind.Simple
-                    | M.Field (fName, _) -> simplifyFieldName fName, ClassMethodKind.Simple
+                    | M.Constructor _ -> "New", MemberKind.Simple
+                    | M.Field (fName, _) -> simplifyFieldName fName, MemberKind.Simple
                     | M.Method (meth, _) ->
                         let n, k = this.GetMemberNameAndKind(m)
                         // Simplify names of active patterns
@@ -1925,7 +1925,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             let s = n.Split('.')
                             s[.. s.Length - 2] |> String.concat("_"), k
                         else n.Replace('.', '_'), k 
-                    | M.StaticConstructor _ -> "cctor", ClassMethodKind.Simple 
+                    | M.StaticConstructor _ -> "cctor", MemberKind.Simple 
                 let addr = Resolve.getRenamedStaticMemberForClass uname pr
                 nameStaticMember typ addr k m
 
@@ -1963,7 +1963,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         match m with
                         | M.Field (fName, _) -> 
                             Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some,
-                            ClassMethodKind.Simple
+                            MemberKind.Simple
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
                             let n, k = this.GetMemberNameAndKind(m)
                             Resolve.getRenamedInstanceMemberForClass (n.Replace('.', '_')) pr |> Some,
@@ -1982,16 +1982,16 @@ type Compilation(meta: Info, ?hasGraph) =
                                         None
                                 match smi with
                                 | Some (Instance (n, kind)) -> Some n, kind
-                                | None -> None, ClassMethodKind.Simple
+                                | None -> None, MemberKind.Simple
                                 | _ -> 
                                     printerrf "Abstract method must be compiled as instance member: %s in %s" (string mDef.Value) td.Value.FullName
-                                    None, ClassMethodKind.Simple
+                                    None, MemberKind.Simple
                             | _ ->
                                 printerrf "Base type not found in compilation: %s" td.Value.FullName
-                                None, ClassMethodKind.Simple
+                                None, MemberKind.Simple
                         | _ -> 
                             failwith "Invalid instance member kind"
-                            None, ClassMethodKind.Simple
+                            None, MemberKind.Simple
                     name |> Option.iter (fun n -> nameInstanceMember typ n k m)
 
         for KeyValue(typ, ms) in remainingInstanceMembers do

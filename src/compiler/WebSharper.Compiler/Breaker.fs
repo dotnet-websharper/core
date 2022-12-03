@@ -218,14 +218,14 @@ let (|ObjWithPropSetters|_|) expr =
         | [] -> List.rev acc, Undefined
         | [e] ->
             match IgnoreExprSourcePos e with
-            | PropSet (v, fv) when v = objVar -> 
-                List.rev (fv :: acc), Undefined
+            | PropSet (v, (n, o)) when v = objVar -> 
+                List.rev ((n, MemberKind.Simple, o) :: acc), Undefined
             | _ -> List.rev acc, e 
         | e :: r -> 
             match IgnoreExprSourcePos e with
             | e when isPureExpr e -> getSetters objVar acc r
-            | PropSet (v, fv) when v = objVar -> 
-                getSetters objVar (fv :: acc) r
+            | PropSet (v, (n, o)) when v = objVar -> 
+                getSetters objVar ((n, MemberKind.Simple, o) :: acc) r
             | _ -> 
                 List.rev acc, CombineExpressions p
     match expr with 
@@ -233,7 +233,7 @@ let (|ObjWithPropSetters|_|) expr =
         match getSetters objVar [] p with
         | [], _ -> None
         | setters, Var v when v = objVar -> Some (Object (objFields @ setters))
-        | setters, Undefined -> Some (CombineExpressions (List.map snd (objFields @ setters)))
+        | setters, Undefined -> Some (CombineExpressions (List.map (fun (_, _, v) -> v) (objFields @ setters)))
         | setters, res -> Some (Let (objVar, Object (objFields @ setters), res))
     | _ -> None
 
@@ -865,12 +865,12 @@ let rec breakExpr expr : Broken<BreakResult> =
                 Statements = brB.Statements |> List.map (TransformVarSets(v, fun e -> VarSet(a, e)).TransformStatement)
                 Variables = brB.Variables @ [ a ]   
             }
-    | Object [n, a] ->
-        br a |> mapBroken (fun a -> Object [n, getExpr a])
+    | Object [n, k, a] ->
+        br a |> mapBroken (fun a -> Object [n, k, getExpr a])
     | Object a ->
-        let names, values = List.unzip a
+        let names, kinds, values = List.unzip3 a
         brL values
-        |> mapBroken (fun l -> Object (List.zip names l)) 
+        |> mapBroken (fun l -> Object (List.zip3 names kinds l)) 
     | Coalesce(a, b, c) ->
         let brA = br a
         let brC = br c
@@ -924,10 +924,17 @@ let rec breakExpr expr : Broken<BreakResult> =
     | New(a, ts, b) -> 
         brL (a :: b)
         |> mapBroken2L (fun aE bE -> New (aE, ts, bE))
-    | ObjectExpr(typ, mem) ->
-        mem |> List.map snd |> brL |> mapBroken (fun m ->
-            let brMem = List.zip (mem |> List.map fst) m
-            ObjectExpr (typ, brMem)
+    | ObjectExpr(typ, ctor, ovr) ->
+        Option.toList ctor @ (ovr |> List.map (fun (_, _, e) -> e))
+        |> brL |> mapBroken (fun m ->
+            match ctor, m with
+            | Some _, brCtor :: brOvr ->
+                let brMem = List.map2 (fun (t, m, _) e -> t, m, e) ovr brOvr
+                ObjectExpr (typ, Some brCtor, brMem)
+            | _, brOvr ->
+                let brMem = List.map2 (fun (t, m, _) e -> t, m, e) ovr brOvr
+                ObjectExpr (typ, None, brMem)
+
         )
     | ClassExpr(name, baseCls, mem) ->
         ClassExpr(name, baseCls, mem |> List.map BreakStatement) |> broken

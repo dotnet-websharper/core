@@ -1288,8 +1288,10 @@ type RoslynTransformer(env: Environment) =
             | Application(ItemGet (r, Value (String "get"), _), [], _) ->
                 // when right is also a ref, this is a ref local set
                 match r, right with
-                | Var id, Object [ "get", (Function ([], true, _, Return getVal)); "set", (Function ([_], true, _, ExprStatement _)) ] ->
-                    VarSet(id, right)
+                | Var id, Object [ 
+                    "get", MemberKind.Simple, (Function ([], true, _, Return getVal)); 
+                    "set", MemberKind.Simple, (Function ([_], true, _, ExprStatement _)) ] ->
+                        VarSet(id, right)
                 | _ ->
                     withResultValue right <| SetRef r
             | Call (thisOpt, typ, getter, args) ->
@@ -1721,13 +1723,13 @@ type RoslynTransformer(env: Environment) =
         x.Initializers |> Seq.map this.TransformAnonymousObjectMemberDeclarator |> List.ofSeq
         |> Object
 
-    member this.TransformAnonymousObjectMemberDeclarator (x: AnonymousObjectMemberDeclaratorData) : string * Expression =
+    member this.TransformAnonymousObjectMemberDeclarator (x: AnonymousObjectMemberDeclaratorData) : string * MemberKind * Expression =
         let expression = x.Expression |> this.TransformExpression
         let identifierName =
             match x.NameEquals with
             | Some n -> n.Name.Node.Identifier.Text
             | None -> (x.Expression.Node :?> IdentifierNameSyntax).Identifier.Text
-        identifierName, expression
+        identifierName, MemberKind.Simple, expression
 
     member this.TransformConstructorDeclaration (x: ConstructorDeclarationData) : _ =
         let parameterList = x.ParameterList |> this.TransformParameterList

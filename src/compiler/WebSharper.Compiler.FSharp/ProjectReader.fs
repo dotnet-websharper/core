@@ -938,7 +938,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                     let gen = List.init cls.GenericParameters.Count (fun _ -> NonGenericType Definitions.Obj)
                                     GenericType caseDef gen
                                     |> Definitions.SingletonUnionCase case.CompiledName
-                                let expr = CopyCtor(def, Object [ "$", Value (Int i) ])
+                                let expr = CopyCtor(def, Object [ "$", MemberKind.Simple, Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
                                 clsMembers.Add (NotResolvedMember.Method (caseField, (getUnresolved None a N.Static false None expr)))
                                 hasSingletonCase <- true
@@ -1031,7 +1031,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 let obj = 
                     let normalFields =
                         Seq.zip (fields) vars
-                        |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, Var v))
+                        |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, MemberKind.Simple, Var v))
                         |> List.ofSeq |> Object
                     if fields |> List.exists snd then
                         let o = CodeReader.newId()

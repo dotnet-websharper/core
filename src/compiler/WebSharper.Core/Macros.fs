@@ -843,7 +843,7 @@ type New() =
         | [x] -> 
             match getFieldsList x with
             | Some xl ->
-                MacroOk <| Object (xl |> List.map (fun (n, v) -> n, v))
+                MacroOk <| Object (xl |> List.map (fun (n, v) -> n, MemberKind.Simple, v))
             | _ -> MacroFallback
         | _ -> MacroError "New macro Error"
 

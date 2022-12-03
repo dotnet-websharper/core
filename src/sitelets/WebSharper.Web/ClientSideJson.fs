@@ -605,7 +605,7 @@ module Macro =
                             | JI.NoField discrFields ->
                                 Cast(TSType.Any,
                                     discrFields
-                                    |> List.map (fun (name, id) -> name, cInt id)
+                                    |> List.map (fun (name, id) -> name, MemberKind.Simple, cInt id)
                                     |> Object
                                 )
                             | JI.StandardField -> cString "$"

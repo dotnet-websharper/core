@@ -185,6 +185,12 @@ let getUsedArgs (args: Id list) b env =
             defineId env a
     ) 
 
+let transformMemberKind k =
+    match k with
+    | MemberKind.Getter -> J.Get
+    | MemberKind.Setter -> J.Set
+    | MemberKind.Simple -> J.Simple
+
 let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trE x = transformExpr env x
     let inline trI x = transformId env x
@@ -284,7 +290,19 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingBinaryOperator.``>>>=`` -> J.Binary(trE x, J.BinaryOperator.``>>>=`` , trE z)
         | MutatingBinaryOperator.``??=``  -> J.Binary(trE x, J.BinaryOperator.``??=`` , trE z)
         | _ -> failwith "invalid MutatingBinaryOperator enum value"
-    | Object fs -> J.NewObject (fs |> List.map (fun (k, v) -> k, trE v))
+    | Object fs -> 
+        J.NewObject (
+            fs |> List.map (fun (k, mk, v) -> 
+                match mk with
+                | MemberKind.Getter 
+                | MemberKind.Setter ->
+                    match v with 
+                    | IgnoreSourcePos.Function _ -> ()
+                    | _ -> failwithf "getter/setter in object expression is not a function: %s" (Debug.PrintExpression v)
+                | _ -> ()
+                k, transformMemberKind mk, trE v
+            )
+        )
     | New (x, _, y) -> J.New(trE x, [], y |> List.map trE)
     | Sequential x ->
         let x =
@@ -575,11 +593,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
                 flattenJS [ b |> transformStatement innerEnv ]
             )
         let id = J.Id.New(n)
-        let acc =
-            match s.Kind with
-            | ClassMethodKind.Getter -> J.Get
-            | ClassMethodKind.Setter -> J.Set
-            | ClassMethodKind.Simple -> J.Simple
+        let acc = transformMemberKind s.Kind
         J.Method(s.IsStatic, acc, id, args, body)   
     | ClassConstructor (p, b, _) ->
         let innerEnv = env.NewInner()

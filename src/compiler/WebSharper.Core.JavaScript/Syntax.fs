@@ -176,7 +176,7 @@ and Expression =
     | Lambda      of option<Id> * list<Id> * list<S> * bool
     | New         of E * list<Id> * list<E>
     | NewArray    of list<option<E>>
-    | NewObject   of list<string * E>
+    | NewObject   of list<string * Accessor * E>
     | NewRegex    of Regex
     | Postfix     of E * PostfixOperator
     | This

@@ -343,7 +343,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         {
                             IsStatic = true
                             IsPrivate = false
-                            Kind = ClassMethodKind.Simple
+                            Kind = MemberKind.Simple
                         }
                     let ctorBody =
                         Return (New (This, [], Value (String name) :: (args |> List.map Var)))
@@ -501,7 +501,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
-            let tags = u.Cases |> List.mapi (fun i c -> c.Name, Value (Int i)) |> Object
+            let tags = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
             statements.Add <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
 
             let numArgs =

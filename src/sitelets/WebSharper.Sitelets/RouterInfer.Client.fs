@@ -138,7 +138,7 @@ type RoutingMacro() =
     let allJSClasses = Dictionary()
     let parsedClassEndpoints = Dictionary()
 
-    let someOf x = Object [ "$", cInt 1; "$0", x ]
+    let someOf x = Object [ "$", MemberKind.Simple, cInt 1; "$0", MemberKind.Simple, x ]
     let none = Value Null
     let optOf x =
         match x with
@@ -387,7 +387,7 @@ type RoutingMacro() =
                                             | _ -> None
                                         else None
                                     ) |> List.ofSeq
-                                let choice i x = Object [ "$", cInt i; "$0", x ] 
+                                let choice i x = Object [ "$", MemberKind.Simple, cInt i; "$0", MemberKind.Simple, x ] 
                                 let rec getAllFields td (cls: M.IClassInfo) = 
                                     let currentFields =
                                         cls.Fields |> Seq.map (fun (KeyValue(fn, f)) -> 

@@ -182,7 +182,7 @@ and objectLiteral i =
     and p1 n acc =
         let t = readRx i
         match t.Lexeme with
-        | L.Punctuator Sy.``:`` -> p2 ((n, assignExpr true i) :: acc)
+        | L.Punctuator Sy.``:`` -> p2 ((n, S.Simple, assignExpr true i) :: acc)
         | _ -> error t "Expecting ':'."
     and p2 acc =
         let t = peek i

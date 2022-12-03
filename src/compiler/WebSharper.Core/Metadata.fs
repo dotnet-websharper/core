@@ -109,8 +109,8 @@ type ParameterObject =
         | Array  a -> box (a |> Array.map ParameterObject.ToObj)
 
 type CompiledMember =
-    | Instance of name:string * kind: ClassMethodKind
-    | Static of name:string * kind: ClassMethodKind
+    | Instance of name:string * kind: MemberKind
+    | Static of name:string * kind: MemberKind
     | Func of name:string
     | GlobalFunc of address: Address
     | New of name: option<string>
@@ -207,7 +207,7 @@ type InterfaceInfo =
     {
         Address : Address
         Extends : list<Concrete<TypeDefinition>>
-        Methods : IDictionary<Method, string * ClassMethodKind * list<GenericParam>>
+        Methods : IDictionary<Method, string * MemberKind * list<GenericParam>>
         Generics : list<GenericParam>
         Type : option<TSType>
     }

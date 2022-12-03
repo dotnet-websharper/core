@@ -55,7 +55,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformCoalesce (_,_,_) = invalidForm "Coalesce"
     override this.TransformTypeCheck (_,_) = invalidForm "TypeCheck"
     override this.TransformCall (_, _, _, _) = invalidForm "Call"
-    override this.TransformObjectExpr (_, _) = invalidForm "ObjectExpr"
+    override this.TransformObjectExpr (_, _, _) = invalidForm "ObjectExpr"
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
@@ -1056,29 +1056,29 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match baseCall with
             | Some true ->
                 match kind with
-                | ClassMethodKind.Getter ->
+                | MemberKind.Getter ->
                     Base |> getItemNP name
-                | ClassMethodKind.Setter ->
+                | MemberKind.Setter ->
                     ItemSet(Base, Value (String name), trArgs()[0])
-                | ClassMethodKind.Simple ->
+                | MemberKind.Simple ->
                     ApplTyped(Base |> getItem name, trArgs(), opts.Purity, None, funcParams false)
             | _ ->
                 match kind with
-                | ClassMethodKind.Getter ->
+                | MemberKind.Getter ->
                     trThisObj() |> Option.get |> getItemNP name
-                | ClassMethodKind.Setter ->
+                | MemberKind.Setter ->
                     ItemSet(trThisObj() |> Option.get, Value (String name), trArgs()[0])
-                | ClassMethodKind.Simple ->
+                | MemberKind.Simple ->
                     ApplTyped(
                         trThisObj() |> Option.get |> getItem name,
                         trArgs(), opts.Purity, None, funcParams false) 
         | M.Static (name, kind) ->
             match kind with
-            | ClassMethodKind.Getter ->
+            | MemberKind.Getter ->
                 this.Static(typ, name)
-            | ClassMethodKind.Setter ->
+            | MemberKind.Setter ->
                 this.StaticSet(typ, name, trArgs()[0])
-            | ClassMethodKind.Simple ->
+            | MemberKind.Simple ->
                 staticCall (this.Static(typ, name))
         | M.Func name ->
             staticCall (this.Static(typ, name))
@@ -1340,11 +1340,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             match info with 
             | M.Static (name, kind) ->
                 match kind with
-                | ClassMethodKind.Getter ->
+                | MemberKind.Getter ->
                     JSRuntime.GetterOf (this.Static(typ)) name
-                | ClassMethodKind.Setter ->
+                | MemberKind.Setter ->
                     JSRuntime.SetterOf (this.Static(typ)) name      
-                | ClassMethodKind.Simple ->
+                | MemberKind.Simple ->
                     this.Static(typ, name)
             | M.Func name ->
                 this.Static(typ, name)   
@@ -1356,11 +1356,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | Some (addr, _) ->
                     let func =
                         match kind with
-                        | ClassMethodKind.Getter ->
+                        | MemberKind.Getter ->
                             JSRuntime.GetterOf (GlobalAccess addr |> getItem "prototype") name
-                        | ClassMethodKind.Setter ->
+                        | MemberKind.Setter ->
                             JSRuntime.SetterOf (GlobalAccess addr |> getItem "prototype") name      
-                        | ClassMethodKind.Simple ->
+                        | MemberKind.Simple ->
                             GlobalAccess addr |> getItem "prototype" |> getItem name
                     JSRuntime.BindDelegate func (this.TransformExpression thisObj.Value) 
                 | _ -> this.Error ("Cannot look up prototype for delegate creating")
@@ -1402,7 +1402,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (String name) :: trArgs())
         //| M.NewIndexed (i) ->
         //    New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
-        | M.Static (name, ClassMethodKind.Simple)      
+        | M.Static (name, MemberKind.Simple)      
         | M.Func name ->
             Appl(this.Static(typ, name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.GlobalFunc address ->
@@ -1471,8 +1471,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let trArgs = args |> List.map this.TransformExpression
         let plainObj =
             Object (
-                ("$", Value (Int i)) ::
-                (trArgs |> List.mapi (fun j e -> "$" + string j, e)) 
+                ("$", MemberKind.Simple, Value (Int i)) ::
+                (trArgs |> List.mapi (fun j e -> "$" + string j, MemberKind.Simple, e)) 
             )
         let objExpr =
             match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
@@ -1499,6 +1499,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 (args, fields)
                 ||> Seq.map2 (fun a f -> 
                     f.JSName,
+                    MemberKind.Simple,
                         if f.Optional then
                             let id = Id.New(mut = false)
                             Let(id, this.TransformExpression a,
@@ -1519,6 +1520,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 (args, fields, typ.Generics)
                 |||> Seq.map3 (fun a f g -> 
                     f,
+                    MemberKind.Simple,
                         if g.IsOptional then
                             let id = Id.New(mut = false)
                             Let(id, this.TransformExpression a,
@@ -1844,8 +1846,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     override this.TransformFunction(a, arr, ret, b) =
         innerScope <| fun () -> Function(a, arr, ret, this.TransformStatement b)
 
-    override this.TransformFuncWithThis(a, ret, b, c) =
-        innerScope <| fun () -> FuncWithThis(a, ret, b, this.TransformStatement c)
+    override this.TransformFuncWithThis(t, a, ret, b) =
+        let bodyWithThis = SubstituteVar(t, This).TransformStatement b
+        innerScope <| fun () -> Function(a, false, ret, this.TransformStatement bodyWithThis)
 
     override this.TransformFuncDeclaration(a, b, c, d) =
         let cc = cctorCalls
@@ -1921,54 +1924,54 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ -> ()
         Labeled(a, this.TransformStatement b)
 
-    override this.TransformOverrideName(typ, meth) =
-        match comp.LookupMethodInfo(typ, meth, false) with
-        | Compiled (M.Instance (name, kind), _, _, _) 
-        | Compiling ((NotCompiled ((M.Instance (name, kind)), _, _, _) | NotGenerated (_,_,M.Instance (name, kind), _, _)), _, _) ->
-            Value (String name)
-        | LookupMemberError err ->
-            this.Error err
-        | _ -> 
-            this.Error ("Could not get name of abstract method")
-
-    override this.TransformObjectExpr(typ, members) =
+    override this.TransformObjectExpr(typ, ctor, ovr) =
+        let getOverrideNameAndKind typ meth =
+            match comp.LookupMethodInfo(typ, meth, false) with
+            | Compiled (M.Instance (name, kind), _, _, _) 
+            | Compiling ((NotCompiled ((M.Instance (name, kind)), _, _, _) | NotGenerated (_,_,M.Instance (name, kind), _, _)), _, _) ->
+                name, kind
+            | LookupMemberError err ->
+                this.Error err |> ignore
+                "$$ERROR$$", MemberKind.Simple
+            | _ -> 
+                this.Error ("Could not get name of abstract method") |> ignore
+                "$$ERROR$$", MemberKind.Simple
         match comp.TryLookupClassInfo(typ.TypeDefinition) with
         | Some (addr, _) ->
-            let mem =
-                members |> List.map (
-                    function 
-                    | Some m, e ->                    
-                        let name =
-                            match this.TransformExpression(m) with
-                            | Value (String n) -> n
-                            | _ -> failwith "Unexpected expression for method name in F# object expression"
+            let trCtor = 
+                ctor |> Option.map (fun e ->
+                    ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
+                )
+            let instanceInfo kind =
+                {
+                    IsStatic = false
+                    IsPrivate = false
+                    Kind = kind
+                }
+            let trOvr =
+                ovr |> List.map (
+                    fun (t, m, e) ->                    
+                        let name, kind = getOverrideNameAndKind t m
                         match e with 
                         | FuncWithThis (thisParam, pars, ret, body) ->
-                            ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                            let bodyWithThis = SubstituteVar(thisParam, This).TransformStatement body
+                            ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement bodyWithThis), TSType.Any) // TODO signature
                         | Function (pars, _, ret, body) ->
-                            ClassMethod(ClassMethodInfo.SimpleInstance, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                            ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
-                    | None, e ->
-                        ClassConstructor([], Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
                 )
-            New(ClassExpr(None, Some (GlobalAccess addr), mem), [], [])
-
+            New(ClassExpr(None, Some (GlobalAccess addr), Option.toList trCtor @ trOvr), [], [])
         | None -> 
-            let ctorExpr, memExprs =
-                members |> List.partition (fst >> Option.isNone)
             let obj =                
                 Object (
-                    memExprs |> List.map (fun (m, e) ->
-                        let name =
-                            match this.TransformExpression(m.Value) with
-                            | Value (String n) -> n
-                            | _ -> failwith "Unexpected expression for method name in F# object expression"
-                        name, this.TransformExpression e
+                    ovr |> List.map (fun (t, m, e) ->
+                        let name, kind = getOverrideNameAndKind t m
+                        name, kind, this.TransformExpression e
                     )
                 )
-            match ctorExpr with 
-            | [] -> obj
-            | (_, c) :: _ ->
+            match ctor with 
+            | None -> obj
+            | Some c ->
                 let r = Id.New(mut = false, typ = typ)
                 Let (r, obj, 
                     Sequential [

@@ -213,6 +213,9 @@ let QuoteString (s: string) =
     buf.Append '"' |> ignore
     string buf
 
+let BracketString (s: string) =
+    "[" + QuoteString s + "]"
+
 let ListLayout separator brush items =
     match items with
     | [] -> Empty
@@ -262,7 +265,7 @@ let rec Id (id: S.Id) =
 
 and IdOrString (id: S.Id) =
     let priv = if id.IsPrivate then "#" else ""
-    if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (QuoteString (priv + id.Name))
+    if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (BracketString (priv + id.Name))
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
@@ -364,17 +367,26 @@ and Expression (expression) =
     | S.NewObject [] ->
         Token "{}"
     | S.NewObject fields ->
-        let pair (k, v) =
-            Token (if Identifier.IsValid k then k else QuoteString k)
-            ++ Token ":"
-            ++ AssignmentExpression v
+        let mem (k, a, v) =
+            match v with 
+            | S.IgnoreEPos (S.Lambda (_, args, body, false)) -> 
+                Accessor a
+                ++ Word (if Identifier.IsValid k then k else BracketString k)
+                ++ Parens (CommaSeparated Id args) 
+                ++ BlockLayout (List.map (Statement true) body)
+            | _ ->
+                if a <> S.Simple then 
+                    failwithf "Unexpected: non-function used as getter or setter: %A" v
+                Token (if Identifier.IsValid k then k else QuoteString k)
+                ++ Token ":"
+                ++ AssignmentExpression v
         if fields.Length <= 2 then
             Token "{"
-            ++ ListLayout (fun a b -> a ++ Token ", " ++ b) pair fields
+            ++ ListLayout (fun a b -> a ++ Token ", " ++ b) mem fields
             ++ Token "}"
         else
             Token "{"
-            -- Indent (ListLayout (fun a b -> a ++ Token ", " -- b) pair fields)
+            -- Indent (ListLayout (fun a b -> a ++ Token ", " -- b) mem fields)
             -- Token "}"
     | S.Postfix (x, op) ->
         ParensExpression PostfixOperatorPrecedence x
@@ -630,7 +642,7 @@ and Member isClass mem =
         ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Property (s, n, v) ->
         Conditional (Word "static") s
-        ++ Id n
+        ++ IdOrString n
         ++ Optional (fun v -> Token "=" ++ Expression v) v
         ++ Token ";"
     | S.Static body ->

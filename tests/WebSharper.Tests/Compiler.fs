@@ -85,9 +85,9 @@ module Server =
             | _ -> false
 
             testWithMatch <@ Optimizations.CollectJSObject() @> <| function
-            | Function (_, _, _, Return (Object ["a", MayCastAny (Value (Int 1));
-                                                 "b", MayCastAny (Sequential [_; Value (Int 2)]);
-                                                 "c", MayCastAny (Sequential [_; Value (Int 3)]);
+            | Function (_, _, _, Return (Object ["a", MemberKind.Simple, MayCastAny (Value (Int 1));
+                                                 "b", MemberKind.Simple, MayCastAny (Sequential [_; Value (Int 2)]);
+                                                 "c", MemberKind.Simple, MayCastAny (Sequential [_; Value (Int 3)]);
                                                 ])) -> true
             | _ -> false
 

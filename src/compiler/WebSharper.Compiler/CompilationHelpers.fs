@@ -55,7 +55,7 @@ let rec removePureParts expr =
     | ExprSourcePos (p, a)
         -> ExprSourcePos (p, removePureParts a)     
     | Object a 
-        -> a |> List.map (snd >> removePureParts) |> CombineExpressions
+        -> a |> List.map (fun (_, _, v) -> removePureParts v) |> CombineExpressions
     | LetRec (a, b) 
         -> LetRec (a, removePureParts b)
     | Application(a, b, { Purity = NoSideEffect | Pure }) ->
@@ -90,7 +90,7 @@ let rec isPureExpr expr =
     | Coerce (a, _, _)
         -> isPureExpr a     
     | Object a 
-        -> List.forall (snd >> isPureExpr) a 
+        -> List.forall (fun (_, _, v) -> isPureExpr v) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isPureExpr) a && isPureExpr b
     | Application(a, b, { Purity = NoSideEffect | Pure }) ->
@@ -163,7 +163,7 @@ let rec isStronglyPureExpr expr =
     | Coerce (a, _, _)
         -> isStronglyPureExpr a     
     | Object a 
-        -> List.forall (snd >> isStronglyPureExpr) a 
+        -> List.forall (fun (_, _, v) -> isStronglyPureExpr v) a 
     | LetRec (a, b) 
         -> List.forall (snd >> isStronglyPureExpr) a && isStronglyPureExpr b
     | Application(a, b, { Purity = Pure }) ->
@@ -312,7 +312,6 @@ let varEvalOrder (vars : Id list) expr =
             | Value _
             | Self
             | GlobalAccess _
-            | OverrideName _
                 -> ()
             | Sequential a
             | NewArray a ->
@@ -350,7 +349,7 @@ let varEvalOrder (vars : Id list) expr =
             | Coerce (a, _, _)
                 -> eval a
             | Object a 
-                -> List.iter (snd >> eval) a 
+                -> List.iter (fun (_, _, v) -> eval v) a 
             | Var a ->
                 if watchedVars.Contains a then
                     match vars with
@@ -582,11 +581,49 @@ type TransformBaseCall(f) =
         | _ ->
             base.TransformApplication(a, b, c)
    
+type RestoreThis(thisArg) =
+    inherit Transformer()
+    let mutable needsVar = false
+    let mutable scope = 0
+
+    member this.NeedsVar = needsVar
+
+    override this.TransformFuncDeclaration(id, args, body, gen) =
+        scope <- scope + 1
+        let res = base.TransformFuncDeclaration(id, args, body, gen)
+        scope <- scope - 1
+        res
+
+    override this.TransformFunction(args, isArrow, typ, body) =
+        if isArrow then
+            base.TransformFunction(args, isArrow, typ, body)    
+        else
+            scope <- scope + 1
+            let res = base.TransformFunction(args, isArrow, typ, body)
+            scope <- scope - 1
+            res
+
+    override this.TransformVar v =
+        if v = thisArg then
+            if scope = 0 then 
+                This
+            else
+                needsVar <- true
+                Var v
+        else 
+            Var v
+
 type FixThisScope(thisTyp) =
     inherit Transformer()
     let mutable scope = 0
     let mutable thisVar = None
     let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
+
+    override this.TransformFuncDeclaration(id, args, body, gen) =
+        scope <- scope + 1
+        let res = base.TransformFuncDeclaration(id, args, body, gen)
+        scope <- scope - 1
+        res
 
     override this.TransformFunction(args, isArrow, typ, body) =
         if isArrow then
@@ -604,9 +641,14 @@ type FixThisScope(thisTyp) =
         let trBody = this.TransformStatement body
         scope <- scope - 1
         if !used then
-            Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
+            let r = RestoreThis(thisArg)
+            let trBody = r.TransformStatement trBody
+            if r.NeedsVar then
+                Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
+            else
+                Function(args, false, typ, trBody)
         else
-            Function(args, true, typ, trBody)
+            Function(args, false, typ, trBody)
     
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
@@ -885,15 +927,15 @@ module Resolve =
     let rec getRenamed name (s: HashSet<string>) =
         if s.Add name then name else getRenamed (newName name) s
 
-    let rec getRenamedWithKind name kind (s: HashSet<string * ClassMethodKind>) =
+    let rec getRenamedWithKind name kind (s: HashSet<string * MemberKind>) =
         let hasConflict = 
             match kind with
-            | ClassMethodKind.Simple ->
-                s.Contains (name, ClassMethodKind.Simple) 
-                || s.Contains (name, ClassMethodKind.Getter) 
-                || s.Contains (name, ClassMethodKind.Setter)
+            | MemberKind.Simple ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, MemberKind.Getter) 
+                || s.Contains (name, MemberKind.Setter)
             | _ ->
-                s.Contains (name, ClassMethodKind.Simple) 
+                s.Contains (name, MemberKind.Simple) 
                 || s.Contains (name, kind) 
         if hasConflict then 
             getRenamedWithKind (newName name) kind s

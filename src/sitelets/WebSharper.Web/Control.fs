@@ -323,7 +323,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
             match meta.Classes.TryFind declType with
             | Some (clsAddr, _, Some cls) ->
                 match cls.Methods.TryFind meth with
-                | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
+                | Some (M.Static (a, AST.MemberKind.Simple), _, _, _) ->
                     funcName <- [| "default"; a |]
                     match clsAddr.Module with
                     | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
@@ -435,7 +435,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     match meta.Classes.TryFind declType with
                     | Some (clsAddr, _, Some cls) ->
                         match cls.Methods.TryFind meth with
-                        | Some (M.Static (a, AST.ClassMethodKind.Simple), _, _, _) ->
+                        | Some (M.Static (a, AST.MemberKind.Simple), _, _, _) ->
                             funcName <- [| "default"; a |]
                             match clsAddr.Module with
                             | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
