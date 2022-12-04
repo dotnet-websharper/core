@@ -59,10 +59,13 @@ let AppItem (obj, item, args) =
     ApplAny(ItemGet(obj, Value (String item), Pure), args)
 
 let func vars ret body isReturn =
-    if isReturn then Function(vars, false, ret, Return body) else Function(vars, false, ret, ExprStatement body)
+    if isReturn then 
+        Function(vars, false, ret, Return body) 
+    else 
+        Function(vars, false, ret, ExprStatement body)
 
 let thisFunc (this: Id) vars ret body isReturn =
-    func vars ret (FixThisScope(this.VarType).Fix(SubstituteVar(this, This).TransformExpression(body))) isReturn
+    func vars ret (Sequential [ NewVar(this, This); body ]) isReturn
 
 let globalArray = Address.Lib "Array"
 

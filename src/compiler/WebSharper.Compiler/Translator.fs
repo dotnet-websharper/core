@@ -445,6 +445,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     let mutable selfAddress = None
     let mutable currentNode = M.AssemblyNode ("", false, false) // placeholder
     let mutable currentIsInline = false
+    let mutable thisVar = None
+    let mutable thisVarNotFound = false
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None
     let mutable currentJsOpts = JavaScriptOptions.None
@@ -700,6 +702,16 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      
+    member this.AddThisAliasIfNeeded(expr) =
+        if thisVarNotFound then
+            match expr with
+            | I.Function (args, isArrow, ret, body) ->
+                Function (args, isArrow, ret, Block [ VarDeclaration(thisVar.Value, This); body ])
+            | _ ->
+                expr
+        else
+            expr
+
     member this.CompileMethod(info, gs, expr, typ, meth) =
         try
             currentNode <- M.MethodNode(typ, meth) 
@@ -722,7 +734,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | NotCompiled (i, notVirtual, opts, jsOpts) ->
                 currentFuncArgs <- opts.FuncArgs
                 currentJsOpts <- jsOpts
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
+                thisVar <- GetThisVar().Get(expr)
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.AddThisAliasIfNeeded
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
@@ -757,7 +770,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             currentIsInline <- isInline info
             match info with
             | NotCompiled (i, _, _, jsOpts) -> 
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
+                thisVar <- GetThisVar().Get(expr)
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.AddThisAliasIfNeeded
                 let res = this.CheckResult(res)
                 comp.AddCompiledImplementation(typ, intf, meth, i, res)
             | NotGenerated (g, p, i, _, _) ->
@@ -788,7 +802,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | NotCompiled (i, _, opts, jsOpts) -> 
                 currentFuncArgs <- opts.FuncArgs
                 currentJsOpts <- jsOpts
-                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
+                thisVar <- GetThisVar().Get(expr)
+                let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr |> this.AddThisAliasIfNeeded
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
@@ -1732,9 +1747,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | None -> norm
             | Some _ -> def()
         else def()
-        |> fun res ->
-            printfn "TransformChainedCtor %s" (Debug.PrintExpression res)
-            res
         
         //let norm = this.TransformCtor(typ, ctor, args)
         //let baseAddr() =
@@ -1936,6 +1948,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> 
                 this.Error ("Could not get name of abstract method") |> ignore
                 "$$ERROR$$", MemberKind.Simple
+        let getOrAddThisVar() =
+            match thisVar with 
+            | Some t -> t
+            | _ -> 
+                thisVarNotFound <- true
+                let t = Id.New ("$this", mut = false) //, ?typ = thisTyp)
+                thisVar <- Some t
+                t
         match comp.TryLookupClassInfo(typ.TypeDefinition) with
         | Some (addr, _) ->
             let trCtor = 
@@ -1953,11 +1973,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     fun (t, m, e) ->                    
                         let name, kind = getOverrideNameAndKind t m
                         match e with 
-                        | FuncWithThis (thisParam, pars, ret, body) ->
-                            let bodyWithThis = SubstituteVar(thisParam, This).TransformStatement body
-                            ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement bodyWithThis), TSType.Any) // TODO signature
-                        | Function (pars, _, ret, body) ->
-                            ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
+                        //| FuncWithThis (thisParam, pars, ret, body) ->
+                        //    let bodyWithThis = SubstituteVar(thisParam, This).TransformStatement body
+                        //    ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement bodyWithThis), TSType.Any) // TODO signature
+                        | Function (pars, isArrow, ret, body) ->
+                            if isArrow then
+                                // arrow function need to be transformed
+                                let t = getOrAddThisVar()
+                                let trBody = AddThisVar(t).TransformStatement(this.TransformStatement body)
+                                printfn "transformed arrow func body: %s ---> %s" (Debug.PrintStatement body) (Debug.PrintStatement trBody)
+                                ClassMethod(instanceInfo kind, name, pars, Some trBody, TSType.Any) // TODO signature
+                            else
+                                ClassMethod(instanceInfo kind, name, pars, Some (this.TransformStatement body), TSType.Any) // TODO signature
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                 )
             New(ClassExpr(None, Some (GlobalAccess addr), Option.toList trCtor @ trOvr), [], [])
@@ -1966,7 +1993,17 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 Object (
                     ovr |> List.map (fun (t, m, e) ->
                         let name, kind = getOverrideNameAndKind t m
-                        name, kind, this.TransformExpression e
+                        match e with
+                        | Function (pars, isArrow, ret, body) ->
+                            if isArrow then //&& kind <> MemberKind.Simple then
+                                // arrow function need to be transformed
+                                let t = getOrAddThisVar()
+                                let trBody = AddThisVar(t).TransformStatement(this.TransformStatement body)
+                                printfn "transformed arrow func body: %s ---> %s" (Debug.PrintStatement body) (Debug.PrintStatement trBody)
+                                name, kind, Function(pars, false, ret, trBody)
+                            else
+                                name, kind, this.TransformExpression e
+                        | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                     )
                 )
             match ctor with 

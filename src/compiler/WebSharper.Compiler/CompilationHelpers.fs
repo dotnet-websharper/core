@@ -121,10 +121,34 @@ let rec isTrivialValue expr =
         not v.IsMutable
     | ExprSourcePos (_, a) ->
         isTrivialValue a
-    | Function (args, _, _, (I.Empty | I.Block [])) -> true
-    | Function (args, _, _, (I.Return body)) ->
-        isTrivialValue body || isTrivialFunction args body
+    //| Function (args, _, _, (I.Empty | I.Block [])) -> true
+    //| Function (args, _, _, (I.Return body)) ->
+    //    isTrivialValue body || isTrivialFunction args body
     | _ -> false
+
+type ThisNotUsed() =
+    inherit Visitor()
+
+    let mutable ok = true
+    
+    override this.VisitThis() =
+        ok <- false
+
+    override this.VisitExpression(e) =
+        if ok then
+            base.VisitExpression(e) 
+
+    override this.VisitFuncDeclaration(i, p, b, g) =
+        ()
+
+    override this.VisitFunction(a, isArrow, t, b) =
+        if isArrow then
+            base.VisitFunction(a, isArrow, t, b)
+
+    member this.GetSt(s) =
+        ok <- true
+        this.VisitStatement(s) 
+        ok
 
 /// Determine if expression has no side effect and value does not depend on execution order
 let rec isStronglyPureExpr expr =
@@ -133,10 +157,12 @@ let rec isStronglyPureExpr expr =
     | This
     | Base
     | Value _
-    | Function _ 
+    | Function (_, false, _, _) 
     | GlobalAccess _
     | Self
         -> true
+    | Function (_, true, _, body) ->
+        ThisNotUsed().GetSt(body)
     | Var v ->
         not v.IsMutable
     | Sequential a 
@@ -208,6 +234,11 @@ type private NotMutatedOrCaptured(v, ?allowApplication) =
         | _ ->
             this.VisitExpression a
             this.VisitExpression b
+
+    override this.VisitFuncDeclaration(i, p, b, g) =
+        scope <- scope + 1
+        base.VisitFuncDeclaration(i, p, b, g)
+        scope <- scope - 1
 
     override this.VisitFunction(a, i, t, b) =
         scope <- scope + 1
@@ -580,38 +611,6 @@ type TransformBaseCall(f) =
             f b
         | _ ->
             base.TransformApplication(a, b, c)
-   
-type RestoreThis(thisArg) =
-    inherit Transformer()
-    let mutable needsVar = false
-    let mutable scope = 0
-
-    member this.NeedsVar = needsVar
-
-    override this.TransformFuncDeclaration(id, args, body, gen) =
-        scope <- scope + 1
-        let res = base.TransformFuncDeclaration(id, args, body, gen)
-        scope <- scope - 1
-        res
-
-    override this.TransformFunction(args, isArrow, typ, body) =
-        if isArrow then
-            base.TransformFunction(args, isArrow, typ, body)    
-        else
-            scope <- scope + 1
-            let res = base.TransformFunction(args, isArrow, typ, body)
-            scope <- scope - 1
-            res
-
-    override this.TransformVar v =
-        if v = thisArg then
-            if scope = 0 then 
-                This
-            else
-                needsVar <- true
-                Var v
-        else 
-            Var v
 
 type FixThisScope(thisTyp) =
     inherit Transformer()
@@ -634,22 +633,17 @@ type FixThisScope(thisTyp) =
             scope <- scope - 1
             res
      
-    override this.TransformFuncWithThis (thisArg, args, typ, body) =
+    override this.TransformFuncWithThis(thisArg, args, typ, body) =
         scope <- scope + 1
         let used = ref false
         thisArgs.Add(thisArg, (scope, used))
         let trBody = this.TransformStatement body
         scope <- scope - 1
         if !used then
-            let r = RestoreThis(thisArg)
-            let trBody = r.TransformStatement trBody
-            if r.NeedsVar then
-                Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
-            else
-                Function(args, false, typ, trBody)
+            Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
         else
             Function(args, false, typ, trBody)
-    
+
     member this.Fix(expr) =
         let b = this.TransformExpression(expr)
         match thisVar with
@@ -680,6 +674,69 @@ type FixThisScope(thisTyp) =
                 Var v
             else This
         | _ -> Var v
+
+type GetThisVar() =
+    inherit StatementVisitor()
+
+    let mutable thisVar = None
+
+    override this.VisitFuncDeclaration(_, _, _, _) =
+        ()
+
+    override this.VisitVarDeclaration(i, v) =
+        if v = This && thisVar.IsNone then 
+            thisVar <- Some i
+
+    member this.Get(expr: Expression) =
+        match expr with
+        | I.Function (_, _, _, (I.Return (I.Let(i, This, _)) | I.ExprStatement (I.Let(i, This, _)))) ->
+            thisVar <- Some i
+        | I.Function (_, _, _, body) ->
+            this.VisitStatement body
+        | _ -> ()
+        thisVar
+
+type AddThisVar(thisVar) =
+    inherit Transformer()
+
+    let mutable rootScope = true
+    let mutable alias = None
+
+    override this.TransformFuncDeclaration(id, args, body, gen) =
+        let rs = rootScope
+        rootScope <- false
+        let res = base.TransformFuncDeclaration(id, args, body, gen)
+        rootScope <- rs
+        res
+
+    override this.TransformFunction(args, isArrow, typ, body) =
+        if isArrow then
+            base.TransformFunction(args, isArrow, typ, body)    
+        else
+            let rs = rootScope
+            rootScope <- false
+            let res = base.TransformFunction(args, isArrow, typ, body)
+            rootScope <- rs
+            res
+
+    override this.TransformVarDeclaration(i, v) =
+        if rootScope && v = This && alias.IsNone then
+            alias <- Some i
+            Empty
+        else
+            base.TransformVarDeclaration(i, v)
+
+    override this.TransformThis() =
+        if rootScope then 
+            Var thisVar
+        else
+            This
+
+    override this.TransformVar(i) =
+        if alias.IsSome && i = alias.Value then
+            Var thisVar
+        else 
+            Var i
 
 type ReplaceThisWithVar(v) =
     inherit Transformer()

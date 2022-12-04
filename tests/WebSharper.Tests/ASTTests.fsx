@@ -479,34 +479,25 @@ namespace WebSharper.Tests
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.Testing
+open System
 
-//[<JavaScript>] exception E2 of int * string
+module Disposable =
+    [<JavaScript; Inline>]
+    let Of (dispose: unit -> unit) : IDisposable =
+        { new System.IDisposable with member this.Dispose() = dispose() }
 
-//type E3 [<JavaScript>] (message) =
-//    inherit exn(message)
+[<JavaScript>]
+type Event() =
 
-module Test =
-    [<JavaScript>]
-    let mutable ThenTest = 0
+    member this.RemoveHandler() =
+        ()
 
-    [<JavaScript>]
-    type ClassC =
-        val x : int
-        val y : int
-
-        new() = { x = 1; y = 1 } 
-    
-        new(a) = ClassC() then ThenTest <- 1
+    member this.Subscribe() =
+        Disposable.Of (fun () -> this.RemoveHandler())
 
 """
 
-let a() = 1
 
-let arr =
-    [|
-        1
-        (if a() = 1 then a() else a())
-    |]
 
 //translate """
 //module M

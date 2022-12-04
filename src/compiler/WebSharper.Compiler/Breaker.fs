@@ -308,10 +308,18 @@ let rec removeLets expr =
         | 1 -> 
             let notmut() =
                 match b with
-                | I.Function _ -> notMutatedOrCapturedExceptAppl a c
+                | I.Function (_, isArrow, _, body) -> 
+                    if isArrow && not (ThisNotUsed().GetSt(body)) then
+                        notMutatedOrCaptured a c   
+                    else
+                        notMutatedOrCapturedExceptAppl a c
                 | _ -> notMutatedOrCaptured a c
             if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
-                SubstituteVar(a, b).TransformExpression(c)
+                let res = SubstituteVar(a, b).TransformExpression(c)
+                //printfn "isStronglyPureExpr=%b isTrivialValue=%b notmut=%b" (isStronglyPureExpr b) (isTrivialValue b) (notmut())
+                printfn "notmut=%b: %s into %s" (notmut()) (Debug.PrintExpression b) (Debug.PrintExpression c)
+                printfn "SubstituteVar1: %s" (Debug.PrintExpression res)
+                res
             else
                 let accVars = HashSet [a]
                 let rec collectVars acc expr =
@@ -322,7 +330,9 @@ let rec removeLets expr =
                     | _ -> List.rev acc, expr
                 let varsAndVals, innerExpr = collectVars [a, b] c 
                 if varEvalOrder (varsAndVals |> List.map fst) innerExpr then
-                    SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
+                    let res = SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
+                    printfn "SubstituteVar2: %s" (Debug.PrintExpression res)
+                    res
                 else 
                     expr
         | _ -> 
@@ -776,7 +786,9 @@ let rec breakExpr expr : Broken<BreakResult> =
                         Some c    
                     else None
                 match inlined with
-                | Some i -> br i
+                | Some i -> 
+                    printfn "Inlined let %s" (Debug.PrintExpression i)
+                    br i
                 | _ ->
                     let brC = br c 
                     if hasNoStatements brC then
