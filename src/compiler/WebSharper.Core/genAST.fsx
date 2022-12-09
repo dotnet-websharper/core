@@ -93,10 +93,10 @@ let ExprDefs =
     [
         "Undefined", []
             , "JavaScript `undefined` value or `void` in .NET"
-        "This", []
-            , "The `this` value of current JavaScript function scope"
-        "Arguments", []
-            , "The `arguments` value of current JavaScript function scope"
+        //"This", []
+        //    , "The `this` value of current JavaScript function scope"
+        //"Arguments", []
+        //    , "The `arguments` value of current JavaScript function scope"
         "Var", [ Id, "variable"]
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
@@ -107,7 +107,7 @@ let ExprDefs =
                the expression is the same as evaluating `func` then the expressions in the `arguments` list. \
                The `KnownLength` field should be `Some x` only when the function is known to have `x` number of arguments \
                and does not use the `this` value."
-        "Function", [ List Id, "parameters"; Bool, "isArrow"; Option Type, "return"; Statement, "body" ]
+        "Function", [ List Id, "parameters"; Option Id, "thisVar"; Option Type, "return"; Statement, "body" ]
             , "Function declaration"
         "VarSet", [ Id, "variable"; Expr, "value" ]
             , "Variable set"
@@ -131,10 +131,10 @@ let ExprDefs =
             , "Unary operation mutating value"
         "ExprSourcePos", [ Object "SourcePos", "range"; Expr, "expression" ]
             , "Original source location for an expression"
-        "FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
-            , "Temporary - Method of F# object expressions"
+        //"FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
+        //    , "Temporary - Method of F# object expressions"
         "Self", []
-            , "Temporary - Refers to the class from a static method"
+            , "Temporary - Refers to the class from a static method or constructor"
         "Base", []
             , "Refers to the base class from an instance method, `super` in JavaScript"
         "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
@@ -147,7 +147,7 @@ let ExprDefs =
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
             , ".NET - Constructor call"
-        "ChainedCtor", [ Bool, "isBase"; Option Id, "thisVar"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
+        "ChainedCtor", [ Bool, "isBase"; TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ]
             , ".NET - Chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
             , ".NET - Creating an object from a plain object"
@@ -227,7 +227,7 @@ let StatementDefs =
             , "Block of statements"
         "VarDeclaration", [ Id, "variable"; Expr, "value" ]
             , "Variable declaration"
-        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Statement, "body"; List TSType, "generics" ]
+        "FuncDeclaration", [ Id, "funcId"; List Id, "parameters"; Option Id, "thisVar"; Statement, "body"; List TSType, "generics" ]
             , "Function declaration"
         "While", [ Expr, "condition"; Statement, "body" ]
             , "'while' loop"
@@ -279,9 +279,9 @@ let StatementDefs =
             , "TypeScript - namespace { ... }"
         "Class", [ Id, "classId"; Option Expr, "baseClass"; List TSType, "implementations"; List Statement, "members"; List TSType, "generics" ]
             , "JavaScript - class { ... }"
-        "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Statement, "body"; TSType, "signature" ]
+        "ClassMethod", [ ClassMethodInfo, "info"; Str, "name"; List Id, "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript - class method"
-        "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Statement, "body"; TSType, "signature" ]
+        "ClassConstructor", [ List (Tuple [Id; Modifiers]), "parameters"; Option Id, "thisVar"; Option Statement, "body"; TSType, "signature" ]
             , "JavaScript - class method"
         "ClassProperty", [ ClassPropertyInfo, "info"; Str, "name"; TSType, "propertyType"; Option Expr, "value" ]
             , "JavaScript - class plain property"

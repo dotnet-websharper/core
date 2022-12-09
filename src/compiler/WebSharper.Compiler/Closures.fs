@@ -32,7 +32,7 @@ type CollectVariables() =
 
     let vars = ResizeArray()
 
-    override this.VisitFuncDeclaration(f, _, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _, _) =
         vars.Add f
 
     override this.VisitVarDeclaration(v, _) =
@@ -114,30 +114,30 @@ type ExamineClosures (logger: LoggerBase, comp: Compilation, moveNonCapturingFun
                 this.Warning(pos, "This function do not use all retained variables through capture: " + names)    
         res
 
-    override this.TransformFuncDeclaration(f, args, body, gen) =
+    override this.TransformFuncDeclaration(f, args, thisVar, body, gen) =
         // top scope is not a named function
         this.EnterScope(args, body)
-        let res = base.TransformFuncDeclaration(f, args, body, gen)
+        let res = base.TransformFuncDeclaration(f, args, thisVar, body, gen)
         if this.ExitScope(f) then
             movedToTop.Add(res)  
             Empty  
         else res
 
-    override this.TransformFunction(args, arr, ret, body) =
+    override this.TransformFunction(args, thisVar, ret, body) =
         if outerScope then
             outerScope <- false
             CollectVariables.ScopeVars(body) |> Seq.iter (topScopeVars.Add >> ignore)
             let trBody = this.TransformStatement body
             outerScope <- true
-            Function(args, arr, ret, CombineStatements (trBody :: List.ofSeq movedToTop))
+            Function(args, thisVar, ret, CombineStatements (trBody :: List.ofSeq movedToTop))
         else
             this.EnterScope(args, body)
             let trBody = this.TransformStatement body
             if this.ExitScope() then
                 let f = Id.New("f", mut = false)
-                movedToTop.Add(FuncDeclaration(f, args, body, []))
+                movedToTop.Add(FuncDeclaration(f, args, thisVar, body, []))
                 Var f
-            else Function(args, arr, ret, trBody)
+            else Function(args, thisVar, ret, trBody)
 
     override this.TransformId(i) =
         match scopeChain with

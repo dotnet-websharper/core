@@ -1278,11 +1278,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         mi.Kind <- NotResolvedMemberKind.AsStatic         
                         mi.Body <- 
                             match mi.Body with
-                            | Function(args, _, typ, b) ->
-                                let thisVar = Id.New("$this", mut = false)
-                                Function (thisVar :: args, false, typ,
-                                    ReplaceThisWithVar(thisVar).TransformStatement(b) 
-                                )
+                            | Function(args, thisVar, typ, b) ->
+                                let thisVar = thisVar |> Option.defaultWith (fun () -> Id.NewThis())
+                                Function (thisVar :: args, None, typ, b)
                             | _ ->
                                 failwith "Unexpected: instance member not a function"
                     | _ -> ()

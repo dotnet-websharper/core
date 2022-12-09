@@ -63,7 +63,7 @@ let readReflected (comp: ICompilation) (m: MethodBase) =
             match expr with
             | Patterns.Lambda (arg, body) ->
                 let i = Id.New(arg.Name, false)
-                env.AddVar(i, arg, QR.ThisArg)
+                env.AddVar(i, arg)
                 decurry [] restCurr body
             | _ ->
                 failwithf "Expecting a lambda while decurrying 'this' argument of a ReflectedDefinition quotation: %A currying info %A" expr curryingInfo

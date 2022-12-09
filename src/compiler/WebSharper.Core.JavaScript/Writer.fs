@@ -258,14 +258,16 @@ let rec startsWithObjectExpression = function
     | _ -> false
 
 let rec Id (id: S.Id) =
-    Word (if id.IsTypeName then id.Name else (if id.IsPrivate then "#" else "") + EscapeId id.Name)
+    Conditional (Token "...") id.Rest
+    ++ Word (if id.IsTypeName then id.Name else (if id.IsPrivate then "#" else "") + EscapeId id.Name)
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type
 
 and IdOrString (id: S.Id) =
     let priv = if id.IsPrivate then "#" else ""
-    if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (BracketString (priv + id.Name))
+    Conditional (Token "...") id.Rest
+    ++ if Identifier.IsValid id.Name then Word (priv + id.Name) else Token (BracketString (priv + id.Name))
     ++ Generics id.Generics
     ++ Conditional (Token "?") id.Optional
     ++ TypeAnnotation id.Type

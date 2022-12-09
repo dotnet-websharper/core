@@ -60,12 +60,15 @@ let AppItem (obj, item, args) =
 
 let func vars ret body isReturn =
     if isReturn then 
-        Function(vars, false, ret, Return body) 
+        Function(vars, None, ret, Return body) 
     else 
-        Function(vars, false, ret, ExprStatement body)
+        Function(vars, None, ret, ExprStatement body)
 
 let thisFunc (this: Id) vars ret body isReturn =
-    func vars ret (Sequential [ NewVar(this, This); body ]) isReturn
+    if isReturn then 
+        Function(vars, Some this, ret, Return body) 
+    else 
+        Function(vars, Some this, ret, ExprStatement body)
 
 let globalArray = Address.Lib "Array"
 
@@ -155,7 +158,7 @@ let cleanRuntime force expr =
             | rest :: fixRev ->
                 let fix = List.rev fixRev
                 if containsVar rest body then
-                    func fix ret (Let (rest, sliceFromArguments [ length ], body)) isReturn |> WithSourcePosOfExpr f
+                    func (fix @ [ rest.ToRest() ]) ret body isReturn |> WithSourcePosOfExpr f
                 else
                     func fix ret body isReturn |> WithSourcePosOfExpr f
             | _ -> expr
@@ -188,7 +191,6 @@ let cleanRuntime force expr =
                 let remaining = ResizeArray()
                 let rec alwaysHasValue e =
                     match e with
-                    | Arguments        
                     | Value _
                     | Function _            
                     | New _               

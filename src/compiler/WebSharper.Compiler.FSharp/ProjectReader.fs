@@ -531,7 +531,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         match fromRD with
                         | Some rd ->
                             // TODO: curried argument optimization for ReflectedDefinition
-                            None, FixThisScope(thisTypeForFixer).Fix(rd)
+                            None, rd
                         | _ ->
                         let a, t = getArgsAndThis()
                         let isOpt = getParamIsOpt a
@@ -584,7 +584,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 match memdef with
                                 | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
                                     try 
-                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls b
+                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This.Value b
                                         selfCtorFields <- cgenFieldNames
                                         b
                                     with e ->
@@ -595,7 +595,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         comp.AddError(tryGetExprSourcePos b, SourceError e.Message)
                                         errorPlaceholder
                                 | _ -> b
-                            let b = FixThisScope(thisTypeForFixer).Fix(b)   
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
                                     let scDef, (scContent, scFields) = sc.Value   
@@ -642,10 +641,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             yield b
                                         ]
                                 if isInline then
-                                    let b = 
-                                        match thisVar with
-                                        | Some t -> ReplaceThisWithVar(t).TransformExpression(b)
-                                        | _ -> b
                                     makeExprInline (Option.toList thisVar @ vars) b
                                 else 
                                     let returnType =
@@ -656,9 +651,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                             mdef.Value.ReturnType
                                         | _ -> VoidType
                                     if returnType = VoidType then
-                                        Function(vars, false, None, ExprStatement b)
+                                        Function(vars, env.This, None, ExprStatement b)
                                     else
-                                        Function(vars, false, Some returnType, Return b)
+                                        Function(vars, env.This, Some returnType, Return b)
                         let currentMethod =
                             match memdef with
                             | Member.Method (_, m) -> 
@@ -1002,7 +997,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             Pure = true
                             FuncArgs = None
                             Args = args
-                            Body = Function(args, false, Some (ConcreteType thisType), Return (NewUnionCase(thisType, c.Name, args |> List.map Var)))
+                            Body = Function(args, None, Some (ConcreteType thisType), Return (NewUnionCase(thisType, c.Name, args |> List.map Var)))
                             Requires = []
                             Warn = None
                             JavaScriptOptions = WebSharper.JavaScriptOptions.None
@@ -1116,7 +1111,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     DefaultValueOf (sr.ReadType clsTparams f.FieldType)
                 )
                 |> List.ofSeq
-            let body = Function([], false, None, ExprStatement (Sequential (fields |> List.map (fun (n, v) -> ItemSet(This, Value (String n), v)))))
+            let thisVar = Id.NewThis()
+            let body = Function([], Some thisVar, None, ExprStatement (Sequential (fields |> List.map (fun (n, v) -> ItemSet(Var thisVar, Value (String n), v)))))
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 

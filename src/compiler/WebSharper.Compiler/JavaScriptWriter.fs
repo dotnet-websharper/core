@@ -98,27 +98,28 @@ let getCompactName (env: Environment) =
     name
 
 let defineId (env: Environment) (id: Id) =
-    if id.HasStrongName then
-        let name = id.Name.Value 
-        env.ScopeNames <- env.ScopeNames |> Set.add name
-        env.VisibleGlobals <- env.VisibleGlobals |> Set.remove name
-        J.Id.New name
-    else
-        if env.Preference = P.Compact then
-            let name = getCompactName env    
-            env.ScopeIds <- env.ScopeIds |> Map.add id name
-            //if addToDecl then env.ScopeVars.Add(name)
-            name 
-        else 
-            let vars = env.ScopeNames
-            let mutable name = (I.MakeValid (defaultArg id.Name "_1"))
-            while vars |> Set.contains name do
-                name <- Resolve.newName name 
-            env.ScopeNames <- vars |> Set.add name
-            env.ScopeIds <- env.ScopeIds |> Map.add id name
-            //if addToDecl then env.ScopeVars.Add(name)
+    let name =
+        if id.HasStrongName then
+            let name = id.Name.Value 
+            env.ScopeNames <- env.ScopeNames |> Set.add name
+            env.VisibleGlobals <- env.VisibleGlobals |> Set.remove name
             name
-        |> J.Id.New
+        else
+            if env.Preference = P.Compact then
+                let name = getCompactName env    
+                env.ScopeIds <- env.ScopeIds |> Map.add id name
+                //if addToDecl then env.ScopeVars.Add(name)
+                name 
+            else 
+                let vars = env.ScopeNames
+                let mutable name = (I.MakeValid (defaultArg id.Name "_1"))
+                while vars |> Set.contains name do
+                    name <- Resolve.newName name 
+                env.ScopeNames <- vars |> Set.add name
+                env.ScopeIds <- env.ScopeIds |> Map.add id name
+                //if addToDecl then env.ScopeVars.Add(name)
+                name
+    J.Id.New(name, rest = id.IsRest)
 
 let defineImportedId (env: Environment) (id: Id) =
     let iname = id.Name.Value
@@ -135,7 +136,7 @@ let invalidForm c =
 type CollectVariables(env: Environment) =
     inherit StatementVisitor()
 
-    override this.VisitFuncDeclaration(f, _, _, _) =
+    override this.VisitFuncDeclaration(f, _, _, _, _) =
         defineId env f |> ignore    
 
     override this.VisitVarDeclaration(v, _) =
@@ -196,9 +197,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trI x = transformId env x
     match expr with
     | Undefined -> undef
-    | This -> J.This
+    | Self -> J.This
     | Base -> J.Super
-    | Arguments -> J.Var (J.Id.New "arguments")
     | Var importId when importId = Id.Import() -> J.ImportFunc
     | Var id -> J.Var (trI id)
     | Value v ->
@@ -232,7 +232,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
-    | Function (ids, a, _, b) ->
+    | Function (ids, a, t, b) ->
         let innerEnv = env.NewInner()
         let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
@@ -242,7 +242,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         //        [ J.Ignore (J.Constant (J.String "use strict")) ]
         //    else []
 
-        J.Lambda(None, args, flattenJS body, a)
+        J.Lambda(None, args, flattenJS body, t.IsNone)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->
@@ -485,7 +485,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
             J.Vars([transformId env id, Some (trE e)], kind)
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
-    | FuncDeclaration (x, ids, b, _) ->
+    | FuncDeclaration (x, ids, t, b, _) ->
         let id = transformId env x
         let innerEnv = env.NewInner()
         let args = getUsedArgs ids b innerEnv
@@ -570,7 +570,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let innerEnv = env.NewInner()
         let isAbstract =
             m |> List.exists (function
-                | ClassMethod (_, _, _, None, _) -> true
+                | ClassMethod (_, _, _, _, None, _) -> true
                 | _ -> false
             )
         J.Class(jn, isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
@@ -581,7 +581,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     match mem with
-    | ClassMethod (s, n, p, b, _) ->
+    | ClassMethod (s, n, p, t, b, _) ->
         let innerEnv = env.NewInner()
         let args = 
             match b with
@@ -595,7 +595,7 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         let id = J.Id.New(n)
         let acc = transformMemberKind s.Kind
         J.Method(s.IsStatic, acc, id, args, body)   
-    | ClassConstructor (p, b, _) ->
+    | ClassConstructor (p, t, b, _) ->
         let innerEnv = env.NewInner()
         let args = 
             match b with

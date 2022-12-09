@@ -314,8 +314,8 @@ type ContinuationTransformer(labels) =
             this.Yield b
         ]
 
-    override this.TransformFuncDeclaration(f, args, body, gen) =
-        localFunctions.Add(FuncDeclaration(f, args, body, gen))
+    override this.TransformFuncDeclaration(f, args, thisVar, body, gen) =
+        localFunctions.Add(FuncDeclaration(f, args, thisVar, body, gen))
         Empty
             
     member this.TransformMethodBodyInner(s: Statement) =
@@ -454,14 +454,14 @@ type GeneratorTransformer(labels) =
 
         Return <| Object [ 
             "GetEnumerator", MemberKind.Simple,
-                Function ([], true, None,
+                Function ([], None, None,
                     Block [
-                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", MemberKind.Simple, Function ([], true, None, Empty)])) // TODO: disposing iterators
+                        yield VarDeclaration(en, CopyCtor(enumeratorTy, Object ["d", MemberKind.Simple, Function ([], None, None, Empty)])) // TODO: disposing iterators
                         yield VarDeclaration(this.StateVar, Value (Int 0))
                         yield! this.LocalFunctions
                         for v in extract.Vars do
                             yield VarDeclaration(v, Undefined)
-                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], true, None, inner))
+                        yield ExprStatement <| ItemSet(Var en, Value (String "n"), Function ([], None, None, inner))
                         yield Return (Var en)
                     ]
                 )
@@ -531,7 +531,7 @@ type AsyncTransformer(labels, returns) =
             for v in extract.Vars do
                 yield VarDeclaration(v, Undefined)
             yield! this.LocalFunctions
-            yield ExprStatement <| VarSet(run, Function ([], true, None, inner))
+            yield ExprStatement <| VarSet(run, Function ([], None, None, inner))
             yield ExprStatement <| Appl (Var run, [], NonPure, Some 0)
             if returns <> ReturnsVoid then 
                 yield Return (Var task)

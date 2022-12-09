@@ -48,7 +48,8 @@ let GetMutableExternals (meta: M.Info) =
         let addMember (m: Method) e =
             if m.Value.MethodName.StartsWith "set_" then
                 match e with
-                | IS.Function(_, _, _, IS.ExprStatement(IS.ItemSet(IS.This, IS.Value (String n), _)))
+                | IS.Function(_, Some t, _, IS.ExprStatement(IS.ItemSet(IS.Var t2, IS.Value (String n), _))) when t = t2 ->
+                    res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(Hole(0), IS.Value (String n), Hole(1))) ->
                     res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
@@ -104,7 +105,7 @@ type private Environment =
         Vars : list<IDictionary<string, Expression>>
         Inputs : list<Expression>
         Labels : Map<string, Id>
-        This : option<Id>
+        This : ref<option<Id>>
         Purity : Purity
         MutableExternals : HashSet<Hashed<list<string>>>
         FromModule : option<Module>
@@ -118,8 +119,7 @@ type private Environment =
             Option.toList thisArg @ args
             |> Seq.mapi (fun i (a: Id) ->                    
                 let isThis = Some a = thisArg
-                let v =
-                    if isDirect && isThis then This else Var a
+                let v = Var a
                 [ 
                     yield "$" + string i, v
                     match a.Name with
@@ -132,9 +132,9 @@ type private Environment =
             Vars = [ Dictionary(); mainScope ]
             Inputs = 
                 if isDirect then [] 
-                else (if Option.isSome thisArg then [This] else []) @ (args |> List.map Var)
+                else (Option.toList thisArg @ args) |> List.map Var
             Labels = Map.empty
-            This = None
+            This = ref thisArg
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
             FromModule = lib
@@ -147,7 +147,7 @@ type private Environment =
             Vars = []
             Inputs = []
             Labels = Map.empty
-            This = None
+            This = ref None
             Purity = NonPure
             MutableExternals = HashSet()
             FromModule = None
@@ -155,10 +155,11 @@ type private Environment =
             UnknownArgs = HashSet()
         }
 
-    member this.WithNewScope (vars) =
+    member this.WithNewScope (vars, isArrow) =
         { this with 
             Vars = (Dictionary(vars |> Seq.map (fun (s: S.Id, i) -> s.Name, i) |> dict) :> _) :: this.Vars 
             Purity = NonPure
+            This = if isArrow then this.This else ref None
         }
 
     member this.NewVar(id: S.Id) =
@@ -183,6 +184,14 @@ type private Environment =
 
     member this.IsInput(expr) =
         this.Inputs |> List.contains expr
+
+    member this.GetThis() =
+        match this.This.Value with
+        | Some t -> t
+        | _ ->
+            let t = Id.NewThis()
+            this.This.Value <- Some t
+            t
 
 exception RecognitionError
 
@@ -408,14 +417,17 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         |> Value
     | S.Lambda (a, b, c, d) ->
         let vars = b |> List.map trI
-        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
+        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), d)
         let body = S.Block c
         let fres =
             match a with
-            | None -> Function (vars, d, None, transformStatement innerEnv body)
+            | None -> 
+                let trBody = transformStatement innerEnv body
+                Function (vars, (if d then None else innerEnv.This.Value), None, trBody)
             | Some a -> 
-                let f = env.NewVar a
-                StatementExpr(FuncDeclaration(f, vars, transformStatement innerEnv body, []), Some f)
+                let f = innerEnv.NewVar a
+                let trBody = transformStatement innerEnv body
+                StatementExpr(FuncDeclaration(f, vars, (if d then None else innerEnv.This.Value), trBody, []), Some f)
         innerEnv.Vars.Head.Values |> Seq.choose (function Var i -> Some i | _ -> None)
         |> Seq.fold makePossiblyImmutable fres
     | S.New (a, [], b) -> 
@@ -431,7 +443,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.PostfixOperator.``++`` -> mun a MutatingUnaryOperator.``()++``
         | S.PostfixOperator.``--`` -> mun a MutatingUnaryOperator.``()--``
         | _ -> failwith "unrecognized postfix operator"
-    | S.This -> This
+    | S.This -> Var (env.GetThis())
     | S.ImportFunc -> Var (Id.Import())
     | S.Unary (a, b) ->
         match a with
@@ -453,7 +465,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | "globalThis" -> Var (Id.Global())
         | "$wsruntime" -> wsruntime
         | "$type" -> Var (Id.SourceType())
-        | "arguments" -> Arguments
+        //| "arguments" -> Arguments
         | "undefined" -> Undefined
         | n ->
         match env.TryFindVar a with
@@ -561,9 +573,10 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
     | S.Function (a, b, c) ->
         let f = env.NewVar a
         let vars = b |> List.map trI
-        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var))
+        let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), false)
         let body = S.Block c
-        FuncDeclaration(f, vars, transformStatement innerEnv body, [])
+        let trBody = transformStatement innerEnv body
+        FuncDeclaration(f, vars, innerEnv.This.Value, transformStatement innerEnv body, [])
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 type InlinedStatementsTransformer() =
@@ -582,7 +595,7 @@ type InlinedStatementsTransformer() =
         
         VarSetStatement(rv, expr)
 
-    override this.TransformFuncDeclaration(a, b, c, d) = FuncDeclaration(a, b, c, d)
+    override this.TransformFuncDeclaration(a, b, c, d, e) = FuncDeclaration(a, b, c, d, e)
     
     member this.Run(st) =
         let res = this.TransformStatement(st)
@@ -632,7 +645,7 @@ let parseDirect ext thisArg args dollarVars jsString =
             |> S.Block
             |> transformStatement env
     {
-        Expr = Function(args, false, None, body)
+        Expr = Function(args, thisArg, None, body)
         Warnings =
             [
                 if env.UnknownArgs.Count > 0 then

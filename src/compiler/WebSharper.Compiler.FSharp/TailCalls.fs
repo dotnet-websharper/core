@@ -39,7 +39,7 @@ type Environment =
         mutable TailPos : TailPos 
         SelfTailCall : ref<bool>
         CurrentMethod : option<TypeDefinition * Method>
-        mutable ThisAlias : option<Id>
+        ThisAliases : HashSet<Id>
         Inlines : HashSet<Method>
     }
 
@@ -50,11 +50,12 @@ type Environment =
             TailPos = MemberRoot
             SelfTailCall = ref false
             CurrentMethod = m
-            ThisAlias = None
+            ThisAliases = HashSet()
             Inlines = inl
         }
 
-    member this.WithScope(sc) =
+    member this.WithScope(sc, thisVar) =
+        thisVar |> Option.iter (this.ThisAliases.Add >> ignore)
         { this with
             ScopeCalls = sc :: this.ScopeCalls   
         }
@@ -119,9 +120,9 @@ type TailCallAnalyzer(env) =
         env.TailPos <- p
         this.VisitExpression b
       
-    override this.VisitFunction(args, arr, ret, body) =
+    override this.VisitFunction(args, thisVar, ret, body) =
         let scope = Dictionary()
-        let inner = TailCallAnalyzer(env.WithScope scope)
+        let inner = TailCallAnalyzer(env.WithScope(scope, thisVar))
         inner.VisitStatement body      
     
     override this.VisitCall(obj, td, meth, args) =
@@ -139,12 +140,8 @@ type TailCallAnalyzer(env) =
                 )
                 && (
                     match obj with
-                    | None 
-                    | Some I.This -> true
-                    | Some (I.Var t) ->
-                        match env.ThisAlias with
-                        | Some thisVar -> t = thisVar
-                        | _ -> false
+                    | None -> true 
+                    | Some (I.Var t) -> env.ThisAliases.Contains t
                     | _ -> false
                 )
             if isTailSelfCall then
@@ -155,7 +152,7 @@ type TailCallAnalyzer(env) =
         
     override this.VisitLet(var, value, body) =
         match value with
-        | I.This -> env.ThisAlias <- Some var
+        | I.Var t when env.ThisAliases.Contains t -> env.ThisAliases.Add var |> ignore
         | _ -> ()
         let p = env.NextTailPos()
         env.TailPos <- NotTailPos
@@ -176,7 +173,7 @@ type TailCallAnalyzer(env) =
                 valueBodies.Add (body, true) 
             | _ ->
                 valueBodies.Add (value, false)    
-        let innerEnv = env.WithScope scope
+        let innerEnv = env.WithScope (scope, None)
         let inner = TailCallAnalyzer(innerEnv)
         for body, isFunc in valueBodies do
             if isFunc then 
@@ -233,21 +230,21 @@ type AddCapturing(vars : seq<Id>) =
             captured.Add i |> ignore
         i
 
-    override this.TransformFunction(args, arr, ret, body) =
+    override this.TransformFunction(args, thisVar, ret, body) =
         scope <- scope + 1
         let res = 
             if scope = 1 then
                 captured.Clear()
-                let f = base.TransformFunction(args, arr, ret, body)
+                let f = base.TransformFunction(args, thisVar, ret, body)
                 if captured.Count > 0 then
                     let cVars = captured |> List.ofSeq
                     let cArgs = cVars |> List.map (fun v -> Id.New(?name = v.Name, mut = false))
                     Appl(
-                        Function(cArgs, arr, ret, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
+                        Function(cArgs, thisVar, ret, Return (ReplaceIds(Seq.zip cVars cArgs |> dict).TransformExpression f)), 
                         cVars |> List.map Var, NonPure, None) 
                 else f
             else
-                base.TransformFunction(args, arr, ret, body)
+                base.TransformFunction(args, thisVar, ret, body)
         scope <- scope - 1
         res
 
@@ -368,7 +365,7 @@ type TailCallTransformer(env) =
   
     override this.TransformLet(var, value, body) =
         match value with
-        | I.This -> env.ThisAlias <- Some var
+        | I.Var t when env.ThisAliases.Contains t -> env.ThisAliases.Add var |> ignore
         | _ -> ()
         let p = env.NextTailPos()
         env.TailPos <- NotTailPos
@@ -429,7 +426,7 @@ type TailCallTransformer(env) =
             let var, value = bindings.[bi]
             match value with
             | CurriedFunction(fArgs, ret, fBody) ->
-                let f = Function(fArgs, true, ret, fBody)
+                let f = Function(fArgs, None, ret, fBody)
                 bindings.[bi] <- var, f
                 let tr = OptimizeLocalCurriedFunc(var, List.length fArgs)
                 for bj = 0 to bindings.Length - 1 do
@@ -437,7 +434,7 @@ type TailCallTransformer(env) =
                     bindings.[bj] <- v, tr.TransformExpression(c)   
                 body <- tr.TransformExpression(body)    
             | TupledLambda(fArgs, ret, fBody, isReturn) ->
-                bindings.[bi] <- var, Function(fArgs, true, ret, if isReturn then Return fBody else ExprStatement fBody) 
+                bindings.[bi] <- var, Function(fArgs, None, ret, if isReturn then Return fBody else ExprStatement fBody) 
                 let tr = OptimizeLocalTupledFunc(var, List.length fArgs)
                 for bj = 0 to bindings.Length - 1 do
                     let v, c = bindings.[bj]
@@ -480,7 +477,7 @@ type TailCallTransformer(env) =
                             Return (this.TransformExpression(fbody)))             
                         |> withCopiedArgs args
                     env.TailPos <- p
-                    trBindings.Add(var, Function(args, true, ret, trFBody))
+                    trBindings.Add(var, Function(args, None, ret, trFBody))
                     transforming.Remove var |> ignore
                 | Choice2Of2 value ->
                     trBindings.Add(var, value)
@@ -522,7 +519,7 @@ type TailCallTransformer(env) =
                     trBodies.Add(Some (Value (Int i)), Block [ Return trFBody; Break None; ] )
                     let recArgs = Value (Int i) :: List.map Var args
                     trBindings.Add(var, 
-                        Function(args, true, ret,
+                        Function(args, None, ret,
                             Return (Appl (Var recFunc, recArgs, NonPure, Some (numArgs + 1)))))                    
                     i <- i + 1
                 | Choice2Of2 value ->
@@ -533,14 +530,14 @@ type TailCallTransformer(env) =
                     transforming.Remove var |> ignore
                 | _ -> ()
             let mainFunc =
-                recFunc, Function(indexVar :: List.ofSeq newArgs, true, None,
+                recFunc, Function(indexVar :: List.ofSeq newArgs, None, None,
                     While (Value (Bool true), 
                         Switch (Var indexVar, List.ofSeq trBodies))   
                     |> withCopiedArgs newArgs   
                 )    
             LetRec(mainFunc :: List.ofSeq trBindings, base.TransformExpression body) 
 
-    override this.TransformFunction(args, arr, ret, body) =
+    override this.TransformFunction(args, thisVar, ret, body) =
         let isTailRecMethodFunc =
             if !env.SelfTailCall then
                 env.SelfTailCall := false
@@ -556,13 +553,13 @@ type TailCallTransformer(env) =
                     transformIds.Add(a, am)
                     am
                 )
-            Function(args, arr, ret,
+            Function(args, thisVar, ret,
                 While (Value (Bool true), 
                     Return (this.TransformExpression(b)))
                 |> withCopiedArgs args
             )             
         | _ ->
-            base.TransformFunction(args, arr, ret, body)
+            base.TransformFunction(args, thisVar, ret, body)
 
     override this.TransformCall(obj, td, meth, args) =
         match env.CurrentMethod, selfCallArgs with

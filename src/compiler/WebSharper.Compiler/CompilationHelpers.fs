@@ -31,7 +31,6 @@ module I = IgnoreSourcePos
 let rec removePureParts expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Var _
     | Value _
@@ -66,7 +65,6 @@ let rec removePureParts expr =
 let rec isPureExpr expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Var _
     | Value _
@@ -126,43 +124,16 @@ let rec isTrivialValue expr =
     //    isTrivialValue body || isTrivialFunction args body
     | _ -> false
 
-type ThisNotUsed() =
-    inherit Visitor()
-
-    let mutable ok = true
-    
-    override this.VisitThis() =
-        ok <- false
-
-    override this.VisitExpression(e) =
-        if ok then
-            base.VisitExpression(e) 
-
-    override this.VisitFuncDeclaration(i, p, b, g) =
-        ()
-
-    override this.VisitFunction(a, isArrow, t, b) =
-        if isArrow then
-            base.VisitFunction(a, isArrow, t, b)
-
-    member this.GetSt(s) =
-        ok <- true
-        this.VisitStatement(s) 
-        ok
-
 /// Determine if expression has no side effect and value does not depend on execution order
 let rec isStronglyPureExpr expr =
     match expr with
     | Undefined
-    | This
     | Base
     | Value _
-    | Function (_, false, _, _) 
+    | Function _
     | GlobalAccess _
     | Self
         -> true
-    | Function (_, true, _, body) ->
-        ThisNotUsed().GetSt(body)
     | Var v ->
         not v.IsMutable
     | Sequential a 
@@ -235,9 +206,9 @@ type private NotMutatedOrCaptured(v, ?allowApplication) =
             this.VisitExpression a
             this.VisitExpression b
 
-    override this.VisitFuncDeclaration(i, p, b, g) =
+    override this.VisitFuncDeclaration(i, p, t, b, g) =
         scope <- scope + 1
-        base.VisitFuncDeclaration(i, p, b, g)
+        base.VisitFuncDeclaration(i, p, t, b, g)
         scope <- scope - 1
 
     override this.VisitFunction(a, i, t, b) =
@@ -338,7 +309,6 @@ let varEvalOrder (vars : Id list) expr =
         if ok then
             match e with
             | Undefined
-            | This
             | Base
             | Value _
             | Self
@@ -433,12 +403,10 @@ let varEvalOrder (vars : Id list) expr =
                 Option.iter eval a
                 eval b
                 stop()
-            | Function(_, _, _, a)
-            | FuncWithThis(_, _, _, a) ->
+            | Function(_, _, _, a) ->
                 if not <| varsNotUsed.GetSt(a) then fail()
             | StatementExpr (a, _) ->
                 evalSt a
-            | Arguments
             | Await _
             | ChainedCtor _
             | Ctor _
@@ -476,7 +444,7 @@ let varEvalOrder (vars : Id list) expr =
             | Return (a) ->
                 eval a
                 stop()
-            | FuncDeclaration(_, _, a, _) -> 
+            | FuncDeclaration(_, _, _, a, _) -> 
                 if not <| varsNotUsed.GetSt(a) then fail()
             | TryFinally (a, b) ->
                 evalSt a
@@ -594,8 +562,8 @@ type Substitution(args, ?thisObj) =
     override this.TransformNewVar(i, v) =
         NewVar(this.RefreshVar i, this.TransformExpression v)
 
-    override this.TransformFuncDeclaration(i, a, b, t) =
-        FuncDeclaration(this.RefreshVar i, a, this.TransformStatement b, t)
+    override this.TransformFuncDeclaration(i, a, t, b, ty) =
+        FuncDeclaration(this.RefreshVar i, a, t, this.TransformStatement b, ty)
 
     override this.TransformId i =
         match refresh.TryFind i with
@@ -612,187 +580,11 @@ type TransformBaseCall(f) =
         | _ ->
             base.TransformApplication(a, b, c)
 
-type FixThisScope(thisTyp) =
-    inherit Transformer()
-    let mutable scope = 0
-    let mutable thisVar = None
-    let mutable thisArgs = System.Collections.Generic.Dictionary<Id, int * bool ref>()
-
-    override this.TransformFuncDeclaration(id, args, body, gen) =
-        scope <- scope + 1
-        let res = base.TransformFuncDeclaration(id, args, body, gen)
-        scope <- scope - 1
-        res
-
-    override this.TransformFunction(args, isArrow, typ, body) =
-        if isArrow then
-            base.TransformFunction(args, isArrow, typ, body)    
-        else
-            scope <- scope + 1
-            let res = base.TransformFunction(args, isArrow, typ, body)
-            scope <- scope - 1
-            res
-     
-    override this.TransformFuncWithThis(thisArg, args, typ, body) =
-        scope <- scope + 1
-        let used = ref false
-        thisArgs.Add(thisArg, (scope, used))
-        let trBody = this.TransformStatement body
-        scope <- scope - 1
-        if !used then
-            Function(args, false, typ, CombineStatements [ VarDeclaration(thisArg, This); trBody ])
-        else
-            Function(args, false, typ, trBody)
-
-    member this.Fix(expr) =
-        let b = this.TransformExpression(expr)
-        match thisVar with
-        | Some t -> Let (t, This, b)
-        | _ -> b
-
-    member this.Fix(statement) =
-        let b = this.TransformStatement(statement)
-        match thisVar with
-        | Some t -> CombineStatements [ VarDeclaration(t, This); b ]
-        | _ -> b
-                
-    override this.TransformThis () =
-        if scope > 0 then
-            match thisVar with
-            | Some t -> Var t
-            | None ->
-                let t = Id.New ("$this", mut = false, ?typ = thisTyp)
-                thisVar <- Some t
-                Var t
-        else This
-
-    override this.TransformVar v =
-        match thisArgs.TryFind v with
-        | Some (funcScope, used) ->
-            if scope > funcScope then
-                used := true
-                Var v
-            else This
-        | _ -> Var v
-
-type GetThisVar() =
-    inherit StatementVisitor()
-
-    let mutable thisVar = None
-
-    override this.VisitFuncDeclaration(_, _, _, _) =
-        ()
-
-    override this.VisitVarDeclaration(i, v) =
-        if v = This && thisVar.IsNone then 
-            thisVar <- Some i
-
-    member this.Get(expr: Expression) =
-        match expr with
-        | I.Function (_, _, _, (I.Return (I.Let(i, This, _)) | I.ExprStatement (I.Let(i, This, _)))) ->
-            thisVar <- Some i
-        | I.Function (_, _, _, body) ->
-            this.VisitStatement body
-        | _ -> ()
-        thisVar
-
-type AddThisVar(thisVar) =
-    inherit Transformer()
-
-    let mutable rootScope = true
-    let mutable alias = None
-
-    override this.TransformFuncDeclaration(id, args, body, gen) =
-        let rs = rootScope
-        rootScope <- false
-        let res = base.TransformFuncDeclaration(id, args, body, gen)
-        rootScope <- rs
-        res
-
-    override this.TransformFunction(args, isArrow, typ, body) =
-        if isArrow then
-            base.TransformFunction(args, isArrow, typ, body)    
-        else
-            let rs = rootScope
-            rootScope <- false
-            let res = base.TransformFunction(args, isArrow, typ, body)
-            rootScope <- rs
-            res
-
-    override this.TransformVarDeclaration(i, v) =
-        if rootScope && v = This && alias.IsNone then
-            alias <- Some i
-            Empty
-        else
-            base.TransformVarDeclaration(i, v)
-
-    override this.TransformThis() =
-        if rootScope then 
-            Var thisVar
-        else
-            This
-
-    override this.TransformVar(i) =
-        if alias.IsSome && i = alias.Value then
-            Var thisVar
-        else 
-            Var i
-
-type ReplaceThisWithVar(v) =
-    inherit Transformer()
-
-    override this.TransformThis () = Var v
-    
-    //override this.TransformBase () =
-    //    failwith "Base call is not allowed inside inlined member on constructor compiled to static"
-    
-    override this.TransformChainedCtor(a, b, c, d, e) =
-        base.TransformChainedCtor(a, (match b with None -> Some v | _ -> b), c, d, e)
-
-type HasArgumentsOrThis() =
-    inherit Visitor()
-
-    let mutable hasArguments = false
-    let mutable hasThis = false
-
-    member this.HasArguments = hasArguments
-    member this.HasThis = hasThis
-
-    override this.VisitArguments() =
-        hasArguments <- true
-
-    override this.VisitThis() =
-        hasThis <- true
-
-    override this.VisitFuncDeclaration(_, _, _, _) = ()
-
-    override this.VisitFunction(_, isArrow, _, body) =
-        if isArrow then 
-            this.VisitStatement(body)
-
-type HasThis() =
-    inherit Visitor()
-
-    let mutable found = false
-
-    member this.Found = found
-
-    override this.VisitThis() =
-        found <- true
-
-let funcFromLambda(funcId, isArrow, isRec, args, body, ts) =
-    let v = HasArgumentsOrThis()
-    v.VisitStatement(body)
-    if isArrow && not v.HasArguments && not isRec then
-        VarDeclaration(funcId, Function(args, true, None, body))
-    elif isArrow && v.HasThis then
-        let thisVar = Id.New("$this", mut = false)
-        Block [
-            VarDeclaration(thisVar, This)
-            FuncDeclaration(funcId, args, ReplaceThisWithVar(thisVar).TransformStatement(body), ts)
-        ]
+let funcFromLambda(funcId, thisVar, isRec, args, body, ts) =
+    if Option.isNone thisVar && not isRec then
+        VarDeclaration(funcId, Function(args, None, None, body))
     else
-        FuncDeclaration(funcId, args, body, ts)
+        FuncDeclaration(funcId, args, thisVar, body, ts)
         
 let makeExprInline (vars: Id list) expr =
     if varEvalOrder vars expr then
@@ -1369,8 +1161,8 @@ type Capturing(?var) =
         let res = this.TransformExpression expr  
         if capture then
             match captVal with
-            | None -> Appl (Function ([], true, None, Return res), [], NonPure, None)
-            | Some c -> Appl (Function ([c], true, None, Return res), [Var var.Value], NonPure, None)        
+            | None -> Appl (Function ([], None, None, Return res), [], NonPure, None)
+            | Some c -> Appl (Function ([c], None, None, Return res), [Var var.Value], NonPure, None)        
         else expr
 
 type NeedsScoping() =
@@ -1394,7 +1186,7 @@ type NeedsScoping() =
         if scope > 0 && defined.Contains i then 
             needed <- true
 
-    override this.VisitFunction (args, isArr, typ, body) =
+    override this.VisitFunction (args, thisVar, typ, body) =
         scope <- scope + 1
         this.VisitStatement body
         scope <- scope - 1
@@ -1402,10 +1194,6 @@ type NeedsScoping() =
     override this.VisitExpression expr =
         if not needed then
             base.VisitExpression expr
-
-    override this.VisitArguments() =
-        if scope = 0 then
-            needed <- true
 
     member this.Check(args: seq<Id>, values, expr) =
         for a, v in Seq.zip args values do
@@ -1511,13 +1299,10 @@ let BottomUp tr expr =
 let callArraySlice =
     (Global ["Array"]).[Value (String "prototype")].[Value (String "slice")].[Value (String "call")]   
 
-let sliceFromArguments slice =
-    Appl (callArraySlice, Arguments :: [ for a in slice -> !~ (Int a) ], Pure, None)
-
 let (|Lambda|_|) e = 
     match e with
-    | Function(args, true, typ, Return body) -> Some (args, typ, body, true)
-    | Function(args, true, typ, ExprStatement body) -> Some (args, typ, body, false)
+    | Function(args, None, typ, Return body) -> Some (args, typ, body, true)
+    | Function(args, None, typ, ExprStatement body) -> Some (args, typ, body, false)
     | _ -> None
 
 let (|SimpleFunction|_|) expr =
@@ -1652,12 +1437,12 @@ let (|CurriedFunction|_|) expr =
             if not (List.isEmpty args) then
                 Some (List.rev (a.ToNonOptional() :: args), ret, ExprStatement b) 
             else None
-        | Function ([], true, ret, b) ->
+        | Function ([], None, ret, b) ->
             if not (List.isEmpty args) then
                 let a = Id.New(mut = false)
                 Some (List.rev (a :: args), ret, b) 
             else None
-        | Function ([a], true, ret, b) ->
+        | Function ([a], None, ret, b) ->
             if not (List.isEmpty args) then
                 Some (List.rev (a.ToNonOptional() :: args), ret, b) 
             else None
@@ -1769,12 +1554,6 @@ type OptimizeLocalCurriedFunc(var: Id, currying) =
             else
                 base.TransformCurriedApplication(func, args)             
         | _ -> base.TransformCurriedApplication(func, args)
-
-//Object.setPrototypeOf(this, ThisClass.prototype);
-let restorePrototype =
-    Appl(
-        ItemGet(Global ["Object"], Value (String "setPrototypeOf"), Pure)
-        , [This; ItemGet(Self, Value (String "prototype"), Pure)], NonPure, None)
 
 #if DEBUG
 let mutable logTransformations = false

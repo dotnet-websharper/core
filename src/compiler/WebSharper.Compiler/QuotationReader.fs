@@ -36,7 +36,7 @@ let parsefailf x =
 type VarKind =
     | LocalVar 
     | ByRefArg
-    | ThisArg
+    //| ThisArg
 
 type Environment =
     {
@@ -64,9 +64,9 @@ type Environment =
         | true, r ->
             this.Vars.[v]
         | _ ->
-            if v.Name = "this" then 
-                Id.Global(), ThisArg 
-            else
+            //if v.Name = "this" then 
+            //    Id.Global(), ThisArg 
+            //else
                 parsefailf "Failed to look up variable %s" v.Name
 
 let getOptSourcePos (expr: Expr) =
@@ -115,7 +115,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> Var v  
             | ByRefArg -> GetRef (Var v)
-            | ThisArg -> This
+            //| ThisArg -> This
         | Patterns.Lambda (arg, body) ->
             let lArg =
                 if arg.Type = typeof<unit> then

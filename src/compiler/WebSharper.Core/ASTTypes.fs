@@ -40,6 +40,7 @@ type Id =
         mutable IdName : string option
         Id: int64
         Mutable : bool
+        Rest: bool
         StrongName : bool
         Optional : bool
         Type : Type option
@@ -52,16 +53,20 @@ type Id =
     member this.IsMutable = this.Mutable
     member this.HasStrongName = this.StrongName
     member this.IsOptional = this.Optional
+    member this.IsRest = this.Rest
     
-    static member New(?name, ?mut, ?str, ?opt, ?typ) =
+    static member New(?name, ?mut, ?str, ?opt, ?rest, ?typ) =
         {
             IdName = name
             Id = Ids.New()
             Mutable = defaultArg mut true
             StrongName = defaultArg str false
             Optional = defaultArg opt false
+            Rest = defaultArg rest false
             Type = typ
         }
+
+    static member NewThis() = Id.New("_this", mut = false)
 
     member this.Clone() =
         { this with
@@ -71,6 +76,11 @@ type Id =
     member this.ToMutable() =
         { this with
             Mutable = true
+        }
+
+    member this.ToRest() =
+        { this with
+            Rest = true
         }
 
     member this.ToNonOptional() =
@@ -1004,6 +1014,7 @@ module private Instances =
             Mutable = false
             StrongName = true
             Optional = false
+            Rest = false
             Type = None
         }
 

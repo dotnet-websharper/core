@@ -71,6 +71,7 @@ type CSharpMethod =
     {
         IsStatic : bool
         Parameters : list<CSharpParameter>
+        This : option<Id>
         Body : Statement
         IsAsync : bool
         ReturnType : Type
@@ -456,6 +457,7 @@ type Environment =
     {
         SemanticModel : SemanticModel 
         Vars : IDictionary<ILocalSymbol, Id>
+        This : option<Id>
         Parameters : IDictionary<IParameterSymbol, Id * bool>
         Labels : IDictionary<ILabelSymbol, Id>
         LocalFunctions : IDictionary<IMethodSymbol, Id>
@@ -466,10 +468,11 @@ type Environment =
         SymbolReader : SymbolReader
         RangeVars : IDictionary<IRangeVariableSymbol, Id * option<int>>
     }
-    static member New(model, comp, sr) = 
+    static member New(model, comp, sr, thisVar) = 
         { 
             SemanticModel = model
             Vars = Dictionary()
+            This = thisVar
             Parameters = Dictionary()
             Labels = Dictionary()
             LocalFunctions = Dictionary()
@@ -697,7 +700,7 @@ type RoslynTransformer(env: Environment) =
             if symbol.IsStatic then None else
             match env.Initializing with
             | Some i -> Var i
-            | _ -> This
+            | _ -> Var env.This.Value
             |> Some
         match symbol with
         | :? ILocalSymbol as s -> 
@@ -719,10 +722,10 @@ type RoslynTransformer(env: Environment) =
             call p.GetMethod (getTarget()) [] // TODO: indexed properties?
         | :? IMethodSymbol as m -> 
             let conv = env.SemanticModel.GetConversion(x.Node)
-            if not conv.Exists || conv.IsIdentity then This
+            if not conv.Exists || conv.IsIdentity then Var env.This.Value
             elif conv.IsMethodGroup then
                 let typ, meth = getTypeAndMethod m
-                NewDelegate(Some This, typ, meth)
+                NewDelegate(Some (Var env.This.Value), typ, meth)
             else failwithf "TransformIdentifierName: unhandled IMethodSymbol conversion: %A" conv 
         | :? IDiscardSymbol ->
             Undefined
@@ -1000,7 +1003,7 @@ type RoslynTransformer(env: Environment) =
  
         // TODO : optional?
         // TODO : generics?
-        funcFromLambda(id, true, true, parameterList |> List.map (fun p -> p.ParameterId), b, [])
+        funcFromLambda(id, None, true, parameterList |> List.map (fun p -> p.ParameterId), b, [])
         |> withStatementSourcePos x.Node
 
     member this.TransformLocalDeclarationStatement (x: LocalDeclarationStatementData) : Statement =
@@ -1242,7 +1245,7 @@ type RoslynTransformer(env: Environment) =
                 // init property
                 let td = leftSymbol.ContainingType |> sr.ReadNamedTypeDefinition
                 let right = x.Right |> trR.TransformExpression
-                withResultValue right <| fun rv -> FieldSet(Some This, NonGeneric td, leftSymbol.Name, rv)
+                withResultValue right <| fun rv -> FieldSet(Some (Var env.This.Value), NonGeneric td, leftSymbol.Name, rv)
             else
                 let typ, setter = getTypeAndMethod leftSymbol.SetMethod
                 //if leftSymbol.IsIndexer // TODO property indexers
@@ -1289,8 +1292,8 @@ type RoslynTransformer(env: Environment) =
                 // when right is also a ref, this is a ref local set
                 match r, right with
                 | Var id, Object [ 
-                    "get", MemberKind.Simple, (Function ([], true, _, Return getVal)); 
-                    "set", MemberKind.Simple, (Function ([_], true, _, ExprStatement _)) ] ->
+                    "get", MemberKind.Simple, (Function ([], None, _, Return getVal)); 
+                    "set", MemberKind.Simple, (Function ([_], None, _, ExprStatement _)) ] ->
                         VarSet(id, right)
                 | _ ->
                     withResultValue right <| SetRef r
@@ -1450,6 +1453,7 @@ type RoslynTransformer(env: Environment) =
         {
             IsStatic = symbol.IsStatic
             Parameters = parameterList
+            This = if symbol.IsStatic then None else env.This 
             Body = body
             IsAsync = symbol.IsAsync
             ReturnType = returnType
@@ -1621,6 +1625,7 @@ type RoslynTransformer(env: Environment) =
         {
             IsStatic = meth.IsStatic
             Parameters = parameterList
+            This = if meth.IsStatic then None else env.This 
             Body = if rTyp = VoidType then ExprStatement body else Return body
             IsAsync = meth.IsAsync
             ReturnType = sr.ReadType meth.ReturnType
@@ -1813,15 +1818,16 @@ type RoslynTransformer(env: Environment) =
                     else
                         match x.Kind with 
                         | AccessorDeclarationKind.GetAccessorDeclaration ->     
-                            Return <| FieldGet(Some This, typ, backingfield.Name)
+                            Return <| FieldGet(Some (Var env.This.Value), typ, backingfield.Name)
                         | AccessorDeclarationKind.SetAccessorDeclaration 
                         | AccessorDeclarationKind.InitAccessorDeclaration -> 
                             let v = parameterList.Head.ParameterId
-                            ExprStatement <| FieldSet(Some This, typ, backingfield.Name, Var v)
+                            ExprStatement <| FieldSet(Some (Var env.This.Value), typ, backingfield.Name, Var v)
                         | _ -> failwith "impossible"
             {
                 IsStatic = symbol.IsStatic
                 Parameters = parameterList
+                This = if symbol.IsStatic then None else env.This 
                 Body = body
                 IsAsync = symbol.IsAsync
                 ReturnType = returnType
@@ -1831,6 +1837,7 @@ type RoslynTransformer(env: Environment) =
             {
                 IsStatic = symbol.IsStatic
                 Parameters = parameterList
+                This = if symbol.IsStatic then None else env.This 
                 Body = body.Value
                 IsAsync = symbol.IsAsync
                 ReturnType = returnType
@@ -2123,9 +2130,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function(ids, true, ret, body)
+            Function(ids, None, ret, body)
 
     member this.TransformSimpleLambdaExpression (x: SimpleLambdaExpressionData) : _ =
         let parameter = x.Parameter |> this.TransformParameter
@@ -2146,9 +2153,9 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function([id], true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function([id], None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function([id], true, ret, body)
+            Function([id], None, ret, body)
     
     member this.TransformParenthesizedLambdaExpression (x: ParenthesizedLambdaExpressionData) : _ =
         let symbol = env.SemanticModel.GetSymbolInfo(x.Node).Symbol :?> IMethodSymbol
@@ -2174,13 +2181,13 @@ type RoslynTransformer(env: Environment) =
                 |> BreakStatement
                 |> Continuation.FreeNestedGotos().TransformStatement
             let labels = Continuation.CollectLabels.Collect b
-            Function(ids, true, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
+            Function(ids, None, ret, Continuation.AsyncTransformer(labels, sr.ReadAsyncReturnKind symbol).TransformMethodBody(b))
         else
-            Function(ids, true, ret, body)
+            Function(ids, None, ret, body)
 
     member this.TransformInstanceExpression (x: InstanceExpressionData) : _ =
         match x with
-        | InstanceExpressionData.ThisExpression x -> This
+        | InstanceExpressionData.ThisExpression x -> Var env.This.Value
         | InstanceExpressionData.BaseExpression x -> Base
         |> withExprSourcePos x.Node
 

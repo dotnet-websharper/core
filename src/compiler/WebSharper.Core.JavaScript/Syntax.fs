@@ -122,6 +122,7 @@ and Id =
     {
         Name : string
         Optional : bool
+        Rest : bool
         IsPrivate : bool
         IsTypeName : bool
         Type : option<E>
@@ -141,10 +142,11 @@ and Id =
         | [] -> this 
         | _ -> { this with Generics = g }
 
-    static member New(name, ?opt, ?typ, ?gen, ?typn, ?priv) =
+    static member New(name, ?opt, ?rest, ?typ, ?gen, ?typn, ?priv) =
         {
             Name = name
             Optional = defaultArg opt false
+            Rest = defaultArg rest false
             IsPrivate = defaultArg priv false
             IsTypeName = defaultArg typn false 
             Type = typ

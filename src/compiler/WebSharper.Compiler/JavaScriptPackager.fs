@@ -27,7 +27,84 @@ open System.Collections.Generic
 open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
-module I = IgnoreSourcePos
+module I = IgnoreSourcePos 
+
+type ThisTransformer() =
+    inherit Transformer()
+
+    let mutable thisVars = [] : list<option<Id> * ref<bool>>
+
+    override this.TransformFunction(args, thisVar, typ, body) =
+        match thisVar with 
+        | None -> base.TransformFunction(args, thisVar, typ, body)
+        | Some t ->
+            thisVars <- (thisVar, ref false) :: thisVars
+            let trBody = base.TransformStatement(body)
+            let res =
+                match thisVars.Head with
+                | _, captured when captured.Value ->
+                    let trBody = Block [ VarDeclaration(t,  Self); trBody ]
+                    Function(args, thisVar, typ, trBody)    
+                | _ ->
+                    Function(args, thisVar, typ, trBody)    
+            thisVars <- thisVars.Tail
+            res
+
+    override this.TransformFuncDeclaration(id, args, thisVar, body, ty) =
+        thisVars <- (thisVar, ref false) :: thisVars
+        let trBody = base.TransformStatement(body)
+        let res =
+            match thisVars.Head with
+            | Some t, captured when captured.Value ->
+                let trBody = Block [ VarDeclaration(t,  Self); trBody ]
+                FuncDeclaration(id, args, thisVar, trBody, ty)
+            | _ ->
+                FuncDeclaration(id, args, thisVar, trBody, ty)
+        thisVars <- thisVars.Tail
+        res
+
+    override this.TransformClassMethod(i, n, args, thisVar, body, s) =
+        thisVars <- (thisVar, ref false) :: thisVars
+        let trBody = 
+            match body with
+            | Some b -> Some (base.TransformStatement(b))
+            | _ -> None
+        let res =
+            match thisVars.Head with
+            | Some t, captured when captured.Value ->
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  Self); b ])
+                ClassMethod(i, n, args, thisVar, trBody, s)
+            | _ ->
+                ClassMethod(i, n, args, thisVar, trBody, s)
+        thisVars <- thisVars.Tail
+        res
+
+    override this.TransformClassConstructor(args, thisVar, body, s) =
+        thisVars <- (thisVar, ref false) :: thisVars
+        let trBody = 
+            match body with
+            | Some b -> Some (base.TransformStatement(b))
+            | _ -> None
+        let res =
+            match thisVars.Head with
+            | Some t, captured when captured.Value ->
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  Self); b ])
+                ClassConstructor(args, thisVar, trBody, s)
+            | _ ->
+                ClassConstructor(args, thisVar, trBody, s)
+        thisVars <- thisVars.Tail
+        res
+
+    override this.TransformVar(id) =
+        match thisVars with
+        | (Some t, _) :: _ when t = id -> Self
+        | _ :: rest ->
+            match rest |> List.tryPick (function (Some t, captured) when t = id -> Some captured | _ -> None) with
+            | Some captured ->
+                captured.Value <- true
+            | _ -> ()
+            Var id
+        | _ -> Var id
 
 type EntryPointStyle =
     | OnLoadIfExists
@@ -220,7 +297,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         { new Transformer() with
             override this.TransformGlobalAccess a = 
                 if a = currentClassAdds then
-                    This
+                    Self
                 else
                     GlobalAccess a
         }
@@ -242,25 +319,25 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, _, b) ->
+                | Function (args, thisVar, _, b) ->
                     let info = 
                         {
                             IsStatic = false
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some b, TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, Some b, TSType.Any)
                 | _ -> ()       
             | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, _, b) ->
+                | Function (args, thisVar, _, b) ->
                     let info = 
                         {
                             IsStatic = true
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, Some (staticThisTransformer.TransformStatement b), TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, Some (staticThisTransformer.TransformStatement b), TSType.Any)
                 | _ ->
                     let info = 
                         {
@@ -271,15 +348,15 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     members.Add <| ClassProperty(info, mname, TSType.Any, Some body)
             | M.Func fname ->
                 match IgnoreExprSourcePos body with
-                | Function (args, _, _, b) ->
-                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, bodyTransformer.TransformStatement b, []))
+                | Function (args, thisVar, _, b) ->
+                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | e ->
                     statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
             | M.GlobalFunc addr ->
                 let fname = addr.Address.Value.Head
                 match IgnoreExprSourcePos body with
-                | Function (args, _, _, b) ->
-                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, bodyTransformer.TransformStatement b, []))
+                | Function (args, thisVar, _, b) ->
+                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | e ->
                     statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
             | _ -> ()
@@ -329,15 +406,15 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     match body with
                     //| EmptyCtorBody -> 
                     //    ()
-                    | Function (args, _, _, b) ->                  
+                    | Function (args, thisVar, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, Some b, TSType.Any))
+                        members.Add (ClassConstructor (args, thisVar, Some b, TSType.Any))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
 
             | M.New (Some name) ->
                 match body with
-                | Function (args, _, _, b) ->                  
+                | Function (args, thisVar, _, b) ->                  
                     constructors.Add(name, args, b)
                     let info =
                         {
@@ -346,8 +423,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             Kind = MemberKind.Simple
                         }
                     let ctorBody =
-                        Return (New (This, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, Some ctorBody, TSType.Any))
+                        Return (New (Self, [], Value (String name) :: (args |> List.map Var)))
+                    members.Add (ClassMethod(info, name, args, thisVar, Some ctorBody, TSType.Any))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             //| M.NewIndexed i ->
@@ -359,20 +436,20 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             //            failwithf "Invalid form for translated constructor"
             | M.Func name ->
                 match body with 
-                | Function (args, _, _, b) ->  
-                    statements.Add <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, bodyTransformer.TransformStatement b, []))
+                | Function (args, thisVar, _, b) ->  
+                    statements.Add <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, kind) ->
                 match body with 
-                | Function (args, _, _, b) ->  
+                | Function (args, thisVar, _, b) ->  
                     let info =
                         {
                             IsStatic = true
                             IsPrivate = false
                             Kind = kind
                         }
-                    members.Add (ClassMethod(info, name, args, Some b, TSType.Any))
+                    members.Add (ClassMethod(info, name, args, thisVar, Some b, TSType.Any))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
@@ -390,6 +467,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             let index = Id.New("i", mut = false)
             let maxArgs = constructors |> Seq.map (fun (_, a, _) -> List.length a) |> Seq.max
             let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
+            let cThis = Id.NewThis()
+            let mutable thisCaptured = false
             
             let ctorData = Dictionary()
             for (name, args, body) in constructors do
@@ -440,12 +519,12 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             If (Unary(UnaryOperator.TypeOf, Var index) ^!= Value (String "string"), 
                                 Block [
                                     ExprStatement (Appl(Base, [Var index], NonPure, None))
-                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign This (Var index)), Empty)
+                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign Self (Var index)), Empty)
                                 ], Empty)
                     else
                         yield 
                             If (Unary(UnaryOperator.TypeOf, Var index) ^== Value (String "object"), 
-                                ExprStatement (JSRuntime.ObjectAssign This (Var index)), Empty)
+                                ExprStatement (JSRuntime.ObjectAssign Self (Var index)), Empty)
                     for (name, args, chainedCtor, bodyRest) in orderedCtorData do
                         match chainedCtor with
                         | Some (ccName, ccArgs) ->
@@ -495,7 +574,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 ]
 
             let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-            members.Add (ClassConstructor (allArgs, Some (Block cBody), TSType.Any))   
+            members.Add (ClassConstructor (allArgs, None, Some (Block cBody), TSType.Any))   
         
         let mutable isFSharpType = false
 
@@ -514,8 +593,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 |> Seq.max
             let genCtor =
                 let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign This (Var arg))
-                ClassConstructor([ arg, Modifiers.None ], Some assign, TSType.Any)
+                let assign = ExprStatement (JSRuntime.ObjectAssign Self (Var arg))
+                ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
                 //let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
                 //let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
                 //let setters = 
@@ -528,8 +607,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             let genCtor = 
                 let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign This (Var arg))
-                ClassConstructor([ arg, Modifiers.None ], Some assign, TSType.Any)
+                let assign = ExprStatement (JSRuntime.ObjectAssign Self (Var arg))
+                ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
             members.Add <| genCtor
             //let newFunc =
             //    let args = r |> List.map (fun f -> Id.New(f.Name, mut = false))
@@ -561,7 +640,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
-                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(This))) 
+                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(Self))) 
                     :: List.ofSeq members)
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with
@@ -603,11 +682,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let isIntf =
             let x = Id.New "x"
             if Seq.isEmpty methodNames then
-                FuncDeclaration(funcId, [x], Return (Value (Bool true)), [])
+                FuncDeclaration(funcId, [x], None, Return (Value (Bool true)), [])
             else         
                 let shortestName = methodNames |> Seq.minBy String.length
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                FuncDeclaration(funcId, [x], Return check, [])
+                FuncDeclaration(funcId, [x], None, Return check, [])
 
         statements.Add(ExportDecl (false, isIntf))
 
@@ -615,7 +694,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], true, None, bodyTransformer.TransformStatement ep)))
+        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer.TransformStatement ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->

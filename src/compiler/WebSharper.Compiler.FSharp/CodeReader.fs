@@ -135,8 +135,13 @@ let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
     match x.DeclaringEntity with
     | Some e -> e
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
-       
-type FixCtorTransformer(typ, btyp, ?thisVar) =
+  
+let (|This|_|) v expr =
+    match expr with
+    | I.Var t when t = v -> Some()
+    | _ -> None
+
+type FixCtorTransformer(typ, btyp, thisVar) =
     inherit Transformer()
 
     let mutable addedChainedCtor = false
@@ -145,14 +150,14 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
     override this.TransformSequential (es) =
         match es with
         // handle class self alias, simplify to call to this.
-        | I.FieldSet(Some I.This, _, f, I.NewRecord(_, [DefaultValueOf _])) 
+        | I.FieldSet(Some (This thisVar), _, f, I.NewRecord(_, [DefaultValueOf _])) 
             :: I.Let (self, I.FieldGet _, o)
-            :: I.FieldSet(Some (I.FieldGet(Some I.This, _, _)), _, _, I.This)
-            :: I.FieldSet(Some I.This, _, i, I.Value (Int 1))
+            :: I.FieldSet(Some (I.FieldGet(Some (This thisVar), _, _)), _, _, (This thisVar))
+            :: I.FieldSet(Some (This thisVar), _, i, I.Value (Int 1))
             :: t ->
                 cgenFieldNames <- [ f; i ]
                 printfn "self identifier found"
-                Sequential (SubstituteVar(self, This).TransformExpression(this.TransformExpression(o)) :: t)  
+                Sequential (SubstituteVar(self, Var thisVar).TransformExpression(this.TransformExpression(o)) :: t)  
         | h :: t -> Sequential (this.TransformExpression h :: t)
         | _ -> Undefined
 
@@ -171,10 +176,6 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
         if addedChainedCtor then Ctor (t, c, a) else
         addedChainedCtor <- true
         let isBase = t.Entity <> typ
-        let thisExpr =
-            match thisVar with
-            | Some v -> Var v
-            | _ -> This
         let tn = typ.Value.FullName
         if (not isBase || Option.isSome btyp) && not (tn = "System.Object" || tn = "System.Exception") then
             if t.Entity.Value.FullName = "System.Exception" then 
@@ -188,23 +189,23 @@ type FixCtorTransformer(typ, btyp, ?thisVar) =
                     yield Appl(Base, args, NonPure, None)
                     match inner with
                     | Some i ->
-                        yield ItemSet(thisExpr, Value (String "inner"), i)
+                        yield ItemSet(Var thisVar, Value (String "inner"), i)
                     | None -> ()
                 ]
             else
-                ChainedCtor(isBase, thisVar, t, c, a) 
-        else thisExpr
+                ChainedCtor(isBase, t, c, a) 
+        else Var thisVar
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)
         match btyp with
         | Some b when not addedChainedCtor -> 
-            Sequential [ ChainedCtor(true, thisVar, b, ConstructorInfo.Default(), []); res ]
+            Sequential [ ChainedCtor(true, b, ConstructorInfo.Default(), []); res ]
         | _ -> res
         , cgenFieldNames
 
-let fixCtor thisTyp baseTyp expr =
-    FixCtorTransformer(thisTyp, baseTyp).Fix(expr)
+let fixCtor thisTyp baseTyp thisVar expr =
+    FixCtorTransformer(thisTyp, baseTyp, thisVar).Fix(expr)
 
 module Definitions =
     let List =
@@ -603,6 +604,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 type Environment =
     {
         ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
+        This : option<Id>
         TParams : Map<string, int>
         FreeVars : ResizeArray<FSharpMemberOrFunctionOrValue * Id * VarKind>
         Exception : option<Id>
@@ -615,6 +617,7 @@ type Environment =
 //            failwithf "Repeating type parameter names: %A" tparams
         { 
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
+            This = vars |> Seq.tryPick (function (_, (i, ThisArg)) -> Some i | _ -> None)
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             FreeVars = ResizeArray()
             Exception = None
@@ -624,6 +627,9 @@ type Environment =
 
     member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
         { this with ScopeIds = (v, i, defaultArg k LocalVar) :: this.ScopeIds }
+
+    member this.WithThis(i: Id) =
+        { this with This = Some i }
 
     member this.WithException (i: Id, v: FSharpMemberOrFunctionOrValue) =
         { this with 
@@ -687,12 +693,12 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             else
                 let v, k = env.LookupVar var
                 match k with
-                | LocalVar -> Var v  
-                | FuncArg -> Var v
+                | LocalVar 
+                | FuncArg 
+                | ThisArg -> Var v
                 | ByRefArg -> 
                     let t = getOrigType expr.Type
                     if t.HasTypeDefinition && isByRefDef t.TypeDefinition then Var v else GetRef (Var v)
-                | ThisArg -> This
         | P.Lambda _ ->
             let rec loop acc = function
                 | P.Lambda (var, body) -> loop (var :: acc) body
@@ -700,7 +706,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             
             let lam vars typ body isUnitReturn =
                 if isUnitReturn then
-                    Function(vars, true, None, ExprStatement body)
+                    Function(vars, None, None, ExprStatement body)
                 else
                     Lambda(vars, typ, body)   
             match loop [] expr with
@@ -806,7 +812,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     match sr.ReadMember meth with
                     | Member.Method (isInstance, m) -> 
                         if td = Definitions.IntrinsicFunctions && m = Definitions.CheckThis then
-                            This
+                            Var env.This.Value
                         else
                             let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                             if isInstance then
@@ -981,7 +987,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 else                            
                     Sequential [
                         for a, f in Seq.zip items fields ->
-                            FieldSet(Some This, t, f.Name, tr a)
+                            FieldSet(Some (Var env.This.Value), t, f.Name, tr a)
                     ]
         | P.NewAnonRecord (typ, items) ->
             let t =
@@ -1080,7 +1086,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.DecisionTreeSuccess (index, results) ->
             MatchSuccess (index, results |> List.map tr)
         | P.ThisValue (typ) ->
-            This
+            Var env.This.Value
         | P.FSharpFieldGet (thisOpt, typ, field) ->
             let t = 
                 match sr.ReadType env.TParams typ with
@@ -1175,7 +1181,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                             match ovr.CurriedParameterGroups with
                             | [t] :: args ->
                                 let thisVar = namedId (Some env) false t
-                                env <- env.WithVar(thisVar, t)
+                                env <- env.WithVar(thisVar, t).WithThis(thisVar)
                                 let args = 
                                     match args with
                                     | [[ a ]] when isUnit a.FullType -> [[]]
@@ -1188,7 +1194,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                                 ) |> List.ofSeq 
                             | _ ->
                                 failwith "Wrong `this` argument in object expression override"
-                        let b = FuncWithThis (thisVar, vars, Some typ', Return (transformExpression env ovr.Body)) 
+                        let b = Function (vars, Some thisVar, Some typ', Return (transformExpression env ovr.Body)) 
                         yield i, s, b
                 ]
             ObjectExpr(typ', ctor, overrides)
@@ -1232,7 +1238,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value)) None))
         | P.ILAsm ("[I_ldarg 0us]", [], []) ->
-            This
+            Var env.This.Value
         | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->
             tr arr  
         | P.ILAsm ("[I_ldlen; AI_conv DT_I4]", [], [ arr ]) ->

@@ -125,7 +125,7 @@ type FuncArgVisitor(opts: FuncArgOptimization list, margs: Id list, isInstance) 
             | a -> this.VisitExpression a     
         )
 
-    override this.VisitChainedCtor(isBase, expr, typ, ctor, args) =
+    override this.VisitChainedCtor(isBase, typ, ctor, args) =
         args |> List.iteri (fun i a ->
             match IgnoreExprSourcePos a with
             | ArgIndex j ->
