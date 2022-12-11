@@ -2,8 +2,8 @@
   "profiles": {
     "WebSharper.FSharp": {
       "commandName": "Project",
-      "commandLineArgs": "@\"C:\\Users\\andra\\AppData\\Local\\Temp\\tmp772B.tmp\"",
-      "workingDirectory": "H:\\websharper-ts\\src\\stdlib\\WebSharper.Main"
+      "commandLineArgs": "@\"C:\\Users\\andra\\AppData\\Local\\Temp\\tmpC3C9.tmp\"",
+      "workingDirectory": "D:\\work\\websharper\\src\\stdlib\\WebSharper.Main"
     }
   }
 }

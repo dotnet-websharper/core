@@ -302,9 +302,12 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     GlobalAccess a
         }
 
+    let addStatement st =
+        statements.Add <| ThisTransformer().TransformStatement(st)
+
     //let package a expr =
     //    let o, x = getFieldAddress a
-    //    statements.Add <| ExprStatement (ItemSet (o, x, expr))    
+    //    addStatement <| ExprStatement (ItemSet (o, x, expr))    
 
     let rec withoutMacros info =
         match info with
@@ -349,16 +352,16 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.Func fname ->
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
+                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | e ->
-                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
             | M.GlobalFunc addr ->
                 let fname = addr.Address.Value.Head
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    statements.Add <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
+                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | e ->
-                    statements.Add <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
             | _ -> ()
 
         if c.HasWSPrototype then
@@ -383,7 +386,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         for f in c.Fields.Values do
             match f with
             | M.VarField v, _, _ ->
-                statements.Add <| VarDeclaration(v, Undefined)
+                addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
         for info, _, _, body in c.Methods.Values do
@@ -392,7 +395,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         for info, body in c.Implementations.Values do
             mem info body            
 
-        let constructors = ResizeArray<string * Id list * Statement>()
+        let constructors = ResizeArray<string * Id option * Id list * Statement>()
 
         for KeyValue(ctor, (info, opts, body)) in c.Constructors do
             //let (|EmptyCtorBody|_|) expr =
@@ -415,7 +418,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.New (Some name) ->
                 match body with
                 | Function (args, thisVar, _, b) ->                  
-                    constructors.Add(name, args, b)
+                    constructors.Add(name, thisVar, args, b)
                     let info =
                         {
                             IsStatic = true
@@ -437,7 +440,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.Func name ->
                 match body with 
                 | Function (args, thisVar, _, b) ->  
-                    statements.Add <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
+                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, kind) ->
@@ -465,13 +468,16 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
         if constructors.Count > 0 then
             let index = Id.New("i", mut = false)
-            let maxArgs = constructors |> Seq.map (fun (_, a, _) -> List.length a) |> Seq.max
+            let maxArgs = constructors |> Seq.map (fun (_, _, a, _) -> List.length a) |> Seq.max
             let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
             let cThis = Id.NewThis()
-            let mutable thisCaptured = false
             
             let ctorData = Dictionary()
-            for (name, args, body) in constructors do
+            for (name, thisVar, args, body) in constructors do
+                let body = 
+                    match thisVar with
+                    | Some t -> ReplaceId(t, cThis).TransformStatement(body)
+                    | _ -> body
                 // TODO what if not at start
                 let chainedCtor, bodyRest =
                     match body with
@@ -574,14 +580,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 ]
 
             let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-            members.Add (ClassConstructor (allArgs, None, Some (Block cBody), TSType.Any))   
+            members.Add (ClassConstructor (allArgs, Some cThis, Some (Block cBody), TSType.Any))   
         
         let mutable isFSharpType = false
 
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
             let tags = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
-            statements.Add <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
+            addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
 
             let numArgs =
                 u.Cases |> Seq.map (fun uc -> 
@@ -616,7 +622,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             //    let body =
             //        New(Var classId, [], [ Object (args |> List.map ) ])
             //    FuncDeclaration(newId, args, )
-            //statements.Add <| ExportDecl(false, newFunc)
+            //addStatement <| ExportDecl(false, newFunc)
             isFSharpType <- true
         | _ -> ()
         //| _ ->
@@ -631,11 +637,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let lazyClassId = lazy Id.New("$c")
 
         let packageLazyClass classExpr =
-            statements.Add <| VarDeclaration(lazyClassId.Value, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr))
-            statements.Add <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
+            addStatement <| VarDeclaration(lazyClassId.Value, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr))
+            addStatement <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
 
         let packageClass classDecl = 
-            statements.Add <| ExportDecl(true, bodyTransformer.TransformStatement classDecl)                
+            addStatement <| ExportDecl(true, bodyTransformer.TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -694,7 +700,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        statements.Add <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer.TransformStatement ep)))
+        addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer.TransformStatement ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->

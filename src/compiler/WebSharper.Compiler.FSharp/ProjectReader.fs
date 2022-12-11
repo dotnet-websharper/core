@@ -584,7 +584,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 match memdef with
                                 | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
                                     try 
-                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This.Value b
+                                        let b, cgenFieldNames = CodeReader.fixCtor def baseCls env.This b
                                         selfCtorFields <- cgenFieldNames
                                         b
                                     with e ->
@@ -744,7 +744,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 addMethod None mAnnot mdef nr true None parsed.Expr   
                             else addM nr true None parsed.Expr
                         with e ->
-                            error ("Error parsing inline JavaScript: " + e.Message)
+                            error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.Constant c ->
                         checkNotAbstract() 
                         addM nrInline true None (Value c)                        
@@ -755,7 +755,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             List.iter warn parsed.Warnings
                             addM (getKind()) true None parsed.Expr
                         with e ->
-                            error ("Error parsing direct JavaScript: " + e.Message)
+                            error ("Error parsing direct JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.JavaScript ->
                         jsMethod false
                     | A.MemberKind.InlineJavaScript ->
@@ -800,7 +800,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             List.iter warn parsed.Warnings
                             addC (N.Inline ta) true None parsed.Expr 
                         with e ->
-                            error ("Error parsing inline JavaScript: " + e.Message)
+                            error ("Error parsing inline JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
@@ -808,7 +808,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             List.iter warn parsed.Warnings
                             addC N.Static true None parsed.Expr 
                         with e ->
-                            error ("Error parsing direct JavaScript: " + e.Message)
+                            error ("Error parsing direct JavaScript: " + e.Message + " at " + e.StackTrace)
                     | A.MemberKind.JavaScript -> jsCtor false
                     | A.MemberKind.InlineJavaScript -> jsCtor true
                     | A.MemberKind.Generated _ ->

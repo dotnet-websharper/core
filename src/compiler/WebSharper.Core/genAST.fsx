@@ -97,7 +97,7 @@ let ExprDefs =
         //    , "The `this` value of current JavaScript function scope"
         //"Arguments", []
         //    , "The `arguments` value of current JavaScript function scope"
-        "Var", [ Id, "variable"]
+        "Var", [ Id, "variable" ]
             , "Gets the value of a variable"
         "Value", [ Literal, "value" ]
             , "Contains a literal value"
@@ -134,7 +134,7 @@ let ExprDefs =
         //"FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
         //    , "Temporary - Method of F# object expressions"
         "Self", []
-            , "Temporary - Refers to the class from a static method or constructor"
+            , "JavaScript - the this value"
         "Base", []
             , "Refers to the base class from an instance method, `super` in JavaScript"
         "Call", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Method, "method"; List Expr, "arguments" ]
@@ -143,7 +143,7 @@ let ExprDefs =
             , "Temporary - Partial application, workaround for FCS issue #414"
         "CurriedApplication", [ Expr, "func"; List (Bool * Expr), "arguments" ]
             , "Temporary - F# function application, bool indicates if the argument has type unit"
-        "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt"]
+        "OptimizedFSharpArg", [ Expr, "funcVar"; Object "FuncArgOptimization", "opt" ]
             , "Temporary - optimized curried or tupled F# function argument"
         "Ctor", [ TypeDefinition, "typeDefinition"; Constructor, "ctor"; List Expr, "arguments" ] 
             , ".NET - Constructor call"
@@ -151,7 +151,7 @@ let ExprDefs =
             , ".NET - Chained or base constructor call"
         "CopyCtor", [ NonGenericTypeDefinition, "typeDefinition"; Expr, "object" ]
             , ".NET - Creating an object from a plain object"
-        "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"]
+        "FieldGet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field" ]
             , ".NET - Field getter"
         "FieldSet", [ Option Expr, "thisObject"; TypeDefinition, "typeDefinition"; Str, "field"; Expr, "value" ]
             , ".NET - Field setter"
@@ -291,7 +291,7 @@ let StatementDefs =
             , "TypeScript - interface { ... }"
         "Alias", [ TSType, "alias"; TSType, "origType" ]
             , "TypeScript - type or import alias"
-        "XmlComment", [ Str, "xml"]
+        "XmlComment", [ Str, "xml" ]
             , "TypeScript - triple-slash directive"
     ]
 

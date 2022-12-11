@@ -67,7 +67,7 @@ type Control() =
     abstract member Body : IControlBody
 
     interface IControl with
-        [<JavaScript>]
+        [<JavaScript(false)>]
         member this.Body = this.Body
         member this.Id = this.ID
 

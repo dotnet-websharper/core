@@ -168,7 +168,8 @@ type private Environment =
         match this.Vars with
         | [] -> failwith "no scope"
         | h :: t ->
-            h.Add(n, Var v)
+            h[n] <- Var v
+            //h.Add(n, Var v)
             v
 
     member this.TryFindVar(id: S.Id) =
@@ -185,13 +186,10 @@ type private Environment =
     member this.IsInput(expr) =
         this.Inputs |> List.contains expr
 
-    member this.GetThis() =
+    member this.ThisVar =
         match this.This.Value with
-        | Some t -> t
-        | _ ->
-            let t = Id.NewThis()
-            this.This.Value <- Some t
-            t
+        | Some t -> Var t
+        | _ -> Self
 
 exception RecognitionError
 
@@ -443,7 +441,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | S.PostfixOperator.``++`` -> mun a MutatingUnaryOperator.``()++``
         | S.PostfixOperator.``--`` -> mun a MutatingUnaryOperator.``()--``
         | _ -> failwith "unrecognized postfix operator"
-    | S.This -> Var (env.GetThis())
+    | S.This -> env.ThisVar
     | S.ImportFunc -> Var (Id.Import())
     | S.Unary (a, b) ->
         match a with

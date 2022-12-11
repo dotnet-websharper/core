@@ -137,8 +137,8 @@ let getDeclaringEntity (x : FSharpMemberOrFunctionOrValue) =
     | None -> failwithf "Enclosing entity not found for %s" x.FullName
   
 let (|This|_|) v expr =
-    match expr with
-    | I.Var t when t = v -> Some()
+    match expr, v with
+    | I.Var t, Some vv when t = vv -> Some()
     | _ -> None
 
 type FixCtorTransformer(typ, btyp, thisVar) =
@@ -157,7 +157,7 @@ type FixCtorTransformer(typ, btyp, thisVar) =
             :: t ->
                 cgenFieldNames <- [ f; i ]
                 printfn "self identifier found"
-                Sequential (SubstituteVar(self, Var thisVar).TransformExpression(this.TransformExpression(o)) :: t)  
+                Sequential (SubstituteVar(self, Var thisVar.Value).TransformExpression(this.TransformExpression(o)) :: t)  
         | h :: t -> Sequential (this.TransformExpression h :: t)
         | _ -> Undefined
 
@@ -189,12 +189,12 @@ type FixCtorTransformer(typ, btyp, thisVar) =
                     yield Appl(Base, args, NonPure, None)
                     match inner with
                     | Some i ->
-                        yield ItemSet(Var thisVar, Value (String "inner"), i)
+                        yield ItemSet(Self, Value (String "inner"), i)
                     | None -> ()
                 ]
             else
                 ChainedCtor(isBase, t, c, a) 
-        else Var thisVar
+        else Self
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)
@@ -604,7 +604,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
 type Environment =
     {
         ScopeIds : list<FSharpMemberOrFunctionOrValue * Id * VarKind>
-        This : option<Id>
+        mutable This : option<Id>
         TParams : Map<string, int>
         FreeVars : ResizeArray<FSharpMemberOrFunctionOrValue * Id * VarKind>
         Exception : option<Id>
@@ -648,7 +648,15 @@ type Environment =
             let kind = VarKind.FuncArg
             this.FreeVars.Add((v, id, kind))
             id, kind
-    
+
+    member this.ThisVar =
+        match this.This with
+        | Some t -> Var t
+        | None ->
+            let t = Id.NewThis()
+            this.This <- Some t
+            Var t
+            
 let newId() = Id.New(mut = false)
 let namedId (env: option<Environment>) isOpt (i: FSharpMemberOrFunctionOrValue) =
     let typ = env |> Option.bind (fun env -> i.FullTypeSafe |> Option.map (env.SymbolReader.ReadType env.TParams))
@@ -812,7 +820,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     match sr.ReadMember meth with
                     | Member.Method (isInstance, m) -> 
                         if td = Definitions.IntrinsicFunctions && m = Definitions.CheckThis then
-                            Var env.This.Value
+                            env.ThisVar
                         else
                             let mt = Generic m (methodGenerics |> List.map (sr.ReadType env.TParams))
                             if isInstance then
@@ -987,7 +995,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                 else                            
                     Sequential [
                         for a, f in Seq.zip items fields ->
-                            FieldSet(Some (Var env.This.Value), t, f.Name, tr a)
+                            FieldSet(Some env.ThisVar, t, f.Name, tr a)
                     ]
         | P.NewAnonRecord (typ, items) ->
             let t =
@@ -1086,7 +1094,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
         | P.DecisionTreeSuccess (index, results) ->
             MatchSuccess (index, results |> List.map tr)
         | P.ThisValue (typ) ->
-            Var env.This.Value
+            env.ThisVar
         | P.FSharpFieldGet (thisOpt, typ, field) ->
             let t = 
                 match sr.ReadType env.TParams typ with
@@ -1238,7 +1246,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
             let iId = newId()
             Let (arrId, tr arr, Let(iId, tr i, MakeRef (ItemGet(Var arrId, Var iId, NoSideEffect)) (fun value -> ItemSet(Var arrId, Var iId, value)) None))
         | P.ILAsm ("[I_ldarg 0us]", [], []) ->
-            Var env.This.Value
+            env.ThisVar
         | P.ILAsm ("[AI_ldnull; AI_cgt_un]", [], [ arr ]) ->
             tr arr  
         | P.ILAsm ("[I_ldlen; AI_conv DT_I4]", [], [ arr ]) ->
