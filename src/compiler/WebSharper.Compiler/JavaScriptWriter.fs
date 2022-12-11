@@ -232,7 +232,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 EndColumn = snd pos.End
             } : J.SourcePos
         J.ExprPos (trE e, jpos)
-    | Function (ids, a, t, b) ->
+    | Function (ids, thisVar, _, b) ->
         let innerEnv = env.NewInner()
         let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
@@ -242,7 +242,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         //        [ J.Ignore (J.Constant (J.String "use strict")) ]
         //    else []
 
-        J.Lambda(None, args, flattenJS body, t.IsNone)
+        J.Lambda(None, args, flattenJS body, thisVar.IsNone)
     | ItemGet (x, y, _) 
         -> (trE x).[trE y]
     | Binary (x, y, z) ->

@@ -1800,7 +1800,6 @@ type RoslynTransformer(env: Environment) =
                 match body with
                 | Some b -> b
                 | _ ->
-                    // TODO : make this inlined
                     let pr = symbol.AssociatedSymbol :?> IPropertySymbol
                     let typ = sr.ReadNamedType symbol.ContainingType
                     let backingfield = 

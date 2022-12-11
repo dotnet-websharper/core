@@ -205,6 +205,7 @@ type FixCtorTransformer(typ, btyp, thisVar) =
         , cgenFieldNames
 
 let fixCtor thisTyp baseTyp thisVar expr =
+    printfn "fixCtor %A %s" thisVar (Debug.PrintExpression expr)
     FixCtorTransformer(thisTyp, baseTyp, thisVar).Fix(expr)
 
 module Definitions =
@@ -611,13 +612,16 @@ type Environment =
         Compilation : Compilation
         SymbolReader : SymbolReader
     }
-    static member New(vars, tparams, comp, sr) = 
+    static member New(vars, isCtor, tparams, comp, sr) = 
 //        let tparams = Array.ofSeq tparams
 //        if tparams |> Array.distinct |> Array.length <> tparams.Length then
 //            failwithf "Repeating type parameter names: %A" tparams
         { 
             ScopeIds = vars |> Seq.map (fun (i, (v, k)) -> i, v, k) |> List.ofSeq 
-            This = vars |> Seq.tryPick (function (_, (i, ThisArg)) -> Some i | _ -> None)
+            This = 
+                vars 
+                |> Seq.tryPick (function (_, (i, ThisArg)) -> Some i | _ -> None) 
+                |> Option.orElseWith (fun () -> if isCtor then Some (Id.NewThis()) else None)
             TParams = tparams |> Seq.mapi (fun i p -> p, i) |> Map.ofSeq
             FreeVars = ResizeArray()
             Exception = None
@@ -652,10 +656,7 @@ type Environment =
     member this.ThisVar =
         match this.This with
         | Some t -> Var t
-        | None ->
-            let t = Id.NewThis()
-            this.This <- Some t
-            Var t
+        | None -> failwith "'this' identifier not found"
             
 let newId() = Id.New(mut = false)
 let namedId (env: option<Environment>) isOpt (i: FSharpMemberOrFunctionOrValue) =

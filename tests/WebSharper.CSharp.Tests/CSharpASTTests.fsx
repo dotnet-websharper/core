@@ -207,10 +207,13 @@ using System;
 using WebSharper;
 
 [JavaScript]
-public record Person(
-    string FirstName, 
-    string LastName
-);
+public record Person
+{
+    public string LastName { get; }
+    public string FirstName { get; }
+
+    public Person(string first, string last) => (FirstName, LastName) = (first, last);
+}
 
 //[JavaScript]
 //public record PersonProp

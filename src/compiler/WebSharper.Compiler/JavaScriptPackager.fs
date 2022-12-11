@@ -634,7 +634,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
         | _ -> ()
 
-        let lazyClassId = lazy Id.New("$c")
+        let lazyClassId = lazy Id.New("_c")
 
         let packageLazyClass classExpr =
             addStatement <| VarDeclaration(lazyClassId.Value, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr))

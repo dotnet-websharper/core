@@ -176,7 +176,7 @@ let isAbstractClass (e: FSharpEntity) =
 let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) a =
     if annot.IsJavaScript then
         let _, (statements, _) = sc.Value
-        let env = CodeReader.Environment.New ([], [], comp, sr)  
+        let env = CodeReader.Environment.New ([], false, [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
 let private nrInline = N.Inline false
@@ -577,7 +577,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 Some (mem, ca, args, Option.isSome t)
 
                         let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-                        let env = CodeReader.Environment.New (argsAndVars, tparams, comp, sr)  
+                        
+                        let isCtor =
+                            match memdef with
+                            | Member.Constructor _ -> true
+                            | _ -> false
+
+                        let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr)  
                         let res =
                             let b = CodeReader.transformExpression env expr 
                             let b = 
@@ -843,7 +849,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-            let env = CodeReader.Environment.New ([], tparams, comp, sr)
+            let env = CodeReader.Environment.New ([], false, tparams, comp, sr)
             CodeReader.scanExpression env meth.LogicalName expr
             |> Seq.iter (fun (pos, mdef, argNames, e) ->
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 

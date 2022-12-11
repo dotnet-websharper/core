@@ -669,8 +669,8 @@ module Resolve =
     
     type Class = 
         {
-            InstanceMembers: HashSet<string>
-            StaticMembers: HashSet<string>
+            InstanceMembers: HashSet<string * MemberKind>
+            StaticMembers: HashSet<string * MemberKind>
             Functions: HashSet<string>
             SubClasses: ResizeArray<Class>
         } with 
@@ -792,26 +792,46 @@ module Resolve =
             s.Add (name, kind) |> ignore
             name
 
-    let rec getRenamedInstanceMemberForClass name c =
+    let rec getRenamedInstanceMemberForClass name kind c =
         let rec isNameOk (c: Class) =
+            let hasConflict = 
+                let s = c.InstanceMembers
+                match kind with
+                | MemberKind.Simple ->
+                    s.Contains (name, MemberKind.Simple) 
+                    || s.Contains (name, MemberKind.Getter) 
+                    || s.Contains (name, MemberKind.Setter)
+                | _ ->
+                    s.Contains (name, MemberKind.Simple) 
+                    || s.Contains (name, kind) 
             seq {
-                yield not (c.InstanceMembers.Contains name)
+                yield not hasConflict
                 for sc in c.SubClasses do 
                     yield isNameOk sc
             }
             |> Seq.forall id
         if isNameOk c then
-            addInstanceMemberToClass c name |> ignore
+            addInstanceMemberToClass c (name, kind) |> ignore
             name
         else
-            getRenamedInstanceMemberForClass (newName name) c
+            getRenamedInstanceMemberForClass (newName name) kind c
 
-    let rec getRenamedStaticMemberForClass name c =
-        if not (c.StaticMembers.Contains name) then
-            addStaticMemberToClass c name |> ignore
+    let rec getRenamedStaticMemberForClass name kind c =
+        let hasConflict = 
+            let s = c.StaticMembers
+            match kind with
+            | MemberKind.Simple ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, MemberKind.Getter) 
+                || s.Contains (name, MemberKind.Setter)
+            | _ ->
+                s.Contains (name, MemberKind.Simple) 
+                || s.Contains (name, kind) 
+        if not hasConflict then
+            addStaticMemberToClass c (name, kind) |> ignore
             name
         else
-            getRenamedStaticMemberForClass (newName name) c
+            getRenamedStaticMemberForClass (newName name) kind c
 
     let rec getRenamedFunctionForClass name c =
         if not (c.Functions.Contains name) then
@@ -855,14 +875,14 @@ let getAllAddresses (meta: Info) =
         let pr = if cls.HasWSPrototype then Some (r.LookupClass typ) else None 
         let rec addMember (m: CompiledMember) =
             match m with
-            | Instance (n, _) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p n |> ignore)            
+            | Instance (n, k) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, k) |> ignore)            
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
         for m, _, _ in cls.Constructors.Values do addMember m
         for f, _, _ in cls.Fields.Values do
             match f with
             | InstanceField n 
-            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p n |> ignore)
+            | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, MemberKind.Simple) |> ignore)
             | IndexedField _ -> ()
             | _ -> ()
         for m, _ in cls.Implementations.Values do addMember m

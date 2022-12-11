@@ -1831,9 +1831,9 @@ type Compilation(meta: Info, ?hasGraph) =
                 | a -> 
                     this.AddWarning(None, SourceWarning (sprintf "Deprecated Name attribute argument on type '%s'. Full names are no longer used." typ.Value.FullName))
                     Array.head a
-            if c.StaticMembers.Contains name then
-                this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, sn)) 
             let (_, k) = this.GetMemberNameAndKind(m)
+            if not (Resolve.addStaticMemberToClass c (name, k)) then
+                this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, sn)) 
             nameStaticMember typ name k m
               
         for KeyValue((td, m), args) in compilingQuotedArgMethods do
@@ -1884,9 +1884,9 @@ type Compilation(meta: Info, ?hasGraph) =
             let pr = resolver.LookupClass typ
             for m, n in ms do
                 let addr = clAddr.Sub(n)
-                if not (Resolve.addStaticMemberToClass pr n) then
-                    this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address.Value |> String.concat "."))
                 let (_, k) = this.GetMemberNameAndKind(m)
+                if not (Resolve.addStaticMemberToClass pr (n, k)) then
+                    this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address.Value |> String.concat "."))
                 nameStaticMember typ n k m
         let isImplementation m =
             match m with
@@ -1898,9 +1898,9 @@ type Compilation(meta: Info, ?hasGraph) =
             let pr = resolver.LookupClass typ
             for m, n in ms do
                 //pr.Add n |> ignore
-                if not (Resolve.addInstanceMemberToClass pr n || objectMethods.Contains n || isImplementation m) then
-                    printerrf "Instance member name conflict on type %s name %s" typ.Value.FullName n
                 let (_, k) = this.GetMemberNameAndKind(m)
+                if not (Resolve.addInstanceMemberToClass pr (n, k) || objectMethods.Contains n || isImplementation m) then
+                    printerrf "Instance member name conflict on type %s name %s" typ.Value.FullName n
                 nameInstanceMember typ n k m      
 
         let simplifyFieldName (f: string) =
@@ -1924,7 +1924,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             s[.. s.Length - 2] |> String.concat("_"), k
                         else n.Replace('.', '_'), k 
                     | M.StaticConstructor _ -> "cctor", MemberKind.Simple 
-                let addr = Resolve.getRenamedStaticMemberForClass uname pr
+                let addr = Resolve.getRenamedStaticMemberForClass uname k pr
                 nameStaticMember typ addr k m
 
         let resolved = HashSet()
@@ -1960,11 +1960,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     let name, k = 
                         match m with
                         | M.Field (fName, _) -> 
-                            Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) pr |> Some,
+                            Resolve.getRenamedInstanceMemberForClass (simplifyFieldName fName) MemberKind.Simple pr |> Some,
                             MemberKind.Simple
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
                             let n, k = this.GetMemberNameAndKind(m)
-                            Resolve.getRenamedInstanceMemberForClass (n.Replace('.', '_')) pr |> Some,
+                            Resolve.getRenamedInstanceMemberForClass (n.Replace('.', '_')) k pr |> Some,
                             k
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with

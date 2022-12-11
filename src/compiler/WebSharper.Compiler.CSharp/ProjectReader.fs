@@ -160,7 +160,7 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
 
 let initDef =
     Hashed {
-        MethodName = "$init"
+        MethodName = "init"
         Parameters = []
         ReturnType = VoidType
         Generics = 0
@@ -446,9 +446,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             // auto-add init methods
                             let getter = sr.ReadMethod p.GetMethod
                             let setter = CodeReader.setterOf (NonGeneric getter)
-                            let v = Id.New()
-                            let body = Lambda([ v ], None, FieldSet(Some (Var initThisVar), NonGeneric def, bf.Name, Var v))
-                            addMethod None pAnnot setter.Entity N.Instance false body
+                            let body = FieldSet(Some (Hole 0), NonGeneric def, bf.Name, Hole 1)
+                            addMethod None pAnnot setter.Entity nrInline false body
                         | None -> ()
                     | setMeth ->
                         let setter = sr.ReadMethod setMeth
@@ -510,7 +509,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let getDefImpl (meth: Method) =
         Method {
             meth.Value with
-                MethodName = meth.Value.MethodName + "$Def"
+                MethodName = meth.Value.MethodName + "_Def"
         }
 
     let implements =
@@ -584,6 +583,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | _ -> error "Only methods can be defined Remote"
         | Some kind ->
             let memdef = sr.ReadMember meth
+            let mutable makeInline = false
             let getParsed() =                 
                 let thisVar = Id.NewThis()
                 if decls.Length > 0 then
@@ -645,8 +645,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> (cs thisVar model).TransformMethodDeclaration
                             |> fixMethod
                         | :? AccessorDeclarationSyntax as syntax ->
-                            syntax
-                            |> RoslynHelpers.AccessorDeclarationData.FromNode 
+                            let data =
+                                syntax
+                                |> RoslynHelpers.AccessorDeclarationData.FromNode 
+                            let hasBody =
+                                data.Body.IsSome || data.ExpressionBody.IsSome
+                            if not hasBody then 
+                                makeInline <- true
+                            data
                             |> (cs thisVar model).TransformAccessorDeclaration
                             |> fixMethod
                         | :? ArrowExpressionClauseSyntax as syntax ->
@@ -846,6 +852,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                     ReturnType = NonGenericType Definitions.Int
                                 } : CodeReader.CSharpMethod
                             | "<Clone>$" ->
+                                makeInline <- true
                                 let cloneCtor = 
                                     Hashed {
                                         CtorParameters = [ thisTyp ]
@@ -881,6 +888,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             | mname ->
                                 failwithf "Not recognized record method: %s" mname    
                         | :? ParameterSyntax as syntax ->
+                            makeInline <- true
                             if meth.Name = "get_EqualityContract" then
                                 {
                                     IsStatic = false
@@ -1046,7 +1054,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let returnType =
                     if obj.ReferenceEquals(parsed.ReturnType, Unchecked.defaultof<_>) then None
                     else Some parsed.ReturnType
-                if isInline then
+                if isInline || makeInline then
                     match parsed.Body with
                     | IgnoreSourcePos.Return e ->
                         let allVars = Option.toList parsed.This @ args
@@ -1085,16 +1093,18 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | Member.Implementation (t, _) -> N.InlineImplementation t
                     | _ -> nrInline
                 let jsMethod isInline =
+                    let b = getBody isInline
+                    let isInline = isInline || makeInline
                     match memdef with
                     | Member.Override (td, _) when not isInline && td = def ->
                         if isInterface then
-                            addMethod None { mAnnot with Name = None } (getDefImpl mdef) N.Static false (getBody isInline)
+                            addMethod None { mAnnot with Name = None } (getDefImpl mdef) N.Static false b
                         else
                             // virtual methods are split to abstract and override
                             addMethod None mAnnot mdef (N.Abstract) true Undefined
-                            addMethod (Some (meth, memdef)) { mAnnot with Name = None } mdef (N.Override def) false (getBody isInline)
+                            addMethod (Some (meth, memdef)) { mAnnot with Name = None } mdef (N.Override def) false b
                     | Member.Override (td, _) when not isInline ->
-                        addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then nrInline else getKind()) false (getBody isInline)
+                        addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then nrInline else getKind()) false b
                         // check for overrides with covariant return types, add redirect if needed
                         let implMDef = sr.ReadMemberImpl meth
                         if implMDef <> mdef then
@@ -1103,7 +1113,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             |> addMethod None A.MemberAnnotation.BasicInlineJavaScript implMDef nrInline false
                     | _ ->
                         if not isInterface then
-                            addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then nrInline else getKind()) false (getBody isInline)
+                            addMethod (Some (meth, memdef)) mAnnot mdef (if isInline then getInlineKind() else getKind()) false b
                 let checkNotAbstract() =
                     if meth.IsAbstract then
                         error "Abstract methods cannot be marked with Inline, Macro or Constant attributes."
@@ -1138,23 +1148,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     with e ->
                         error ("Error parsing direct JavaScript: " + e.Message)
                 | A.MemberKind.JavaScript ->
-                    let isInlinedRecordMember =
-                        if decls.Length > 0 then
-                            try
-                                let syntax = decls.[0].GetSyntax()
-                                match syntax with
-                                | :? ParameterSyntax -> true
-                                | :? RecordDeclarationSyntax ->
-                                    match meth.Name with
-                                    | "<Clone>$"
-                                    | "get_EqualityContract" -> true
-                                    | _ -> false
-                                | _ -> false
-                            with _ ->
-                                false
-                        else
-                            false
-                    jsMethod isInlinedRecordMember
+                    jsMethod false
                 | A.MemberKind.InlineJavaScript ->
                     checkNotAbstract()
                     jsMethod true

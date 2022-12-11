@@ -1386,7 +1386,7 @@ module JSRuntime =
     let Clone obj = runtimeFunc "Clone" Pure [obj]
     let Force obj = runtimeFunc "Force" NonPure [obj]
     let Lazy (factory: (Expression -> Expression) -> Expression) =  
-        let i = Id.New("$i")
+        let i = Id.New("_i")
         let setInstance x = Appl(Var i, [x], NonPure, Some 1)
         runtimeFunc "Lazy" Pure [Lambda([i], None, factory setInstance)]
     let PrintObject obj = runtimeFunc "PrintObject" Pure [obj]
