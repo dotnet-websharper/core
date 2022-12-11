@@ -100,6 +100,7 @@ let csharpRefs =
         )
     ]
 
+let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
 
 let translate (source: string) = 
 
@@ -148,7 +149,7 @@ let translate (source: string) =
             comp.CompilingMethods |> Seq.map (fun (KeyValue(_,(_,_,a))) -> a)
             comp.CompilingConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
             comp.CompilingImplementations |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
-            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,(_,a))) -> a)
+            comp.CompilingStaticConstructors |> Seq.map (fun (KeyValue(_,a)) -> stExpr a)
         ]
         |> List.ofSeq
 
@@ -174,7 +175,7 @@ let translate (source: string) =
                     c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
                     c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
                     c.Implementations.Values |> Seq.map snd
-                    c.StaticConstructor |> Option.map snd |> Option.toList |> Seq.ofList
+                    c.StaticConstructor |> Option.map stExpr |> Option.toList |> Seq.ofList
                 ]
             | _ -> Seq.empty
         )
@@ -187,12 +188,19 @@ let translate (source: string) =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
-    let js, map = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter                                       
+    let jsFiles = 
+        pkg 
+        |> Array.map (fun (file, p) ->
+            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+            file, js
+        )
 
     compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
-    js |> printfn "%s" 
+    for (name, js) in jsFiles do 
+        printfn "File: %s" name
+        printfn "%s" js
 
 translate """
 using System;
@@ -204,13 +212,13 @@ public record Person(
     string LastName
 );
 
-[JavaScript]
-public record PersonProp
-{
-    public string LastName { get; }
-    public string FirstName { get; }
+//[JavaScript]
+//public record PersonProp
+//{
+//    public string LastName { get; }
+//    public string FirstName { get; }
 
-    public PersonProp(string first, string last) => (FirstName, LastName) = (first, last);
-}
+//    public PersonProp(string first, string last) => (FirstName, LastName) = (first, last);
+//}
 
 """

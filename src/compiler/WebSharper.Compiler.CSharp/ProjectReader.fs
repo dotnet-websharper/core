@@ -391,7 +391,8 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let inits = ResizeArray()                                               
     let staticInits = ResizeArray()                                               
-            
+    let initThisVar = Id.NewThis()
+
     let implicitImplementations = System.Collections.Generic.Dictionary()
     if annot.IsJavaScript then
         for intf in cls.Interfaces do
@@ -401,7 +402,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     Dict.addToMulti implicitImplementations impl (intf, meth)
 
     let thisType = Generic def (List.init cls.TypeParameters.Length TypeParameter)
-    let thisTypeForFixer = Some (ConcreteType thisType)
 
     for mem in members do
         match mem with
@@ -425,11 +425,10 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     | None -> ()
                     | Some acc when hasBody(Seq.head acc.Accessors) -> ()
                     | _ ->
-                    let thisVar = Id.NewThis()
                     let b = 
                         match data.Initializer with
                         | Some i ->
-                            i |> (cs thisVar model).TransformEqualsValueClause
+                            i |> (cs initThisVar model).TransformEqualsValueClause
                         | None -> 
                             DefaultValueOf (sr.ReadType p.Type)
                     
@@ -443,12 +442,12 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             if p.IsStatic then
                                 staticInits.Add <| FieldSet(None, NonGeneric def, bf.Name, b)
                             else
-                                inits.Add <| FieldSet(Some (Var thisVar), NonGeneric def, bf.Name, b)
+                                inits.Add <| FieldSet(Some (Var initThisVar), NonGeneric def, bf.Name, b)
                             // auto-add init methods
                             let getter = sr.ReadMethod p.GetMethod
                             let setter = CodeReader.setterOf (NonGeneric getter)
                             let v = Id.New()
-                            let body = Lambda([ v ], None, FieldSet(Some (Var thisVar), NonGeneric def, bf.Name, Var v))
+                            let body = Lambda([ v ], None, FieldSet(Some (Var initThisVar), NonGeneric def, bf.Name, Var v))
                             addMethod None pAnnot setter.Entity N.Instance false body
                         | None -> ()
                     | setMeth ->
@@ -456,7 +455,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                         if p.IsStatic then
                             staticInits.Add <| Call(None, cdef, NonGeneric setter, [ b ])
                         else
-                            inits.Add <| Call(Some (Var thisVar), cdef, NonGeneric setter, [ b ])
+                            inits.Add <| Call(Some (Var initThisVar), cdef, NonGeneric setter, [ b ])
                 | :? ParameterSyntax as pSyntax ->  // positional record property
                     //let data =
                     //    pSyntax |> RoslynHelpers.ParameterData.FromNode
@@ -474,15 +473,14 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let model = rcomp.GetSemanticModel(syntax.SyntaxTree, false)
                 match syntax with
                 | :? VariableDeclaratorSyntax as v ->
-                    let thisVar = Id.NewThis()
                     let x, e =
                         RoslynHelpers.VariableDeclaratorData.FromNode v
-                        |> (cs thisVar model).TransformVariableDeclarator
+                        |> (cs initThisVar model).TransformVariableDeclarator
                     
                     if f.IsStatic then 
                         staticInits.Add <| FieldSet(None, thisType, x.Name.Value, e)
                     else
-                        inits.Add <| FieldSet(Some (Var thisVar), thisType, x.Name.Value, e)
+                        inits.Add <| FieldSet(Some (Var initThisVar), thisType, x.Name.Value, e)
                 | _ -> 
 //                    let _ = syntax :?> VariableDeclarationSyntax
                     ()
@@ -491,7 +489,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
 
     let hasInit =
         if inits.Count = 0 then false else 
-        Function([], None, None, ExprStatement (Sequential (inits |> List.ofSeq)))
+        Function([], Some initThisVar, None, ExprStatement (Sequential (inits |> List.ofSeq)))
         |> addMethod None A.MemberAnnotation.BasicJavaScript initDef N.Instance false
         true
 
@@ -1051,25 +1049,20 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 if isInline then
                     match parsed.Body with
                     | IgnoreSourcePos.Return e ->
-                        let thisVar = if meth.IsStatic then None else Some (Id.NewThis())
-                        let allVars = Option.toList thisVar @ args
+                        let allVars = Option.toList parsed.This @ args
                         makeExprInline allVars e
                     | IgnoreSourcePos.ExprStatement e ->
-                        let thisVar = if meth.IsStatic then None else Some (Id.NewThis())
-                        let allVars = Option.toList thisVar @ args
+                        let allVars = Option.toList parsed.This @ args
                         makeExprInline allVars (Void(e))
                     | _ ->
-                        let b = Function(args, None, returnType, parsed.Body)
-                        let thisVar = if meth.IsStatic then None else Some (Id.NewThis())
-                        let allVars = Option.toList thisVar @ (args |> List.map (fun i -> i.Clone()))
+                        let b = Function(args, parsed.This, returnType, parsed.Body)
+                        let allVars = Option.toList parsed.This @ (args |> List.map (fun i -> i.Clone()))
                         makeExprInline allVars (Appl (b, allVars |> List.map Var, NonPure, None))
                 else
                     if isInterface then
-                        let thisVar = Id.NewThis()
-                        let b = parsed.Body
-                        Function(thisVar :: args, None, returnType, b)
+                        Function(parsed.This.Value :: args, None, returnType, parsed.Body)
                     else
-                        Function(args, None, returnType, parsed.Body)
+                        Function(args, parsed.This, returnType, parsed.Body)
 
             let getVars() =
                 // TODO: do not parse method body
