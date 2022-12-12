@@ -43,7 +43,7 @@ type ThisTransformer() =
             let res =
                 match thisVars.Head with
                 | _, captured when captured.Value ->
-                    let trBody = Block [ VarDeclaration(t,  Self); trBody ]
+                    let trBody = Block [ VarDeclaration(t,  JSThis); trBody ]
                     Function(args, thisVar, typ, trBody)    
                 | _ ->
                     Function(args, thisVar, typ, trBody)    
@@ -56,7 +56,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = Block [ VarDeclaration(t,  Self); trBody ]
+                let trBody = Block [ VarDeclaration(t,  JSThis); trBody ]
                 FuncDeclaration(id, args, thisVar, trBody, ty)
             | _ ->
                 FuncDeclaration(id, args, thisVar, trBody, ty)
@@ -72,7 +72,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  Self); b ])
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  JSThis); b ])
                 ClassMethod(i, n, args, thisVar, trBody, s)
             | _ ->
                 ClassMethod(i, n, args, thisVar, trBody, s)
@@ -88,7 +88,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  Self); b ])
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  JSThis); b ])
                 ClassConstructor(args, thisVar, trBody, s)
             | _ ->
                 ClassConstructor(args, thisVar, trBody, s)
@@ -97,7 +97,7 @@ type ThisTransformer() =
 
     override this.TransformVar(id) =
         match thisVars with
-        | (Some t, _) :: _ when t = id -> Self
+        | (Some t, _) :: _ when t = id -> JSThis
         | _ :: rest ->
             match rest |> List.tryPick (function (Some t, captured) when t = id -> Some captured | _ -> None) with
             | Some captured ->
@@ -297,7 +297,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         { new Transformer() with
             override this.TransformGlobalAccess a = 
                 if a = currentClassAdds then
-                    Self
+                    JSThis
                 else
                     GlobalAccess a
         }
@@ -426,7 +426,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             Kind = MemberKind.Simple
                         }
                     let ctorBody =
-                        Return (New (Self, [], Value (String name) :: (args |> List.map Var)))
+                        Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
                     members.Add (ClassMethod(info, name, args, thisVar, Some ctorBody, TSType.Any))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
@@ -481,11 +481,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 // TODO what if not at start
                 let chainedCtor, bodyRest =
                     match body with
-                    | I.Block (I.ExprStatement (I.Application(I.Self, I.Value(String baseName) :: baseArgs, _)) :: r) ->
+                    | I.Block (I.ExprStatement (I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _)) :: r) ->
                         Some (baseName, baseArgs), Some (Block r)                                        
-                    | I.ExprStatement (I.Application(I.Self, I.Value(String baseName) :: baseArgs, _)) ->
+                    | I.ExprStatement (I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _)) ->
                         Some (baseName, baseArgs), None
-                    | I.ExprStatement (I.Sequential(I.Application(I.Self, I.Value(String baseName) :: baseArgs, _) :: r)) ->
+                    | I.ExprStatement (I.Sequential(I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _) :: r)) ->
                         Some (baseName, baseArgs), Some (ExprStatement (Sequential r))
                     
                     | I.ExprStatement (I.Application(I.Base, [], _)) ->
@@ -525,12 +525,12 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             If (Unary(UnaryOperator.TypeOf, Var index) ^!= Value (String "string"), 
                                 Block [
                                     ExprStatement (Appl(Base, [Var index], NonPure, None))
-                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign Self (Var index)), Empty)
+                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign JSThis (Var index)), Empty)
                                 ], Empty)
                     else
                         yield 
                             If (Unary(UnaryOperator.TypeOf, Var index) ^== Value (String "object"), 
-                                ExprStatement (JSRuntime.ObjectAssign Self (Var index)), Empty)
+                                ExprStatement (JSRuntime.ObjectAssign JSThis (Var index)), Empty)
                     for (name, args, chainedCtor, bodyRest) in orderedCtorData do
                         match chainedCtor with
                         | Some (ccName, ccArgs) ->
@@ -599,7 +599,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 |> Seq.max
             let genCtor =
                 let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign Self (Var arg))
+                let assign = ExprStatement (JSRuntime.ObjectAssign JSThis (Var arg))
                 ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
                 //let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
                 //let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
@@ -613,7 +613,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             let genCtor = 
                 let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign Self (Var arg))
+                let assign = ExprStatement (JSRuntime.ObjectAssign JSThis (Var arg))
                 ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
             members.Add <| genCtor
             //let newFunc =
@@ -646,7 +646,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
-                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(Self))) 
+                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(JSThis))) 
                     :: List.ofSeq members)
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with

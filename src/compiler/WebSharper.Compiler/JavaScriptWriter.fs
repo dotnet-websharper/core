@@ -197,7 +197,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     let inline trI x = transformId env x
     match expr with
     | Undefined -> undef
-    | Self -> J.This
+    | JSThis -> J.This
     | Base -> J.Super
     | Var importId when importId = Id.Import() -> J.ImportFunc
     | Var id -> J.Var (trI id)

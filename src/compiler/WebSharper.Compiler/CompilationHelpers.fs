@@ -36,7 +36,7 @@ let rec removePureParts expr =
     | Value _
     | Function _ 
     | GlobalAccess _
-    | Self
+    | JSThis
         -> Undefined
     | Sequential a
     | NewArray a
@@ -70,7 +70,7 @@ let rec isPureExpr expr =
     | Value _
     | Function _ 
     | GlobalAccess _
-    | Self
+    | JSThis
         -> true
     | Sequential a 
     | NewArray a
@@ -132,7 +132,7 @@ let rec isStronglyPureExpr expr =
     | Value _
     | Function _
     | GlobalAccess _
-    | Self
+    | JSThis
         -> true
     | Var v ->
         not v.IsMutable
@@ -311,7 +311,7 @@ let varEvalOrder (vars : Id list) expr =
             | Undefined
             | Base
             | Value _
-            | Self
+            | JSThis
             | GlobalAccess _
                 -> ()
             | Sequential a

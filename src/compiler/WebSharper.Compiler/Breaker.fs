@@ -543,7 +543,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Base
     | Var _
     | Value _ 
-    | Self
+    | JSThis
     | GlobalAccess _
     | Hole _
         -> broken expr 

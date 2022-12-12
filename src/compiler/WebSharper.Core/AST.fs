@@ -170,8 +170,8 @@ and Expression =
     | MutatingUnary of Operator:MutatingUnaryOperator * Expression:Expression
     /// Original source location for an expression
     | ExprSourcePos of Range:SourcePos * Expression:Expression
-    /// Temporary - Refers to the class from a static method or constructor
-    | Self
+    /// JavaScript - the this value
+    | JSThis
     /// Refers to the base class from an instance method, `super` in JavaScript
     | Base
     /// .NET - Method call
@@ -398,9 +398,9 @@ type Transformer() =
     override this.TransformExprSourcePos (a, b) =
         match this.TransformExpression b with
         | ExprSourcePos (_, bt) | bt -> ExprSourcePos (a, bt)
-    /// Temporary - Refers to the class from a static method or constructor
-    abstract TransformSelf : unit -> Expression
-    override this.TransformSelf () = Self 
+    /// JavaScript - the this value
+    abstract TransformJSThis : unit -> Expression
+    override this.TransformJSThis () = JSThis 
     /// Refers to the base class from an instance method, `super` in JavaScript
     abstract TransformBase : unit -> Expression
     override this.TransformBase () = Base 
@@ -644,7 +644,7 @@ type Transformer() =
         | Unary (a, b) -> this.TransformUnary (a, b)
         | MutatingUnary (a, b) -> this.TransformMutatingUnary (a, b)
         | ExprSourcePos (a, b) -> this.TransformExprSourcePos (a, b)
-        | Self  -> this.TransformSelf ()
+        | JSThis  -> this.TransformJSThis ()
         | Base  -> this.TransformBase ()
         | Call (a, b, c, d) -> this.TransformCall (a, b, c, d)
         | CallNeedingMoreArgs (a, b, c, d) -> this.TransformCallNeedingMoreArgs (a, b, c, d)
@@ -776,9 +776,9 @@ type Visitor() =
     /// Original source location for an expression
     abstract VisitExprSourcePos : Range:SourcePos * Expression:Expression -> unit
     override this.VisitExprSourcePos (a, b) = (); this.VisitExpression b
-    /// Temporary - Refers to the class from a static method or constructor
-    abstract VisitSelf : unit -> unit
-    override this.VisitSelf () = ()
+    /// JavaScript - the this value
+    abstract VisitJSThis : unit -> unit
+    override this.VisitJSThis () = ()
     /// Refers to the base class from an instance method, `super` in JavaScript
     abstract VisitBase : unit -> unit
     override this.VisitBase () = ()
@@ -1020,7 +1020,7 @@ type Visitor() =
         | Unary (a, b) -> this.VisitUnary (a, b)
         | MutatingUnary (a, b) -> this.VisitMutatingUnary (a, b)
         | ExprSourcePos (a, b) -> this.VisitExprSourcePos (a, b)
-        | Self  -> this.VisitSelf ()
+        | JSThis  -> this.VisitJSThis ()
         | Base  -> this.VisitBase ()
         | Call (a, b, c, d) -> this.VisitCall (a, b, c, d)
         | CallNeedingMoreArgs (a, b, c, d) -> this.VisitCallNeedingMoreArgs (a, b, c, d)
@@ -1122,7 +1122,7 @@ module IgnoreSourcePos =
     let (|Unary|_|) x = match ignoreExprSourcePos x with Unary (a, b) -> Some (a, b) | _ -> None
     let (|MutatingUnary|_|) x = match ignoreExprSourcePos x with MutatingUnary (a, b) -> Some (a, b) | _ -> None
     let (|ExprSourcePos|_|) x = match ignoreExprSourcePos x with ExprSourcePos (a, b) -> Some (a, b) | _ -> None
-    let (|Self|_|) x = match ignoreExprSourcePos x with Self  -> Some () | _ -> None
+    let (|JSThis|_|) x = match ignoreExprSourcePos x with JSThis  -> Some () | _ -> None
     let (|Base|_|) x = match ignoreExprSourcePos x with Base  -> Some () | _ -> None
     let (|Call|_|) x = match ignoreExprSourcePos x with Call (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|CallNeedingMoreArgs|_|) x = match ignoreExprSourcePos x with CallNeedingMoreArgs (a, b, c, d) -> Some (a, b, c, d) | _ -> None
@@ -1222,7 +1222,7 @@ module Debug =
         | Unary (a, b) -> "Unary" + "(" + string a + ", " + PrintExpression b + ")"
         | MutatingUnary (a, b) -> "MutatingUnary" + "(" + string a + ", " + PrintExpression b + ")"
         | ExprSourcePos (_, b) -> PrintExpression b
-        | Self  -> "Self" + ""
+        | JSThis  -> "JSThis" + ""
         | Base  -> "Base" + ""
         | Call (a, b, c, d) -> "Call" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"
         | CallNeedingMoreArgs (a, b, c, d) -> "CallNeedingMoreArgs" + "(" + defaultArg (Option.map PrintExpression a) "_" + ", " + PrintTypeDefinition b + ", " + PrintMethod c + ", " + "[" + String.concat "; " (List.map PrintExpression d) + "]" + ")"

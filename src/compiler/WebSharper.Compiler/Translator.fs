@@ -1720,7 +1720,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             if isBase then 
                 Appl(Base, args, NonPure, None)
             else 
-                Appl(Self, args, NonPure, None)
+                Appl(JSThis, args, NonPure, None)
         let def () =
             match norm with
             | New (func, _, a) ->
@@ -1987,7 +1987,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ]
                 )  
 
-    override this.TransformSelf () = 
+    override this.TransformJSThis () = 
         match selfAddress with
         | Some self -> GlobalAccess self
         | _ -> this.Error ("Self address missing")

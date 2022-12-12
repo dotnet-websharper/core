@@ -133,7 +133,7 @@ let ExprDefs =
             , "Original source location for an expression"
         //"FuncWithThis", [ Id, "thisParam"; List Id, "parameters"; Option Type, "return"; Statement, "body" ]
         //    , "Temporary - Method of F# object expressions"
-        "Self", []
+        "JSThis", []
             , "JavaScript - the this value"
         "Base", []
             , "Refers to the base class from an instance method, `super` in JavaScript"

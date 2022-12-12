@@ -189,7 +189,7 @@ type private Environment =
     member this.ThisVar =
         match this.This.Value with
         | Some t -> Var t
-        | _ -> Self
+        | _ -> JSThis
 
 exception RecognitionError
 

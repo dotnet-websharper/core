@@ -189,12 +189,12 @@ type FixCtorTransformer(typ, btyp, thisVar) =
                     yield Appl(Base, args, NonPure, None)
                     match inner with
                     | Some i ->
-                        yield ItemSet(Self, Value (String "inner"), i)
+                        yield ItemSet(JSThis, Value (String "inner"), i)
                     | None -> ()
                 ]
             else
                 ChainedCtor(isBase, t, c, a) 
-        else Self
+        else JSThis
 
     member this.Fix(expr) = 
         let res = this.TransformExpression(expr)

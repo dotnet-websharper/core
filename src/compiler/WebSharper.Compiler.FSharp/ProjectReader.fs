@@ -616,7 +616,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         | Member.Method (_, mdef) -> mdef.Value.ReturnType
                                         | _ -> failwith "F# Module value or member should be represented as a static method"
                                     let name = Resolve.getRenamedInDict meth.CompiledName mtyp scFields
-                                    scContent.Add (ExprStatement (ItemSet(Self, Value (String name), TailCalls.optimize None inlinesOfClass b)))
+                                    scContent.Add (ExprStatement (ItemSet(JSThis, Value (String name), TailCalls.optimize None inlinesOfClass b)))
                                     Lambda([], Some mtyp, FieldGet(None, NonGeneric scDef, name))
                             else
                                 let thisVar, vars =
