@@ -45,12 +45,27 @@ type Broken<'a> =
         Variables : Id list
     }
 
-let debugPrintBroken a =
+let debugPrintBroken (a: Broken<BreakResult>) =
     sprintf "{ Body = %s; Statements = [%s]; Variables = [%s] }"
         (
             match a.Body with
             | ResultVar a -> sprintf "ResultVar %A" a  
             | ResultExpr e -> Debug.PrintExpression e
+        )
+        (a.Statements |> List.map Debug.PrintStatement |> String.concat "; ")
+        (
+            a.Variables |> List.map (sprintf "%A") |> String.concat "; "
+        )
+
+let debugPrintBrokenList (a: Broken<list<BreakResult>>) =
+    sprintf "{ Body = %s; Statements = [%s]; Variables = [%s] }"
+        (
+            "[ " + (
+                a.Body |> List.map (function
+                    | ResultVar a -> sprintf "ResultVar %A" a  
+                    | ResultExpr e -> Debug.PrintExpression e
+                ) |> String.concat "; "
+            ) + " ]"
         )
         (a.Statements |> List.map Debug.PrintStatement |> String.concat "; ")
         (
@@ -311,11 +326,7 @@ let rec removeLets expr =
                 | I.Function _ -> notMutatedOrCapturedExceptAppl a c
                 | _ -> notMutatedOrCaptured a c
             if isStronglyPureExpr b && (isTrivialValue b || notmut()) then 
-                let res = SubstituteVar(a, b).TransformExpression(c)
-                //printfn "isStronglyPureExpr=%b isTrivialValue=%b notmut=%b" (isStronglyPureExpr b) (isTrivialValue b) (notmut())
-                printfn "notmut=%b: %s into %s" (notmut()) (Debug.PrintExpression b) (Debug.PrintExpression c)
-                printfn "SubstituteVar1: %s" (Debug.PrintExpression res)
-                res
+                SubstituteVar(a, b).TransformExpression(c)
             else
                 let accVars = HashSet [a]
                 let rec collectVars acc expr =
@@ -326,9 +337,7 @@ let rec removeLets expr =
                     | _ -> List.rev acc, expr
                 let varsAndVals, innerExpr = collectVars [a, b] c 
                 if varEvalOrder (varsAndVals |> List.map fst) innerExpr then
-                    let res = SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
-                    printfn "SubstituteVar2: %s" (Debug.PrintExpression res)
-                    res
+                    SubstituteVars(varsAndVals |> dict).TransformExpression(innerExpr)
                 else 
                     expr
         | _ -> 
@@ -600,9 +609,13 @@ let rec breakExpr expr : Broken<BreakResult> =
                 | [] -> ResultExpr Undefined, [], []
                 | [ s ] -> s, [], []
                 | h :: t -> 
+                    let notUsed v =
+                        match h with
+                        | ResultVar hv -> hv <> v
+                        | ResultExpr e -> CountVarOccurence(v).Get(e) = 0
                     h, 
                     t |> List.choose (function ResultExpr e when not (isPureExpr e) -> Some (removePureParts e) | _ -> None) |> List.rev,
-                    t |> List.choose (function ResultVar v -> Some v | _ -> None)
+                    t |> List.choose (function ResultVar v -> (if notUsed v then Some v else None) | _ -> None)
             {
                 Body = b
                 Statements = 
@@ -781,7 +794,6 @@ let rec breakExpr expr : Broken<BreakResult> =
                     else None
                 match inlined with
                 | Some i -> 
-                    printfn "Inlined let %s" (Debug.PrintExpression i)
                     br i
                 | _ ->
                     let brC = br c 
@@ -951,9 +963,10 @@ let rec breakExpr expr : Broken<BreakResult> =
 /// use `f` (Return or Throw) to transform it to a statement
 and toStatementsSpec f b =
     match b.Body with
-    | ResultExpr _ -> toStatements f b
+    | ResultExpr _ -> 
+        toStatements f b
     | ResultVar v -> 
-         toDecls b.Variables
+        toDecls b.Variables
             (b.Statements |> Seq.collect (TransformVarSets(v, fun a -> StatementExpr(f a, None)).TransformStatement >> breakSt) |> List.ofSeq)
 
 and private breakSt statement : Statement seq =

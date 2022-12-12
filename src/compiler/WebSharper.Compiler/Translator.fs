@@ -182,6 +182,7 @@ type RemoveEmptyVars(emptyVars: HashSet<Id>) =
             VarDeclaration(v, this.TransformExpression(e))
 
 let removeEmptyVarsExpr (e: Expression) =
+    printfn "removeEmptyVarsExpr: %s" (Debug.PrintExpression e)
     let c = CollectEmptyVars()
     c.VisitExpression(e)
     if c.EmptyVars.Count > 0 then

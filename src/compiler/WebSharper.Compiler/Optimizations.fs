@@ -32,12 +32,12 @@ open IgnoreSourcePos
 
 let (|Runtime|_|) e =
     match e with
-    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ a; "WSRuntime" ] } -> Some a
+    | GlobalAccess { Module = JavaScriptModule "WebSharper.Core.JavaScript/Runtime"; Address = Hashed [ a ] } -> Some a
     | _ -> None
-
+    
 let (|Global|_|) e = 
     match e with 
-    | GlobalAccess { Module = JavaScriptFile "Runtime"; Address = Hashed [ r ] } -> Some r
+    | GlobalAccess { Module = StandardLibrary; Address = Hashed [ r ] } -> Some r
     | _ -> None
     
 let (|AppItem|_|) e =
@@ -75,9 +75,9 @@ let globalArray = Address.Lib "Array"
 let cleanRuntime force expr =
 //    let tr = Transform clean
     match expr with
-    | Application (Global "id", [ x ], _) -> 
+    | Application (Runtime "id", [ x ], _) -> 
         x
-    | Application (Global "ignore", [ x ], _) -> 
+    | Application (Runtime "ignore", [ x ], _) -> 
         Unary(UnaryOperator.``void``, x)
     | Application (AppRuntime ("Bind", [f; obj]), args, _) -> 
         AppItem(f, "call", obj :: args)

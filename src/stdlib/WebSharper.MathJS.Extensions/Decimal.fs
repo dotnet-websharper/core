@@ -28,11 +28,11 @@ module M = WebSharper.Core.Macros
 
 [<Require(typeof<WebSharper.MathJS.Resources.Js>)>]
 module internal Decimal =
-    [<JavaScript>]
+    [<JavaScript; Pure>]
     let WSDecimalMath: MathJS.MathInstance =
         MathJS.Math.Create(Config(Number = "BigNumber", Precision = 29., Predictable = true))
 
-    [<JavaScript>]
+    [<JavaScript; Pure>]
     let CreateDecimal(lo: int32, mid: int32, hi: int32, isNegative: bool, scale: byte) : decimal =
         let n(x:int) = (WSDecimalMath.Bignumber x) |> As<decimal>
         if lo = 0 && hi = 0 && mid = 0 then
@@ -52,7 +52,7 @@ module internal Decimal =
             let sign = if isNegative then (n -1) else (n 1)
             sign * value * quotient
 
-    [<JavaScript>]
+    [<JavaScript; Pure>]
     let CreateDecimalBits (bits : int32[]) =
         if bits.Length = 4 then
             let sign = (bits.[3] &&& 0x80000000) <> 0

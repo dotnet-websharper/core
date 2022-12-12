@@ -482,33 +482,8 @@ open WebSharper.Testing
 open System
 
 [<JavaScript>]
-type TestObj() as self =
-    let mutable v = 0
-    do self.SetDefault()  
-
-    abstract SetDefault : unit -> unit
-    override this.SetDefault() = v <- 1
-
-    abstract SetValueModified : int -> unit
-    override this.SetValueModified x = v <- x
-
-    member this.Value 
-        with get () = v
-        and set x = v <- x
-
-module Disposable =
-    [<JavaScript; Inline>]
-    let Of (dispose: unit -> unit) : IDisposable =
-        { new System.IDisposable with member this.Dispose() = dispose() }
-
-[<JavaScript>]
-type Event() =
-
-    member this.RemoveHandler() =
-        ()
-
-    member this.Subscribe() =
-        Disposable.Of (fun () -> this.RemoveHandler())
+module Test =
+    let d() = (0.1m + 0.2m).ToString()
 
 """
 
