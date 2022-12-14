@@ -41,7 +41,7 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open WebSharper.Fake
 
-let version = "6.0"
+let version = "6.1"
 let pre = None
 
 let baseVersion =

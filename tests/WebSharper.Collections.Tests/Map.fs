@@ -206,4 +206,27 @@ let Tests =
             equal (Map.values m |> Array.ofSeq) [| 5; 9 |]
             equal (m.Values |> Array.ofSeq) [| 5; 9 |]
         }
+
+        Test "Map.change" {
+            let m = Map.ofList [(1, 5); (2, 9)]
+            
+            equal (m |> Map.change 0 (Option.map ((+) 1)) |> Map.toArray) [| 1, 5; 2, 9 |] // nothing
+            equal (m |> Map.change 1 (Option.map ((+) 1)) |> Map.toArray) [| 1, 6; 2, 9 |] // changing
+            equal (m |> Map.change 1 (fun x -> if x = Some 5 then None else x) |> Map.toArray) [| 2, 9 |] // removing
+            equal (m |> Map.change 0 (fun _ -> Some 0) |> Map.toArray) [| 0, 0; 1, 5; 2, 9 |] // adding
+        }
+
+        Test "Map.minKeyValue" {
+            let m = Map.ofList [(1, 5); (2, 9)]
+            
+            equal (Map.minKeyValue m) (1, 5)
+            raises (Map.minKeyValue Map.empty)
+        }
+
+        Test "Map.maxKeyValue" {
+            let m = Map.ofList [(1, 5); (2, 9)]
+            
+            equal (Map.maxKeyValue m) (2, 9)
+            raises (Map.maxKeyValue Map.empty)
+        }
     }

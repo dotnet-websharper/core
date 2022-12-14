@@ -57,6 +57,9 @@ type internal FSharpMap<'K,'V when 'K : comparison>
         member this.Add(k: 'K, v: 'V) : Map<'K,'V> =
             As (FSharpMap<'K,'V>(tree |> T.Add {Key=k; Value=v}))
 
+        member this.Change(k: 'K, f: 'V option -> 'V option) : Map<'K,'V> =
+            As (FSharpMap<'K,'V>(tree |> T.Change {Key=k; Value=JS.Undefined} (fun x -> f (x |> Option.map (fun p -> p.Value)) |> Option.map (fun v -> {Key=k; Value=v}))))
+
         member this.ContainsKey k = 
             tree |> T.Contains {Key=k; Value = JS.Undefined}
 
@@ -78,7 +81,7 @@ type internal FSharpMap<'K,'V when 'K : comparison>
                 match this.TryFind k with
                 | Some v    ->v
                 | None      ->
-                    failwith "The given key was not present in the dictionary."
+                    raise (KeyNotFoundException())
 
         member this.Remove(k: 'K) : Map<'K,'V> =
             As (FSharpMap(tree |> T.Remove {Key=k; Value=JS.Undefined}))
