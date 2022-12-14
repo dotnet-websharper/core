@@ -272,7 +272,7 @@ let compileMain (argv: string[]) tryGetMetadata (logger: LoggerBase) =
         }
     wsArgs := SetDefaults false !wsArgs
 
-    if (!wsArgs).UseJavaScriptSymbol then
+    if (!wsArgs).UseJavaScriptSymbol |> Option.exists id then
         let cArgs = (!wsArgs).CompilerArgs
         if cArgs |> Array.contains "-define:JAVASCRIPT" |> not then
             wsArgs := 
