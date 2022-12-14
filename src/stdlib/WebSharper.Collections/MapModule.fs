@@ -43,6 +43,9 @@ module internal MapModule =
     let Add k v (m: Map<'K,'V>) : Map<'K,'V> = m.Add(k, v)
 
     [<Inline>]
+    let Change k f (m: Map<'K,'V>) : Map<'K,'V> = m.Change(k, f)
+
+    [<Inline>]
     let ContainsKey k (m: Map<'K,'V>) : bool = m.ContainsKey k
 
     [<Inline>]
@@ -119,6 +122,7 @@ module internal MapModule =
         T.Ascend (ToTree m)
         |> Seq.map (fun kv -> (kv.Key, kv.Value))
 
+    [<Inline>]
     let TryFind (k: 'K) (m: Map<'K, 'V>) : option<'V> = m.TryFind k
 
     let TryFindKey (f: 'K -> 'V -> bool) (m: Map<'K,'V>) : option<'K> =
@@ -135,6 +139,16 @@ module internal MapModule =
         |> T.OfSeq
         |> OfTree
 
+    [<Inline>]
     let Keys (m: Map<'K, 'V>) : System.Collections.Generic.ICollection<'K> = m.Keys
 
+    [<Inline>]
     let Values (m: Map<'K, 'V>) : System.Collections.Generic.ICollection<'V> = m.Values
+
+    let MinKeyValue (m: Map<'K, 'V>) = 
+        let x = T.Min(ToTree m)
+        x.Key, x.Value
+        
+    let MaxKeyValue (m: Map<'K, 'V>) = 
+        let x = T.Max(ToTree m)
+        x.Key, x.Value

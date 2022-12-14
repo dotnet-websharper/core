@@ -22,6 +22,7 @@ namespace WebSharper.Collections
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Collections.Generic
 
 /// Provides balanced binary search tree operations.
 [<JavaScript>]
@@ -203,6 +204,30 @@ module internal BalancedTree =
     let Add<'T when 'T : comparison> (x: 'T) (t: Tree<'T>) : Tree<'T> =
         Put (fun _ x -> x) x t
 
+    /// Changes a node into the tree, replacing or removing existing one if found.
+    let Change<'T when 'T : comparison> (k: 'T) (f: 'T option -> 'T option) (ot: Tree<'T>) : Tree<'T> =
+        let (t, spine) = Lookup k ot
+        if IsEmpty t then
+            match f None with
+            | Some x ->
+                Rebuild spine (Branch x Empty Empty)
+            | None ->
+                ot
+        else
+            match f (Some t.Node) with
+            | Some x ->
+                Rebuild spine (Branch x t.Left t.Right)
+            | None ->
+                if IsEmpty t.Right then
+                    Rebuild spine t.Left
+                elif IsEmpty t.Left then
+                    Rebuild spine t.Right
+                else
+                    Seq.append (Ascend t.Left) (Ascend t.Right)
+                    |> Seq.toArray
+                    |> OfSorted
+                    |> Rebuild spine
+
     /// Checks if a tree contains a given key.
     let rec Contains (v: 'T) (t: Tree<'T>) : bool =
         not (IsEmpty (fst (Lookup v t)))
@@ -212,7 +237,29 @@ module internal BalancedTree =
         let x = fst (Lookup v t)
         if IsEmpty x then None else Some x.Node
 
+    /// Looks up minimum value.
+    let Min (t: Tree<'T>) : 'T =
+        if IsEmpty t then
+            raise (KeyNotFoundException())
+        else
+            let rec m t =
+                if IsEmpty t.Left then
+                    t.Node
+                else
+                    m t.Left
+            m t
 
+    /// Looks up maximum value.
+    let Max (t: Tree<'T>) : 'T =
+        if IsEmpty t then
+            raise (KeyNotFoundException())
+        else
+            let rec m t =
+                if IsEmpty t.Right then
+                    t.Node
+                else
+                    m t.Right
+            m t
 
 
 
