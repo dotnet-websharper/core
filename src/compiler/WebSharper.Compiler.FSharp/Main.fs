@@ -82,7 +82,7 @@ type WebSharperFSharpCompiler(?checker) =
         logger.TimedStage "Waiting on merged metadata"
 
         if checkProjectResults.Diagnostics |> Array.exists (fun e -> e.Severity = FSharpDiagnosticSeverity.Error && not (this.WarnSettings.NoWarn.Contains e.ErrorNumber)) then
-            if assemblyName = "WebSharper.Main" || config.ProjectType = Some BundleOnly then
+            if assemblyName = "WebSharper.Main" || config.ProjectType = Some BundleOnly || config.ProjectType = Some Proxy then
                 PrintFSharpErrors this.WarnSettings logger checkProjectResults.Diagnostics
             None
         else
