@@ -354,9 +354,9 @@ let Tests =
 
         Test "Property rename" {
             let o = RN()
-            equal (o?X()) 0
+            equal (o?X) 0
             o.Value <- 1
-            equal (o?X()) 1
+            equal (o?X) 1
             equal o.RNValue 1
             o.RNValue <- 2
             equal o.RNValue 2
@@ -364,6 +364,7 @@ let Tests =
             equal o.X 1
             o.X <- 4
             equal o.X 4
+            equal o.RNValue 2
         }
 
         Test "Extensions" {
