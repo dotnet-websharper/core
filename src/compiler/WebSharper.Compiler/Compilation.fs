@@ -1648,7 +1648,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             let isPure =
-                                nr.Pure || isPureFunction nr.Body
+                                nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
                             cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
                         else 
                             compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))      
@@ -1656,7 +1656,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         let comp = compiledNoAddressMember nr
                         if nr.Compiled then
                             let isPure =
-                                nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)
+                                nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
                             cc.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                         else 
                             compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
@@ -1758,14 +1758,19 @@ type Compilation(meta: Info, ?hasGraph) =
                 //        Function(cargs, false, typ, Return b)
                 //    | _ -> 
                 //        failwith "Expecting a function as compiled form of constructor"
-                compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
+                if nr.Compiled then
+                    let isPure =
+                        nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
+                    res.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
+                else
+                    compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr
                 if nr.Compiled then 
                     let isPure =
-                        nr.Pure || (notVirtual nr.Kind && isPureFunction nr.Body)
+                        nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
                     res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
                 else
                     compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
@@ -1809,7 +1814,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, nr.Body) snd
                 | _ ->
                     if nr.Compiled then 
-                        let isPure = nr.Pure || isPureFunction nr.Body
+                        let isPure = nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
                         res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
                     else
                         compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body) trd

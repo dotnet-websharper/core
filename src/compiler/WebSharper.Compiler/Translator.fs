@@ -733,7 +733,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
-                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                        IsPure = notVirtual && (opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res))
                     } 
                 comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
             | NotGenerated (g, p, i, notVirtual, opts) ->
@@ -742,7 +742,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
-                        IsPure = notVirtual && (opts.IsPure || isPureFunction res)
+                        IsPure = notVirtual && (opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res))
                     }
                 comp.AddCompiledMethod(typ, meth, modifyDelayedInlineInfo i, opts, res)
 #if DEBUG
@@ -801,7 +801,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
-                        IsPure = opts.IsPure || isPureFunction res
+                        IsPure = opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res)
                     }
                 comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
             | NotGenerated (g, p, i, _, opts) ->
@@ -810,7 +810,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let res = this.CheckResult(res)
                 let opts =
                     { opts with
-                        IsPure = opts.IsPure || isPureFunction res
+                        IsPure = opts.IsPure || (Option.isNone cls.StaticConstructor && isPureFunction res)
                     }
                 comp.AddCompiledConstructor(typ, ctor, modifyDelayedInlineInfo i, opts, res)
         with e ->
