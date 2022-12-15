@@ -98,7 +98,7 @@ type WsConfig =
         MinJSOutputPath : string option
         SingleNoJSErrors : bool
         ProxyTargetName : string option
-        UseJavaScriptSymbol : bool
+        UseJavaScriptSymbol : bool option
         TargetProfile : string
         Standalone : bool
         RuntimeMetadata : Metadata.MetadataOptions
@@ -136,7 +136,7 @@ type WsConfig =
             MinJSOutputPath = None
             SingleNoJSErrors = false
             ProxyTargetName = None
-            UseJavaScriptSymbol = false
+            UseJavaScriptSymbol = None
             TargetProfile = "mscorlib"
             Standalone = 
                 let envVar = System.Environment.GetEnvironmentVariable("WebSharperBuildService")
@@ -260,7 +260,7 @@ type WsConfig =
             | "proxytargetname" ->
                 res <- { res with ProxyTargetName = Some (getString k v) }
             | "usejavascriptsymbol" ->
-                res <- { res with UseJavaScriptSymbol = getBool k v }
+                res <- { res with UseJavaScriptSymbol = Some (getBool k v) }
             | "standalone" ->
                 res <- { res with Standalone = res.Standalone || getBool k v }
             | "runtimemetadata" ->
@@ -607,8 +607,14 @@ let SetDefaultOutputDir wsArgs =
     | Some Service, Some _ -> { wsArgs with OutputDir = None }
     | _ -> wsArgs
 
+let SetDefaultUseJavaScriptSymbol wsArgs =
+    match wsArgs.ProjectType, wsArgs.UseJavaScriptSymbol with
+    | Some Proxy, None -> { wsArgs with UseJavaScriptSymbol = Some true }
+    | _ -> wsArgs
+
 let SetDefaults isFSharp wsArgs =
     wsArgs        
     |> SetDefaultProjectFile isFSharp
     |> SetScriptBaseUrl
     |> SetDefaultOutputDir
+    |> SetDefaultUseJavaScriptSymbol

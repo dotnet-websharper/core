@@ -87,7 +87,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             config.CompilerArgs 
             |> Array.map (fun s -> 
                 s.Replace(@"net6.0\.NETCoreApp,Version=v6.0.AssemblyAttributes.fs", 
-                    @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs")
+                    @"netstandard2.0\.NETStandard,Version=v2.0.AssemblyAttributes.fs"
+                    ).Replace(@"net6.0/.NETCoreApp,Version=v6.0.AssemblyAttributes.fs", 
+                        @"netstandard2.0/.NETStandard,Version=v2.0.AssemblyAttributes.fs")
             )
         File.WriteAllLines(mainProxiesFile, fixedArgs)
         MakeDummyDll config.AssemblyFile thisName
@@ -99,13 +101,25 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
     
     let isBundleOnly = config.ProjectType = Some BundleOnly
 
+    let jsCompilerArgs =
+        let ca =
+            if thisName = "WebSharper.Main" then
+                logger.Out "Reading Proxies.args"
+                File.ReadAllLines(mainProxiesFile())
+            else
+                config.CompilerArgs    
+        if not (config.UseJavaScriptSymbol |> Option.exists id) || ca |> Array.contains "--define:JAVASCRIPT" then
+            ca
+        else
+            Array.append ca [|"--define:JAVASCRIPT"|]
+
     let exitCode = 
         if isBundleOnly then
             MakeDummyDll config.AssemblyFile thisName
             0
         else
             let errors, exitCode = 
-                checker.Compile(config.CompilerArgs) |> Async.RunSynchronously
+                checker.Compile(if config.ProjectType = Some Proxy then jsCompilerArgs else config.CompilerArgs) |> Async.RunSynchronously
     
             PrintFSharpErrors warnSettings logger errors
     
@@ -163,13 +177,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     None
         )
     
-    let compilerArgs =
-        if thisName = "WebSharper.Main" then
-            logger.Out "Reading Proxies.args"
-            File.ReadAllLines(mainProxiesFile())
-        else
-            config.CompilerArgs    
-    
     let refMeta = 
         wsRefsMeta.ContinueWith(fun (t: System.Threading.Tasks.Task<_>) -> 
             match t.Result with 
@@ -177,18 +184,12 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             | _ -> None
         )
 
-    let compilerArgs =
-        if not config.UseJavaScriptSymbol || compilerArgs |> Array.contains "--define:JAVASCRIPT" then
-            compilerArgs
-        else
-            Array.append compilerArgs [|"--define:JAVASCRIPT"|]
-
     let compiler = WebSharper.Compiler.FSharp.WebSharperFSharpCompiler(checker)
     compiler.WarnSettings <- warnSettings
 
     let comp =
         aR.Wrap <| fun () ->
-            compiler.Compile(refMeta, compilerArgs, config, thisName, logger)
+            compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger)
 
     match comp with
     | None ->        
@@ -223,6 +224,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
 
             if config.ProjectType = Some Proxy then
                 EraseAssemblyContents assem
+                logger.TimedStage "Erasing assembly content for Proxy project"
 
             let extraBundles = 
                 aR.Wrap <| fun () ->
@@ -254,7 +256,6 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                     |> logger.Out
                 | _ -> ()
 
-            logger.TimedStage "Erasing assembly content for Proxy project"
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 

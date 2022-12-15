@@ -192,8 +192,9 @@ Target.create "RunCompilerTestsRelease" <| fun _ ->
 
     [
         //"tests/WebSharper.Compiler.FSharp.Tests/WebSharper.Compiler.FSharp.Tests.fsproj"
-        "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
-        "tests/WebSharper.CSharp.Analyzer.Tests/WebSharper.CSharp.Analyzer.Tests.fsproj"
+        yield "tests/WebSharper.Core.JavaScript.Tests/WebSharper.Core.JavaScript.Tests.fsproj"
+        if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then 
+            yield "tests/WebSharper.CSharp.Analyzer.Tests/WebSharper.CSharp.Analyzer.Tests.fsproj"
     ]
     |> List.iter (
         DotNet.test (fun t ->
@@ -227,7 +228,7 @@ Target.create "RunSPATestsRelease" <| fun _ ->
     //    failwith "Chutzpah test run failed for SPA tests"
 
 Target.create "RunMainTestsRelease" <| fun _ ->
-    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false then
+    if Environment.environVarAsBoolOrDefault "SKIP_CORE_TESTING" false || not <| System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform System.Runtime.InteropServices.OSPlatform.Windows then
         Trace.log "Chutzpah testing skipped"
     else
 

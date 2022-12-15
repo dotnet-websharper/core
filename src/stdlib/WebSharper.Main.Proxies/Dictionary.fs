@@ -32,10 +32,10 @@ type private D<'K,'V> = Dictionary<'K,'V>
 module internal DictionaryUtil =
 
     let notPresent () =
-        failwith "The given key was not present in the dictionary."
+        raise (KeyNotFoundException())
 
     let alreadyAdded () =
-        failwith "An item with the same key has already been added."
+        raise (System.ArgumentException("An item with the same key has already been added."))
 
     let equals (c: IEqualityComparer<'T>) =
         FuncWithArgs(fun (x, y) -> c.Equals(x, y))
