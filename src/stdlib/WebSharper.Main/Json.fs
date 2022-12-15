@@ -123,7 +123,7 @@ let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
                     | SpecialTypes.List ->  
                         box (List.ofArray (As<obj[]> o))
                     | SpecialTypes.Decimal c ->  
-                        let r = JS.New types.[ti]
+                        Console.Log("Creating client side decimal", c, o)
                         c(o)
                     | SpecialTypes.Object ctor ->  
                         Object.Assign(JS.New ctor, o)
@@ -146,9 +146,9 @@ let ActivateAsync<'T> (json: obj) : Async<'T> =
                 match As<string> types.[i] with
                 | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
                     types.[i] <- SpecialTypes.List
-                | "../WebSharper.MathJS.Extensions/WebSharper.Decimal::" -> 
+                | "../WebSharper.MathJS.Extensions/WebSharper.Decimal.js::" -> 
                     typeLoads.Push (async { 
-                        let! c = lookup "../WebSharper.MathJS.Extensions/WebSharper.Decimal::CreateDecimalBits"
+                        let! c = lookup "../WebSharper.MathJS.Extensions/WebSharper.Decimal.js::CreateDecimalBits"
                         types.[i] <- SpecialTypes.Decimal c
                     }) |> ignore
                 | t -> 
@@ -180,7 +180,7 @@ let Activate<'T> (json: obj) (imported: obj[]) : 'T =
                 match As<string> types.[i] with
                 | "../WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1.js::default" -> 
                     types.[i] <- SpecialTypes.List
-                | "../WebSharper.MathJS.Extensions/WebSharper.Decimal::" -> 
+                | "../WebSharper.MathJS.Extensions/WebSharper.Decimal.js::" -> 
                     types.[i] <- SpecialTypes.Decimal (lookupFrom (imported.[i]) [| "CreateDecimalBits" |])
                 | t -> 
                     let fn =
