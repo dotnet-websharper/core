@@ -442,32 +442,14 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     inherit TransformerWithSourcePos(comp)
 
     let inProgress = defaultArg inProgress []
-    let mutable selfAddress = None
     let mutable currentNode = M.AssemblyNode ("", false, false) // placeholder
     let mutable currentIsInline = false
-    let mutable thisVar = None
     let mutable hasDelayedTransform = false
     let mutable currentFuncArgs = None
     let mutable currentJsOpts = JavaScriptOptions.None
-    let mutable cctorCalls = Set.empty
     let mutable currentGenerics = [||] : M.GenericParam[]
     let labelCctors = Dictionary()
     let boundVars = Dictionary()
-
-    let innerScope f = 
-        let cc = cctorCalls
-        let res = f()
-        cctorCalls <- cc
-        res
-
-    let trackConditionalCctors b c =
-        let ca = cctorCalls
-        let br = b()
-        let cb = cctorCalls
-        cctorCalls <- ca
-        let cr = c()
-        cctorCalls <- Set.intersect cb cctorCalls
-        br, cr
 
     let removeSourcePosFromInlines expr =
         if currentIsInline then removeSourcePos.TransformExpression expr else expr
@@ -700,12 +682,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             this.TransformCall(objExpr, NonGeneric e, meth, args)
         | _ -> this.Error("Unrecognized compiler generated method: " + me.MethodName)
      
-    member this.SetThisVar(expr) =
-        match expr with
-        | IgnoreSourcePos.Function(_, tv, _, _) ->
-            thisVar <- tv
-        | _ -> ()
-
     member this.CompileMethod(info, gs, expr, typ, meth) =
         try
             currentNode <- M.MethodNode(typ, meth) 
@@ -721,10 +697,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 comp.FailedCompiledMethod(typ, meth)
             else
             let addr, cls = comp.TryLookupClassInfo(typ).Value
-            selfAddress <- Some addr   
             currentGenerics <- Array.ofList (cls.Generics @ gs)
             currentIsInline <- isInline info
-            this.SetThisVar(expr)
             match info with
             | NotCompiled (i, notVirtual, opts, jsOpts) ->
                 currentFuncArgs <- opts.FuncArgs
@@ -758,11 +732,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.CompileImplementation(info, expr, typ, intf, meth) =
         try
             let addr, cls = comp.TryLookupClassInfo(typ).Value
-            selfAddress <- Some addr   
             currentNode <- M.ImplementationNode(typ, intf, meth)
             currentGenerics <- comp.GetAbtractMethodGenerics intf meth
             currentIsInline <- isInline info
-            this.SetThisVar(expr)
             match info with
             | NotCompiled (i, _, _, jsOpts) -> 
                 let res = expr |> applyJsOptions jsOpts |> this.TransformExpression |> removeSourcePosFromInlines |> breakExpr
@@ -790,9 +762,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             else
             currentIsInline <- isInline info
             let addr, cls = comp.TryLookupClassInfo(typ).Value
-            selfAddress <- Some addr 
             currentGenerics <- Array.ofList cls.Generics
-            this.SetThisVar(expr)
             match info with
             | NotCompiled (i, _, opts, jsOpts) -> 
                 currentFuncArgs <- opts.FuncArgs
@@ -823,9 +793,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     member this.CompileStaticConstructor(expr, typ) =
         try
             currentNode <- M.TypeNode typ
-            cctorCalls <- Set.singleton typ
             let addr, cls = comp.TryLookupClassInfo(typ).Value
-            selfAddress <- Some addr
             let res = this.TransformStatement expr |> breakStatement |> this.CheckResult
             comp.AddCompiledStaticConstructor(typ, res)
         with e ->
@@ -1020,10 +988,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Warning(w)
                 { opts with Warn = None } // do not generate warning again on recursive calls
             | _ -> opts
-        match thisObj with
-        | Some (IgnoreSourcePos.Base as tv) ->
-            this.CompileCall (info, gc, opts, expr, Some (Var thisVar.Value |> WithSourcePosOfExpr tv), typ, meth, args, true)
-        | _ ->
         if comp.HasGraph then
             this.AddMethodDependency(typ.Entity, meth.Entity)
         let trThisObj() = thisObj |> Option.map this.TransformExpression
@@ -1848,81 +1812,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
     //    | None -> Undefined
 
     override this.TransformFunction(a, arr, ret, b) =
-        innerScope <| fun () -> Function(a, arr, ret, this.TransformStatement b)
+        Function(a, arr, ret, this.TransformStatement b)
 
     override this.TransformFuncDeclaration(a, b, c, d, e) =
-        let cc = cctorCalls
-        cctorCalls <- Set.empty
-        let res = FuncDeclaration(a, b, c, this.TransformStatement d, e)
-        cctorCalls <- cc
-        res
-
-    override this.TransformConditional(a, b, c) =
-        let trA = this.TransformExpression a
-        let trB, trC = trackConditionalCctors (fun () -> this.TransformExpression b) (fun () -> this.TransformExpression c)
-        Conditional(trA, trB, trC)
+        FuncDeclaration(a, b, c, this.TransformStatement d, e)
     
-    override this.TransformBinary(a, b, c) =
-        match b with
-        | BinaryOperator.``&&``
-        | BinaryOperator.``||`` ->
-            let trA = this.TransformExpression a
-            let trC = innerScope <| fun () -> this.TransformExpression c
-            Binary(trA, b, trC)
-        | _ ->
-            base.TransformBinary(a, b, c)
-
     override this.TransformCoalesce(a, b, c) =
-        let trA = this.TransformExpression a
-        let trC = innerScope <| fun () -> this.TransformExpression c
-        Coalesce(trA, b, trC)
-    
-    override this.TransformWhile(a, b) =
-        let trA = this.TransformExpression a
-        innerScope <| fun () -> While(trA, this.TransformStatement b) 
-
-    override this.TransformDoWhile(a, b) =
-        innerScope <| fun () -> DoWhile(this.TransformStatement a, this.TransformExpression b) 
-
-    override this.TransformFor(a, b, c, d) =                
-        let trA = Option.map this.TransformExpression a
-        let trB = Option.map this.TransformExpression b
-        innerScope <| fun () -> For(trA, trB, Option.map this.TransformExpression c, this.TransformStatement d)
-
-    override this.TransformForIn(a, b, c) =                
-        let trB = this.TransformExpression b
-        innerScope <| fun () -> ForIn(a, trB, this.TransformStatement c)
-
-    override this.TransformSwitch(a, b) =                
-        let trA = this.TransformExpression a
-        Switch(trA, b |> List.map (fun (c, d) -> innerScope <| fun () -> Option.map this.TransformExpression c, this.TransformStatement d))
-
-    override this.TransformIf(a, b, c) =
-        let trA = this.TransformExpression a
-        let trB, trC = trackConditionalCctors (fun () -> this.TransformStatement b) (fun () -> this.TransformStatement c)
-        If(trA, trB, trC)
-
-    override this.TransformTryWith(a, b, c) =
-        let trA = innerScope <| fun () -> this.TransformStatement a
-        let trC = innerScope <| fun () -> this.TransformStatement c
-        TryWith(trA, b, trC)
-
-    override this.TransformTryFinally(a, b) =
-        let trA = innerScope <| fun () -> this.TransformStatement a
-        let trB = innerScope <| fun () -> this.TransformStatement b
-        TryFinally(trA, trB)
-
-    override this.TransformGoto(a) =
-        match labelCctors.TryGetValue a with
-        | true, cc -> labelCctors.[a] <- Set.intersect cc cctorCalls
-        | _ -> labelCctors.[a] <- cctorCalls
-        Goto(a)
-
-    override this.TransformLabeled(a, b) =
-        match labelCctors.TryGetValue a with
-        | true, cc -> cctorCalls <- cc
-        | _ -> ()
-        Labeled(a, this.TransformStatement b)
+        Binary(this.TransformExpression a, BinaryOperator.``??``, this.TransformExpression c) 
 
     override this.TransformObjectExpr(typ, ctor, ovr) =
         let getOverrideNameAndKind typ meth =
@@ -1936,13 +1832,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | _ -> 
                 this.Error ("Could not get name of abstract method") |> ignore
                 "$$ERROR$$", MemberKind.Simple
-        let getOrAddThisVar() =
-            match thisVar with 
-            | Some t -> t
-            | _ -> 
-                let t = Id.New ("$this", mut = false) //, ?typ = thisTyp)
-                thisVar <- Some t
-                t
         match comp.TryLookupClassInfo(typ.TypeDefinition) with
         | Some (addr, _) ->
             let trCtor = 
@@ -1986,11 +1875,6 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         Var r
                     ]
                 )  
-
-    override this.TransformJSThis () = 
-        match selfAddress with
-        | Some self -> GlobalAccess self
-        | _ -> this.Error ("Self address missing")
 
     override this.TransformLet (a, b, c) =
         if CountVarOccurence(a).Get(c) = 1 then
