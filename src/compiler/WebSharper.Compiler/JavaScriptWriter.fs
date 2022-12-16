@@ -89,10 +89,9 @@ let transformId (env: Environment) (id: Id) =
 let formatter = WebSharper.Core.JavaScript.Identifier.MakeFormatter()
 
 let getCompactName (env: Environment) =
-    let vars = env.ScopeNames
     let mutable name = formatter env.CompactVars   
     env.CompactVars <- env.CompactVars + 1   
-    while vars |> Set.contains name do
+    while env.ScopeNames |> Set.contains name || env.VisibleGlobals |> Set.contains name do
         name <- formatter env.CompactVars   
         env.CompactVars <- env.CompactVars + 1   
     name
@@ -113,7 +112,7 @@ let defineId (env: Environment) (id: Id) =
             else 
                 let vars = env.ScopeNames
                 let mutable name = (I.MakeValid (defaultArg id.Name "_1"))
-                while vars |> Set.contains name do
+                while env.ScopeNames |> Set.contains name || env.VisibleGlobals |> Set.contains name do
                     name <- Resolve.newName name 
                 env.ScopeNames <- vars |> Set.add name
                 env.ScopeIds <- env.ScopeIds |> Map.add id name
@@ -141,6 +140,13 @@ type CollectVariables(env: Environment) =
 
     override this.VisitVarDeclaration(v, _) =
         defineId env v |> ignore
+
+    override this.VisitImport(d, f, n, m) =
+        if m = "" then
+            // global values used
+            let jsNames = n |> Seq.map fst |> Set
+            env.ScopeNames <- Set.union env.ScopeNames jsNames
+            env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
 
 let flattenJS s =
     let res = ResizeArray()
@@ -542,16 +548,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | TryFinally(a, b) ->
         withFuncDecls <| fun () ->
             J.TryFinally(trS a, trS b)
-    | Import(None, None, namedImports, "") ->
-        let jsNames = namedImports |> Seq.map fst |> Set
-        env.ScopeNames <- Set.union env.ScopeNames jsNames
-        env.VisibleGlobals <- Set.union env.VisibleGlobals jsNames
+    | Import(None, _, _, "") ->
         J.Empty
-        //J.Import(
-        //    None,
-        //    None,
-        //    namedImports |> List.map (fun (n, _) -> n, J.Id.New n),
-        //    "")
     | Import(a, b, c, d) ->
         J.Import(
             a |> Option.map (defineId env), 
