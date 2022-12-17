@@ -400,9 +400,9 @@ let Tests =
             equal ((r :> I3).Get()) 4
             equal ((r :> I3)?Get()) 4
             equal ((r :> I4).Value) 4
-            equal ((r :> I4)?I4Value()) 4
+            equal ((r :> I4)?I4Value) 4
             (r :> I4).Value <- 5
-            equal ((r :> I4)?I4Value()) 5
+            equal ((r :> I4)?I4Value) 5
         }
 
         Test "Struct" {

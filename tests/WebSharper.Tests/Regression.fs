@@ -973,7 +973,7 @@ let Tests =
             let x = TestConfigObj()
             x.Value <- 4
             equal x?value 4
-            equal x.X JS.Undefined
+            equal x.X (As null)
             x.X <- true
             isTrue x.X
         }
