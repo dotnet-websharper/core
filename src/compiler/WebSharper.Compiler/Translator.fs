@@ -965,10 +965,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.Static(typ: Concrete<TypeDefinition>, ?name: string) =
         match comp.TryLookupClassInfo(typ.Entity, true) with
-        | Some (a, _) ->
+        | Some (a, cls) ->
             match name with
             | Some n ->
-                GlobalAccess (a.Sub(n))     
+                if cls.HasWSPrototype then
+                    GlobalAccess (a.Sub(n))     
+                else
+                    GlobalAccess (a.Func(n))     
             | _ ->
                 GlobalAccess a
         | _ ->

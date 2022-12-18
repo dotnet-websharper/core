@@ -205,7 +205,6 @@ type FixCtorTransformer(typ, btyp, thisVar) =
         , cgenFieldNames
 
 let fixCtor thisTyp baseTyp thisVar expr =
-    printfn "fixCtor %A %s" thisVar (Debug.PrintExpression expr)
     FixCtorTransformer(thisTyp, baseTyp, thisVar).Fix(expr)
 
 module Definitions =

@@ -1279,8 +1279,22 @@ type Compilation(meta: Info, ?hasGraph) =
                         mi.Body <- 
                             match mi.Body with
                             | Function(args, thisVar, typ, b) ->
-                                let thisVar = thisVar |> Option.defaultWith (fun () -> Id.NewThis())
+                                let thisVar = thisVar |> Option.defaultWith Id.NewThis
                                 Function (thisVar :: args, None, typ, b)
+                            | _ ->
+                                failwith "Unexpected: instance member not a function"
+                    | NotResolvedMember.Constructor (_, mi) when mi.Kind = NotResolvedMemberKind.Constructor ->
+                        mi.Kind <- NotResolvedMemberKind.AsStatic  
+                        mi.Body <- 
+                            match mi.Body with
+                            | Function(args, thisVar, typ, b) ->
+                                match thisVar with
+                                | Some t ->
+                                    let body =
+                                        Return(Let(t, Object [], Sequential [StatementExpr (b, None); Var t]))
+                                    Function (args, None, typ, body)
+                                | None -> 
+                                    failwith "Unexpected: constructor not using 'this'"
                             | _ ->
                                 failwith "Unexpected: instance member not a function"
                     | _ -> ()

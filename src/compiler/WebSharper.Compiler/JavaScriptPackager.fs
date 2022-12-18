@@ -259,7 +259,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             //        addresses.Add(address, res)
             //        res
 
-    let bodyTransformer =
+    let bodyTransformer isClass =
         { new Transformer() with
             override this.TransformGlobalAccess a = getOrImportAddress a
 
@@ -319,6 +319,14 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let members = ResizeArray<Statement>()
                     
         let mem info body =
+            
+            let func fname =
+                match IgnoreExprSourcePos body with
+                | Function (args, thisVar, _, b) ->
+                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer(false).TransformStatement b, []))
+                | e ->
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer(false).TransformExpression e))
+            
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
                 match IgnoreExprSourcePos body with
@@ -350,18 +358,9 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         }
                     members.Add <| ClassProperty(info, mname, TSType.Any, Some body)
             | M.Func fname ->
-                match IgnoreExprSourcePos body with
-                | Function (args, thisVar, _, b) ->
-                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
-                | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
+                func fname
             | M.GlobalFunc addr ->
-                let fname = addr.Address.Value.Head
-                match IgnoreExprSourcePos body with
-                | Function (args, thisVar, _, b) ->
-                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
-                | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer.TransformExpression e))
+                func addr.Address.Value.Head
             | _ -> ()
 
         if c.HasWSPrototype then
@@ -440,7 +439,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.Func name ->
                 match body with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer.TransformStatement b, []))
+                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer(false).TransformStatement b, []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, kind) ->
@@ -637,11 +636,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let lazyClassId = lazy Id.New("_c")
 
         let packageLazyClass classExpr =
-            addStatement <| VarDeclaration(lazyClassId.Value, bodyTransformer.TransformExpression (JSRuntime.Lazy classExpr))
+            addStatement <| VarDeclaration(lazyClassId.Value, bodyTransformer(true).TransformExpression (JSRuntime.Lazy classExpr))
             addStatement <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
 
         let packageClass classDecl = 
-            addStatement <| ExportDecl(true, bodyTransformer.TransformStatement classDecl)                
+            addStatement <| ExportDecl(true, bodyTransformer(true).TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -700,7 +699,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer.TransformStatement ep)))
+        addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer(false).TransformStatement ep)))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->
