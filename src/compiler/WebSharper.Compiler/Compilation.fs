@@ -39,6 +39,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
+    let internalProxies = HashSet<TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
     let interfaces = MergedDictionary meta.Interfaces
@@ -384,19 +385,21 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.ToCurrentMetadata(?ignoreErrors) =
         if errors.Count > 0 && not (ignoreErrors = Some true) then 
             failwith "This compilation has errors"
+        let withoutInternalProxies d =
+            d |> Dict.filter (fun t _ -> not (internalProxies.Contains(t)))
         {
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
-            Interfaces = interfaces.Current
+            Interfaces = interfaces.Current |> withoutInternalProxies
             Classes = 
-                classes.Current |> Dict.map (fun c ->
+                classes.Current |> withoutInternalProxies |> Dict.map (fun c ->
                     match c.Methods with
                     | :? MergedDictionary<Method, CompiledMember * Optimizations * Expression> as m -> 
                         { c with Methods = m.Current }
                     | _ -> c
                 )
             CustomTypes = 
-                customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
+                customTypes.Current |> withoutInternalProxies |> Dict.filter (fun _ v -> v <> NotCustomType)
             MacroEntries = macroEntries.Current
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
@@ -416,8 +419,14 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.AllExtraBundles
         }    
 
-    member this.AddProxy(tProxy, tTarget) =
-        proxies.Add(tProxy, tTarget)  
+    member this.AddProxy(tProxy, tTarget, isInternal) =
+        // if the proxy is for internal use only, drop it with a warning if a proxy for target type already exists
+        if isInternal && (classes.Original.ContainsKey tTarget || interfaces.Original.ContainsKey tTarget || customTypes.Original.ContainsKey tTarget) then 
+            this.AddWarning (None, SourceWarning (sprintf "Proxy for internal proxy target type '%s' already exists, ignoring the internal proxy." tTarget.Value.FullName))
+        else
+            proxies.Add(tProxy, tTarget)  
+            if isInternal then
+                internalProxies.Add(tTarget) |> ignore
 
     member this.ResolveProxySignature (meth: Method) =        
         if proxies.Count = 0 then meth else

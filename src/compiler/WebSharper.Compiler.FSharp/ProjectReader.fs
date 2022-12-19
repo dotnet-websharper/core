@@ -1346,7 +1346,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         // register all proxies for signature redirection
         for (def, annot) in classAnnotations.Values do
             match annot.ProxyOf with
-            | Some p -> comp.AddProxy(def, p)
+            | Some p -> comp.AddProxy(def, p, annot.IsProxyInteral)
             | _ -> ()
 
         for t in topLevelTypes do
