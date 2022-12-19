@@ -385,26 +385,36 @@ type Compilation(meta: Info, ?hasGraph) =
     member this.ToCurrentMetadata(?ignoreErrors) =
         if errors.Count > 0 && not (ignoreErrors = Some true) then 
             failwith "This compilation has errors"
-        let withoutInternalProxies d =
-            d |> Dict.filter (fun t _ -> not (internalProxies.Contains(t)))
         {
             SiteletDefinition = this.SiteletDefinition 
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
-            Interfaces = interfaces.Current |> withoutInternalProxies
+            Interfaces = interfaces.Current
             Classes = 
-                classes.Current |> withoutInternalProxies |> Dict.map (fun c ->
+                classes.Current |> Dict.map (fun c ->
                     match c.Methods with
                     | :? MergedDictionary<Method, CompiledMember * Optimizations * Expression> as m -> 
                         { c with Methods = m.Current }
                     | _ -> c
                 )
             CustomTypes = 
-                customTypes.Current |> withoutInternalProxies |> Dict.filter (fun _ v -> v <> NotCustomType)
+                customTypes.Current |> Dict.filter (fun _ v -> v <> NotCustomType)
             MacroEntries = macroEntries.Current
             Quotations = quotations.Current
             ResourceHashes = Dictionary()
             ExtraBundles = this.CurrentExtraBundles
         }    
+
+    member this.RemoveInternalProxies(meta) =
+        if internalProxies.Count > 0 then
+            let withoutInternalProxies d =
+                d |> Dict.filter (fun t _ -> not (internalProxies.Contains(t)))
+            { meta with
+                Interfaces = meta.Interfaces |> withoutInternalProxies
+                Classes = meta.Classes |> withoutInternalProxies
+                CustomTypes = meta.CustomTypes |> withoutInternalProxies
+            }    
+        else
+            meta
 
     member this.ToRuntimeMetadata() =
         {

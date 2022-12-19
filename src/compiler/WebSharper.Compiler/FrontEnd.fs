@@ -109,6 +109,11 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     let assemblyName = a.Name.Name
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
+        
+    let currentPosFixed =
+        match comp with
+        | Some c -> c.RemoveInternalProxies currentPosFixed
+        | _ -> currentPosFixed
     
     logger.TimedStage "Source position transformations"
 

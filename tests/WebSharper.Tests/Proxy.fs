@@ -61,4 +61,8 @@ let Tests =
             equalMsg (ClassInfoMergeTestType.Member1 ()) "member1" "Member1 compiled"
             equalMsg (ClassInfoMergeTestType.Member2 ()) "member2" "Member2 compiled"
         }
+
+        Test "Internal proxy do not carry over projects" {
+            raises (System.Net.WebUtility.UrlDecode("Hello%20world"))
+        }
     }
