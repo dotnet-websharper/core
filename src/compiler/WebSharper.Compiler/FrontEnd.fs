@@ -112,7 +112,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         
     let currentPosFixed =
         match comp with
-        | Some c -> c.RemoveInternalProxies currentPosFixed
+        | Some c -> c.HideInternalProxies currentPosFixed
         | _ -> currentPosFixed
     
     logger.TimedStage "Source position transformations"

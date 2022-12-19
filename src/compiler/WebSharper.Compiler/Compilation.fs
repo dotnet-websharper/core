@@ -39,7 +39,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notResolvedInterfaces = Dictionary<TypeDefinition, NotResolvedInterface>()
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
-    let internalProxies = HashSet<TypeDefinition>()
+    let internalProxies = Dictionary<TypeDefinition, TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
     let interfaces = MergedDictionary meta.Interfaces
@@ -404,14 +404,33 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.CurrentExtraBundles
         }    
 
-    member this.RemoveInternalProxies(meta) =
+    member this.HideInternalProxies(meta) =
         if internalProxies.Count > 0 then
-            let withoutInternalProxies d =
-                d |> Dict.filter (fun t _ -> not (internalProxies.Contains(t)))
+            let updateType t =
+                match internalProxies.TryGetValue(t) with
+                | true, p -> p
+                | _ -> t
+            let updateNode n =
+                match n with
+                | MethodNode (td, m) ->
+                    MethodNode(updateType td, m)
+                | ConstructorNode (td, c) ->
+                    ConstructorNode(updateType td, c)
+                | ImplementationNode (td, i, m) ->
+                    ImplementationNode (updateType td, updateType i, m)
+                | AbstractMethodNode (td, m) ->
+                    AbstractMethodNode (updateType td, m) 
+                | TypeNode td ->
+                    TypeNode (updateType td)
+                | _ -> n
             { meta with
-                Interfaces = meta.Interfaces |> withoutInternalProxies
-                Classes = meta.Classes |> withoutInternalProxies
-                CustomTypes = meta.CustomTypes |> withoutInternalProxies
+                Interfaces = meta.Interfaces |> Dict.mapKeys updateType
+                Classes = meta.Classes |> Dict.mapKeys updateType
+                CustomTypes = meta.CustomTypes |> Dict.mapKeys updateType
+                Dependencies = 
+                    { meta.Dependencies with
+                        Nodes = meta.Dependencies.Nodes |> Array.map updateNode 
+                    }
             }    
         else
             meta
@@ -436,7 +455,7 @@ type Compilation(meta: Info, ?hasGraph) =
         else
             proxies.Add(tProxy, tTarget)  
             if isInternal then
-                internalProxies.Add(tTarget) |> ignore
+                internalProxies.Add(tTarget, tProxy) |> ignore
 
     member this.ResolveProxySignature (meth: Method) =        
         if proxies.Count = 0 then meth else
