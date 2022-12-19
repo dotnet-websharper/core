@@ -243,15 +243,19 @@ type AttributeReader<'A>() =
         def, param
 
     member private this.Read (attr: 'A) =
-        match this.GetName(attr) with
-        | "ProxyAttribute" ->
+        let proxyAttr isInternal =
             let p, infts = this.ReadTypeArg attr
             let intfTypes =
                 match infts with
                 | Some (:? System.Array as a) ->
                     a |> Seq.cast<obj> |> Seq.map this.GetTypeDef |> Array.ofSeq
                 | _ -> [||]
-            A.Proxy (p, intfTypes, false)
+            A.Proxy (p, intfTypes, isInternal)
+        match this.GetName(attr) with
+        | "ProxyAttribute" ->
+            proxyAttr false
+        | "InternalProxyAttribute" ->
+            proxyAttr true
         | "InlineAttribute" ->
             A.Inline (this.CtorArgOption(attr), this.DollarVars(attr))
         | "DirectAttribute" ->
