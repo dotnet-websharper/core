@@ -80,7 +80,7 @@ module Bundling =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
-        let sourceMap = o.Config.SourceMap
+        let sourceMap = false //o.Config.SourceMap
         let dce = o.Config.DeadCodeElimination
         
         let graph =
