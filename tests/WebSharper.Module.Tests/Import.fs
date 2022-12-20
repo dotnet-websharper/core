@@ -89,4 +89,11 @@ let Tests =
             let c = MyClassInline() 
             equal (c.sayHiInst "World") "Hello, World!"
         }
+
+        Test "WIG Import" {
+            equal (WebSharper.InterfaceGenerator.Tests.WIGtest4.SayHiFunc "World") "Hello, World!"
+            equal (WebSharper.InterfaceGenerator.Tests.WIGtest4.SayHiStatic "World") "Hello, World!"
+            let c = WebSharper.InterfaceGenerator.Tests.WIGtest4()
+            equal (c.SayHiInst "World") "Hello, World!"
+        }
     }

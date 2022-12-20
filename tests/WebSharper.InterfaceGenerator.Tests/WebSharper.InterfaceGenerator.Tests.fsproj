@@ -9,6 +9,7 @@
     <EmbeddedResource Include="WIGtest.js" />
     <EmbeddedResource Include="WIGtest2.js" />
     <EmbeddedResource Include="WIGtest3.js" />
+    <EmbeddedResource Include="WIGtest4.js" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

@@ -101,15 +101,12 @@ type InlineGenerator() =
                 | _ ->
                 let args = args |> String.concat ","
                 let mInl =
-                    let typeName =
-                        if Option.isSome td.Import || Option.isSome m.Import then
-                            "$import"
-                        else 
-                            td.Name
+                    let typeName = if Option.isSome td.Import then "$import" else td.Name
                     match f.ParamArray with
                     | Some v ->
                         let name =
                             match m.Name with
+                            | _ when Option.isSome m.Import -> "$import"
                             | "" -> typeName + ".prototype.constructor"
                             | name when m.IsStatic -> typeName + "." + name
                             | name -> name
@@ -121,6 +118,7 @@ type InlineGenerator() =
                     | None ->
                         let name =
                             match m.Name with
+                            | _ when Option.isSome m.Import -> "$import"
                             | "" -> "new " + typeName
                             | name when m.IsStatic -> typeName + "." + name
                             | name -> name
@@ -149,14 +147,11 @@ type InlineGenerator() =
             )
             |> withOutTransform
         | _ ->
-            let typeName =
-                if Option.isSome td.Import || Option.isSome p.Import then
-                    "$import"
-                else 
-                    td.Name
+            let typeName = if Option.isSome td.Import then "$import" else td.Name
             let inl = 
                 let pfx = if p.IsStatic then typeName else "$this"
                 let noIndex =
+                    if Option.isSome p.Import then "$import" else
                     let name = p.Name
                     if name = "" then pfx
                     elif validJsIdentRE.IsMatch name
@@ -199,11 +194,7 @@ type InlineGenerator() =
                 | Type.OptionType t -> t, true
                 | t -> t, false 
             let name = p.Name
-            let typeName =
-                if Option.isSome td.Import || Option.isSome p.Import then
-                    "$import"
-                else 
-                    td.Name
+            let typeName = if Option.isSome td.Import then "$import" else td.Name
             let pfx = if p.IsStatic then typeName else "$this"
             let value = 
                 match t with
@@ -213,6 +204,7 @@ type InlineGenerator() =
                     else tr.In "$value"
                 | _ -> "$value"
             let prop() =
+                if Option.isSome p.Import then "$import" else
                 if validJsIdentRE.IsMatch name then sprintf "%s.%s" pfx name
                 else sprintf "%s['%s']" pfx name
             if opt then
