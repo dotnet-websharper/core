@@ -42,6 +42,7 @@ module CodeModel =
         val mutable Comment : option<string>
         val mutable ObsoleteStatus : ObsoleteStatus
         val mutable Warning : option<string>
+        val mutable Import : option<option<string> * string>
 
         internal new (name, t) =
             {
@@ -52,6 +53,7 @@ module CodeModel =
                 Comment = None
                 ObsoleteStatus = NotObsolete
                 Warning = None
+                Import = None
             }
 
         /// On type definitions, applies the update.

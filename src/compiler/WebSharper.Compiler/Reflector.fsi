@@ -24,6 +24,6 @@ module WebSharper.Compiler.Reflector
 
 open WebSharper.Core.AST
 
-val TransformAssembly : prototypes: IDictionary<string, string> -> fromLibrary: option<Module> -> Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
+val TransformAssembly : prototypes: IDictionary<string, string> -> Mono.Cecil.AssemblyDefinition -> WebSharper.Core.Metadata.Info
 
 val TransformWSAssembly : prototypes: IDictionary<string, string> -> WebSharper.Compiler.Assembly -> WebSharper.Core.Metadata.Info

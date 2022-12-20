@@ -166,6 +166,17 @@ type TypeAttribute private () =
     /// Supports generics, generic parameter name must match the .NET generic parameter name.
     new (tsType: string) = TypeAttribute()
 
+/// Specifies that current Stub type or member is using an export of a JS module.
+[<Sealed; U(T.Class|||T.Interface|||T.Method|||T.Property|||T.Field|||T.Event|||T.Struct)>]
+type ImportAttribute private () =
+    inherit A()
+
+    /// Imports a single given named export from an ES6 module.
+    new (export: string, from: string) = ImportAttribute()
+
+    /// Imports the default export from an ES6 module.
+    new (defaultFrom: string) = ImportAttribute()
+
 /// Declares a type to be a proxy for another type, identified directly or
 /// by using an assembly-qualified name.
 [<Sealed; U(T.Class|||T.Interface|||T.Struct)>]

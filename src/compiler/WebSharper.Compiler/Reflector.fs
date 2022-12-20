@@ -139,6 +139,18 @@ let getInline attrs =
         a.ConstructorArguments.[0].Value :?> string
     )
 
+let getImport attrs asmName =
+    attrs
+    |> Seq.tryFind (fun (a: Mono.Cecil.CustomAttribute) -> 
+        a.AttributeType.FullName = "WebSharper.ImportAttribute" 
+    )
+    |> Option.map (fun a ->
+        match a.ConstructorArguments.ToArray() with
+        | [| e; f |] -> Address.Import asmName (Some (e.Value :?> string), (f.Value :?> string))
+        | [| f |] -> Address.Import asmName (None, (f.Value :?> string))
+        | _ -> failwith "invalid constructor arguments for ImportAttribute"
+    )
+
 let isResourceType (e: Mono.Cecil.TypeDefinition) =
     let b = e.BaseType
     not (isNull b) && b.FullName = "WebSharper.Core.Resources/BaseResource"
@@ -154,7 +166,7 @@ let getConstraints (genParams: seq<Mono.Cecil.GenericParameter>) tgen =
         }
     ) |> List.ofSeq
 
-let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) fromLibrary isTSasm =
+let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.AssemblyDefinition) isTSasm =
     let rec withNested (tD: Mono.Cecil.TypeDefinition) =
         if tD.HasNestedTypes then
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
@@ -174,11 +186,6 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
     let interfaces = Dictionary()
     let classes = Dictionary()
-
-    let thisModule = 
-        match fromLibrary with
-        | Some js -> js
-        | None -> StandardLibrary
 
     let getMethodAttributes (typ: Mono.Cecil.TypeDefinition) (meth: Mono.Cecil.MethodDefinition) = 
         let propOpt =
@@ -236,6 +243,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             let customAttributes = getMethodAttributes typ meth
             let macros = getMacros customAttributes
             let inlAttr = getInline customAttributes
+            let import = getImport (Seq.append customAttributes typ.CustomAttributes) asmName
             let name = getName customAttributes 
 
             let opts =
@@ -262,7 +270,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure fromLibrary [||]) 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure import [||]) 
 
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some (Inline (true, false)) else 
@@ -338,10 +346,12 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             graph.AddEdge(clsNodeIndex, aNode)
 
         let address =
-             prototypes.TryFind(def.Value.FullName)
-             |> Option.defaultValue def.Value.FullName
-             |> fun s -> 
-                 { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+            match getImport typ.CustomAttributes asmName with
+            | Some addr -> addr
+            | None ->
+                prototypes.TryFind(def.Value.FullName)
+                |> Option.defaultValue def.Value.FullName
+                |> fun s -> Address.Lib (s.Split('.') |> List.ofArray)
 
         classes.Add(def,
             (
@@ -385,10 +395,12 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                 graph.AddEdge(i, ResourceNode r) 
 
         let address =
-            prototypes.TryFind(def.Value.FullName)
-            |> Option.defaultValue def.Value.FullName
-            |> fun s -> 
-                { Module = thisModule; Address = s.Split('.') |> List.ofArray |> List.rev |> Hashed }
+            match getImport typ.CustomAttributes asmName with
+            | Some addr -> addr
+            | None ->
+                prototypes.TryFind(def.Value.FullName)
+                |> Option.defaultValue def.Value.FullName
+                |> fun s -> Address.Lib (s.Split('.') |> List.ofArray)
 
         let methods = Dictionary()
         for meth in typ.Methods do
@@ -431,8 +443,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
         ExtraBundles = Set.empty
     }
 
-let TransformAssembly prototypes fromLibrary assembly =
-    trAsm prototypes assembly fromLibrary false    
+let TransformAssembly prototypes assembly =
+    trAsm prototypes assembly false    
 
 let TransformWSAssembly prototypes (assembly : WebSharper.Compiler.Assembly) =
-    trAsm prototypes assembly.Raw None true    
+    trAsm prototypes assembly.Raw true    

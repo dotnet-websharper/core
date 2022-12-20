@@ -108,12 +108,12 @@ type private Environment =
         This : ref<option<Id>>
         Purity : Purity
         MutableExternals : HashSet<Hashed<list<string>>>
-        FromModule : option<Module>
+        Import : option<Address>
         ExpectedDollarVars : string[]
         UnknownArgs : HashSet<string>
     }
 
-    static member New(thisArg, isDirect, isPure, args, ext, lib, dollarVars) =
+    static member New(thisArg, isDirect, isPure, args, ext, import, dollarVars) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -137,7 +137,7 @@ type private Environment =
             This = ref thisArg
             Purity = if isPure then Pure else NonPure
             MutableExternals = ext
-            FromModule = lib
+            Import = import
             ExpectedDollarVars = dollarVars
             UnknownArgs = HashSet()
         }
@@ -150,7 +150,7 @@ type private Environment =
             This = ref None
             Purity = NonPure
             MutableExternals = HashSet()
-            FromModule = None
+            Import = None
             ExpectedDollarVars = [||]
             UnknownArgs = HashSet()
         }
@@ -463,6 +463,12 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | "globalThis" -> Var (Id.Global())
         | "$wsruntime" -> wsruntime
         | "$type" -> Var (Id.SourceType())
+        | "$import" ->
+            match env.Import with
+            | Some i ->
+                GlobalAccess i
+            | None ->
+                failwith "Import attribute not found for use of $import in Inline."
         //| "arguments" -> Arguments
         | "undefined" -> Undefined
         | n ->
@@ -471,11 +477,7 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         | None -> 
             if a.Name.StartsWith("$") && a.Name <> "$" && not (env.ExpectedDollarVars |> Array.contains a.Name) then
                 env.UnknownArgs.Add a.Name |> ignore
-            match env.FromModule with
-            | Some l ->
-                GlobalAccess { Module = l; Address = Hashed [ n ] }
-            | _ ->
-                Global [ n ]
+            Global [ n ]
     | e ->     
         failwithf "Failed to recognize: %A" e
 //    | S.Postfix (a, b) ->
@@ -605,11 +607,11 @@ type ParseResult =
         Warnings: string list
     }
 
-let createInline ext thisArg args isPure fromLib dollarVars inlineString =        
+let createInline ext thisArg args isPure import dollarVars inlineString =        
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
-    let env = Environment.New(thisArg, false, isPure, args, ext, fromLib, dollarVars)
+    let env = Environment.New(thisArg, false, isPure, args, ext, import, dollarVars)
     let b =
         match parsed with
         | Choice1Of2 e ->

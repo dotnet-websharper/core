@@ -1053,3 +1053,12 @@ type Address with
     static member ModuleRoot m = { Module = JavaScriptModule m; Address = Instances.EmptyAddress }
     static member DefaultExport m = { Module = JavaScriptModule m; Address = Instances.DefaultAddress }
     static member NamedExport m n = { Module = JavaScriptModule m; Address = Hashed [ n ] }
+    static member Import asmName (export: string option, from: string) = 
+        let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
+        let from =
+            match from.IndexOf('/') with
+            | -1 -> asmName + "/" + from
+            | _ -> from
+        match export with
+        | None -> Address.DefaultExport from
+        | Some x -> Address.NamedExport from x

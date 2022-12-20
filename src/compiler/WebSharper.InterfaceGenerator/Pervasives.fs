@@ -248,6 +248,14 @@ module Pervasives =
     let ObsoleteWithMessage message (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.ObsoleteStatus <- CodeModel.Obsolete (Some message))
 
+    /// Marks an entity as a named import from a JS module.
+    let Import export from (x: #Code.Entity) =
+        x |> Code.Entity.Update (fun x -> x.Import <- Some (Some export, from))
+
+    /// Marks an entity as the default import from a JS module.
+    let ImportDefault defaultFrom (x: #Code.Entity) =
+        x |> Code.Entity.Update (fun x -> x.Import <- Some (None, defaultFrom))
+
     /// Constructs a class protocol (instance members).
     [<Obsolete "Use |+> Instance [...]">]
     let Protocol (members: list<Code.Member>) =

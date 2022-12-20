@@ -504,7 +504,6 @@ type Compilation(meta: Info, ?hasGraph) =
             { meta with
                 Interfaces = meta.Interfaces |> Dict.mapKeys updateType
                 Classes = meta.Classes |> Dict.mapKeys updateType
-                CustomTypes = meta.CustomTypes |> Dict.mapKeys updateType
                 Dependencies = 
                     { meta.Dependencies with
                         Nodes = meta.Dependencies.Nodes |> Array.map updateNode 
@@ -527,7 +526,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
     member this.AddProxy(tProxy, tTarget, isInternal) =
         // if the proxy is for internal use only, drop it with a warning if a proxy for target type already exists
-        if isInternal && (classes.Original.ContainsKey tTarget || interfaces.Original.ContainsKey tTarget || customTypes.Original.ContainsKey tTarget) then 
+        if isInternal && (classes.Original.ContainsKey tTarget || interfaces.Original.ContainsKey tTarget) then 
             this.AddWarning (None, SourceWarning (sprintf "Proxy for internal proxy target type '%s' already exists, ignoring the internal proxy." tTarget.Value.FullName))
         else
             proxies.Add(tProxy, tTarget)  
@@ -1164,11 +1163,11 @@ type Compilation(meta: Info, ?hasGraph) =
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
 
+    member this.JSImport(export: string option, from: string) =
+        Address.Import this.AssemblyName (export, from)
+
     member this.AddJSImport(export: string option, from: string) =
-        let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
-        match export with
-        | None -> GlobalAccess (Address.DefaultExport from)
-        | Some x -> GlobalAccess (Address.NamedExport from x)
+        GlobalAccess (this.JSImport(export, from))
 
     member this.GetMethodNameAndKind (m: Method) =
         let mname = m.Value.MethodName 

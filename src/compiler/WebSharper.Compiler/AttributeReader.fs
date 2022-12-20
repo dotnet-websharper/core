@@ -54,6 +54,7 @@ type private Attribute =
     | JavaScriptExport of option<string>
     | Prototype of bool
     | Type of string
+    | Import of option<string> * string
     | OtherAttribute
     
 type private A = Attribute
@@ -78,6 +79,7 @@ type TypeAnnotation =
         JavaScriptTypesAndFiles : list<string>
         JavaScriptExportTypesAndFiles : list<string>
         Type : option<TSType>
+        Import : option<option<string> * string>
     }
 
     static member Empty =
@@ -99,6 +101,7 @@ type TypeAnnotation =
             JavaScriptTypesAndFiles = []
             JavaScriptExportTypesAndFiles = []
             Type = None
+            Import = None
         }
 
 type MemberKind = 
@@ -126,7 +129,8 @@ type MemberAnnotation =
         DateTimeFormat : list<option<string> * string>
         Pure : bool
         Warn : option<string>
-        JavaScriptOptions: JavaScriptOptions
+        JavaScriptOptions : JavaScriptOptions
+        Import : option<option<string> * string>
     }
 
 type ParameterAnnotation =
@@ -148,6 +152,7 @@ module MemberAnnotation =
             Pure = false
             Warn = None
             JavaScriptOptions = JavaScriptOptions.None
+            Import = None
         }
 
     let BasicPureJavaScript =
@@ -329,6 +334,11 @@ type AttributeReader<'A>() =
             A.Prototype (this.CtorArgOption(attr) |> Option.defaultValue true)
         | "TypeAttribute" ->
             A.Type (Seq.head (this.GetCtorArgs(attr)) |> unbox)
+        | "ImportAttribute" ->
+            match this.GetCtorArgs(attr) with
+            | [| f |] -> A.Import (None, unbox f)
+            | [| e; f |] -> A.Import (Some (unbox e), unbox f)
+            | _ -> failwith "invalid constructor arguments for ImportAttribute" 
         | n -> 
             A.OtherAttribute
 
@@ -346,6 +356,7 @@ type AttributeReader<'A>() =
         let mutable proxyInt = false
         let mutable prot = None
         let mutable tstyp = None
+        let mutable import = None
         for a in attrs do
             match this.GetAssemblyName a with
             | "WebSharper.Core" ->
@@ -369,6 +380,7 @@ type AttributeReader<'A>() =
                     proxyInt <- ip
                 | A.Prototype p -> prot <- Some p
                 | A.Type n -> tstyp <- Some (TSType.Parse n)
+                | A.Import (e, f) -> import <- Some (e, f)
                 | A.OtherAttribute -> ()
                 | ar -> attrArr.Add ar
             | _ -> ()
@@ -397,10 +409,10 @@ type AttributeReader<'A>() =
             jse <- true
         if parent.OptionalFields then
             if not (attrArr.Contains(A.OptionalField)) then attrArr.Add A.OptionalField
-        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp
+        attrArr |> Seq.distinct |> Seq.toArray, macros.ToArray(), name, proxy, proxyExt, proxyInt, isJavaScript, js = Some false, jsOpts, jse, prot, isStub, List.ofSeq reqs, tstyp, import
 
     member this.GetTypeAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, proxyOf, proxyExt, proxyInt, isJavaScript, isForcedNotJavaScript, _, isJavaScriptExport, prot, isStub, reqs, tstyp, import = this.GetAttrs (parent, attrs)
         {
             ProxyOf = proxyOf
             ProxyExtends = proxyExt
@@ -425,10 +437,11 @@ type AttributeReader<'A>() =
                 (attrArr |> Seq.choose (function A.JavaScriptExport e -> e | _ -> None) |> List.ofSeq) 
                 @ parent.JavaScriptExportTypesAndFiles
             Type = tstyp
+            Import = import
         }
 
     member this.GetMemberAnnot (parent: TypeAnnotation, attrs: seq<'A>) =
-        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs, _ = this.GetAttrs (parent, attrs)
+        let attrArr, macros, name, _, _, _, isJavaScript, _, jsOptions, isJavaScriptExport, _, isStub, reqs, _, import = this.GetAttrs (parent, attrs)
         let isEp = attrArr |> Array.contains A.SPAEntryPoint
         let isPure = attrArr |> Array.contains A.Pure
         let warning = attrArr |> Array.tryPick (function A.Warn w -> Some w | _ -> None)
@@ -467,6 +480,7 @@ type AttributeReader<'A>() =
             Pure = isPure
             Warn = warning
             JavaScriptOptions = jsOptions
+            Import = import |> Option.orElse parent.Import
         }
    
     member this.GetParamAnnot (attrs: seq<'A>) =

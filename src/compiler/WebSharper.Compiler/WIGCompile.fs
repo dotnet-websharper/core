@@ -101,23 +101,28 @@ type InlineGenerator() =
                 | _ ->
                 let args = args |> String.concat ","
                 let mInl =
+                    let typeName =
+                        if Option.isSome td.Import || Option.isSome m.Import then
+                            "$import"
+                        else 
+                            td.Name
                     match f.ParamArray with
                     | Some v ->
                         let name =
                             match m.Name with
-                            | "" -> td.Name + ".prototype.constructor"
-                            | name when m.IsStatic -> td.Name + "." + name
+                            | "" -> typeName + ".prototype.constructor"
+                            | name when m.IsStatic -> typeName + "." + name
                             | name -> name
                         match m.IsStatic, f.Parameters.Length with
-                        | true,  0     -> sprintf "$wsruntime.Apply(%s, %s, $0)" name td.Name
+                        | true,  0     -> sprintf "$wsruntime.Apply(%s, %s, $0)" name typeName
                         | false, 0     -> sprintf "$wsruntime.Apply($this.%s, $this, $1)" name
-                        | true,  arity -> sprintf "$wsruntime.Apply(%s, %s,[%s].concat($%d))" name td.Name args arity
+                        | true,  arity -> sprintf "$wsruntime.Apply(%s, %s,[%s].concat($%d))" name typeName args arity
                         | false, arity -> sprintf "$wsruntime.Apply($this.%s, $this,[%s].concat($%d))" name args (arity + 1)
                     | None ->
                         let name =
                             match m.Name with
-                            | "" -> "new " + td.Name
-                            | name when m.IsStatic -> td.Name + "." + name
+                            | "" -> "new " + typeName
+                            | name when m.IsStatic -> typeName + "." + name
                             | name -> name
                         if m.IsStatic
                         then sprintf "%s(%s)" name args
@@ -144,8 +149,13 @@ type InlineGenerator() =
             )
             |> withOutTransform
         | _ ->
+            let typeName =
+                if Option.isSome td.Import || Option.isSome p.Import then
+                    "$import"
+                else 
+                    td.Name
             let inl = 
-                let pfx = if p.IsStatic then td.Name else "$this"
+                let pfx = if p.IsStatic then typeName else "$this"
                 let noIndex =
                     let name = p.Name
                     if name = "" then pfx
@@ -189,7 +199,12 @@ type InlineGenerator() =
                 | Type.OptionType t -> t, true
                 | t -> t, false 
             let name = p.Name
-            let pfx = if p.IsStatic then td.Name else "$this"
+            let typeName =
+                if Option.isSome td.Import || Option.isSome p.Import then
+                    "$import"
+                else 
+                    td.Name
+            let pfx = if p.IsStatic then typeName else "$this"
             let value = 
                 match t with
                 | Type.InteropType (_, tr) -> 
@@ -400,6 +415,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     let pureAttr = resolveType typeof<WebSharper.PureAttribute>
     let warnAttr = resolveType typeof<WebSharper.WarnAttribute>
     let typeAttr = resolveType typeof<WebSharper.TypeAttribute>
+    let importAttr = resolveType typeof<WebSharper.ImportAttribute>
     let funcWithArgs = resolveType typedefof<WebSharper.JavaScript.FuncWithArgs<_,_>>
     let funcWithThis = resolveType typedefof<WebSharper.JavaScript.FuncWithThis<_,_>> 
     let funcWithOnlyThis = resolveType typedefof<WebSharper.JavaScript.FuncWithOnlyThis<_,_>>
@@ -492,6 +508,7 @@ type TypeBuilder(aR: WebSharper.Compiler.LoaderUtility.Resolver, out: AssemblyDe
     member b.Pure = pureAttr
     member b.Warn = warnAttr
     member b.TypeAttr = typeAttr
+    member b.Import = importAttr
     member b.String = stringType
     member b.SystemType = systemType
     member b.Void = voidType
@@ -678,6 +695,8 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     let pureAttributeConstructor = findDefaultConstructor tB.Pure 
     let warnAttributeConstructor = findTypedConstructor tB.Warn [tB.String.Name]
     let typeAttributeConstructor = findTypedConstructor tB.TypeAttr [tB.String.Name]
+    let importAttributeConstructorDefault = findTypedConstructor tB.Import [tB.String.Name]
+    let importAttributeConstructor = findTypedConstructor tB.Import [tB.String.Name; tB.String.Name]
 
     member c.AddBody(m: MethodDefinition) =
         let body = MethodBody(m)
@@ -719,6 +738,8 @@ type MemberBuilder(tB: TypeBuilder, def: AssemblyDefinition) =
     member c.PureAttributeConstructor = pureAttributeConstructor
     member c.WarnAttributeConstructor = warnAttributeConstructor
     member c.TypeAttributeConstructor = typeAttributeConstructor
+    member c.ImportAttributeConstructorDefault = importAttributeConstructorDefault
+    member c.ImportAttributeConstructor = importAttributeConstructor
 
 
 type CompilationKind =
@@ -842,6 +863,22 @@ type MemberConverter
         | None -> ()
         | Some t -> attrs.Add (typeAttribute t)
 
+    let importAttribute (n: option<string>) (f: string) =
+        match n with
+        | None ->
+            let attr = CustomAttribute(mB.ImportAttributeConstructorDefault)
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
+            attr
+        | Some n ->
+            let attr = CustomAttribute(mB.ImportAttributeConstructor)
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box n))
+            attr.ConstructorArguments.Add(CustomAttributeArgument(tB.String, box f))
+            attr
+    let setImportAttribute (x: CodeModel.Entity) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
+        match x.Import with
+        | None -> ()
+        | Some (n, f) -> attrs.Add (importAttribute n f)
+
     let pureAttribute = CustomAttribute(mB.PureAttributeConstructor)
 
     let setPureAttribute (x: CodeModel.MethodBase) (attrs: Mono.Collections.Generic.Collection<CustomAttribute>) =
@@ -932,6 +969,7 @@ type MemberConverter
                 for p in makeParameters (f, td, isCSharp) do
                     cD.Parameters.Add p
                 setObsoleteAttribute x cD.CustomAttributes
+                setImportAttribute x cD.CustomAttributes 
                 setPureAttribute x cD.CustomAttributes
                 setWarnAttribute x cD.CustomAttributes
                 addDependencies x cD.CustomAttributes
@@ -998,6 +1036,7 @@ type MemberConverter
             dT.Methods.Add mD
             pD.SetMethod <- mD
         setObsoleteAttribute p pD.CustomAttributes
+        setImportAttribute p pD.CustomAttributes 
         addDependencies p pD.CustomAttributes
         setWarnAttribute p pD.CustomAttributes
         dT.Properties.Add pD
@@ -1098,6 +1137,7 @@ type MemberConverter
             setPureAttribute x mD.CustomAttributes
             setWarnAttribute x mD.CustomAttributes
         setObsoleteAttribute x mD.CustomAttributes
+        setImportAttribute x mD.CustomAttributes 
         addDependencies x mD.CustomAttributes
         dT.Methods.Add mD
 
@@ -1139,6 +1179,7 @@ type MemberConverter
         for ctor in x.Constructors do
             addConstructor tD x ctor
         setObsoleteAttribute x tD.CustomAttributes
+        setImportAttribute x tD.CustomAttributes 
         setWarnAttribute x tD.CustomAttributes
         setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
@@ -1154,6 +1195,7 @@ type MemberConverter
             else
                 failwithf "Interface %s is trying to inherit a non-interface type: %s" x.Name tr.FullName
         setObsoleteAttribute x tD.CustomAttributes
+        setImportAttribute x tD.CustomAttributes 
         setTSAttribute x tD.CustomAttributes
         c.AddTypeMembers(x, tD)
         do
@@ -1543,11 +1585,8 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                 for nc in c.NestedClasses do addClass (sn + "+") nc
             for c in ns.Classes do addClass (ns.Name + ".") c
 
-        //let fromLibrary = Some (AST.JavaScriptModule (options.AssemblyName + ".d"))
-        let fromLibrary = None
-
         // Add WebSharper metadata
-        let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes fromLibrary def
+        let meta = WebSharper.Compiler.Reflector.TransformAssembly assemblyPrototypes def
         WebSharper.Compiler.FrontEnd.ModifyWIGAssembly meta def |> ignore
         logger.TimedStage "Creating WebSharper metadata"
 

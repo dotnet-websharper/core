@@ -551,11 +551,22 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Import(None, _, _, "") ->
         J.Empty
     | Import(a, b, c, d) ->
-        J.Import(
-            a |> Option.map (defineId env), 
-            b |> Option.map (defineId env), 
-            c |> List.map (fun (n, x) -> n, defineId env x),
-            d)
+        // import * and named exports cannot be on same statement, separate them
+        if Option.isSome b && not (List.isEmpty c) then
+            J.Block [
+                J.ImportAll(b |> Option.map (defineId env), d)            
+                J.Import(
+                    a |> Option.map (defineId env), 
+                    None, 
+                    c |> List.map (fun (n, x) -> n, defineId env x),
+                    d)
+            ]
+        else
+            J.Import(
+                a |> Option.map (defineId env), 
+                b |> Option.map (defineId env), 
+                c |> List.map (fun (n, x) -> n, defineId env x),
+                d)
     | ExportDecl (a, b) ->
         J.Export (a, trS b)
     | ForIn(a, b, c) -> 

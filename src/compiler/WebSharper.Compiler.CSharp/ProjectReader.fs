@@ -1077,6 +1077,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 let parsed = getParsed()
                 parsed.Parameters |> List.map (fun p -> p.ParameterId)
 
+            let getImport() =
+                mAnnot.Import |> Option.map comp.JSImport
+
             match memdef with
             | Member.Method (_, mdef) 
             | Member.Override (_, mdef) 
@@ -1132,7 +1135,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Inline (js, ta, dollarVars) ->
                     checkNotAbstract() 
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure None dollarVars js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (getImport()) dollarVars js
                         List.iter warn parsed.Warnings
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.Inline ta) true parsed.Expr
                     with e ->
@@ -1201,7 +1204,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     addConstructor (Some (meth, memdef)) mAnnot cdef N.NoFallback true Undefined
                 | A.MemberKind.Inline (js, ta, dollarVars) ->
                     try
-                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure None dollarVars js
+                        let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None (getVars()) mAnnot.Pure (getImport()) dollarVars js
                         List.iter warn parsed.Warnings
                         addConstructor (Some (meth, memdef)) mAnnot cdef (N.Inline ta) true parsed.Expr 
                     with e ->
