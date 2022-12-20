@@ -1447,7 +1447,7 @@ let transformAssembly (comp : Compilation) (config: WsConfig) (rcomp: CSharpComp
     // register all proxies for signature redirection
     for TypeWithAnnotation(_, def, annot) in allTypes do
         match annot.ProxyOf with
-        | Some p -> comp.AddProxy(def, p)
+        | Some p -> comp.AddProxy(def, p, annot.IsProxyInteral)
         | _ -> ()
 
     for TypeWithAnnotation(t, d, a) in allTypes do

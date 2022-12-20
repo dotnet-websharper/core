@@ -1,8 +1,8 @@
-// $begin{copyright}
+﻿// $begin{copyright}
 //
 // This file is part of WebSharper
 //
-// Copyright (c) 2008-2018 IntelliFactory
+// Copyright (c) 2008-2016 IntelliFactory
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you
 // may not use this file except in compliance with the License.  You may
@@ -18,22 +18,22 @@
 //
 // $end{copyright}
 
-module WebSharper.Collections.Tests.Main
+module WebSharper.Collections.Tests.InternalProxy
 
+open System
 open WebSharper
+open WebSharper.JavaScript
 open WebSharper.Testing
 
+[<InternalProxy(typeof<System.Net.WebUtility>)>]
+type SystemNetWebUtilityProxy =
+    static member UrlDecode(s: string) = JS.DecodeURIComponent(s)
+
 [<JavaScript>]
-let RunTests() =
-    Runner.RunTests [|
-        Dictionary.Tests
-        Set.Tests
-        Map.Tests
-        Array.Tests
-        ResizeArray.Tests
-        LinkedList.Tests
-        HashSet.Tests
-        Interfaces.Tests
-        Implementations.Tests
-        InternalProxy.Tests
-    |]
+let Tests =
+
+    TestCategory "InternalProxy" {
+        Test "Proxy is working" {
+            equal (System.Net.WebUtility.UrlDecode("Hello%20world")) "Hello world"
+        }
+    }

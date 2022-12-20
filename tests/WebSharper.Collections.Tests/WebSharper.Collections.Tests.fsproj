@@ -16,6 +16,7 @@
     <Compile Include="Interop.fs" />
     <Compile Include="Interfaces.fs" />
     <Compile Include="Implementations.fs" />
+    <Compile Include="InternalProxy.fs" />
     <Compile Include="Main.fs" />
     <Compile Include="SplitProxy.fs" />
     <None Include="paket.references" />

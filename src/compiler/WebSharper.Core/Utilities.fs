@@ -131,6 +131,13 @@ module Dict =
             | None -> ()
         r 
 
+    /// Map keys of an IDictionary
+    let mapKeys mapping (d: IDictionary<_,_>) =
+        let r = Dictionary() :> IDictionary<_,_>
+        for KeyValue(k, v) in d do   
+            r.Add(mapping k, v)
+        r 
+
     exception UnionError of key: obj with
         override this.Message = failwithf "Error merging dictionaries on key: %A" this.key 
 

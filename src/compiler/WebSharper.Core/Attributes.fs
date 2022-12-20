@@ -181,6 +181,22 @@ type ProxyAttribute private () =
     /// Constructs a new proxy link using a type directly and allows adding inherited interfaces.
     new (proxiedType: Type, interfaces: Type[]) = ProxyAttribute()
 
+/// Declares a type to be a proxy for another type, identified directly or
+/// by using an assembly-qualified name.
+/// Proxy exists only for use in current project.
+[<Sealed; U(T.Class|||T.Interface|||T.Struct)>]
+type InternalProxyAttribute private () =
+    inherit A()
+
+    /// Constructs a new proxy link using a type directly.
+    new (proxiedType: Type) = InternalProxyAttribute()
+
+    /// Constructs a new proxy link using an assembly-qualified name.
+    new (assemblyQualifiedName: string) = InternalProxyAttribute()
+
+    /// Constructs a new proxy link using a type directly and allows adding inherited interfaces.
+    new (proxiedType: Type, interfaces: Type[]) = InternalProxyAttribute()
+
 /// Marks a server-side function to be invokable remotely from the client-side.
 [<Sealed; U(T.Method)>]
 type RemoteAttribute() =

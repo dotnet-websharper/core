@@ -72,6 +72,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let notResolvedClasses = Dictionary<TypeDefinition, NotResolvedClass>()
     let notResolvedCustomTypes = Dictionary<TypeDefinition, CustomTypeInfo>()
     let proxies = Dictionary<TypeDefinition, TypeDefinition>()
+    let internalProxies = Dictionary<TypeDefinition, TypeDefinition>()
 
     let classes = MergedDictionary meta.Classes
     let mergedProxies = HashSet<TypeDefinition>()
@@ -481,6 +482,37 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.CurrentExtraBundles
         }    
 
+    member this.HideInternalProxies(meta) =
+        if internalProxies.Count > 0 then
+            let updateType t =
+                match internalProxies.TryGetValue(t) with
+                | true, p -> p
+                | _ -> t
+            let updateNode n =
+                match n with
+                | MethodNode (td, m) ->
+                    MethodNode(updateType td, m)
+                | ConstructorNode (td, c) ->
+                    ConstructorNode(updateType td, c)
+                | ImplementationNode (td, i, m) ->
+                    ImplementationNode (updateType td, updateType i, m)
+                | AbstractMethodNode (td, m) ->
+                    AbstractMethodNode (updateType td, m) 
+                | TypeNode td ->
+                    TypeNode (updateType td)
+                | _ -> n
+            { meta with
+                Interfaces = meta.Interfaces |> Dict.mapKeys updateType
+                Classes = meta.Classes |> Dict.mapKeys updateType
+                CustomTypes = meta.CustomTypes |> Dict.mapKeys updateType
+                Dependencies = 
+                    { meta.Dependencies with
+                        Nodes = meta.Dependencies.Nodes |> Array.map updateNode 
+                    }
+            }    
+        else
+            meta
+
     member this.ToRuntimeMetadata() =
         {
             SiteletDefinition = this.SiteletDefinition 
@@ -493,8 +525,14 @@ type Compilation(meta: Info, ?hasGraph) =
             ExtraBundles = this.AllExtraBundles
         }    
 
-    member this.AddProxy(tProxy, tTarget) =
-        proxies.Add(tProxy, tTarget)  
+    member this.AddProxy(tProxy, tTarget, isInternal) =
+        // if the proxy is for internal use only, drop it with a warning if a proxy for target type already exists
+        if isInternal && (classes.Original.ContainsKey tTarget || interfaces.Original.ContainsKey tTarget || customTypes.Original.ContainsKey tTarget) then 
+            this.AddWarning (None, SourceWarning (sprintf "Proxy for internal proxy target type '%s' already exists, ignoring the internal proxy." tTarget.Value.FullName))
+        else
+            proxies.Add(tProxy, tTarget)  
+            if isInternal then
+                internalProxies.Add(tTarget, tProxy) |> ignore
 
     member this.ResolveProxySignature (meth: Method) =        
         if proxies.Count = 0 then meth else
