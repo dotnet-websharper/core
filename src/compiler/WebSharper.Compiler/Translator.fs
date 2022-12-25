@@ -1839,7 +1839,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Some (addr, _) ->
             let trCtor = 
                 ctor |> Option.map (fun e ->
-                    ClassConstructor([], None, Some (ExprStatement (this.TransformExpression e)), TSType.Any) // TODO signature
+                    let trE = 
+                        match e with
+                        | I.Ctor (t, c, args) -> this.TransformChainedCtor(true, t, c, args)
+                        | _ -> this.TransformExpression e
+                    ClassConstructor([], None, Some (ExprStatement trE), TSType.Any) // TODO signature
                 )
             let instanceInfo kind =
                 {
@@ -1869,15 +1873,27 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     )
                 )
             match ctor with 
-            | None -> obj
+            | None -> obj        
             | Some c ->
-                let r = Id.New(mut = false, typ = typ)
-                Let (r, obj, 
-                    Sequential [
-                        Substitution([], Var r).TransformExpression(this.TransformExpression c)
-                        Var r
-                    ]
-                )  
+                let trC = this.TransformExpression c
+                let isPure =
+                    match c with
+                    | I.Ctor (t, c, args) ->
+                        match comp.LookupConstructorInfo(t.Entity, c) with
+                        | Compiled (_, opts, _, _) ->
+                            opts.Purity = Pure
+                        | _ -> false
+                    | _ -> false
+                if isPure then
+                    obj
+                else
+                    let r = Id.New(mut = false, typ = typ)
+                    Let (r, obj, 
+                        Sequential [
+                            Substitution([], Var r).TransformExpression(this.TransformExpression c)
+                            Var r
+                        ]
+                    )  
 
     override this.TransformLet (a, b, c) =
         if CountVarOccurence(a).Get(c) = 1 then
