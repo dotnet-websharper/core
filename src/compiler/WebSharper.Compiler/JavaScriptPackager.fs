@@ -519,17 +519,6 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             let cBody =
                 let origIndices = Dictionary()
                 [ 
-                    if baseType.IsSome then
-                        yield 
-                            If (Unary(UnaryOperator.TypeOf, Var index) ^!= Value (String "string"), 
-                                Block [
-                                    ExprStatement (Appl(Base, [Var index], NonPure, None))
-                                    If (Var index, ExprStatement(JSRuntime.ObjectAssign JSThis (Var index)), Empty)
-                                ], Empty)
-                    else
-                        yield 
-                            If (Unary(UnaryOperator.TypeOf, Var index) ^== Value (String "object"), 
-                                ExprStatement (JSRuntime.ObjectAssign JSThis (Var index)), Empty)
                     for (name, args, chainedCtor, bodyRest) in orderedCtorData do
                         match chainedCtor with
                         | Some (ccName, ccArgs) ->
@@ -587,41 +576,8 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
             let tags = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
             addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
-
-            let numArgs =
-                u.Cases |> Seq.map (fun uc -> 
-                    match uc.Kind with
-                    | M.NormalFSharpUnionCase fields -> List.length fields
-                    | M.SingletonFSharpUnionCase -> 0
-                    | M.ConstantFSharpUnionCase _ -> 0
-                )
-                |> Seq.max
-            let genCtor =
-                let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign JSThis (Var arg))
-                ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
-                //let argNames = "$" :: List.init numArgs (fun i -> "$" + string i)
-                //let args = argNames |> List.map (fun n -> Id.New(n), Modifiers.None)
-                //let setters = 
-                //    Statement.Block (
-                //        args |> List.map (fun (a, _) -> ExprStatement (ItemSet(This, Value (Literal.String a.Name.Value), Var a)))  
-                //    )
-                //ClassConstructor(args, Some setters, TSType.Any)
-            members.Add <| genCtor
             isFSharpType <- true
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
-            let genCtor = 
-                let arg = Id.New("$")
-                let assign = ExprStatement (JSRuntime.ObjectAssign JSThis (Var arg))
-                ClassConstructor([ arg, Modifiers.None ], None, Some assign, TSType.Any)
-            members.Add <| genCtor
-            //let newFunc =
-            //    let args = r |> List.map (fun f -> Id.New(f.Name, mut = false))
-            //    let newId = Id.New("New", str = true)
-            //    let body =
-            //        New(Var classId, [], [ Object (args |> List.map ) ])
-            //    FuncDeclaration(newId, args, )
-            //addStatement <| ExportDecl(false, newFunc)
             isFSharpType <- true
         | _ -> ()
         //| _ ->

@@ -667,7 +667,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 match c.Kind with
                 | M.ConstantFSharpUnionCase v -> Value v
                 | M.SingletonFSharpUnionCase -> 
-                    this.UnionCtor(typ, i, [])
+                    this.UnionCtor(typ, i, c.Name, [])
                 | M.NormalFSharpUnionCase _ -> 
                     failwith "A union case with a property getter should not have fields"
             else
@@ -1443,21 +1443,21 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             JSRuntime.Create (GlobalAccess a) objExpr
         | _ -> this.TransformExpression objExpr
 
-    member this.UnionCtor(typ, i, args) =
+    member this.UnionCtor(typ, index, name, args) =
         let trArgs = args |> List.map this.TransformExpression
-        let plainObj =
-            Object (
-                ("$", MemberKind.Simple, Value (Int i)) ::
-                (trArgs |> List.mapi (fun j e -> "$" + string j, MemberKind.Simple, e)) 
-            )
         let objExpr =
-            match comp.TryLookupClassInfo typ.Entity |> Option.bind (fun (a, c) -> if c.HasWSPrototype then Some a else None) with
-            | Some a ->
+            match comp.TryLookupClassInfo typ.Entity with
+            | Some (a, _) ->
                 if comp.HasGraph then
                     this.AddTypeDependency typ.Entity
-                New (GlobalAccess a, [], [plainObj])
+                Appl(GlobalAccess (a.Sub("New" + name)), trArgs, Pure, Some trArgs
+                
+                .Length)
             | _ ->
-                plainObj
+                Object (
+                    ("$", MemberKind.Simple, Value (Int index)) ::
+                    (trArgs |> List.mapi (fun j e -> "$" + string j, MemberKind.Simple, e)) 
+                )
         match comp.TypeTranslator.TSTypeOf currentGenerics (ConcreteType typ) with
         | TSType.Any -> objExpr
         | t -> Cast (t, objExpr)
@@ -1541,7 +1541,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ItemGet(GlobalAccess a, Value (String case), Pure)
                 | None -> this.Error("Failed to find address for singleton union case.")
             | M.NormalFSharpUnionCase _ ->
-                this.UnionCtor(typ, i, args)  
+                this.UnionCtor(typ, i, c.Name, args)  
         | _ -> this.Error("Failed to translate union case creation.")
 
     override this.TransformUnionCaseTest(expr, typ, case) = 

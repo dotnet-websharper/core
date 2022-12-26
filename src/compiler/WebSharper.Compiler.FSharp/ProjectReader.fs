@@ -985,7 +985,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i)
 
-            for c in cases do
+            for index, c in cases |> Seq.indexed do
                 match c.Kind with
                 | NormalFSharpUnionCase fields ->
                     let newCase =
@@ -996,6 +996,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             Generics = cls.GenericParameters.Count       
                         }
                     let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false)) 
+                    let obj =
+                        Object (
+                            ("$", MemberKind.Simple, Value (Int index)) ::
+                            (args |> List.mapi (fun j a -> "$" + string j, MemberKind.Simple, Var a)) 
+                        )
                     let newCaseM =
                         {
                             Kind = NotResolvedMemberKind.Static
@@ -1007,7 +1012,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             Pure = true
                             FuncArgs = None
                             Args = args
-                            Body = Function(args, None, Some (ConcreteType thisType), Return (NewUnionCase(thisType, c.Name, args |> List.map Var)))
+                            Body = Function(args, None, Some (ConcreteType thisType), Return (CopyCtor(def, obj)))
                             Requires = []
                             Warn = None
                             JavaScriptOptions = WebSharper.JavaScriptOptions.None

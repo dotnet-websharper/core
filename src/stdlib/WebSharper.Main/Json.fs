@@ -107,6 +107,9 @@ type private SpecialTypes =
     | Object of obj
     | JSModule of obj
 
+[<Inline "$wsruntime.Create($ctor, $copyFrom)">]
+let inline Create (ctor: obj) (copyFrom: obj) = X<obj>
+
 [<JavaScript>]
 let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
     if x = null then x else
@@ -123,15 +126,13 @@ let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
                     | SpecialTypes.List ->  
                         box (List.ofArray (As<obj[]> o))
                     | SpecialTypes.Decimal c ->  
-                        Console.Log("Creating client side decimal", c, o)
                         c(o)
                     | SpecialTypes.Object ctor ->  
-                        Object.Assign(JS.New ctor, o)
+                        Create ctor o
                     | SpecialTypes.JSModule m ->
                         m
         | _ ->
             x
-
 
 [<JavaScript>]
 [<Require(typeof<Resource>)>]
