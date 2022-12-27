@@ -298,7 +298,7 @@ type TypeCheckTestWithSingletonCase =
 let tryDoSomethingButFail() = X<unit>
 
 [<Inline "OutSideCode.NotInitialized.getValue()">]
-let tryGetOutsideValueAndFail() = X<int>
+let tryGetOutsideValueWithoutGlobal() = X<int>
 
 [<Inline "$global.OutSideCode.NotInitialized.getValue()">]
 let tryGetOutsideValue() = X<int>
@@ -896,7 +896,7 @@ let Tests =
                 "NotInitialized" => New [ "getValue" => (fun() -> 1) ]
             ]
             equal (tryGetOutsideValue())  1     
-            raises (tryGetOutsideValueAndFail())
+            equal (tryGetOutsideValueWithoutGlobal()) 1
         }
 
         Test "#731 Tail recursion should not overwrite outside variable" {

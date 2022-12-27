@@ -618,7 +618,7 @@ module Macro =
                             | Some cls -> 
                                 addTypeDep td
                                 if cls.HasWSPrototype then
-                                    GlobalAccess { cls.Address with Address = PlainAddress ("$" :: cls.Address.Address.Value) }
+                                    GlobalAccess cls.Address
                                 else
                                     Undefined
                             | _ -> Undefined
