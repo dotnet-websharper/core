@@ -40,6 +40,9 @@ module Provider =
         ()
         fun () -> id
 
+    [<Inline "$wsruntime.Create($ctor, $copyFrom)">]
+    let Create<'T> (ctor: obj) (copyFrom: obj) = X<'T>
+
     let EncodeTuple (encs: (unit -> obj -> obj)[]) : (unit -> obj[] -> obj) =
         ()
         fun () args ->
@@ -199,7 +202,7 @@ module Provider =
     let DecodeRecord (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
-            let o = if t ===. JS.Undefined then New [] else JS.New t
+            let o = New []
             fields |> Array.iter (fun (name, dec, kind) ->
                 match kind with
                 | OptionalFieldKind.NotOption ->
@@ -218,13 +221,13 @@ module Provider =
                     if x?(name) ===. JS.Undefined then
                         o?(name) <- (dec () x?(name))
                 | _ -> failwith "Invalid field option kind")
-            o
+            if t ===. JS.Undefined then o else Create t o
 
     let DecodeUnion (t: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
             if JS.TypeOf x ===. JS.Object && x !=. null then
-                let o = if t ===. JS.Undefined then New [] else JS.New t
+                let o = New []
                 let tag =
                     // [<NamedUnionCases(discr)>]
                     if JS.TypeOf discr ===. JS.Kind.String then
@@ -254,7 +257,7 @@ module Provider =
                                 then Some (dec () x?(``to``))
                                 else None
                         | _ -> failwith "Invalid field option kind")
-                o
+                if t ===. JS.Undefined then o else Create t o
             else x :?> 'T // [<Constant>]
 
     let DecodeArray (decEl :(unit -> obj -> 'T)) : (unit -> obj -> 'T[]) =

@@ -108,7 +108,7 @@ type private SpecialTypes =
     | JSModule of obj
 
 [<Inline "$wsruntime.Create($ctor, $copyFrom)">]
-let inline Create (ctor: obj) (copyFrom: obj) = X<obj>
+let Create (ctor: obj) (copyFrom: obj) = X<obj>
 
 [<JavaScript>]
 let rec private decode (types: SpecialTypes[]) (x: obj) : obj =
