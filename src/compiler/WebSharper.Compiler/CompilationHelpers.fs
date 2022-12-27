@@ -110,7 +110,7 @@ let isTrivialFunction (args: Id list) body =
     check body
 
 let rec isTrivialValue expr =
-    match IgnoreExprSourcePos expr with
+    match expr with
     | Undefined
     | Value _
     | GlobalAccess _

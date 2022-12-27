@@ -1004,7 +1004,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     let newCaseM =
                         {
                             Kind = NotResolvedMemberKind.Static
-                            StrongName = Some ("New" + c.Name)
+                            StrongName = Some c.Name
                             Generics = []
                             Macros = []
                             Generator = None

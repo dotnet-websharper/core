@@ -38,6 +38,7 @@ type Environment =
         ScopeCalls : list<Dictionary<Id, int * bool>>
         mutable TailPos : TailPos 
         SelfTailCall : ref<bool>
+        TopExpr : bool
         CurrentMethod : option<TypeDefinition * Method>
         ThisAliases : HashSet<Id>
         Inlines : HashSet<Method>
@@ -49,15 +50,16 @@ type Environment =
             ScopeCalls = []
             TailPos = MemberRoot
             SelfTailCall = ref false
+            TopExpr = true
             CurrentMethod = m
             ThisAliases = HashSet()
             Inlines = inl
         }
 
-    member this.WithScope(sc, thisVar) =
-        thisVar |> Option.iter (this.ThisAliases.Add >> ignore)
+    member this.WithScope(sc) =
         { this with
             ScopeCalls = sc :: this.ScopeCalls   
+            TopExpr = false
         }
 
     member this.NextTailPos() =
@@ -122,7 +124,9 @@ type TailCallAnalyzer(env) =
       
     override this.VisitFunction(args, thisVar, ret, body) =
         let scope = Dictionary()
-        let inner = TailCallAnalyzer(env.WithScope(scope, thisVar))
+        if env.TopExpr && Option.isSome env.CurrentMethod then
+            thisVar |> Option.iter (env.ThisAliases.Add >> ignore)
+        let inner = TailCallAnalyzer(env.WithScope(scope))
         inner.VisitStatement body      
     
     override this.VisitCall(obj, td, meth, args) =
@@ -173,7 +177,7 @@ type TailCallAnalyzer(env) =
                 valueBodies.Add (body, true) 
             | _ ->
                 valueBodies.Add (value, false)    
-        let innerEnv = env.WithScope (scope, None)
+        let innerEnv = env.WithScope (scope)
         let inner = TailCallAnalyzer(innerEnv)
         for body, isFunc in valueBodies do
             if isFunc then 
@@ -564,7 +568,7 @@ type TailCallTransformer(env) =
     override this.TransformCall(obj, td, meth, args) =
         match env.CurrentMethod, selfCallArgs with
         | Some (ct, cm), Some fArgs
-            when td.Entity = ct && meth.Entity = cm ->
+            when td.Entity = ct && meth.Entity = cm && env.TailPos <> NotTailPos ->
                 this.Recurse(fArgs, fArgs, args, None)
         | _ ->
             env.TailPos <- NotTailPos

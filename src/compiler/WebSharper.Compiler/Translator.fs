@@ -46,7 +46,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformFieldGet (_,_,_) = invalidForm "FieldGet"
     override this.TransformFieldSet (_,_,_,_) = invalidForm "FieldSet"
     override this.TransformLet (a, b, c) = if isInline then base.TransformLet(a, b, c) else invalidForm "Let" 
-    override this.TransformLetRec (_,_) = invalidForm "LetRec"
+    override this.TransformLetRec (a, b) = if isInline then base.TransformLetRec(a, b) else invalidForm "LetRec"
     override this.TransformStatementExpr (a, b) = if isInline then base.TransformStatementExpr(a, b) else invalidForm "StatementExpr"
     override this.TransformAwait _  = invalidForm "Await"
     override this.TransformNamedParameter (_,_) = invalidForm "NamedParameter"
@@ -59,6 +59,7 @@ type CheckNoInvalidJSForms(comp: Compilation, isInline, name) as this =
     override this.TransformGoto _ = invalidForm "Goto" |> ExprStatement
     override this.TransformContinuation (_,_) = invalidForm "Continuation" |> ExprStatement
     override this.TransformYield _ = invalidForm "Yield" |> ExprStatement
+    override this.TransformDoNotReturn () = if isInline then DoNotReturn else invalidForm "DoNotReturn" |> ExprStatement
     override this.TransformCoerce (a, b, c) = if isInline then base.TransformCoerce(a, b, c) else invalidForm "Coerce"
 
     override this.TransformFunction(a, arr, ret, b) =
@@ -1450,7 +1451,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | Some (a, _) ->
                 if comp.HasGraph then
                     this.AddTypeDependency typ.Entity
-                Appl(GlobalAccess (a.Sub("New" + name)), trArgs, Pure, Some trArgs
+                Appl(GlobalAccess (a.Sub(name)), trArgs, Pure, Some trArgs
                 
                 .Length)
             | _ ->
