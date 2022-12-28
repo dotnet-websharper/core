@@ -655,7 +655,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        addStatement <| ExprStatement (JSRuntime.OnLoad (Function([], None, None, bodyTransformer(false).TransformStatement ep)))
+        addStatement <| ExprStatement (bodyTransformer(false).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->
