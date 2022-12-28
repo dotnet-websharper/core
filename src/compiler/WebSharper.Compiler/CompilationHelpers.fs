@@ -315,7 +315,7 @@ let varEvalOrder (vars : Id list) expr =
             | GlobalAccess _
                 -> ()
             | Sequential a
-            | NewArray a ->
+            | NewTuple (a, _) ->
                 List.iter eval a
             | Conditional (a, b, c) ->
                 eval a
@@ -365,6 +365,9 @@ let varEvalOrder (vars : Id list) expr =
                 else 
                     eval b
                     stop()
+            | GlobalAccessSet (_, a) ->
+                eval a
+                stop()
             | ItemSet(a, b, c) ->
                 eval a
                 eval b
@@ -425,9 +428,8 @@ let varEvalOrder (vars : Id list) expr =
             | RefOrOutParameter _
             | TraitCall _
             | ObjectExpr _
+            | ClassExpr _
                 -> fail()
-            | _ ->
-                failwith "unexpected form"
     
     and evalSt s =
         if ok then
@@ -466,9 +468,19 @@ let varEvalOrder (vars : Id list) expr =
             | Switch _
             | While _
             | Yield _
+            | Alias _
+            | Class _
+            | ClassConstructor _
+            | ClassMethod _
+            | ClassProperty _
+            | ClassStatic _
+            | Declare _
+            | ExportDecl _
+            | Import _
+            | Interface _
+            | Namespace _
+            | XmlComment _
                 -> fail()      
-            | _ ->
-                failwith "unexpected form"
                
     eval expr
     ok && List.isEmpty vars   
