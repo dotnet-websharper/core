@@ -53,6 +53,11 @@ type IValue<'T> =
 [<JavaScript; Inline>]
 let inline ( !! ) (o: ^x) : ^a = (^x: (member Value: ^a with get) o)
 
+type WithValue<^x, ^a when ^x: (member Value: ^a with get)> = ^x 
+
+[<JavaScript; Inline>]
+let inline ( !!! ) (o: ^x) : ^a when WithValue<^x, ^a> = o.Value
+
 [<JavaScript>] 
 type IntWithAdd(x) =
     member this.Value = x
@@ -209,6 +214,13 @@ let Tests =
             equal !!i 4
         }
  
+        Test "F# 7 trait call" {
+            let r = ref 3
+            equal !!!r 3
+            let i = { new IValue<int> with member this.Value = 4 }
+            equal !!!i 4
+        }
+
         Test "trait call with multiple types" {
             let a = IntWithAdd 40
             equal (IntWithAdd.Add (a, 2)) 42
