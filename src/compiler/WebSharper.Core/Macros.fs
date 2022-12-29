@@ -817,10 +817,19 @@ let getFieldsList q =
     let rec getFieldsListTC l q =
         let trItem i =
             match IgnoreExprSourcePos i with    
-            | NewArray [I.Value (String n); v] -> n, v 
+            | NewArray [I.Value (String n); v] -> Some (n, v)
             | Call (_, td, m, [I.Value (String n); v])
-                when ``is (=>)`` td.Entity m.Entity -> n, v
-            | _ -> failwith "Wrong type of array passed to New"
+                when ``is (=>)`` td.Entity m.Entity -> Some(n, v)
+            | _ -> None
+        let tryMap f l = 
+            List.foldBack (fun i s ->
+                match s with
+                | None -> None
+                | Some sv ->
+                    match f i with
+                    | Some fi -> Some (fi :: sv)
+                    | None -> None
+            ) l (Some [])
         match IgnoreExprSourcePos q with
         | NewUnionCase (_, _, [I.NewArray [I.Value (String n); v]; t]) ->
             getFieldsListTC ((n, v) :: l) t         
@@ -829,9 +838,9 @@ let getFieldsList q =
             getFieldsListTC ((n, v) :: l) t         
         | NewUnionCase (_, _, []) -> Some (l |> List.rev) 
         | Call(None, td, m, [ I.NewArray items ]) when td.Entity = listModuleDef && m.Entity = listOfArrayDef ->
-            items |> List.map trItem |> Some
+            items |> tryMap trItem
         | NewArray (items) ->
-            items |> List.map trItem |> Some
+            items |> tryMap trItem
         | _ -> None
     getFieldsListTC [] q
 
