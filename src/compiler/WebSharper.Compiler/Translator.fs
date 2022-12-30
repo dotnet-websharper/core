@@ -2080,10 +2080,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         TypeOf "function"
                     | M.FSharpRecordInfo _
                     | M.FSharpAnonRecordInfo _
-                    | M.FSharpUnionInfo _
-                    | M.FSharpUnionCaseInfo _
                     | M.StructInfo _ ->
                         PlainObject false
+                    | M.FSharpUnionInfo ui ->
+                        PlainObject ui.HasNull
+                    | M.FSharpUnionCaseInfo uci ->
+                        PlainObject (uci.Kind = M.ConstantFSharpUnionCase Null)
                     | _ ->
                         OtherTypeCheck
         | _ ->
@@ -2114,44 +2116,64 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | _ ->
         match typ with
         | ConcreteType { Entity = t; Generics = gs } ->
-            let tN = t.Value.FullName
-            let warnIgnoringGenerics() =
-                if not (List.isEmpty gs) then
-                    this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
-            match comp.TryLookupClassAddressOrCustomType t with
-            | Choice1Of2 a ->
-                warnIgnoringGenerics()
-                Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
-            | Choice2Of2 ct -> 
-                match ct with
-                | M.FSharpUnionInfo _ ->
-                    Value (Bool true)    
-                | M.FSharpUnionCaseInfo c ->
-                    let lastPlus = tN.LastIndexOf '+'
-                    let nestedIn = tN.[.. lastPlus - 1]
-                    let parentGenParams =
-                        let nested = tN.[lastPlus + 1 ..]
-                        match nested.IndexOf '`' with
-                        | -1 -> gs
-                        | i -> 
-                            // if the nested type has generic parameters, remove them from the type parameter list
-                            gs |> List.take (List.length gs - int nested.[i + 1 ..])
-                    let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
-                    let i = Id.New (mut = false)
-                    match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
-                    | Value (Bool true) -> // in case of erased union
-                        this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
-                    | testParent ->
-                        warnIgnoringGenerics()
-                        Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
-                | _ -> 
-                    match comp.TryLookupInterfaceInfo t with
-                    | Some ii ->
-                        warnIgnoringGenerics()
-                        // todo have "is" address in metadata
-                        Appl(GlobalAccess ({ ii.Address with Address = Hashed [ isFunctionNameForInterface t ] }), [ trExpr ], Pure, Some 1)
-                    | _ ->
-                        this.Error(sprintf "Failed to compile a type check for type '%s'" tN)
+            if erasedUnions.Contains t then Value (Bool true) else
+            match t.Value.FullName with
+            | "Microsoft.FSharp.Core.FSharpChoice`2"
+            | "Microsoft.FSharp.Core.FSharpChoice`3"
+            | "Microsoft.FSharp.Core.FSharpChoice`4"
+            | "Microsoft.FSharp.Core.FSharpChoice`5"
+            | "Microsoft.FSharp.Core.FSharpChoice`6"
+            | "Microsoft.FSharp.Core.FSharpChoice`7" ->
+                trExpr
+            | tname ->
+                let warnIgnoringGenerics() =
+                    if not (List.isEmpty gs) then
+                        this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
+                match comp.TryLookupClassAddressOrCustomType t with
+                | Choice1Of2 a ->
+                    warnIgnoringGenerics()
+                    Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
+                | Choice2Of2 ct -> 
+                    match ct with
+                    | M.FSharpUnionInfo _ ->
+                        Value (Bool true)    
+                    | M.FSharpUnionCaseInfo c ->
+                        let tN = t.Value.FullName
+                        let lastPlus = tN.LastIndexOf '+'
+                        let nestedIn = tN.[.. lastPlus - 1]
+                        let parentGenParams =
+                            let nested = tN.[lastPlus + 1 ..]
+                            match nested.IndexOf '`' with
+                            | -1 -> gs
+                            | i -> 
+                                // if the nested type has generic parameters, remove them from the type parameter list
+                                gs |> List.take (List.length gs - int nested.[i + 1 ..])
+                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
+                        let i = Id.New (mut = false)
+                        match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
+                        | Value (Bool true) -> // in case of erased union
+                           this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
+                        | testParent ->
+                            warnIgnoringGenerics()
+                            Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
+                    | _ -> 
+                        match comp.TryLookupInterfaceInfo t with
+                        | Some ii ->
+                            warnIgnoringGenerics()
+                            // TODO if we already know it's an object we could skip "object" test
+                            let check e =
+                                // TODO have "is" address in metadata
+                                Appl(GlobalAccess ({ ii.Address with Address = Hashed [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
+                            let i = Id.New(mut = false)
+                            Let(i, trExpr,
+                                Binary(
+                                    (tryGetTypeCheck (Var i) (TypeOf "object") ).Value,
+                                    BinaryOperator.``&&``,
+                                    check (Var i)
+                                )
+                            )
+                        | _ ->
+                            this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then
                 hasDelayedTransform <- true
