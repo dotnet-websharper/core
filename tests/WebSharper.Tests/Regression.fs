@@ -1029,7 +1029,7 @@ let Tests =
         Test "#951 abstract method key collisions and renaming fixes" {
             equal (Bug951.B().Value) 1
             equal (Bug951.B().ValueB) 2
-            equal (Bug951.B()?get_Value()) 2
+            equal (Bug951.B()?get_Value) 2
         }
 
         Test "#991 Overriding interface implementations" {

@@ -1263,7 +1263,7 @@ let rec transformExpression (env: Environment) (expr: FSharpExpr) =
                     Generics   = 0
                 } 
             let s = sourceTypes |> Seq.map (sr.ReadType env.TParams) |> List.ofSeq
-            let m = NonGeneric meth
+            let m = Generic meth (typeInstantiation @ typeArgs |> List.map (sr.ReadType env.TParams))
             if isInstance then 
                 match argExprs |> List.map tr with
                 | t :: a ->
