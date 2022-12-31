@@ -293,7 +293,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let cNode = graph.AddOrLookupNode(ConstructorNode (def, cdef))
                     graph.AddEdge(cNode, clsNodeIndex)
-                    for req in getRequires meth.CustomAttributes do
+                    for req in getRequires customAttributes do
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
@@ -311,7 +311,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         }
                     let mNode = graph.AddOrLookupNode(MethodNode (def, mdef))
                     graph.AddEdge(mNode, clsNodeIndex)
-                    for req in getRequires meth.CustomAttributes do
+                    for req in getRequires customAttributes do
                         graph.AddEdge(mNode, ResourceNode req)
                     
                     if not meth.IsStatic then hasInstanceMethod <- true
@@ -413,7 +413,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                     Generics   = meth.GenericParameters |> Seq.length
                 }
             let name =
-                match getName meth.CustomAttributes with
+                match getName (getMethodAttributes typ meth) with
                 | Some n -> n
                 | _ -> meth.Name
             let gc = getConstraints meth.GenericParameters tgen
