@@ -610,7 +610,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 if List.isEmpty defValues then m.Body else
                                     CombineStatements [
                                         ExprStatement <| 
-                                            Sequential [ for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i)) ]
+                                            Sequential [ for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i)) ]
                                         m.Body
                                     ]    
                             let b2 =

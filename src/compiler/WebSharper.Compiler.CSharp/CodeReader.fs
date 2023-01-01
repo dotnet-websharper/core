@@ -622,8 +622,8 @@ type RoslynTransformer(env: Environment) =
                     | Some e -> e
                     | _ -> Undefined
                 ) 
-            [], fargs 
-
+            [], fargs
+        
     let createRef (e: Expression) =
         match IgnoreExprSourcePos e with
         | Var v ->
@@ -911,7 +911,7 @@ type RoslynTransformer(env: Environment) =
         namedParamOrdinal, value
 
     member this.TransformArgumentList (x: ArgumentListData) =
-        x.Arguments |> Seq.map this.TransformArgument |> List.ofSeq
+        x.Arguments |> Seq.map this.TransformArgument |> List.ofSeq |> fixNonTrailingNamedArguments
 
     member this.TransformBracketedArgumentList (x: BracketedArgumentListData) =
         x.Arguments |> Seq.map this.TransformArgument |> Seq.map snd |> List.ofSeq

@@ -643,7 +643,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 let b =
                                     if List.isEmpty defValues then b else
                                         Sequential [
-                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^== Undefined, v, Var i))
+                                            for i, v in defValues -> VarSet(i, Conditional (Var i ^=== Undefined, v, Var i))
                                             yield b
                                         ]
                                 if isInline then
