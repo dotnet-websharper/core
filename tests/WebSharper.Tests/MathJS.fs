@@ -305,4 +305,9 @@ let Tests runServerSide =
             equal res (x + 1m) 
         }
 
+        Test "Decimal List.sumby" {
+            let total = [ 1m; 2m; 4m ] |> List.sumBy id
+            equal total 7m
+        }
+
     }
