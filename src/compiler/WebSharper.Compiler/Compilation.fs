@@ -280,11 +280,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     member this.Address = a
                     member this.BaseClass = cls.BaseClass
                     member this.Implements = cls.Implements
-                    member this.Constructors = MappedDictionary(cls.Constructors, fun (x, _, _) -> x) :> _
+                    member this.Constructors = cls.Constructors
                     member this.Fields = cls.Fields
                     member this.HasStaticConstructor = cls.StaticConstructor |> Option.isSome
-                    member this.Methods = MappedDictionary(cls.Methods, fun (x, _, _, _) -> x) :> _
-                    member this.Implementations = MappedDictionary(cls.Implementations, fst) :> _
+                    member this.Methods = cls.Methods
+                    member this.Implementations = cls.Implementations
                     member this.HasWSPrototype = cls.HasWSPrototype
                     member this.Macros = cls.Macros
                 }
@@ -329,7 +329,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let rname = Resolve.getRenamedFunctionForClass name c
             let fvar = Id.New(rname, str = true, ?typ = typ)
             let _, _, cls = classes[td]
-            cls.Value.Fields.Add(rname, (VarField fvar, false, defaultArg typ (TSType TSType.Any)))
+            cls.Value.Fields.Add(rname, { CompiledForm = VarField fvar; ReadOnly = false; Type = defaultArg typ (TSType TSType.Any); Order = 0 })
             fvar
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
@@ -471,7 +471,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     | _, NotCustomType, None -> None
                     | a, ct, Some c as orig ->
                         match c.Methods with
-                        | :? MergedDictionary<Method, CompiledMember * Optimizations * list<GenericParam> * Expression> as m -> 
+                        | :? MergedDictionary<Method, CompiledMethodInfo> as m -> 
                             Some (a, ct, Some { c with Methods = m.Current })
                         | _ -> Some orig
                     | x -> Some x
@@ -697,7 +697,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match classes.TryFind typ with
             | Some (_, _, Some ci) ->
                 match ci.Methods.TryFind meth with
-                | Some (_, _, mg, _) -> Some (Array.ofList (ci.Generics @ mg))
+                | Some m -> Some (Array.ofList (ci.Generics @ m.Generics))
                 | _ ->
                     match compilingMethods.TryFind (typ, meth) with
                     | Some (_, mg, _) -> Some (Array.ofList (ci.Generics @ mg))
@@ -835,7 +835,7 @@ type Compilation(meta: Info, ?hasGraph) =
             match classes.TryFind typ with
             | Some (_, _, Some cls) ->
                 match cls.Methods.TryFind meth with
-                | Some m -> Compiled m
+                | Some m -> Compiled (m.CompiledForm, m.Optimizations, m.Generics, m.Expression)
                 | _ -> 
                     match compilingMethods.TryFind (typ, meth) with
                     | Some m -> Compiling m
@@ -980,7 +980,7 @@ type Compilation(meta: Info, ?hasGraph) =
         match this.GetClassOrCustomType typ with
         | Choice1Of2 cls ->
             match cls.Fields.TryFind field with
-            | Some f -> CompiledField f
+            | Some f -> CompiledField (f.CompiledForm, f.ReadOnly, f.Type)
             | _ -> 
                 let gname = "get_" + field
                 let getter =
@@ -1044,7 +1044,7 @@ type Compilation(meta: Info, ?hasGraph) =
         match this.GetClassOrCustomType typ with
         | Choice1Of2 cls ->
             match cls.Constructors.TryFind ctor with
-            | Some (m, o, e) -> Compiled (m, o, cls.Generics, e)
+            | Some c -> Compiled (c.CompiledForm, c.Optimizations, cls.Generics, c.Expression)
             | _ -> 
                 match compilingConstructors.TryFind (typ, ctor) with
                 | Some  (m, e) -> Compiling (m,  cls.Generics, e)
@@ -1101,9 +1101,9 @@ type Compilation(meta: Info, ?hasGraph) =
         match classes.TryFind typ with
         | Some (_, _, Some cls) ->
             match cls.Methods.TryFind meth with
-            | Some (_, _, _, Undefined)
+            | Some { Expression = Undefined }
             | None ->    
-                cls.Methods.[meth] <- (info, opts, gc, comp)
+                cls.Methods.[meth] <- { CompiledForm = info; Optimizations = opts; Generics = gc; Expression = comp }
             | _ ->
                 failwithf "Method already added: %s %s" typ.Value.FullName (string meth.Value)
         | _ -> failwithf "Adding method to non-compiled method: %s %s" typ.Value.FullName (string meth.Value)
@@ -1116,7 +1116,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ 
         compilingConstructors.Remove(typ, ctor) |> ignore
         let cls = assumeClass typ
-        cls.Constructors.Add(ctor, (info, opts, comp))
+        cls.Constructors.Add(ctor, { CompiledForm = info; Optimizations = opts; Expression = comp })
 
     member this.FailedCompiledConstructor(typ, ctor) =
         let typ = this.FindProxied typ 
@@ -1138,7 +1138,7 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ 
         compilingImplementations.Remove(typ, intf, meth) |> ignore
         let cls = assumeClass typ
-        cls.Implementations.Add((intf, meth), (info, comp))
+        cls.Implementations.Add((intf, meth), { CompiledForm = info; Expression = comp })
 
     member this.CompilingExtraBundles = compilingExtraBundles
 
@@ -1700,7 +1700,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         if nr.Compiled then
                             let isPure =
                                 nr.Pure || (Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                            cc.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
+                            cc.Constructors |> add cDef { CompiledForm = comp; Optimizations = opts isPure nr; Expression = nr.Body }
                         else 
                             compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))      
                     | M.Method (mDef, nr) -> 
@@ -1708,7 +1708,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         if nr.Compiled then
                             let isPure =
                                 nr.Pure || (notVirtual nr.Kind && Option.isNone cc.StaticConstructor && isPureFunction nr.Body)
-                            cc.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
+                            cc.Methods |> addMethod typ mDef { CompiledForm = comp; Optimizations = opts isPure nr; Generics = nr.Generics; Expression = nr.Body }
                         else 
                             compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
                     | _ -> failwith "Fields and static constructors are always named"     
@@ -1812,17 +1812,17 @@ type Compilation(meta: Info, ?hasGraph) =
                 if nr.Compiled then
                     let isPure =
                         nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Constructors |> add cDef (comp, opts isPure nr, nr.Body)
+                    res.Constructors |> add cDef { CompiledForm = comp; Optimizations = opts isPure nr; Expression = nr.Body }
                 else
                     compilingConstructors.Add((typ, cDef), (toCompilingMember nr comp, nr.Body))
             | M.Field (fName, nr) ->
-                res.Fields.Add(fName, (StaticField name, nr.IsReadonly, nr.FieldType))
+                res.Fields.Add(fName, { CompiledForm = StaticField name; ReadOnly = nr.IsReadonly; Type = nr.FieldType; Order = nr.Order })
             | M.Method (mDef, nr) ->
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr
                 if nr.Compiled then 
                     let isPure =
                         nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods |> addMethod typ mDef (comp, opts isPure nr, nr.Generics, nr.Body)
+                    res.Methods |> addMethod typ mDef { CompiledForm = comp; Optimizations = opts isPure nr; Generics = nr.Generics; Expression = nr.Body }
                 else
                     compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
             | M.StaticConstructor st ->                
@@ -1843,7 +1843,6 @@ type Compilation(meta: Info, ?hasGraph) =
                 | _ ->
                     d.Add(k, v)
             let trd (_, _, x) = x  
-            let frt (_, _, _, x) = x
             match m with
             | M.Field (fName, f) ->
                 let fi =
@@ -1853,20 +1852,20 @@ type Compilation(meta: Info, ?hasGraph) =
                         match System.Int32.TryParse name with
                         | true, i -> IndexedField i
                         | _ -> InstanceField name
-                res.Fields |> addf fName (fi, f.IsReadonly, f.FieldType)
+                res.Fields |> addf fName {CompiledForm = fi; ReadOnly = f.IsReadonly; Type = f.FieldType; Order = f.Order }
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name k nr
                 match nr.Kind with
                 | N.Implementation dtyp 
                 | N.Override dtyp when dtyp <> typ ->
                     if nr.Compiled then 
-                        res.Implementations |> add (dtyp, mDef) (comp, nr.Body) snd
+                        res.Implementations |> add (dtyp, mDef) { CompiledForm = comp; Expression = nr.Body } (fun i -> i.Expression)
                     else
                         compilingImplementations |> add (typ, dtyp, mDef) (toCompilingMember nr comp, nr.Body) snd
                 | _ ->
                     if nr.Compiled then 
                         let isPure = nr.Pure || (Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                        res.Methods |> add mDef (comp, opts isPure nr, nr.Generics, nr.Body) frt
+                        res.Methods |> add mDef { CompiledForm = comp; Optimizations = opts isPure nr; Generics = nr.Generics; Expression = nr.Body} (fun m -> m.Expression)
                     else
                         compilingMethods |> add (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body) trd
             | _ -> failwith "Invalid instance member kind"   
@@ -2027,7 +2026,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             | Some (_, _, Some tCls) -> 
                                 let smi = 
                                     match tCls.Methods.TryFind mDef with
-                                    | Some (smi,_,_,_) -> Some smi
+                                    | Some smi -> Some smi.CompiledForm
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
                                     | Some ((NotCompiled (smi,_,_, _) | NotGenerated (_,_,smi,_,_)),_,_) -> Some smi
@@ -2060,8 +2059,8 @@ type Compilation(meta: Info, ?hasGraph) =
                 let _, _, cls = classes.[typ]
                 let tryFindByName n =
                     cls.Value.Methods
-                    |> Seq.tryPick (fun (KeyValue(m, (cm, _, _, _))) ->
-                        match cm with 
+                    |> Seq.tryPick (fun (KeyValue(m, cm)) ->
+                        match cm.CompiledForm with 
                         | Instance (name, kind) when name = n -> Some (MethodNode(typ, m))
                         | _ -> None
                     )
@@ -2106,8 +2105,8 @@ type Compilation(meta: Info, ?hasGraph) =
                     if not hasStaticImpl then
                         let found = 
                             cls.Value.Methods.Values 
-                            |> Seq.choose (fun (cm, _, _, _) -> 
-                                match cm with 
+                            |> Seq.choose (fun cm -> 
+                                match cm.CompiledForm with 
                                 | Instance (name, kind) -> Some name
                                 | _ -> None
                             )
@@ -2322,8 +2321,8 @@ type Compilation(meta: Info, ?hasGraph) =
             match cls with
             | _, _, None -> ()
             | _, _, Some cls ->
-            for KeyValue(m, (mi,_,_,_)) in cls.Methods do
-                match mi with
+            for KeyValue(m, mi) in cls.Methods do
+                match mi.CompiledForm with
                 | Remote _ ->
                     match st.VerifyRemoteMethod(t, m) with
                     | Verifier.Incorrect msg ->

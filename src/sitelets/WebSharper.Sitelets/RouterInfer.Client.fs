@@ -408,17 +408,18 @@ type RoutingMacro() =
                                     ) |> Set
                                 let getFieldRouter fName = 
                                     match allFields.TryFind fName with
-                                    | Some ((f, _, fTyp), fAnnot) ->
-                                        let fTyp = fTyp.SubstituteGenerics(Array.ofList g)
+                                    | Some (f, fAnnot) ->
+                                        let fTyp = f.Type.SubstituteGenerics(Array.ofList g)
                                         let res = fieldRouter fTyp fAnnot fName
-                                        match f with
+                                        match f.CompiledForm with
                                         | M.InstanceField n ->
                                             NewArray [ cString n; cFalse; res ]
                                         | M.IndexedField i ->
                                             NewArray [ cInt i; cFalse; res ]
                                         | M.OptionalField n ->
                                             NewArray [ cString n; cTrue; res ] 
-                                        | M.StaticField _ ->
+                                        | M.StaticField _
+                                        | M.VarField _ ->
                                             failwith "Static field cannot be encoded to URL path"
                                     | _ ->
                                         failwithf "Could not find field %s" fName

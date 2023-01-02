@@ -37,7 +37,7 @@ let GetMutableExternals (meta: M.Info) =
     let res = HashSet()
 
     let registerInstanceAddresses (cls: M.ClassInfo) (baseAddr: Hashed<_>) =
-        for fi, readOnly, _ in cls.Fields.Values do
+        for { CompiledForm = fi; ReadOnly = readOnly } in cls.Fields.Values do
             if not readOnly then
                 match fi with
                 | M.InstanceField n
@@ -54,10 +54,10 @@ let GetMutableExternals (meta: M.Info) =
                     res.Add (Hashed (n :: baseAddr.Value)) |> ignore
                 | _ -> ()
 
-        for KeyValue(m, (_, _, _, e)) in cls.Methods do
+        for KeyValue(m, { Expression = e }) in cls.Methods do
             addMember m e
        
-        for KeyValue((_, m), (_, e)) in cls.Implementations do
+        for KeyValue((_, m), { Expression = e }) in cls.Implementations do
             addMember m e
 
     let tryRegisterInstanceAddresses typ (a: Address) =
@@ -92,10 +92,10 @@ let GetMutableExternals (meta: M.Info) =
                     tryRegisterInstanceAddresses m.Value.ReturnType a 
                 | _ -> ()
 
-        for KeyValue(m, (_, _, _, e)) in cls.Methods do
+        for KeyValue(m, { Expression = e }) in cls.Methods do
             addMember m e
        
-        for KeyValue((_, m), (_, e)) in cls.Implementations do
+        for KeyValue((_, m), { Expression = e }) in cls.Implementations do
             addMember m e
 
     res

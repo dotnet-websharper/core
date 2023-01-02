@@ -1131,7 +1131,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 
-    for f in cls.FSharpFields do
+    for i, f in cls.FSharpFields |> Seq.indexed do
         if selfCtorFields |> List.contains f.Name then () else
         let propertyAttributes =
             if f.IsCompilerGenerated && f.Name.EndsWith "@" then
@@ -1153,6 +1153,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
                 IsReadonly = not f.IsMutable
                 FieldType = sr.ReadType clsTparams f.FieldType
+                Order = i
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
@@ -1531,6 +1532,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                                 IsOptional = false
                                 IsReadonly = true
                                 FieldType = t
+                                Order = 0
                             } 
                         )
                     yield NotResolvedMember.StaticConstructor cctor

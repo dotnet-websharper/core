@@ -1239,7 +1239,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         clsMembers.Add (NotResolvedMember.StaticConstructor si)  
     | _ -> ()
     
-    for f in members.OfType<IFieldSymbol>() do
+    let fieldsAndEvents =
+        members |> Seq.filter (function :? IFieldSymbol | :? IEventSymbol -> true | _ -> false) |> Seq.indexed |> Array.ofSeq   
+
+    for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IFieldSymbol) do
+        let f = f :?> IFieldSymbol
         if isStruct && not f.IsReadOnly then
             comp.AddError(Some (CodeReader.getSourcePosOfSyntaxReference f.DeclaringSyntaxReferences.[0]), SourceError "Mutable structs are not supported for JavaScript translation")
         let backingForProp =
@@ -1264,11 +1268,13 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     IsOptional = k = A.MemberKind.OptionalField 
                     IsReadonly = f.IsReadOnly
                     FieldType = sr.ReadType f.Type 
+                    Order = i
                 }
             clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
         | _ -> ()
     
-    for f in members.OfType<IEventSymbol>() do
+    for i, f in fieldsAndEvents |> Seq.filter (fun (_, f) -> f :? IEventSymbol) do
+        let f = f :?> IEventSymbol
         let mAnnot = sr.AttributeReader.GetMemberAnnot(annot, f.GetAttributes())
         let nr =
             {
@@ -1277,6 +1283,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 IsOptional = false
                 IsReadonly = false
                 FieldType = sr.ReadType f.Type 
+                Order = i
             }
         clsMembers.Add (NotResolvedMember.Field (f.Name, nr))    
 

@@ -74,6 +74,7 @@ module NotResolved =
             IsOptional : bool 
             IsReadonly : bool
             FieldType : Type
+            Order : int
         }
 
     [<RequireQualifiedAccess>]

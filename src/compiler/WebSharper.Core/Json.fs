@@ -1954,11 +1954,11 @@ module TypedProviderInternals =
                 | true, (_, _, Some cls) -> 
                     let fields = cls.Fields
                     fun f ->
-                        let getName v =
-                            match v with
-                            | (M.InstanceField n, _, _)
-                            | (M.OptionalField n, _, _) -> Some n
-                            | (M.IndexedField i, _, _) -> Some (string i)
+                        let getName (v: M.CompiledFieldInfo) =
+                            match v.CompiledForm with
+                            | M.InstanceField n
+                            | M.OptionalField n -> Some n
+                            | M.IndexedField i -> Some (string i)
                             | _ ->
                                 failwithf "A static field not serializable: %s.%s" 
                                     t.FullName f                                          

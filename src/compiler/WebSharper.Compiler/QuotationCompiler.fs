@@ -326,7 +326,7 @@ type QuotationCompiler (meta : M.Info) =
                     then NotResolvedClassKind.WithPrototype
                     else NotResolvedClassKind.Class               
 
-                for f in t.GetFields(Reflection.AllMethodsFlags) do
+                for i, f in t.GetFields(Reflection.AllMethodsFlags) |> Seq.indexed do
                     let fAnnot = A.attrReader.GetMemberAnnot(annot, f.CustomAttributes) 
                     let nr =
                         {
@@ -335,6 +335,7 @@ type QuotationCompiler (meta : M.Info) =
                             IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField 
                             IsReadonly = f.IsInitOnly
                             FieldType = Reflection.ReadType f.FieldType
+                            Order = i 
                         }
                     clsMembers.Add(NotResolvedMember.Field(f.Name, nr))    
 

@@ -156,17 +156,46 @@ type GenericParam =
             Constraints = []
         }
 
+type CompiledConstructorInfo =
+    {
+        CompiledForm : CompiledMember
+        Optimizations : Optimizations
+        Expression : Expression
+    }
+
+type CompiledMethodInfo = 
+    {
+        CompiledForm : CompiledMember
+        Optimizations : Optimizations
+        Generics : list<GenericParam>
+        Expression : Expression
+    }
+
+type CompiledImplementationInfo =
+    {
+        CompiledForm : CompiledMember
+        Expression : Expression
+    }
+
+type CompiledFieldInfo =
+    {
+         CompiledForm : CompiledField 
+         ReadOnly : bool
+         Type : Type
+         Order : int
+    }
+
 type ClassInfo =
     {
         BaseClass : option<Concrete<TypeDefinition>>
         Implements : list<Concrete<TypeDefinition>>
         Generics : list<GenericParam>
-        Constructors : IDictionary<Constructor, CompiledMember * Optimizations * Expression>
-        Fields : IDictionary<string, CompiledField * bool * Type>
+        Constructors : IDictionary<Constructor, CompiledConstructorInfo>
+        Fields : IDictionary<string, CompiledFieldInfo>
         StaticConstructor : option<Statement>
-        Methods : IDictionary<Method, CompiledMember * Optimizations * list<GenericParam> * Expression>
+        Methods : IDictionary<Method, CompiledMethodInfo>
         QuotedArgMethods : IDictionary<Method, int[]>
-        Implementations : IDictionary<TypeDefinition * Method, CompiledMember * Expression>
+        Implementations : IDictionary<TypeDefinition * Method, CompiledImplementationInfo>
         HasWSPrototype : bool // do we need to output a class
         IsStub : bool // is the class just a declaration
         Macros : list<TypeDefinition * option<ParameterObject>>
@@ -194,12 +223,12 @@ type IClassInfo =
     abstract member Address : Address
     abstract member BaseClass : option<Concrete<TypeDefinition>>
     abstract member Implements : list<Concrete<TypeDefinition>>
-    abstract member Constructors : IDictionary<Constructor, CompiledMember>
+    abstract member Constructors : IDictionary<Constructor, CompiledConstructorInfo>
     /// value: field info, is readonly
-    abstract member Fields : IDictionary<string, CompiledField * bool * Type>
+    abstract member Fields : IDictionary<string, CompiledFieldInfo>
     abstract member HasStaticConstructor : bool
-    abstract member Methods : IDictionary<Method, CompiledMember>
-    abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledMember>
+    abstract member Methods : IDictionary<Method, CompiledMethodInfo>
+    abstract member Implementations : IDictionary<TypeDefinition * Method, CompiledImplementationInfo>
     abstract member HasWSPrototype : bool
     abstract member Macros : list<TypeDefinition * option<ParameterObject>>
 
@@ -348,7 +377,7 @@ type Info =
             && Dict.isEmpty c.Implementations
             && List.isEmpty c.Macros
             && Option.isNone c.StaticConstructor
-            && c.Methods.Values |> Seq.forall (function | Instance _,_,_,_ -> false | _ -> true)
+            && c.Methods.Values |> Seq.forall (function | { CompiledForm = Instance _ } -> false | _ -> true)
 
         let tryMergeClassInfo (a: ClassInfo, aAddr: Address) (b: ClassInfo, bAddr: Address) =
             let combine (left: 'a option) (right: 'a option) =
@@ -358,10 +387,10 @@ type Info =
             let isUsingAAddr = isStaticPart b
             if isStaticPart a || isStaticPart b then
                 let transformFuncAddrs (addr: Address) methods =
-                    methods |> Dict.map (fun (m, o, p, e) ->
-                        match m with
-                        | Func n -> GlobalFunc (addr.Sub(n)), o, p, e
-                        | _ -> m, o, p, e
+                    methods |> Dict.map (fun (m: CompiledMethodInfo) ->
+                        match m.CompiledForm with
+                        | Func n -> { m with CompiledForm = GlobalFunc (addr.Sub(n)) }
+                        | _ -> m
                     )
                 Some (
                     {
@@ -455,10 +484,10 @@ type Info =
     member this.DiscardExpressions() =
         this.MapClasses((fun ci ->
             { ci with
-                Constructors = ci.Constructors |> Dict.map (fun (a, b, _) -> a, b, Undefined)
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = Undefined })
                 StaticConstructor = ci.StaticConstructor |> Option.map (fun _ -> Empty)
-                Methods = ci.Methods |> Dict.map (fun (a, b, c, _) -> a, b, c, Undefined)
-                Implementations = ci.Implementations |> Dict.map (fun (a, _) -> a, Undefined)
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = Undefined })
+                Implementations = ci.Implementations |> Dict.map (fun i -> { i with Expression = Undefined })
             }), (fun _ -> Empty))
 
     member this.DiscardInlineExpressions() =
@@ -469,8 +498,8 @@ type Info =
             | _ -> e
         this.MapClasses(fun ci ->
             { ci with
-                Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardInline i)
-                Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardInline i)
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = discardInline c.CompiledForm c.Expression })
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardInline m.CompiledForm m.Expression })
             })
 
     member this.DiscardNotInlineExpressions() =
@@ -481,8 +510,8 @@ type Info =
             | _ -> Undefined
         this.MapClasses((fun ci ->
             { ci with
-                Constructors = ci.Constructors |> Dict.map (fun (i, p, e) -> i, p, e |> discardNotInline i)
-                Methods = ci.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, e |> discardNotInline i)
+                Constructors = ci.Constructors |> Dict.map (fun c -> { c with Expression = discardNotInline c.CompiledForm c.Expression })
+                Methods = ci.Methods |> Dict.map (fun m -> { m with Expression = discardNotInline m.CompiledForm m.Expression })
             }), (fun _ -> Empty))
 
     member this.IsEmpty =
@@ -517,8 +546,8 @@ module internal Utilities =
         let remotes = Dictionary()
         for KeyValue(cDef, (_, _, c)) in meta.Classes do
             c |> Option.iter (fun c ->
-            for KeyValue(mDef, (m, _, _, _)) in c.Methods do
-                match ignoreMacro m with
+            for KeyValue(mDef, m) in c.Methods do
+                match ignoreMacro m.CompiledForm with
                 | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()

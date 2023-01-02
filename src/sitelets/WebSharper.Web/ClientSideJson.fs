@@ -679,10 +679,10 @@ module Macro =
                     | Some cls ->
                         let fieldEncoders =
                             cls.Fields.Values
-                            |> Seq.choose (fun (f, _, ft) ->
+                            |> Seq.choose (fun f ->
                                 let jsNameTypeAndOption =
                                     let isOption name isMarked =
-                                        match ft with
+                                        match f.Type with
                                         | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
                                             if isMarked then
                                                 Some (name, p, OptionalFieldKind.MarkedOption) 
@@ -692,7 +692,7 @@ module Macro =
                                             Some (name, p, OptionalFieldKind.ErasedOption) 
                                         | ft ->    
                                             Some (name, ft, OptionalFieldKind.NotOption)
-                                    match f with
+                                    match f.CompiledForm with
                                     | M.InstanceField n -> isOption n false
                                     | M.IndexedField i -> isOption (string i) false
                                     | M.OptionalField n -> isOption n true

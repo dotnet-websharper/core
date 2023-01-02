@@ -38,7 +38,7 @@ module Server =
             let meth = Reflection.ReadMethod mi
             match ctx.Metadata.Classes.[typ] with
             | _, _, Some cls ->
-                let _, _, _, expr = cls.Methods.[meth]
+                let expr = cls.Methods.[meth].Expression
                 expr, meth.Value.MethodName
             | _ -> failwith "failed to look up class info"
         | _ -> failwith "expected a Call pattern"

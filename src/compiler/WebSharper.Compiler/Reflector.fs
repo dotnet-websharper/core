@@ -234,8 +234,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             graph.AddEdge(TypeNode def, TypeNode b.Entity)
         | _ -> ()
 
-        let methods = Dictionary()
-        let constructors = Dictionary()
+        let methods = Dictionary<Method, CompiledMethodInfo>()
+        let constructors = Dictionary<Constructor, CompiledConstructorInfo>()
         let abstractAndVirtualMethods = ResizeArray()
         let mutable hasInstanceMethod = false
          
@@ -297,7 +297,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         graph.AddEdge(cNode, ResourceNode req)
                     
                     try 
-                        constructors.Add(cdef, (kind, opts, body))
+                        constructors.Add(cdef, { CompiledForm = kind; Optimizations = opts; Expression = body })
                     with _ ->
                         failwithf "Duplicate definition for constructor of %s, arguments: %s" def.Value.FullName (string cdef.Value)
                     
@@ -336,7 +336,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
 
                     let gc = getConstraints meth.GenericParameters tgen
 
-                    try methods.Add(mdef, (kind, opts, gc, body))
+                    try methods.Add(mdef, { CompiledForm = kind; Optimizations = opts; Generics = gc; Expression = body })
                     with _ ->
                         failwithf "Duplicate definition for method of %s: %s" def.Value.FullName (string mdef.Value)
                 

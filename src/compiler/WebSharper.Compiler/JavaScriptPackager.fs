@@ -364,7 +364,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | _ -> ()
 
         if c.HasWSPrototype then
-            for f in c.Fields.Values do
+            for f in c.Fields.Values |> Seq.sortBy (fun f -> f.Order) do
                 let info isStatic isPrivate =
                     {
                         IsStatic = isStatic
@@ -372,31 +372,31 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         IsOptional = false
                     }
 
-                match f with
-                | M.InstanceField name, _, _ 
-                | M.OptionalField name, _, _ -> 
+                match f.CompiledForm with
+                | M.InstanceField name 
+                | M.OptionalField name -> 
                     members.Add <| ClassProperty(info false false, name, TSType.Any, None)
-                | M.StaticField name, _, _ ->
+                | M.StaticField name ->
                     members.Add <| ClassProperty(info true false, name, TSType.Any, None)
-                | M.IndexedField _, _, _ ->
+                | M.IndexedField _ ->
                     () //TODO
-                | M.VarField v, _, _ -> ()
+                | M.VarField _ -> ()
 
         for f in c.Fields.Values do
-            match f with
-            | M.VarField v, _, _ ->
+            match f.CompiledForm with
+            | M.VarField v ->
                 addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
-        for info, _, _, body in c.Methods.Values do
+        for { CompiledForm = info; Expression = body } in c.Methods.Values do
             mem info body
         
-        for info, body in c.Implementations.Values do
+        for { CompiledForm = info; Expression = body } in c.Implementations.Values do
             mem info body            
 
         let constructors = ResizeArray<string * Id option * Id list * Statement>()
 
-        for KeyValue(ctor, (info, opts, body)) in c.Constructors do
+        for KeyValue(ctor, { CompiledForm = info; Expression = body }) in c.Constructors do
             //let (|EmptyCtorBody|_|) expr =
             //    match body with
             //    | Function ([], _, _, I.Empty) 

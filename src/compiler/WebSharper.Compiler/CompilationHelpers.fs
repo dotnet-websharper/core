@@ -890,15 +890,15 @@ let getAllAddresses (meta: Info) =
             | Instance (n, k) -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, k) |> ignore)            
             | Macro (_, _, Some m) -> addMember m
             | _ -> ()
-        for m, _, _ in cls.Constructors.Values do addMember m
-        for f, _, _ in cls.Fields.Values do
-            match f with
+        for m in cls.Constructors.Values do addMember m.CompiledForm
+        for f in cls.Fields.Values do
+            match f.CompiledForm with
             | InstanceField n 
             | OptionalField n -> pr |> Option.iter (fun p -> Resolve.addInstanceMemberToClass p (n, MemberKind.Simple) |> ignore)
             | IndexedField _ -> ()
             | _ -> ()
-        for m, _ in cls.Implementations.Values do addMember m
-        for m, _, _, _ in cls.Methods.Values do addMember m
+        for m in cls.Implementations.Values do addMember m.CompiledForm
+        for m in cls.Methods.Values do addMember m.CompiledForm
     r
  
 open WebSharper.Core.Metadata 
@@ -920,28 +920,22 @@ type Refresher() =
 let refreshAllIds (i: Info) =
     let r = Refresher()
 
-    let rec refreshNotInline (i, p, e) =
+    let rec refreshNotInline i e =
         match i with
-        | Inline _ -> i, p, e
-        | Macro (_, _, Some f) -> refreshNotInline (f, p, e)
-        | _ -> i, p, r.TransformExpression e
-
-    let rec refreshNotInlineM (i, p, c, e) =
-        match i with
-        | Inline _ -> i, p, c, e
-        | Macro (_, _, Some f) -> refreshNotInlineM (f, p, c, e)
-        | _ -> i, p, c, r.TransformExpression e
+        | Inline _ -> e
+        | Macro (_, _, Some f) -> refreshNotInline f e
+        | _ -> r.TransformExpression e
 
     i.MapClasses((fun c ->
         { c with
             Constructors = 
-                c.Constructors |> Dict.map refreshNotInline
+                c.Constructors |> Dict.map (fun c -> { c with Expression = refreshNotInline c.CompiledForm c.Expression })
             StaticConstructor = 
                 c.StaticConstructor |> Option.map (fun b -> r.TransformStatement b) 
             Methods = 
-                c.Methods |> Dict.map refreshNotInlineM
+                c.Methods |> Dict.map (fun m -> { m with Expression = refreshNotInline m.CompiledForm m.Expression })
             Implementations = 
-                c.Implementations |> Dict.map (fun (x, b) -> x, r.TransformExpression b) 
+                c.Implementations |> Dict.map (fun i -> { i with Expression = r.TransformExpression i.Expression })
         }), r.TransformStatement)
 
 type MaybeBuilder() =
@@ -965,9 +959,9 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
             match meta.Classes.TryGetValue td with
             | true, (a, ct, Some cls) ->
                 cls.BaseClass |> Option.iter (fun c -> getOrAddClass c.Entity |> ignore)
-                let methods = cls.Methods |> Dict.filter (fun m (cm, o, gs, b) ->
+                let methods = cls.Methods |> Dict.filter (fun _ m ->
                     // keep abstract members
-                    match cm, b with
+                    match m.CompiledForm, m.Expression with
                     | CompiledMember.Instance _, IgnoreExprSourcePos Undefined -> true
                     | _ -> false
                 )
@@ -1083,10 +1077,10 @@ let transformAllSourcePositionsInMetadata asmName isRemove (meta: Info) =
                 a, ct,
                 c |> Option.map (fun c ->
                     { c with 
-                        Constructors = c.Constructors |> Dict.map (fun (i, p, e) -> i, p, tr.TransformExpression e)    
+                        Constructors = c.Constructors |> Dict.map (fun c -> { c with Expression = tr.TransformExpression c.Expression })    
                         StaticConstructor = c.StaticConstructor |> Option.map (fun s -> tr.TransformStatement s)
-                        Methods = c.Methods |> Dict.map (fun (i, p, c, e) -> i, p, c, tr.TransformExpression e)
-                        Implementations = c.Implementations |> Dict.map (fun (i, e) -> i, tr.TransformExpression e)
+                        Methods = c.Methods |> Dict.map (fun m -> { m with Expression = tr.TransformExpression m.Expression })
+                        Implementations = c.Implementations |> Dict.map (fun i -> { i with Expression = tr.TransformExpression i.Expression })
                     }
                 )
             )
