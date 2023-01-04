@@ -679,6 +679,7 @@ module Macro =
                     | Some cls ->
                         let fieldEncoders =
                             cls.Fields.Values
+                            |> Seq.sortBy (fun f -> f.Order)
                             |> Seq.choose (fun f ->
                                 let jsNameTypeAndOption =
                                     let isOption name isMarked =

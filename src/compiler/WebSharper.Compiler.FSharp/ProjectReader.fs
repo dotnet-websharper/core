@@ -1131,7 +1131,10 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef N.Constructor false None body
             comp.AddCustomType(def, StructInfo)
 
-    for i, f in cls.FSharpFields |> Seq.indexed do
+    let fieldLoc (f: FSharpField) =
+        let l = f.DeclarationLocation
+        l.StartLine, l.StartColumn       
+    for i, f in cls.FSharpFields |> Seq.sortBy fieldLoc |> Seq.indexed do
         if selfCtorFields |> List.contains f.Name then () else
         let propertyAttributes =
             if f.IsCompilerGenerated && f.Name.EndsWith "@" then

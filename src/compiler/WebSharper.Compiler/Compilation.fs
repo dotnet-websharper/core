@@ -1856,8 +1856,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let comp = compiledInstanceMember name k nr
                 match nr.Kind with
-                | N.Implementation dtyp 
-                | N.Override dtyp when dtyp <> typ ->
+                | N.Implementation dtyp ->
                     if nr.Compiled then 
                         res.Implementations |> add (dtyp, mDef) { CompiledForm = comp; Expression = nr.Body } (fun i -> i.Expression)
                     else
