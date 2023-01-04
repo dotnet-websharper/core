@@ -179,6 +179,9 @@ type internal DecimalProxy =
     member internal this.Sign = DecimalProxy.un WSDecimalMath.Sign (this |> As<decimal>) |> float |> As<int>
 
     [<Inline>]
+    static member Zero: decimal = 0m
+    
+    [<Inline>]
     static member op_Addition(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Add (n1, n2)
 
     [<Inline>]

@@ -43,6 +43,9 @@ let Tests runServerSide =
             equalMsg (MathJS.Math.Add(1., 2., 3.)) 6. "MathJS.Math.Add(1., 2., 3.) = 6"
         }
 
+        Test "MathJS add (decimal)" {
+            equalMsg (MathJS.Math.Add(1.0m, 0.1m, 2.0m, 0.2m)) 3.3m "MathJS.Math.Add(1.0m, 0.1m, 2.0m, 0.2m) = 3.3m"
+        }
             
         Test "MathJS add (fraction)" {
             let a = MathJS.Math.Fraction(0.1)
@@ -288,6 +291,12 @@ let Tests runServerSide =
             equal (floor x) 18133887298m
         }
 
+        Test "MathJS.Math.Round" {
+            let x = 18133887298.441562272235520m
+            equal (MathJS.Math.Round(x, 0m)) 18133887298m
+            equal (MathJS.Math.Round(x, 2m)) 18133887298.44m
+        }
+
         Test "Decimal comparison" {
             let x = 18133887298.441562272235520m
             let y = 18133887298.441562272237357m
@@ -303,6 +312,11 @@ let Tests runServerSide =
             let x = 18133887298.441562272235520m
             let! res = Add1ToDecimal x 
             equal res (x + 1m) 
+        }
+
+        Test "Decimal List.sumby" {
+            let total = [ 1m; 2m; 4m ] |> List.sumBy id
+            equal total 7m
         }
 
     }

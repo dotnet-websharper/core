@@ -143,6 +143,7 @@ module Definition =
         [|
             BaseNumber.Type
             T<float>
+            T<decimal>
             T<int>
             Unit.Type
         |]
@@ -158,6 +159,7 @@ module Definition =
         [|
             BaseNumber.Type
             T<float>
+            T<decimal>
             T<int>
             Unit.Type
         |]

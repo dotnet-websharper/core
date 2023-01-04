@@ -64,19 +64,19 @@ module internal Common =
         if f.Exists then
             let n = AssemblyName.GetAssemblyName f.FullName
             let isCompat = isCompatibleForLoad n name
-#if DEBUG
-            if isCompat && n.Version > name.Version then
-                LoggerBase.Current.Out <| sprintf "AssemblyResolver loading higher version: %A instead of %A" n.Version name.Version 
-#endif
+//#if DEBUG
+//            if isCompat && n.Version > name.Version then
+//                LoggerBase.Current.Out <| sprintf "AssemblyResolver loading higher version: %A instead of %A" n.Version name.Version 
+//#endif
             isCompat
         else false
 
     let searchPaths (paths: seq<string>) =
         let asmsDict = amsToDictByName paths
-#if DEBUG
-        for path in paths do
-            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search path: %s" path
-#endif
+//#if DEBUG
+//        for path in paths do
+//            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search path: %s" path
+//#endif
         {
             Cache = ConcurrentDictionary()
             ResolvePath = fun name ->
@@ -93,10 +93,10 @@ module internal Common =
             |> Seq.collect (fun dir ->
                 Seq.append (Directory.EnumerateFiles(dir, "*.dll")) (Directory.EnumerateFiles(dir, "*.exe"))
             )
-#if DEBUG
-        for dir in dirs do
-            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search dirs: %s" dir
-#endif
+//#if DEBUG
+//        for dir in dirs do
+//            LoggerBase.Current.Out <| sprintf "AssemblyResolver added search dirs: %s" dir
+//#endif
         searchPaths paths
 
     let zero =

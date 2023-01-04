@@ -89,7 +89,7 @@ WebSharper defines and uses its own test framework, WebSharper.Testing. It runs 
 
 The recommended way to run these tests is to run the `tests/Web` project. It is an ASP.NET application hosting the test suite, under the "Client-side test suite" on its home page.
 
-* If you are using Visual Studio, you can simply open `WebSharper.sln`, set `tests/Web` as the startup project, and Run.
+* If you are using Visual Studio, you can simply open `WebSharper.sln`, set `tests/Web` as the startup project, and Run. Check your build target. Update the build target according to your build flags. Target Debug only if you used ws-builddebug.
 
 * On Linux or OSX, you can browse into the `tests/Web` folder and simply run `xsp`.
 

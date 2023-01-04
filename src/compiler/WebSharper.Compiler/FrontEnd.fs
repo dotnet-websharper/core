@@ -58,6 +58,13 @@ let ReadFromFile options (path: string) =
     let loader = Loader.Create aR ignore
     loader.LoadFile(path, false) |> ReadFromAssembly options
 
+let ReadFullFromFile (path: string) =
+    let aR = AssemblyResolver.Create().SearchPaths([path])
+    let loader = Loader.Create aR ignore
+    let asm = loader.LoadFile(path, false)
+    let meta = ReadFromAssembly M.FullMetadata asm
+    asm, meta
+
 let GetJSLookup (r: Assembly list, readable) =
     r |> List.choose (fun a ->
         if readable then a.ReadableJavaScript else a.CompressedJavaScript
