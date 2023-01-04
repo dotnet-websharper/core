@@ -703,7 +703,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                                 IsStatic = meth.IsStatic
                                 Parameters = c.Parameters
                                 This = if meth.IsStatic then None else Some thisVar
-                                Body = b
+                                Body = b |> useDefaultValues c.Parameters
                                 IsAsync = false
                                 ReturnType = Unchecked.defaultof<Type>
                             } : CodeReader.CSharpMethod
