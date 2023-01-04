@@ -91,7 +91,7 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
                 p.ContainingType.GetMembers().OfType<IFieldSymbol>()
                 |> Seq.exists (fun bf -> bf.AssociatedSymbol = m.AssociatedSymbol)
             if hasBackingfield then
-                { mAnnot with Name = Some ("get_" + mn) } // ; Kind = Some A.MemberKind.InlineJavaScript                    
+                { mAnnot with Name = Some mn } // ; Kind = Some A.MemberKind.InlineJavaScript                    
             else mAnnot
         | MethodKind.PropertySet ->
             let p = m.AssociatedSymbol :?> IPropertySymbol
@@ -100,13 +100,13 @@ let private fixMemberAnnot (sr: R.SymbolReader) (annot: A.TypeAnnotation) (m: IM
                 p.ContainingType.GetMembers().OfType<IFieldSymbol>()
                 |> Seq.exists (fun bf -> bf.AssociatedSymbol = m.AssociatedSymbol)
             if hasBackingfield then
-                { mAnnot with Name = Some ("set_" + mn) } // ; Kind = Some A.MemberKind.InlineJavaScript      
+                { mAnnot with Name = Some mn } // ; Kind = Some A.MemberKind.InlineJavaScript      
             else
                 let a = sr.AttributeReader.GetMemberAnnot(annot, p.GetAttributes())
                 if a.Kind = Some A.MemberKind.Stub then
                     { mAnnot with Kind = a.Kind; Name = a.Name }
                 elif a.Name = smn then
-                    { mAnnot with Name = Some ("set_" + mn) } 
+                    { mAnnot with Name = Some mn } 
                 else mAnnot
         | MethodKind.EventRemove ->
             let e = m.AssociatedSymbol

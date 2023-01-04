@@ -280,14 +280,14 @@ namespace WebSharper.CSharp.Tests
 
             dynamic o = r;
             Equal(o.x, 3);
-            Equal(o.X(), 3);
+            Equal(o.X, 3);
             Equal(o.GetX(), 3);
-            o.set_X(4);
+            o.X = 4;
             Equal(o.x, 4);
 
-            Equal(o.get_xx(), 3);
-            o.set_xx(4);
-            Equal(o.get_xx(), 4);
+            Equal(o.xx, 3);
+            o.xx = 4;
+            Equal(r.yy, 4);
         }
 
         [JavaScript]
