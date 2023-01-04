@@ -74,6 +74,8 @@ let metadata =
     }
 
 let csharpRefs = 
+    let fwDir = Path.GetDirectoryName(typeof<obj>.Assembly.Location)
+
     List.concat [
         [
             typeof<obj>
@@ -90,7 +92,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.2\" + a 
+            let l = Path.Combine(fwDir, a) 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 
@@ -194,69 +196,23 @@ let translate (source: string) =
 translate """
 using System;
 using WebSharper;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 
 [JavaScript]
-public class Tests
+public record Person
 {
-        interface ITestDefaultImpl
-        {
-            int Foo() => 42;
-            int Bar() => this.Foo();
-        }
+    public string LastName { get; }
+    public string FirstName { get; }
 
-        class TestDefaultImpl : ITestDefaultImpl
-        {
-        }
-
-        class TestDefaultImpl2 : ITestDefaultImpl
-        {
-            int ITestDefaultImpl.Foo() => 2;
-        }
-
-        public void InterfaceDefaultImplementations()
-        {
-            var o = new TestDefaultImpl();
-            var f = ((ITestDefaultImpl)o).Foo();
-            var g = ((ITestDefaultImpl)o).Bar();
-            var o2 = new TestDefaultImpl2();
-            var f2 = ((ITestDefaultImpl)o2).Foo();
-            var g2 = ((ITestDefaultImpl)o2).Bar();
-        }
+    public Person(string first, string last) => (FirstName, LastName) = (first, last);
 }
-"""
-
-translate """
-using System;
-using WebSharper;
-using System.Threading.Tasks;
-using System.Collections.Generic;
 
 [JavaScript]
-public class Tests
+public record Teacher : Person
 {
-        interface ISomething
-        {
-            int Foo();
+    public string Subject { get; }
 
-            string Bar { get; }
-        }
-
-        class Something : ISomething
-        {
-            public string Bar => "Bar";
-
-            public int Foo() => 42;
-        }
-
-        public void InterfaceImplementations()
-        {
-            var o = new Something();
-            var bar = o.Bar;
-            var ibar = ((ISomething)o).Bar;
-            var foo = o.Foo();
-            var ifoo = ((ISomething)o).Foo();
-        }
+    public Teacher(string first, string last, string sub = "Math")
+        : base(first, last) => Subject = sub;
 }
+
 """
