@@ -640,6 +640,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                         else None
                                     )
                                     |> List.ofSeq
+                                let vars = 
+                                    if List.isEmpty defValues then
+                                        vars
+                                    else
+                                        // mark vars with default value setters mutable
+                                        vars |> List.map (fun v -> if defValues |> List.exists (fun (i, _) -> i = v) then v.ToMutable() else v)
                                 let b =
                                     if List.isEmpty defValues then b else
                                         Sequential [
