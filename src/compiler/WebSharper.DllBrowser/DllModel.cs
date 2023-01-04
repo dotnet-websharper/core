@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.FSharp.Core;
+using System;
 using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
@@ -57,10 +58,6 @@ namespace WebSharper.DllBrowser
             {
                 Contents.Add(new ClassModel(x.Key.Value, x.Value));
             }
-            foreach (var x in metadata.CustomTypes.OrderBy(x => x.Key.Value.FullName))
-            {
-                Contents.Add(new CustomTypeModel(x.Key.Value, x.Value));
-            }
             foreach (var x in metadata.Interfaces.OrderBy(x => x.Key.Value.FullName))
             {
                 Contents.Add(new InterfaceModel(x.Key.Value, x.Value));
@@ -71,41 +68,44 @@ namespace WebSharper.DllBrowser
     public class ClassModel : TreeLeafNodeModel
     {
         public TypeDefinitionInfo Type { get; init; }
-        public Metadata.ClassInfo ClassInfo { get; init; }
+        public Tuple<Address, Metadata.CustomTypeInfo, FSharpOption<Metadata.ClassInfo>> ClassInfo { get; init; }
         public override string Name => "Class: " + Type.FullName;
         public override string Details
         {
             get
             {
                 var sb = new StringBuilder();
-                foreach (var m in ClassInfo.Methods)
+                
+                sb.Append("Address: ").AppendLine(ClassInfo.Item1.ToString().Replace("\n", ""));
+                sb.AppendLine();
+
+                if (!ClassInfo.Item2.IsNotCustomType)
                 {
-                    sb.AppendLine(m.Key.Value.ToString());
-                    sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
-                    sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
-                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
+                    sb.AppendLine(ClassInfo.Item2.ToString());
                     sb.AppendLine();
                 }
+
+                var cls = ClassInfo.Item3?.Value;
+
+                if (cls != null)
+                {
+                    foreach (var m in cls.Methods)
+                    {
+                        sb.AppendLine(m.Key.Value.ToString());
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                        sb.Append("  Optimizations: ").AppendLine(m.Value.Optimizations.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                }
+
                 return sb.ToString();
             }
         }
-        public ClassModel(TypeDefinitionInfo type, Metadata.ClassInfo classInfo)
+        public ClassModel(TypeDefinitionInfo type, Tuple<Address, Metadata.CustomTypeInfo, FSharpOption<Metadata.ClassInfo>> classInfo)
         {
             Type = type;
             ClassInfo = classInfo;
-        }
-    }
-
-    public class CustomTypeModel : TreeLeafNodeModel
-    {
-        public TypeDefinitionInfo Type { get; init; }
-        public Metadata.CustomTypeInfo CustomTypeInfo { get; init; }
-        public override string Name => "CustomType: " + Type.FullName;
-        public override string Details => CustomTypeInfo.ToString();
-        public CustomTypeModel(TypeDefinitionInfo type, Metadata.CustomTypeInfo customTypeInfo)
-        {
-            Type = type;
-            CustomTypeInfo = customTypeInfo;
         }
     }
 
@@ -122,7 +122,9 @@ namespace WebSharper.DllBrowser
                 foreach (var m in InterfaceInfo.Methods)
                 {
                     sb.AppendLine(m.Key.Value.ToString());
-                    sb.Append("  CompiledName: ").AppendLine(m.Value);
+                    sb.Append("  CompiledName: ").AppendLine(m.Value.Item1);
+                    sb.Append("  MemberKind: ").AppendLine(m.Value.Item2.ToString());
+                    //sb.Append("  Generics: ").AppendLine(m.Value.Item3.ToString());
                     sb.AppendLine();
                 }
                 return sb.ToString();

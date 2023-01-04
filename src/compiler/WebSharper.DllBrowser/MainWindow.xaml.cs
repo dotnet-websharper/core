@@ -14,6 +14,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using WebSharper.Compiler;
+using WebSharper.Core;
 
 namespace WebSharper.DllBrowser
 {
@@ -23,6 +24,7 @@ namespace WebSharper.DllBrowser
     public partial class MainWindow : Window
     {
         public ObservableCollection<DllModel> DllModels { get; } = new();
+        public string TitleText => $"WebSharper {Metadata.IO.CurrentVersion} Dll Browser";
 
         public MainWindow()
         {

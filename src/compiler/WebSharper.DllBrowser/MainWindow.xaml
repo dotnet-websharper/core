@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WebSharper.DllBrowser"
         mc:Ignorable="d"
-        Title="WebSharper Dll Browser" Height="450" Width="800" 
+        Title="{Binding TitleText}" Height="450" Width="800" 
         DataContext="{Binding Mode=OneWay, RelativeSource={RelativeSource Self}}">
     <Grid>
         <Grid.ColumnDefinitions>
