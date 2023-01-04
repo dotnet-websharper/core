@@ -27,7 +27,7 @@
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Pdb.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
-#r "../../build/Release/netstandard2.0/WebSharper.Compiler.CSharp.dll"
+#r "../../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -57,6 +57,9 @@ let wsRefs =
         "WebSharper.Collections"
         "WebSharper.Control"
         "WebSharper.Web"
+        "WebSharper.MathJS"
+        "WebSharper.MathJS.Extensions"
+        "WebSharper.Testing"
         //"WebSharper.Sitelets"
         //"WebSharper.Tests"
         //"WebSharper.InterfaceGenerator.Tests"
@@ -74,6 +77,8 @@ let metadata =
     }
 
 let csharpRefs = 
+    let fwDir = Path.GetDirectoryName(typeof<obj>.Assembly.Location)
+    
     List.concat [
         [
             typeof<obj>
@@ -81,7 +86,6 @@ let csharpRefs =
         ]
         |> List.map (fun t ->
             let l = t.Assembly.Location
-            printfn "ref: %s"  l
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
     
@@ -90,7 +94,7 @@ let csharpRefs =
             "System.Runtime.dll"
         ]
         |> List.map (fun a ->
-            let l = @"C:\Program Files\dotnet\shared\Microsoft.NETCore.App\6.0.5\" + a 
+            let l = Path.Combine(fwDir, a) 
             MetadataReference.CreateFromFile(l) :> MetadataReference
         )
 
@@ -172,9 +176,9 @@ let translate (source: string) =
             function
             | _, _, Some c ->
                 Seq.concat [
-                    c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
-                    c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                    c.Implementations.Values |> Seq.map snd
+                    c.Methods.Values |> Seq.map (fun a -> a.Expression)
+                    c.Constructors.Values |> Seq.map (fun a -> a.Expression)
+                    c.Implementations.Values |> Seq.map (fun a -> a.Expression)
                     c.StaticConstructor |> Option.map stExpr |> Option.toList |> Seq.ofList
                 ]
             | _ -> Seq.empty
@@ -215,13 +219,13 @@ public record Person
     public Person(string first, string last) => (FirstName, LastName) = (first, last);
 }
 
-//[JavaScript]
-//public record PersonProp
-//{
-//    public string LastName { get; }
-//    public string FirstName { get; }
+[JavaScript]
+public record Teacher : Person
+{
+    public string Subject { get; }
 
-//    public PersonProp(string first, string last) => (FirstName, LastName) = (first, last);
-//}
+    public Teacher(string first, string last, string sub = "Math")
+        : base(first, last) => Subject = sub;
+}
 
 """

@@ -404,9 +404,9 @@ let translate source =
             function
             | _, _, Some c ->
                 Seq.concat [
-                    c.Methods.Values |> Seq.map (fun (_,_,_,a) -> a)
-                    c.Constructors.Values |> Seq.map (fun (_,_,a) -> a)
-                    c.Implementations.Values |> Seq.map snd
+                    c.Methods.Values |> Seq.map (fun a -> a.Expression)
+                    c.Constructors.Values |> Seq.map (fun a -> a.Expression)
+                    c.Implementations.Values |> Seq.map (fun a -> a.Expression)
                     c.StaticConstructor |> Option.map stExpr |> Option.toList |> Seq.ofList
                 ]
             | _ -> Seq.empty
@@ -461,14 +461,11 @@ let getBody expr =
         match AST.Reflection.ReadMember mi |> Option.get with
         | AST.Member.Method (_, meth) 
         | AST.Member.Override (_, meth) ->
-            let _, _, _, expr = cls.Methods.[meth]
-            expr
+            cls.Methods.[meth].Expression
         | AST.Member.Implementation (intf, meth) ->
-            let _, expr = cls.Implementations.[intf, meth]
-            expr
+            cls.Implementations.[intf, meth].Expression
         | AST.Member.Constructor ctor ->
-            let _, _, expr = cls.Constructors.[ctor]
-            expr
+            cls.Constructors.[ctor].Expression
         | AST.Member.StaticConstructor ->
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ

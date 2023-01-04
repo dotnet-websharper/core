@@ -1624,7 +1624,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
             let mutable hasInlinedCtor = false
 
-            for m in cls.Members do
+            for m in members do
                 
                 let strongName, isStatic, isError =  
                     match m with
@@ -2029,7 +2029,7 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | Some smi -> Some smi.CompiledForm
                                     | _ ->
                                     match compilingMethods.TryFind (td, mDef) with
-                                    | Some ((NotCompiled (smi,_,_, _) | NotGenerated (_,_,smi,_,_)),_,_) -> Some smi
+                                    | Some ((NotCompiled (smi,_,_,_) | NotGenerated (_,_,smi,_,_)),_,_) -> Some smi
                                     | None ->
                                         printerrf "Abstract method not found in compilation: %s in %s" (string mDef.Value) td.Value.FullName
                                         None
