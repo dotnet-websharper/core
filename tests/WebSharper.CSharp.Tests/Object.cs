@@ -394,6 +394,17 @@ namespace WebSharper.CSharp.Tests
         }
 
         [Test]
+        public void StaticClasses()
+        {
+            Equal(StaticClass.StaticProp, 1);
+            Equal(StaticClass.StaticInitProp, 2);
+            StaticClass.StaticProp = 3;
+            Equal(StaticClass.StaticProp, 3);
+            StaticClass.IncrStaticProp();
+            Equal(StaticClass.StaticProp, 4);
+        }
+
+        [Test]
         public void InitializationOrder()
         {
             _initializationOrder = "";
@@ -427,6 +438,24 @@ namespace WebSharper.CSharp.Tests
             }
 
             public string G = _initializationOrder += "G";
+        }
+    }
+
+    [JavaScript]
+    public static class StaticClass
+    {
+        public static int StaticProp { get; set; } = 1;
+
+        public static int StaticInitProp { get; }
+
+        public static void IncrStaticProp()
+        {
+            StaticProp++;
+        }
+
+        static StaticClass()
+        {
+            StaticInitProp = 2;
         }
     }
 

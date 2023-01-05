@@ -1795,6 +1795,34 @@ type Compilation(meta: Info, ?hasGraph) =
                 //setInterfaceAddress typ (Hashed addr)
                 ()
 
+        let fixKindAndNameForProps typ name k m =
+            if k = MemberKind.Simple then 
+                name, k
+            else
+                let fix() =
+                    match k with
+                    | MemberKind.Getter -> "get_" + name, MemberKind.Simple
+                    | MemberKind.Setter -> "set_" + name, MemberKind.Simple
+                    | _ -> name, k
+                match m with
+                | M.Method (_, nr) ->
+                    match clStatics.TryGetValue(typ) with
+                    | true, _ ->
+                        fix()
+                    | _ ->
+                        match nr.Kind with
+                        | N.Quotation _
+                        | N.Static -> 
+                            if mergedProxies.Contains typ then
+                                fix()
+                            elif (assumeClass typ).HasWSPrototype then 
+                                name, k
+                            else 
+                                fix()
+                        | N.AsStatic -> fix()
+                        | _ -> name, k
+                | _ -> name, k
+
         let nameStaticMember typ name k m = 
             let res = assumeClass typ
             match m with
@@ -1886,6 +1914,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     this.AddWarning(None, SourceWarning (sprintf "Deprecated Name attribute argument on type '%s'. Full names are no longer used." typ.Value.FullName))
                     Array.head a
             let (_, k) = this.GetMemberNameAndKind(m)
+            let name, k = fixKindAndNameForProps typ name k m
             if not (Resolve.addStaticMemberToClass c (name, k)) then
                 this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, sn)) 
             nameStaticMember typ name k m
@@ -1939,6 +1968,7 @@ type Compilation(meta: Info, ?hasGraph) =
             for m, n in ms do
                 let addr = clAddr.Sub(n)
                 let (_, k) = this.GetMemberNameAndKind(m)
+                let n, k = fixKindAndNameForProps typ n k m
                 if not (Resolve.addStaticMemberToClass pr (n, k)) then
                     this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address.Value |> String.concat "."))
                 nameStaticMember typ n k m
@@ -1978,6 +2008,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             s[.. s.Length - 2] |> String.concat("_"), k
                         else n.Replace('.', '_'), k 
                     | M.StaticConstructor _ -> "cctor", MemberKind.Simple 
+                let uname, k = fixKindAndNameForProps typ uname k m
                 let addr = Resolve.getRenamedStaticMemberForClass uname k pr
                 nameStaticMember typ addr k m
 

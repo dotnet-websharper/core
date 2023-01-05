@@ -184,9 +184,20 @@ type Farm() as this =
 [<JavaScript; Prototype false>]
 type ClassWithNoPrototype(x) =
     let y = x + 1
+    static let mutable p = 1
 
     member this.Y() = y
     member this.X(a) = this.Y() - 1 + a
+
+    static member val PA = 2 with get, set
+
+    static member P
+        with get() = p
+        and set v = p <- v
+
+[<JavaScript>]
+type ExtendTest =
+    | ExtendTest
 
 [<JavaScript>]
 type MyObj () =
@@ -206,6 +217,15 @@ type MyType() =
     member __.M() = ()
 
     interface WebSharper.CSharp.Tests.IFoo
+
+[<JavaScript>]
+let mutable et = 1
+
+type ExtendTest with
+
+    static member StaticProp 
+        with get() = et
+        and set v = et <- v 
 
 //[<JavaScript>]
 //type MultipleIntf() =
@@ -470,6 +490,18 @@ let Tests =
             let o = ClassWithNoPrototype(40)
             equal (o.X(2)) 42
             jsEqual (o.JS.Constructor) (JS.Global?Object)
+            equal ClassWithNoPrototype.P 1
+            ClassWithNoPrototype.P <- 3
+            equal ClassWithNoPrototype.P 3
+            equal ClassWithNoPrototype.PA 2
+            ClassWithNoPrototype.PA <- 4
+            equal ClassWithNoPrototype.PA 4
+        }
+
+        Test "Type extension" {
+            equal ExtendTest.StaticProp 1
+            ExtendTest.StaticProp <- 2
+            equal ExtendTest.StaticProp 2
         }
 
         Test "Type test against interface" {

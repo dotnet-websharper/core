@@ -966,12 +966,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         with _ ->
             failwithf "Error during applying inline: %s" (Debug.PrintExpression expr)
 
-    member this.Static(typ: Concrete<TypeDefinition>, ?name: string) =
+    member this.Static(typ: Concrete<TypeDefinition>, ?name: string, ?func: bool) =
         match comp.TryLookupClassInfo(typ.Entity, true) with
         | Some (a, cls) ->
             match name with
             | Some n ->
-                if cls.HasWSPrototype then
+                if cls.HasWSPrototype && not (defaultArg func false) then
                     GlobalAccess (a.Sub(n))     
                 else
                     GlobalAccess (a.Func(n))     
@@ -1060,7 +1060,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | MemberKind.Simple ->
                 staticCall (this.Static(typ, name))
         | M.Func name ->
-            staticCall (this.Static(typ, name))
+            staticCall (this.Static(typ, name, true))
         | M.GlobalFunc address ->
             staticCall (GlobalAccess address) 
         | M.Inline (isCompiled, assertReturnType) ->
@@ -1326,7 +1326,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | MemberKind.Simple ->
                     this.Static(typ, name)
             | M.Func name ->
-                this.Static(typ, name)   
+                this.Static(typ, name, true)   
             | M.GlobalFunc address ->
                 GlobalAccess address
             | M.Instance (name, kind) -> 
@@ -1381,9 +1381,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (String name) :: trArgs())
         //| M.NewIndexed (i) ->
         //    New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
-        | M.Static (name, MemberKind.Simple)      
-        | M.Func name ->
+        | M.Static (name, MemberKind.Simple) ->      
             Appl(this.Static(typ, name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
+        | M.Func name ->
+            Appl(this.Static(typ, name, true), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.GlobalFunc address ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline (isCompiled, assertReturnType) ->
