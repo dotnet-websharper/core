@@ -397,17 +397,13 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let constructors = ResizeArray<string * Id option * Id list * Statement>()
 
         for KeyValue(ctor, { CompiledForm = info; Expression = body }) in c.Constructors do
-            //let (|EmptyCtorBody|_|) expr =
-            //    match body with
-            //    | Function ([], _, _, I.Empty) 
-            //    | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> Some()
-            //    | _ -> None
             match withoutMacros info with
             | M.New None ->
                 if body <> Undefined then
                     match body with
-                    //| EmptyCtorBody -> 
-                    //    ()
+                    | Function ([], _, _, I.Empty) 
+                    | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
+                        ()
                     | Function (args, thisVar, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
                         members.Add (ClassConstructor (args, thisVar, Some b, TSType.Any))

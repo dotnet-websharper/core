@@ -1286,7 +1286,6 @@ type Compilation(meta: Info, ?hasGraph) =
                 stronglyNamedTypes.Add (typ, sn, false)
             | _ -> 
                 remainingTypes.Add (typ, false)
-            
         
         while notResolvedInterfaces.Count > 0 do
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
@@ -1305,6 +1304,8 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let objectMethods =
             HashSet [ "toString"; "Equals"; "GetHashCode" ]
+
+        let typesWithSingleConstructor = HashSet()
 
         // initialize all class entries
         for KeyValue(typ, cls) in notResolvedClasses do
@@ -1400,6 +1401,9 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ ->
                 classes |> addType typ (clAddress, NotCustomType, Some resCls)
             
+            if cls.Members |> Seq.filter (function | NotResolvedMember.Constructor (_, { Kind = N.Constructor }) -> true | _ -> false) |> Seq.tryExactlyOne |> Option.isSome then             
+                typesWithSingleConstructor.Add(typ) |> ignore
+
             // set up dependencies
             if hasGraph then
                 let clsNodeIndex = graph.AddOrLookupNode(TypeNode typ)
@@ -1513,7 +1517,11 @@ type Compilation(meta: Info, ?hasGraph) =
                         Static (n, k) 
                     else 
                         Func n
-                | N.Constructor -> New (Some n)
+                | N.Constructor -> 
+                    if typesWithSingleConstructor.Contains typ then
+                        New None
+                    else
+                        New (Some n)
                 | N.AsStatic -> Func n
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
