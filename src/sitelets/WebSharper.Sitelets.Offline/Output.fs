@@ -198,7 +198,7 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
                 let sp = getAssemblyMapPath st.Config aN
                 try writeEmbeddedResource st.Config aP sourceMapResourceName sp
                     let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
-                    File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory sp,
+                    File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory p,
                         "\n//# sourceMappingURL=" + mapFileName)       
                 with _ -> ()
             if typeScript then
