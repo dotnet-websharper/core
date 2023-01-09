@@ -3,6 +3,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <WebSharperProject>Html</WebSharperProject>
     <Tests>True</Tests>
+    <WebSharperSourceMap>True</WebSharperSourceMap>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />
