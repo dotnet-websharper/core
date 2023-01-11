@@ -122,7 +122,7 @@ Did you encounter a WebSharper bug while working on your project, and want to im
         </configuration>
         ```
         
-    * Update the NuGet packages either from Visual Studio's GUI, or with the command line:
+    * Update the NuGet packages either from Visual Studio's GUI (a restart may be required), or with the command line:
     
         ```sh
         dotnet add WebSharper
