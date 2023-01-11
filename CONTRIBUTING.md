@@ -125,9 +125,9 @@ Did you encounter a WebSharper bug while working on your project, and want to im
     * Update the NuGet packages either from Visual Studio's GUI, or with the command line:
     
         ```sh
-        dotnet add WebSharper
-        dotnet add WebSharper.FSharp -- if you're using F#
-        dotnet add WebSharper.CSharp -- if you're using C#
+        dotnet add package WebSharper
+        dotnet add package WebSharper.FSharp -- if you're using F#
+        dotnet add package WebSharper.CSharp -- if you're using C#
         ```
 
 <a name="structure"></a>
