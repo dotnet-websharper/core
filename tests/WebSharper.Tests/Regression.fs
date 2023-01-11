@@ -237,10 +237,10 @@ let fakePureFuncInline (x: int ref) = ()
 [<Direct "void($x[0]++)">]
 let nonPureFunc (x: int ref) = ()  
 
-//[<JavaScript>]
-//let rec moduleFuncValue =
-//    ()
-//    fun x -> if x < 5 then moduleFuncValue (x + 1) else x
+[<JavaScript>]
+let rec moduleFuncValue =
+    ()
+    fun x -> if x < 5 then moduleFuncValue (x + 1) else x
 
 [<JavaScript>]
 type Bug590 =
@@ -1037,9 +1037,9 @@ let Tests =
             equal ((Bug991.Footacular() :> Bug991.IFooey).FromFoo(0)) "wee"
         }
 
-        //Test "Recursive module value" {
-        //    equal (moduleFuncValue 0) 5
-        //}
+        Test "Recursive module value" {
+            equal (moduleFuncValue 0) 5
+        }
 
         Test "#1010 WIG inheritance" {
             equal (Bug1010().M()) 42

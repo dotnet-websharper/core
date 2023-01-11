@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-#r "../../build/Release/FSharp/net6.0/FSharp.Compiler.Service.dll"
+#r "nuget: FSharp.Compiler.Service"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/FSharp/net6.0/Mono.Cecil.Pdb.dll"
@@ -453,36 +453,18 @@ let getBody expr =
         let _, expr = cls.StaticConstructor |> Option.get
         expr
 
+translate """
+namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
 
-[<JavaScript(false)>]
-type ITest =
-    [<Name "GetCountShouldNotAppear">]
-    abstract GetCount: unit -> int
-
 [<JavaScript>]
-module M =
-    let getCount (this: ITest) = 1
+module LetRecTest = 
+    let rec y = x()
+    and x() = 1
 
-[<Proxy(typeof<ITest>)>]
-type ITestProxy =
-//    [<Name "GetCountStrongName">]
-    abstract GetCount: unit -> int
-
-    [<Inline>]
-    default this.GetCount () = M.getCount (As<ITest> this) //1
-
-[<JavaScript>]
-module Test =
-
-    let gcTest (o: ITest) = o.GetCount() 
-
-    type ImplTest() =
-
-        interface ITest with
-            member this.GetCount () = 2
+"""
 
 translate """
 namespace WebSharper.Tests
@@ -490,106 +472,24 @@ namespace WebSharper.Tests
 open WebSharper
 open WebSharper.JavaScript
 
-[<JavaScript(false)>]
-type ITest =
-    [<Name "GetCountShouldNotAppear">]
-    abstract GetCount: unit -> int
-
 [<JavaScript>]
-module M =
-    let getCount (this: ITest) = 1
-
-[<Proxy(typeof<ITest>, [| typeof<System.Collections.IEnumerable> |])>]
-type private ITestProxy =
-//    [<Name "GetCountStrongName">]
-    abstract GetCount: unit -> int
-
-    [<Inline>]
-    default this.GetCount () = M.getCount (As<ITest> this) //1
-
-[<JavaScript>]
-module Test =
-
-    let gcTest (o: ITest) = o.GetCount() 
-
-    type ImplTest() =
-
-        interface ITest with
-            member this.GetCount () = 2
-
+module LetRecTest2 = 
+    let rec x = y + z
+    and y = z
+    and z = 1
 """
 
-//translate """
-//module M
+translate """
+namespace WebSharper.Tests
 
-//open WebSharper
+open WebSharper
+open WebSharper.JavaScript
 
-//[<JavaScript>]
-//let anonymousRecord() = 
-//    let r = {| A = 42 |}
-//    r.A
-//"""
+[<JavaScript>]
+module rec ModuleRecTest = 
+    let y = (X().x())
 
-//translate """
-//module M
+    type X() =
+        member this.x() = 1
 
-//open WebSharper
-
-//[<JavaScript>]
-//let stringInterpolation() = 
-//    //sprintf "x=%d %d" 5 6
-//    //$"x={(5, 5)}" 
-//    $"x=%d{5}" 
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<Inline " { var sc = import('./pkg/scenariolib.js'); console.log(sc); return sc; } ">]
-//let testImport () = ()
-
-//[<JavaScript>]
-//let useImport() = 
-//    testImport ()
-//"""
-
-
-//translate """
-//module M
-
-//open WebSharper
-
-//[<Inline>]
-//let tailRecSingleInline n =
-//    let rec f n =
-//        if n > 0 then f (n - 1) else 0
-//    f n
-//"""
-
-//translate """
-//module M
-
-//open WebSharper
-
-//module Bug923 =
-//    type V2<[<Measure>] 'u> =
-//        struct
-//            val x : float<'u>
-//            val y : float<'u>
-//            new (x, y) = {x=x; y=y}
-//        end
-
-//        static member (+) (a : V2<_>, b : V2<_>) = 
-//            V2 (a.x + b.x, a.y + b.y)
-
-//    [<JavaScript>]
-//    let addFloatsWithMeasures (a: float<'a>) (b: float<'a>) = a + b
-
-//    """
-
-//getBody <@ JS.Document.Cookie <- X<_> @>
-//|> WebSharper.Core.AST.Debug.PrintExpression
-
-//let me = WebSharper.Compiler.Recognize.GetMutableExternals metadata
+"""

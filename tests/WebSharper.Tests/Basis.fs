@@ -188,6 +188,13 @@ module ModuleValues =
 [<JavaScript>]
 let mA, mB = 1, 2
 
+[<JavaScript>]
+module MutableModuleValues =
+    let mutable a, b = 1, 2
+    do 
+        a <- b + 1
+        b <- a + 1
+
 //[<Inline>]
 //let importTestJsAll : obj = JS.ImportAll "/modules/test.js"
 
@@ -239,6 +246,26 @@ module ApplicativeCE =
     //    run r1 r2 r3
     //    run r1 (Result.Error "failure!") r3
 
+[<JavaScript>]
+module rec ModuleRecTest = 
+    let y = (X().x())
+
+    type X() =
+        member this.x() = 1
+
+[<JavaScript>]
+module LetRecTest = 
+    let rec x = y + z
+    and y = z
+    and z = 1
+
+[<JavaScript>]
+module LetMutableTest =
+    let mutable x = 1
+    let y =
+        x <- 2
+        x
+        
 [<JavaScript>]
 let Tests =
     TestCategory "Basis" {
@@ -582,6 +609,11 @@ let Tests =
             equal mB 2            
         }
 
+        Test "Module level let pattern match with mutable" {
+            equal MutableModuleValues.a 3
+            equal MutableModuleValues.b 4
+        }
+
         Test "ValueOption" {
             raises ValueNone.Value
             equalMsg (ValueSome(1).Value) 1 "ValueOption.Value"
@@ -686,4 +718,15 @@ let Tests =
             equal res 1L
         }
 
+        Test "F# module rec" {
+            equal ModuleRecTest.y 1
+        }
+
+        Test "F# let rec" {
+            equal LetRecTest.x 2
+        }
+
+        Test "F# let mutable in module" {
+            equal LetMutableTest.y 2
+        }
     }
