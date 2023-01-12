@@ -20,6 +20,7 @@
 
 namespace WebSharper
 
+open System.Runtime.InteropServices
 open WebSharper
 open WebSharper.JavaScript
 open WebSharper.MathJS
@@ -30,7 +31,7 @@ module M = WebSharper.Core.Macros
 module internal Decimal =
     [<JavaScript>]
     let WSDecimalMath: MathJS.MathInstance =
-        MathJS.Math.Create(Config(Number = "BigNumber", Precision = 29., Predictable = true))
+        MathJS.Math.Create(Config(Number = "BigNumber", Precision = 29., Predictable = true, Epsilon = 1e-60))
 
     [<JavaScript>]
     let CreateDecimal(lo: int32, mid: int32, hi: int32, isNegative: bool, scale: byte) : decimal =
@@ -168,6 +169,15 @@ type internal DecimalProxy =
 
     [<Inline>]
     static member Parse(s : string) = WSDecimalMath.Bignumber(MathNumber(s)) |> As<decimal>
+
+    [<Inline>]
+    static member TryParse(s: string, [<Out>] v: decimal byref) =
+        try
+            let x = WSDecimalMath.Bignumber(MathNumber(s)) |> As<decimal>
+            v <- x
+            true
+        with _ ->
+            false
 
     [<Inline>]
     static member Remainder(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Mod n1 n2
