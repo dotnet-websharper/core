@@ -160,6 +160,11 @@ let Tests runServerSide =
                 | false, _ -> false 
                 | true, v -> v = 1.23m
             )
+            isTrue (
+                match System.Decimal.TryParse("abc") with
+                | false, _ -> true
+                | true, _ -> false
+            )
         }
 
         let createConstituentCtorDesc (low, mid, high, (isNeg: bool), (scale: byte)) (value: decimal) =

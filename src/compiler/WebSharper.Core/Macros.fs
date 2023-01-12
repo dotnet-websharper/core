@@ -209,6 +209,26 @@ let toComparison = function
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
 
+let defMethods =
+    function
+    | Comparison.``<`` -> "op_LessThan"
+    | Comparison.``>`` -> "op_GreaterThan"
+    | Comparison.``<=`` -> "op_LessThanOrEqual"
+    | Comparison.``>=`` -> "op_GreaterThanOrEqual"
+    | Comparison.``=`` -> "op_Equality"
+    | Comparison.``<>`` -> "op_Inequality"
+    | _ -> failwith "Unexpected comparison operator"
+
+let additionalMethods =
+    function
+    | Comparison.``<`` -> "op_Less"
+    | Comparison.``>`` -> "op_Greater"
+    | Comparison.``<=`` -> "op_LessEquals"
+    | Comparison.``>=`` -> "op_GreaterEquals"
+    | Comparison.``=`` -> "op_Equals"
+    | Comparison.``<>`` -> "op_LessGreater"
+    | _ -> failwith "Unexpected comparison operator"
+
 let tryFindMethodFromComparison (cI: Metadata.IClassInfo option) (t: Type) (cmp: Comparison) =
     let methodInfoFromStr str =
         let mi =
@@ -223,48 +243,15 @@ let tryFindMethodFromComparison (cI: Metadata.IClassInfo option) (t: Type) (cmp:
                 Generics = 0
             } : MethodInfo
         Hashed mi
-    match cI, cmp with
-    | Some cI, Comparison.``<`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_LessThan") with
-        | true, mem -> Some <| methodInfoFromStr "op_LessThan"
+    match cI with
+    | Some cI ->
+        let defMethod = additionalMethods cmp |> methodInfoFromStr
+        match cI.Methods.TryGetValue(defMethod) with
+        | true, mem -> Some defMethod
         | false, _ ->
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_Less") with
-            | true, mem -> Some <| methodInfoFromStr "op_Less"
-            | false, _ -> None
-    | Some cI, Comparison.``>`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterThan") with
-        | true, mem -> Some <| methodInfoFromStr "op_GreaterThan"
-        | false, _ ->
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_Greater") with
-            | true, mem -> Some <| methodInfoFromStr "op_Greater"
-            | false, _ -> None
-    | Some cI, Comparison.``<=`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_LessThanOrEqual") with
-        | true, mem -> Some <| methodInfoFromStr "op_LessThanOrEqual"
-        | false, _ ->
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_LessEquals") with
-            | true, mem -> Some <| methodInfoFromStr "op_LessEquals"
-            | false, _ -> None
-    | Some cI, Comparison.``>=`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterThanOrEqual") with
-        | true, mem -> Some <| methodInfoFromStr "op_GreaterThanOrEqual"
-        | false, _ ->
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterEquals") with
-            | true, mem -> Some <| methodInfoFromStr "op_GreaterEquals"
-            | false, _ -> None
-    | Some cI, Comparison.``<>`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_Inequality") with
-        | true, mem -> Some <| methodInfoFromStr "op_Inequality"
-        | false, _ -> 
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_LessGreater") with
-            | true, mem -> Some <| methodInfoFromStr "op_LessGreater"
-            | false, _ -> None
-    | Some cI, Comparison.``=`` ->
-        match cI.Methods.TryGetValue(methodInfoFromStr "op_Equality") with
-        | true, mem -> Some <| methodInfoFromStr "op_Equality"
-        | false, _ -> 
-            match cI.Methods.TryGetValue(methodInfoFromStr "op_Equals") with
-            | true, mem -> Some <| methodInfoFromStr "op_Equals"
+            let additionalMethod = additionalMethods cmp |> methodInfoFromStr
+            match cI.Methods.TryGetValue(additionalMethod) with
+            | true, mem -> Some additionalMethod
             | false, _ -> None
     | _ -> None
 
