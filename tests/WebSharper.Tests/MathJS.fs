@@ -155,6 +155,11 @@ let Tests runServerSide =
             isTrue (1m = 1m)
             isTrue (1m < 2m)
             isTrue (2m > 1m)
+            isTrue (
+                match System.Decimal.TryParse("1.23") with
+                | false, _ -> false 
+                | true, v -> v = 1.23m
+            )
         }
 
         let createConstituentCtorDesc (low, mid, high, (isNeg: bool), (scale: byte)) (value: decimal) =

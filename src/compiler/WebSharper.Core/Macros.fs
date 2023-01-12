@@ -209,59 +209,128 @@ let toComparison = function
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
 
-let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
+let tryFindMethodFromComparison (cI: Metadata.IClassInfo option) (t: Type) (cmp: Comparison) =
+    let methodInfoFromStr str =
+        let mi =
+            {
+                MethodName = str
+                Parameters = [t;t]
+                ReturnType =
+                    {
+                        Generics = []
+                        Entity = AST.Definitions.Bool 
+                    } |> Type.ConcreteType
+                Generics = 0
+            } : MethodInfo
+        Hashed mi
+    match cI, cmp with
+    | Some cI, Comparison.``<`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_LessThan") with
+        | true, mem -> Some <| methodInfoFromStr "op_LessThan"
+        | false, _ ->
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_Less") with
+            | true, mem -> Some <| methodInfoFromStr "op_Less"
+            | false, _ -> None
+    | Some cI, Comparison.``>`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterThan") with
+        | true, mem -> Some <| methodInfoFromStr "op_GreaterThan"
+        | false, _ ->
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_Greater") with
+            | true, mem -> Some <| methodInfoFromStr "op_Greater"
+            | false, _ -> None
+    | Some cI, Comparison.``<=`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_LessThanOrEqual") with
+        | true, mem -> Some <| methodInfoFromStr "op_LessThanOrEqual"
+        | false, _ ->
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_LessEquals") with
+            | true, mem -> Some <| methodInfoFromStr "op_LessEquals"
+            | false, _ -> None
+    | Some cI, Comparison.``>=`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterThanOrEqual") with
+        | true, mem -> Some <| methodInfoFromStr "op_GreaterThanOrEqual"
+        | false, _ ->
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_GreaterEquals") with
+            | true, mem -> Some <| methodInfoFromStr "op_GreaterEquals"
+            | false, _ -> None
+    | Some cI, Comparison.``<>`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_Inequality") with
+        | true, mem -> Some <| methodInfoFromStr "op_Inequality"
+        | false, _ -> 
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_LessGreater") with
+            | true, mem -> Some <| methodInfoFromStr "op_LessGreater"
+            | false, _ -> None
+    | Some cI, Comparison.``=`` ->
+        match cI.Methods.TryGetValue(methodInfoFromStr "op_Equality") with
+        | true, mem -> Some <| methodInfoFromStr "op_Equality"
+        | false, _ -> 
+            match cI.Methods.TryGetValue(methodInfoFromStr "op_Equals") with
+            | true, mem -> Some <| methodInfoFromStr "op_Equals"
+            | false, _ -> None
+    | _ -> None
+
+let translateComparison (c: M.ICompilation) (t: Type) args leftNble rightNble cmp =
+    let classInfo =
+        match t with
+        | Type.ConcreteType tdef ->
+            c.GetClassInfo t.TypeDefinition
+        | _ -> None
+    let compiledMember = tryFindMethodFromComparison classInfo t cmp
     match args with
     | [x; y] ->
-        let a, b, lambda =
-            if leftNble || rightNble then
-                let a = Id.New "a"
-                let b = Id.New "b"
-                Var a, Var b, fun res -> CurriedLambda([a; b], res)
-            else
-                x, y, id
-        let comp x y =
-            Binary (x, toBinaryOperator cmp, y)
-        let cti = 
-            match t with
-            | Type.ConcreteType ct -> c.GetCustomTypeInfo ct.Entity
-            | _ -> M.NotCustomType
-        let t =
-            match cti with
-            | M.EnumInfo u -> NonGenericType u            
-            | _ -> t
-        let res =
-            if isIn comparableTypes t then
-                comp a b
-            else
-                // optimization for checking against argumentless union cases 
-                let tryGetSingletonUnionCaseTag (x: Expression) =
-                    match x with
-                    | I.NewUnionCase(_, case, []) ->
-                        match cti with
-                        | M.FSharpUnionInfo ui when not ui.HasNull ->
-                            ui.Cases |> Seq.mapi (fun i c ->
-                                if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
-                            ) |> Seq.tryPick id         
+        match compiledMember with
+        | None -> 
+            let a, b, lambda =
+                if leftNble || rightNble then
+                    let a = Id.New "a"
+                    let b = Id.New "b"
+                    Var a, Var b, fun res -> CurriedLambda([a; b], res)
+                else
+                    x, y, id
+            let comp x y =
+                Binary (x, toBinaryOperator cmp, y)
+            let cti = 
+                match t with
+                | Type.ConcreteType ct -> c.GetCustomTypeInfo ct.Entity
+                | _ -> M.NotCustomType
+            let t =
+                match cti with
+                | M.EnumInfo u -> NonGenericType u            
+                | _ -> t
+            let res =
+                if isIn comparableTypes t then
+                    comp a b
+                else
+                    // optimization for checking against argumentless union cases 
+                    let tryGetSingletonUnionCaseTag (x: Expression) =
+                        match x with
+                        | I.NewUnionCase(_, case, []) ->
+                            match cti with
+                            | M.FSharpUnionInfo ui when not ui.HasNull ->
+                                ui.Cases |> Seq.mapi (fun i c ->
+                                    if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
+                                ) |> Seq.tryPick id         
+                            | _ -> None
                         | _ -> None
-                    | _ -> None
                     
-                match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
-                | Some i, Some j -> comp (cInt i) (cInt j)
-                | Some i, _ -> comp (cInt i) (y.[cString "$"])
-                | _, Some j -> comp (x.[cString "$"]) (cInt j)
-                | _ -> makeComparison cmp a b
-        match leftNble, rightNble with
-        | false, false -> res
-        | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
-        | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
-        | true , true  -> 
-            match cmp with
-            | Comparison.``<=`` 
-            | Comparison.``>=`` 
-            | Comparison.``=`` 
-                -> utils c "nullableCmpE" [ x; y; lambda res ]
-            | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
-        |> MacroOk
+                    match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
+                    | Some i, Some j -> comp (cInt i) (cInt j)
+                    | Some i, _ -> comp (cInt i) (y.[cString "$"])
+                    | _, Some j -> comp (x.[cString "$"]) (cInt j)
+                    | _ -> makeComparison cmp a b
+            match leftNble, rightNble with
+            | false, false -> res
+            | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
+            | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
+            | true , true  -> 
+                match cmp with
+                | Comparison.``<=`` 
+                | Comparison.``>=`` 
+                | Comparison.``=`` 
+                    -> utils c "nullableCmpE" [ x; y; lambda res ]
+                | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
+            |> MacroOk
+        | Some method ->
+            Call(None, t.TypeDefinition |> NonGeneric, method |> NonGeneric, [x; y]) |> MacroOk
     | _ ->
         MacroError "comparisonMacro error"
 
