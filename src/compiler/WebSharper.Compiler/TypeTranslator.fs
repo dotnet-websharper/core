@@ -130,6 +130,7 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
         | JavaScriptModule m -> TSType.Importing (m, t)
+        | ImportedModule _ -> failwith "Unexpected: ImportedModule in TypeTranslator"
 
     let tsTypeOfAddress = defaultArg tsTypeOfAddress defaultTsTypeOfAddress
 

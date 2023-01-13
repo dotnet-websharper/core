@@ -478,7 +478,6 @@ let varEvalOrder (vars : Id list) expr =
             | ExportDecl _
             | Import _
             | Interface _
-            | Namespace _
             | XmlComment _
                 -> fail()      
                

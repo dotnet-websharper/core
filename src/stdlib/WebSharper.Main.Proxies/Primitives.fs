@@ -55,6 +55,7 @@ type internal N =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Byte>)>]
+[<Type "number">]
 type internal NB =
 
     static member Parse(s: string) : System.Byte =
@@ -65,6 +66,7 @@ type internal NB =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.SByte>)>]
+[<Type "number">]
 type internal NSB =
 
     static member Parse(s: string) : System.SByte =
@@ -76,6 +78,7 @@ type internal NSB =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int16>)>]
 [<Name "Int16">]
+[<Type "number">]
 type internal NI16 =
 
     static member Parse(s: string) : System.Int16 =
@@ -87,6 +90,7 @@ type internal NI16 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int32>)>]
 [<Name "Int32">]
+[<Type "number">]
 type internal NI32 =
 
     static member Parse(s: string) : System.Int32 =
@@ -98,6 +102,7 @@ type internal NI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt16>)>]
 [<Name "UInt16">]
+[<Type "number">]
 type internal NUI16 =
 
     static member Parse(s: string) : System.UInt16 =
@@ -109,6 +114,7 @@ type internal NUI16 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt32>)>]
 [<Name "UInt32">]
+[<Type "number">]
 type internal NUI32 =
 
     static member Parse(s: string) : System.UInt32 =
@@ -120,6 +126,7 @@ type internal NUI32 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Int64>)>]
 [<Name "Int64">]
+[<Type "number">]
 type internal NI64 =
 
     static member Parse(s: string) : System.Int64 =
@@ -131,6 +138,7 @@ type internal NI64 =
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.UInt64>)>]
 [<Name "UInt64">]
+[<Type "number">]
 type internal NUI64 =
 
     static member Parse(s: string) : System.UInt64 =
@@ -141,6 +149,7 @@ type internal NUI64 =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Single>)>]
+[<Type "number">]
 type internal NS =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -166,6 +175,7 @@ type internal NS =
 
 [<Macro(typeof<M.NumericMacro>)>]
 [<Proxy(typeof<System.Double>)>]
+[<Type "number">]
 type internal ND =
 
     [<Inline "Math.abs($0) === Infinity">]
@@ -190,6 +200,7 @@ type internal ND =
     static member DivideByInt(a: double, b: int) = X<double>
 
 [<Proxy(typeof<System.Boolean>)>]
+[<Type "boolean">]
 type internal B = 
     [<Inline>]
     static member op_LogicalNot(a: bool) = not a

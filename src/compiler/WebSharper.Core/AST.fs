@@ -327,8 +327,6 @@ and Statement =
     | ExportDecl of IsDefault:bool * Statement:Statement
     /// TypeScript - declare ...
     | Declare of Statement:Statement
-    /// TypeScript - namespace { ... }
-    | Namespace of Name:string * Statements:list<Statement>
     /// JavaScript - class { ... }
     | Class of ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// JavaScript - class method
@@ -598,9 +596,6 @@ type Transformer() =
     /// TypeScript - declare ...
     abstract TransformDeclare : Statement:Statement -> Statement
     override this.TransformDeclare a = Declare (this.TransformStatement a)
-    /// TypeScript - namespace { ... }
-    abstract TransformNamespace : Name:string * Statements:list<Statement> -> Statement
-    override this.TransformNamespace (a, b) = Namespace (a, List.map this.TransformStatement b)
     /// JavaScript - class { ... }
     abstract TransformClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
     override this.TransformClass (a, b, c, d, e) = Class (this.TransformId a, Option.map this.TransformExpression b, c, List.map this.TransformStatement d, e)
@@ -713,7 +708,6 @@ type Transformer() =
         | Import (a, b, c, d) -> this.TransformImport (a, b, c, d)
         | ExportDecl (a, b) -> this.TransformExportDecl (a, b)
         | Declare a -> this.TransformDeclare a
-        | Namespace (a, b) -> this.TransformNamespace (a, b)
         | Class (a, b, c, d, e) -> this.TransformClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e, f) -> this.TransformClassMethod (a, b, c, d, e, f)
         | ClassConstructor (a, b, c, d) -> this.TransformClassConstructor (a, b, c, d)
@@ -974,9 +968,6 @@ type Visitor() =
     /// TypeScript - declare ...
     abstract VisitDeclare : Statement:Statement -> unit
     override this.VisitDeclare a = (this.VisitStatement a)
-    /// TypeScript - namespace { ... }
-    abstract VisitNamespace : Name:string * Statements:list<Statement> -> unit
-    override this.VisitNamespace (a, b) = (); List.iter this.VisitStatement b
     /// JavaScript - class { ... }
     abstract VisitClass : ClassId:Id * BaseClass:option<Expression> * Implementations:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
     override this.VisitClass (a, b, c, d, e) = this.VisitId a; Option.iter this.VisitExpression b; (); List.iter this.VisitStatement d; ()
@@ -1089,7 +1080,6 @@ type Visitor() =
         | Import (a, b, c, d) -> this.VisitImport (a, b, c, d)
         | ExportDecl (a, b) -> this.VisitExportDecl (a, b)
         | Declare a -> this.VisitDeclare a
-        | Namespace (a, b) -> this.VisitNamespace (a, b)
         | Class (a, b, c, d, e) -> this.VisitClass (a, b, c, d, e)
         | ClassMethod (a, b, c, d, e, f) -> this.VisitClassMethod (a, b, c, d, e, f)
         | ClassConstructor (a, b, c, d) -> this.VisitClassConstructor (a, b, c, d)
@@ -1192,7 +1182,6 @@ module IgnoreSourcePos =
     let (|Import|_|) x = match ignoreStatementSourcePos x with Import (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|ExportDecl|_|) x = match ignoreStatementSourcePos x with ExportDecl (a, b) -> Some (a, b) | _ -> None
     let (|Declare|_|) x = match ignoreStatementSourcePos x with Declare a -> Some a | _ -> None
-    let (|Namespace|_|) x = match ignoreStatementSourcePos x with Namespace (a, b) -> Some (a, b) | _ -> None
     let (|Class|_|) x = match ignoreStatementSourcePos x with Class (a, b, c, d, e) -> Some (a, b, c, d, e) | _ -> None
     let (|ClassMethod|_|) x = match ignoreStatementSourcePos x with ClassMethod (a, b, c, d, e, f) -> Some (a, b, c, d, e, f) | _ -> None
     let (|ClassConstructor|_|) x = match ignoreStatementSourcePos x with ClassConstructor (a, b, c, d) -> Some (a, b, c, d) | _ -> None
@@ -1290,7 +1279,6 @@ module Debug =
         | Import (a, b, c, d) -> "Import" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map string b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b) -> string a + ", " + string b) c) + "]" + ", " + string d + ")"
         | ExportDecl (a, b) -> "ExportDecl" + "(" + string a + ", " + PrintStatement b + ")"
         | Declare a -> "Declare" + "(" + PrintStatement a + ")"
-        | Namespace (a, b) -> "Namespace" + "(" + string a + ", " + "[" + String.concat "; " (List.map PrintStatement b) + "]" + ")"
         | Class (a, b, c, d, e) -> "Class" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement d) + "]" + ", " + "[" + String.concat "; " (List.map string e) + "]" + ")"
         | ClassMethod (a, b, c, d, e, f) -> "ClassMethod" + "(" + string a + ", " + string b + ", " + "[" + String.concat "; " (List.map string c) + "]" + ", " + defaultArg (Option.map string d) "_" + ", " + defaultArg (Option.map PrintStatement e) "" + ", " + string f + ")"
         | ClassConstructor (a, b, c, d) -> "ClassConstructor" + "(" + "[" + String.concat "; " (a |> List.map (fun (i, m) -> i.ToString m)) + "]" + ", " + defaultArg (Option.map string b) "_" + ", " + defaultArg (Option.map PrintStatement c) "" + ", " + string d + ")"

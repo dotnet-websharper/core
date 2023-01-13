@@ -29,10 +29,12 @@ open WebSharper.Core
 open WebSharper.Core.AST
 
 type P = WebSharper.Core.JavaScript.Preferences
+type O = WebSharper.Core.JavaScript.Output
 
 type Environment =
     {
-        Preference : WebSharper.Core.JavaScript.Preferences
+        Preference : P
+        Output: O
         mutable ScopeNames : Set<string>
         mutable VisibleGlobals : Set<string>
         mutable CompactVars : int
@@ -42,9 +44,10 @@ type Environment =
         mutable InFuncScope : bool
         OuterScope : bool
     }
-    static member New(pref) =
+    static member New(pref, ?mode) =
         {
             Preference = pref    
+            Output = mode |> Option.defaultValue O.JavaScript
             ScopeNames = Set [ "window"; "self"; "globalThis"; "import"; "_" ]
             VisibleGlobals = Set [ "window"; "self"; "globalThis"; "import" ]
             CompactVars = 0 
@@ -58,6 +61,7 @@ type Environment =
     member this.NewInner() =
         {
             Preference = this.Preference    
+            Output = this.Output
             ScopeNames = this.ScopeNames
             VisibleGlobals = this.VisibleGlobals
             CompactVars = this.CompactVars
@@ -180,18 +184,6 @@ let flattenFuncBody s =
 
 let block s = J.Block (flattenJS s)
 
-let getUsedArgs (args: Id list) b env = 
-    if List.isEmpty args then [] else
-    let unusedArgs = CollectUnusedVars(args).GetSt(b)
-    let argNum =
-        args |> Seq.mapi (fun i a -> if unusedArgs.Contains a then 0 else i + 1) |> Seq.max
-    args |> List.take argNum |> List.map (fun a -> 
-        if unusedArgs.Contains a then 
-            defineId env (Id.New())
-        else 
-            defineId env a
-    ) 
-
 let transformMemberKind k =
     match k with
     | MemberKind.Getter -> J.Get
@@ -226,7 +218,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | ByteArray v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | UInt16Array v -> J.NewArray [ for b in v -> Some (J.Constant (J.Number (string b))) ]
         | Decimal _ -> failwith "Cannot write Decimal directly to JavaScript output"
-    | Application (e, ps, _) -> J.Application (trE e, [], ps |> List.map trE)
+    | Application (e, ps, i) -> J.Application (trE e, transformGenerics env i.Params, ps |> List.map trE)
     | VarSet (id, e) -> J.Binary(J.Var (trI id), J.BinaryOperator.``=``, trE e)   
     | ExprSourcePos (pos, e) -> 
         let jpos =
@@ -309,7 +301,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 k, transformMemberKind mk, trE v
             )
         )
-    | New (x, _, y) -> J.New(trE x, [], y |> List.map trE)
+    | New (x, ts, y) -> J.New(trE x, transformGenerics env ts, y |> List.map trE)
     | Sequential x ->
         let x =
             match List.rev x with 
@@ -338,8 +330,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | MutatingUnaryOperator.``--()`` -> J.Unary(J.UnaryOperator.``--``, trE y)
         | MutatingUnaryOperator.delete   -> J.Unary(J.UnaryOperator.delete, trE y)
         | _ -> failwith "invalid MutatingUnaryOperator enum value"
-    | Cast (_, e) ->
-        trE e
+    | Cast (t, e) ->
+        J.Cast(transformType env t, trE e)
     | ClassExpr (n, b, m) ->
         let innerEnv = env.NewInner()
         let jn = n |> Option.map (defineId innerEnv)
@@ -382,6 +374,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
 and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
+    let inline trT x = transformType env x
     let sequential s effect =
         match List.rev s with
         | h :: t -> effect h :: List.map ExprStatement t |> List.rev          
@@ -492,8 +485,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
             J.Vars([transformId env id, Some (trE e)], kind)
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
-    | FuncDeclaration (x, ids, t, b, _) ->
+    | FuncDeclaration (x, ids, t, b, g) ->
         let id = transformId env x
+        let jsgen = g |> transformGenerics env
+        let id = id.WithGenerics(jsgen)
         let innerEnv = env.NewInner()
         let args = getUsedArgs ids b innerEnv
         CollectVariables(innerEnv).VisitStatement(b)
@@ -570,6 +565,8 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 d)
     | ExportDecl (a, b) ->
         J.Export (a, trS b)
+    | Declare a ->
+        J.Declare (trS a)
     | ForIn(a, b, c) -> 
         withFuncDecls <| fun () ->
             J.ForVarIn(defineId env a, None, trE b, trS c)
@@ -584,42 +581,144 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | _ -> false
             )
         J.Class(jn, isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
+    | Interface (n, e, m, g) ->
+        let jsgen = g |> List.map (transformTypeName env true)
+        J.Interface(J.Id.New(n, gen = jsgen), List.map trT e, List.map (transformMember env) m)
+    | Alias (a, t) ->
+        J.TypeAlias(transformTypeName env true a, trT t)
+    | XmlComment a ->
+        J.StatementComment (J.Empty, a)
     | _ -> 
         invalidForm (GetUnionCaseName statement)
+
+and transformGenerics (env: Environment) (g: TSType list) =
+    if env.Output = O.JavaScript then
+        []
+    else
+        g |> List.map (transformTypeName env false)    
+
+and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSType) : J.Id =
+    let inline trN x = (transformTypeName env false x).Name
+    match typ with
+    | TSType.Any -> "any"
+    | TSType.Named ["Array"] ->
+        "any[]"
+    | TSType.Named n -> 
+        n |> String.concat "."
+    | TSType.Generic (TSType.Named ["Array"], [ TSType.Named _ as n ]) ->
+        trN n + "[]"
+    | TSType.Generic (TSType.Named ["Array"], [ t ]) ->
+        "(" + trN t + ")[]"
+    | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
+    | TSType.Imported (i, n) -> (transformId env i).Name :: n |> String.concat "."
+    | TSType.Importing (m, a) -> "TODO_TYPE" //failwith "TypeScript type from an unresolved module"
+    | TSType.Function (t, a, e, r)  -> 
+        let this = t |> Option.map (fun t -> "this: " + trN t) 
+        let args = a |> List.mapi (fun i (t, o) -> string ('a' + char i) + (if o then "?:" else ":") + trN t)
+        let rest = e |> Option.map (fun t -> "...rest: (" + trN t + ")[]")  
+        "((" + (Seq.concat [ Option.toList this; args; Option.toList rest ]  |> String.concat ", ") + ") => " + trN r + ")"
+    | TSType.New (a, r)  -> 
+        "new (" + (a |> Seq.mapi (fun i t -> string ('a' + char i) + ":" + trN t) |> String.concat ", ") + ")"
+        + " => " + trN r
+    | TSType.Tuple ts -> "[" + (ts |> Seq.map (trN) |> String.concat ", ") + "]"
+    | TSType.Union cs -> "(" + (cs |> Seq.map (trN) |> String.concat " | ") + ")"
+    | TSType.Intersection cs -> "(" + (cs |> Seq.map (trN) |> String.concat " & ") + ")"
+    | TSType.Param n -> "T" + string n
+    | TSType.Constraint (t, g) ->
+        if isDeclaringParameter
+        then trN t + " extends " + (g |> Seq.map trN |> String.concat ", ")
+        else trN t
+    | TSType.TypeGuard (i, t) ->
+        (transformId env i).Name + " is " + trN t
+    | TSType.ObjectOf t ->
+        "{[a:string]:" + trN t + "}"
+    |> fun n -> J.Id.New(n, typn = true)
+
+and transformType (env: Environment) (typ: TSType) =
+    transformTypeName env false typ |> J.Var
+
+and defineIdTyped env id =
+    let i = defineId env id
+    match id.TSType with
+    | None -> i
+    | Some t -> i |> withType env t
+
+and getUsedArgs (args: Id list) b env = 
+    if List.isEmpty args then [] else
+    let unusedArgs = CollectUnusedVars(args).GetSt(b)
+    let argNum =
+        args |> Seq.mapi (fun i a -> if unusedArgs.Contains a then 0 else i + 1) |> Seq.max
+    args |> List.take argNum |> List.map (fun a -> 
+        if unusedArgs.Contains a then 
+            defineIdTyped env (Id.New())
+        else 
+            defineIdTyped env a
+    ) 
+
+and withType (env: Environment) (typ: TSType) (i: J.Id) : J.Id =
+    if env.Output = O.JavaScript then
+        i
+    else
+        match typ with
+        | TSType.Any -> i
+        | _ -> i.WithType(transformType env typ)
+
+and withTypeAny (env: Environment) (typ: TSType) (i: J.Id) =
+    i.WithType(transformType env typ)
+
+and getGenericParams (env: Environment) (typ: TSType) =
+    match typ with
+    | TSType.Generic (t, []) -> t, []
+    | TSType.Generic (t, g) -> t, g |> List.map (transformTypeName env true)
+    | _ -> typ, []
 
 and transformMember (env: Environment) (mem: Statement) : J.Member =
     let inline trE x = transformExpr env x
     let inline trS x = transformStatement env x
     match mem with
-    | ClassMethod (s, n, p, t, b, _) ->
+    | ClassMethod (s, n, p, _, b, t) ->
         let innerEnv = env.NewInner()
-        let args = 
-            match b with
-            | Some b -> getUsedArgs p b innerEnv
-            | _-> p |> List.map (defineId innerEnv)
+        let t, jsgen =
+            match t with
+            | TSType.Generic (t, g) -> t, g |> List.map (transformTypeName env true)
+            | _ -> t, []
+        let args, tr =
+            match t with 
+            | TSType.Function (_, ta, trest, tr) -> 
+                (p, ta) ||> List.map2 (fun a (t, _) -> defineId innerEnv a |> withType env t) 
+                , tr
+            | _ ->
+                p |> List.map (defineId innerEnv)
+                , t
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
                 flattenJS [ b |> transformStatement innerEnv ]
             )
-        let id = J.Id.New(n)
+        let id = J.Id.New(n, gen = jsgen) |> withType env tr 
         let acc = transformMemberKind s.Kind
         J.Method(s.IsStatic, acc, id, args, body)   
-    | ClassConstructor (p, t, b, _) ->
+    | ClassConstructor (p, _, b, t) ->
         let innerEnv = env.NewInner()
-        let args = 
-            match b with
-            | Some b -> getUsedArgs (p |> List.map fst) b innerEnv
-            | _-> p |> List.map (fst >> defineId innerEnv)
-            |> List.map (fun a -> a, Modifiers.None)
+        let args =
+            match t with 
+            | TSType.New (ta, _) -> 
+                let ta =
+                    // TODO remove workaround
+                    if ta.Length < p.Length then
+                        ta @ (List.replicate (p.Length - ta.Length) TSType.Any)
+                    else ta
+                (p, ta) ||> List.map2 (fun (a, m) t -> defineId innerEnv a |> withType env t, m)
+            | _ ->
+                p |> List.map (fun (a, m) -> defineId innerEnv a, m)
         let body = 
             b |> Option.map (fun b -> 
                 CollectVariables(innerEnv).VisitStatement(b)
                 flattenJS [ b |> transformStatement innerEnv ]
             )
         J.Constructor(args, body)   
-    | ClassProperty (s, n, _, v) ->
-        J.Property (s.IsStatic, J.Id.New(n), v |> Option.map (transformExpr env))
+    | ClassProperty (s, n, t, v) ->
+        J.Property (s.IsStatic, J.Id.New(n) |> withType env t, v |> Option.map (transformExpr env))
     | ClassStatic (b) ->
         let innerEnv = env.NewInner()
         let body = 
@@ -629,9 +728,9 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
     | _ -> 
         invalidForm (GetUnionCaseName mem)
 
-let transformProgram pref statements =
+let transformProgram output pref statements =
     if List.isEmpty statements then [] else
-    let env = Environment.New(pref)
+    let env = Environment.New(pref, output)
     //let cnames = CollectStrongNames(env)
     //statements |> List.iter cnames.VisitStatement
     let cvars = CollectVariables(env)

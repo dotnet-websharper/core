@@ -28,6 +28,7 @@ open WebSharper.Core
 open WebSharper.Core.AST
 module M = WebSharper.Core.Metadata
 module I = IgnoreSourcePos 
+type O = WebSharper.Core.JavaScript.Output
 
 type ThisTransformer() =
     inherit Transformer()
@@ -113,7 +114,7 @@ type EntryPointStyle =
 
 //let private Address a = { Module = CurrentModule; Address = Hashed a }
 
-let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition) entryPoint entryPointStyle =
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition) entryPoint entryPointStyle =
     let imports = Dictionary<string, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
@@ -259,7 +260,74 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             //        addresses.Add(address, res)
             //        res
 
-    let bodyTransformer isClass =
+    let tsTypeOfAddress (a: Address) =
+        let t = a.Address.Value |> List.rev
+        match a.Module with
+        | StandardLibrary
+        | JavaScriptFile _ -> TSType.Named t
+        | JavaScriptModule m when m = currentModuleName -> TSType.Named t
+        | JavaScriptModule _ ->
+            match getOrImportAddress a with
+            | GlobalAccess { Module = ImportedModule i; Address = a } ->
+                TSType.Imported(i, a.Value |> List.rev)
+            | Var i ->
+                TSType.Imported(i, [])
+            | _ ->
+                TSType.Named t
+        | ImportedModule v -> TSType.Imported(v, t)
+
+    let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
+    let allInterfaces =  MergedDictionary(refMeta.Interfaces, current.Interfaces)
+    let lookupType (t: TypeDefinition) =
+        match allInterfaces.TryFind t with
+        | Some i -> TypeTranslator.Interface i
+        | _ ->
+        match allClasses.TryFind t with
+        | Some (a, ct, c) -> TypeTranslator.Class (a, ct, c)
+        | _ -> TypeTranslator.Unknown
+    
+    let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
+    
+    let inline tsTypeOfDef t = typeTranslator.TSTypeOfDef t
+    let inline tsTypeOfConcrete gs i = typeTranslator.TSTypeOfConcrete gs i
+    let inline tsTypeOf gs t = typeTranslator.TSTypeOf gs t
+
+    let getGenerics j (gs: list<M.GenericParam>) =
+        let gsArr = Array.ofList gs
+        gs |> Seq.indexed |> Seq.choose (fun (i, c) ->
+            match c.Type with
+            | Some t -> None
+            | _ ->
+                let p = TSType.Param (j + i)
+                let cs = c.Constraints |> List.choose (fun t ->
+                    match tsTypeOf gsArr t with
+                    | TSType.Any -> None
+                    | t -> Some t)
+                match cs with 
+                | [] -> p
+                | cs -> TSType.Constraint(p, cs)
+                |> Some
+        ) |> List.ofSeq
+
+    let addGenerics g t =
+        match g with
+        | [] -> t
+        | _ -> 
+            match t with
+            | TSType.Any
+            | TSType.Generic _ -> t
+            | _ ->
+                TSType.Generic(t, g)
+
+    let resModule (t: TSType) =
+        t.ResolveModule (fun m ->
+            match getOrImportAddress { Module = JavaScriptModule m; Address = Hashed [] } with 
+            | Var v -> Some v
+            | GlobalAccess { Module = ImportedModule v } -> Some v
+            | _ -> None
+        )
+
+    let bodyTransformer gsArr =
         { new Transformer() with
             override this.TransformGlobalAccess a = getOrImportAddress a
 
@@ -291,6 +359,22 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                         failwith "invalid address import"
                 | _ ->
                     base.TransformItemSet(e, i, v)
+
+            override this.TransformId(a) =
+                a.ToTSType(tsTypeOf gsArr)
+
+            override this.TransformApplication(a, b, c) =
+                base.TransformApplication(a, b, { c with Params = c.Params |> List.map resModule })
+
+            override this.TransformNew(a, b, c) =
+                base.TransformNew(a, b |> List.map resModule, c)
+
+            override this.TransformCast(a, b) =
+                base.TransformCast(resModule a, b)
+
+            override this.TransformFuncDeclaration(a, b, c, d, e) =
+                base.TransformFuncDeclaration(a, b, c, d, e |> List.map resModule)
+
         }
             
     let staticThisTransformer =
@@ -314,18 +398,78 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    let packageClass (c: M.ClassInfo) (addr: Address) (ct: M.CustomTypeInfo) name =
+    match current.Classes.TryFind(typ) with
+    | None -> ()
+    | Some (a, ct, None) -> ()
+    | Some (a, ct, Some c) ->
+        let name = typ.Value.FullName
+
+        let gsArr = Array.ofList c.Generics
+        let bTr() = bodyTransformer(gsArr)   
+
+        let typeOfParams (opts: M.Optimizations) gsArr (ps: list<Type>) =
+            match opts.FuncArgs with
+            | None -> ps |> List.map (tsTypeOf gsArr)
+            | Some fa -> 
+                (ps, fa) ||> List.map2 (fun p o ->
+                    match o with
+                    | NotOptimizedFuncArg -> tsTypeOf gsArr p
+                    | CurriedFuncArg i ->
+                        let rec decurry i acc t =
+                            if i = 0 then
+                                TSType.Lambda(List.rev acc, tsTypeOf gsArr t)
+                            else
+                                match t with
+                                | FSharpFuncType (a, r) ->
+                                    decurry (i - 1) (tsTypeOf gsArr a :: acc) r
+                                | _ -> failwith "Error decurrying function parameter type"
+                        decurry i [] p
+                    | TupledFuncArg i -> 
+                        match p with
+                        | FSharpFuncType (TupleType (ts, _), r) ->
+                            TSType.Lambda(ts |> List.map (tsTypeOf gsArr), tsTypeOf gsArr r)
+                        | _ ->  failwith "Error detupling function parameter type"
+                )
+
+        let cgenl = List.length c.Generics
+        let thisTSTypeDef = lazy tsTypeOf gsArr (NonGenericType typ)
+        let cgen = getGenerics 0 c.Generics
+        let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
 
         let members = ResizeArray<Statement>()
                     
-        let mem info body =
+        let mem (m: Method) info gc opts intfGen body =
+            
+            let gsArr = Array.append gsArr (Array.ofList gc)
+            let bTr() = bodyTransformer(gsArr)   
+            let getSignature isInstToStatic =         
+                if output = O.JavaScript then TSType.Any else
+                match IgnoreExprSourcePos body with
+                | Function _ ->
+                    let p, r = 
+                        match intfGen with 
+                        | None -> m.Value.Parameters, m.Value.ReturnType
+                        | Some ig -> 
+                            try
+                                m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
+                                , m.Value.ReturnType.SubstituteGenerics ig 
+                            with _ ->
+                                failwithf "failed to substitute interface generics: %A to %A" ig m
+                    let pts =
+                        if isInstToStatic then
+                            tsTypeOf gsArr (NonGenericType typ) :: (typeOfParams opts gsArr p)
+                        else typeOfParams opts gsArr p
+                    TSType.Lambda(pts, tsTypeOf gsArr r)
+                | _ ->
+                    tsTypeOf gsArr m.Value.ReturnType
+            let mgen = getGenerics cgenl gc
             
             let func fname =
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bodyTransformer(false).TransformStatement b, []))
+                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bTr().TransformStatement b, []))
                 | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bodyTransformer(false).TransformExpression e))
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bTr().TransformExpression e))
             
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
@@ -337,18 +481,18 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, Some b, TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, Some b, getSignature false |> addGenerics mgen)
                 | _ -> ()       
             | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
-                | Function (args, thisVar, _, b) ->
+                | Function (args, thisVar, ret, b) ->
                     let info = 
                         {
                             IsStatic = true
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, Some (staticThisTransformer.TransformStatement b), TSType.Any)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, Some (staticThisTransformer.TransformStatement b), getSignature false |> addGenerics mgen)
                 | _ ->
                     let info = 
                         {
@@ -356,7 +500,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                             IsPrivate = false // TODO
                             IsOptional = false
                         }
-                    members.Add <| ClassProperty(info, mname, TSType.Any, Some body)
+                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, Some body)
             | M.Func fname ->
                 func fname
             | M.GlobalFunc addr ->
@@ -388,11 +532,50 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                 addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
-        for { CompiledForm = info; Expression = body } in c.Methods.Values do
-            mem info body
+        // let mem (m: Method) info gc opts intfGen body =
+        for KeyValue(m, mi) in c.Methods do
+            mem m mi.CompiledForm mi.Generics mi.Optimizations None mi.Expression
         
-        for { CompiledForm = info; Expression = body } in c.Implementations.Values do
-            mem info body            
+        let interfaceInfos =
+            lazy
+            c.Implements |> Seq.map (fun i ->
+                i.Entity, (allInterfaces.[i.Entity], Array.ofList i.Generics)
+            ) |> dict
+        let baseClassInfos =
+            lazy
+            let rec getBaseClassInfo (c: Concrete<TypeDefinition> option, gen: Type[]) =
+                match c with
+                | Some bc ->
+                    match allClasses.[bc.Entity] with
+                    | _, _, Some cls ->
+                        let gen = bc.Generics |> List.map (fun t -> t.SubstituteGenerics gen) |> Array.ofList
+                        Some ((bc.Entity, (cls, gen)), (cls.BaseClass, gen))
+                    | _ -> None
+                | _ -> None
+            (c.BaseClass, Array.init c.Generics.Length TypeParameter) |> List.unfold getBaseClassInfo |> dict
+
+        for KeyValue((i, m), mi) in c.Implementations do
+            let intfGen, mParam = 
+                match interfaceInfos.Value.TryGetValue i with
+                | true, (intf, intfGen) ->
+                    let _, _, mg = intf.Methods.[m]
+                    match m.Value.Generics with
+                    | 0 -> intfGen, mg
+                    | mgen -> Array.append intfGen (Array.init mgen (fun i -> TypeParameter (cgenl + i))), mg
+                | _ ->
+                    match baseClassInfos.Value.TryGetValue i with
+                    | true, (cls, clsGen) ->
+                        match m.Value.Generics with
+                        | 0 -> clsGen
+                        | mgen -> Array.append clsGen (Array.init mgen (fun i -> TypeParameter (cgenl + i)))
+                        , 
+                        cls.Methods.[m].Generics
+                    | _ ->
+                        if i = typ then
+                            Array.init (cgenl + m.Value.Generics) (fun i -> TypeParameter i), []
+                        else
+                            [||], [] // TODO: should this be an error? I don't think it should ever happen
+            mem m mi.CompiledForm mParam M.Optimizations.None (Some intfGen) mi.Expression
 
         let constructors = ResizeArray<string * Id option * Id list * Statement>()
 
@@ -435,7 +618,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
             | M.Func name ->
                 match body with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bodyTransformer(false).TransformStatement b, []))
+                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bTr().TransformStatement b, []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, kind) ->
@@ -588,11 +771,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
         let lazyClassId = lazy Id.New("_c")
 
         let packageLazyClass classExpr =
-            addStatement <| VarDeclaration(lazyClassId.Value, bodyTransformer(true).TransformExpression (JSRuntime.Lazy classExpr))
+            addStatement <| VarDeclaration(lazyClassId.Value, bTr().TransformExpression (JSRuntime.Lazy classExpr))
             addStatement <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
 
         let packageClass classDecl = 
-            addStatement <| ExportDecl(true, bodyTransformer(true).TransformStatement classDecl)                
+            addStatement <| ExportDecl(true, bTr().TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -620,24 +803,49 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
                     packageLazyClass <| classExpr
                 else
                     packageClass <| classDecl()
-                            
-    match current.Classes.TryFind(typ) with
-    | Some (a, ct, cOpt) ->
-        cOpt |> Option.iter (fun c -> packageClass c a ct typ.Value.FullName)
-    | None -> ()
 
     match current.Interfaces.TryFind(typ) with
     | Some i ->
+        let igen = List.length i.Generics
+        let gen = getGenerics 0 i.Generics
+        if output <> O.JavaScript then
+
+            let gsArr = Array.ofList i.Generics
+
+            let imems =
+                i.Methods |> Seq.map (fun (KeyValue (m, (n, k, gc))) ->
+                    let gsArr = Array.append gsArr (Array.ofList gc)
+                    let args, argTypes =
+                        m.Value.Parameters |> List.mapi (fun i p ->
+                            Id.New(string ('a' + char i), mut = false, str = true), tsTypeOf gsArr p
+                        ) |> List.unzip
+                    let signature = TSType.Lambda(argTypes, tsTypeOf gsArr m.Value.ReturnType)
+                    let info = 
+                        {
+                            IsStatic = false
+                            IsPrivate = false
+                            Kind = k
+                        }
+                    ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc))    
+                ) |> List.ofSeq
+
+            addStatement <| ExportDecl(true, 
+                Interface(className, i.Extends |> List.map (tsTypeOfConcrete gsArr), imems, gen)
+            )
 
         let methodNames =
             i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
 
-        let isFunctionName =
-            isFunctionNameForInterface typ
-        let funcId = Id.New(isFunctionName, str = true) 
-
         let isIntf =
+            let isFunctionName =
+                isFunctionNameForInterface typ
             let x = Id.New "x"
+            let returnType =
+                if output = O.JavaScript then 
+                    None 
+                else
+                    Some (TSType (TSType.TypeGuard(x, tsTypeOfDef typ |> addGenerics gen)))
+            let funcId = Id.New(isFunctionName, str = true, ?typ = returnType) 
             if Seq.isEmpty methodNames then
                 FuncDeclaration(funcId, [x], None, Return (Value (Bool true)), [])
             else         
@@ -651,7 +859,7 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
     match entryPointStyle, entryPoint with
     | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        addStatement <| ExprStatement (bodyTransformer(false).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
+        addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
     | ForceImmediate, Some ep ->
         statements.Add ep
     | (ForceOnLoad | ForceImmediate), None ->
@@ -693,11 +901,11 @@ let packageType (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition
 
         List.ofSeq (Seq.concat [ declarations; statements ])
 
-let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
+let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType refMeta current asmName typ None entryPointStyle
+        let p = packageType output refMeta current asmName typ None entryPointStyle
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
@@ -707,7 +915,7 @@ let packageAssembly (refMeta: M.Info) (current: M.Info) asmName entryPoint entry
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = ""; FullName = "$EntryPoint" }     
-        let p = packageType refMeta current asmName epTyp entryPoint entryPointStyle
+        let p = packageType output refMeta current asmName epTyp entryPoint entryPointStyle
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 
@@ -720,8 +928,8 @@ let readMapFileSources mapFile =
         List.zip sources sourcesContent
     | _ -> failwith "map file JSON should be an object"
 
-let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
-    let program = statements |> JavaScriptWriter.transformProgram pref
+let programToString output pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
+    let program = statements |> JavaScriptWriter.transformProgram output pref
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile()

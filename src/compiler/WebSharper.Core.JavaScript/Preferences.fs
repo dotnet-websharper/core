@@ -26,3 +26,9 @@ type Preferences =
     | Compact
     /// Generate readable JavaScript code.
     | Readable
+
+/// Defines output type.
+type Output =
+    | JavaScript
+    | TypeScriptDeclaration
+    | TypeScript

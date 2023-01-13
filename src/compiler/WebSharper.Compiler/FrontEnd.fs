@@ -32,6 +32,7 @@ type Content = WebSharper.Compiler.Content
 type EmbeddedFile = WebSharper.Compiler.EmbeddedFile
 type Loader = WebSharper.Compiler.Loader
 type Symbols = WebSharper.Compiler.Symbols
+type O = WebSharper.Core.JavaScript.Output
 
 let TryReadFromAssembly options (a: Assembly) =
     a.Raw.MainModule.Resources
@@ -116,6 +117,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
 let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
+    let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
         TransformMetaSources assemblyName current sourceMap
         
@@ -127,7 +129,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
     logger.TimedStage "Source position transformations"
 
     let pkg = 
-        JavaScriptPackager.packageAssembly refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+        JavaScriptPackager.packageAssembly O.JavaScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
 
     logger.TimedStage "Packaging assembly"
     
@@ -245,7 +247,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         for (n, p) in pkg do
-            let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter
+            let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
             addRes (n + ".js") (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
                 addRes (n + ".map") None (Some (getBytes m)))
@@ -261,13 +263,13 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
             | _ -> []
 
-        //let tspkg = 
-        //    TypeScriptPackager.packageAssembly refMeta current resources None (comp |> Option.bind (fun c -> c.EntryPoint)) TypeScriptPackager.EntryPointStyle.OnLoadIfExists
-        //    |> List.map removeSourcePos.TransformStatement
-        //
-        //let ts, tsMap = tspkg |> WebSharper.Compiler.TypeScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-        //addRes EMBEDDED_TS (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
-        //logger.TimedStage "Writing .ts"
+        let tspkg = 
+            JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+            |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+        for (n, p) in tspkg do
+            let ts, tsMap = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+            addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
+        logger.TimedStage "Writing .ts files"
 
         // set current AssemblyNode to be a module
         current.Dependencies.Nodes |> Array.tryFindIndex (function

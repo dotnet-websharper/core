@@ -25,6 +25,7 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Object>)>]
 [<Name "WebSharper.Obj">]
+[<Type "any">]
 type private ObjectProxy() =
 
     //let mutable hash = JS.Undefined<int>
@@ -62,6 +63,7 @@ type private ObjectProxy() =
     override this.ToString() = string this
 
 [<Proxy(typeof<System.ValueType>)>]
+[<Type "any">]
 type private ValueTypeProxy =
 
     [<Inline>]
