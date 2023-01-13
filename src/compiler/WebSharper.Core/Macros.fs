@@ -245,7 +245,7 @@ let tryFindMethodFromComparison (cI: Metadata.IClassInfo option) (t: Type) (cmp:
         Hashed mi
     match cI with
     | Some cI ->
-        let defMethod = additionalMethods cmp |> methodInfoFromStr
+        let defMethod = defMethods cmp |> methodInfoFromStr
         match cI.Methods.TryGetValue(defMethod) with
         | true, mem -> Some defMethod
         | false, _ ->
