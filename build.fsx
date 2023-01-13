@@ -266,7 +266,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 "RunMainTestsRelease"
     ==> "CI-Release"
 
-"Prepare" ==> "WS-Restore"
+"WS-Restore" ==> "Prepare"
 "WS-Stop" ==> "WS-Clean"
 "WS-Stop" ==> "WS-Restore"
 
