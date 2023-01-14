@@ -470,12 +470,26 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                     tsTypeOf gsArr m.Value.ReturnType
             let mgen = getGenerics cgenl gc
             
-            let func fname =
+            let func fromInst fname =
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, implSt(fun () -> bTr().TransformStatement b), []))
+                    let f = Id.New(fname, str = true)
+                    let f, args =
+                        if output = O.JavaScript then f, args else
+                        match getSignature fromInst with
+                        | TSType.Function(t, a, rest, r) ->
+                            let aTyp = a |> Array.ofList
+                            f.WithType(Some (TSType r)), 
+                            args |> List.mapi (fun i a ->
+                                match aTyp |> Array.tryItem i with
+                                | Some (t, _) -> a.WithType(Some (TSType t))
+                                | _ -> a
+                            )
+                        | t ->
+                            f.WithType(Some (TSType t)), args
+                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), []))
                 | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), implExpr(fun () -> bTr().TransformExpression e)))
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
@@ -489,7 +503,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                         }
                     members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics mgen)
                 | _ -> ()       
-            | M.Static (mname, mkind) ->
+            | M.Static (mname, fromInst, mkind) ->
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, ret, b) ->
                     let info = 
@@ -498,7 +512,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature false |> addGenerics mgen)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature fromInst |> addGenerics mgen)
                 | _ ->
                     let info = 
                         {
@@ -507,27 +521,28 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsOptional = false
                         }
                     members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, implExprOpt (fun () -> body))
-            | M.Func fname ->
-                func fname
-            | M.GlobalFunc addr ->
-                func addr.Address.Value.Head
+            | M.Func (fname, fromInst) ->
+                func fromInst fname
+            | M.GlobalFunc (addr, fromInst) ->
+                func fromInst addr.Address.Value.Head
             | _ -> ()
 
         if c.HasWSPrototype then
             for f in c.Fields.Values |> Seq.sortBy (fun f -> f.Order) do
-                let info isStatic isPrivate =
+                let info isStatic isPrivate isOptional =
                     {
                         IsStatic = isStatic
                         IsPrivate = isPrivate
-                        IsOptional = false
+                        IsOptional = isOptional
                     }
 
                 match f.CompiledForm with
-                | M.InstanceField name 
+                | M.InstanceField name ->
+                    members.Add <| ClassProperty(info false false false, name, tsTypeOf gsArr f.Type, None)
                 | M.OptionalField name -> 
-                    members.Add <| ClassProperty(info false false, name, TSType.Any, None)
+                    members.Add <| ClassProperty(info false false true, name, tsTypeOf gsArr f.Type, None)
                 | M.StaticField name ->
-                    members.Add <| ClassProperty(info true false, name, TSType.Any, None)
+                    members.Add <| ClassProperty(info true false false, name, tsTypeOf gsArr f.Type, None)
                 | M.IndexedField _ ->
                     () //TODO
                 | M.VarField _ -> ()
@@ -584,23 +599,29 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             mem m mi.CompiledForm mParam M.Optimizations.None (Some intfGen) mi.Expression
 
         let constructors = ResizeArray<string * Id option * Id list * Statement>()
+        let ctorSigs = ResizeArray<Statement>()
 
-        for KeyValue(ctor, { CompiledForm = info; Expression = body }) in c.Constructors do
-            match withoutMacros info with
+        for KeyValue(ctor, ct) in c.Constructors do
+            let getSignature() =         
+                if output = O.JavaScript then TSType.Any else
+                let pts = typeOfParams ct.Optimizations gsArr ctor.Value.CtorParameters
+                TSType.New(pts, thisTSType.Value)
+
+            match withoutMacros ct.CompiledForm with
             | M.New None ->
-                if body <> Undefined then
-                    match body with
+                if ct.Expression <> Undefined then
+                    match ct.Expression with
                     | Function ([], _, _, I.Empty) 
                     | Function ([], _, _, I.ExprStatement(I.Application(I.Base, [], _))) -> 
                         ()
                     | Function (args, thisVar, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, thisVar, Some b, TSType.Any))
+                        members.Add (ClassConstructor (args, thisVar, implStOpt (fun () -> b), getSignature()))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
 
             | M.New (Some name) ->
-                match body with
+                match ct.Expression with
                 | Function (args, thisVar, _, b) ->                  
                     constructors.Add(name, thisVar, args, b)
                     let info =
@@ -611,7 +632,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                         }
                     let ctorBody =
                         Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, thisVar, Some ctorBody, TSType.Any))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature()))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             //| M.NewIndexed i ->
@@ -621,14 +642,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             //            indexedCtors.Add (i, (args, b))
             //        | _ ->
             //            failwithf "Invalid form for translated constructor"
-            | M.Func name ->
-                match body with 
+            | M.Func (name, _) ->
+                match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
                     addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
-            | M.Static (name, kind) ->
-                match body with 
+            | M.Static (name, _, kind) ->
+                match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
                     let info =
                         {
@@ -636,7 +657,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false
                             Kind = kind
                         }
-                    members.Add (ClassMethod(info, name, args, thisVar, Some b, TSType.Any))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature()))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
@@ -817,8 +838,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         let gen = getGenerics 0 i.Generics
         let gsArr = Array.ofList i.Generics
         if output <> O.JavaScript then
-
-
             let imems =
                 i.Methods |> Seq.map (fun (KeyValue (m, (n, k, gc))) ->
                     let gsArr = Array.append gsArr (Array.ofList gc)

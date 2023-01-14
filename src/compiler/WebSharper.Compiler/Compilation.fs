@@ -334,7 +334,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         member this.AddGeneratedCode(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
-            compilingMethods.Add((td, meth),(NotCompiled (Func meth.Value.MethodName, true, Optimizations.None, JavaScriptOptions.None), [], body))
+            compilingMethods.Add((td, meth),(NotCompiled (Func (meth.Value.MethodName, false), true, Optimizations.None, JavaScriptOptions.None), [], body))
 
         member this.AddGeneratedInline(meth: Method, body: Expression) =
             let _, td = this.GetGeneratedClass()
@@ -1504,25 +1504,25 @@ type Compilation(meta: Info, ?hasGraph) =
         let compiledStaticMember n k p typ (nr : NotResolvedMethod) =
             match clStatics.TryGetValue(typ) with
             | true, a ->
-                GlobalFunc (a.Sub(n))
+                GlobalFunc (a.Sub(n), false)
             | _ ->
                 match nr.Kind with
                 | N.Quotation _
                 | N.Static -> 
                     if mergedProxies.Contains typ then
                         match this.TryLookupClassInfo(typ) with
-                        | Some (a, _) -> GlobalFunc (a.Sub(n))
-                        | _ -> Func n
+                        | Some (a, _) -> GlobalFunc (a.Sub(n), false)
+                        | _ -> Func (n, false)
                     elif p then 
-                        Static (n, k) 
+                        Static (n, false, k) 
                     else 
-                        Func n
+                        Func (n, false)
                 | N.Constructor -> 
                     if typesWithSingleConstructor.Contains typ then
                         New None
                     else
                         New (Some n)
-                | N.AsStatic -> Func n
+                | N.AsStatic -> Func (n, true)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 

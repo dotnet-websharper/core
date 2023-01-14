@@ -323,12 +323,12 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
             match meta.Classes.TryFind declType with
             | Some (clsAddr, _, Some cls) ->
                 match cls.Methods.TryFind meth with
-                | Some { CompiledForm = M.Static (a, AST.MemberKind.Simple) } ->
+                | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                     funcName <- [| "default"; a |]
                     match clsAddr.Module with
                     | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                     | _ -> ()
-                | Some { CompiledForm = M.Func a } ->
+                | Some { CompiledForm = M.Func (a, false) } ->
                     funcName <- [| a |]
                     match clsAddr.Module with
                     | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
@@ -435,12 +435,12 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     match meta.Classes.TryFind declType with
                     | Some (clsAddr, _, Some cls) ->
                         match cls.Methods.TryFind meth with
-                        | Some { CompiledForm = M.Static (a, AST.MemberKind.Simple) } ->
+                        | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                             funcName <- [| "default"; a |]
                             match clsAddr.Module with
                             | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
                             | _ -> ()
-                        | Some  { CompiledForm = M.Func a } ->
+                        | Some  { CompiledForm = M.Func (a, false) } ->
                             funcName <- [| a |]
                             match clsAddr.Module with
                             | AST.JavaScriptModule m -> jsModule <- Json.JSModule m

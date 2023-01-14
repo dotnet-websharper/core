@@ -1051,7 +1051,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     ApplTyped(
                         trThisObj() |> Option.get |> getItem name,
                         trArgs(), opts.Purity, None, funcParams false) 
-        | M.Static (name, kind) ->
+        | M.Static (name, _, kind) ->
             match kind with
             | MemberKind.Getter ->
                 this.Static(typ, name)
@@ -1059,9 +1059,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.StaticSet(typ, name, trArgs()[0])
             | MemberKind.Simple ->
                 staticCall (this.Static(typ, name))
-        | M.Func name ->
+        | M.Func (name, _) ->
             staticCall (this.Static(typ, name, true))
-        | M.GlobalFunc address ->
+        | M.GlobalFunc (address, _) ->
             staticCall (GlobalAccess address) 
         | M.Inline (isCompiled, assertReturnType) ->
             match expr with 
@@ -1317,7 +1317,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         | Compiled (info, _, _, _)
         | Compiling ((NotCompiled (info, _, _, _) | NotGenerated (_, _, info, _, _)), _, _) ->
             match info with 
-            | M.Static (name, kind) ->
+            | M.Static (name, _, kind) ->
                 match kind with
                 | MemberKind.Getter ->
                     JSRuntime.GetterOf (this.Static(typ)) name
@@ -1325,9 +1325,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     JSRuntime.SetterOf (this.Static(typ)) name      
                 | MemberKind.Simple ->
                     this.Static(typ, name)
-            | M.Func name ->
+            | M.Func (name, _) ->
                 this.Static(typ, name, true)   
-            | M.GlobalFunc address ->
+            | M.GlobalFunc (address, _) ->
                 GlobalAccess address
             | M.Instance (name, kind) -> 
                 // Object.getOwnPropertyDescriptor(o, "a").get
@@ -1381,11 +1381,11 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             New(GlobalAccess (typAddress()), typParams(), Value (String name) :: trArgs())
         //| M.NewIndexed (i) ->
         //    New(GlobalAccess (typAddress()), typParams(), Value (Int i) :: trArgs())
-        | M.Static (name, MemberKind.Simple) ->      
+        | M.Static (name, _, MemberKind.Simple) ->      
             Appl(this.Static(typ, name), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
-        | M.Func name ->
+        | M.Func (name, _) ->
             Appl(this.Static(typ, name, true), trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
-        | M.GlobalFunc address ->
+        | M.GlobalFunc (address, _) ->
             Appl(GlobalAccess address, trArgs(), opts.Purity, Some ctor.Value.CtorParameters.Length)
         | M.Inline (isCompiled, assertReturnType) ->
             this.ApplyInline(expr, typ.Generics, gc, trArgs(), None, isCompiled, assertReturnType, ConcreteType typ) 

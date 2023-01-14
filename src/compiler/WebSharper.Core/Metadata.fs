@@ -110,9 +110,9 @@ type ParameterObject =
 
 type CompiledMember =
     | Instance of name:string * kind: MemberKind
-    | Static of name:string * kind: MemberKind
-    | Func of name:string
-    | GlobalFunc of address: Address
+    | Static of name:string * fromInstance:bool * kind: MemberKind
+    | Func of name:string * fromInstance:bool
+    | GlobalFunc of address: Address * fromInstance:bool
     | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
@@ -389,7 +389,7 @@ type Info =
                 let transformFuncAddrs (addr: Address) methods =
                     methods |> Dict.map (fun (m: CompiledMethodInfo) ->
                         match m.CompiledForm with
-                        | Func n -> { m with CompiledForm = GlobalFunc (addr.Sub(n)) }
+                        | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
                         | _ -> m
                     )
                 Some (

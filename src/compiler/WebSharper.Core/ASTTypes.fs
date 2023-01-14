@@ -136,7 +136,8 @@ type Id =
             | _ -> invalidArg "other" "Invalid comparison."
 
     override this.ToString() =
-        (match this.Name with Some n -> n | _ -> "") + "#" + string this.Id + (if this.Mutable then "M" else "")
+        (match this.Name with Some n -> n | _ -> "") + "#" + string this.Id + (if this.Mutable then "M" else "") +
+        (match this.Type with Some t -> ":" + string t | _ -> ":NONTYPED")
 
     member this.ToString(m: Modifiers) =
         String.concat "" [
@@ -630,7 +631,7 @@ type Type =
         | VoidType -> "unit"
         | StaticTypeParameter i -> "^T" + string i
         | LocalTypeParameter -> "'?"
-        | TSType _ -> "TSType"
+        | TSType ts -> "TS:" + string ts
 
     member this.IsParameter =
         match this with
@@ -913,6 +914,23 @@ type [<RequireQualifiedAccess>] TSType =
         | Constraint (t, c) -> Constraint (tr t, List.map tr c)
         | TypeGuard (a, t) -> TypeGuard(a, tr t)
         | ObjectOf a -> ObjectOf(tr a)
+
+    override this.ToString() =
+        match this with
+        | Any -> "any"
+        | Named t -> t |> String.concat "."
+        | Generic (t, g) -> string t + "<" + (g |> List.map string |> String.concat ",") + ">"
+        | Imported (i, t) -> string i + "::" + (t |> String.concat ".")
+        | Importing (n, t) -> n + "?:" + (t |> String.concat ".")
+        | Function (t, a, s, r) -> "((" + (a |> List.map string |> String.concat ",") + ")=>" + string r + ")" 
+        | New (a, r) -> "(new(" + (a |> List.map string |> String.concat ",") + ")=>" + string r + ")" 
+        | Tuple ts -> "[" + (ts |> Seq.map string |> String.concat ",") + "]"
+        | Union ts -> "(" + (ts |> Seq.map string |> String.concat "|") + ")"
+        | Intersection ts -> "(" + (ts |> Seq.map string |> String.concat "&") + ")"
+        | Param n -> "T" + string n
+        | Constraint (t, ts) -> string t + " extends " + (ts |> Seq.map string |> String.concat ",")
+        | TypeGuard (i, t) -> string i + " is " + string t
+        | ObjectOf t -> "{[a:string]:" + string t + "}"
 
 type MethodInfo =
     {

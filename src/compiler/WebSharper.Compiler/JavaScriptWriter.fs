@@ -726,7 +726,8 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
             )
         J.Constructor(args, body)   
     | ClassProperty (s, n, t, v) ->
-        J.Property (s.IsStatic, J.Id.New(n) |> withType env t, v |> Option.map (transformExpr env))
+        let opt = env.Output <> O.JavaScript && s.IsOptional
+        J.Property (s.IsStatic, J.Id.New(n, opt = opt) |> withType env t, v |> Option.map (transformExpr env))
     | ClassStatic (b) ->
         let innerEnv = env.NewInner()
         let body = 
