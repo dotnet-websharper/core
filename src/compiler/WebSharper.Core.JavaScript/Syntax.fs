@@ -248,7 +248,7 @@ and Statement =
     | Vars         of list<Id * option<E>> * DeclKind
     | While        of E * S
     | With         of E * S
-    | Function     of Id * list<Id> * list<S>
+    | Function     of Id * list<Id> * option<list<S>>
     | Export       of bool * S 
     | ExportAlias  of Id * Id 
     | Import       of option<Id> * option<Id> * list<string  * Id> * string

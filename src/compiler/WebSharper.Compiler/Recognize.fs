@@ -574,9 +574,11 @@ and private transformStatement (env: Environment) (statement: S.Statement) =
         let f = env.NewVar a
         let vars = b |> List.map trI
         let innerEnv = env.WithNewScope(Seq.zip b (vars |> Seq.map Var), false)
-        let body = S.Block c
-        let trBody = transformStatement innerEnv body
-        FuncDeclaration(f, vars, innerEnv.This.Value, transformStatement innerEnv body, [])
+        let trBody = 
+            match c with 
+            | Some c -> transformStatement innerEnv (S.Block c)
+            | _ -> Empty
+        FuncDeclaration(f, vars, innerEnv.This.Value, trBody, [])
     | S.StatementComment _ -> failwith "impossible, comments are not parsed"
 
 type InlinedStatementsTransformer() =

@@ -684,7 +684,7 @@ and funDecl i =
     | L.Identifier id ->
         symbolRx Sy.``(`` i
         let f = formals i
-        S.Function (S.Id.New id, f, funBody i)
+        S.Function (S.Id.New id, f, Some (funBody i))
     | _ ->
         error t "Expecting an identifier."
 

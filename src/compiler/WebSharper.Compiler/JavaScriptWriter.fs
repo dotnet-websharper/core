@@ -472,7 +472,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | VarDeclaration (id, e) ->
         match e with
         | IgnoreSourcePos.Undefined -> 
-            J.Vars([transformId env id, None], J.LetDecl)
+            J.Vars([transformIdTyped env id, None], J.LetDecl)
             //J.Empty 
         //| IgnoreSourcePos.Application(Var importId, args, { Purity = NonPure; KnownLength = Some 0 }) when importId = Id.Import() ->
         //    match args with
@@ -483,10 +483,10 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         //    | _ -> failwith "unrecognized args for import"
         | _ -> 
             let kind = if id.IsMutable then J.LetDecl else J.ConstDecl
-            J.Vars([transformId env id, Some (trE e)], kind)
+            J.Vars([transformIdTyped env id, Some (trE e)], kind)
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, t, b, g) ->
-        let id = transformId env x
+        let id = transformIdTyped env x
         let jsgen = g |> transformGenerics env
         let id = id.WithGenerics(jsgen)
         let innerEnv = env.NewInner()
@@ -501,7 +501,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | J.Empty
             | J.Return None -> []
             | b -> [ b ]
-        let f = J.Function(id, args, flattenJS body)
+        let f = J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
         if env.InFuncScope then
             f
         else
@@ -576,6 +576,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         let jn = defineId env n
         let innerEnv = env.NewInner()
         let isAbstract =
+            if env.Output = O.TypeScriptDeclaration then false else
             m |> List.exists (function
                 | ClassMethod (_, _, _, _, None, _) -> true
                 | _ -> false
@@ -643,8 +644,15 @@ and defineIdTyped env id =
     | None -> i
     | Some t -> i |> withType env t
 
+and transformIdTyped env x =
+    let i = transformId env x 
+    match x.TSType with
+    | None -> i
+    | Some t -> i |> withType env t
+
 and getUsedArgs (args: Id list) b env = 
     if List.isEmpty args then [] else
+    if env.Output = O.TypeScriptDeclaration then args |> List.map (defineIdTyped env) else
     let unusedArgs = CollectUnusedVars(args).GetSt(b)
     let argNum =
         args |> Seq.mapi (fun i a -> if unusedArgs.Contains a then 0 else i + 1) |> Seq.max

@@ -565,7 +565,7 @@ and Statement canBeEmpty statement =
         ++ Id (id.ToNonTyped())
         ++ Parens (CommaSeparated Id formals)
         ++ TypeAnnotation id.Type 
-        ++ BlockLayout (List.map (Statement true) body)
+        ++ Optional (List.map (Statement true) >> BlockLayout) body
     | S.Export (d, s) ->
         Word "export" ++ Conditional (Word "default") d  ++ Statement false s
     | S.ExportAlias (a, b) ->
@@ -631,8 +631,8 @@ and Accessor a =
 and Member isClass mem =
     match mem with
     | S.Method (s, a, n, args, body) ->
-        Conditional (Word "abstract") (isClass && Option.isNone body)
-        ++ Conditional (Word "static") s
+        //Conditional (Word "abstract") (isClass && Option.isNone body)
+        Conditional (Word "static") s
         ++ Accessor a
         ++ IdOrString (n.ToNonTyped())
         ++ Parens (CommaSeparated Id args)

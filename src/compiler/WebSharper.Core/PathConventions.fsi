@@ -99,10 +99,10 @@ module PathConventions =
         member MinifiedMapFilePath : AssemblyId -> string
 
         /// Path or URL to the `.d.ts` TypeScript file corresponding to an assembly.
-        member TypeScriptDefinitionsPath : AssemblyId -> string
+        member TypeScriptDeclarationPath : AssemblyId -> string
 
         /// Filename for the `.d.ts` TypeScript file corresponding to an assembly.
-        member TypeScriptDefinitionsFileName : AssemblyId -> string
+        member TypeScriptDeclarationFileName : AssemblyId -> string
 
         /// Base path for content URLs.
         member ContentBasePath : string

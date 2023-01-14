@@ -393,6 +393,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
     //    let o, x = getFieldAddress a
     //    addStatement <| ExprStatement (ItemSet (o, x, expr))    
 
+    let implExpr, implSt, implStOpt, implExprOpt =
+        if output = O.TypeScriptDeclaration then 
+            (fun _ -> Undefined), (fun _ -> Empty), (fun _ -> None), (fun _ -> None)
+        else
+            (fun getImpl -> getImpl()), (fun getImpl -> getImpl()), (fun getImpl -> Some (getImpl())), (fun getImpl -> Some (getImpl()))
+            
     let rec withoutMacros info =
         match info with
         | M.Macro (_, _, Some fb) -> withoutMacros fb
@@ -467,9 +473,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             let func fname =
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, bTr().TransformStatement b, []))
+                    addStatement <| ExportDecl (false, FuncDeclaration(Id.New(fname, str = true), args, thisVar, implSt(fun () -> bTr().TransformStatement b), []))
                 | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), bTr().TransformExpression e))
+                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true), implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
@@ -481,7 +487,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, Some b, getSignature false |> addGenerics mgen)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics mgen)
                 | _ -> ()       
             | M.Static (mname, mkind) ->
                 match IgnoreExprSourcePos body with
@@ -492,7 +498,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, Some (staticThisTransformer.TransformStatement b), getSignature false |> addGenerics mgen)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature false |> addGenerics mgen)
                 | _ ->
                     let info = 
                         {
@@ -500,7 +506,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false // TODO
                             IsOptional = false
                         }
-                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, Some body)
+                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, implExprOpt (fun () -> body))
             | M.Func fname ->
                 func fname
             | M.GlobalFunc addr ->
@@ -618,7 +624,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             | M.Func name ->
                 match body with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, bTr().TransformStatement b, []))
+                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), []))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, kind) ->
@@ -747,14 +753,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                 ]
 
             let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-            members.Add (ClassConstructor (allArgs, Some cThis, Some (Block cBody), TSType.Any))   
+            members.Add (ClassConstructor (allArgs, Some cThis, implStOpt (fun () -> Block cBody), TSType.Any)) // TODO optimize, do not generate cBody for .d.ts  
         
         let mutable isFSharpType = false
 
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
-            let tags = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
-            addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), tags))
+            let tags() = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
+            addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             isFSharpType <- true
@@ -763,10 +769,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         //    if c.HasWSPrototype then
         //        packageCtor addr <| ClassExpr(None, baseType, List.ofSeq members) 
 
-        match c.StaticConstructor with
-        | Some st -> 
-            members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
-        | _ -> ()
+        if output <> O.TypeScriptDeclaration then
+            match c.StaticConstructor with
+            | Some st -> 
+                members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
+            | _ -> ()
 
         let lazyClassId = lazy Id.New("_c")
 
@@ -785,7 +792,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with
             | Some b ->
-                let needsLazy = Option.isNone c.Type
+                let needsLazy = Option.isNone c.Type && output <> O.TypeScriptDeclaration
                 if needsLazy then
                     packageLazyClass <| fun i ->
                         if isObjBase then
@@ -798,7 +805,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                 else
                     packageClass <| classDecl()
             | None ->
-                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType
+                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType && output <> O.TypeScriptDeclaration
                 if needsLazy then
                     packageLazyClass <| classExpr
                 else
@@ -808,9 +815,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
     | Some i ->
         let igen = List.length i.Generics
         let gen = getGenerics 0 i.Generics
+        let gsArr = Array.ofList i.Generics
         if output <> O.JavaScript then
 
-            let gsArr = Array.ofList i.Generics
 
             let imems =
                 i.Methods |> Seq.map (fun (KeyValue (m, (n, k, gc))) ->
@@ -839,7 +846,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         let isIntf =
             let isFunctionName =
                 isFunctionNameForInterface typ
-            let x = Id.New "x"
+            let x = Id.New("x", typ = TSType (tsTypeOf gsArr (NonGenericType typ)))
             let returnType =
                 if output = O.JavaScript then 
                     None 
@@ -847,24 +854,25 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                     Some (TSType (TSType.TypeGuard(x, tsTypeOfDef typ |> addGenerics gen)))
             let funcId = Id.New(isFunctionName, str = true, ?typ = returnType) 
             if Seq.isEmpty methodNames then
-                FuncDeclaration(funcId, [x], None, Return (Value (Bool true)), [])
+                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), [])
             else         
                 let shortestName = methodNames |> Seq.minBy String.length
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                FuncDeclaration(funcId, [x], None, Return check, [])
+                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), [])
 
         statements.Add(ExportDecl (false, isIntf))
 
     | None -> ()
 
-    match entryPointStyle, entryPoint with
-    | (OnLoadIfExists | ForceOnLoad), Some ep ->
-        addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
-    | ForceImmediate, Some ep ->
-        statements.Add ep
-    | (ForceOnLoad | ForceImmediate), None ->
-        failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
-    | OnLoadIfExists, None -> ()
+    if output <> O.TypeScriptDeclaration then
+        match entryPointStyle, entryPoint with
+        | (OnLoadIfExists | ForceOnLoad), Some ep ->
+            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
+        | ForceImmediate, Some ep ->
+            statements.Add ep
+        | (ForceOnLoad | ForceImmediate), None ->
+            failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
+        | OnLoadIfExists, None -> ()
         
     if statements.Count = 0 then 
         [] 
