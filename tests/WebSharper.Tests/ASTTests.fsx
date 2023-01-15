@@ -482,9 +482,28 @@ open WebSharper.Testing
 open System
 
 [<JavaScript>]
-module Test =
-    let add1 (x) = x + 1
+type RecordTest =
+    {
+        A: int
+        B: string
+    }
+    //with member this.AA = this.A
+"""
 
+
+translate """
+namespace WebSharper.Tests
+
+open WebSharper
+open WebSharper.JavaScript
+open WebSharper.Testing
+open System
+
+[<JavaScript>]
+type UnionTest =
+    | SingletonCase
+    | IntCase of int
+    | TupleCase of int * string
 """
 
 

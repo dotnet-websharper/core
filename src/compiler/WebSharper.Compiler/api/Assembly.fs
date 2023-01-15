@@ -23,6 +23,7 @@ namespace WebSharper.Compiler
 open WebSharper.Constants
 
 module CT = WebSharper.Core.ContentTypes
+type O = WebSharper.Core.JavaScript.Output
 
 [<AutoOpen>]
 module AssemblyUtility =
@@ -85,12 +86,12 @@ module AssemblyUtility =
             ParseWebResourcesUnchecked def
         else Seq.empty
 
-    let ReadAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
+    let ReadAllScriptResources (def: Mono.Cecil.AssemblyDefinition) filter =
         let byAttr = ParseWebResourcesUnchecked def |> Array.ofSeq
         let byAttrNames = byAttr |> Seq.map (fun r -> r.EmbeddedFileName) |> System.Collections.Generic.HashSet
         def.MainModule.Resources
         |> Seq.choose (function
-            | :? Mono.Cecil.EmbeddedResource as r when r.Name.EndsWith(".js") && not (byAttrNames.Contains r.Name) ->
+            | :? Mono.Cecil.EmbeddedResource as r when filter r.Name && not (byAttrNames.Contains r.Name) ->
                 use s = r.GetResourceStream()
                 let c = ReadStream s
                 Some (EmbeddedFile.Create(string def.FullName, r.Name, c, CT.Text.JavaScript))
@@ -98,10 +99,12 @@ module AssemblyUtility =
         |> Seq.append byAttr
         |> Array.ofSeq
 
-    let ParseAllScriptResources (def: Mono.Cecil.AssemblyDefinition) =
+    let ParseAllScriptResources (def: Mono.Cecil.AssemblyDefinition) (t: O) =
         if IsWebSharperAssembly def then
-
-            ReadAllScriptResources def
+            match t with 
+            | O.JavaScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".js"))
+            | O.TypeScript -> ReadAllScriptResources def (fun n -> n.EndsWith(".ts") && not (n.EndsWith(".d.ts")))
+            | O.TypeScriptDeclaration -> ReadAllScriptResources def (fun n -> n.EndsWith(".d.ts"))
         else Array.empty
 
 type Assembly =
@@ -123,9 +126,9 @@ type Assembly =
     member this.Name =
         this.Definition.Name.Name
 
-    member this.GetScripts() =
-        ParseAllScriptResources this.Definition
-        |> Seq.filter (fun r -> r.IsScript)
+    member this.GetScripts (t: O) =
+        ParseAllScriptResources this.Definition t
+        |> Seq.ofArray
 
     member this.GetContents() =
         ParseWebResources this.Definition

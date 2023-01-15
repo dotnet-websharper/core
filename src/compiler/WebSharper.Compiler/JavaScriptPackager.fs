@@ -527,22 +527,23 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                 func fromInst addr.Address.Value.Head
             | _ -> ()
 
+        let propInfo isStatic isPrivate isOptional =
+            {
+                IsStatic = isStatic
+                IsPrivate = isPrivate
+                IsOptional = isOptional
+            }
+
         if c.HasWSPrototype then
             for f in c.Fields.Values |> Seq.sortBy (fun f -> f.Order) do
-                let info isStatic isPrivate isOptional =
-                    {
-                        IsStatic = isStatic
-                        IsPrivate = isPrivate
-                        IsOptional = isOptional
-                    }
 
                 match f.CompiledForm with
                 | M.InstanceField name ->
-                    members.Add <| ClassProperty(info false false false, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo false false false, name, tsTypeOf gsArr f.Type, None)
                 | M.OptionalField name -> 
-                    members.Add <| ClassProperty(info false false true, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo false false true, name, tsTypeOf gsArr f.Type, None)
                 | M.StaticField name ->
-                    members.Add <| ClassProperty(info true false false, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo true false false, name, tsTypeOf gsArr f.Type, None)
                 | M.IndexedField _ ->
                     () //TODO
                 | M.VarField _ -> ()
@@ -602,10 +603,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         let ctorSigs = ResizeArray<Statement>()
 
         for KeyValue(ctor, ct) in c.Constructors do
-            let getSignature() =         
+            let getSignature isNew =         
                 if output = O.JavaScript then TSType.Any else
                 let pts = typeOfParams ct.Optimizations gsArr ctor.Value.CtorParameters
-                TSType.New(pts, thisTSType.Value)
+                if isNew then
+                    TSType.New(pts, thisTSType.Value)
+                else
+                    TSType.Function(None, pts |> List.map (fun a -> a, false), None, thisTSType.Value)
 
             match withoutMacros ct.CompiledForm with
             | M.New None ->
@@ -616,7 +620,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                         ()
                     | Function (args, thisVar, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, thisVar, implStOpt (fun () -> b), getSignature()))
+                        members.Add (ClassConstructor (args, thisVar, implStOpt (fun () -> b), getSignature true))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
 
@@ -632,7 +636,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                         }
                     let ctorBody =
                         Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature()))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature true))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             //| M.NewIndexed i ->
@@ -657,7 +661,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             IsPrivate = false
                             Kind = kind
                         }
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature()))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
@@ -783,8 +787,19 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             let tags() = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
             addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
+
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             isFSharpType <- true
+
+            if not c.HasWSPrototype && output <> O.JavaScript then
+                let rmems =
+                    r |> List.map (fun f ->
+                        ClassProperty(propInfo false false f.Optional, f.JSName, tsTypeOf gsArr f.RecordFieldType, None)
+                    )
+                addStatement <| ExportDecl(true, 
+                    Interface(className, [], rmems, cgen)
+                )
+
         | _ -> ()
         //| _ ->
         //    if c.HasWSPrototype then
@@ -865,12 +880,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         let isIntf =
             let isFunctionName =
                 isFunctionNameForInterface typ
-            let x = Id.New("x", typ = TSType (tsTypeOf gsArr (NonGenericType typ)))
+            let x = Id.New("x", typ = TSType TSType.Any)
             let returnType =
                 if output = O.JavaScript then 
                     None 
                 else
-                    Some (TSType (TSType.TypeGuard(x, tsTypeOfDef typ |> addGenerics gen)))
+                    Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
             let funcId = Id.New(isFunctionName, str = true, ?typ = returnType) 
             if Seq.isEmpty methodNames then
                 FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), [])

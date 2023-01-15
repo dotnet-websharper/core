@@ -52,6 +52,7 @@ type Config =
         Sitelet : Sitelet<obj>
         UnpackSourceMap : bool
         UnpackTypeScript : bool
+        UnpackTypeScriptDeclaration : bool
         Metadata: M.Info
         Logger: LoggerBase
     }

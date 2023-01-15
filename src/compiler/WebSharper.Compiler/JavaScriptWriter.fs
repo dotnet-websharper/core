@@ -486,11 +486,11 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             J.Vars([transformIdTyped env id, Some (trE e)], kind)
             //J.Ignore(J.Binary(J.Var (transformId env id), J.BinaryOperator.``=``, trE e))
     | FuncDeclaration (x, ids, t, b, g) ->
-        let id = transformIdTyped env x
         let jsgen = g |> transformGenerics env
-        let id = id.WithGenerics(jsgen)
         let innerEnv = env.NewInner()
         let args = getUsedArgs ids b innerEnv
+        let id = transformIdTyped innerEnv x
+        let id = id.WithGenerics(jsgen)
         CollectVariables(innerEnv).VisitStatement(b)
         let body =
             match b |> transformStatement innerEnv with

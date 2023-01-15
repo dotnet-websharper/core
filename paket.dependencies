@@ -26,6 +26,8 @@ nuget System.Text.RegularExpressions 4.3.0
 nuget System.Text.Json 4.7.0
 nuget System.Security.Cryptography.Csp 4.3.0
 
+nuget Microsoft.TypeScript.MSBuild 4.9.4
+
 group wsbuild
     git https://github.com/dotnet-websharper/build-script websharper50
 

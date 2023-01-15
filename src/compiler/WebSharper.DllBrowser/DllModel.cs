@@ -150,7 +150,15 @@ namespace WebSharper.DllBrowser
             {
                 Contents.Add(new SpecialFileModel("WebSharper.js", f.Value));
             }
-            foreach (var x in assembly.GetScripts())
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.JavaScript))
+            {
+                Contents.Add(new EmbeddedFileModel(x));
+            }
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.TypeScriptDeclaration))
+            {
+                Contents.Add(new EmbeddedFileModel(x));
+            }
+            foreach (var x in assembly.GetScripts(Core.JavaScript.Output.TypeScript))
             {
                 Contents.Add(new EmbeddedFileModel(x));
             }

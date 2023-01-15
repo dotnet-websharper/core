@@ -29,6 +29,7 @@ module UnpackCommand =
             RootDirectory : string
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            UnpackTypeScriptDeclaration : bool
             DownloadResources : bool
             Loader : option<Loader>
             Logger : LoggerBase

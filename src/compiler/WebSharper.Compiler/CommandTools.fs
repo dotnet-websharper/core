@@ -74,14 +74,15 @@ type JavaScriptScope =
  
 type WsConfig =
     {
-        SourceMap   : bool
-        TypeScript  : bool
+        SourceMap : bool
+        TypeScriptOutput : bool
+        TypeScriptDeclaration : bool
         IsDebug : bool
         ProjectType : ProjectType option
-        OutputDir  : string option
+        OutputDir : string option
         ScriptBaseUrl : string option
         AssemblyFile : string
-        References  : string[] 
+        References : string[] 
         Resources : (string * string option)[]
         KeyFile : string option
         CompilerArgs : string[]        
@@ -112,20 +113,21 @@ type WsConfig =
 
     static member Empty =
         {                 
-            SourceMap   = false
-            TypeScript  = false
+            SourceMap = false
+            TypeScriptOutput = false
+            TypeScriptDeclaration = false
             IsDebug = false
             ProjectType = None
-            OutputDir  = None
+            OutputDir = None
             ScriptBaseUrl = None
             AssemblyFile = null
-            References  = [||]
+            References = [||]
             Resources = [||]
             KeyFile = None
             CompilerArgs = [||]
             ProjectFile = null
             Documentation = None
-            PrintJS  = false
+            PrintJS = false
             WarnOnly = false
             DeadCodeElimination = true
             DownloadResources = None       
@@ -333,7 +335,8 @@ module ExecuteCommands =
                     Assemblies = assemblies
                     RootDirectory = webRoot
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
+                    UnpackTypeScript = settings.TypeScriptOutput
+                    UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = Option.isSome settings.DownloadResources
                     Loader = Some loader
                     Logger = logger
@@ -360,7 +363,8 @@ module ExecuteCommands =
                     ProjectDirectory = settings.ProjectDir
                     ReferenceAssemblyPaths = refs
                     UnpackSourceMap = settings.SourceMap
-                    UnpackTypeScript = settings.TypeScript
+                    UnpackTypeScript = settings.TypeScriptOutput
+                    UnpackTypeScriptDeclaration = settings.TypeScriptDeclaration
                     DownloadResources = settings.DownloadResources |> Option.defaultValue false
                     Metadata = meta
                     Logger = logger
@@ -539,7 +543,8 @@ let HandleDefaultArgsAndCommands (logger: LoggerBase) argv isFSharp =
 let RecognizeWebSharperArg a wsArgs =
     match a with
     | Flag "--jsmap" v -> Some { wsArgs with SourceMap = v }
-    //| "--dts" -> Some { wsArgs with TypeScript = true } 
+    | "--ts" -> Some { wsArgs with TypeScriptOutput = true } 
+    | "--dts" -> Some { wsArgs with TypeScriptDeclaration = true } 
     | "--wig" -> Some { wsArgs with ProjectType = Some WIG }
     | "--bundle" -> Some { wsArgs with ProjectType =  Some Bundle }
     | "--bundleonly" -> Some { wsArgs with ProjectType = Some BundleOnly }

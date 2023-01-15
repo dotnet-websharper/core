@@ -490,7 +490,7 @@ module Bundling =
                         b.AssemblyName, currentExtraBundles |> List.map (fun (name, content) -> name, content.Text)
                     else
                         let asm = refAssemblies |> List.find (fun asm -> asm.Name = b.AssemblyName)
-                        let scripts = asm.GetScripts()
+                        let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
                         let findScript name = 
                             name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
                         asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]

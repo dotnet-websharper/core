@@ -75,6 +75,7 @@
       WebSharperBundleOutputDir="$(WebSharperBundleOutputDir)"
       WebSharperSourceMap="$(WebSharperSourceMap)"          
       WebSharperTypeScriptDeclaration="$(WebSharperTypeScriptDeclaration)"          
+      WebSharperTypeScriptOutput="$(WebSharperTypeScriptOutput)"          
       WebSharperHtmlDirectory="$(WebSharperHtmlDirectory)"
       WebSharperProject="$(WebSharperProject)" 
       WebSharperErrorsAsWarnings="$(WebSharperErrorsAsWarnings)"

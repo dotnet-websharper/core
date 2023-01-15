@@ -37,6 +37,7 @@ module HtmlCommand =
             ReferenceAssemblyPaths : list<string>
             UnpackSourceMap : bool
             UnpackTypeScript : bool
+            UnpackTypeScriptDeclaration : bool
             DownloadResources: bool
             Metadata : WebSharper.Core.Metadata.Info
             Logger : LoggerBase
@@ -51,6 +52,7 @@ module HtmlCommand =
                 ReferenceAssemblyPaths = []
                 UnpackSourceMap = false
                 UnpackTypeScript = false
+                UnpackTypeScriptDeclaration = false
                 DownloadResources = false
                 Metadata = WebSharper.Core.Metadata.Info.Empty
                 Logger = ConsoleLogger()
