@@ -10,7 +10,12 @@ if (filePath == null)
 let program = ts.createProgram([filePath], { target: ts.ScriptTarget.Latest });
 let checker = program.getTypeChecker();
 
-let output = program.getSourceFiles().map(transformFile)
+let output =
+  program.getSourceFiles()
+    .filter(f => f.fileName == filePath)
+//    .filter(f => !program.isSourceFileDefaultLibrary(f) && !program.isSourceFileFromExternalLibrary(f))
+    .map(transformFile)
+
 let outputPath = process.argv[3] ?? (filePath + ".json")
 
 fs.writeFileSync(outputPath, JSON.stringify(output, undefined, 2))
@@ -26,6 +31,10 @@ interface TSParameter {
 interface TSSimpleType {
   Kind: 'simple'
   Type: string
+}
+interface TSLiteralType {
+  Kind: 'literal'
+  Value: string
 }
 interface TSArrayType {
   Kind: 'array'
@@ -74,8 +83,13 @@ interface TSKeyOfOrMappedType {
   Kind: 'keyof' | 'mapped'
   Type: TSType
 }
+interface TSTypeQuery {
+  Kind: 'query'
+  Expression: string
+}
 type TSType =
   | TSSimpleType
+  | TSLiteralType
   | TSArrayType
   | TSTupleType
   | TSFunctionOrNewType
@@ -86,12 +100,13 @@ type TSType =
   | TSTypePredicate
   | TSIndexType
   | TSKeyOfOrMappedType
+  | TSTypeQuery 
 interface TSTypeParameter {
   Name: string
   Constraint?: TSType
 }
 interface TSTypeElement {
-  Kind: 'method' | 'property' | 'new' | 'call' | 'index'
+  Kind: 'method' | 'property' | 'new' | 'call' | 'get' | 'set' | 'index'
   Name?: string
   Parameters?: TSParameter[]
   TypeParameters?: TSTypeParameter[]
@@ -251,10 +266,43 @@ function transformType(x: ts.TypeNode): TSType {
       Kind: 'mapped',
       Type: transformType(x.type)
     }
+  if (ts.isTypeQueryNode(x)) {
+    return {
+      Kind: 'query',
+      Expression: x.exprName.getText()
+    }
+  }
   let res = x.getText()
+  if (ts.isImportTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isInferTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isLiteralTypeNode(x)) {
+    return {
+      Kind: 'literal',
+      Value: res
+    }
+  }
+  if (ts.isOptionalTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isRestTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isTemplateLiteralTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isThisTypeNode(x)) {
+    return simpleType(res) // TODO
+  }
+  if (ts.isTypeOfExpression(x)) {
+    return simpleType(res) // TODO
+  }
   if (res.indexOf('<') > 0)
-    unhandled(x, "type");
-  return simpleType(x.getText())
+    unhandled(x, "TypeNode");
+  return simpleType(res)
 }
 
 function transformTypeElement(x: ts.TypeElement): TSTypeElement {
@@ -283,13 +331,25 @@ function transformTypeElement(x: ts.TypeElement): TSTypeElement {
       Parameters: x.parameters.map(transformParameter),
       Type: transformType(x.type)
     }
+  if (ts.isGetAccessorDeclaration(x))
+    return {
+      Kind: 'get',
+      Name: x.name.getText(),
+      Type: transformType(x.type)
+    }
+  if (ts.isSetAccessorDeclaration(x))
+    return {
+      Kind: 'set',
+      Name: x.name.getText(),
+      Type: transformType(x.type)
+    }
   if (ts.isIndexSignatureDeclaration(x))
     return {
       Kind: 'index',
       Parameters: x.parameters.map(transformParameter),
       Type: transformType(x.type)
     }
-  unhandled(x, "type");
+  unhandled(x, "TypeElement");
 }
 
 function transformTypeParameter(x: ts.TypeParameterDeclaration): TSTypeParameter {
@@ -320,7 +380,7 @@ function transformClassElement(x: ts.ClassElement): TSTypeElement {
       Name: x.name.getText(),
       Type: transformType(x.type)
     }
-  unhandled(x, "type");
+  unhandled(x, "ClassElement");
 }
 
 function transformExpessionWithTypeArguments(x: ts.ExpressionWithTypeArguments): TSType {
@@ -396,12 +456,12 @@ function transformStatement(x: ts.Statement): TSStatement {
       Expression: x.getText()
     }
   }
-  unhandled(x, "type");
+  unhandled(x, "Statement");
 }
 
 function transformFile(x: ts.SourceFile): TSFile {
-    return {
-        Name: x.fileName,
-        Statements: x.statements.map(transformStatement)
-    }
+  return {
+    Name: x.fileName,
+    Statements: x.statements.map(transformStatement)
+  }
 }

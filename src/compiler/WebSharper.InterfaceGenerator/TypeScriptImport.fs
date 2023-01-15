@@ -32,6 +32,7 @@ type TSParameter =
 
 and [<NamedUnionCases "Kind">] TSType =
     | [<Name "simple">] TSSimpleType of Type: string
+    | [<Name "literal">] TSLiteralType of Value: string
     | [<Name "array">] TSArrayType of ElementType: TSType
     | [<Name "tuple">] TSTupleType of ElementTypes: TSType[]
     | [<Name "function">] TSFunctionType of Parameters: TSParameter[] * ReturnType: TSType
@@ -46,6 +47,7 @@ and [<NamedUnionCases "Kind">] TSType =
     | [<Name "index">] TSIndexType of Index: TSType * Type: TSType
     | [<Name "keyof">] TSKeyOfType of Type: TSType
     | [<Name "mapped">] TSMappedType of Type: TSType
+    | [<Name "query">] TSQueryType of Expression: string
 
 and TSTypeParameter =
     {
@@ -58,6 +60,8 @@ and [<NamedUnionCases "Kind">] TSTypeElement =
     | [<Name "property">] TSProperty of Name: string * Type: TSType
     | [<Name "new">] TSNew of Parameters: TSParameter[] * Type: TSType
     | [<Name "call">] TSCall of Parameters: TSParameter[] * TypeParameters: TSTypeParameter[] * Type: TSType
+    | [<Name "get">] TSGet of Name: string * Type: TSType
+    | [<Name "set">] TSSet of Name: string * Type: TSType
     | [<Name "index">] TSIndex of Parameters: TSParameter[] * Type: TSType
 
 and [<NamedUnionCases "Kind">] TSStatement =
