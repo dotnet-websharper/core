@@ -482,12 +482,9 @@ open WebSharper.Testing
 open System
 
 [<JavaScript>]
-type RecordTest =
-    {
-        A: int
-        B: string
-    }
-    //with member this.AA = this.A
+module GenericTest =
+    let Ident x = x
+
 """
 
 

@@ -4,6 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
+    <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />

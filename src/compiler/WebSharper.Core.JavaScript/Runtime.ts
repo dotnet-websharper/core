@@ -19,7 +19,7 @@ export function Base(obj, base, ...args) {
 const forceSymbol = Symbol("force")
 export function Force(obj) { obj[forceSymbol] }
 
-export function Lazy(factory) {
+export function Lazy<C>(factory: (i:(s:C) => void) => C) {
   var instance;
   function getInstance() {
     if (!instance) {
@@ -42,7 +42,7 @@ export function Lazy(factory) {
       return Reflect.construct(getInstance(), args, newTarget);
     }
   });
-  return res;
+  return <C>res;
 }
 
 export function PrintObject(obj) {
@@ -141,7 +141,7 @@ export function CreateDelegate(invokes) {
     }
     return res;
   };
-  del.$Invokes = invokes;
+  (<any>del).$Invokes = invokes;
   return del;
 }
 
@@ -298,3 +298,22 @@ export function id(x) { return x }
 export function fst(x) { return x[0] }
 export function snd(x) { return x[1] }
 export function trd(x) { return x[2] }
+
+//  if (!Global.console) {
+//    Global.console = {
+//      count: ignore,
+//      dir: ignore,
+//      error: ignore,
+//      group: ignore,
+//      groupEnd: ignore,
+//      info: ignore,
+//      log: ignore,
+//      profile: ignore,
+//      profileEnd: ignore,
+//      time: ignore,
+//      timeEnd: ignore,
+//      trace: ignore,
+//      warn: ignore
+//    }
+//  }
+//}(self));

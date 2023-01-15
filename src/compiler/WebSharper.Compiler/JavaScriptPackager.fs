@@ -487,7 +487,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), []))
+                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), mgen))
                 | e ->
                     addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
             
@@ -649,7 +649,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             | M.Func (name, _) ->
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), []))
+                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, _, kind) ->
@@ -934,11 +934,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             Some (n, i)
                     )
                     |> List.ofSeq
+                let ext =
+                    match output with
+                    | O.JavaScript -> ".js"
+                    | _ -> ""
                 let fromModule =
                     if m.StartsWith (asmName + "/") then
-                        "./" + m[asmName.Length + 1 ..] + ".js"
+                        "./" + m[asmName.Length + 1 ..] + ext
                     else
-                        "../" + m + ".js"
+                        "../" + m + ext
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
         List.ofSeq (Seq.concat [ declarations; statements ])
