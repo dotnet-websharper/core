@@ -52,7 +52,7 @@ let ( ! ) (r: ref<'T>) = X<'T>
 [<Macro(typeof<M.Arith>)>]
 let ( % ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Inline "$a & $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 
 [<Macro(typeof<M.Arith>)>]
@@ -82,7 +82,7 @@ let ( << ) (f: 'T1 -> 'T2) (g: 'T3 -> 'T1) : 'T3 -> 'T2 =
     ()
     fun x -> f (g x)
 
-[<Inline "$a << $b">]
+[<Macro(typeof<M.Arith>)>]
 let inline ( <<< ) (a: 'T) (b: int) = X<'T>
 
 [<Inline>]
@@ -118,8 +118,8 @@ let ( >> ) (f: 'T1 -> 'T2) (g: 'T2 -> 'T3): 'T1->'T3 =
     ()
     fun x -> g (f x)
 
-[<Inline "$a >> $b">]
-let inline ( >>> ) (a: 'T) (b: int) : 'T = a >>> b
+[<Macro(typeof<M.Arith>)>]
+let inline ( >>> ) (a: 'T) (b: int) : 'T = X<'T>
 
 [<Inline>]
 let ( @ ) a b = List.append a b
@@ -127,7 +127,7 @@ let ( @ ) a b = List.append a b
 [<Inline "$a + $b">]
 let ( ^ ) (a: string) (b: string) : string = a + b
 
-[<Inline "$a ^ $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( ^^^ ) (a: 'T) (b: 'T) = X<'T>
 
 [<Inline>]
@@ -136,20 +136,20 @@ let ( |> ) (x: 'T1) (f: 'T1 -> 'T2) : 'T2 = f x
 [<Inline>]
 let ( ||> ) (x: 'T1, y: 'T2) (f: 'T1 -> 'T2 -> 'TR) : 'TR = f x y
 
-[<Inline "$a | $b">]
+[<Macro(typeof<M.Arith>)>]
 let ( ||| ) (a: 'T) (b: 'T) = X<'T>
 
 [<Inline>]
 let ( |||> ) (x: 'T1, y: 'T2, z: 'T3)
              (f: 'T1 -> 'T2 -> 'T3 -> 'TR) : 'TR = f x y z
 
-[<Inline "+ $x">]
+[<Macro(typeof<M.Arith>)>]
 let ( ~+ ) (x: 'T) = X<'T>
 
-[<Inline "- $x">]
+[<Macro(typeof<M.Arith>)>]
 let ( ~- ) (x: 'T) = X<'T>
 
-[<Inline "~ $x">]
+[<Macro(typeof<M.Arith>)>]
 let ( ~~~ ) (x: 'T) = X<'T>
 
 [<Macro(typeof<M.Abs>)>]

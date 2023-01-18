@@ -54,8 +54,31 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
-let traitCallOp (c: MacroCall) args =
+let traitCallOp (c: MacroCall) (args: Expression list) =
     match c.Method.Generics with
+    | [ t ] ->
+        if t.IsParameter then
+            MacroNeedsResolvedTypeArg t
+        else    
+            let ps =
+                match c.Method.Entity.Value.MethodName with
+                | "op_LeftShift" 
+                | "op_RightShift" -> [ t; NonGenericType Definitions.Int ]
+                | _ -> List.replicate args.Length t
+            TraitCall(
+                None,
+                [ t ], 
+                NonGeneric (
+                    Method {
+                        MethodName = c.Method.Entity.Value.MethodName
+                        Parameters = ps
+                        ReturnType = t
+                        Generics = 0
+                    }
+                ),
+                args
+            )
+            |> MacroOk
     | [t; u; v] ->
         if t.IsParameter then
             MacroNeedsResolvedTypeArg t
@@ -77,7 +100,7 @@ let traitCallOp (c: MacroCall) args =
             )
             |> MacroOk
     | _ ->
-        failwith "F# Operator value expecting 3 type arguments"
+        failwith "F# Operator value expecting 1 or 3 type arguments"
     
 let utilsModule =
     TypeDefinition {
@@ -109,38 +132,65 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
                 else traitCallOp c [a; b]
             else
                 if isIn scalarTypes t then
-                    Binary(a, op, y) |> MacroOk
+                    Binary(a, op, b) |> MacroOk
                 else traitCallOp c [a; b]
         match leftNble, rightNble, resm with
         | true , false, MacroOk res -> utils c.Compilation "nullableOpL" [ x; y; lambda res ] |> MacroOk
         | false, true , MacroOk res -> utils c.Compilation "nullableOpR" [ x; y; lambda res ] |> MacroOk
         | true , true , MacroOk res -> utils c.Compilation "nullableOp"  [ x; y; lambda res ] |> MacroOk
         | _    , _    , res         -> res
-    | _ -> MacroError "arithmetic macro error"
+    | _ -> MacroError "Arith macro: expecting 2 args"
 
 [<Sealed>]
 type Arith() =
     inherit Macro()
     override this.TranslateCall(c) =
         let opName = c.Method.Entity.Value.MethodName
-        let leftNble = opName.StartsWith "op_Qmark"
-        let rightNble = opName.EndsWith "Qmark"
-        let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
-        let op =
-            match simpleOpName with
-            | BinaryOpName op -> op
-            | "op_Plus" -> BinaryOperator.``+``
-            | "op_Minus" -> BinaryOperator.``-``
-            | "op_Divide" -> BinaryOperator.``/``
-            | "op_Percent" -> BinaryOperator.``%``
-            | n -> failwithf "unrecognized operator for Arith macro: %s" n
-        match c.Method.Generics with
-        | t1 :: t2 :: _ ->
-            if t1 = t2 then
-                translateOperation c t1 c.Arguments leftNble rightNble op
-            else
-                traitCallOp c c.Arguments
-        | _ -> MacroError "arithmetic macro error"
+        match c.Arguments with
+        | [ a ] ->
+            let op =
+                match opName with
+                | UnaryOpName op -> op
+                | n -> failwithf "Arith macro: unrecognized operator %s" n
+            match c.Method.Generics with
+            | t :: _ ->
+                if isIn scalarTypes t then
+                    Unary(op, a) |> MacroOk 
+                else traitCallOp c c.Arguments
+            | _ -> MacroError "Arith macro: expecting a type parameter"
+        | [ a; b ] ->
+            let leftNble = opName.StartsWith "op_Qmark"
+            let rightNble = opName.EndsWith "Qmark"
+            let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
+            let op =
+                match simpleOpName with
+                | BinaryOpName op -> op
+                | "op_Plus" -> BinaryOperator.``+``
+                | "op_Minus" -> BinaryOperator.``-``
+                | "op_Divide" -> BinaryOperator.``/``
+                | "op_Percent" -> BinaryOperator.``%``
+                | n -> failwithf "Arith macro: unrecognized operator %s" n
+            match c.Method.Generics with
+            | t1 :: t2 :: _ ->
+                if t1 = t2 then
+                    translateOperation c t1 c.Arguments leftNble rightNble op
+                else
+                    traitCallOp c c.Arguments
+            | t :: _ ->
+                let isEnum = 
+                    match t with
+                    | ConcreteType { Entity = td; Generics = [] } ->
+                        match c.Compilation.GetCustomTypeInfo td with
+                        | M.EnumInfo _ -> true
+                        | _ -> false
+                    | _ -> false
+                // enums have underlying types supporting bitwise operations
+                if isEnum || isIn scalarTypes t then
+                    Binary(a, op, b) |> MacroOk
+                else
+                    traitCallOp c c.Arguments
+            | _ -> MacroError "Arith macro: expecting a type parameters"
+        | _ -> MacroError "Arith macro: expecting one or two arguments"
 
 type Comparison =
     | ``<``  = 0
