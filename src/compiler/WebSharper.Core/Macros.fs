@@ -55,52 +55,40 @@ let isIn (s: string Set) (t: Type) =
         false
 
 let traitCallOp (c: MacroCall) (args: Expression list) =
-    match c.Method.Generics with
-    | [ t ] ->
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else    
-            let ps =
+    let unres =
+        c.Method.Generics |> List.tryPick (fun t -> if t.IsParameter then Some (MacroNeedsResolvedTypeArg t) else None)
+    match unres with
+    | Some u -> u 
+    | _ ->
+        let tc types pars ret =
+            TraitCall(
+                None,
+                types, 
+                NonGeneric (
+                    Method {
+                        MethodName = c.Method.Entity.Value.MethodName
+                        Parameters = pars
+                        ReturnType = ret 
+                        Generics = 0
+                    }
+                ),
+                args
+            )
+            |> MacroOk
+        match c.Method.Generics with
+        | [ t ] ->
+            let pars =
                 match c.Method.Entity.Value.MethodName with
                 | "op_LeftShift" 
                 | "op_RightShift" -> [ t; NonGenericType Definitions.Int ]
                 | _ -> List.replicate args.Length t
-            TraitCall(
-                None,
-                [ t ], 
-                NonGeneric (
-                    Method {
-                        MethodName = c.Method.Entity.Value.MethodName
-                        Parameters = ps
-                        ReturnType = t
-                        Generics = 0
-                    }
-                ),
-                args
-            )
-            |> MacroOk
-    | [t; u; v] ->
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        elif v.IsParameter then
-            MacroNeedsResolvedTypeArg v
-        else    
-            TraitCall(
-                None,
-                [ t; u ], 
-                NonGeneric (
-                    Method {
-                        MethodName = c.Method.Entity.Value.MethodName
-                        Parameters = [ t; u ]
-                        ReturnType = v
-                        Generics = 0
-                    }
-                ),
-                args
-            )
-            |> MacroOk
-    | _ ->
-        failwith "F# Operator value expecting 1 or 3 type arguments"
+            tc [ t ] pars t
+        | [ t; u ] -> // for **
+            tc [ t ] [ t; u ] t
+        | [t; u; v] ->
+            tc [ t; u ] [ t; u ] v
+        | _ ->
+            failwith "F# Operator value expecting 1 or 3 type arguments"
     
 let utilsModule =
     TypeDefinition {
@@ -741,11 +729,11 @@ type Conversion() =
         | f, t -> MacroError (sprintf "Conversion macro error: %O to %O" f t)
 
 [<Sealed>]
-type Abs() =
+type Op() =
     inherit Macro()
     override this.TranslateCall(c) =
         let m = c.Method
-        let x = c.Arguments.Head
+        let me = m.Entity.Value
         let t = m.Generics.Head
         if t.IsParameter then
             MacroNeedsResolvedTypeArg t
@@ -755,94 +743,16 @@ type Abs() =
                 if scalarTypes.Contains ct.Entity.Value.FullName then
                     MacroFallback
                 else
-                    let absMeth =
+                    let meth =
                         Method {
-                            MethodName = "Abs"
-                            Parameters = [t]
-                            ReturnType = t
+                            MethodName = me.MethodName
+                            Parameters = me.Parameters |> List.map (fun p -> p.SubstituteGenerics(Array.ofList m.Generics))
+                            ReturnType = me.ReturnType.SubstituteGenerics(Array.ofList m.Generics)
                             Generics = 0      
                         }
-                    Call(None, ct, NonGeneric absMeth, [x]) |> MacroOk
+                    TraitCall(None, [t], NonGeneric meth, c.Arguments) |> MacroOk
             | _ ->
-                MacroError (sprintf "Abs macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Pow() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let powMeth =
-                        Method {
-                            MethodName = "Pow"
-                            Parameters = m.Generics
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric powMeth, c.Arguments) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Pow macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Ceiling() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let ceilMeth =
-                        Method {
-                            MethodName = "Ceiling"
-                            Parameters = [t]
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric ceilMeth, [x]) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Ceiling macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Floor() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let floorMeth =
-                        Method {
-                            MethodName = "Floor"
-                            Parameters = [t]
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric floorMeth, [x]) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Floor macro error, type not supported: %O" t)
+                MacroError (sprintf "Op macro error on method %s, type not supported: %O" me.MethodName t)
 
 [<Sealed>]
 type Sign() =

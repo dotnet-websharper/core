@@ -168,6 +168,9 @@ type internal DecimalProxy =
     static member Multiply(n1 : decimal, n2 : decimal): decimal = DecimalProxy.mul WSDecimalMath.Multiply n1 n2
 
     [<Inline>]
+    static member Pow(n1 : decimal, n2 : decimal): decimal = DecimalProxy.bin WSDecimalMath.Pow n1 n2
+
+    [<Inline>]
     static member Parse(s : string) = WSDecimalMath.Bignumber(MathNumber(s)) |> As<decimal>
 
     [<Inline>]
@@ -220,6 +223,9 @@ type internal DecimalProxy =
 
     [<Inline>]
     static member op_Multiply(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Multiply (n1, n2)
+
+    [<Inline>]
+    static member op_Exponentiation(n1 : decimal, n2 : decimal): decimal = DecimalProxy.Pow (n1, n2)
 
     [<Inline>]
     static member op_Subtraction(n1 : decimal, n2 : decimal) = DecimalProxy.Subtract (n1,n2)

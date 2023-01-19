@@ -34,7 +34,7 @@ type CustomNumber(x: int) =
 
 
 [<Proxy(typeof<CustomNumber>)>]
-type CN =
+type internal CN =
     
     [<Inline "$x">]
     new (x: int) = {}
@@ -66,8 +66,14 @@ type IntWithAdd(x) =
     static member (|||) (x: IntWithAdd, y: IntWithAdd) =
        IntWithAdd((x.Value ||| y.Value) + 1)
 
+    static member (|?|) (x: IntWithAdd, y: IntWithAdd) =
+       IntWithAdd((x.Value ||| y.Value) + 2)
+
     static member (<<<) (x: IntWithAdd, y: int) =
        IntWithAdd((x.Value <<< y) + 1)
+
+    static member Sin (x: IntWithAdd) =
+       IntWithAdd(3) 
 
 [<JavaScript; Inline>]
 let inline ( ++ ) (a: ^x) (b: ^y) : ^a = ((^x or ^y): (static member Add: ^x * ^y -> ^a) (a, b))
@@ -271,11 +277,17 @@ let Tests =
             let u1 = IntWithAdd(5)
             let u2 = IntWithAdd(6)
             equal (u1 ||| u2).Value ((5 ||| 6) + 1)
+            equal (u1 |?| u2).Value ((5 ||| 6) + 2)
         }
 
         Test "custom shift op" {
             let u1 = IntWithAdd(5)
             equal (u1 <<< 1).Value ((5 <<< 1) + 1)
+        }
+
+        Test "custom trigonometric function" {
+            let u1 = IntWithAdd(5)
+            equal (sin u1).Value 3
         }
 
         Test "lock" {

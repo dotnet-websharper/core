@@ -58,8 +58,7 @@ let ( &&& ) (a: 'T1) (b: 'T1) = X<'T1>
 [<Macro(typeof<M.Arith>)>]
 let ( * ) (a: 'T1) (b: 'T2) = X<'T3>
 
-[<Macro(typeof<M.Pow>)>]
-[<Inline "Math.pow($a, $b)">]
+[<Macro(typeof<M.Arith>)>]
 let ( ** ) (a: 'T1) (b: 'T2) = X<'T1>
 
 [<Inline "Math.pow($a, $p)">]
@@ -152,26 +151,30 @@ let ( ~- ) (x: 'T) = X<'T>
 [<Macro(typeof<M.Arith>)>]
 let ( ~~~ ) (x: 'T) = X<'T>
 
-[<Macro(typeof<M.Abs>)>]
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.abs($x)">]
 let Abs (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.acos($x)">]
 let Acos (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.asin($x)">]
 let Asin (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.atan($x)">]
 let Atan (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.atan2($x, $y)">]
 let Atan2 (x: 'T1) (y: 'T1) = X<'T2>
 
 [<Inline "$x">]
 let Box (x: 'T) = X<obj>
 
-[<Macro(typeof<M.Ceiling>)>]
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.ceil($x)">]
 let Ceiling (x: 'T) = X<'T>
 
@@ -187,9 +190,11 @@ let ToSByte (x: 'T) = X<sbyte>
 [<Inline>]
 let Compare<'T> (a: 'T) (b: 'T) = Unchecked.compare a b
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.cos($x)">]
 let Cos (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "(Math.exp($x)+Math.exp(-$x))/2">]
 let Cosh<'T> (x: 'T) = X<'T>
 
@@ -217,6 +222,7 @@ let ToDecimal (x: 'T) = X<decimal>
 [<Macro(typeof<M.Conversion>)>]
 let ToDouble (x: 'T) = X<double>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.exp($x)">]
 let inline Exp (x: 'T) = X<'T>
 
@@ -225,7 +231,7 @@ let FailWith (msg: string) : 'T = raise (exn msg)
 [<Macro(typeof<M.Conversion>)>]
 let ToFloat (x: 'T) = X<float>
 
-[<Macro(typeof<M.Floor>)>]
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.floor($x)">]
 let Floor (x: 'T) = X<'T>
 
@@ -314,19 +320,6 @@ let NaN = nan
 [<Inline "!$x">]
 let Not (x: bool) = X<bool>
 
-let Pown<'T> (a: 'T) (n: int) =
-    let a = box a :?> double
-    let rec p n =
-        match n with
-        | 1 ->
-            a
-        | n when n % 2 = 0 ->
-            let b = p (n / 2)
-            b * b
-        | n ->
-            a * (p (n - 1))
-    p n
-
 [<Inline "throw $e">]
 let Raise (e: exn) = X<'T>
 
@@ -346,9 +339,11 @@ let Sign<'T> (x: 'T) =
     | n when n < 0 -> -1
     | _            -> 1
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.sin($x)">]
 let Sin (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "(Math.exp($x)-Math.exp(-$x))/2">]
 let Sinh (x: 'T) = x
 
@@ -361,9 +356,11 @@ let Sqrt (x: 'T1) = X<'T2>
 [<Macro(typeof<M.String>)>]
 let ToString (x: 'T) = X<string>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "Math.tan($x)">]
 let inline Tan (x: 'T) = X<'T>
 
+[<Macro(typeof<M.Op>)>]
 [<Inline "(Math.exp(2*$x)-1)/(Math.exp(2*$x)+1)">]
 let Tanh (x: 'T) = X<'T>
 

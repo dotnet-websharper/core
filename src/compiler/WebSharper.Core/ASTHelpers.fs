@@ -182,6 +182,7 @@ let (|BinaryOpName|_|) = function
     | "op_Subtraction" -> Some BinaryOperator.``-``
     | "op_Multiply" -> Some BinaryOperator.``*``
     | "op_Division" -> Some BinaryOperator.``/``
+    | "op_Exponentiation" -> Some BinaryOperator.``**``
     | "op_Modulus" -> Some BinaryOperator.``%``
     | "op_ExclusiveOr" -> Some BinaryOperator.``^``
     | "op_BitwiseAnd" -> Some BinaryOperator.``&``
