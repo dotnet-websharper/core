@@ -54,30 +54,41 @@ let isIn (s: string Set) (t: Type) =
     | _ ->
         false
 
-let traitCallOp (c: MacroCall) args =
-    match c.Method.Generics with
-    | [t; u; v] ->
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        elif v.IsParameter then
-            MacroNeedsResolvedTypeArg v
-        else    
+let traitCallOp (c: MacroCall) (args: Expression list) =
+    let unres =
+        c.Method.Generics |> List.tryPick (fun t -> if t.IsParameter then Some (MacroNeedsResolvedTypeArg t) else None)
+    match unres with
+    | Some u -> u 
+    | _ ->
+        let tc types pars ret =
             TraitCall(
                 None,
-                [ t; u ], 
+                types, 
                 NonGeneric (
                     Method {
                         MethodName = c.Method.Entity.Value.MethodName
-                        Parameters = [ t; u ]
-                        ReturnType = v
+                        Parameters = pars
+                        ReturnType = ret 
                         Generics = 0
                     }
                 ),
                 args
             )
             |> MacroOk
-    | _ ->
-        failwith "F# Operator value expecting 3 type arguments"
+        match c.Method.Generics with
+        | [ t ] ->
+            let pars =
+                match c.Method.Entity.Value.MethodName with
+                | "op_LeftShift" 
+                | "op_RightShift" -> [ t; NonGenericType Definitions.Int ]
+                | _ -> List.replicate args.Length t
+            tc [ t ] pars t
+        | [ t; u ] -> // for **
+            tc [ t ] [ t; u ] t
+        | [t; u; v] ->
+            tc [ t; u ] [ t; u ] v
+        | _ ->
+            failwith "F# Operator value expecting 1 or 3 type arguments"
     
 let utilsModule =
     TypeDefinition {
@@ -109,38 +120,65 @@ let translateOperation (c: MacroCall) (t: Type) args leftNble rightNble op =
                 else traitCallOp c [a; b]
             else
                 if isIn scalarTypes t then
-                    Binary(a, op, y) |> MacroOk
+                    Binary(a, op, b) |> MacroOk
                 else traitCallOp c [a; b]
         match leftNble, rightNble, resm with
         | true , false, MacroOk res -> utils c.Compilation "nullableOpL" [ x; y; lambda res ] |> MacroOk
         | false, true , MacroOk res -> utils c.Compilation "nullableOpR" [ x; y; lambda res ] |> MacroOk
         | true , true , MacroOk res -> utils c.Compilation "nullableOp"  [ x; y; lambda res ] |> MacroOk
         | _    , _    , res         -> res
-    | _ -> MacroError "arithmetic macro error"
+    | _ -> MacroError "Arith macro: expecting 2 args"
 
 [<Sealed>]
 type Arith() =
     inherit Macro()
     override this.TranslateCall(c) =
         let opName = c.Method.Entity.Value.MethodName
-        let leftNble = opName.StartsWith "op_Qmark"
-        let rightNble = opName.EndsWith "Qmark"
-        let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
-        let op =
-            match simpleOpName with
-            | BinaryOpName op -> op
-            | "op_Plus" -> BinaryOperator.``+``
-            | "op_Minus" -> BinaryOperator.``-``
-            | "op_Divide" -> BinaryOperator.``/``
-            | "op_Percent" -> BinaryOperator.``%``
-            | n -> failwithf "unrecognized operator for Arith macro: %s" n
-        match c.Method.Generics with
-        | t1 :: t2 :: _ ->
-            if t1 = t2 then
-                translateOperation c t1 c.Arguments leftNble rightNble op
-            else
-                traitCallOp c c.Arguments
-        | _ -> MacroError "arithmetic macro error"
+        match c.Arguments with
+        | [ a ] ->
+            let op =
+                match opName with
+                | UnaryOpName op -> op
+                | n -> failwithf "Arith macro: unrecognized operator %s" n
+            match c.Method.Generics with
+            | t :: _ ->
+                if isIn scalarTypes t then
+                    Unary(op, a) |> MacroOk 
+                else traitCallOp c c.Arguments
+            | _ -> MacroError "Arith macro: expecting a type parameter"
+        | [ a; b ] ->
+            let leftNble = opName.StartsWith "op_Qmark"
+            let rightNble = opName.EndsWith "Qmark"
+            let simpleOpName = if leftNble || rightNble then opName.Replace("Qmark", "") else opName
+            let op =
+                match simpleOpName with
+                | BinaryOpName op -> op
+                | "op_Plus" -> BinaryOperator.``+``
+                | "op_Minus" -> BinaryOperator.``-``
+                | "op_Divide" -> BinaryOperator.``/``
+                | "op_Percent" -> BinaryOperator.``%``
+                | n -> failwithf "Arith macro: unrecognized operator %s" n
+            match c.Method.Generics with
+            | t1 :: t2 :: _ ->
+                if t1 = t2 then
+                    translateOperation c t1 c.Arguments leftNble rightNble op
+                else
+                    traitCallOp c c.Arguments
+            | t :: _ ->
+                let isEnum = 
+                    match t with
+                    | ConcreteType { Entity = td; Generics = [] } ->
+                        match c.Compilation.GetCustomTypeInfo td with
+                        | M.EnumInfo _ -> true
+                        | _ -> false
+                    | _ -> false
+                // enums have underlying types supporting bitwise operations
+                if isEnum || isIn scalarTypes t then
+                    Binary(a, op, b) |> MacroOk
+                else
+                    traitCallOp c c.Arguments
+            | _ -> MacroError "Arith macro: expecting a type parameters"
+        | _ -> MacroError "Arith macro: expecting one or two arguments"
 
 type Comparison =
     | ``<``  = 0
@@ -209,59 +247,115 @@ let toComparison = function
     | BinaryOperator.``!=`` -> Comparison.``<>``
     | _ -> failwith "Operation wasn't a comparison"
 
-let translateComparison (c: M.ICompilation) t args leftNble rightNble cmp =
+let defMethods =
+    function
+    | Comparison.``<`` -> "op_LessThan"
+    | Comparison.``>`` -> "op_GreaterThan"
+    | Comparison.``<=`` -> "op_LessThanOrEqual"
+    | Comparison.``>=`` -> "op_GreaterThanOrEqual"
+    | Comparison.``=`` -> "op_Equality"
+    | Comparison.``<>`` -> "op_Inequality"
+    | _ -> failwith "Unexpected comparison operator"
+
+let additionalMethods =
+    function
+    | Comparison.``<`` -> "op_Less"
+    | Comparison.``>`` -> "op_Greater"
+    | Comparison.``<=`` -> "op_LessEquals"
+    | Comparison.``>=`` -> "op_GreaterEquals"
+    | Comparison.``=`` -> "op_Equals"
+    | Comparison.``<>`` -> "op_LessGreater"
+    | _ -> failwith "Unexpected comparison operator"
+
+let tryFindMethodFromComparison (cI: Metadata.IClassInfo option) (t: Type) (cmp: Comparison) =
+    let methodInfoFromStr str =
+        let mi =
+            {
+                MethodName = str
+                Parameters = [t;t]
+                ReturnType =
+                    {
+                        Generics = []
+                        Entity = AST.Definitions.Bool 
+                    } |> Type.ConcreteType
+                Generics = 0
+            } : MethodInfo
+        Hashed mi
+    match cI with
+    | Some cI ->
+        let defMethod = defMethods cmp |> methodInfoFromStr
+        match cI.Methods.TryGetValue(defMethod) with
+        | true, mem -> Some defMethod
+        | false, _ ->
+            let additionalMethod = additionalMethods cmp |> methodInfoFromStr
+            match cI.Methods.TryGetValue(additionalMethod) with
+            | true, mem -> Some additionalMethod
+            | false, _ -> None
+    | _ -> None
+
+let translateComparison (c: M.ICompilation) (t: Type) args leftNble rightNble cmp =
+    let classInfo =
+        match t with
+        | Type.ConcreteType tdef ->
+            c.GetClassInfo t.TypeDefinition
+        | _ -> None
+    let compiledMember = tryFindMethodFromComparison classInfo t cmp
     match args with
     | [x; y] ->
-        let a, b, lambda =
-            if leftNble || rightNble then
-                let a = Id.New "a"
-                let b = Id.New "b"
-                Var a, Var b, fun res -> CurriedLambda([a; b], None, res)
-            else
-                x, y, id
-        let comp x y =
-            Binary (x, toBinaryOperator cmp, y)
-        let cti = 
-            match t with
-            | Type.ConcreteType ct -> c.GetCustomTypeInfo ct.Entity
-            | _ -> M.NotCustomType
-        let t =
-            match cti with
-            | M.EnumInfo u -> NonGenericType u            
-            | _ -> t
-        let res =
-            if isIn comparableTypes t then
-                comp a b
-            else
-                // optimization for checking against argumentless union cases 
-                let tryGetSingletonUnionCaseTag (x: Expression) =
-                    match x with
-                    | I.NewUnionCase(_, case, []) ->
-                        match cti with
-                        | M.FSharpUnionInfo ui when not ui.HasNull ->
-                            ui.Cases |> Seq.mapi (fun i c ->
-                                if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
-                            ) |> Seq.tryPick id         
+        match compiledMember with
+        | None -> 
+            let a, b, lambda =
+                if leftNble || rightNble then
+                    let a = Id.New "a"
+                    let b = Id.New "b"
+                    Var a, Var b, fun res -> CurriedLambda([a; b], None, res)
+                else
+                    x, y, id
+            let comp x y =
+                Binary (x, toBinaryOperator cmp, y)
+            let cti = 
+                match t with
+                | Type.ConcreteType ct -> c.GetCustomTypeInfo ct.Entity
+                | _ -> M.NotCustomType
+            let t =
+                match cti with
+                | M.EnumInfo u -> NonGenericType u            
+                | _ -> t
+            let res =
+                if isIn comparableTypes t then
+                    comp a b
+                else
+                    // optimization for checking against argumentless union cases 
+                    let tryGetSingletonUnionCaseTag (x: Expression) =
+                        match x with
+                        | I.NewUnionCase(_, case, []) ->
+                            match cti with
+                            | M.FSharpUnionInfo ui when not ui.HasNull ->
+                                ui.Cases |> Seq.mapi (fun i c ->
+                                    if c.Name = case && c.Kind = M.SingletonFSharpUnionCase then Some i else None
+                                ) |> Seq.tryPick id         
+                            | _ -> None
                         | _ -> None
-                    | _ -> None
                     
-                match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
-                | Some i, Some j -> comp (cInt i) (cInt j)
-                | Some i, _ -> comp (cInt i) (y.[cString "$"])
-                | _, Some j -> comp (x.[cString "$"]) (cInt j)
-                | _ -> makeComparison cmp t a b
-        match leftNble, rightNble with
-        | false, false -> res
-        | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
-        | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
-        | true , true  -> 
-            match cmp with
-            | Comparison.``<=`` 
-            | Comparison.``>=`` 
-            | Comparison.``=`` 
-                -> utils c "nullableCmpE" [ x; y; lambda res ]
-            | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
-        |> MacroOk
+                    match tryGetSingletonUnionCaseTag x, tryGetSingletonUnionCaseTag y with
+                    | Some i, Some j -> comp (cInt i) (cInt j)
+                    | Some i, _ -> comp (cInt i) (y.[cString "$"])
+                    | _, Some j -> comp (x.[cString "$"]) (cInt j)
+                    | _ -> makeComparison cmp t a b
+            match leftNble, rightNble with
+            | false, false -> res
+            | true , false -> utils c "nullableCmpL" [ x; y; lambda res ]
+            | false, true  -> utils c "nullableCmpR" [ x; y; lambda res ]
+            | true , true  -> 
+                match cmp with
+                | Comparison.``<=`` 
+                | Comparison.``>=`` 
+                | Comparison.``=`` 
+                    -> utils c "nullableCmpE" [ x; y; lambda res ]
+                | _ -> utils c "nullableCmp"  [ x; y; lambda res ] 
+            |> MacroOk
+        | Some method ->
+            Call(None, t.TypeDefinition |> NonGeneric, method |> NonGeneric, [x; y]) |> MacroOk
     | _ ->
         MacroError "comparisonMacro error"
 
@@ -633,11 +727,11 @@ type Conversion() =
         | f, t -> MacroError (sprintf "Conversion macro error: %O to %O" f t)
 
 [<Sealed>]
-type Abs() =
+type Op() =
     inherit Macro()
     override this.TranslateCall(c) =
         let m = c.Method
-        let x = c.Arguments.Head
+        let me = m.Entity.Value
         let t = m.Generics.Head
         if t.IsParameter then
             MacroNeedsResolvedTypeArg t
@@ -647,94 +741,16 @@ type Abs() =
                 if scalarTypes.Contains ct.Entity.Value.FullName then
                     MacroFallback
                 else
-                    let absMeth =
+                    let meth =
                         Method {
-                            MethodName = "Abs"
-                            Parameters = [t]
-                            ReturnType = t
+                            MethodName = me.MethodName
+                            Parameters = me.Parameters |> List.map (fun p -> p.SubstituteGenerics(Array.ofList m.Generics))
+                            ReturnType = me.ReturnType.SubstituteGenerics(Array.ofList m.Generics)
                             Generics = 0      
                         }
-                    Call(None, ct, NonGeneric absMeth, [x]) |> MacroOk
+                    TraitCall(None, [t], NonGeneric meth, c.Arguments) |> MacroOk
             | _ ->
-                MacroError (sprintf "Abs macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Pow() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let powMeth =
-                        Method {
-                            MethodName = "Pow"
-                            Parameters = m.Generics
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric powMeth, c.Arguments) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Pow macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Ceiling() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let ceilMeth =
-                        Method {
-                            MethodName = "Ceiling"
-                            Parameters = [t]
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric ceilMeth, [x]) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Ceiling macro error, type not supported: %O" t)
-
-[<Sealed>]
-type Floor() =
-    inherit Macro()
-    override this.TranslateCall(c) =
-        let m = c.Method
-        let x = c.Arguments.Head
-        let t = m.Generics.Head
-        if t.IsParameter then
-            MacroNeedsResolvedTypeArg t
-        else
-            match t with
-            | ConcreteType ct ->
-                if scalarTypes.Contains ct.Entity.Value.FullName then
-                    MacroFallback
-                else
-                    let floorMeth =
-                        Method {
-                            MethodName = "Floor"
-                            Parameters = [t]
-                            ReturnType = t
-                            Generics = 0      
-                        }
-                    Call(None, ct, NonGeneric floorMeth, [x]) |> MacroOk
-            | _ ->
-                MacroError (sprintf "Floor macro error, type not supported: %O" t)
+                MacroError (sprintf "Op macro error on method %s, type not supported: %O" me.MethodName t)
 
 [<Sealed>]
 type Sign() =

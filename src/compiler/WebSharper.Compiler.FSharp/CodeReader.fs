@@ -514,12 +514,12 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
             Generics   = x.MethodGenericParameters.Count
         } 
 
-    member this.ReadMember (x : FSharpMemberOrFunctionOrValue) : Member =
+    member this.ReadMember (x : FSharpMemberOrFunctionOrValue, ?cls: FSharpEntity) : Member =
         let name = x.CompiledName
 
         if name = ".cctor" then Member.StaticConstructor else
 
-        let declEnt = getDeclaringEntity x
+        let declEnt = cls |> Option.defaultWith (fun () -> getDeclaringEntity x)
 
         let tparams = 
             Seq.append declEnt.GenericParameters x.GenericParameters
@@ -567,7 +567,7 @@ type SymbolReader(comp : WebSharper.Compiler.Compilation) as self =
                         MethodName = name
                         Parameters = getPars()
                         ReturnType = this.ReadType tparams x.ReturnParameter.Type
-                        Generics   = tparams.Count - (getDeclaringEntity x).GenericParameters.Count
+                        Generics   = tparams.Count - declEnt.GenericParameters.Count
                     } 
                 )
         |> comp.ResolveProxySignature
@@ -610,8 +610,10 @@ type Environment =
         Exception : option<Id>
         Compilation : Compilation
         SymbolReader : SymbolReader
+        RecMembers : Dictionary<FSharpMemberOrFunctionOrValue, Id * FSharpExpr>
+        mutable RecMemberUsed : option<Id * FSharpExpr>
     }
-    static member New(vars, isCtor, tparams, comp, sr) = 
+    static member New(vars, isCtor, tparams, comp, sr, rm) = 
 //        let tparams = Array.ofSeq tparams
 //        if tparams |> Array.distinct |> Array.length <> tparams.Length then
 //            failwithf "Repeating type parameter names: %A" tparams
@@ -626,6 +628,8 @@ type Environment =
             Exception = None
             Compilation = comp
             SymbolReader = sr 
+            RecMembers = rm
+            RecMemberUsed = None
         }
 
     member this.WithVar(i: Id, v: FSharpMemberOrFunctionOrValue, ?k) =
@@ -647,10 +651,15 @@ type Environment =
             match this.FreeVars |> Seq.tryPick isMatch with
             | Some var -> var
             | None ->
-            let id = namedId (Some this) false v
-            let kind = VarKind.FuncArg
-            this.FreeVars.Add((v, id, kind))
-            id, kind
+                match this.RecMembers.TryGetValue v with
+                | true, ((id, _) as rm) -> 
+                    this.RecMemberUsed <- Some rm
+                    id, VarKind.LocalVar
+                | _ ->
+                    let id = namedId (Some this) false v
+                    let kind = VarKind.FuncArg
+                    this.FreeVars.Add((v, id, kind))
+                    id, kind
 
     member this.ThisVar =
         match this.This with

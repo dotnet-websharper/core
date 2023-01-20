@@ -103,6 +103,9 @@ type private BigIntegerProxy =
     static member op_LessThanOrEqual(n1 : bigint, n2 : bigint) = X<bool>
 
     [<Inline "$n1 ** BigInt($n2)"; Pure>]
+    static member op_Exponentiation(n1 : bigint, n2 : int) = X<bigint>
+
+    [<Inline "$n1 ** BigInt($n2)"; Pure>]
     static member Pow(n1 : bigint, n2 : int) = X<bigint>
 
 [<Proxy

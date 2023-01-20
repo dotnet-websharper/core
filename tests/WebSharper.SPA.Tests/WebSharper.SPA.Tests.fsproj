@@ -11,6 +11,7 @@
     <Compile Include="File1.fs" />
     <Compile Include="File2.fs" />
     <Compile Include="Main.fs" />
+    <Content Include="index.html" />
     <Content Include="Web.config" />
     <None Include="paket.references" />
     <None Include="wsconfig.json" />

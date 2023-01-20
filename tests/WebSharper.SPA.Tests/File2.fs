@@ -33,3 +33,16 @@ type IncludedFromAssemblyLevel2() =
 [<JavaScriptExport>]
 let testThatThisIsIncluded2 () =
     Console.Log "Hello from JavaScriptExportTest2"
+
+// tests/WebSharper.SPA.Tests/Content/WebSharper.SPA.Tests/WebSharper.SPA.Tests.worker.js must be small
+let myWorker() = 
+    new Worker(fun self ->
+        Console.Log "This was written from the worker!"
+        self.PostMessage("This worker's job is done, it can be terminated.")
+    )
+
+let myWorkerWithJSExports() = 
+    new Worker("myWorkerWithJSExports", true, fun self ->
+        Console.Log "This was written from the worker!"
+        self.PostMessage("This worker's job is done, it can be terminated.")
+    )

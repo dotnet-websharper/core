@@ -59,23 +59,8 @@ type Conversion =
     inherit Macro
 
 [<Sealed>]
-type Abs =
-    new : unit -> Abs
-    inherit Macro
-
-[<Sealed>]
-type Pow =
-    new : unit -> Pow
-    inherit Macro
-
-[<Sealed>]
-type Ceiling =
-    new : unit -> Ceiling
-    inherit Macro
-
-[<Sealed>]
-type Floor =
-    new : unit -> Floor
+type Op =
+    new : unit -> Op
     inherit Macro
 
 [<Sealed>]

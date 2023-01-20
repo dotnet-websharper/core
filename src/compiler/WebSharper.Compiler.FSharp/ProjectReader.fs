@@ -37,7 +37,7 @@ module QR = WebSharper.Compiler.QuotationReader
 type FSIFD = FSharpImplementationFileDeclaration
 type FSMFV = FSharpMemberOrFunctionOrValue
 
-type private StartupCode = ResizeArray<Statement> * Dictionary<string, Type> 
+type private StartupCode = ResizeArray<Statement> * ResizeArray<Statement> * Dictionary<string, Type> 
 
 type private N = NotResolvedMemberKind
 
@@ -173,15 +173,15 @@ let isAbstractClass (e: FSharpEntity) =
         a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
     )
 
-let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) a =
+let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) recMembers a =
     if annot.IsJavaScript then
-        let _, (statements, _) = sc.Value
+        let _, (_, statements, _) = sc.Value
         let env = CodeReader.Environment.New ([], false, [], comp, sr)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -329,7 +329,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let annotations = Dictionary ()
         
     let rec getAnnot x : A.MemberAnnotation =
-        let mem = sr.ReadMember x
+        let mem = sr.ReadMember(x, cls)
         match annotations.TryFind mem with
         | Some a -> a
         | _ -> 
@@ -353,7 +353,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         match mAnnot.Kind with
         | Some A.MemberKind.Stub ->
             hasStubMember <- true
-            let memdef = sr.ReadMember meth
+            let memdef = sr.ReadMember(meth, cls)
             match memdef with
             | Member.Method (isInstance, mdef) ->
                 let expr, err = Stubs.GetMethodInline annot mAnnot (cls.IsFSharpModule && not meth.IsValCompiledAsMethod) isInstance def mdef
@@ -408,7 +408,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         members |> Seq.choose (fun m ->
             match m with 
             | SourceMember (mem, _, _) ->
-                let memdef = sr.ReadMember mem
+                let memdef = sr.ReadMember(mem, cls)
                 match memdef with
                 | Member.Method (_, meth) -> 
                     let mAnnot = getAnnot mem    
@@ -493,7 +493,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Some (A.MemberKind.Remote _) -> ()
             | Some kind ->
                 hasNonStubMember <- true
-                let memdef = sr.ReadMember meth
+                let memdef = sr.ReadMember(meth, cls)
 
                 if stubs.Contains memdef then () else
                 let kind =
@@ -583,9 +583,23 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | Member.Constructor _ -> true
                             | _ -> false
 
-                        let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr)  
+                        let env = CodeReader.Environment.New (argsAndVars, isCtor, tparams, comp, sr, recMembers)  
                         let res =
                             let b = CodeReader.transformExpression env expr 
+                            match env.RecMemberUsed with
+                            | Some (i, expr) ->
+                                let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                let b = CodeReader.transformExpression env expr 
+                                let bWithFunc =
+                                    match env.RecMemberUsed with
+                                    | Some (i, expr) ->
+                                        let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                        let fb = CodeReader.transformExpression env expr 
+                                        SubstituteVar(i, Lambda ([], fb)).TransformExpression(b)
+                                    | _ -> b
+                                let _, (recContent, _, _) = sc.Value
+                                recContent.Add (VarDeclaration (i, bWithFunc)) 
+                            | _ -> ()
                             let b = 
                                 match memdef with
                                 | Member.Constructor _ when meth.CompiledName <> "CtorProxy" -> 
@@ -603,14 +617,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                                 | _ -> b
                             if List.isEmpty args && meth.IsModuleValueOrMember then 
                                 if isModulePattern then
-                                    let scDef, (scContent, scFields) = sc.Value   
+                                    let scDef, (_, scContent, scFields) = sc.Value   
                                     let var = Id.New(mut = false)
                                     scContent.Add (VarDeclaration (var, TailCalls.optimize None inlinesOfClass b))
                                     Var var
                                 elif isInline then
                                     b
                                 else
-                                    let scDef, (scContent, scFields) = sc.Value   
+                                    let scDef, (_, scContent, scFields) = sc.Value   
                                     let mtyp =
                                         match memdef with
                                         | Member.Method (_, mdef) -> mdef.Value.ReturnType
@@ -842,7 +856,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     clsMembers.Add (NotResolvedMember.StaticConstructor body)
             | None ->
                 if isProxy then
-                    let memdef = sr.ReadMember meth
+                    let memdef = sr.ReadMember(meth, cls)
                     match memdef with
                     | Member.Implementation (t, mdef) ->    
                         addMethod (Some (meth, memdef)) mAnnot mdef (N.MissingImplementation t) true None Undefined
@@ -854,22 +868,22 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 |> Seq.choose (fun (i, x) -> if x then Some i else None)
                 |> Array.ofSeq
             if not (Array.isEmpty jsArgs) then
-                match sr.ReadMember meth with
+                match sr.ReadMember(meth, cls) with
                 | Member.Method (_, mdef) -> comp.AddQuotedArgMethod(thisDef, mdef, jsArgs)
                 | Member.Constructor cdef -> comp.AddQuotedConstArgMethod(thisDef, cdef, jsArgs)
                 | _ -> error "JavaScript attribute on parameter is only allowed on methods and constructors"
             let tparams = meth.GenericParameters |> Seq.map (fun p -> p.Name) |> List.ofSeq 
-            let env = CodeReader.Environment.New ([], false, tparams, comp, sr)
+            let env = CodeReader.Environment.New ([], false, tparams, comp, sr, recMembers)
             CodeReader.scanExpression env meth.LogicalName expr
             |> Seq.iter (fun (pos, mdef, argNames, e) ->
                 addMethod None A.MemberAnnotation.BasicJavaScript mdef (N.Quotation(pos, argNames)) false None e 
             )
         | SourceEntity (ent, nmembers) ->
-            transformClass sc comp ac sr classAnnots isInterface ent nmembers |> Option.iter comp.AddClass   
+            transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
         | InitAction expr ->
-            transformInitAction sc comp sr annot expr    
+            transformInitAction sc comp sr annot recMembers expr    
 
     if isInterfaceProxy then
         let methods = 
@@ -1302,7 +1316,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.MembersFunctionsAndValues
             |> Seq.tryFind (fun m -> 
-                match sr.ReadMember m with
+                match sr.ReadMember(m, e) with
                 | Member.Method (_, m)
                 | Member.Override (_, m)
                 | Member.Implementation (_, m) when m = meth -> true
@@ -1342,7 +1356,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         lookupTypeDefinition typ |> Option.bind (fun e -> 
             e.MembersFunctionsAndValues
             |> Seq.tryFind (fun m -> 
-                match sr.ReadMember m with
+                match sr.ReadMember(m, e) with
                 | Member.Constructor c when c = ctor -> true
                 | _ -> false
             ) 
@@ -1476,11 +1490,12 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     FullName = name
                 }
             def, 
-            (ResizeArray(), Dictionary() : StartupCode)
+            (ResizeArray(), ResizeArray(), HashSet() : StartupCode)
 
         let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
         let types = Dictionary<FSharpEntity, ResizeArray<SourceMemberOrEntity>>()
+        let recMembers = Dictionary<FSMFV, Id * FSharpExpr>()
         let rec getTypesWithMembers (parentMembers: ResizeArray<_>) d =
             match d with
             | FSIFD.Entity (a, b) ->
@@ -1498,7 +1513,13 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     else
                         b |> List.iter (getTypesWithMembers parentMembers)
             | FSIFD.MemberOrFunctionOrValue (a, b, c) -> 
-                types.[CodeReader.getDeclaringEntity a].Add(SourceMember(a, b, c))
+                let m = SourceMember(a, b, c)
+                match a.DeclaringEntity with
+                | Some e ->
+                    types[e].Add(m)
+                | _ ->                            
+                    let i = Id.New(a.LogicalName)
+                    recMembers.Add(a, (i, c))
             | FSIFD.InitAction a ->
                 parentMembers.Add (InitAction a)
 
@@ -1523,14 +1544,14 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
             | SourceMember _ -> failwith "impossible: top level member"
             | InitAction _ -> failwith "impossible: top level init action"
             | SourceEntity (c, m) ->
-                transformClass sc comp argCurrying sr classAnnotations isInterface c m |> Option.iter comp.AddClass
+                transformClass sc comp argCurrying sr classAnnotations isInterface recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 
-            let statements, fields = sc            
-            let cctor = Block (List.ofSeq statements)
+            let recDecls, statements, fields = sc       
+            let cctor = Block (List.ofSeq (Seq.append recDecls statements))
             let members =
                 [
                     for KeyValue(f, t) in fields -> 

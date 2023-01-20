@@ -39,30 +39,44 @@ let Tests =
             equal (Math.Abs -2L)  2L
             equal (Math.Abs -4.f) 4.f
             equal (Math.Abs -6.)  6.
+            equal (abs -1y)  1y
+            equal (abs -5s)  5s
+            equal (abs -3)   3
+            equal (abs -2L)  2L
+            equal (abs -4.f) 4.f
+            equal (abs -6.)  6.
             propertyWith R.Natural (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
+                equal (abs x) x
+                equal (abs -x) x
             })
             propertyWith positiveFloat (fun x -> Do {
                 equal (Math.Abs x) x
                 equal (Math.Abs -x) x
+                equal (abs x) x
+                equal (abs -x) x
             })
         }
 
         Test "Math.Acos" {
             approxEqual (Math.Acos 0.44) 1.115197653
+            approxEqual (acos 0.44) 1.115197653
         }
 
         Test "Math.Asin" {
             approxEqual (Math.Asin 0.44) 0.4555986734
+            approxEqual (asin 0.44) 0.4555986734
         }
 
         Test "Math.Atan" {
             approxEqual (Math.Atan 1.25) 0.8960553846
+            approxEqual (atan 1.25) 0.8960553846
         }
 
         Test "Math.Atan2" {
             approxEqual (Math.Atan2 (1.25, 2.4)) 0.4801750296
+            approxEqual (atan2 1.25 2.4) 0.4801750296
         }
 
         Test "Math.BigMul" {
@@ -72,14 +86,18 @@ let Tests =
         Test "Math.Ceiling" {
             equal (Math.Ceiling 1.01) 2.
             equal (Math.Ceiling 1.)   1.
+            equal (ceil 1.01) 2.
+            equal (ceil 1.)   1.
         }
 
         Property "Math.Cos" (fun x -> Do {
             approxEqual (Math.Cos x) (Math.Cos (x + 2. * Math.PI))
+            approxEqual (cos x) (cos (x + 2. * Math.PI))
         })
 
         Property "Math.Cosh" (fun x -> Do {
             approxEqual (Math.Cosh x) (1. / 2. * (Math.Exp x + Math.Exp -x))
+            approxEqual (cosh x) (1. / 2. * (exp x + exp -x))
         })
 
         Test "Math.E" {
@@ -89,15 +107,19 @@ let Tests =
         Test "Math.Floor" {
             equal (Math.Floor 1.0)  1.0
             equal (Math.Floor 1.9)  1.0
+            equal (floor 1.0)  1.0
+            equal (floor 1.9)  1.0
         }
 
         PropertyWith "Math.Exp" positiveFloat (fun x -> Do {
             approxEqual (Math.Log (Math.Exp x)) x
+            approxEqual (log (exp x)) x
         })
 
         Test "Math.Log" {
             approxEqual (Math.Log 10.)      2.302585
             approxEqual (Math.Log(10., 9.)) 1.047952
+            approxEqual (log 10.)      2.302585
             propertyWith positiveFloat (fun x -> Do {
                 approxEqual (Math.E ** Math.Log x) x
             })
@@ -110,6 +132,7 @@ let Tests =
 
         Test "Math.Log10" {
             approxEqual (Math.Log10 10.) 1.0
+            approxEqual (log10 10.) 1.0
             propertyWith positiveFloat (fun x -> Do {
                 approxEqual (10. ** Math.Log10 x) x
             })
@@ -171,6 +194,7 @@ let Tests =
 
         Test "Math.Pow" {
             approxEqual (Math.Pow(2.8, 1.4)) 4.2269
+            approxEqual (2.8 ** 1.4) 4.2269
             propertyWith (R.Tuple2Of (positiveFloat, R.Float)) (fun (x, y) -> Do {
                 approxEqual (Math.Pow(x, y)) (x ** y)
             })
@@ -178,6 +202,7 @@ let Tests =
 
         Test "Math.Round" {
             equal (Math.Round 1.5) 2.
+            equal (round 1.5) 2.
             property (fun (x: float) -> Do {
                 equal (Math.Round x) (Math.Floor (x + 0.5))
             })
@@ -204,14 +229,17 @@ let Tests =
 
         Test "Math.Sin" {
             approxEqual (Math.Sin 1.25) 0.9489846194
+            approxEqual (sin 1.25) 0.9489846194
         }
 
         Test "Math.Sinh" {
             approxEqual (Math.Sinh 1.25) 1.60191908
+            approxEqual (sinh 1.25) 1.60191908
         }
 
         Test "Math.Sqrt" {
             approxEqual (Math.Sqrt 145.) 12.0416
+            approxEqual (sqrt 145.) 12.0416
             propertyWith positiveFloat (fun x -> Do {
                 approxEqual (Math.Sqrt x ** 2.) x
             })
@@ -219,10 +247,12 @@ let Tests =
 
         Test "Math.Tan" {
             approxEqual (Math.Tan 1.25) 3.009569674
+            approxEqual (tan 1.25) 3.009569674
         }
 
         Test "Math.Tanh" {
             approxEqual (Math.Tanh 1.25) 0.84828364
+            approxEqual (tanh 1.25) 0.84828364
         }
 
     }

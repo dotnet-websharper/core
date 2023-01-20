@@ -299,7 +299,7 @@ module Bundling =
             MinJsMap = minifiedMapping
         }
 
-    let private getDeps (jsExport: JsExport list) extraNodes (graph: Graph) =
+    let private getDeps (jsExport: JsExport list) entryPointNode (graph: Graph) =
         let jsExportNames =
             jsExport |> List.choose (function 
                 | ExportByName n -> Some n
@@ -307,7 +307,7 @@ module Bundling =
             )
         let nodes =
             seq {
-                yield M.EntryPointNode 
+                yield entryPointNode
                 match jsExportNames with
                 | [] -> ()
                 | _ ->
@@ -334,7 +334,6 @@ module Bundling =
                             | _ -> false
                         )
                         |> Seq.last
-                yield! extraNodes
             }
             |> graph.GetDependencies
         nodes
@@ -379,7 +378,7 @@ module Bundling =
                     Config = config
                     RefMetas = refMetas
                     CurrentMeta = currentMeta
-                    GetAllDeps = getDeps jsExports [bundle.Node]
+                    GetAllDeps = getDeps jsExports bundle.Node
                     EntryPoint = Some bundle.EntryPoint
                     EntryPointStyle = JavaScriptPackager.EntryPointStyle.ForceImmediate
                     CurrentJs = lazy None
@@ -471,7 +470,7 @@ module Bundling =
             Config = config
             RefMetas = refMetas
             CurrentMeta = currentMeta
-            GetAllDeps = getDeps comp.JavaScriptExports []
+            GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
             EntryPoint = comp.EntryPoint
             EntryPointStyle = entryPointStyle
             CurrentJs = currentJS
