@@ -176,7 +176,7 @@ let isAbstractClass (e: FSharpEntity) =
 let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) (sr: CodeReader.SymbolReader) (annot: A.TypeAnnotation) recMembers a =
     if annot.IsJavaScript then
         let _, (_, statements, _) = sc.Value
-        let env = CodeReader.Environment.New ([], false, [], comp, sr)  
+        let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
         statements.Add (CodeReader.transformExpression env a |> ExprStatement)   
 
 let private nrInline = N.Inline false
@@ -588,14 +588,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             let b = CodeReader.transformExpression env expr 
                             match env.RecMemberUsed with
                             | Some (i, expr) ->
-                                let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
                                 let b = CodeReader.transformExpression env expr 
                                 let bWithFunc =
                                     match env.RecMemberUsed with
                                     | Some (i, expr) ->
-                                        let env = CodeReader.Environment.New ([], [], comp, sr, recMembers)  
+                                        let env = CodeReader.Environment.New ([], false, [], comp, sr, recMembers)  
                                         let fb = CodeReader.transformExpression env expr 
-                                        SubstituteVar(i, Lambda ([], fb)).TransformExpression(b)
+                                        SubstituteVar(i, Lambda ([], None, fb)).TransformExpression(b)
                                     | _ -> b
                                 let _, (recContent, _, _) = sc.Value
                                 recContent.Add (VarDeclaration (i, bWithFunc)) 
@@ -1490,7 +1490,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                     FullName = name
                 }
             def, 
-            (ResizeArray(), ResizeArray(), HashSet() : StartupCode)
+            (ResizeArray(), ResizeArray(), Dictionary() : StartupCode)
 
         let rootTypeAnnot = rootTypeAnnot |> annotForTypeOrFile (System.IO.Path.GetFileName filePath)
         let topLevelTypes = ResizeArray<SourceMemberOrEntity>()
