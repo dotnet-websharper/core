@@ -577,7 +577,7 @@ and Statement canBeEmpty statement =
     | S.ImportAlias (i, e) ->
         Word "import" ++ Id i ++ Token "=" ++ Expression e
     | S.TypeAlias (i, e) ->
-        Word "type" ++ Id i ++ Token "=" ++ Expression e
+        Word "type" ++ Id i ++ Token " = " ++ Expression e
     | S.Declare s ->
         Word "declare" ++ Statement false s
     | S.DeclareGlobal s ->

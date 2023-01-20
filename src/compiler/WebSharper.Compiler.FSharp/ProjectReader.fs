@@ -1001,7 +1001,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             ReturnType = ConcreteType thisType
                             Generics = cls.GenericParameters.Count       
                         }
-                    let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false)) 
+                    let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false, typ = f.UnionFieldType)) 
                     let obj =
                         Object (
                             ("$", MemberKind.Simple, Value (Int index)) ::

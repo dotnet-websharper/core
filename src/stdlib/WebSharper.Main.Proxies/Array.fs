@@ -106,6 +106,7 @@ module ArrayProxy =
         sortInternal keys index length comp swap
 
 [<Proxy(typeof<System.Array>)>]
+[<Type "Array">]
 type private ArrayProxy =
 
     [<Inline>]

@@ -265,8 +265,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
-        | JavaScriptModule m when m = currentModuleName -> TSType.Named t
+        | JavaScriptModule m when m = currentModuleName -> TSType.Named [ className ]
         | JavaScriptModule _ ->
+            let a = if a.Address.Value.IsEmpty then { a with Address = Hashed [ "default" ] } else a
             match getOrImportAddress a with
             | GlobalAccess { Module = ImportedModule i; Address = a } ->
                 TSType.Imported(i, a.Value |> List.rev)
@@ -487,7 +488,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), mgen))
+                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
                     addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
             
@@ -788,6 +789,35 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
             addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
 
+            if output <> O.JavaScript then
+                
+                let ucTypes = ResizeArray()
+                for uci, uc in u.Cases |> Seq.indexed do
+                    
+                    let tagMem() = 
+                        ClassProperty(propInfo false false false, "$", TSType.Basic (string uci), None)
+                    match uc.Kind with
+                    | M.NormalFSharpUnionCase fs ->
+                        let ucmems =
+                            fs |> List.mapi (fun i f ->
+                                ClassProperty(propInfo false false false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, None)
+                            )
+                        addStatement <| ExportDecl(false, 
+                            Interface(uc.Name, [], tagMem() :: ucmems, cgen)
+                        )
+                        ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
+                    | M.ConstantFSharpUnionCase v -> 
+                        ucTypes.Add(TSType.Basic v.TSType)
+                    | M.SingletonFSharpUnionCase ->
+                        addStatement <| ExportDecl(false, 
+                            Interface(uc.Name, [], [ tagMem() ], cgen)
+                        )
+                        ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
+
+                addStatement <| ExportDecl(false, 
+                    Alias(TSType.Basic className |> addGenerics cgen, TSType.Union (List.ofSeq ucTypes))
+                )
+
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             isFSharpType <- true
 
@@ -888,11 +918,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                     Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
             let funcId = Id.New(isFunctionName, str = true, ?typ = returnType) 
             if Seq.isEmpty methodNames then
-                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), [])
+                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
             else         
                 let shortestName = methodNames |> Seq.minBy String.length
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), [])
+                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), gen)
 
         statements.Add(ExportDecl (false, isIntf))
 
