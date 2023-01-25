@@ -12,7 +12,7 @@ let checker = program.getTypeChecker();
 
 let output =
   program.getSourceFiles()
-    .filter(f => f.fileName == filePath)
+    .filter(f => f.fileName.includes("/lib."))
 //    .filter(f => !program.isSourceFileDefaultLibrary(f) && !program.isSourceFileFromExternalLibrary(f))
     .map(transformFile)
 
@@ -46,6 +46,7 @@ interface TSTupleType {
 }
 interface TSFunctionOrNewType {
   Kind: 'function' | 'new'
+  Name?: string
   Parameters: TSParameter[]
   ReturnType: TSType
 }
@@ -65,9 +66,13 @@ interface TSTypeLiteral {
   Members: TSTypeElement[]
 }
 interface TSTypeReference {
-  Kind: 'typeref' | 'typeparamref'
+  Kind: 'typeref'
   Type: string
   Arguments?: TSType[]
+}
+interface TSTypeParamReference {
+  Kind: 'typeparamref'
+  Type: string
 }
 interface TSTypePredicate {
   Kind: 'predicate'
@@ -76,7 +81,7 @@ interface TSTypePredicate {
 }
 interface TSIndexType {
   Kind: 'index'
-  index: TSType
+  Index: TSType
   Type: TSType
 }
 interface TSKeyOfOrMappedType {
@@ -97,6 +102,7 @@ type TSType =
   | TSConditionalType
   | TSTypeLiteral
   | TSTypeReference
+  | TSTypeParamReference
   | TSTypePredicate
   | TSIndexType
   | TSKeyOfOrMappedType
@@ -108,13 +114,14 @@ interface TSTypeParameter {
 interface TSTypeElement {
   Kind: 'method' | 'property' | 'new' | 'call' | 'get' | 'set' | 'index'
   Name?: string
+  Static?: boolean
   Parameters?: TSParameter[]
   TypeParameters?: TSTypeParameter[]
-  Type: TSType
+  Type?: TSType
 }
 interface TSVariableStatement {
   Kind: 'vars'
-  declarations: TSParameter[]
+  Declarations: TSParameter[]
 }
 interface TSTypeAlias {
   Kind: 'typealias'
@@ -195,12 +202,14 @@ function transformType(x: ts.TypeNode): TSType {
   if (ts.isFunctionTypeNode(x))
     return {
       Kind: 'function',
+      Name: x.name?.getText(),
       Parameters: x.parameters.map(transformParameter),
       ReturnType: transformType(x.type)
     }
   if (ts.isConstructorTypeNode(x))
     return {
       Kind: 'new',
+      Name: x.name?.getText(),
       Parameters: x.parameters.map(transformParameter),
       ReturnType: transformType(x.type)
     }
@@ -230,7 +239,7 @@ function transformType(x: ts.TypeNode): TSType {
   if (ts.isIndexedAccessTypeNode(x))
     return {
       Kind: 'index',
-      index: transformType(x.indexType),
+      Index: transformType(x.indexType),
       Type: transformType(x.objectType)
     }
   if (ts.isTypeReferenceNode(x))
@@ -256,11 +265,14 @@ function transformType(x: ts.TypeNode): TSType {
       Type: transformType(x.type),
       Parameter: x.parameterName.getText()
     }
-  if (ts.isTypeOperatorNode(x))
-    return {
-      Kind: 'keyof',
-      Type: transformType(x.type)
-    }
+  if (ts.isTypeOperatorNode(x)) {
+    if (x.operator == ts.SyntaxKind.KeyOfKeyword)
+      return {
+        Kind: 'keyof',
+        Type: transformType(x.type)
+      }
+    return transformType(x.type);
+  }
   if (ts.isMappedTypeNode(x))
     return {
       Kind: 'mapped',
@@ -306,6 +318,8 @@ function transformType(x: ts.TypeNode): TSType {
 }
 
 function transformTypeElement(x: ts.TypeElement): TSTypeElement {
+  if (ts.getJSDocDeprecatedTag(x) != null)
+    return null;
   if (ts.isMethodSignature(x))
     return {
       Kind: 'method',
@@ -360,10 +374,13 @@ function transformTypeParameter(x: ts.TypeParameterDeclaration): TSTypeParameter
 }
 
 function transformClassElement(x: ts.ClassElement): TSTypeElement {
+  if (ts.getJSDocDeprecatedTag(x) != null)
+    return null;
   if (ts.isMethodDeclaration(x))
     return {
       Kind: 'method',
       Name: x.name.getText(),
+      Static: x.modifiers.some(m => m.kind == ts.SyntaxKind.AbstractKeyword),
       Parameters: x.parameters.map(transformParameter),
       TypeParameters: x.typeParameters?.map(transformTypeParameter),
       Type: transformType(x.type)
@@ -378,6 +395,7 @@ function transformClassElement(x: ts.ClassElement): TSTypeElement {
     return {
       Kind: 'property',
       Name: x.name.getText(),
+      Static: x.modifiers.some(m => m.kind == ts.SyntaxKind.AbstractKeyword),
       Type: transformType(x.type)
     }
   unhandled(x, "ClassElement");
@@ -388,21 +406,24 @@ function transformExpessionWithTypeArguments(x: ts.ExpressionWithTypeArguments):
     return {
       Kind: 'typeref',
       Type: x.expression.getText(),
-      Arguments: x.typeArguments.map(transformType)
+      Arguments: x.typeArguments?.map(transformType)
     }
   else
     return simpleType(x.expression.getText())
 }
 
 function transformStatement(x: ts.Statement): TSStatement {
+  if (ts.getJSDocDeprecatedTag(x) != null)
+    return null;
   if (ts.isVariableStatement(x))
     return {
       Kind: 'vars',
-      declarations: x.declarationList.declarations.map(d => ({ Name: d.name.getText(), Type: transformType(d.type) }))
+      Declarations: x.declarationList.declarations.map(d => ({ Name: d.name.getText(), Type: transformType(d.type) }))
     }
   if (ts.isFunctionDeclaration(x))
     return {
       Kind: 'function',
+      Name: x.name?.getText(),
       Parameters: x.parameters.map(transformParameter),
       ReturnType: transformType(x.type)
     }
@@ -410,7 +431,7 @@ function transformStatement(x: ts.Statement): TSStatement {
     return {
       Kind: 'interface',
       Name: x.name.text,
-      Members: x.members.map(transformTypeElement),
+      Members: x.members.map(transformTypeElement).filter(x => x != null),
       Extends: x.heritageClauses && x.heritageClauses[0].types.map(transformExpessionWithTypeArguments)
     }
   if (ts.isClassDeclaration(x)) {
@@ -427,7 +448,7 @@ function transformStatement(x: ts.Statement): TSStatement {
     return {
       Kind: 'class',
       Name: x.name.text,
-      Members: x.members.map(transformClassElement),
+      Members: x.members.map(transformClassElement).filter(x => x != null),
       Extends: ext && ext.length && ext,
       Implements: impl && impl.length && impl
     }
@@ -442,7 +463,7 @@ function transformStatement(x: ts.Statement): TSStatement {
     return {
       Kind: 'module',
       Name: x.name.text,
-      Members: x.body.statements.map(transformStatement)
+      Members: x.body.statements.map(transformStatement).filter(x => x != null)
     }
   if (ts.isExportAssignment(x)) {
     return {
@@ -456,12 +477,17 @@ function transformStatement(x: ts.Statement): TSStatement {
       Expression: x.getText()
     }
   }
+  if (ts.isImportEqualsDeclaration(x)) {
+
+
+  }
   unhandled(x, "Statement");
 }
 
 function transformFile(x: ts.SourceFile): TSFile {
+  console.log("Found file: ", x.fileName)
   return {
     Name: x.fileName,
-    Statements: x.statements.map(transformStatement)
+    Statements: x.statements.map(transformStatement).filter(x => x != null)
   }
 }

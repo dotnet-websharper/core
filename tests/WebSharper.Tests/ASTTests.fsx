@@ -420,7 +420,7 @@ let translate source =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.TypeScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
     for (file, p) in pkg do
         printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))
@@ -428,7 +428,7 @@ let translate source =
     let jsFiles = 
         pkg 
         |> Array.map (fun (file, p) ->
-            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
             file, js
         )
 
@@ -478,29 +478,11 @@ namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.Testing
-open System
 
 [<JavaScript>]
-module GenericTest =
-    let Ident x = x
+module MyLib = 
+    let Foo obj = printfn "%A" obj
 
-"""
-
-
-translate """
-namespace WebSharper.Tests
-
-open WebSharper
-open WebSharper.JavaScript
-open WebSharper.Testing
-open System
-
-[<JavaScript>]
-type UnionTest =
-    | SingletonCase
-    | IntCase of int
-    | TupleCase of int * string
 """
 
 

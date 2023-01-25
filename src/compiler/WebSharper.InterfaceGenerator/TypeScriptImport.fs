@@ -52,25 +52,25 @@ and [<NamedUnionCases "Kind">] TSType =
 and TSTypeParameter =
     {
         Name: string
-        Constraint: TSType
+        Constraint: option<TSType>
     }
 
 and [<NamedUnionCases "Kind">] TSTypeElement =
-    | [<Name "method">] TSMethod of Name: string * Parameters: TSParameter[] * TypeParameters: TSTypeParameter[] * Type: TSType
-    | [<Name "property">] TSProperty of Name: string * Type: TSType
+    | [<Name "method">] TSMethod of Name: string * Static: option<bool> * Parameters: TSParameter[] * TypeParameters: option<TSTypeParameter[]> * Type: TSType
+    | [<Name "property">] TSProperty of Name: string * Static: option<bool> * Type: TSType
     | [<Name "new">] TSNew of Parameters: TSParameter[] * Type: TSType
-    | [<Name "call">] TSCall of Parameters: TSParameter[] * TypeParameters: TSTypeParameter[] * Type: TSType
+    | [<Name "call">] TSCall of Parameters: TSParameter[] * TypeParameters: option<TSTypeParameter[]> * Type: TSType
     | [<Name "get">] TSGet of Name: string * Type: TSType
     | [<Name "set">] TSSet of Name: string * Type: TSType
     | [<Name "index">] TSIndex of Parameters: TSParameter[] * Type: TSType
 
 and [<NamedUnionCases "Kind">] TSStatement =
     | [<Name "vars">] TSVariableStatement of Declarations: TSParameter[]
-    | [<Name "function">] TSFunction of Parameters: TSParameter[] * ReturnType: TSType
-    | [<Name "new">] TSNew of Parameters: TSParameter[] * ReturnType: TSType
-    | [<Name "typealias">] TSTypeAlias of Name: string * TypeParameters: TSTypeParameter[] * Type: TSType
-    | [<Name "class">] TSClassDeclaration of Name: string * TypeParameters: TSTypeParameter[] * Members: TSTypeElement[] * Extends: TSType * Implements: TSType[]
-    | [<Name "interface">] TSInterfaceDeclaration of Name: string * TypeParameters: TSTypeParameter[] * Members: TSTypeElement[] * Extends: TSType[]
+    | [<Name "function">] TSFunction of Name: option<string> * Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "new">] TSNew of Name: option<string> * Parameters: TSParameter[] * ReturnType: TSType
+    | [<Name "typealias">] TSTypeAlias of Name: string * TypeParameters: option<TSTypeParameter[]> * Type: TSType
+    | [<Name "class">] TSClassDeclaration of Name: string * TypeParameters: option<TSTypeParameter[]> * Members: TSTypeElement[] * Extends: option<TSType> * Implements: option<TSType[]>
+    | [<Name "interface">] TSInterfaceDeclaration of Name: string * TypeParameters: option<TSTypeParameter[]> * Members: TSTypeElement[] * Extends: option<TSType[]>
     | [<Name "module">] TSModuleDeclaration of Name: string * Members: TSStatement[]
 
 and TSFile =
