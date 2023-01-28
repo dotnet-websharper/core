@@ -852,11 +852,11 @@ module Resolve =
             getRenamedFunctionForClass (newName name) c
        
     let rec getRenamedInDict name v (s: Dictionary<string, _>) =
-        if s.ContainsKey name then
-            getRenamedInDict name v s
-        else
+        if not (s.ContainsKey name) then
             s.Add(name, v) 
             name
+        else
+            getRenamedInDict (newName name) v s
 
     let addInherits (r: Resolver) (classes: IDictionary<TypeDefinition, ClassInfo>) =
         let rec inheritMembers typ (cls: ClassInfo) =
