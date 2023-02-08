@@ -114,25 +114,36 @@ type EntryPointStyle =
 
 //let private Address a = { Module = CurrentModule; Address = Hashed a }
 
-let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: TypeDefinition) entryPoint entryPointStyle =
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: TypeDefinition []) entryPoint entryPointStyle =
     let imports = Dictionary<string, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
     let statements = ResizeArray<Statement>()
 
-    let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
-    let classId = 
-        Id.New className
-    let currentModuleName = asmName + "/" + typ.Value.FullName.Replace('+', '.')
+    let classRes = Dictionary<TypeDefinition, Address * Id>()
+        
+    for typ in typs do
+        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+        let classId = Id.New className
+        let mn = asmName + "/" + typ.Value.FullName.Replace('+', '.')
+        let currentClassAdds = Address.DefaultExport mn
+        addresses.Add(currentClassAdds, Var classId)
+        classRes.Add(typ, (currentClassAdds, classId))
+
+    let currentModuleName, singleClassId = 
+        match typs with 
+        | [| typ |] -> 
+            let currentClassAdds, classId = classRes[typ]
+            let mn = match currentClassAdds.Module with JavaScriptModule mn -> mn | _ -> ""
+            mn, classId
+        | _ -> asmName + ".js", Id.Global()
 
     //let g = Id.New "Global"
     //let glob = Var g
     //addresses.Add(Address.Global(), glob)
     //addresses.Add(Address.Lib "self", glob)
     addresses.Add(Address.Lib "import", Var (Id.Import()))
-    let currentClassAdds = Address.DefaultExport currentModuleName
-    addresses.Add(currentClassAdds, Var classId)
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
     
     //let rec getAddress (address: Address) =
@@ -198,7 +209,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                     if m = currentModuleName then
                         match address.Address.Value |> List.rev with
                         | "default" :: res ->
-                            res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var classId)
+                            res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var singleClassId)
                         | _ ->
                             let currentAddress =
                                 { address with Module = ImportedModule (Id.Global()) }
@@ -265,7 +276,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
-        | JavaScriptModule m when m = currentModuleName -> TSType.Named [ className ]
+        | JavaScriptModule m when m = currentModuleName -> TSType.Named [ singleClassId.Name.Value ]
         | JavaScriptModule _ ->
             let a = if a.Address.Value.IsEmpty then { a with Address = Hashed [ "default" ] } else a
             match getOrImportAddress a with
@@ -378,15 +389,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
 
         }
             
-    let staticThisTransformer =
-        { new Transformer() with
-            override this.TransformGlobalAccess a = 
-                if a = currentClassAdds then
-                    JSThis
-                else
-                    GlobalAccess a
-        }
-
     let addStatement st =
         statements.Add <| ThisTransformer().TransformStatement(st)
 
@@ -405,14 +407,22 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
         | M.Macro (_, _, Some fb) -> withoutMacros fb
         | _ -> info 
 
-    match current.Classes.TryFind(typ) with
-    | None -> ()
-    | Some (a, ct, None) -> ()
-    | Some (a, ct, Some c) ->
+    let packageClass (typ: TypeDefinition) (a: Address) (ct: M.CustomTypeInfo) (c: M.ClassInfo) =
         let name = typ.Value.FullName
+        let currentClassAdds, classId = classRes[typ]
+        let className = classId.Name.Value
 
         let gsArr = Array.ofList c.Generics
         let bTr() = bodyTransformer(gsArr)   
+
+        let staticThisTransformer =
+            { new Transformer() with
+                override this.TransformGlobalAccess a = 
+                    if a = currentClassAdds then
+                        JSThis
+                    else
+                        GlobalAccess a
+            }
 
         let typeOfParams (opts: M.Optimizations) gsArr (ps: list<Type>) =
             match opts.FuncArgs with
@@ -877,8 +887,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
                 else
                     packageClass <| classDecl()
 
-    match current.Interfaces.TryFind(typ) with
-    | Some i ->
+    let packageInterface (typ: TypeDefinition) (i: M.InterfaceInfo) =
+        let _, classId = classRes[typ]
+        let className = classId.Name.Value
         let igen = List.length i.Generics
         let gen = getGenerics 0 i.Generics
         let gsArr = Array.ofList i.Generics
@@ -926,7 +937,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typ: Ty
 
         statements.Add(ExportDecl (false, isIntf))
 
-    | None -> ()
+    for typ in typs do
+        match current.Classes.TryFind(typ) with
+        | None -> ()
+        | Some (a, ct, None) -> ()
+        | Some (a, ct, Some c) ->
+            packageClass typ a ct c
+
+        match current.Interfaces.TryFind(typ) with
+        | Some i ->
+            packageInterface typ i
+        | None -> ()
 
     if output <> O.TypeScriptDeclaration then
         match entryPointStyle, entryPoint with
@@ -981,7 +1002,7 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType output refMeta current asmName typ None entryPointStyle
+        let p = packageType output refMeta current asmName [| typ |] None entryPointStyle
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
@@ -991,7 +1012,7 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = ""; FullName = "$EntryPoint" }     
-        let p = packageType output refMeta current asmName epTyp entryPoint entryPointStyle
+        let p = packageType output refMeta current asmName [| epTyp |] entryPoint entryPointStyle
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 
