@@ -364,8 +364,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                     e.[J.Constant (J.String n)]
                 ) ha t
         | JavaScriptModule m -> 
-            failwithf "Addresses must be resolved to ImportedModule before writing JavaScript: %s from %s"
-                (a.Address.Value |> List.rev |> String.concat ".") m
+            J.Var (J.Id.New "IMPORT_ERROR")
+            //failwithf "Addresses must be resolved to ImportedModule before writing JavaScript: %s from %s"
+            //    (a.Address.Value |> List.rev |> String.concat ".") m
     | GlobalAccessSet (a, v) ->
         trE (GlobalAccess a) ^= trE v
     | _ -> 

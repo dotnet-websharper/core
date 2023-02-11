@@ -126,7 +126,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
     for typ in typs do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
-        let mn = asmName + "/" + typ.Value.FullName.Replace('+', '.')
+        let mn = typ.Value.Assembly + "/" + typ.Value.FullName.Replace('+', '.')
         let currentClassAdds = Address.DefaultExport mn
         addresses.Add(currentClassAdds, Var classId)
         classRes.Add(typ, (currentClassAdds, classId))
@@ -1015,6 +1015,15 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         let p = packageType output refMeta current asmName [| epTyp |] entryPoint entryPointStyle
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
+
+let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
+    let types =
+        //Seq.append current.Interfaces.Keys current.Classes.Keys
+        current.Classes.Keys
+        |> Seq.distinct
+        |> Array.ofSeq
+
+    packageType output refMeta current asmName types entryPoint entryPointStyle
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with

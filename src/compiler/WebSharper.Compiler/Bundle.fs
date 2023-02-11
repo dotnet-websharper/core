@@ -28,6 +28,7 @@ module M = WebSharper.Core.Metadata
 module Res = WebSharper.Core.Resources
 module W = WebSharper.Core.JavaScript.Writer
 module FE = WebSharper.Compiler.FrontEnd
+type O = WebSharper.Core.JavaScript.Output
 type Graph = WebSharper.Core.DependencyGraph.Graph
 
 [<AutoOpen>]
@@ -125,7 +126,7 @@ module Bundling =
 
         let pkg =   
             if concatScripts then
-                WebSharper.Core.AST.Undefined
+                []
             else
                 let meta = 
                     o.RefMetas |> Seq.map refreshAllIds
@@ -135,8 +136,8 @@ module Bundling =
                     let current = 
                         if dce then trimMetadata meta nodes 
                         else meta
-                    //JavaScriptPackager.packageAssembly current current o.EntryPoint o.EntryPointStyle
-                    Undefined
+                    let asmName = Path.GetFileNameWithoutExtension o.Config.AssemblyFile
+                    JavaScriptPackager.bundleAssembly O.JavaScript current current asmName o.EntryPoint o.EntryPointStyle
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message + " at " + e.StackTrace)
         let resources = graph.GetResourcesOf nodes
@@ -245,14 +246,14 @@ module Bundling =
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                    //let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.exprToString pref getCodeWriter
-                    //if sourceMap then
-                    //    if mode = BundleMode.JavaScript then
-                    //        map <- m
-                    //    else
-                    //        minmap <- m
+                    let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript pref getCodeWriter
+                    if sourceMap then
+                        if mode = BundleMode.JavaScript then
+                            map <- m
+                        else
+                            minmap <- m
 
-                    //writer.WriteLine js
+                    writer.WriteLine js
 
                     Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
                 | _ -> ()
