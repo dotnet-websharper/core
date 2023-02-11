@@ -114,7 +114,17 @@ type EntryPointStyle =
 
 //let private Address a = { Module = CurrentModule; Address = Hashed a }
 
-let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: TypeDefinition []) entryPoint entryPointStyle =
+type PackageContent =
+    | SingleType of TypeDefinition
+    | Bundle of TypeDefinition [] * EntryPointStyle * Statement option
+
+    with 
+        member this.Types = 
+            match this with
+            | SingleType typ -> [| typ |]
+            | Bundle (typs, _, _) -> typs
+
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
     let imports = Dictionary<string, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
@@ -123,7 +133,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
 
     let classRes = Dictionary<TypeDefinition, Address * Id>()
         
-    for typ in typs do
+    for typ in content.Types do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
         let mn = typ.Value.Assembly + "/" + typ.Value.FullName.Replace('+', '.')
@@ -132,12 +142,20 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
         classRes.Add(typ, (currentClassAdds, classId))
 
     let currentModuleName, singleClassId = 
-        match typs with 
-        | [| typ |] -> 
+        match content with
+        | SingleType typ ->
             let currentClassAdds, classId = classRes[typ]
             let mn = match currentClassAdds.Module with JavaScriptModule mn -> mn | _ -> ""
             mn, classId
         | _ -> asmName + ".js", Id.Global()
+
+    let export isDefault statement =
+        match content with
+        | SingleType _ -> ExportDecl(isDefault, statement)
+        | Bundle _ -> 
+            match statement with
+            | ExprStatement(Var _) -> Empty
+            | _ -> statement
 
     //let g = Id.New "Global"
     //let glob = Var g
@@ -498,9 +516,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
                             )
                         | t ->
                             f.WithType(Some (TSType t)), args
-                    addStatement <| ExportDecl (false, FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
+                    addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
-                    addStatement <| ExportDecl (false, VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
+                    addStatement <| export false (VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
@@ -660,7 +678,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
             | M.Func (name, _) ->
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| ExportDecl(false, FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
+                    addStatement <| export false (FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, _, kind) ->
@@ -796,7 +814,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
             let tags() = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
-            addStatement <| ExportDecl(false, VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
+            addStatement <| export false (VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
 
             if output <> O.JavaScript then
@@ -812,19 +830,19 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
                             fs |> List.mapi (fun i f ->
                                 ClassProperty(propInfo false false false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, None)
                             )
-                        addStatement <| ExportDecl(false, 
+                        addStatement <| export false (
                             Interface(uc.Name, [], tagMem() :: ucmems, cgen)
                         )
                         ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
                     | M.ConstantFSharpUnionCase v -> 
                         ucTypes.Add(TSType.Basic v.TSType)
                     | M.SingletonFSharpUnionCase ->
-                        addStatement <| ExportDecl(false, 
+                        addStatement <| export false (
                             Interface(uc.Name, [], [ tagMem() ], cgen)
                         )
                         ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
 
-                addStatement <| ExportDecl(false, 
+                addStatement <| export false (
                     Alias(TSType.Basic className |> addGenerics cgen, TSType.Union (List.ofSeq ucTypes))
                 )
 
@@ -836,7 +854,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
                     r |> List.map (fun f ->
                         ClassProperty(propInfo false false f.Optional, f.JSName, tsTypeOf gsArr f.RecordFieldType, None)
                     )
-                addStatement <| ExportDecl(true, 
+                addStatement <| export true (
                     Interface(className, [], rmems, cgen)
                 )
 
@@ -855,10 +873,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
 
         let packageLazyClass classExpr =
             addStatement <| VarDeclaration(lazyClassId.Value, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-            addStatement <| ExportDecl(true, ExprStatement(Var lazyClassId.Value))                
+            addStatement <| export true (ExprStatement(Var lazyClassId.Value))                
 
         let packageClass classDecl = 
-            addStatement <| ExportDecl(true, bTr().TransformStatement classDecl)                
+            addStatement <| export true (bTr().TransformStatement classDecl)                
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
@@ -911,7 +929,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
                     ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc))    
                 ) |> List.ofSeq
 
-            addStatement <| ExportDecl(true, 
+            addStatement <| export true (
                 Interface(className, i.Extends |> List.map (tsTypeOfConcrete gsArr), imems, gen)
             )
 
@@ -935,12 +953,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
                 let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
                 FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), gen)
 
-        statements.Add(ExportDecl (false, isIntf))
+        statements.Add(export false isIntf)
 
-    for typ in typs do
+    for typ in content.Types do
         match current.Classes.TryFind(typ) with
         | None -> ()
-        | Some (a, ct, None) -> ()
+        | Some (_, _, None) -> ()
         | Some (a, ct, Some c) ->
             packageClass typ a ct c
 
@@ -950,14 +968,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (typs: T
         | None -> ()
 
     if output <> O.TypeScriptDeclaration then
-        match entryPointStyle, entryPoint with
-        | (OnLoadIfExists | ForceOnLoad), Some ep ->
+        match content with
+        | Bundle(_, (OnLoadIfExists | ForceOnLoad), Some ep) ->
             addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
-        | ForceImmediate, Some ep ->
+        | Bundle(_, ForceImmediate, Some ep) ->
             statements.Add ep
-        | (ForceOnLoad | ForceImmediate), None ->
+        | Bundle(_, (ForceOnLoad | ForceImmediate), None) ->
             failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
-        | OnLoadIfExists, None -> ()
+        | _ -> ()
         
     if statements.Count = 0 then 
         [] 
@@ -1002,7 +1020,7 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType output refMeta current asmName [| typ |] None entryPointStyle
+        let p = packageType output refMeta current asmName (SingleType typ)
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
@@ -1012,7 +1030,7 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
         pkgTyp typ
     if Option.isSome entryPoint then
         let epTyp = TypeDefinition { Assembly = ""; FullName = "$EntryPoint" }     
-        let p = packageType output refMeta current asmName [| epTyp |] entryPoint entryPointStyle
+        let p = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 
@@ -1023,7 +1041,7 @@ let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint
         |> Seq.distinct
         |> Array.ofSeq
 
-    packageType output refMeta current asmName types entryPoint entryPointStyle
+    packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
 
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
