@@ -134,23 +134,23 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let classRes = Dictionary<TypeDefinition, Address * Id * Id>()
     let wsImports = HashSet<AST.CodeResource>()
         
+    let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
+    let allInterfaces =  MergedDictionary(refMeta.Interfaces, current.Interfaces)
+
     for typ in content.Types do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
         let outerClassId = Id.New "_c"
-        let classCodeRes = { Assembly = typ.Value.Assembly; Name = typ.Value.FullName } 
+        let classCodeRes = 
+            match allClasses.TryFind(typ) with
+            | Some ({ Module = DotNetType m }, _, _) ->
+                m
+            | _ ->
+                { Assembly = asmName; Name = typ.Value.FullName } 
         let classAddr = Address.TypeDefaultExport classCodeRes
         addresses.Add(classAddr, Var outerClassId)
         wsImports.Add(classCodeRes) |> ignore
         classRes.Add(typ, (classAddr, classId, outerClassId))
-
-    //let currentModule, singleClassId = 
-    //    match content with
-    //    | SingleType typ ->
-    //        let _, classId, _ = classRes[typ]
-    //        let mn = typ.Value.Assembly + "/" + typ.Value.FullName.Replace('+', '.')
-    //        mn, classId
-    //    | _ -> asmName + ".js", Id.Global()
 
     let export isDefault statement =
         match content with
@@ -211,8 +211,18 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             //    else fn.Replace(".", "$")
             let res =
                 match address.Module with
-                | StandardLibrary
-                | JavaScriptFile _ ->
+                | StandardLibrary ->
+                    match address.Address with
+                    | [] -> ()
+                    | l -> 
+                        let fromJS = List.last l
+                        if StandardLibNames.Set.Contains fromJS then
+                            jsUsed.Add(fromJS) |> ignore
+                    GlobalAccess address    
+                | JavaScriptFile m ->
+                    if not (imports.ContainsKey m) then
+                        let mi = Dictionary()
+                        imports.Add(m, mi)
                     match address.Address with
                     | [] -> ()
                     | l -> 
@@ -379,8 +389,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 TSType.Named t
         | ImportedModule v -> TSType.Imported(v, t)
 
-    let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
-    let allInterfaces =  MergedDictionary(refMeta.Interfaces, current.Interfaces)
     let lookupType (t: TypeDefinition) =
         match allInterfaces.TryFind t with
         | Some i -> TypeTranslator.Interface i

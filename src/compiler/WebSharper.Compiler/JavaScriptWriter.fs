@@ -548,23 +548,24 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             J.TryFinally(trS a, trS b)
     | Import(None, _, _, "") ->
         J.Empty
-    | Import(a, b, c, d) ->
+    | Import(None, None, [], d) ->
+        J.ImportAll(None, d)               
+    | Import(a, Some b, ((_ :: _) as c), d) ->
         // import * and named exports cannot be on same statement, separate them
-        if Option.isSome b && not (List.isEmpty c) then
-            J.Block [
-                J.ImportAll(b |> Option.map (defineId env), d)            
-                J.Import(
-                    a |> Option.map (defineId env), 
-                    None, 
-                    c |> List.map (fun (n, x) -> n, defineId env x),
-                    d)
-            ]
-        else
+        J.Block [
+            J.ImportAll(b |> defineId env |> Some, d)            
             J.Import(
                 a |> Option.map (defineId env), 
-                b |> Option.map (defineId env), 
+                None, 
                 c |> List.map (fun (n, x) -> n, defineId env x),
                 d)
+        ]
+    | Import(a, b, c, d) ->
+        J.Import(
+            a |> Option.map (defineId env), 
+            b |> Option.map (defineId env), 
+            c |> List.map (fun (n, x) -> n, defineId env x),
+            d)
     | ExportDecl (a, b) ->
         J.Export (a, trS b)
     | Declare a ->

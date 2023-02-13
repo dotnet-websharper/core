@@ -147,14 +147,17 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
                     else
                         activate.Append(",") |> ignore
                     match t.Module with  
-                    | AST.JavaScriptModule m ->
+                    | AST.JavaScriptFile f ->
+                        this.WriteLine("""import "{1}{2}/{3}.js";""", url, f.Assembly, f.Name)
+                    | AST.JavaScriptModule m
+                    | AST.DotNetType m ->
                         match imported.TryGetValue(m) with
                         | true, i ->
                             activate.Append(i) |> ignore
                         | _ ->
                             let i = "i" + string (imported.Count + 1)
                             imported.Add(m, i)
-                            this.WriteLine("""import * as {0} from "{1}{2}.js";""", i, url, m)
+                            this.WriteLine("""import * as {0} from "{1}{2}/{3}.js";""", i, url, m.Assembly, m.Name)
                             activate.Append(i) |> ignore
                     | _ ->
                         ()
