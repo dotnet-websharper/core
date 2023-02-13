@@ -65,7 +65,7 @@ let GetMutableExternals (meta: M.Info) =
         | ConcreteType ct ->
             match meta.Classes.TryGetValue ct.Entity with
             | true, (_, _, Some fcls) ->
-                a.JSAddress |> Option.iter (registerInstanceAddresses fcls)
+                a.JSAddress |> Option.iter (Hashed >> registerInstanceAddresses fcls)
             | _ -> ()
         | _ -> ()
     
@@ -83,7 +83,7 @@ let GetMutableExternals (meta: M.Info) =
                 match e with
                 | IS.Function(_, _, _, IS.ExprStatement(IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), _)))
                 | IS.Unary(UnaryOperator.``void``, IS.ItemSet(IS.GlobalAccess a, IS.Value (String n), Hole(0))) ->
-                    a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a.Value)) |> ignore)
+                    a.JSAddress |> Option.iter (fun a -> res.Add (Hashed (n :: a)) |> ignore)
                 | _ -> ()
             elif m.Value.MethodName.StartsWith "get_" then
                 match e with
@@ -111,9 +111,10 @@ type private Environment =
         Import : option<Address>
         ExpectedDollarVars : string[]
         UnknownArgs : HashSet<string>
+        AssemblyName : string
     }
 
-    static member New(thisArg, isDirect, isPure, args, ext, import, dollarVars) =
+    static member New(thisArg, isDirect, isPure, args, ext, import, dollarVars, asm) =
         // TODO : add  `arguments` to scope
         let mainScope =
             Option.toList thisArg @ args
@@ -140,6 +141,7 @@ type private Environment =
             Import = import
             ExpectedDollarVars = dollarVars
             UnknownArgs = HashSet()
+            AssemblyName = asm
         }
 
     static member Empty =
@@ -153,6 +155,7 @@ type private Environment =
             Import = None
             ExpectedDollarVars = [||]
             UnknownArgs = HashSet()
+            AssemblyName = ""
         }
 
     member this.WithNewScope (vars, isArrow) =
@@ -240,14 +243,14 @@ let private checkNotMutating (env: Environment) a f =
 let private setValue (env: Environment) expr value =
     match expr with
     | GlobalAccess a ->
-        match a.Address.Value with
-        | i :: m -> ItemSet(GlobalAccess { a with Address = Hashed m }, Value (String i), value)
+        match a.Address with
+        | i :: m -> ItemSet(GlobalAccess { a with Address = m }, Value (String i), value)
         | _ -> failwith "cannot set the window object"
     | ItemGet (d, e, _) -> ItemSet(d, e, value)
     | Var d -> checkNotMutating env (Var d) (fun _ -> VarSet(d, value))
     | _ -> failwith "invalid form for setter"
 
-let wsruntime = GlobalAccess (Address.Runtime())
+let wsruntime = GlobalAccess (Address.RuntimeAddr [])
 
 let jsFunctionMembers =
     System.Collections.Generic.HashSet [
@@ -326,13 +329,12 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
         match trA with
         | Var t when t = Id.SourceType() ->
             match b |> List.map trE with
-            | [ Value (String tn) ] ->
-                GlobalAccess {
-                    Module = JavaScriptModule tn
-                    Address = Hashed [ "default" ]
-                }   
+            | [ Value (String n) ] ->
+                GlobalAccess (Address.TypeDefaultExport { Assembly = env.AssemblyName; Name = n})
+            | [ Value (String a); Value (String n) ] ->
+                GlobalAccess (Address.TypeDefaultExport { Assembly = a; Name = n})
             | _ ->
-                failwithf "$type can be only used with a single string argument in inlines"
+                failwithf "$type in inlines can be only used with one or two string arguments, specifying type name in current assembly or assembly name and type name"
         | _->
             Appl (trA, b |> List.map trE, env.Purity, None) 
     | S.Binary (a, b, c) ->
@@ -366,11 +368,11 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
             else
                 match trA, trC with
                 | JSGlobalAccess (m, a), Value (String b) when not (I.IsObjectMember b || jsFunctionMembers.Contains b)  ->
-                    let ga = Hashed (b :: a.Value)
+                    let ga = Hashed (b :: a)
                     if env.MutableExternals.Contains ga then 
                         ItemGet(trA, trC, env.Purity)
                     else
-                        GlobalAccess { Module = m; Address = Hashed (b :: a.Value) }
+                        GlobalAccess { Module = m; Address = b :: a }
                 | _ ->
                     ItemGet(trA, trC, env.Purity) 
         | SB.``/``      -> Binary(trE a, BinaryOperator.``/``, trE c)
@@ -609,11 +611,11 @@ type ParseResult =
         Warnings: string list
     }
 
-let createInline ext thisArg args isPure import dollarVars inlineString =        
+let createInline ext thisArg args isPure import dollarVars assemblyName inlineString =        
     let parsed = 
         try inlineString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> inlineString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
-    let env = Environment.New(thisArg, false, isPure, args, ext, import, dollarVars)
+    let env = Environment.New(thisArg, false, isPure, args, ext, import, dollarVars, assemblyName)
     let b =
         match parsed with
         | Choice1Of2 e ->
@@ -633,11 +635,11 @@ let createInline ext thisArg args isPure import dollarVars inlineString =
             ]
     }
 
-let parseDirect ext thisArg args dollarVars jsString =
+let parseDirect ext thisArg args dollarVars assemblyName jsString =
     let parsed = 
         try jsString |> P.Source.FromString |> P.ParseExpression |> Choice1Of2
         with _ -> jsString |> P.Source.FromString |> P.ParseProgram |> Choice2Of2 
-    let env = Environment.New(thisArg, true, false, args, ext, None, dollarVars)
+    let env = Environment.New(thisArg, true, false, args, ext, None, dollarVars, assemblyName)
     let body =
         match parsed with
         | Choice1Of2 e ->

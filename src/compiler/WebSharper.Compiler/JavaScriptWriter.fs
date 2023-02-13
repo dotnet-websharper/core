@@ -339,7 +339,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
     | GlobalAccess a ->
         match a.Module with     
         | ImportedModule g when g.IsGlobal() ->
-            match List.rev a.Address.Value with
+            match List.rev a.Address with
             | [] ->
                 //J.Var (J.Id.New "exports")
                 failwith "top scope of current module not accessible directly"
@@ -350,9 +350,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         | ImportedModule v ->
             List.foldBack (fun n e -> 
                 e.[J.Constant (J.String n)]
-            ) a.Address.Value (J.Var (trI v))
+            ) a.Address (J.Var (trI v))
         | StandardLibrary | JavaScriptFile _ ->
-            match List.rev a.Address.Value with
+            match List.rev a.Address with
             | [] -> globalThis
             | h :: t ->
                 let ha =
@@ -363,7 +363,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 List.fold (fun e n ->
                     e.[J.Constant (J.String n)]
                 ) ha t
-        | JavaScriptModule m -> 
+        | JavaScriptModule _
+        | DotNetType _ -> 
             J.Var (J.Id.New "IMPORT_ERROR")
             //failwithf "Addresses must be resolved to ImportedModule before writing JavaScript: %s from %s"
             //    (a.Address.Value |> List.rev |> String.concat ".") m
@@ -613,7 +614,7 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
         "(" + trN t + ")[]"
     | TSType.Generic (t, g) -> (trN t) + "<" + (g |> Seq.map (trN) |> String.concat ", ")  + ">"
     | TSType.Imported (i, n) -> (transformId env i).Name :: n |> String.concat "."
-    | TSType.Importing (m, a) -> "TODO_TYPE" //failwith "TypeScript type from an unresolved module"
+    | TSType.Importing _ -> "TODO_TYPE" //failwith "TypeScript type from an unresolved module"
     | TSType.Function (t, a, e, r)  -> 
         let this = t |> Option.map (fun t -> "this: " + trN t) 
         let args = a |> List.mapi (fun i (t, o) -> string ('a' + char i) + (if o then "?:" else ":") + trN t)

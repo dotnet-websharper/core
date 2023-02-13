@@ -768,7 +768,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         let vars, thisVar = getVarsAndThis()
                         try 
                             let nr = N.Inline ta
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             if addModuleValueProp nr parsed.Expr then
                                 addMethod None mAnnot mdef nr true None parsed.Expr   
@@ -781,7 +781,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addM (getKind()) true None parsed.Expr
                         with e ->
@@ -826,7 +826,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals thisVar vars mAnnot.Pure (getImport()) dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addC (N.Inline ta) true None parsed.Expr 
                         with e ->
@@ -834,7 +834,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars, thisVar = getVarsAndThis()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals thisVar vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addC N.Static true None parsed.Expr 
                         with e ->

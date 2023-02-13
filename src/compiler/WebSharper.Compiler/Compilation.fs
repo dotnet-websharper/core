@@ -235,12 +235,12 @@ type Compilation(meta: Info, ?hasGraph) =
         match generatedClass with
         | Some cls -> cls
         | _ ->
-            let addr = { Module = JavaScriptModule (this.AssemblyName + "/$Generated"); Address = Hashed [] } 
             let td = 
                 TypeDefinition { 
                     FullName = "$Generated"
                     Assembly = this.AssemblyName 
                 }
+            let addr = { Module = DotNetType { Assembly = this.AssemblyName; Name = "$Generated" }; Address = [] } 
             classes.Add (td,
                 (
                     addr,
@@ -305,7 +305,7 @@ type Compilation(meta: Info, ?hasGraph) =
             //Substitution(args).TransformExpression(parsed)
             let dollarVars = if isNull dollarVars then [||] else dollarVars
             let position = if obj.ReferenceEquals(position, null) then None else Some position
-            let parsed = Recognize.createInline mutableExternals None vars false None dollarVars inl
+            let parsed = Recognize.createInline mutableExternals None vars false None dollarVars this.AssemblyName inl
             parsed.Warnings |> List.iter (fun msg -> this.AddWarning(position, SourceWarning msg))
             Substitution(args).TransformExpression(parsed.Expr)
         
@@ -617,18 +617,18 @@ type Compilation(meta: Info, ?hasGraph) =
             this.AddError(None, SourceError ("Multiple definitions found for type: " + typ.Value.FullName))
     
     member this.TypeAddress(typ: TypeDefinition, hasWSPrototype) =
-        let mname = this.AssemblyName + "/" + typ.Value.FullName.Replace('+', '.')
+        let m = { Assembly = this.AssemblyName; Name = typ.Value.FullName.Replace('+', '.') }
         if hasWSPrototype then
-            Address.DefaultExport mname
+            Address.TypeDefaultExport m
         else 
-            Address.ModuleRoot mname
+            Address.TypeModuleRoot m
 
     member this.ProcessCustomType(typ: TypeDefinition, ct) =
         let getAddr hasWSPrototype = 
             this.TypeAddress(typ, hasWSPrototype)
         let addr, cls = 
             match classes.TryFind typ with
-            | Some ({ Address = Hashed []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
+            | Some ({ Address = []}, _, cls) -> getAddr (cls |> Option.exists (fun c -> c.HasWSPrototype)), cls
             | Some (a, _, cls) -> a, cls
             | _ -> getAddr false, None
         classes.Current.[typ] <- (addr, ct, cls)
@@ -1390,7 +1390,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 match cls.Type with
                 | Some (TSType.Named a) ->
                     clStatics.Add(typ, this.TypeAddress(typ, false))
-                    Address.Lib a
+                    Address.LibAddr a
                 | _ ->
                     this.TypeAddress(typ, hasWSPrototype)
 
@@ -1978,7 +1978,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 let (_, k) = this.GetMemberNameAndKind(m)
                 let n, k = fixKindAndNameForProps typ n k m
                 if not (Resolve.addStaticMemberToClass pr (n, k)) then
-                    this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address.Value |> String.concat "."))
+                    this.AddError(None, NameConflict ("Static member name conflict", typ.Value.FullName, addr.Address |> String.concat "."))
                 nameStaticMember typ n k m
         let isImplementation m =
             match m with

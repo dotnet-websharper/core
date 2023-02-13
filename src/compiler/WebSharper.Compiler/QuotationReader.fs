@@ -200,7 +200,7 @@ let rec transformExpression (env: Environment) (expr: Expr) =
             match k with
             | LocalVar -> VarSet(v, tr value) 
             | ByRefArg -> SetRef (Var v) (tr value)
-            | ThisArg -> parsefailf "'this' parameter cannot be set"
+            //| ThisArg -> parsefailf "'this' parameter cannot be set"
         | Patterns.TupleGet (tuple, i) ->
             ItemGet(tr tuple, Value (Int i), Pure)   
         | Patterns.ForIntegerRangeLoop (var, start, end_, body) ->

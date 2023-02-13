@@ -165,13 +165,7 @@ let CombineExpressions exprs =
     | res -> Sequential res
 
 /// Creates a GlobalAccess case from an access list in normal order
-let Global a = GlobalAccess { Module = StandardLibrary; Address = Hashed (List.rev a) }
-
-/// Recognizes a WebSharper Runtime address
-let (|RuntimeAddress|_|) a =
-    match a with
-    | { Module = JavaScriptFile "Runtime"; Address = a } -> Some a
-    | _ -> None
+let Global a = GlobalAccess (Address.LibAddr a)
 
 /// Make a proxy for a by-address value, having two functions for get/set.
 let MakeRef getVal setVal typ =

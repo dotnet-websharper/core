@@ -138,7 +138,7 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             | None | Some [] -> ()
             | Some types ->
                 this.WriteLine("""import {{ Activate }} from "{0}WebSharper.Main/WebSharper.Activator.js";""", url)
-                let imported = System.Collections.Generic.Dictionary<string, string>()
+                let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
                 let activate = System.Text.StringBuilder("Activate([")
                 let mutable first = true
                 for t in types do

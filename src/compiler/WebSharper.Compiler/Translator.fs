@@ -2174,7 +2174,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                             // TODO if we already know it's an object we could skip "object" test
                             let check e =
                                 // TODO have "is" address in metadata
-                                Appl(GlobalAccess ({ ii.Address with Address = Hashed [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
+                                Appl(GlobalAccess ({ ii.Address with Address = [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
                             let i = Id.New(mut = false)
                             Let(i, trExpr,
                                 Binary(

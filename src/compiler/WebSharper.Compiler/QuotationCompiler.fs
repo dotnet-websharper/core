@@ -209,7 +209,7 @@ type QuotationCompiler (meta : M.Info) =
                         checkNotAbstract() 
                         let vars = getVars()
                         try 
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addMethod (N.Inline ta) true parsed.Expr
                         with e ->
@@ -220,7 +220,7 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars = getVars()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addMethod (getKind()) true parsed.Expr
                         with e ->
@@ -260,7 +260,7 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.Inline (js, ta, dollarVars) ->
                         let vars = getVars()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.createInline comp.MutableExternals None vars mAnnot.Pure None dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addConstructor (N.Inline ta) true parsed.Expr
                         with e ->
@@ -268,7 +268,7 @@ type QuotationCompiler (meta : M.Info) =
                     | A.MemberKind.Direct (js, dollarVars) ->
                         let vars = getVars()
                         try
-                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars js
+                            let parsed = WebSharper.Compiler.Recognize.parseDirect comp.MutableExternals None vars dollarVars comp.AssemblyName js
                             List.iter warn parsed.Warnings
                             addConstructor N.Static true parsed.Expr
                         with e ->

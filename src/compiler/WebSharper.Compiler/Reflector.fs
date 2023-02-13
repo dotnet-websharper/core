@@ -270,7 +270,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
                         Some (Id.New "this")    
                     else 
                         None
-                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure import [||]) 
+                let parsed = inlAttr |> Option.map (WebSharper.Compiler.Recognize.createInline emptyMutableExternals thisArg vars opts.IsPure import [||] asmName) 
 
                 let kindWithoutMacros =
                     if inlAttr.IsSome then Some (Inline (true, false)) else 
@@ -351,7 +351,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             | None ->
                 prototypes.TryFind(def.Value.FullName)
                 |> Option.defaultValue def.Value.FullName
-                |> fun s -> Address.Lib (s.Split('.') |> List.ofArray)
+                |> fun s -> Address.LibAddr (s.Split('.') |> List.ofArray)
 
         classes.Add(def,
             (
@@ -400,7 +400,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             | None ->
                 prototypes.TryFind(def.Value.FullName)
                 |> Option.defaultValue def.Value.FullName
-                |> fun s -> Address.Lib (s.Split('.') |> List.ofArray)
+                |> fun s -> Address.LibAddr (s.Split('.') |> List.ofArray)
 
         let methods = Dictionary()
         for meth in typ.Methods do

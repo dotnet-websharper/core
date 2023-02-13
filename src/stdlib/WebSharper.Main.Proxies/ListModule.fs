@@ -53,7 +53,7 @@ let setValueNonTail (l: list<'T>) (v: 'T) =
 let setTail (l: list<'T>) (t: list<'T>) =
     JS.Set l "$1" t
 
-[<Inline "$wsruntime.Create($type('WebSharper.Main/Microsoft.FSharp.Collections.FSharpList`1'), {$: 1})"; Pure>]
+[<Inline "$wsruntime.Create($type('Microsoft.FSharp.Collections.FSharpList`1'), {$: 1})"; Pure>]
 let freshEmptyList() = X<list<'T>>
 
 [<Inline>]

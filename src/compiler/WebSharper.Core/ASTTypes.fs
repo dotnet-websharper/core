@@ -508,6 +508,12 @@ module Definitions =
             FullName = "System.Decimal"
         }
 
+    let WSDecimal =
+        TypeDefinition {
+            Assembly = "WebSharper.MathJS.Extensions"
+            FullName = "WebSharper.Decimal"
+        }
+
     let FSharpOption =
         TypeDefinition {
             Assembly = "FSharp.Core"
@@ -858,12 +864,20 @@ module TypeHelpers =
             Some (t1, t2, t3, t4, t5, t6)
         | _ -> None
 
+type CodeResource =
+    {
+        Assembly : string
+        Name : string
+    }
+    override this.ToString() = 
+        sprintf "%s/%s" this.Assembly this.Name
+
 type [<RequireQualifiedAccess>] TSType =
     | Any
     | Named of list<string>
     | Generic of TSType * list<TSType>
     | Imported of Id * list<string>
-    | Importing of string * list<string>
+    | Importing of Address
     | Function of option<TSType> * list<TSType * bool> * option<TSType> * TSType
     | New of list<TSType> * TSType
     | Tuple of list<TSType>
@@ -893,7 +907,7 @@ type [<RequireQualifiedAccess>] TSType =
         | TypeGuard (a, t) -> TypeGuard(a, tr t)
         | ObjectOf a -> ObjectOf(tr a)
 
-    member this.ResolveModule (getModule: string -> Id option) =
+    member this.ResolveModule (getModule: Module -> Id option) =
         let inline tr (p:TSType) = p.ResolveModule getModule
         match this with 
         | Any
@@ -901,10 +915,10 @@ type [<RequireQualifiedAccess>] TSType =
         | Imported _
         | Param _
             -> this
-        | Importing (m, a) ->
-            match getModule m with
-            | Some v -> Imported(v, a)
-            | _ -> Named a
+        | Importing m  ->
+            match getModule m.Module with
+            | Some v -> Imported(v, m.Address)
+            | _ -> Named m.Address
         | Generic (e, g) -> Generic (tr e, List.map tr g)
         | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
         | New (a, r) -> New (List.map tr a, tr r)
@@ -921,7 +935,7 @@ type [<RequireQualifiedAccess>] TSType =
         | Named t -> t |> String.concat "."
         | Generic (t, g) -> string t + "<" + (g |> List.map string |> String.concat ",") + ">"
         | Imported (i, t) -> string i + "::" + (t |> String.concat ".")
-        | Importing (n, t) -> n + "?:" + (t |> String.concat ".")
+        | Importing a -> string a.Module + "?:" + (a.Address |> List.rev |> String.concat ".")
         | Function (t, a, s, r) -> "((" + (a |> List.map string |> String.concat ",") + ")=>" + string r + ")" 
         | New (a, r) -> "(new(" + (a |> List.map string |> String.concat ",") + ")=>" + string r + ")" 
         | Tuple ts -> "[" + (ts |> Seq.map string |> String.concat ",") + "]"
@@ -981,25 +995,35 @@ type Member =
 
 type Module =
     | StandardLibrary
-    | JavaScriptFile of string
-    | JavaScriptModule of string
+    | JavaScriptFile of CodeResource
+    | JavaScriptModule of CodeResource
+    | DotNetType of CodeResource
     | ImportedModule of Id
+
+    override this.ToString() =
+        match this with
+        | StandardLibrary -> ""
+        | JavaScriptFile r
+        | JavaScriptModule r -> string r
+        | DotNetType r -> string r
+        | ImportedModule i -> string i
 
 type PlainAddress = Hashed<list<string>>
 
 type Address =
     {
         Module : Module
-        Address : PlainAddress
+        Address : list<string>
     }
 
     override this.ToString() =
         match this.Module with
         | StandardLibrary
         | JavaScriptFile _ -> ""
-        | JavaScriptModule m -> m + "::"
+        | JavaScriptModule c 
+        | DotNetType c -> string c + "::"
         | ImportedModule i -> string i + "::"
-        + (this.Address.Value |> List.rev |> String.concat ".")
+        + (this.Address |> List.rev |> String.concat ".")
 
     member this.JSAddress =
         match this.Module with
@@ -1016,15 +1040,15 @@ type Address =
     //        failwith "MapName on empty address"
 
     member this.Sub n =
-        { this with Address = Hashed (n :: this.Address.Value) }
+        { this with Address = n :: this.Address }
 
     member this.Func n =
-        { this with Address = Hashed [ n ] }
+        { this with Address = [ n ] }
 
     member this.Static n =
-        { this with Address = Hashed [ n; "default" ] }
+        { this with Address = [ n; "default" ] }
 
-module private Instances =
+module internal Instances =
     let uniqueId name i = 
         {
             IdName = Some name
@@ -1045,13 +1069,12 @@ module private Instances =
     let DefaultCtor =
         Constructor { CtorParameters = [] }
 
-    let RuntimeModule = JavaScriptModule "WebSharper.Core.JavaScript/Runtime"
+    let RuntimeModule = JavaScriptModule { Assembly = "WebSharper.Core.JavaScript"; Name = "Runtime" }
 
-    let EmptyAddress = Hashed []
-    let DefaultAddress = Hashed [ "default" ]
+    let DefaultAddress = [ "default" ]
 
-    let GlobalAddress = { Module = StandardLibrary; Address = EmptyAddress }
-    let ErrorAddress = { Module = StandardLibrary; Address = Hashed [ "$$ERROR$$" ] }
+    let GlobalAddress = { Module = StandardLibrary; Address = [] }
+    let ErrorAddress = { Module = StandardLibrary; Address = [ "$$ERROR$$" ] }
 
 type Id with
     static member Global() = Instances.GlobalId
@@ -1061,22 +1084,33 @@ type Id with
 type ConstructorInfo with
     static member Default() = Instances.DefaultCtor
 
-type Address with
-    static member Runtime() = { Module = Instances.RuntimeModule; Address = Instances.EmptyAddress }
-    static member Runtime f = { Module = Instances.RuntimeModule; Address = Hashed [f] }
-    static member Lib a = { Module = StandardLibrary; Address = Hashed [ a ] }
-    static member Lib a = { Module = StandardLibrary; Address = Hashed (List.rev a) }
-    static member Global() = Instances.GlobalAddress
-    static member Error() = Instances.ErrorAddress
-    static member ModuleRoot m = { Module = JavaScriptModule m; Address = Instances.EmptyAddress }
-    static member DefaultExport m = { Module = JavaScriptModule m; Address = Instances.DefaultAddress }
-    static member NamedExport m n = { Module = JavaScriptModule m; Address = Hashed [ n ] }
-    static member Import asmName (export: string option, from: string) = 
+module Address =
+    let Runtime a = { Module = Instances.RuntimeModule; Address = [ a ] }
+    let RuntimeAddr a = { Module = Instances.RuntimeModule; Address = List.rev a }
+    let Lib a = { Module = StandardLibrary; Address = [ a ] }
+    let LibAddr a = { Module = StandardLibrary; Address = List.rev a }
+    let Global() = Instances.GlobalAddress
+    let Error() = Instances.ErrorAddress
+    let TypeModuleRoot t = { Module = DotNetType t; Address = [] }
+    let TypeDefaultExport t = { Module = DotNetType t; Address = Instances.DefaultAddress }
+    let TypeNamedExport t n = { Module = DotNetType t; Address = [ n ] }
+    let Import asmName (export: string option, from: string) = 
         let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
-        let from =
+        let m =
             match from.IndexOf('/') with
-            | -1 -> asmName + "/" + from
-            | _ -> from
+            | -1 -> { Assembly = asmName; Name = from }
+            | i -> { Assembly = from[ .. i - 1]; Name = from[i + 1 ..] }
         match export with
-        | None -> Address.DefaultExport from
-        | Some x -> Address.NamedExport from x
+        | None -> { Module = JavaScriptModule m; Address = Instances.DefaultAddress }
+        | Some x -> { Module = JavaScriptModule m; Address = [ x ] }
+
+    /// Recognizes a WebSharper Runtime address
+    let (|Runtime|_|) (a: Address) =
+        match a with
+        | { Module = m; Address = [ a ] } when m = Instances.RuntimeModule -> Some a
+        | _ -> None
+
+    let (|Global|_|) (a: Address) =
+        match a with
+        | { Module = StandardLibrary; Address = [ a ] } -> Some a
+        | _ -> None

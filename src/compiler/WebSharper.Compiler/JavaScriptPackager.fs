@@ -125,29 +125,32 @@ type PackageContent =
             | Bundle (typs, _, _) -> typs
 
 let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
-    let imports = Dictionary<string, Dictionary<string, Id>>()
+    let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
     let addresses = Dictionary<Address, Expression>()
     let statements = ResizeArray<Statement>()
 
-    let classRes = Dictionary<TypeDefinition, Address * Id>()
+    let classRes = Dictionary<TypeDefinition, Address * Id * Id>()
+    let wsImports = HashSet<AST.CodeResource>()
         
     for typ in content.Types do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
-        let mn = typ.Value.Assembly + "/" + typ.Value.FullName.Replace('+', '.')
-        let currentClassAdds = Address.DefaultExport mn
-        addresses.Add(currentClassAdds, Var classId)
-        classRes.Add(typ, (currentClassAdds, classId))
+        let outerClassId = Id.New "_c"
+        let classCodeRes = { Assembly = typ.Value.Assembly; Name = typ.Value.FullName } 
+        let classAddr = Address.TypeDefaultExport classCodeRes
+        addresses.Add(classAddr, Var outerClassId)
+        wsImports.Add(classCodeRes) |> ignore
+        classRes.Add(typ, (classAddr, classId, outerClassId))
 
-    let currentModuleName, singleClassId = 
-        match content with
-        | SingleType typ ->
-            let currentClassAdds, classId = classRes[typ]
-            let mn = match currentClassAdds.Module with JavaScriptModule mn -> mn | _ -> ""
-            mn, classId
-        | _ -> asmName + ".js", Id.Global()
+    //let currentModule, singleClassId = 
+    //    match content with
+    //    | SingleType typ ->
+    //        let _, classId, _ = classRes[typ]
+    //        let mn = typ.Value.Assembly + "/" + typ.Value.FullName.Replace('+', '.')
+    //        mn, classId
+    //    | _ -> asmName + ".js", Id.Global()
 
     let export isDefault statement =
         match content with
@@ -156,6 +159,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             match statement with
             | ExprStatement(Var _) -> Empty
             | _ -> statement
+
+    let isSingleType =
+        match content with
+        | SingleType _ -> true
+        | Bundle _ -> false
 
     //let g = Id.New "Global"
     //let glob = Var g
@@ -168,7 +176,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     //    match addresses.TryGetValue address with
     //    | true, v -> v
     //    | _ ->
-    //        match address.Address.Value with
+    //        match address.Address with
     //        | [] -> glob
     //        | [ name ] ->
     //            let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
@@ -187,7 +195,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     //            res
 
     //let getFieldAddress (address: Address) =
-    //    match address.Address.Value with
+    //    match address.Address with
     //    | name :: r ->
     //        getAddress (Address r), Value (String name)
     //    | _ -> failwith "packageAssembly: empty address"
@@ -205,7 +213,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 match address.Module with
                 | StandardLibrary
                 | JavaScriptFile _ ->
-                    match address.Address.Value with
+                    match address.Address with
                     | [] -> ()
                     | l -> 
                         let fromJS = List.last l
@@ -214,8 +222,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     GlobalAccess address    
                 | JavaScriptModule m ->
                     let importWhat, importAs =
-                        let fromModuleName() = (m.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
-                        match address.Address.Value with
+                        let fromModuleName() = m.Name.Replace('.', '_').Replace('`', '_')
+                        match address.Address with
                         | [] -> 
                             "*", fromModuleName()
                         | a -> 
@@ -224,15 +232,50 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                 n, fromModuleName()
                             else
                                 n, n
-                    if m = currentModuleName then
-                        match address.Address.Value |> List.rev with
-                        | "default" :: res ->
-                            res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var singleClassId)
+                    let moduleImports =
+                        match imports.TryGetValue m with
+                        | true, mi -> mi
                         | _ ->
-                            let currentAddress =
-                                { address with Module = ImportedModule (Id.Global()) }
-                            GlobalAccess currentAddress
+                            let mi = Dictionary()
+                            imports.Add(m, mi)
+                            mi
+                    let i =
+                        match moduleImports.TryGetValue importWhat with
+                        | true, i -> i
+                        | _ ->
+                            let i = Id.New(importAs)
+                            moduleImports.Add(importWhat, i)
+                            i
+                    let importedAddress =
+                        match address.Address with
+                        | [] -> { address with Module = ImportedModule i }
+                        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
+                    GlobalAccess importedAddress
+                | DotNetType m ->
+                    if wsImports.Contains m then
+                        match address.Address |> List.rev with
+                        | [] ->
+                            // TODO is this ever happening?
+                            addresses[Address.TypeDefaultExport m]
+                        | "default" :: res ->
+                            let classVar = addresses[Address.TypeDefaultExport m]
+                            res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) classVar
+                        | _ ->
+                            let name = address.Address.Head
+                            let i = Id.New(name, str = isSingleType)
+                            Var i
                     else
+                        let importWhat, importAs =
+                            let fromModuleName() = (m.Name.Split([| '/'; '.' |]) |> Array.last).Split('`') |> Array.head
+                            match address.Address with
+                            | [] -> 
+                                "*", fromModuleName()
+                            | a -> 
+                                let n = List.last a
+                                if n = "default" then
+                                    n, fromModuleName()
+                                else
+                                    n, n
                         let moduleImports =
                             match imports.TryGetValue m with
                             | true, mi -> mi
@@ -248,15 +291,44 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                 moduleImports.Add(importWhat, i)
                                 i
                         let importedAddress =
-                            match address.Address.Value with
+                            match address.Address with
                             | [] -> { address with Module = ImportedModule i }
-                            | a -> { Module = ImportedModule i; Address = Hashed (a |> List.rev |> List.tail |> List.rev) }
+                            | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
                         GlobalAccess importedAddress
+                    //match classRes.TryGetValue(m) with
+                    //| true, (classAddr, classId, outerClassId) ->
+                    //    match address.Address |> List.rev with
+                    //    | "default" :: res ->
+                    //        res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var outerClassId)
+                    //    | _ ->
+                    //        let currentAddress =
+                    //            { address with Module = ImportedModule (Id.Global()) }
+                    //        GlobalAccess currentAddress
+                    //| _ -> 
+                    //    let moduleImports =
+                    //        match wsImports.TryGetValue m with
+                    //        | true, mi -> mi
+                    //        | _ ->
+                    //            let mi = Dictionary()
+                    //            wsImports.Add(m, mi)
+                    //            mi
+                    //    let i =
+                    //        match moduleImports.TryGetValue importWhat with
+                    //        | true, i -> i
+                    //        | _ ->
+                    //            let i = Id.New(importAs)
+                    //            moduleImports.Add(importWhat, i)
+                    //            i
+                    //    let importedAddress =
+                    //        match address.Address with
+                    //        | [] -> { address with Module = ImportedModule i }
+                    //        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
+                    //    GlobalAccess importedAddress
                 | _ -> GlobalAccess address          
             addresses.Add(address, res)
             res
             
-            //match address.Address.Value with
+            //match address.Address with
             //| [] -> glob
             //| [ from; "import" ] ->
             //    let name = "def$" + getModuleName from
@@ -290,16 +362,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             //        res
 
     let tsTypeOfAddress (a: Address) =
-        let t = a.Address.Value |> List.rev
+        let t = a.Address |> List.rev
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
-        | JavaScriptModule m when m = currentModuleName -> TSType.Named [ singleClassId.Name.Value ]
-        | JavaScriptModule _ ->
-            let a = if a.Address.Value.IsEmpty then { a with Address = Hashed [ "default" ] } else a
+        //| DotNetType m when m = currentModuleName -> TSType.Named [ singleClassId.Name.Value ]
+        | JavaScriptModule _ 
+        | DotNetType _ ->
+            let a = if a.Address.IsEmpty then { a with Address = [ "default" ] } else a
             match getOrImportAddress a with
             | GlobalAccess { Module = ImportedModule i; Address = a } ->
-                TSType.Imported(i, a.Value |> List.rev)
+                TSType.Imported(i, a |> List.rev)
             | Var i ->
                 TSType.Imported(i, [])
             | _ ->
@@ -351,7 +424,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
     let resModule (t: TSType) =
         t.ResolveModule (fun m ->
-            match getOrImportAddress { Module = JavaScriptModule m; Address = Hashed [] } with 
+            match getOrImportAddress ({ Module = m; Address = [] }) with 
             | Var v -> Some v
             | GlobalAccess { Module = ImportedModule v } -> Some v
             | _ -> None
@@ -372,14 +445,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
             override this.TransformItemGet(e, i, p) =
                 match e, i with
-                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.Value.IsEmpty ->
+                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.IsEmpty ->
                     a.Sub(n) |> getOrImportAddress
                 | _ ->
                     base.TransformItemGet(e, i, p)
 
             override this.TransformItemSet(e, i, v) =
                 match e, i with
-                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.Value.IsEmpty ->
+                | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.IsEmpty ->
                     match a.Sub(n) |> getOrImportAddress with
                     | GlobalAccess ga ->
                         GlobalAccessSet(ga, this.TransformExpression v)
@@ -427,7 +500,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
     let packageClass (typ: TypeDefinition) (a: Address) (ct: M.CustomTypeInfo) (c: M.ClassInfo) =
         let name = typ.Value.FullName
-        let currentClassAdds, classId = classRes[typ]
+        let currentClassAdds, classId, outerClassId = classRes[typ]
         let className = classId.Name.Value
 
         let gsArr = Array.ofList c.Generics
@@ -500,9 +573,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let mgen = getGenerics cgenl gc
             
             let func fromInst fname =
+                let f = 
+                    match getOrImportAddress { currentClassAdds with Address = [ fname ] } with
+                    | Var f -> f
+                    | _ ->
+                        // TODO is this ever happening?
+                        Id.New(fname, mut = false, str = true)
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
-                    let f = Id.New(fname, str = true)
                     let f, args =
                         if output = O.JavaScript then f, args else
                         match getSignature fromInst with
@@ -518,7 +596,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             f.WithType(Some (TSType t)), args
                     addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
-                    addStatement <| export false (VarDeclaration(Id.New(fname, mut = false, str = true, typ = TSType (getSignature fromInst)), implExpr(fun () -> bTr().TransformExpression e)))
+                    let f = f.WithType(Some (TSType (getSignature fromInst)))
+                    addStatement <| export false (VarDeclaration(f, implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
             | M.Instance (mname, mkind) ->
@@ -553,7 +632,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | M.Func (fname, fromInst) ->
                 func fromInst fname
             | M.GlobalFunc (addr, fromInst) ->
-                func fromInst addr.Address.Value.Head
+                func fromInst addr.Address.Head
             | _ -> ()
 
         let propInfo isStatic isPrivate isOptional =
@@ -678,7 +757,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | M.Func (name, _) ->
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
-                    addStatement <| export false (FuncDeclaration(Id.New(name, str = true), args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
+                    let f = 
+                        match getOrImportAddress { currentClassAdds with Address = [ name ] } with
+                        | Var f -> f
+                        | _ ->
+                            // TODO is this ever happening?
+                            Id.New(name, mut = false, str = true)
+                    addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | M.Static (name, _, kind) ->
@@ -869,11 +954,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 members.Add <| ClassStatic(staticThisTransformer.TransformStatement st)
             | _ -> ()
 
-        let lazyClassId = lazy Id.New("_c")
-
         let packageLazyClass classExpr =
-            addStatement <| VarDeclaration(lazyClassId.Value, bTr().TransformExpression (JSRuntime.Lazy classExpr))
-            addStatement <| export true (ExprStatement(Var lazyClassId.Value))                
+            addStatement <| VarDeclaration(outerClassId, bTr().TransformExpression (JSRuntime.Lazy classExpr))
+            addStatement <| export true (ExprStatement(Var outerClassId))                
 
         let packageClass classDecl = 
             addStatement <| export true (bTr().TransformStatement classDecl)                
@@ -881,7 +964,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
-                    ClassStatic (VarSetStatement(lazyClassId.Value, setInstance(JSThis))) 
+                    ClassStatic (VarSetStatement(outerClassId, setInstance(JSThis))) 
                     :: List.ofSeq members)
             let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
             match baseType with
@@ -906,7 +989,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     packageClass <| classDecl()
 
     let packageInterface (typ: TypeDefinition) (i: M.InterfaceInfo) =
-        let _, classId = classRes[typ]
+        let currentClassAdds, classId, outerClassId = classRes[typ]
         let className = classId.Name.Value
         let igen = List.length i.Generics
         let gen = getGenerics 0 i.Generics
@@ -945,7 +1028,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     None 
                 else
                     Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
-            let funcId = Id.New(isFunctionName, str = true, ?typ = returnType) 
+            let funcId = 
+                match getOrImportAddress { currentClassAdds with Address = [ isFunctionName ] } with
+                | Var f -> f.WithType(returnType)
+                | _ ->
+                    // TODO is this ever happening?
+                    Id.New(isFunctionName, mut = false, str = true, ?typ = returnType)
             if Seq.isEmpty methodNames then
                 FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
             else         
@@ -986,7 +1074,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             declarations.Add(Import(None, None, namedImports, ""))
 
         for KeyValue(m, i) in imports do
-            if m <> currentModuleName then
+            if not (wsImports.Contains(m)) then
                 let defaultImport =
                     match i.TryGetValue("default") with
                     | true, d -> Some d
@@ -1008,10 +1096,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     | O.JavaScript -> ".js"
                     | _ -> ""
                 let fromModule =
-                    if m.StartsWith (asmName + "/") then
-                        "./" + m[asmName.Length + 1 ..] + ext
+                    if m.Assembly = asmName then
+                        "./" + m.Name + ext
                     else
-                        "../" + m + ext
+                        "../" + m.Assembly + "/" + m.Name + ext
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
         List.ofSeq (Seq.concat [ declarations; statements ])

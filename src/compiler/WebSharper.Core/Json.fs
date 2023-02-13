@@ -46,7 +46,7 @@ let VALUE = "$V"
 
 type Dictionary<'T1,'T2> = System.Collections.Generic.Dictionary<'T1,'T2>
 
-type JSModule = JSModule of string
+type JSModule = JSModule of AST.CodeResource
 
 type Value =
     | Null
@@ -612,10 +612,12 @@ let serializers =
             | _ -> raise (DecoderException(String g, typeof<System.Guid>))
         | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
+    let decimalHelperModule =
+        AST.Address.TypeModuleRoot { Assembly = "WebSharper.MathJS.Extensions"; Name = "WebSharper.Decimal" }
     let encDecimal (d: decimal) =
         let b = System.Decimal.GetBits(d)
         EncodedArrayInstance (
-            AST.Address.ModuleRoot "WebSharper.MathJS.Extensions/WebSharper.Decimal", 
+            decimalHelperModule, 
             b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
         )
     let decDecimal = function
@@ -626,7 +628,7 @@ let serializers =
         | x -> raise (DecoderException(x, typeof<decimal>))
     add encDecimal decDecimal d   
     let encJSModule (JSModule m) =
-        EncodedInstance (AST.Address.ModuleRoot m, [])    
+        EncodedInstance (AST.Address.TypeModuleRoot m, [])    
     let decJSModule (_: Value) : JSModule = 
         failwithf "cannot decode JSModule"
     add encJSModule decJSModule d
@@ -1928,9 +1930,11 @@ module TypedProviderInternals =
             match a.Module with
             | AST.StandardLibrary
             | AST.JavaScriptFile _ ->
-                 a.Address.Value |> List.rev |> String.concat "." |> String
+                 a.Address |> List.rev |> String.concat "." |> String
             | AST.JavaScriptModule m ->
-                "../" + m + ".js::" + (a.Address.Value |> List.rev |> String.concat ".") |> String
+                "../" + string m + ".js::" + (a.Address |> List.rev |> String.concat ".") |> String
+            | AST.DotNetType t ->
+                "../" + string t + ".js::" + (a.Address |> List.rev |> String.concat ".") |> String
             | _ ->
                 failwith "ImportedModule address not expected for JSON"
         let types = types |> List.map encA

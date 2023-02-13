@@ -449,6 +449,7 @@ type HashedEncoder<'T when 'T :> HashedProcessor>
     let args = t.GetGenericArguments()
     let valueType = args.[0]
     let value = derive valueType
+    let cached = Dictionary<obj, obj>()
     
     let hP : HashedProcessor =
         typedefof<'T>.MakeGenericType(valueType)       
@@ -456,7 +457,13 @@ type HashedEncoder<'T when 'T :> HashedProcessor>
         |> unbox
 
     override this.Decode r =
-        hP.FromObject (value.Decode r)     
+        let v = value.Decode r
+        match cached.TryGetValue(v) with
+        | true, h -> h
+        | _ -> 
+            let h = hP.FromObject v
+            cached.Add(v, h)
+            h
 
     override this.Encode (w, x) =
         hP.RunOnValue (fun v -> value.Encode(w, v)) x

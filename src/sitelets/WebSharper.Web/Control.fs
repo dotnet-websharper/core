@@ -289,7 +289,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
 
     let mutable args = [||]
     let mutable funcName = [||]
-    let mutable jsModule = Json.JSModule ""
+    let mutable jsModule = Unchecked.defaultof<Json.JSModule>
 
     [<JavaScript>]
     override this.Body =
@@ -326,12 +326,12 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                     funcName <- [| "default"; a |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
+                    | AST.DotNetType dt -> jsModule <- Json.JSModule dt
                     | _ -> ()
                 | Some { CompiledForm = M.Func (a, false) } ->
                     funcName <- [| a |]
                     match clsAddr.Module with
-                    | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
+                    | AST.DotNetType dt -> jsModule <- Json.JSModule dt
                     | _ -> ()
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
@@ -411,7 +411,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     let args = fst bodyAndReqs
     let mutable funcName = [||]
-    let mutable jsModule = Json.JSModule ""
+    let mutable jsModule = Unchecked.defaultof<Json.JSModule>
 
     [<JavaScript>]
     override this.Body =
@@ -438,12 +438,12 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                         | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                             funcName <- [| "default"; a |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
+                            | AST.DotNetType dt -> jsModule <- Json.JSModule dt
                             | _ -> ()
                         | Some  { CompiledForm = M.Func (a, false) } ->
                             funcName <- [| a |]
                             match clsAddr.Module with
-                            | AST.JavaScriptModule m -> jsModule <- Json.JSModule m
+                            | AST.DotNetType dt -> jsModule <- Json.JSModule dt
                             | _ -> ()
                         | Some _ -> 
                             failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
