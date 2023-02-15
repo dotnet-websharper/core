@@ -951,6 +951,7 @@ let maybe = new MaybeBuilder()
 
 let trimMetadata (meta: Info) (nodes : seq<Node>) =
     let classes = Dictionary<_,_>() 
+    let interfaces = Dictionary<_,_>() 
     let rec getOrAddClass td =
         match classes.TryGetValue td with
         | true, (_, _, x) -> x
@@ -1000,8 +1001,13 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 
+            if meta.Interfaces.ContainsKey td then
+                interfaces[td] <- meta.Interfaces[td]
         | _ -> ()
-    { meta with Classes = classes}
+    { meta with 
+        Classes = classes
+        Interfaces = interfaces
+    }
 
 //let private exposeAddress asmName (a: Address) =
 //    match a.Module with

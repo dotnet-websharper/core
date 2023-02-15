@@ -135,22 +135,31 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let wsImports = HashSet<AST.CodeResource>()
         
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
-    let allInterfaces =  MergedDictionary(refMeta.Interfaces, current.Interfaces)
+    let allInterfaces = MergedDictionary(refMeta.Interfaces, current.Interfaces)
 
     for typ in content.Types do
-        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
-        let classId = Id.New className
-        let outerClassId = Id.New "_c"
-        let classCodeRes = 
-            match allClasses.TryFind(typ) with
-            | Some ({ Module = DotNetType m }, _, _) ->
-                m
-            | _ ->
-                { Assembly = asmName; Name = typ.Value.FullName } 
-        let classAddr = Address.TypeDefaultExport classCodeRes
-        addresses.Add(classAddr, Var outerClassId)
-        wsImports.Add(classCodeRes) |> ignore
-        classRes.Add(typ, (classAddr, classId, outerClassId))
+        //if not (classRes.ContainsKey typ) then
+            let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+            let classId = Id.New className
+            let outerClassId = Id.New "_c"
+            let classCodeRes, isUnionCase = 
+                match allClasses.TryFind(typ) with
+                | Some ({ Module = DotNetType m }, i, _) ->
+                    m, 
+                    match i with Metadata.CustomTypeInfo.FSharpUnionCaseInfo _ -> true | _ -> false 
+                | _ ->
+                    match allInterfaces.TryFind(typ) with
+                    | Some ({ Address = { Module = DotNetType m } }) ->
+                        m, false
+                    | _ ->
+                        { Assembly = asmName; Name = typ.Value.FullName },
+                        false
+            if not isUnionCase then
+                let classAddr = Address.TypeDefaultExport classCodeRes
+                //if not (addresses.ContainsKey classAddr) then
+                addresses.Add(classAddr, Var outerClassId)
+                wsImports.Add(classCodeRes) |> ignore
+                classRes.Add(typ, (classAddr, classId, outerClassId))
 
     let export isDefault statement =
         match content with
@@ -265,8 +274,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     if wsImports.Contains m then
                         match address.Address |> List.rev with
                         | [] ->
-                            // TODO is this ever happening?
-                            addresses[Address.TypeDefaultExport m]
+                            Var (Id.Global())
                         | "default" :: res ->
                             let classVar = addresses[Address.TypeDefaultExport m]
                             res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) classVar
@@ -336,6 +344,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     //    GlobalAccess importedAddress
                 | _ -> GlobalAccess address          
             addresses.Add(address, res)
+            
+            // TODO: remove, safety check only
+            match res with 
+            | GlobalAccess { Module = JavaScriptModule _ | DotNetType _ } ->
+                failwithf "unexpected import result for %A" address
+            | _ -> ()
+            
             res
             
             //match address.Address with
@@ -404,6 +419,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let inline tsTypeOf gs t = typeTranslator.TSTypeOf gs t
 
     let getGenerics j (gs: list<M.GenericParam>) =
+        if output = O.JavaScript then [] else
         let gsArr = Array.ofList gs
         gs |> Seq.indexed |> Seq.choose (fun (i, c) ->
             match c.Type with
@@ -431,6 +447,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 TSType.Generic(t, g)
 
     let resModule (t: TSType) =
+        if output = O.JavaScript then t else 
         t.ResolveModule (fun m ->
             match getOrImportAddress ({ Module = m; Address = [] }) with 
             | Var v -> Some v
@@ -472,20 +489,34 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     base.TransformItemSet(e, i, v)
 
             override this.TransformId(a) =
-                a.ToTSType(tsTypeOf gsArr)
+                if output = O.JavaScript then 
+                    a 
+                else 
+                    a.ToTSType(tsTypeOf gsArr)
 
             override this.TransformApplication(a, b, c) =
-                base.TransformApplication(a, b, { c with Params = c.Params |> List.map resModule })
+                if output = O.JavaScript then 
+                    base.TransformApplication(a, b, c) 
+                else 
+                    base.TransformApplication(a, b, { c with Params = c.Params |> List.map resModule })
 
             override this.TransformNew(a, b, c) =
-                base.TransformNew(a, b |> List.map resModule, c)
+                if output = O.JavaScript then 
+                    base.TransformNew(a, b, c) 
+                else 
+                    base.TransformNew(a, b |> List.map resModule, c)
 
             override this.TransformCast(a, b) =
-                base.TransformCast(resModule a, b)
+                if output = O.JavaScript then 
+                    this.TransformExpression b
+                else 
+                    base.TransformCast(resModule a, b)
 
             override this.TransformFuncDeclaration(a, b, c, d, e) =
-                base.TransformFuncDeclaration(a, b, c, d, e |> List.map resModule)
-
+                if output = O.JavaScript then 
+                    base.TransformFuncDeclaration(a, b, c, d, e) 
+                else 
+                    base.TransformFuncDeclaration(a, b, c, d, e |> List.map resModule)
         }
             
     let addStatement st =
@@ -604,7 +635,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             f.WithType(Some (TSType t)), args
                     addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt(fun () -> bTr().TransformStatement b), cgen @ mgen))
                 | e ->
-                    let f = f.WithType(Some (TSType (getSignature fromInst)))
+                    let f = 
+                        if output = O.JavaScript then f else
+                        f.WithType(Some (TSType (getSignature fromInst)))
                     addStatement <| export false (VarDeclaration(f, implExpr(fun () -> bTr().TransformExpression e)))
             
             match withoutMacros info with
@@ -652,14 +685,16 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         if c.HasWSPrototype then
             for f in c.Fields.Values |> Seq.sortBy (fun f -> f.Order) do
-
+                let fTyp =
+                    if output = O.JavaScript then TSType.Any else
+                    tsTypeOf gsArr f.Type
                 match f.CompiledForm with
                 | M.InstanceField name ->
-                    members.Add <| ClassProperty(propInfo false false false, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo false false false, name, fTyp, None)
                 | M.OptionalField name -> 
-                    members.Add <| ClassProperty(propInfo false false true, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo false false true, name, fTyp, None)
                 | M.StaticField name ->
-                    members.Add <| ClassProperty(propInfo true false false, name, tsTypeOf gsArr f.Type, None)
+                    members.Add <| ClassProperty(propInfo true false false, name, fTyp, None)
                 | M.IndexedField _ ->
                     () //TODO
                 | M.VarField _ -> ()
@@ -921,7 +956,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     | M.NormalFSharpUnionCase fs ->
                         let ucmems =
                             fs |> List.mapi (fun i f ->
-                                ClassProperty(propInfo false false false, "$" + string i, tsTypeOf gsArr f.UnionFieldType, None)
+                                let fTyp =
+                                    if output = O.JavaScript then TSType.Any else
+                                    tsTypeOf gsArr f.UnionFieldType
+                                ClassProperty(propInfo false false false, "$" + string i, fTyp, None)
                             )
                         addStatement <| export false (
                             Interface(uc.Name, [], tagMem() :: ucmems, cgen)
@@ -945,7 +983,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             if not c.HasWSPrototype && output <> O.JavaScript then
                 let rmems =
                     r |> List.map (fun f ->
-                        ClassProperty(propInfo false false f.Optional, f.JSName, tsTypeOf gsArr f.RecordFieldType, None)
+                        let fTyp =
+                            if output = O.JavaScript then TSType.Any else
+                            tsTypeOf gsArr f.RecordFieldType
+                        ClassProperty(propInfo false false f.Optional, f.JSName, fTyp, None)
                     )
                 addStatement <| export true (
                     Interface(className, [], rmems, cgen)
@@ -967,14 +1008,21 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             addStatement <| export true (ExprStatement(Var outerClassId))                
 
         let packageClass classDecl = 
-            addStatement <| export true (bTr().TransformStatement classDecl)                
+            let trClassDecl =
+                classDecl
+                |> bTr().TransformStatement 
+                |> SubstituteVar(outerClassId, Var classId).TransformStatement
+            addStatement <| export true trClassDecl      
 
         if c.HasWSPrototype || members.Count > 0 then
             let classExpr setInstance = 
                 ClassExpr(Some classId, baseType, 
                     ClassStatic (VarSetStatement(outerClassId, setInstance(JSThis))) 
                     :: List.ofSeq members)
-            let classDecl() = Class(classId, baseType, [], List.ofSeq members, [])
+            let implements =
+                if output = O.JavaScript then [] else
+                c.Implements |> List.map (tsTypeOfConcrete gsArr)
+            let classDecl() = Class(classId, baseType, implements, List.ofSeq members, [])
             match baseType with
             | Some b ->
                 let needsLazy = Option.isNone c.Type && output <> O.TypeScriptDeclaration
@@ -1008,9 +1056,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     let gsArr = Array.append gsArr (Array.ofList gc)
                     let args, argTypes =
                         m.Value.Parameters |> List.mapi (fun i p ->
-                            Id.New(string ('a' + char i), mut = false, str = true), tsTypeOf gsArr p
+                            let fTyp =
+                                if output = O.JavaScript then TSType.Any else
+                                tsTypeOf gsArr p
+                            Id.New(string ('a' + char i), mut = false, str = true), fTyp
                         ) |> List.unzip
-                    let signature = TSType.Lambda(argTypes, tsTypeOf gsArr m.Value.ReturnType)
+                    let signature = 
+                        if output = O.JavaScript then TSType.Any else
+                        TSType.Lambda(argTypes, tsTypeOf gsArr m.Value.ReturnType)
                     let info = 
                         {
                             IsStatic = false
@@ -1020,8 +1073,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc))    
                 ) |> List.ofSeq
 
+            let extends =
+                if output = O.JavaScript then [] else
+                i.Extends |> List.map (tsTypeOfConcrete gsArr)
+
             addStatement <| export true (
-                Interface(className, i.Extends |> List.map (tsTypeOfConcrete gsArr), imems, gen)
+                Interface(className, extends, imems, gen)
             )
 
         let methodNames =
@@ -1038,7 +1095,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
             let funcId = 
                 match getOrImportAddress { currentClassAdds with Address = [ isFunctionName ] } with
-                | Var f -> f.WithType(returnType)
+                | Var f -> 
+                    if output = O.JavaScript then f else
+                        f.WithType(returnType)
                 | _ ->
                     // TODO is this ever happening?
                     Id.New(isFunctionName, mut = false, str = true, ?typ = returnType)
@@ -1132,8 +1191,8 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
 
 let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
     let types =
-        //Seq.append current.Interfaces.Keys current.Classes.Keys
-        current.Classes.Keys
+        Seq.append current.Interfaces.Keys current.Classes.Keys
+        //current.Classes.Keys
         |> Seq.distinct
         |> Array.ofSeq
 
