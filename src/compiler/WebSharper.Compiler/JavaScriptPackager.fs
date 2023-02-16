@@ -132,7 +132,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let statements = ResizeArray<Statement>()
 
     let classRes = Dictionary<TypeDefinition, Address * Id * Id>()
-    let wsImports = HashSet<AST.CodeResource>()
+    let currentScope = HashSet<CodeResource>()
         
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
     let allInterfaces = MergedDictionary(refMeta.Interfaces, current.Interfaces)
@@ -142,23 +142,29 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
             let classId = Id.New className
             let outerClassId = Id.New "_c"
-            let classCodeRes, isUnionCase = 
+            let classAddr, classCodeRes, isUnionCase = 
                 match allClasses.TryFind(typ) with
-                | Some ({ Module = DotNetType m }, i, _) ->
-                    m, 
+                | Some ({ Module = DotNetType m } as a, i, _) ->
+                    a, m, 
                     match i with Metadata.CustomTypeInfo.FSharpUnionCaseInfo _ -> true | _ -> false 
                 | _ ->
                     match allInterfaces.TryFind(typ) with
-                    | Some ({ Address = { Module = DotNetType m } }) ->
-                        m, false
+                    | Some ({ Address = { Module = DotNetType m } as a }) ->
+                        a, m, false
                     | _ ->
-                        { Assembly = asmName; Name = typ.Value.FullName },
-                        false
+                        let m = { Assembly = asmName; Name = typ.Value.FullName }
+                        Address.TypeModuleRoot m, m, false     
             if not isUnionCase then
-                let classAddr = Address.TypeDefaultExport classCodeRes
+                if output <> O.JavaScript && classAddr.Address <> [ "default" ] then
+                    // add type export
+                    let typeAddr = { classAddr with Address = [ "default" ] }
+                    addresses.Add(typeAddr, Var classId)
+                
                 //if not (addresses.ContainsKey classAddr) then
                 addresses.Add(classAddr, Var outerClassId)
-                wsImports.Add(classCodeRes) |> ignore
+                currentScope.Add(classCodeRes) |> ignore
+                //| a -> 
+                //    failwithf "Unexpected class addr %A for type %A" a typ
                 classRes.Add(typ, (classAddr, classId, outerClassId))
 
     let export isDefault statement =
@@ -271,7 +277,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
                     GlobalAccess importedAddress
                 | DotNetType m ->
-                    if wsImports.Contains m then
+                    if currentScope.Contains m then
                         match address.Address |> List.rev with
                         | [] ->
                             Var (Id.Global())
@@ -324,11 +330,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     //        GlobalAccess currentAddress
                     //| _ -> 
                     //    let moduleImports =
-                    //        match wsImports.TryGetValue m with
+                    //        match currentScope.TryGetValue m with
                     //        | true, mi -> mi
                     //        | _ ->
                     //            let mi = Dictionary()
-                    //            wsImports.Add(m, mi)
+                    //            currentScope.Add(m, mi)
                     //            mi
                     //    let i =
                     //        match moduleImports.TryGetValue importWhat with
@@ -539,7 +545,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
     let packageClass (typ: TypeDefinition) (a: Address) (ct: M.CustomTypeInfo) (c: M.ClassInfo) =
         let name = typ.Value.FullName
-        let currentClassAdds, classId, outerClassId = classRes[typ]
+        let currentClassAddr, classId, outerClassId = classRes[typ]
         let className = classId.Name.Value
 
         let gsArr = Array.ofList c.Generics
@@ -548,7 +554,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let staticThisTransformer =
             { new Transformer() with
                 override this.TransformGlobalAccess a = 
-                    if a = currentClassAdds then
+                    if a = currentClassAddr then
                         JSThis
                     else
                         GlobalAccess a
@@ -611,13 +617,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     tsTypeOf gsArr m.Value.ReturnType
             let mgen = getGenerics cgenl gc
             
-            let func fromInst fname =
+            let func fromInst addr =
                 let f = 
-                    match getOrImportAddress { currentClassAdds with Address = [ fname ] } with
+                    match getOrImportAddress addr with
                     | Var f -> f
-                    | _ ->
-                        // TODO is this ever happening?
-                        Id.New(fname, mut = false, str = true)
+                    | a ->
+                        failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" addr a typ (Array.ofSeq currentScope)
+                        //Id.New(fname, mut = false, str = true)
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
                     let f, args =
@@ -671,9 +677,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         }
                     members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, implExprOpt (fun () -> body))
             | M.Func (fname, fromInst) ->
-                func fromInst fname
+                func fromInst (currentClassAddr.Func(fname))
             | M.GlobalFunc (addr, fromInst) ->
-                func fromInst addr.Address.Head
+                func fromInst addr
             | _ -> ()
 
         let propInfo isStatic isPrivate isOptional =
@@ -801,11 +807,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
                     let f = 
-                        match getOrImportAddress { currentClassAdds with Address = [ name ] } with
+                        match getOrImportAddress (currentClassAddr.Func(name)) with
                         | Var f -> f
-                        | _ ->
-                            // TODO is this ever happening?
-                            Id.New(name, mut = false, str = true)
+                        | a ->
+                            failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAddr.Func(name)) a typ (Array.ofSeq currentScope)
+                            //Id.New(name, mut = false, str = true)
                     addStatement <| export false (FuncDeclaration(f, args, thisVar, implSt (fun () -> bTr().TransformStatement b), cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
@@ -941,8 +947,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         match ct with
         | M.FSharpUnionInfo u when Option.isNone c.Type ->         
-            let tags() = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
-            addStatement <| export false (VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
+            //let tags() = u.Cases |> List.mapi (fun i c -> c.Name, MemberKind.Simple, Value (Int i)) |> Object
+            //addStatement <| export false (VarDeclaration(Id.New("Tags", mut = false, str = true), implExpr tags))
             isFSharpType <- true
 
             if output <> O.JavaScript then
@@ -973,7 +979,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         )
                         ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
 
-                addStatement <| export false (
+                addStatement <| export true (
                     Alias(TSType.Basic className |> addGenerics cgen, TSType.Union (List.ofSeq ucTypes))
                 )
 
@@ -1094,13 +1100,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 else
                     Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
             let funcId = 
-                match getOrImportAddress { currentClassAdds with Address = [ isFunctionName ] } with
+                match getOrImportAddress (currentClassAdds.Func(isFunctionName)) with
                 | Var f -> 
                     if output = O.JavaScript then f else
                         f.WithType(returnType)
-                | _ ->
-                    // TODO is this ever happening?
-                    Id.New(isFunctionName, mut = false, str = true, ?typ = returnType)
+                | a ->
+                    failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAdds.Func(isFunctionName)) a typ (Array.ofSeq currentScope)
+                    //Id.New(isFunctionName, mut = false, str = true, ?typ = returnType)
             if Seq.isEmpty methodNames then
                 FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
             else         
@@ -1141,7 +1147,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             declarations.Add(Import(None, None, namedImports, ""))
 
         for KeyValue(m, i) in imports do
-            if not (wsImports.Contains(m)) then
+            if not (currentScope.Contains(m)) then
                 let defaultImport =
                     match i.TryGetValue("default") with
                     | true, d -> Some d
