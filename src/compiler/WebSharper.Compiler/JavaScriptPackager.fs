@@ -1031,7 +1031,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let classDecl() = Class(classId, baseType, implements, List.ofSeq members, [])
             match baseType with
             | Some b ->
-                let needsLazy = Option.isNone c.Type && output <> O.TypeScriptDeclaration
+                let needsLazy = (not isSingleType || Option.isNone c.Type) && output <> O.TypeScriptDeclaration
                 if needsLazy then
                     packageLazyClass <| fun i ->
                         if isObjBase then
@@ -1044,7 +1044,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 else
                     packageClass <| classDecl()
             | None ->
-                let needsLazy = c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType && output <> O.TypeScriptDeclaration
+                let needsLazy = (not isSingleType || (c.HasWSPrototype && Option.isNone c.Type && typ <> Definitions.Object && not isFSharpType)) && output <> O.TypeScriptDeclaration
                 if needsLazy then
                     packageLazyClass <| classExpr
                 else

@@ -420,22 +420,29 @@ let translate source =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    //let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
-    for (file, p) in pkg do
-        printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))
+    //for (file, p) in pkg do
+    //    printfn "packaged %s: %s" file (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block p))
 
-    let jsFiles = 
-        pkg 
-        |> Array.map (fun (file, p) ->
-            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
-            file, js
-        )
+    //let jsFiles = 
+    //    pkg 
+    //    |> Array.map (fun (file, p) ->
+    //        let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+    //        file, js
+    //    )
 
-    //compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
-    for (name, js) in jsFiles do 
-        printfn "File: %s" name
-        printfn "%s" js
+    ////compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
+    //for (name, js) in jsFiles do 
+    //    printfn "File: %s" name
+    //    printfn "%s" js
+
+    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+    printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
+
+    let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+    printfn "%s" js
 
 let translateQ q =
     let comp = 
@@ -481,7 +488,11 @@ open WebSharper.JavaScript
 
 [<JavaScript>]
 module MyLib = 
-    let Foo obj = printfn "%A" obj
+    let Foo obj = printfn "%s" obj
+
+[<JavaScript>]
+module MyLib2 = 
+    let Foo2 obj = MyLib.Foo obj
 
 """
 

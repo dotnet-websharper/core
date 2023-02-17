@@ -40,8 +40,6 @@ type Environment =
         mutable CompactVars : int
         mutable ScopeIds : Map<Id, string>
         //ScopeVars : ResizeArray<string>
-        FuncDecls : ResizeArray<J.Statement>
-        mutable InFuncScope : bool
         OuterScope : bool
     }
     static member New(pref, ?mode) =
@@ -53,8 +51,6 @@ type Environment =
             CompactVars = 0 
             ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
             //ScopeVars = ResizeArray()
-            FuncDecls = ResizeArray()
-            InFuncScope = true
             OuterScope = true
         }
 
@@ -67,8 +63,6 @@ type Environment =
             CompactVars = this.CompactVars
             ScopeIds = this.ScopeIds
             //ScopeVars = ResizeArray()
-            FuncDecls = ResizeArray()
-            InFuncScope = true
             OuterScope = false
         }
         
@@ -431,20 +425,6 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
         match IgnoreStatementSourcePos s with
         | Block s -> flatten s
         | _ -> [ trS s ]
-    // collect function declarations to be on top level of functions to satisfy strict mode
-    // requirement by some JavaScript engines
-    let withFuncDecls f =
-        //if env.InFuncScope then
-        //    env.InFuncScope <- false
-        //    let woFuncDecls = f()
-        //    env.InFuncScope <- true
-        //    if env.FuncDecls.Count > 0 then
-        //        let res = block (Seq.append env.FuncDecls (Seq.singleton woFuncDecls))
-        //        env.FuncDecls.Clear()
-        //        res
-        //    else woFuncDecls
-        //else 
-            f()
     match statement with
     | Empty -> J.Empty
     | Break(a) -> J.Break (a |> Option.map (fun l -> l.Name.Value))
@@ -465,8 +445,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             } : J.SourcePos
         J.StatementPos (trS s, jpos)
     | If(a, b, c) -> 
-        withFuncDecls <| fun () -> 
-            J.If(trE a, trS b, trS c)
+        J.If(trE a, trS b, trS c)
     | Return (IgnoreSourcePos.Unary(UnaryOperator.``void``, a)) -> block [ J.Ignore(trE a); J.Return None ]
     | Return (IgnoreSourcePos.Sequential s) -> block (sequential s Return |> List.map trS)
     | Return IgnoreSourcePos.Undefined -> J.Return None
@@ -503,49 +482,37 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             | J.Empty
             | J.Return None -> []
             | b -> [ b ]
-        let f = J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
-        if env.InFuncScope then
-            f
-        else
-            env.FuncDecls.Add f 
-            J.Empty
+        J.Function(id, args, if env.Output = O.TypeScriptDeclaration then None else Some (flattenJS body))
     | While(a, b) -> 
-        withFuncDecls <| fun () -> 
-            J.While (trE a, trS b)
+        J.While (trE a, trS b)
     | DoWhile(a, b) ->
-        withFuncDecls <| fun () -> 
-            J.Do (trS a, trE b)
+        J.Do (trS a, trE b)
     | For(a, b, c, d) -> 
-        withFuncDecls <| fun () -> 
-            match a with 
-            | Some (NewVars setters) ->
-                let trV =
-                    List.zip
-                        (setters |> List.map (fst >> defineId env))
-                        (setters |> List.map (snd >> Option.map trE))
-                J.ForVars(trV, Option.map trE b, Option.map trE c, trS d)
-            | _ ->
-                J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
+        match a with 
+        | Some (NewVars setters) ->
+            let trV =
+                List.zip
+                    (setters |> List.map (fst >> defineId env))
+                    (setters |> List.map (snd >> Option.map trE))
+            J.ForVars(trV, Option.map trE b, Option.map trE c, trS d)
+        | _ ->
+            J.For(Option.map trE a, Option.map trE b, Option.map trE c, trS d)
     | Switch(a, b) -> 
-        withFuncDecls <| fun () ->
-            J.Switch(trE a, 
-                b |> List.map (fun (l, s) -> 
-                    match l with 
-                    | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
-                    | _ -> J.SwitchElement.Default (flattenS s)
-                )
+        J.Switch(trE a, 
+            b |> List.map (fun (l, s) -> 
+                match l with 
+                | Some l -> J.SwitchElement.Case (trE l, flattenS s) 
+                | _ -> J.SwitchElement.Default (flattenS s)
             )
+        )
     | Throw (IgnoreSourcePos.Sequential s) -> block (sequential s Throw |> List.map trS)
     | Throw(a) -> J.Throw (trE a)
     | Labeled(a, b) -> 
-        withFuncDecls <| fun () -> 
-            J.Labelled(a.Name.Value, trS b)
+        J.Labelled(a.Name.Value, trS b)
     | TryWith(a, b, c) -> 
-        withFuncDecls <| fun () ->
-            J.TryWith(trS a, defineId env (match b with Some b -> b | _ -> Id.New()), trS c, None)
+        J.TryWith(trS a, defineId env (match b with Some b -> b | _ -> Id.New()), trS c, None)
     | TryFinally(a, b) ->
-        withFuncDecls <| fun () ->
-            J.TryFinally(trS a, trS b)
+        J.TryFinally(trS a, trS b)
     | Import(None, _, _, "") ->
         J.Empty
     | Import(None, None, [], d) ->
@@ -571,8 +538,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | Declare a ->
         J.Declare (trS a)
     | ForIn(a, b, c) -> 
-        withFuncDecls <| fun () ->
-            J.ForVarIn(defineId env a, None, trE b, trS c)
+        J.ForVarIn(defineId env a, None, trE b, trS c)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | Class (n, b, i, m, g) ->
