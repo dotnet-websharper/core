@@ -2,12 +2,15 @@
 using System.CodeDom;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using WebSharper.Compiler;
 using WebSharper.Core;
 using WebSharper.Core.AST;
+using static WebSharper.Core.Metadata;
+
 namespace WebSharper.DllBrowser
 {
     public abstract class TreeNodeModel
@@ -39,6 +42,7 @@ namespace WebSharper.DllBrowser
             if (meta != null)
             {
                 Contents.Add(new MetadataModel(meta));
+                Contents.Add(new GraphModel(meta.Dependencies));
             }
             Contents.Add(new ResourcesModel(assembly));
         }
@@ -65,6 +69,29 @@ namespace WebSharper.DllBrowser
             {
                 Contents.Add(new InterfaceModel(x.Key.Value, x.Value));
             }
+        }
+    }
+
+    public class GraphModel : TreeGroupNodeModel
+    {
+        public Metadata.GraphData Dependencies { get; init; }
+        public override string Name => "Graph";
+        public GraphModel(Metadata.GraphData dependencies)
+        {
+            Dependencies = dependencies;
+            var i = 0;
+            var nodesWithDeps = new List<NodeModel>();
+
+            foreach (var x in dependencies.Nodes)
+            {
+                if (dependencies.Edges[i].Any())
+                {
+                    nodesWithDeps.Add(new NodeModel(x.ToString(), i, dependencies));
+                }
+                i++;
+            }
+
+            Contents.AddRange(nodesWithDeps.OrderBy(n => n.Name));
         }
     }
 
@@ -182,4 +209,33 @@ namespace WebSharper.DllBrowser
             EmbeddedFile = embeddedFile;
         }
     }
+
+    public class NodeModel : TreeLeafNodeModel
+    {
+        public Metadata.GraphData Dependencies { get; init; }
+        private string _name;
+        private int _index;
+        public override string Name => _name;
+        public override string Details
+        {
+            get
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine("Depends on:");
+                foreach (int d in Dependencies.Edges[_index])
+                {
+                    sb.Append("  ").AppendLine(Dependencies.Nodes[d].ToString());
+                }
+                return sb.ToString();
+            }
+        }
+
+        public NodeModel(string name, int index, Metadata.GraphData dependencies)
+        {
+            _name = name;
+            _index = index;
+            Dependencies = dependencies;
+        }
+    }
+
 }

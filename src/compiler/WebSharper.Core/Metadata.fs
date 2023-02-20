@@ -252,6 +252,18 @@ type Node =
     | EntryPointNode 
     | ExtraBundleEntryPointNode of string * string
 
+    override this.ToString() =
+        match this with
+        | MethodNode (td, m) -> sprintf "Method %O.%O" td.Value m.Value
+        | ConstructorNode (td, c) -> sprintf "Constructor %O %O" td.Value c.Value
+        | ImplementationNode (td, i, m) -> sprintf "Implementation %O %O.%O" td.Value i.Value m.Value
+        | AbstractMethodNode (td, m) -> sprintf "AbstractMethod %O.%O" td.Value m.Value
+        | TypeNode td -> sprintf "Type %O" td.Value
+        | ResourceNode (td, p) -> sprintf "Resource %O%s" td.Value (match p with None -> "" | Some p -> sprintf " (%A)" p)
+        | AssemblyNode (n, hasJs, isModule) -> sprintf "Assembly %s hasJs:%b isModule:%b" n hasJs isModule
+        | EntryPointNode -> "EntryPoint"
+        | ExtraBundleEntryPointNode (a, n) -> sprintf "ExtraBundleEntryPoint %s %s" a n 
+
 type GraphData =
     {
         Nodes : Node[]
