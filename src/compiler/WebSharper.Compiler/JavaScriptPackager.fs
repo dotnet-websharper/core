@@ -160,12 +160,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     let typeAddr = { classAddr with Address = [ "default" ] }
                     addresses.Add(typeAddr, Var classId)
                 
-                //if not (addresses.ContainsKey classAddr) then
-                addresses.Add(classAddr, Var outerClassId)
+                if not (addresses.ContainsKey classAddr) then
+                    addresses.Add(classAddr, Var outerClassId)
+                else
+                    failwithf "Unexpected: address already added %A for type %A" classAddr typ
                 currentScope.Add(classCodeRes) |> ignore
                 //| a -> 
                 //    failwithf "Unexpected class addr %A for type %A" a typ
-                classRes.Add(typ, (classAddr, classId, outerClassId))
+                if not (classRes.ContainsKey typ) then
+                    classRes.Add(typ, (classAddr, classId, outerClassId))
+                else
+                    failwithf "Unexpected: type already added %A" classRes
 
     let export isDefault statement =
         match content with
@@ -679,7 +684,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | M.Func (fname, fromInst) ->
                 func fromInst (currentClassAddr.Func(fname))
             | M.GlobalFunc (addr, fromInst) ->
-                func fromInst addr
+                if isSingleType then
+                    func fromInst addr
+                else
+                    func fromInst (currentClassAddr.Func(addr.Address.Head))    
             | _ -> ()
 
         let propInfo isStatic isPrivate isOptional =

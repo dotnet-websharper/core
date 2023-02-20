@@ -81,8 +81,8 @@ module Bundling =
         let failf format =
             Printf.kprintf (o.AddError None) format
 
-        let sourceMap = false //o.Config.SourceMap
-        let dce = o.Config.DeadCodeElimination
+        let sourceMap = o.Config.SourceMap
+        let dce = false //o.Config.DeadCodeElimination
         
         let graph =
             o.RefMetas |> Seq.map (fun m -> m.Dependencies)
@@ -104,7 +104,7 @@ module Bundling =
         let mutable minmap = None
 
         // if DCE and sourcemapping are both off, opt for quicker way of just concatenating assembly js outputs
-        let concatScripts = not dce && not sourceMap
+        let concatScripts = false //not dce && not sourceMap
         if concatScripts then
             sprintf "Using pre-compiled JavaScript for bundling"
             |> logger.Out
@@ -131,7 +131,7 @@ module Bundling =
                 let meta = 
                     o.RefMetas |> Seq.map refreshAllIds
                     |> Seq.append (Seq.singleton o.CurrentMeta)
-                    |> M.Info.UnionWithoutDependencies 
+                    |> M.Info.UnionWithoutDependencies true
                 try
                     let current = 
                         if dce then trimMetadata meta nodes 

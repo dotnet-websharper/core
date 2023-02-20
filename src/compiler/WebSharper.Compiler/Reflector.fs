@@ -31,6 +31,8 @@ open WebSharper.Core.DependencyGraph
 
 let getTypeDefinition (tR: Mono.Cecil.TypeReference) =
     let fullName = tR.FullName.Split('<').[0].Replace('/', '+')
+    if fullName = "" then
+        failwithf "Unexpected: empty class name for %O" tR
     Hashed {
         Assembly =
             if AssemblyConventions.IsNetStandardType fullName then
@@ -202,7 +204,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             meth.CustomAttributes :> seq<_>
 
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
-        if not (intfAsClass || typ.IsClass) then () else
+        if not (intfAsClass || typ.IsClass) || typ.FullName = "<Module>" then () else
 
         let def = getTypeDefinition typ
 

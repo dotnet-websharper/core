@@ -368,7 +368,7 @@ type Info =
             ExtraBundles = Set.empty
         }
 
-    static member UnionWithoutDependencies (metas: seq<Info>) = 
+    static member UnionWithoutDependencies isBundle (metas: seq<Info>) = 
         let isStaticPart (c: ClassInfo) =
             Option.isNone c.BaseClass
             && Dict.isEmpty c.Constructors
@@ -387,11 +387,20 @@ type Info =
             let isUsingAAddr = isStaticPart b
             if isStaticPart a || isStaticPart b then
                 let transformFuncAddrs (addr: Address) methods =
-                    methods |> Dict.map (fun (m: CompiledMethodInfo) ->
-                        match m.CompiledForm with
-                        | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
-                        | _ -> m
-                    )
+                    if isBundle then
+                        methods
+                    else
+                        methods |> Dict.map (fun (m: CompiledMethodInfo) ->
+                            match m.CompiledForm with
+                            | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
+                            | _ -> m
+                        )
+                let mergedAddr =
+                    match isBundle, aAddr.Module with
+                    | true, DotNetType t ->
+                        { aAddr with Module = DotNetType { t with Assembly = "" } }
+                    | _ -> 
+                        if isUsingAAddr then aAddr else bAddr
                 Some (
                     {
                         BaseClass = combine a.BaseClass b.BaseClass
@@ -412,7 +421,7 @@ type Info =
                         StaticConstructor = combine a.StaticConstructor b.StaticConstructor
                         Type = combine a.Type b.Type
                     },
-                    if isUsingAAddr then aAddr else bAddr
+                    mergedAddr
                 )
             else
                 None

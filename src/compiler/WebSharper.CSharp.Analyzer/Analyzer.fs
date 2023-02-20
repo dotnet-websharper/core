@@ -141,7 +141,7 @@ type WebSharperCSharpAnalyzer () =
 
                 let refMeta =
                     if List.isEmpty metas || not (List.isEmpty refErrors) then None 
-                    else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies (metas |> List.choose fst))
+                    else Some (WebSharper.Core.Metadata.Info.UnionWithoutDependencies false (metas |> List.choose fst))
 
                 cachedRefErrorsAndMeta <- Some (refErrors, refMeta)
                 cachedRefErrorsAndMeta.Value
