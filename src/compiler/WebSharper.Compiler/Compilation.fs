@@ -1472,7 +1472,7 @@ type Compilation(meta: Info, ?hasGraph) =
         |> Resolve.addInherits resolver
 
         if hasGraph then
-            for KeyValue(ct, (_, cti, _)) in classes do
+            for KeyValue(ct, (_, cti, _)) in classes.Current do
                 let clsNodeIndex = lazy graph.AddOrLookupNode(TypeNode ct)
                 let rec addTypeDeps (t: Type) =
                     match t with
@@ -1494,6 +1494,11 @@ type Compilation(meta: Info, ?hasGraph) =
                     for uci in ui.Cases do unionCase uci
                 | FSharpUnionCaseInfo uci -> unionCase uci
                 | _ -> ()
+
+            for KeyValue(ct, i) in interfaces.Current do
+                let intfNodeIndex = lazy graph.AddOrLookupNode(TypeNode ct)
+                for ii in i.Extends do
+                    graph.AddEdge(intfNodeIndex.Value, TypeNode(ii.Entity))    
 
         let withMacros (nr : NotResolvedMethod) woMacros =
             if List.isEmpty nr.Macros then woMacros else

@@ -989,13 +989,13 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         match n with
         | AbstractMethodNode (td, m)
         | MethodNode (td, m) -> 
-            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict cls.Methods (meta.ClassInfo(td).Methods))
+            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods)
         | ConstructorNode (td, c) -> 
-            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict cls.Constructors (meta.ClassInfo(td).Constructors))
+            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors)
         | ImplementationNode (td, i, m) ->
             try
                 //if td = Definitions.Obj then () else
-                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict cls.Implementations (meta.ClassInfo(td).Implementations))
+                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict (meta.ClassInfo(td).Implementations) cls.Implementations)
             with _ ->
                 failwithf "implementation node not found %A" n
         | TypeNode td ->
@@ -1004,6 +1004,18 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
             if meta.Interfaces.ContainsKey td then
                 interfaces[td] <- meta.Interfaces[td]
         | _ -> ()
+    let classes =
+        classes |> Dict.map (
+            function 
+            | a, cti, Some ({ Implements = _ :: _ } as cls) ->
+                let clsTrimmedImplements =
+                    { cls with
+                        Implements = cls.Implements |> List.filter (fun i -> interfaces.ContainsKey(i.Entity))
+                    }
+                a, cti, Some clsTrimmedImplements
+            | ci -> ci
+        )
+
     { meta with 
         Classes = classes
         Interfaces = interfaces

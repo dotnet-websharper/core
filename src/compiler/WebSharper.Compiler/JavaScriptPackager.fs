@@ -1212,6 +1212,16 @@ let bundleAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint
 
     packageType output refMeta current asmName (Bundle (types, entryPointStyle, entryPoint))
 
+let getImportedModules (pkg: Statement list) =
+    pkg
+    |> Seq.choose (
+        function
+        | Import(_, _, _, m) -> Some m
+        | _ -> None
+    )
+    |> Seq.distinct
+    |> Seq.toList
+
 let readMapFileSources mapFile =
     match Json.Parse mapFile with
     | Json.Object fields ->

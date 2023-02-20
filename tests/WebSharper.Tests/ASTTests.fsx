@@ -371,7 +371,7 @@ let translate source =
     let comp = 
         WebSharper.Compiler.FSharp.ProjectReader.transformAssembly
             logger
-            (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
+            (WebSharper.Compiler.Compilation(metadata, true, UseLocalMacros = false))
             "TestProject"
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             wholeProjectResults
@@ -437,9 +437,21 @@ let translate source =
     //    printfn "File: %s" name
     //    printfn "%s" js
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    let nodes =
+        comp.Graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
     
-    printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
+    //printfn "nodes: %A" (nodes |> List.map string)
+
+    let mergedMeta = 
+        WebSharper.Core.Metadata.Info.UnionWithoutDependencies true [ metadata; currentMeta ]
+
+    let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
+    
+    //printfn "trimmedMeta: %A" trimmedMeta
+
+    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+    //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
     let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
     printfn "%s" js
@@ -487,15 +499,12 @@ open WebSharper
 open WebSharper.JavaScript
 
 [<JavaScript>]
-module MyLib = 
-    let Foo obj = printfn "%s" obj
-
-[<JavaScript>]
 module MyLib2 = 
-    let Foo2 obj = MyLib.Foo obj
+    let Foo obj = printfn "%A" obj
 
+    [<SPAEntryPoint>]
+    let Main() = Foo (Some "hello")
 """
-
 
 
 //translate """

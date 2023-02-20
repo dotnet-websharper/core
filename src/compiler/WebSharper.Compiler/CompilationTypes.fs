@@ -172,10 +172,7 @@ type internal MergedDictionary<'TKey, 'TValue when 'TKey: equality>(orig: IDicti
         with get (key: 'TKey): 'TValue = 
             match current.TryGetValue key with
             | true, value -> value
-            | _ -> 
-            match orig.TryGetValue key with
-            | true, value -> value
-            | _ -> raise (KeyNotFoundException())
+            | _ -> orig[key]
         and set (key: 'TKey) (v: 'TValue): unit = 
             if orig.ContainsKey key then
                 invalidArg "key" "Key is found in immutable part of MergedDictionary"

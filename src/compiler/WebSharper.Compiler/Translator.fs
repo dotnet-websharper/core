@@ -1451,12 +1451,15 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let trArgs = args |> List.map this.TransformExpression
         let objExpr =
             match comp.TryLookupClassInfo typ.Entity with
-            | Some (a, _) ->
+            | Some (a, cls) ->
                 if comp.HasGraph then
-                    this.AddTypeDependency typ.Entity
-                Appl(GlobalAccess (a.Sub(name)), trArgs, Pure, Some trArgs
-                
-                .Length)
+                    let ucMeth = cls.Methods.Keys |> Seq.tryFind(fun m -> m.Value.MethodName = "New" + name)
+                    match ucMeth with
+                    | Some ucMeth ->
+                        this.AddMethodDependency (typ.Entity, ucMeth)
+                    | _ ->
+                        this.AddTypeDependency typ.Entity
+                Appl(GlobalAccess (a.Sub(name)), trArgs, Pure, Some trArgs.Length)
             | _ ->
                 Object (
                     ("$", MemberKind.Simple, Value (Int index)) ::

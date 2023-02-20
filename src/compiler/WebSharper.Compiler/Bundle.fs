@@ -82,7 +82,7 @@ module Bundling =
             Printf.kprintf (o.AddError None) format
 
         let sourceMap = o.Config.SourceMap
-        let dce = false //o.Config.DeadCodeElimination
+        let dce = o.Config.DeadCodeElimination
         
         let graph =
             o.RefMetas |> Seq.map (fun m -> m.Dependencies)
