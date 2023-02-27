@@ -1005,109 +1005,111 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i)
 
-            for index, c in cases |> Seq.indexed do
-                match c.Kind with
-                | NormalFSharpUnionCase fields ->
-                    let newCase =
-                        Method {
-                            MethodName = "New" + c.Name
-                            Parameters = fields |> List.map (fun f -> f.UnionFieldType) 
-                            ReturnType = ConcreteType thisType
-                            Generics = cls.GenericParameters.Count       
-                        }
-                    let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false, typ = f.UnionFieldType)) 
-                    let obj =
-                        Object (
-                            ("$", MemberKind.Simple, Value (Int index)) ::
-                            (args |> List.mapi (fun j a -> "$" + string j, MemberKind.Simple, Var a)) 
-                        )
-                    let newCaseM =
-                        {
-                            Kind = NotResolvedMemberKind.Static
-                            StrongName = Some c.Name
-                            Generics = []
-                            Macros = []
-                            Generator = None
-                            Compiled = false
-                            Pure = true
-                            FuncArgs = None
-                            Args = args
-                            Body = Function(args, None, Some (ConcreteType thisType), Return (CopyCtor(def, obj)))
-                            Requires = []
-                            Warn = None
-                            JavaScriptOptions = WebSharper.JavaScriptOptions.None
-                        }
-                    clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
-                | _ -> ()
+            if annot.IsJavaScript then
+                for index, c in cases |> Seq.indexed do
+                    match c.Kind with
+                    | NormalFSharpUnionCase fields ->
+                        let newCase =
+                            Method {
+                                MethodName = "New" + c.Name
+                                Parameters = fields |> List.map (fun f -> f.UnionFieldType) 
+                                ReturnType = ConcreteType thisType
+                                Generics = cls.GenericParameters.Count       
+                            }
+                        let args = fields |> List.map (fun f -> Id.New(f.Name, mut = false, typ = f.UnionFieldType)) 
+                        let obj =
+                            Object (
+                                ("$", MemberKind.Simple, Value (Int index)) ::
+                                (args |> List.mapi (fun j a -> "$" + string j, MemberKind.Simple, Var a)) 
+                            )
+                        let newCaseM =
+                            {
+                                Kind = NotResolvedMemberKind.Static
+                                StrongName = Some c.Name
+                                Generics = []
+                                Macros = []
+                                Generator = None
+                                Compiled = false
+                                Pure = true
+                                FuncArgs = None
+                                Args = args
+                                Body = Function(args, None, Some (ConcreteType thisType), Return (CopyCtor(def, obj)))
+                                Requires = []
+                                Warn = None
+                                JavaScriptOptions = WebSharper.JavaScriptOptions.None
+                            }
+                        clsMembers.Add (NotResolvedMember.Method (newCase, newCaseM))
+                    | _ -> ()
 
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
-            let cdef =
-                Hashed {
-                    CtorParameters =
-                        cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
-                }
-            let body =
-                let vars =
-                    cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
-                let fields =
-                    cls.FSharpFields |> Seq.map (fun f -> 
-                        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    
-                        match fAnnot.Name with Some n -> n | _ -> f.Name
-                        , 
-                        fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    )
-                    |> List.ofSeq
-                let obj = 
-                    let normalFields =
-                        Seq.zip (fields) vars
-                        |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, MemberKind.Simple, Var v))
-                        |> List.ofSeq |> Object
-                    if fields |> List.exists snd then
-                        let o = CodeReader.newId()
-                        Let(o, normalFields, 
-                            Sequential [
-                                for (name, opt), v in Seq.zip fields vars do
-                                    if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
-                                yield Var o
-                            ]
-                        )
-                    else 
-                        normalFields
-                Lambda (vars, None, CopyCtor(def, obj))
-
-            let cKind = if annot.IsForcedNotJavaScript then nrInline else N.Static
-            addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
-
-            // properties
-
-            for f in cls.FSharpFields do
-                let fTyp = sr.ReadType clsTparams f.FieldType
-            
-                let getDef =
+            if annot.IsJavaScript then
+                let cdef =
                     Hashed {
-                        MethodName = "get_" + f.Name
-                        Parameters = []
-                        ReturnType = fTyp
-                        Generics = 0
+                        CtorParameters =
+                            cls.FSharpFields |> Seq.map (fun f -> sr.ReadType clsTparams f.FieldType) |> List.ofSeq
                     }
+                let body =
+                    let vars =
+                        cls.FSharpFields |> Seq.map (fun f -> Id.New(f.Name, mut = false)) |> List.ofSeq
+                    let fields =
+                        cls.FSharpFields |> Seq.map (fun f -> 
+                            let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
+                    
+                            match fAnnot.Name with Some n -> n | _ -> f.Name
+                            , 
+                            fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                        )
+                        |> List.ofSeq
+                    let obj = 
+                        let normalFields =
+                            Seq.zip (fields) vars
+                            |> Seq.choose (fun ((name, opt), v) -> if opt then None else Some (name, MemberKind.Simple, Var v))
+                            |> List.ofSeq |> Object
+                        if fields |> List.exists snd then
+                            let o = CodeReader.newId()
+                            Let(o, normalFields, 
+                                Sequential [
+                                    for (name, opt), v in Seq.zip fields vars do
+                                        if opt then yield JSRuntime.SetOptional (Var o) (Value (String name)) (Var v)
+                                    yield Var o
+                                ]
+                            )
+                        else 
+                            normalFields
+                    Lambda (vars, None, CopyCtor(def, obj))
 
-                let getBody = FieldGet(Some (Hole 0), thisType, f.Name)
-                
-                addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef nrInline false None getBody
+                let cKind = if annot.IsForcedNotJavaScript then nrInline else N.Static
+                addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
 
-                if f.IsMutable then
-                    let setDef =
+                // properties
+
+                for f in cls.FSharpFields do
+                    let fTyp = sr.ReadType clsTparams f.FieldType
+            
+                    let getDef =
                         Hashed {
-                            MethodName = "set_" + f.Name
-                            Parameters = [ fTyp ]
-                            ReturnType = VoidType
+                            MethodName = "get_" + f.Name
+                            Parameters = []
+                            ReturnType = fTyp
                             Generics = 0
                         }
 
-                    let setBody = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
+                    let getBody = FieldGet(Some (Hole 0), thisType, f.Name)
+                
+                    addMethod None A.MemberAnnotation.BasicPureInlineJavaScript getDef nrInline false None getBody
+
+                    if f.IsMutable then
+                        let setDef =
+                            Hashed {
+                                MethodName = "set_" + f.Name
+                                Parameters = [ fTyp ]
+                                ReturnType = VoidType
+                                Generics = 0
+                            }
+
+                        let setBody = FieldSet(Some (Hole 0), thisType, f.Name, Hole 1)
             
-                    addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef nrInline false None setBody
+                        addMethod None A.MemberAnnotation.BasicInlineJavaScript setDef nrInline false None setBody
 
         if cls.IsFSharpRecord then
             let i = 

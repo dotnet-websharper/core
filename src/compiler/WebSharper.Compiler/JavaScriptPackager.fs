@@ -1177,7 +1177,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     | O.JavaScript -> ".js"
                     | _ -> ""
                 let fromModule =
-                    if m.Assembly = asmName then
+                    if not isSingleType then
+                        "./" + m.Assembly + "/" + m.Name + ext   
+                    elif m.Assembly = asmName then
                         "./" + m.Name + ext
                     else
                         "../" + m.Assembly + "/" + m.Name + ext

@@ -884,6 +884,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.MethodExistsInMetadata (typ, meth) then
             if comp.IsInterface typ then
                 comp.Graph.AddEdge(currentNode, M.AbstractMethodNode (typ, meth))
+                if comp.IsInterfaceWithDefaultImpls typ then
+                    comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
             else
                 comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
         else
@@ -1542,12 +1544,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             | M.ConstantFSharpUnionCase v ->
                 Value v
             | M.SingletonFSharpUnionCase -> 
-                match comp.TryLookupClassInfo td |> Option.map fst with
-                | Some a -> 
+                match comp.TryLookupClassInfo td with
+                | Some (a, cls) -> 
                     let caseField =
                         ConcreteType { typ with Generics = List.map (fun _ -> NonGenericType Definitions.Obj) typ.Generics }
                         |> Definitions.SingletonUnionCase case
                     if comp.HasGraph then
+                        let ucMeth = cls.Methods.Keys |> Seq.tryFind(fun m -> m.Value.MethodName = "_unique_" + c.Name)
+                        match ucMeth with
+                        | Some ucMeth ->
+                            this.AddMethodDependency (typ.Entity, ucMeth)
+                        | _ ->
+                            this.AddTypeDependency typ.Entity
                         this.AddMethodDependency(td, caseField)
                     ItemGet(GlobalAccess a, Value (String case), Pure)
                 | None -> this.Error("Failed to find address for singleton union case.")
