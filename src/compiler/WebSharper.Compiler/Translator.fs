@@ -885,7 +885,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             if comp.IsInterface typ then
                 comp.Graph.AddEdge(currentNode, M.AbstractMethodNode (typ, meth))
                 if comp.IsInterfaceWithDefaultImpls typ then
-                    comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
+                    let defImpl = meth // Method { meth.Value with MethodName = meth.Value.MethodName + "_Def" }
+                    match comp.LookupMethodInfo(typ, defImpl, false) with
+                    | Compiled _
+                    | Compiling _ ->
+                        comp.Graph.AddEdge(currentNode, M.MethodNode (typ, defImpl))
+                    | _ -> ()
             else
                 comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
         else
@@ -1454,14 +1459,24 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         let objExpr =
             match comp.TryLookupClassInfo typ.Entity with
             | Some (a, cls) ->
-                if comp.HasGraph then
-                    let ucMeth = cls.Methods.Keys |> Seq.tryFind(fun m -> m.Value.MethodName = "New" + name)
-                    match ucMeth with
-                    | Some ucMeth ->
-                        this.AddMethodDependency (typ.Entity, ucMeth)
-                    | _ ->
+                let ucMethName = "New" + name
+                let ucMeth = 
+                    cls.Methods.Keys |> Seq.tryFind(fun m -> m.Value.MethodName = ucMethName)
+                    |> Option.orElseWith (fun () ->
+                        comp.CompilingMethods.Keys |> Seq.tryPick (fun (t, m) ->
+                            if t = typ.Entity && m.Value.MethodName = ucMethName then
+                                Some m
+                            else 
+                                None
+                        )
+                    )
+                match ucMeth with
+                | Some ucMeth ->
+                    this.TransformCall(None, typ, NonGeneric ucMeth, args)
+                | _ ->
+                    if comp.HasGraph then
                         this.AddTypeDependency typ.Entity
-                Appl(GlobalAccess (a.Sub(name)), trArgs, Pure, Some trArgs.Length)
+                    Appl(GlobalAccess (a.Sub(name)), trArgs, Pure, Some trArgs.Length)
             | _ ->
                 Object (
                     ("$", MemberKind.Simple, Value (Int index)) ::
@@ -1550,7 +1565,18 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         ConcreteType { typ with Generics = List.map (fun _ -> NonGenericType Definitions.Obj) typ.Generics }
                         |> Definitions.SingletonUnionCase case
                     if comp.HasGraph then
-                        let ucMeth = cls.Methods.Keys |> Seq.tryFind(fun m -> m.Value.MethodName = "_unique_" + c.Name)
+                        let ucMethName = "_unique_" + c.Name
+                        let ucMeth = 
+                            cls.Methods.Keys 
+                            |> Seq.tryFind(fun m -> m.Value.MethodName = ucMethName)
+                            |> Option.orElseWith (fun () ->
+                                comp.CompilingMethods.Keys |> Seq.tryPick (fun (t, m) ->
+                                    if t = typ.Entity && m.Value.MethodName = ucMethName then
+                                        Some m
+                                    else 
+                                        None
+                                )
+                            )
                         match ucMeth with
                         | Some ucMeth ->
                             this.AddMethodDependency (typ.Entity, ucMeth)
@@ -2093,7 +2119,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 else
                 match comp.TryLookupClassAddressOrCustomType t with
                 | Choice1Of2 a ->
-                    InstanceOf a
+                    if comp.IsInterface(t) then
+                        OtherTypeCheck
+                    else
+                        InstanceOf a
                 | Choice2Of2 ct -> 
                     match ct with
                     | M.DelegateInfo _ ->
@@ -2151,50 +2180,50 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 let warnIgnoringGenerics() =
                     if not (List.isEmpty gs) then
                         this.Warning ("Type test in JavaScript translation is ignoring erased type parameter.")
-                match comp.TryLookupClassAddressOrCustomType t with
-                | Choice1Of2 a ->
+                match comp.TryLookupInterfaceInfo t with
+                | Some ii ->
                     warnIgnoringGenerics()
-                    Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
-                | Choice2Of2 ct -> 
-                    match ct with
-                    | M.FSharpUnionInfo _ ->
-                        Value (Bool true)    
-                    | M.FSharpUnionCaseInfo c ->
-                        let tN = t.Value.FullName
-                        let lastPlus = tN.LastIndexOf '+'
-                        let nestedIn = tN.[.. lastPlus - 1]
-                        let parentGenParams =
-                            let nested = tN.[lastPlus + 1 ..]
-                            match nested.IndexOf '`' with
-                            | -1 -> gs
-                            | i -> 
-                                // if the nested type has generic parameters, remove them from the type parameter list
-                                gs |> List.take (List.length gs - int nested.[i + 1 ..])
-                        let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
-                        let i = Id.New (mut = false)
-                        match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
-                        | Value (Bool true) -> // in case of erased union
-                           this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
-                        | testParent ->
-                            warnIgnoringGenerics()
-                            Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
-                    | _ -> 
-                        match comp.TryLookupInterfaceInfo t with
-                        | Some ii ->
-                            warnIgnoringGenerics()
-                            // TODO if we already know it's an object we could skip "object" test
-                            let check e =
-                                // TODO have "is" address in metadata
-                                Appl(GlobalAccess ({ ii.Address with Address = [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
-                            let i = Id.New(mut = false)
-                            Let(i, trExpr,
-                                Binary(
-                                    (tryGetTypeCheck (Var i) (TypeOf "object") ).Value,
-                                    BinaryOperator.``&&``,
-                                    check (Var i)
-                                )
-                            )
-                        | _ ->
+                    // TODO if we already know it's an object we could skip "object" test
+                    let check e =
+                        // TODO have "is" address in metadata
+                        Appl(GlobalAccess ({ ii.Address with Address = [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
+                    let i = Id.New(mut = false)
+                    Let(i, trExpr,
+                        Binary(
+                            (tryGetTypeCheck (Var i) (TypeOf "object") ).Value,
+                            BinaryOperator.``&&``,
+                            check (Var i)
+                        )
+                    )
+                | _ ->
+                    match comp.TryLookupClassAddressOrCustomType t with
+                    | Choice1Of2 a ->
+                        warnIgnoringGenerics()
+                        Binary(trExpr, BinaryOperator.instanceof, GlobalAccess a)
+                    | Choice2Of2 ct -> 
+                        match ct with
+                        | M.FSharpUnionInfo _ ->
+                            Value (Bool true)    
+                        | M.FSharpUnionCaseInfo c ->
+                            let tN = t.Value.FullName
+                            let lastPlus = tN.LastIndexOf '+'
+                            let nestedIn = tN.[.. lastPlus - 1]
+                            let parentGenParams =
+                                let nested = tN.[lastPlus + 1 ..]
+                                match nested.IndexOf '`' with
+                                | -1 -> gs
+                                | i -> 
+                                    // if the nested type has generic parameters, remove them from the type parameter list
+                                    gs |> List.take (List.length gs - int nested.[i + 1 ..])
+                            let uTyp = { Entity = TypeDefinition { t.Value with FullName = nestedIn } ; Generics = parentGenParams } 
+                            let i = Id.New (mut = false)
+                            match this.TransformTypeCheck(Var i, ConcreteType uTyp) with
+                            | Value (Bool true) -> // in case of erased union
+                               this.TransformUnionCaseTest(trExpr, uTyp, c.Name)
+                            | testParent ->
+                                warnIgnoringGenerics()
+                                Let (i, trExpr, testParent ^&& this.TransformUnionCaseTest(Var i, uTyp, c.Name)) 
+                        | _ -> 
                             this.Error(sprintf "Failed to compile a type check for type '%s'" tname)
         | TypeParameter _ | StaticTypeParameter _ -> 
             if currentIsInline then

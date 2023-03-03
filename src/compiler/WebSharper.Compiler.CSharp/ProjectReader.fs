@@ -507,10 +507,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             cls.BaseType |> sr.ReadNamedType |> Some
 
     let getDefImpl (meth: Method) =
-        Method {
-            meth.Value with
-                MethodName = meth.Value.MethodName + "_Def"
-        }
+        meth
+        //Method {
+        //    meth.Value with
+        //        MethodName = meth.Value.MethodName + "_Def"
+        //}
 
     let implements =
         cls.AllInterfaces |> Seq.map sr.ReadNamedType |> List.ofSeq

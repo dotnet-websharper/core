@@ -326,11 +326,12 @@ let mkProjectCommandLineArgs (dllName, fileNames) =
             yield "-r:" + r
      |]
 
+let metas =
+    wsRefs |> List.choose(
+        WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
+    )
+
 let metadata =
-    let metas =
-        wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
-        )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies false metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
@@ -437,10 +438,15 @@ let translate source =
     //    printfn "File: %s" name
     //    printfn "%s" js
 
+    let graph =
+        metas |> Seq.map (fun m -> m.Dependencies)
+        |> Seq.append (Seq.singleton currentMeta.Dependencies)
+        |> WebSharper.Core.DependencyGraph.Graph.FromData
+
     let nodes =
-        comp.Graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
+        graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
     
-    //printfn "nodes: %A" (nodes |> List.map string)
+    printfn "nodes: %A" (nodes |> List.map string)
 
     let mergedMeta = 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies true [ metadata; currentMeta ]
@@ -449,7 +455,7 @@ let translate source =
     
     //printfn "trimmedMeta: %A" trimmedMeta
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
     //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
@@ -497,13 +503,14 @@ namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
+open System.Collections.Generic
 
 [<JavaScript>]
-module MyLib2 = 
-    let Foo obj = printfn "%A" obj
+module MyLib2 =
 
     [<SPAEntryPoint>]
-    let Main() = Foo (Some "hello")
+    let Main() = 
+        Console.Log(([| 1 |] :> IList<int>).Item(0))
 """
 
 

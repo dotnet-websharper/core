@@ -26,8 +26,8 @@
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.dll"
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Mdb.dll"
 #r "../../build/Release/CSharp/net6.0/Mono.Cecil.Pdb.dll"
-#r "../../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/CSharp/netstandard2.0/WebSharper.Compiler.CSharp.dll"
+#r "../../build/Release/netstandard2.0/WebSharper.Compiler.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.JavaScript.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.Core.dll"
 #r "../../build/Release/netstandard2.0/WebSharper.JavaScript.dll"
@@ -66,11 +66,12 @@ let wsRefs =
         //"FSharp.Core"
     ]
 
+let metas =
+    wsRefs |> Seq.choose(
+        WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
+    )
+
 let metadata =
-    let metas =
-        wsRefs |> Seq.choose(
-            WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Core.Metadata.FullMetadata
-        )
     { 
         WebSharper.Core.Metadata.Info.UnionWithoutDependencies false metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
@@ -144,7 +145,7 @@ let translate (source: string) =
 
     let comp = 
         WebSharper.Compiler.CSharp.ProjectReader.transformAssembly
-            (WebSharper.Compiler.Compilation(metadata, false, UseLocalMacros = false))
+            (WebSharper.Compiler.Compilation(metadata, UseLocalMacros = false))
             WebSharper.Compiler.CommandTools.WsConfig.Empty
             csharpCompilation
 
@@ -175,6 +176,7 @@ let translate (source: string) =
         currentMeta.Classes.Values |> Seq.collect (
             function
             | _, _, Some c ->
+                c.Methods.Keys |> Seq.iter (printfn "method: %A")
                 Seq.concat [
                     c.Methods.Values |> Seq.map (fun a -> a.Expression)
                     c.Constructors.Values |> Seq.map (fun a -> a.Expression)
@@ -192,40 +194,49 @@ let translate (source: string) =
         ]
     errors |> List.iter (printfn "%A")
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
-    
-    let jsFiles = 
-        pkg 
-        |> Array.map (fun (file, p) ->
-            let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
-            file, js
-        )
+    let graph =
+        metas |> Seq.map (fun m -> m.Dependencies)
+        |> Seq.append (Seq.singleton currentMeta.Dependencies)
+        |> WebSharper.Core.DependencyGraph.Graph.FromData
 
-    compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
-    for (name, js) in jsFiles do 
-        printfn "File: %s" name
-        printfn "%s" js
+    let nodes =
+        graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
+    
+    printfn "nodes: %A" (nodes |> List.map string)
+
+    let mergedMeta = 
+        WebSharper.Core.Metadata.Info.UnionWithoutDependencies true [ metadata; currentMeta ]
+
+    let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
+    
+    //printfn "trimmedMeta: %A" trimmedMeta
+
+    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+    //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
+
+    let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+    printfn "%s" js
 
 translate """
 using System;
 using WebSharper;
+using WebSharper.JavaScript;
 
 [JavaScript]
-public record Person
+interface ITestDefaultImpl
 {
-    public string LastName { get; }
-    public string FirstName { get; }
-
-    public Person(string first, string last) => (FirstName, LastName) = (first, last);
+    int Foo() => 42;
+    int Bar() => this.Foo();
 }
 
 [JavaScript]
-public record Teacher : Person
+class TestDefaultImpl : ITestDefaultImpl
 {
-    public string Subject { get; }
-
-    public Teacher(string first, string last, string sub = "Math")
-        : base(first, last) => Subject = sub;
+    [SPAEntryPoint]
+    public static void Main() 
+    {
+        Console.Log((new TestDefaultImpl() as ITestDefaultImpl).Foo());
+    }
 }
-
 """

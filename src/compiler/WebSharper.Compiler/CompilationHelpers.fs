@@ -980,22 +980,26 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 eprintfn "WebSharper warning: Assembly needed for bundling but is not referenced: %s (missing type: %s)"
                     td.Value.Assembly td.Value.FullName
                 None
-    let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) key =
+    let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) kind key =
         match fromDic.TryGetValue(key) with
         | true, value -> toDic.[key] <- value
         | false, _ ->
-            eprintfn "WebSharper warning: Member implementation not found during bundling for %A" key
+            eprintfn "WebSharper warning: %s not found during bundling for %A" kind key
     for n in nodes do
         match n with
-        | AbstractMethodNode (td, m)
+        | AbstractMethodNode (td, m) ->
+            if meta.Interfaces.ContainsKey(td) then
+                interfaces[td] <- meta.Interfaces[td]
+            else
+                getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method")
         | MethodNode (td, m) -> 
-            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods)
+            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "method")
         | ConstructorNode (td, c) -> 
-            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors)
+            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor")
         | ImplementationNode (td, i, m) ->
             try
                 //if td = Definitions.Obj then () else
-                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict (meta.ClassInfo(td).Implementations) cls.Implementations)
+                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict (meta.ClassInfo(td).Implementations) cls.Implementations "implementation")
             with _ ->
                 failwithf "implementation node not found %A" n
         | TypeNode td ->
