@@ -60,6 +60,7 @@ module Bundling =
             JsMap: option<Content>
             MinJs: Content
             MinJsMap: option<Content>
+            Imports: list<string * list<string>>
         }
 
     type private BundleOptions =
@@ -290,6 +291,19 @@ module Bundling =
                 Some (Content.Create(t))
             else None
 
+        let imports =
+            pkg 
+            |> JavaScriptPackager.getImportedModules 
+            |> List.choose (fun i ->
+                match i.Split('/') with
+                | [| "."; a; js |] ->
+                    Some (a, js)
+                | _ -> 
+                    None
+            )
+            |> List.groupBy fst
+            |> List.map (fun (a, jss) -> a, jss |> List.map snd)
+
         {
             Css = Some css
             HeadHtml = Some htmlHeaders
@@ -298,6 +312,7 @@ module Bundling =
             JsMap = mapping
             MinJs = minifiedJavaScript
             MinJsMap = minifiedMapping
+            Imports = imports
         }
 
     let private getDeps (jsExport: JsExport list) entryPointNode (graph: Graph) =
@@ -466,21 +481,22 @@ module Bundling =
             if List.isEmpty comp.JavaScriptExports
             then JavaScriptPackager.EntryPointStyle.ForceOnLoad
             else JavaScriptPackager.EntryPointStyle.OnLoadIfExists
-        logger
-        |> CreateBundle {
-            Config = config
-            RefMetas = refMetas
-            CurrentMeta = currentMeta
-            GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
-            EntryPoint = comp.EntryPoint
-            EntryPointStyle = entryPointStyle
-            CurrentJs = currentJS
-            Sources = sources
-            RefAssemblies = refAssemblies
-            IsExtraBundle = false
-            AddError = fun pos msg -> comp.AddError(pos, SourceError msg)
-        }
-        |> WriteBundle config
+        let b =
+            logger
+            |> CreateBundle {
+                Config = config
+                RefMetas = refMetas
+                CurrentMeta = currentMeta
+                GetAllDeps = getDeps comp.JavaScriptExports M.EntryPointNode 
+                EntryPoint = comp.EntryPoint
+                EntryPointStyle = entryPointStyle
+                CurrentJs = currentJS
+                Sources = sources
+                RefAssemblies = refAssemblies
+                IsExtraBundle = false
+                AddError = fun pos msg -> comp.AddError(pos, SourceError msg)
+            }
+        b |> WriteBundle config
         match BundleOutputDir config (GetWebRoot config) with
         | Some outDir ->
             let extraBundleFiles =
@@ -494,6 +510,19 @@ module Bundling =
                         let findScript name = 
                             name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
                         asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
+                )
+                |> Seq.append (
+                    b.Imports 
+                    |> Seq.collect (fun (a, jss) ->
+                        let asm = refAssemblies |> List.find (fun asm -> asm.Name = a)
+                        let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
+                        let findScript name = 
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
+                        jss
+                        |> Seq.map (fun js ->
+                            asm.Name, [findScript js]
+                        )
+                    )
                 )
             for asmName, bundle in extraBundleFiles do
                 let baseDir = Path.Combine(outDir, asmName)

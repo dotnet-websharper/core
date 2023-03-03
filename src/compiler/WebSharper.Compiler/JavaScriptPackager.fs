@@ -112,8 +112,6 @@ type EntryPointStyle =
     | ForceOnLoad
     | ForceImmediate
 
-//let private Address a = { Module = CurrentModule; Address = Hashed a }
-
 type PackageContent =
     | SingleType of TypeDefinition
     | Bundle of TypeDefinition [] * EntryPointStyle * Statement option
@@ -185,50 +183,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | SingleType _ -> true
         | Bundle _ -> false
 
-    //let g = Id.New "Global"
-    //let glob = Var g
-    //addresses.Add(Address.Global(), glob)
-    //addresses.Add(Address.Lib "self", glob)
     addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
-    
-    //let rec getAddress (address: Address) =
-    //    match addresses.TryGetValue address with
-    //    | true, v -> v
-    //    | _ ->
-    //        match address.Address with
-    //        | [] -> glob
-    //        | [ name ] ->
-    //            let var = Id.New (if name.StartsWith "StartupCode$" then "SC$1" else name)
-    //            let f = Value (String name)
-    //            declarations.Add <| VarDeclaration (var, ItemSet(glob, f, ItemGet(glob, f, Pure) |> safeObject))                
-    //            let res = Var var
-    //            addresses.Add(address, res)
-    //            res
-    //        | name :: r ->
-    //            let parent = getAddress (Address r)
-    //            let f = Value (String name)
-    //            let var = Id.New name
-    //            declarations.Add <| VarDeclaration (var, ItemSet(parent, f, ItemGet(parent, f, Pure) |> safeObject))                
-    //            let res = Var var
-    //            addresses.Add(address, res)
-    //            res
-
-    //let getFieldAddress (address: Address) =
-    //    match address.Address with
-    //    | name :: r ->
-    //        getAddress (Address r), Value (String name)
-    //    | _ -> failwith "packageAssembly: empty address"
-    
+        
     let getOrImportAddress (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
-            //let getModuleName (from: string) =
-            //    let fn = from.Split('/') |> Array.last
-            //    if fn.EndsWith(".js") then
-            //        fn.[.. fn.Length - 4].Replace(".", "$")
-            //    else fn.Replace(".", "$")
             let res =
                 match address.Module with
                 | StandardLibrary ->
@@ -324,35 +285,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             | [] -> { address with Module = ImportedModule i }
                             | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
                         GlobalAccess importedAddress
-                    //match classRes.TryGetValue(m) with
-                    //| true, (classAddr, classId, outerClassId) ->
-                    //    match address.Address |> List.rev with
-                    //    | "default" :: res ->
-                    //        res |> List.fold (fun e i -> ItemGet(e, Value (String i), Pure)) (Var outerClassId)
-                    //    | _ ->
-                    //        let currentAddress =
-                    //            { address with Module = ImportedModule (Id.Global()) }
-                    //        GlobalAccess currentAddress
-                    //| _ -> 
-                    //    let moduleImports =
-                    //        match currentScope.TryGetValue m with
-                    //        | true, mi -> mi
-                    //        | _ ->
-                    //            let mi = Dictionary()
-                    //            currentScope.Add(m, mi)
-                    //            mi
-                    //    let i =
-                    //        match moduleImports.TryGetValue importWhat with
-                    //        | true, i -> i
-                    //        | _ ->
-                    //            let i = Id.New(importAs)
-                    //            moduleImports.Add(importWhat, i)
-                    //            i
-                    //    let importedAddress =
-                    //        match address.Address with
-                    //        | [] -> { address with Module = ImportedModule i }
-                    //        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
-                    //    GlobalAccess importedAddress
                 | _ -> GlobalAccess address          
             addresses.Add(address, res)
             
@@ -364,45 +296,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             
             res
             
-            //match address.Address with
-            //| [] -> glob
-            //| [ from; "import" ] ->
-            //    let name = "def$" + getModuleName from
-            //    let id = Id.New (name, mut = false)
-            //    let res = Var id
-            //    imports.Add (from, None, id)
-            //    addresses.Add(address, res)
-            //    res
-            //| [ export; from; "import" ] -> 
-            //    let name = 
-            //        match export with
-            //        | "*" -> getModuleName from
-            //        | n -> n
-            //    let id = Id.New (name, mut = false) 
-            //    let res = Var id
-            //    imports.Add (from, Some export, id)
-            //    addresses.Add(address, res)
-            //    res
-            //| h :: t ->
-            //    let parent = getOrImportAddress false (Address t)
-            //    let import = ItemGet(parent, Value (String h), Pure)
-            //    if full then
-            //        import
-            //    else
-            //        let var = Id.New (if h = "jQuery" && List.isEmpty t then "$" else h)
-            //        let importWithCheck =
-            //            if List.isEmpty t then import else parent ^&& import
-            //        declarations.Add <| VarDeclaration (var, importWithCheck)                
-            //        let res = Var var
-            //        addresses.Add(address, res)
-            //        res
-
     let tsTypeOfAddress (a: Address) =
         let t = a.Address |> List.rev
         match a.Module with
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
-        //| DotNetType m when m = currentModuleName -> TSType.Named [ singleClassId.Name.Value ]
         | JavaScriptModule _ 
         | DotNetType _ ->
             let a = if a.Address.IsEmpty then { a with Address = [ "default" ] } else a
