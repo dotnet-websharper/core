@@ -984,7 +984,7 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
         match fromDic.TryGetValue(key) with
         | true, value -> toDic.[key] <- value
         | false, _ ->
-            eprintfn "WebSharper warning: %s not found during bundling for %A" kind key
+            eprintfn "WebSharper warning: %s not found during bundling for %s" kind (key.ToString().Replace("\r", "").Replace("\n", ""))
     for n in nodes do
         match n with
         | AbstractMethodNode (td, m) ->
