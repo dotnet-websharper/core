@@ -135,40 +135,62 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
     let allInterfaces = MergedDictionary(refMeta.Interfaces, current.Interfaces)
 
+    let varFields = HashSet<string>() // TODO resolve conflict
+
     for typ in content.Types do
-        //if not (classRes.ContainsKey typ) then
-            let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
-            let classId = Id.New className
-            let outerClassId = Id.New "_c"
-            let classAddr, classCodeRes, isUnionCase = 
-                match allClasses.TryFind(typ) with
-                | Some ({ Module = DotNetType m } as a, i, _) ->
-                    a, m, 
-                    match i with Metadata.CustomTypeInfo.FSharpUnionCaseInfo _ -> true | _ -> false 
+        let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+        let classId = Id.New className
+        let outerClassId = Id.New "_c"
+        let classAddrs = Dictionary()
+        let addClassAddr a isMainAddr =
+            match a with 
+            | { Module = DotNetType m } ->
+                classAddrs[a] <- (m, isMainAddr)
+            | _ -> 
+                let m = { Assembly = asmName; Name = typ.Value.FullName }
+                classAddrs[Address.TypeModuleRoot m] <- (m, true)
+
+        let isUnionCase = 
+            match current.Classes.TryFind(typ) with
+            | Some (a, i, cls) ->
+                addClassAddr a true
+                match cls with
+                | None -> ()
+                | Some cls ->
+                    for KeyValue(me, mi) in cls.Methods do
+                        match mi.CompiledForm with
+                        | M.GlobalFunc (a, _) ->
+                            addClassAddr a false
+                        | _ -> 
+                            ()
+                    for KeyValue(me, mi) in cls.Implementations do
+                        match mi.CompiledForm with
+                        | M.GlobalFunc (a, _) ->
+                            addClassAddr a false
+                        | _ -> 
+                            ()
+                match i with Metadata.CustomTypeInfo.FSharpUnionCaseInfo _ -> true | _ -> false 
+            | _ ->
+                match allInterfaces.TryFind(typ) with
+                | Some ({ Address = { Module = DotNetType m } as a }) ->
+                    classAddrs[a] <- (m, true)
+                    false
                 | _ ->
-                    match allInterfaces.TryFind(typ) with
-                    | Some ({ Address = { Module = DotNetType m } as a }) ->
-                        a, m, false
-                    | _ ->
-                        let m = { Assembly = asmName; Name = typ.Value.FullName }
-                        Address.TypeModuleRoot m, m, false     
-            if not isUnionCase then
-                if output <> O.JavaScript && classAddr.Address <> [ "default" ] then
+                    let m = { Assembly = asmName; Name = typ.Value.FullName }
+                    classAddrs[Address.TypeModuleRoot m] <- (m, true) 
+                    false   
+        if not isUnionCase then
+            for KeyValue(classAddr, (classCodeRes, isMainAddr)) in classAddrs do
+                if isMainAddr && output <> O.JavaScript && classAddr.Address <> [ "default" ] then
                     // add type export
                     let typeAddr = { classAddr with Address = [ "default" ] }
                     addresses.Add(typeAddr, Var classId)
                 
                 if not (addresses.ContainsKey classAddr) then
                     addresses.Add(classAddr, Var outerClassId)
-                else
-                    failwithf "Unexpected: address already added %A for type %A" classAddr typ
                 currentScope.Add(classCodeRes) |> ignore
-                //| a -> 
-                //    failwithf "Unexpected class addr %A for type %A" a typ
                 if not (classRes.ContainsKey typ) then
                     classRes.Add(typ, (classAddr, classId, outerClassId))
-                else
-                    failwithf "Unexpected: type already added %A" classRes
 
     let export isDefault statement =
         match content with
@@ -493,7 +515,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
 
         let members = ResizeArray<Statement>()
-                    
+         
         let mem (m: Method) info gc opts intfGen body =
             
             let gsArr = Array.append gsArr (Array.ofList gc)
@@ -614,7 +636,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         for f in c.Fields.Values do
             match f.CompiledForm with
             | M.VarField v ->
-                addStatement <| VarDeclaration(v, Undefined)
+                if varFields.Add(v.Name.Value) then
+                    addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
         // let mem (m: Method) info gc opts intfGen body =

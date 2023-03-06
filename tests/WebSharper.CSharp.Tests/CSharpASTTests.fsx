@@ -236,7 +236,8 @@ class TestDefaultImpl : ITestDefaultImpl
     [SPAEntryPoint]
     public static void Main() 
     {
-        Console.Log((new TestDefaultImpl() as ITestDefaultImpl).Foo());
+        var arr = new[] { 1 };
+        Console.Log(arr[0]);
     }
 }
 """

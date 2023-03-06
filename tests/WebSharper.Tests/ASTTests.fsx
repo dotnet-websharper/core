@@ -510,7 +510,9 @@ module MyLib2 =
 
     [<SPAEntryPoint>]
     let Main() = 
-        Console.Log(([| 1 |] :> IList<int>).Item(0))
+        //Console.Log(System.Guid.NewGuid().ToString())
+        let arr = [| 1 |]
+        Console.Log(arr[0 .. 0])
 """
 
 
