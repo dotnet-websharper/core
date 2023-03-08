@@ -327,7 +327,7 @@ type Compilation(meta: Info, ?hasGraph) =
             let _, td = this.GetGeneratedClass()
             let c = resolver.LookupClass(td)
             let rname = Resolve.getRenamedFunctionForClass name c
-            let fvar = Id.New(rname, str = true, ?typ = typ)
+            let fvar = Id.New(rname, ?typ = typ)
             let _, _, cls = classes[td]
             cls.Value.Fields.Add(rname, { CompiledForm = VarField fvar; ReadOnly = false; Type = defaultArg typ (TSType TSType.Any); Order = 0 })
             fvar

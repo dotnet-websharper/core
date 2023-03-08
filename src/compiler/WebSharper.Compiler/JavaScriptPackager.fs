@@ -135,8 +135,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
     let allInterfaces = MergedDictionary(refMeta.Interfaces, current.Interfaces)
 
-    let varFields = HashSet<string>() // TODO resolve conflict
-
     for typ in content.Types do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
@@ -636,8 +634,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         for f in c.Fields.Values do
             match f.CompiledForm with
             | M.VarField v ->
-                if varFields.Add(v.Name.Value) then
-                    addStatement <| VarDeclaration(v, Undefined)
+                addStatement <| VarDeclaration(v, Undefined)
             | _ -> ()
 
         // let mem (m: Method) info gc opts intfGen body =

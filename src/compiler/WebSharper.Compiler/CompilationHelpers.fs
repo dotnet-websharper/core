@@ -935,6 +935,8 @@ let refreshAllIds (i: Info) =
                 c.Methods |> Dict.map (fun m -> { m with Expression = refreshNotInline m.CompiledForm m.Expression })
             Implementations = 
                 c.Implementations |> Dict.map (fun i -> { i with Expression = r.TransformExpression i.Expression })
+            Fields =
+                c.Fields |> Dict.map (fun f -> { f with CompiledForm = match f.CompiledForm with VarField i -> VarField (r.TransformId i) | cf -> cf })
         }), r.TransformStatement)
 
 type MaybeBuilder() =
