@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.NameAttribute "ValueOption">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.ValueOption, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.ValueOption, FSharp.Core">]
 module private WebSharper.ValueOptionModuleProxy
 
 open WebSharper.JavaScript

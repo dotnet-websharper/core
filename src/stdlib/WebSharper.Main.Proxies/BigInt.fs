@@ -108,10 +108,7 @@ type private BigIntegerProxy =
     [<Inline "$n1 ** BigInt($n2)"; Pure>]
     static member Pow(n1 : bigint, n2 : int) = X<bigint>
 
-[<Proxy
-    "Microsoft.FSharp.Core.NumericLiterals+NumericLiteralI, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Core.NumericLiterals+NumericLiteralI, FSharp.Core">]
 module private NumericLiteralIProxy =
     
     [<Inline "BigInt(0)"; Pure>]

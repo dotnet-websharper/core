@@ -18,10 +18,7 @@
 //
 // $end{copyright}
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy  "Microsoft.FSharp.Core.CompilerServices.RuntimeHelpers, FSharp.Core">]
 module private WebSharper.RuntimeHelpersProxy
 
 #nowarn "40"

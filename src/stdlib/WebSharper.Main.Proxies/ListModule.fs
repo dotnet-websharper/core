@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "List">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Collections.ListModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Collections.ListModule, FSharp.Core">]
 module private WebSharper.ListModuleProxy
 
 open WebSharper.JavaScript

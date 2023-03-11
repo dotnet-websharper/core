@@ -23,9 +23,7 @@ namespace WebSharper.Control
 open System
 open WebSharper
 
-[<Proxy "Microsoft.FSharp.Control.EventModule, \
-    FSharp.Core, Culture=neutral, \
-    PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.EventModule, FSharp.Core">]
 module private EventModule =
 
     [<Inline>]

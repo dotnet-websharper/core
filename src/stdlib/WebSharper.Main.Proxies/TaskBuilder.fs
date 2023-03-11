@@ -92,19 +92,13 @@ type private TaskBuilderProxy() =
         //|> As<Task<'T>>
 
 [<Name "TaskBuilderModule">]
-[<Proxy
-    "Microsoft.FSharp.Control.TaskBuilderModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.TaskBuilderModule, FSharp.Core">]
 module internal TaskBuilderModuleProxy =
     [<Inline>]
     let task = () |> As<TaskBuilder>
 
 [<Name "TaskBuilderExtensions">]
-[<Proxy
-    "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.TaskBuilderExtensions.HighPriority, FSharp.Core">]
 module internal TaskBuilderExtensionsHighPriorityProxy =
     [<Inline>]
     let ``TaskBuilderBase.Bind``<'TResult1, 'TOverall, 'TResult2> 
@@ -118,10 +112,7 @@ module internal TaskBuilderExtensionsHighPriorityProxy =
         |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
 
 [<Name "TaskBuilderExtensions">]
-[<Proxy
-    "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.TaskBuilderExtensions.MediumPriority, FSharp.Core">]
 module internal TaskBuilderExtensionsMediumPriorityProxy =
     [<Inline>]
     let ``TaskBuilderBase.Bind``<'TResult1, 'TOverall, 'TResult2> 
@@ -135,10 +126,7 @@ module internal TaskBuilderExtensionsMediumPriorityProxy =
         |> As<ResumableCode<TaskStateMachineData<'T>, 'T>>   
 
 [<Name "TaskBuilderExtensions">]
-[<Proxy
-    "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Control.TaskBuilderExtensions.LowPriority, FSharp.Core">]
 module internal TaskBuilderExtensionsLowPriorityProxy =
     [<Inline>]
     let ``TaskBuilderBase.Using``<'TResource, 'TOverall, 'T when 'TResource :> IDisposable> 

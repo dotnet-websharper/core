@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "Seq">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Collections.SeqModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Collections.SeqModule, FSharp.Core">]
 module private WebSharper.SeqModuleProxy
 
 #nowarn "77" // op_Addition warnings

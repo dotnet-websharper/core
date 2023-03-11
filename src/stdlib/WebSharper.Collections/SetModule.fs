@@ -24,9 +24,7 @@ open WebSharper
 open WebSharper.JavaScript
 
 /// Implements a proxy for the F# Set module.
-[<Proxy "Microsoft.FSharp.Collections.SetModule, \
-    FSharp.Core, Culture=neutral, \
-    PublicKeyToken=b03f5f7f11d50a3a">]
+[<Proxy "Microsoft.FSharp.Collections.SetModule, FSharp.Core">]
 [<Name "Set">]
 module internal SetModule =
     module T = BalancedTree

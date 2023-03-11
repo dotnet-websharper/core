@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "Slice">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.Operators+OperatorIntrinsics, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.Operators+OperatorIntrinsics, FSharp.Core">]
 module private WebSharper.OperatorIntrinsicsProxy 
 
 open WebSharper.JavaScript

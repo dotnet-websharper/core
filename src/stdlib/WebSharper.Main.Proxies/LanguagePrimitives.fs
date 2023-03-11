@@ -19,10 +19,7 @@
 // $end{copyright}
 
 
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.LanguagePrimitives, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.LanguagePrimitives, FSharp.Core">]
 module private WebSharper.LanguagePrimitivesProxy
 
 #nowarn "77" // get_Zero, get_One warnings

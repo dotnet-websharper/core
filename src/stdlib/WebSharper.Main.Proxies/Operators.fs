@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.Name "Operators">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.Operators, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.Operators, FSharp.Core">]
 module private WebSharper.OperatorsProxy
 
 #nowarn "86"

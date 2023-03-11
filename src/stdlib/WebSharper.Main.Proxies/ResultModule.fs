@@ -19,10 +19,7 @@
 // $end{copyright}
 
 [<WebSharper.NameAttribute "Result">]
-[<WebSharper.Proxy
-    "Microsoft.FSharp.Core.ResultModule, \
-     FSharp.Core, Culture=neutral, \
-     PublicKeyToken=b03f5f7f11d50a3a">]
+[<WebSharper.Proxy "Microsoft.FSharp.Core.ResultModule, FSharp.Core">]
 module private WebSharper.ResultModuleProxy
     
 let Bind f r =
