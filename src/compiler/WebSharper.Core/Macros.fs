@@ -1770,8 +1770,9 @@ type TupleExtensions() =
 type WebWorker() =
     inherit Macro()
         
-    static let worker = NonGeneric <| Hashed { Assembly = "WebSharper.JavaScript"; FullName = "WebSharper.JavaScript.Worker" }
-    static let workerCtor = Hashed { CtorParameters = [NonGenericType stringTy] }
+    static let worker = NonGeneric <| TypeDefinition { Assembly = "WebSharper.JavaScript"; FullName = "WebSharper.JavaScript.Worker" }
+    static let workerOptionsTy = NonGenericType <| TypeDefinition { Assembly = "WebSharper.JavaScript"; FullName = "WebSharper.JavaScript.WorkerOptions" }
+    static let workerCtor = Constructor { CtorParameters = [NonGenericType stringTy; workerOptionsTy] }
         
     override __.TranslateCtor(c) =
         let gen name expr includeJsExports =
@@ -1788,7 +1789,8 @@ type WebWorker() =
                     GlobalAccess (Address.Runtime "ScriptPath"),
                     [!~(Literal.String c.Compilation.AssemblyName); !~(Literal.String filename)],
                     NonPure, Some 2)
-            Ctor(worker, workerCtor, [path])
+            let options = Object [ "type", MemberKind.Simple, !~(Literal.String "module") ]
+            Ctor(worker, workerCtor, [path; options])
             |> MacroOk
         match c.Arguments with
         | [expr] -> gen "worker" expr false

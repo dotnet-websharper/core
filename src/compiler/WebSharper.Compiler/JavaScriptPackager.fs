@@ -135,22 +135,32 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let allClasses = MergedDictionary(refMeta.Classes, current.Classes)
     let allInterfaces = MergedDictionary(refMeta.Interfaces, current.Interfaces)
 
+    let isSingleType =
+        match content with
+        | SingleType _ -> true
+        | Bundle _ -> false
+
     for typ in content.Types do
         let className = (typ.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
         let classId = Id.New className
         let outerClassId = Id.New "_c"
-        let classAddrs = Dictionary()
+        let classAddrs = ResizeArray()
         let addClassAddr a isMainAddr =
             match a with 
             | { Module = DotNetType m } ->
-                classAddrs[a] <- (m, isMainAddr)
+                if isSingleType then
+                    classAddrs.Add(a, m, isMainAddr)
+                else
+                    for asm in m.Assembly.Split(',') do
+                        let m = { m with Assembly = asm }
+                        let a = { a with Module = DotNetType m }
+                        classAddrs.Add(a, m, isMainAddr)
             | _ -> 
-                let m = { Assembly = asmName; Name = typ.Value.FullName }
-                classAddrs[Address.TypeModuleRoot m] <- (m, true)
+                ()
 
         let isUnionCase = 
-            match current.Classes.TryFind(typ) with
-            | Some (a, i, cls) ->
+            match current.Classes.TryGetValue(typ) with
+            | true, (a, i, cls) ->
                 addClassAddr a true
                 match cls with
                 | None -> ()
@@ -169,26 +179,27 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             ()
                 match i with Metadata.CustomTypeInfo.FSharpUnionCaseInfo _ -> true | _ -> false 
             | _ ->
-                match allInterfaces.TryFind(typ) with
-                | Some ({ Address = { Module = DotNetType m } as a }) ->
-                    classAddrs[a] <- (m, true)
+                match current.Interfaces.TryGetValue(typ) with
+                | true, { Address = { Module = DotNetType m } as a } ->
+                    classAddrs.Add (a, m, true)
                     false
                 | _ ->
-                    let m = { Assembly = asmName; Name = typ.Value.FullName }
-                    classAddrs[Address.TypeModuleRoot m] <- (m, true) 
                     false   
         if not isUnionCase then
-            for KeyValue(classAddr, (classCodeRes, isMainAddr)) in classAddrs do
+            for (classAddr, classCodeRes, isMainAddr) in classAddrs do
                 if isMainAddr && output <> O.JavaScript && classAddr.Address <> [ "default" ] then
                     // add type export
                     let typeAddr = { classAddr with Address = [ "default" ] }
                     addresses.Add(typeAddr, Var classId)
                 
-                if not (addresses.ContainsKey classAddr) then
+                if isMainAddr && not (addresses.ContainsKey classAddr) then
                     addresses.Add(classAddr, Var outerClassId)
                 currentScope.Add(classCodeRes) |> ignore
-                if not (classRes.ContainsKey typ) then
+                if isMainAddr && not (classRes.ContainsKey typ) then
                     classRes.Add(typ, (classAddr, classId, outerClassId))
+            if classAddrs.Count = 0 then
+                // not represented as JS class
+                classRes.Add(typ, (Address.Global(), classId, outerClassId))
 
     let export isDefault statement =
         match content with
@@ -197,11 +208,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             match statement with
             | ExprStatement(Var _) -> Empty
             | _ -> statement
-
-    let isSingleType =
-        match content with
-        | SingleType _ -> true
-        | Bundle _ -> false
 
     addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
@@ -467,8 +473,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | _ -> info 
 
     let packageClass (typ: TypeDefinition) (a: Address) (ct: M.CustomTypeInfo) (c: M.ClassInfo) =
-        let name = typ.Value.FullName
-        let currentClassAddr, classId, outerClassId = classRes[typ]
+        match classRes.TryGetValue typ with 
+        | false, _ -> ()
+        | true, (currentClassAddr, classId, outerClassId) ->
+
         let className = classId.Name.Value
 
         let gsArr = Array.ofList c.Generics
@@ -543,10 +551,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let func fromInst addr =
                 let f = 
                     match getOrImportAddress addr with
-                    | Var f -> f
+                    | Var f -> 
+                        f
                     | a ->
                         failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" addr a typ (Array.ofSeq currentScope)
-                        //Id.New(fname, mut = false, str = true)
                 match IgnoreExprSourcePos body with
                 | Function (args, thisVar, _, b) ->
                     let f, args =
@@ -602,10 +610,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | M.Func (fname, fromInst) ->
                 func fromInst (currentClassAddr.Func(fname))
             | M.GlobalFunc (addr, fromInst) ->
-                if isSingleType then
-                    func fromInst addr
-                else
-                    func fromInst (currentClassAddr.Func(addr.Address.Head))    
+                func fromInst addr
             | _ -> ()
 
         let propInfo isStatic isPrivate isOptional =
@@ -977,7 +982,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     packageClass <| classDecl()
 
     let packageInterface (typ: TypeDefinition) (i: M.InterfaceInfo) =
-        let currentClassAdds, classId, outerClassId = classRes[typ]
+        match classRes.TryGetValue typ with 
+        | false, _ -> ()
+        | true, (currentClassAddr, classId, outerClassId) ->
+
         let className = classId.Name.Value
         let igen = List.length i.Generics
         let gen = getGenerics 0 i.Generics
@@ -1016,31 +1024,33 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let methodNames =
             i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
 
-        let isIntf =
-            let isFunctionName =
-                isFunctionNameForInterface typ
-            let x = Id.New("x", typ = TSType TSType.Any)
-            let returnType =
-                if output = O.JavaScript then 
-                    None 
-                else
-                    Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
-            let funcId = 
-                match getOrImportAddress (currentClassAdds.Func(isFunctionName)) with
-                | Var f -> 
-                    if output = O.JavaScript then f else
-                        f.WithType(returnType)
-                | a ->
-                    failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAdds.Func(isFunctionName)) a typ (Array.ofSeq currentScope)
-                    //Id.New(isFunctionName, mut = false, str = true, ?typ = returnType)
-            if Seq.isEmpty methodNames then
-                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
-            else         
-                let shortestName = methodNames |> Seq.minBy String.length
-                let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), gen)
+        match currentClassAddr.Module with
+        | DotNetType _ ->
+            let isIntf =
+                let isFunctionName =
+                    isFunctionNameForInterface typ
+                let x = Id.New("x", typ = TSType TSType.Any)
+                let returnType =
+                    if output = O.JavaScript then 
+                        None 
+                    else
+                        Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
+                let funcId = 
+                    match getOrImportAddress (currentClassAddr.Func(isFunctionName)) with
+                    | Var f -> 
+                        if output = O.JavaScript then f else
+                            f.WithType(returnType)
+                    | a ->
+                        failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAddr.Func(isFunctionName)) a typ (Array.ofSeq currentScope)
+                if Seq.isEmpty methodNames then
+                    FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
+                else         
+                    let shortestName = methodNames |> Seq.minBy String.length
+                    let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
+                    FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), gen)
 
-        statements.Add(export false isIntf)
+            statements.Add(export false isIntf)
+        | _ -> ()
 
     for typ in content.Types do
         match current.Classes.TryFind(typ) with

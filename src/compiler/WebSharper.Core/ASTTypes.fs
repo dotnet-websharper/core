@@ -1019,7 +1019,7 @@ type Address =
     override this.ToString() =
         match this.Module with
         | StandardLibrary
-        | JavaScriptFile _ -> ""
+        | JavaScriptFile _ -> "globalThis."
         | JavaScriptModule c 
         | DotNetType c -> string c + "::"
         | ImportedModule i -> string i + "::"

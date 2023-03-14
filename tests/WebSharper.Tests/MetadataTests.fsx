@@ -66,7 +66,7 @@ let metadata =
             WebSharper.Compiler.FrontEnd.ReadFromFile WebSharper.Compiler.FrontEnd.ReadOptions.FullMetadata
         )
     { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies false metas with
+        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
 

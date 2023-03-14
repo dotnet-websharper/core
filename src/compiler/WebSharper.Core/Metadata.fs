@@ -380,8 +380,15 @@ type Info =
             ExtraBundles = Set.empty
         }
 
-    static member UnionWithoutDependencies isBundle (metas: seq<Info>) = 
-        let isStaticPart (c: ClassInfo) =
+    static member UnionWithoutDependencies (metas: seq<Info>) = 
+        let rec notTiedToAddress cf =
+            match cf with 
+            | GlobalFunc _
+            | Inline _ -> true
+            | Macro (_, _, fallback) -> fallback |> Option.forall notTiedToAddress
+            | _ -> false
+        
+        let isDeclPart (c: ClassInfo) =
             Option.isNone c.BaseClass
             && Dict.isEmpty c.Constructors
             && Dict.isEmpty c.Fields
@@ -389,30 +396,23 @@ type Info =
             && Dict.isEmpty c.Implementations
             && List.isEmpty c.Macros
             && Option.isNone c.StaticConstructor
-            && c.Methods.Values |> Seq.forall (function | { CompiledForm = Instance _ } -> false | _ -> true)
+            && c.Methods.Values |> Seq.forall (fun m -> notTiedToAddress m.CompiledForm)
 
         let tryMergeClassInfo (a: ClassInfo, aAddr: Address) (b: ClassInfo, bAddr: Address) =
             let combine (left: 'a option) (right: 'a option) =
                 match left with
                 | Some _ -> left
                 | None -> right
-            let isUsingAAddr = isStaticPart b
-            if isStaticPart a || isStaticPart b then
+            let isUsingAAddr = isDeclPart b
+            if isDeclPart a || isDeclPart b then
                 let transformFuncAddrs (addr: Address) methods =
-                    if isBundle then
-                        methods
-                    else
-                        methods |> Dict.map (fun (m: CompiledMethodInfo) ->
-                            match m.CompiledForm with
-                            | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
-                            | _ -> m
-                        )
+                    methods |> Dict.map (fun (m: CompiledMethodInfo) ->
+                        match m.CompiledForm with
+                        | Func (n, fi) -> { m with CompiledForm = GlobalFunc (addr.Sub(n), fi) }
+                        | _ -> m
+                    )
                 let mergedAddr =
-                    match isBundle, aAddr.Module with
-                    | true, DotNetType t ->
-                        { aAddr with Module = DotNetType { t with Assembly = "" } }
-                    | _ -> 
-                        if isUsingAAddr then aAddr else bAddr
+                    if isUsingAAddr then aAddr else bAddr
                 Some (
                     {
                         BaseClass = combine a.BaseClass b.BaseClass

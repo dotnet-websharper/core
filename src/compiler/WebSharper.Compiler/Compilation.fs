@@ -1392,11 +1392,16 @@ type Compilation(meta: Info, ?hasGraph) =
                 }
             
             let clAddress = 
-                match cls.Type with
-                | Some (TSType.Named a) ->
-                    clStatics.Add(typ, this.TypeAddress(typ, false))
-                    Address.LibAddr a
-                | _ ->
+                let defCtorInline =
+                    cls.Members |> Seq.tryPick (fun m ->
+                        match m with
+                        | NotResolvedMember.Constructor(ctor, { Kind = N.Inline _; Body = expr }) when ctor = ConstructorInfo.Default() -> Some expr
+                        | _ -> None
+                    )    
+                match defCtorInline with
+                | Some (IgnoreSourcePos.New(IgnoreSourcePos.GlobalAccess ctorAddr, _, [])) ->
+                    ctorAddr
+                | _ -> 
                     this.TypeAddress(typ, hasWSPrototype)
 
             match notResolvedCustomTypes.TryFind typ with

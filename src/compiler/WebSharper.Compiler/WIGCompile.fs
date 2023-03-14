@@ -1571,7 +1571,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             let rec addClass parentFullName (c: CodeModel.Class) =
                 let sn = 
                     parentFullName + 
-                    (match c.SourceName with Some n -> n | _ -> c.Name.[c.Name.LastIndexOf('.') + 1 ..]) +
+                    (iG.GetSourceName c) +
                     (match c.Generics with [] -> "" | g -> "`" + string (List.length g))
                 assemblyPrototypes.Add(sn, c.Name)
                 for nc in c.NestedClasses do addClass (sn + "+") nc

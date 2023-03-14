@@ -73,7 +73,7 @@ let metas =
 
 let metadata =
     { 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies false metas with
+        WebSharper.Core.Metadata.Info.UnionWithoutDependencies metas with
             Dependencies = WebSharper.Core.DependencyGraph.Graph.NewWithDependencyAssemblies(metas |> Seq.map (fun m -> m.Dependencies)).GetData()
     }
 
@@ -205,7 +205,7 @@ let translate (source: string) =
     printfn "nodes: %A" (nodes |> List.map string)
 
     let mergedMeta = 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies true [ metadata; currentMeta ]
+        WebSharper.Core.Metadata.Info.UnionWithoutDependencies [ metadata; currentMeta ]
 
     let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
     

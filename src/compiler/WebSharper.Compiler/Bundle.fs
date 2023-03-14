@@ -132,7 +132,7 @@ module Bundling =
                 let meta = 
                     o.RefMetas |> Seq.map refreshAllIds
                     |> Seq.append (Seq.singleton o.CurrentMeta)
-                    |> M.Info.UnionWithoutDependencies true
+                    |> M.Info.UnionWithoutDependencies
                 try
                     let current = 
                         if dce then trimMetadata meta nodes 
