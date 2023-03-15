@@ -49,6 +49,7 @@ type B = S.BinaryOperator
 let BinaryOperatorPrecedence operator =
     match operator with
     | B.``.`` -> 1
+    | B.``**`` -> 4
     | B.``*`` | B.``/`` | B.``%`` -> 5
     | B.``+`` | B.``-`` -> 6
     | B.``<<`` | B.``>>`` | B.``>>>`` -> 7
@@ -60,13 +61,14 @@ let BinaryOperatorPrecedence operator =
     | B.``|`` -> 12
     | B.``&&`` -> 13
     | B.``||`` -> 14
+    | B.``??`` -> 15
     | B.``,`` -> 17
     | _ -> 16
 
 let BinaryOperatorAssociativity operator =
     match operator with
     | B.``=`` | B.``+=`` | B.``-=`` | B.``*=`` | B.``/=`` | B.``%=``
-    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` ->
+    | B.``<<=`` | B.``>>=`` | B.``>>>=`` | B.``&=`` | B.``^=`` | B.``|=`` | B.``**`` | B.``??=`` ->
         RightAssociative
     | _ ->
         LeftAssociative
