@@ -1409,7 +1409,7 @@ module Definition =
     let Assembly =
         Assembly [
             Namespace "WebSharper.MathJS.Resources" [
-                (Resource "Js" "https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.4/math.js")
+                (Resource "Js" "math.js")
                 |> AssemblyWide
             ]
             Namespace "WebSharper.MathJS" [

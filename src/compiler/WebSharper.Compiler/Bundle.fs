@@ -211,13 +211,9 @@ module Bundling =
                             match e.Urls ctx with
                             | [||] -> ()
                             | urls ->
-                                writer.WriteLine("importScripts([{0}]);",
-                                    urls |> Seq.map (fun url ->
-                                        let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)
-                                        s.Trim()
-                                    )
-                                    |> String.concat ","
-                                )
+                                for url in urls do
+                                    let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                    writer.WriteLine("import {0};", s.Trim())  
                         | _ -> ()
 
             if concatScripts then 

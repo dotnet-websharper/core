@@ -1067,9 +1067,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     if output <> O.TypeScriptDeclaration then
         match content with
         | Bundle(_, (OnLoadIfExists | ForceOnLoad), Some ep) ->
-            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression (JSRuntime.OnLoad (Function([], None, None, ep))))
+            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
         | Bundle(_, ForceImmediate, Some ep) ->
-            statements.Add ep
+            statements.Add (bodyTransformer([||]).TransformStatement(ep))
         | Bundle(_, (ForceOnLoad | ForceImmediate), None) ->
             failwith "Missing entry point or export. Add SPAEntryPoint attribute to a static method without arguments, or JavaScriptExport on types/methods to expose them."
         | _ -> ()

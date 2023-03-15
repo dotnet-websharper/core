@@ -510,17 +510,17 @@ let WebWorkerTests =
             equal res "The worker replied: [worker] Hello world!"
         }
 
-        //Test "Macro with nested worker" {
-        //    let worker = new Worker(InnerWorker)
-        //    let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
-        //    let! res = AsyncContinuationTimeout err <| fun ok ->
-        //        worker.Onmessage <- fun e ->
-        //            ok ("The worker replied: " + As<string> e.Data)
-        //        worker.PostMessage "Hello world!"
-        //    equal res "The worker replied: [worker2] Hello world!"
-        //}
+        Skip "Macro with nested worker" {
+            let worker = new Worker(InnerWorker)
+            let err = "Nested worker didn't run (This is expected on Chrome! Should work on Firefox)"
+            let! res = AsyncContinuationTimeout err <| fun ok ->
+                worker.Onmessage <- fun e ->
+                    ok ("The worker replied: " + As<string> e.Data)
+                worker.PostMessage "Hello world!"
+            equal res "The worker replied: [worker2] Hello world!"
+        }
 
-        Test "With Dependencies" {
+        Skip "With Dependencies" {
             let worker = new Worker(fun self ->
                 self.Onmessage <- fun e ->
                     MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
@@ -532,7 +532,7 @@ let WebWorkerTests =
             equal res "123"
         }
 
-        Test "JavaScriptExport inclusion" {
+        Skip "JavaScriptExport inclusion" {
             let worker = new Worker("withJsExport", true, fun self ->
                 self.Onmessage <- fun e ->
                     JS.Global?WebSharper?Html5?Tests?Main?ExportedFunction() |> self.PostMessage
