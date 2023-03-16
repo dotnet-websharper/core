@@ -1005,7 +1005,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
             comp.AddCustomType(def, i)
 
-            if annot.IsJavaScript then
+            if annot.IsJavaScript || hasWSPrototype then
                 for index, c in cases |> Seq.indexed do
                     match c.Kind with
                     | NormalFSharpUnionCase fields ->
@@ -1042,7 +1042,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     | _ -> ()
 
         if (cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
-            if annot.IsJavaScript then
+            if annot.IsJavaScript || hasWSPrototype then
                 let cdef =
                     Hashed {
                         CtorParameters =
@@ -1202,7 +1202,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             Kind = ckind
             IsProxy = Option.isSome annot.ProxyOf
             Macros = annot.Macros
-            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase
+            ForceNoPrototype = (annot.Prototype = Some false) || hasConstantCase || isInterfaceProxy
             ForceAddress = hasSingletonCase
             Type = annot.Type
             SourcePos = CodeReader.getRange cls.DeclarationLocation
