@@ -502,28 +502,21 @@ let getBody expr =
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
-translate false """
+translate true """
 namespace WebSharper.Tests
 
 open WebSharper
 open WebSharper.JavaScript
 open System.Collections.Generic
 
-type I = 
-    abstract Get: unit -> int
-
-type R3 =
-    { mutable R3A : int }
-    
-    interface I with
-        [<JavaScript>]
-        member this.Get() = this.R3A
-
 [<JavaScript>]
 module ObjectTest =
 
-    let Create() =
-        { R3A = 4 }
+    [<SPAEntryPoint>]
+    let Main() =
+        let arr = [| 1 |] |> Seq.ofArray
+        for a in arr do
+            Console.Log(a)
 """
 
 //translate """

@@ -742,10 +742,14 @@ type Compilation(meta: Info, ?hasGraph) =
         let typ = this.FindProxied typ
         interfaces.ContainsKey typ
 
-    member this.IsInterfaceWithDefaultImpls(typ) =
+    member this.IsInterfaceMethodWithImpl(typ, meth) =
         let typ = this.FindProxied typ
-        // interfaces with default implementations are also stored in classes dictionary
-        classes.ContainsKey typ
+        let compiled =
+            // interfaces with default implementations are also stored in classes dictionary
+            match classes.TryFind(typ) with
+            | Some (_, _, Some cls) -> cls.Methods.ContainsKey meth
+            | _ -> false
+        compiled || compilingMethods.ContainsKey (typ, meth)
 
     member this.ConstructorExistsInMetadata (typ, ctor) =
         let typ = this.FindProxied typ

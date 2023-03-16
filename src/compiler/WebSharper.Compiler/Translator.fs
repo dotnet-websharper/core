@@ -884,13 +884,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
         if comp.MethodExistsInMetadata (typ, meth) then
             if comp.IsInterface typ then
                 comp.Graph.AddEdge(currentNode, M.AbstractMethodNode (typ, meth))
-                if comp.IsInterfaceWithDefaultImpls typ then
-                    let defImpl = meth // Method { meth.Value with MethodName = meth.Value.MethodName + "_Def" }
-                    match comp.LookupMethodInfo(typ, defImpl, false) with
-                    | Compiled _
-                    | Compiling _ ->
-                        comp.Graph.AddEdge(currentNode, M.MethodNode (typ, defImpl))
-                    | _ -> ()
+                if comp.IsInterfaceMethodWithImpl(typ, meth) then
+                    comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
             else
                 comp.Graph.AddEdge(currentNode, M.MethodNode (typ, meth))
         else

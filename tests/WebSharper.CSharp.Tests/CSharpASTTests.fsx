@@ -107,7 +107,7 @@ let csharpRefs =
 
 let stExpr s = WebSharper.Core.AST.StatementExpr(s, None)
 
-let translate (source: string) = 
+let translate isBundle (source: string) = 
 
     let fileName1 = Path.ChangeExtension(Path.GetTempFileName(), ".fs")
     let base2 = Path.GetTempFileName()
@@ -194,50 +194,65 @@ let translate (source: string) =
         ]
     errors |> List.iter (printfn "%A")
 
-    let graph =
-        metas |> Seq.map (fun m -> m.Dependencies)
-        |> Seq.append (Seq.singleton currentMeta.Dependencies)
-        |> WebSharper.Core.DependencyGraph.Graph.FromData
+    if isBundle then
 
-    let nodes =
-        graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
+        let graph =
+            metas |> Seq.map (fun m -> m.Dependencies)
+            |> Seq.append (Seq.singleton currentMeta.Dependencies)
+            |> WebSharper.Core.DependencyGraph.Graph.FromData
+
+        let nodes =
+            graph.GetDependencies [ WebSharper.Core.Metadata.EntryPointNode ]
     
-    printfn "nodes: %A" (nodes |> List.map string)
+        printfn "nodes: %A" (nodes |> List.map string)
 
-    let mergedMeta = 
-        WebSharper.Core.Metadata.Info.UnionWithoutDependencies [ metadata; currentMeta ]
+        let mergedMeta = 
+            WebSharper.Core.Metadata.Info.UnionWithoutDependencies [ metadata; currentMeta ]
 
-    let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
+        let trimmedMeta = WebSharper.Compiler.CompilationHelpers.trimMetadata mergedMeta nodes
     
-    //printfn "trimmedMeta: %A" trimmedMeta
+        //printfn "trimmedMeta: %A" trimmedMeta
 
-    let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+        let pkg = WebSharper.Compiler.JavaScriptPackager.bundleAssembly WebSharper.Core.JavaScript.JavaScript trimmedMeta trimmedMeta "TestProject" comp.EntryPoint WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
     
-    //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
+        //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
-    let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
-    printfn "%s" js
+        let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        printfn "%s" js
 
-translate """
+    else
+        
+        let pkg = WebSharper.Compiler.JavaScriptPackager.packageAssembly WebSharper.Core.JavaScript.JavaScript metadata currentMeta "TestProject" None WebSharper.Compiler.JavaScriptPackager.OnLoadIfExists
+    
+        let jsFiles = 
+            pkg 
+            |> Array.map (fun (file, p) ->
+                let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                file, js
+            )
+
+        compiledExpressions |> List.iter (WebSharper.Core.AST.Debug.PrintExpression >> printfn "compiled: %s")
+        for (name, js) in jsFiles do 
+            printfn "File: %s" name
+            printfn "%s" js
+            
+
+translate true """
 using System;
 using WebSharper;
 using WebSharper.JavaScript;
 
 [JavaScript]
-interface ITestDefaultImpl
-{
-    int Foo() => 42;
-    int Bar() => this.Foo();
-}
-
-[JavaScript]
-class TestDefaultImpl : ITestDefaultImpl
+class TestDefaultImpl
 {
     [SPAEntryPoint]
     public static void Main() 
     {
         var arr = new[] { 1 };
-        Console.Log(arr[0]);
+        foreach (var a in arr) 
+        {
+            Console.Log(a);
+        }
     }
 }
 """
