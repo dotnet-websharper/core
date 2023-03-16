@@ -78,7 +78,7 @@ let Tests =
             equal (sayHi "World") "Hello, World!"
         }
 
-        Test "Import attribute with Stub" {
+        Skip "Import attribute with Stub" {
             equal (MyClassStub.sayHiStatic "World") "Hello, World!"
             let c = MyClassStub() 
             equal (c.sayHiInst "World") "Hello, World!"

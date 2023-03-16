@@ -263,21 +263,21 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
             | _ -> []
 
-        let tspkg = 
-            JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
-            |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-        for (n, p) in tspkg do
-            let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-            addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
-        logger.TimedStage "Writing .ts files"
+        //let tspkg = 
+        //    JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+        //    |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+        //for (n, p) in tspkg do
+        //    let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+        //    addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
+        //logger.TimedStage "Writing .ts files"
 
-        let dtspkg = 
-            JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists
-            |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-        for (n, p) in dtspkg do
-            let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-            addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
-        logger.TimedStage "Writing .d.ts files"
+        //let dtspkg = 
+        //    JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+        //    |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+        //for (n, p) in dtspkg do
+        //    let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+        //    addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
+        //logger.TimedStage "Writing .d.ts files"
 
         // set current AssemblyNode to be a module
         current.Dependencies.Nodes |> Array.tryFindIndex (function

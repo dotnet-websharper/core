@@ -322,6 +322,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             
             res
             
+    let classIdToOuter = 
+        lazy 
+        classRes.Values |> Seq.map (fun (_, classId, outerClassId) -> outerClassId, classId) |> dict
+
     let tsTypeOfAddress (a: Address) =
         let t = a.Address |> List.rev
         match a.Module with
@@ -334,7 +338,15 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             | GlobalAccess { Module = ImportedModule i; Address = a } ->
                 TSType.Imported(i, a |> List.rev)
             | Var i ->
-                TSType.Imported(i, [])
+                match classIdToOuter.Value.TryGetValue(i) with
+                | true, oi ->
+                    match oi.Name with
+                    | Some n ->
+                        TSType.Named([ n ])
+                    | _ ->
+                        TSType.Named t    
+                | _ ->
+                    TSType.Imported(i, [])
             | _ ->
                 TSType.Named t
         | ImportedModule v -> TSType.Imported(v, t)
@@ -913,6 +925,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 addStatement <| export true (
                     Alias(TSType.Basic className |> addGenerics cgen, TSType.Union (List.ofSeq ucTypes))
                 )
+                //addStatement <|
+                //    Alias(TSType.Basic className |> addGenerics cgen, TSType.Intersection [ thisTSType.Value; TSType.Union (List.ofSeq ucTypes) ])
 
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             isFSharpType <- true
