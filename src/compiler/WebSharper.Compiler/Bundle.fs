@@ -149,6 +149,8 @@ module Bundling =
             lazy 
             o.RefAssemblies |> Seq.map (fun a -> a.Name, a) |> Map
 
+        let jsImports = ResizeArray()
+
         let render (mode: BundleMode) (writer: StringWriter) =
             match mode with
             | BundleMode.HtmlHeaders -> 
@@ -166,10 +168,10 @@ module Bundling =
                     | _ -> true
                 let renderWebResource cType (c: string) =
                     match cType, mode with
-                    | CT.JavaScript, BundleMode.JavaScript
-                    | CT.JavaScript, BundleMode.MinifiedJavaScript ->
-                        writer.Write(c)
-                        writer.WriteLine(";")
+                    //| CT.JavaScript, BundleMode.JavaScript
+                    //| CT.JavaScript, BundleMode.MinifiedJavaScript ->
+                    //    writer.Write(c)
+                    //    writer.WriteLine(";")
                     | CT.Css, BundleMode.CSS ->
                         writer.WriteLine(c)
                     | _ -> ()
@@ -179,25 +181,38 @@ module Bundling =
                         DefaultToHttp = false // TODO make configurable
                         ScriptBaseUrl = o.Config.ScriptBaseUrl
                         GetAssemblyRendering = 
-                            match concatScripts, mode with
-                            | true, BundleMode.JavaScript -> 
-                                fun name ->
-                                    assemblyLookup.Value |> Map.tryFind name
-                                    |> Option.bind (fun a -> a.ReadableJavaScript)
-                                    |> Option.iter (fun t -> writer.WriteLine(t))
-                                    Res.Skip
-                            | true, BundleMode.MinifiedJavaScript -> 
-                                fun name ->
-                                    assemblyLookup.Value |> Map.tryFind name
-                                    |> Option.bind (fun a -> a.CompressedJavaScript)
-                                    |> Option.iter (fun t -> writer.WriteLine(t))
-                                    Res.Skip
-                            | _ ->
+                            //match concatScripts, mode with
+                            //| true, BundleMode.JavaScript -> 
+                            //    fun name ->
+                            //        assemblyLookup.Value |> Map.tryFind name
+                            //        |> Option.bind (fun a -> a.ReadableJavaScript)
+                            //        |> Option.iter (fun t -> writer.WriteLine(t))
+                            //        Res.Skip
+                            //| true, BundleMode.MinifiedJavaScript -> 
+                            //    fun name ->
+                            //        assemblyLookup.Value |> Map.tryFind name
+                            //        |> Option.bind (fun a -> a.CompressedJavaScript)
+                            //        |> Option.iter (fun t -> writer.WriteLine(t))
+                            //        Res.Skip
+                            //| _ ->
                                 fun _ -> Res.Skip
                         GetSetting = fun _ -> None
                         GetWebResourceRendering = fun ty name ->
-                            let (c, cT) = Utility.ReadWebResource ty name
-                            renderWebResource cT c
+                            if name.ToLower().EndsWith ".js" && (mode = BundleMode.JavaScript || mode = BundleMode.MinifiedJavaScript) then
+                                let a = ty.Assembly.GetName().Name
+                                let i = a, name 
+                                if not (jsImports.Contains(i)) then
+                                    let url = 
+                                        if o.IsExtraBundle then 
+                                            "../" + a + "/" + name
+                                        else
+                                            "./" + a + "/" + name
+                                    let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                    writer.WriteLine("import {0};", s.Trim())  
+                                    jsImports.Add(i)
+                            else
+                                let (c, cT) = Utility.ReadWebResource ty name
+                                renderWebResource cT c
                             Res.Skip
                         WebRoot = "/"
                         RenderingCache = null
@@ -297,6 +312,7 @@ module Bundling =
                 | _ -> 
                     None
             )
+            |> List.append (List.ofSeq jsImports)
             |> List.groupBy fst
             |> List.map (fun (a, jss) -> a, jss |> List.map snd)
 
