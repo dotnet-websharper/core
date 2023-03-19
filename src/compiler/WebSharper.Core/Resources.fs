@@ -130,7 +130,6 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
         match scriptBaseUrl with
         | Some url -> 
-            let url = if url.StartsWith(".") || url.StartsWith("http") then url elif url.StartsWith("/") then "." + url else "./" + url
             this.WriteLine("""import Runtime, {{ Start as StartWS }} from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
             this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
             if skipAssemblyDir then

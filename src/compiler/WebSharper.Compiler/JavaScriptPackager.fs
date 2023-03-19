@@ -1175,6 +1175,27 @@ let readMapFileSources mapFile =
         List.zip sources sourcesContent
     | _ -> failwith "map file JSON should be an object"
 
+let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statement list) =
+    if List.isEmpty urls then
+        pkg
+    else
+        let runtime = Id.New("Runtime")
+        let loadScript = Id.New("LoadScript")
+        let start = Id.New("Start")
+        
+        let runtimeLoc = if skipAssemblyDir then "../"  else "./"
+        
+        [
+            Import (Some runtime, None, ["LoadScript", loadScript; "Start", start], runtimeLoc + "WebSharper.Core.JavaScript/Runtime.js")
+            ExprStatement(ItemSet(Var runtime, Value (String "ScriptBasePath"), Value (String scriptBase)))         
+            if skipAssemblyDir then 
+                ExprStatement(ItemSet(Var runtime, Value (String "ScriptSkipAssemblyDir"), Value (Bool true)))
+            for url in urls do 
+                ExprStatement(ApplAny(Var loadScript, [ Value (String url) ]))
+            yield! pkg
+            ExprStatement(ApplAny(Var start, []))
+        ]
+
 let programToString output pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
     let program = statements |> JavaScriptWriter.transformProgram output pref
     let writer = getWriter()

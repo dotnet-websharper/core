@@ -60,7 +60,7 @@ module Bundling =
             JsMap: option<Content>
             MinJs: Content
             MinJsMap: option<Content>
-            Imports: list<string * list<string>>
+            Imports: Lazy<list<string * list<string>>>
         }
 
     type private BundleOptions =
@@ -150,6 +150,7 @@ module Bundling =
             o.RefAssemblies |> Seq.map (fun a -> a.Name, a) |> Map
 
         let jsImports = ResizeArray()
+        let toLoad = ResizeArray()
 
         let render (mode: BundleMode) (writer: StringWriter) =
             match mode with
@@ -202,13 +203,15 @@ module Bundling =
                                 let a = ty.Assembly.GetName().Name
                                 let i = a, name 
                                 if not (jsImports.Contains(i)) then
-                                    let url = 
-                                        if o.IsExtraBundle then 
-                                            "../" + a + "/" + name
-                                        else
-                                            "./" + a + "/" + name
-                                    let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
-                                    writer.WriteLine("import {0};", s.Trim())  
+                                    let url = a + "/" + name
+                                        //if o.IsExtraBundle then 
+                                        //    "../" + a + "/" + name
+                                        //else
+                                        //    "./" + a + "/" + name
+                                    if not (toLoad.Contains(url)) then
+                                        toLoad.Add(url)
+                                    //let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                    //writer.WriteLine("import {0};", s.Trim())  
                                     jsImports.Add(i)
                             else
                                 let (c, cT) = Utility.ReadWebResource ty name
@@ -227,8 +230,11 @@ module Bundling =
                             | [||] -> ()
                             | urls ->
                                 for url in urls do
-                                    let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
-                                    writer.WriteLine("import {0};", s.Trim())  
+                                    if not (toLoad.Contains(url)) then
+                                        //let s = W.ExpressionToString WebSharper.Core.JavaScript.Preferences.Compact !~(JS.String url)                                    
+                                        //writer.WriteLine("import {0};", s.Trim())  
+                                        toLoad.Add(url)
+
                         | _ -> ()
 
             if concatScripts then 
@@ -258,7 +264,12 @@ module Bundling =
                             )
                         else WebSharper.Core.JavaScript.Writer.CodeWriter()    
 
-                    let js, m = pkg |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript pref getCodeWriter
+                    let scriptBase = o.Config.ScriptBaseUrl |> Option.defaultValue ""
+
+                    let js, m = 
+                        pkg 
+                        |> WebSharper.Compiler.JavaScriptPackager.addLoadedModules (List.ofSeq toLoad) scriptBase o.IsExtraBundle
+                        |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript pref getCodeWriter
                     if sourceMap then
                         if mode = BundleMode.JavaScript then
                             map <- m
@@ -267,7 +278,7 @@ module Bundling =
 
                     writer.WriteLine js
 
-                    Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
+                    //Res.HtmlTextWriter.WriteStartCode(writer, o.Config.ScriptBaseUrl, false, o.IsExtraBundle)
                 | _ -> ()
 
         let content mode =
@@ -303,6 +314,7 @@ module Bundling =
             else None
 
         let imports =
+            lazy
             pkg 
             |> JavaScriptPackager.getImportedModules 
             |> List.choose (fun i ->
@@ -524,7 +536,7 @@ module Bundling =
                         asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
                 )
                 |> Seq.append (
-                    b.Imports 
+                    b.Imports.Value 
                     |> Seq.collect (fun (a, jss) ->
                         let asm = refAssemblies |> List.find (fun asm -> asm.Name = a)
                         let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript

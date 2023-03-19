@@ -763,7 +763,8 @@ type Compilation(meta: Info, ?hasGraph) =
         match interfaces.TryFind typ with
         | Some intf -> 
             intf.Methods.ContainsKey meth
-        | _ ->
+        | _ -> false
+        || 
         match classes.TryFind typ with
         | Some (_, _, Some cls) ->
             cls.Methods.ContainsKey meth || compilingMethods.ContainsKey (typ, meth)

@@ -7,7 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Main.fs" />
-    <EmbeddedResource Include="math.js" />
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>

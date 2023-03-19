@@ -280,6 +280,21 @@ export function SetterOf(o, n) {
   return Object.getOwnPropertyDescriptor(o, n).set;
 }
 
+let scriptsLoaded = [];
+
+export function LoadScript(u) {
+  if (!scriptsLoaded.some(s => s == u.toLowerCase())) {
+    if (!u.startsWith("http")) {
+      u = Runtime.ScriptBasePath + u;
+    }
+    let xhr = new XMLHttpRequest();
+    xhr.open("GET", u, false);
+    xhr.send(null);
+    scriptsLoaded.push(u.toLowerCase());
+    globalThis.eval(xhr.responseText);
+  }
+}
+
 let load = [];
 
 export function OnLoad(f) {
