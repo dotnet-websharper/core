@@ -29,15 +29,26 @@ namespace WebSharper.DllBrowser
 
     public abstract class TreeLeafNodeModel : TreeNodeModel
     {
-        private static List<TreeNodeModel> emptyContents = new();
-        public override List<TreeNodeModel> Contents => emptyContents;
+        private readonly static List<TreeNodeModel> _emptyContents = new();
+        public override List<TreeNodeModel> Contents => _emptyContents;
     }
 
+    public class LoadingDllModel : TreeLeafNodeModel
+    {
+        private readonly string _name;
+        public LoadingDllModel(string name)
+        {
+            _name = name;
+        }
+
+        public override string Name => "Loading: " + _name;
+        public override string Details => "";
+    }
     public class DllModel : TreeGroupNodeModel
     {
         public Compiler.Assembly Assembly { get; init; }
         public override List<TreeNodeModel> Contents { get; } = new();
-        public DllModel(Compiler.Assembly assembly, Metadata.Info? meta)
+        public DllModel(Compiler.Assembly assembly, Info? meta)
         {
             Assembly = assembly;
             if (meta != null)
@@ -53,9 +64,9 @@ namespace WebSharper.DllBrowser
 
     public class MetadataModel : TreeGroupNodeModel
     {
-        public Metadata.Info Metadata { get; init; }
+        public Info Metadata { get; init; }
         public override string Name => "Metadata";
-        public MetadataModel(Metadata.Info metadata) 
+        public MetadataModel(Info metadata) 
         {
             Metadata = metadata;
             foreach (var x in metadata.Classes.OrderBy(x => x.Key.Value.FullName))
@@ -71,19 +82,20 @@ namespace WebSharper.DllBrowser
 
     public class GraphModel : TreeGroupNodeModel
     {
-        public Metadata.GraphData Dependencies { get; init; }
         public override string Name => "Graph";
-        public GraphModel(Metadata.GraphData dependencies)
+        public GraphModel(GraphData dependencies)
         {
-            Dependencies = dependencies;
+            var graph = Core.DependencyGraph.Graph.FromData(dependencies);
             var i = 0;
             var nodesWithDeps = new List<NodeModel>();
 
             foreach (var x in dependencies.Nodes)
             {
-                if (dependencies.Edges[i].Any())
+                var e = dependencies.Edges[i];
+                graph.Overrides.TryGetValue(i, out var o);
+                if (e.Length > 0 || o != null)
                 {
-                    nodesWithDeps.Add(new NodeModel(x.ToString(), i, dependencies));
+                    nodesWithDeps.Add(new NodeModel(x, dependencies.Nodes, e, o));
                 }
                 i++;
             }
@@ -95,7 +107,7 @@ namespace WebSharper.DllBrowser
     public class ClassModel : TreeLeafNodeModel
     {
         public TypeDefinitionInfo Type { get; init; }
-        public Tuple<Address, Metadata.CustomTypeInfo, FSharpOption<Metadata.ClassInfo>> ClassInfo { get; init; }
+        public Tuple<Address, CustomTypeInfo, FSharpOption<ClassInfo>> ClassInfo { get; init; }
         public override string Name => "Class: " + Type.FullName;
         public override string Details
         {
@@ -129,7 +141,7 @@ namespace WebSharper.DllBrowser
                 return sb.ToString();
             }
         }
-        public ClassModel(TypeDefinitionInfo type, Tuple<Address, Metadata.CustomTypeInfo, FSharpOption<Metadata.ClassInfo>> classInfo)
+        public ClassModel(TypeDefinitionInfo type, Tuple<Address, CustomTypeInfo, FSharpOption<ClassInfo>> classInfo)
         {
             Type = type;
             ClassInfo = classInfo;
@@ -139,7 +151,7 @@ namespace WebSharper.DllBrowser
     public class InterfaceModel : TreeLeafNodeModel
     {
         public TypeDefinitionInfo Type { get; init; }
-        public Metadata.InterfaceInfo InterfaceInfo { get; init; }
+        public InterfaceInfo InterfaceInfo { get; init; }
         public override string Name => "Interface: " + Type.FullName;
         public override string Details
         {
@@ -157,7 +169,7 @@ namespace WebSharper.DllBrowser
                 return sb.ToString();
             }
         }
-        public InterfaceModel(TypeDefinitionInfo type, Metadata.InterfaceInfo interfaceInfo)
+        public InterfaceModel(TypeDefinitionInfo type, InterfaceInfo interfaceInfo)
         {
             Type = type;
             InterfaceInfo = interfaceInfo;
@@ -198,9 +210,9 @@ namespace WebSharper.DllBrowser
 
     public class SpecialFileModel : TreeLeafNodeModel
     {
-        private string _name;
+        private readonly  string _name;
+        private readonly string _details;
         public override string Name => _name;
-        private string _details;
         public override string Details => _details;
         public SpecialFileModel(string name, string details)
         {
@@ -222,29 +234,56 @@ namespace WebSharper.DllBrowser
 
     public class NodeModel : TreeLeafNodeModel
     {
-        public Metadata.GraphData Dependencies { get; init; }
-        private string _name;
-        private int _index;
-        public override string Name => _name;
+        private readonly Node _node;
+        private readonly Node[] _nodes;
+        private readonly int[] _edges;
+        private readonly IDictionary<int, int>? _overrides;
+        public override string Name => _node.ToString();
         public override string Details
         {
             get
             {
                 var sb = new StringBuilder();
-                sb.AppendLine("Depends on:");
-                foreach (int d in Dependencies.Edges[_index])
+                if (_edges.Length > 0)
                 {
-                    sb.Append("  ").AppendLine(Dependencies.Nodes[d].ToString());
+                    sb.AppendLine("Depends on:");
+                    foreach (int d in _edges)
+                    {
+                        sb.Append("  ").AppendLine(_nodes[d].ToString());
+                    }
+                }
+                if (_overrides != null)
+                {
+                    sb.AppendLine("Implementations:");
+                    foreach (var kv in _overrides)
+                    {
+                        if (
+                            _node is Node.TypeNode typeNode
+                            && _nodes[kv.Key] is Node.AbstractMethodNode abstractNode
+                            && _nodes[kv.Value] is Node.ImplementationNode implNode
+                            && implNode.typ.Equals(typeNode.Item)
+                            && implNode.baseTyp.Equals(abstractNode.Item1)
+                            && implNode.Item3.Equals(abstractNode.Item2)
+                        )
+                        {
+                            sb.Append("  ").AppendLine(abstractNode.ToString());
+                        }
+                        else
+                        {
+                            sb.Append("  ERROR: ").Append(_nodes[kv.Key].ToString()).Append(" -> ").AppendLine(_nodes[kv.Value].ToString());
+                        }
+                    }
                 }
                 return sb.ToString();
             }
         }
 
-        public NodeModel(string name, int index, Metadata.GraphData dependencies)
+        public NodeModel(Node node, Node[] nodes, int[] edges, IDictionary<int,int>? overrides)
         {
-            _name = name;
-            _index = index;
-            Dependencies = dependencies;
+            _node = node;
+            _nodes = nodes;
+            _edges = edges;
+            _overrides = overrides;
         }
     }
 
