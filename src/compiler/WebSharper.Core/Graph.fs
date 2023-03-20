@@ -412,8 +412,10 @@ type Graph =
     member this.AddEdge (n, d) = this.Edges.[this.AddOrLookupNode n].Add(d) |> ignore
     member this.AddEdge (n, d) = this.Edges.[this.AddOrLookupNode n].Add(this.AddOrLookupNode d) |> ignore
     
-    member this.AddOverride (typ, abstractMethodNode, methodNode) =
+    member this.AddOverride (typ, btyp, meth) =
         let typeNode = this.AddOrLookupNode (TypeNode typ)
+        let abstractMethodNode = this.AddOrLookupNode (AbstractMethodNode (btyp, meth))
+        let methodNode = this.AddOrLookupNode (MethodNode (typ, meth))
         let ovr =
             match this.Overrides.TryFind typeNode with
             | None ->
@@ -422,11 +424,6 @@ type Graph =
                 o
             | Some o -> o
         ovr.Add(abstractMethodNode, methodNode)
-
-    member this.AddOverride (typ, btyp, meth) =
-        this.AddOverride(typ, 
-            this.AddOrLookupNode(AbstractMethodNode(btyp, meth)), 
-            this.AddOrLookupImplementation(typ, btyp, meth))
 
     member this.AddImplementation (typ, intf, meth) =
         let typeNode = this.AddOrLookupNode (TypeNode typ)

@@ -980,8 +980,13 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                 None
             | _ ->
                 eprintfn "WebSharper warning: Assembly needed for bundling but is not referenced: %s (missing type: %s)"
+                //failwithf "Assembly needed for bundling but is not referenced: %s (missing type: %s)"
                     td.Value.Assembly td.Value.FullName
                 None
+    let getOrAddClassNeeded td =
+        match getOrAddClass td with
+        | Some cls -> cls
+        | _ -> failwithf "Class not found during bundling: %s" td.Value.AssemblyQualifiedName
     let moveToDict (fromDic: IDictionary<_,_>) (toDic: IDictionary<_,_>) kind (td: TypeDefinition) key =
         match fromDic.TryGetValue(key) with
         | true, value -> toDic.[key] <- value
@@ -999,23 +1004,39 @@ let trimMetadata (meta: Info) (nodes : seq<Node>) =
                         lastSpace <- false
                 res.ToString()
             eprintfn "WebSharper warning: %s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
+            //failwithf "%s not found during bundling %s on type %s" kind (string key |> toOneLine) (string td |> toOneLine)
     for n in nodes do
         match n with
         | AbstractMethodNode (td, m) ->
             if meta.Interfaces.ContainsKey(td) then
                 interfaces[td] <- meta.Interfaces[td]
             else
-                getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method" td)
+                let cls = getOrAddClassNeeded td 
+                m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "abstract method" td
         | MethodNode (td, m) -> 
-            getOrAddClass td |> Option.iter (fun cls -> m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "method" td)
+            let cls = getOrAddClassNeeded td 
+            m |> moveToDict (meta.ClassInfo(td).Methods) cls.Methods "method" td
         | ConstructorNode (td, c) -> 
-            getOrAddClass td |> Option.iter (fun cls -> c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor" td)
+            let cls = getOrAddClassNeeded td
+            c |> moveToDict (meta.ClassInfo(td).Constructors) cls.Constructors "constructor" td
         | ImplementationNode (td, i, m) ->
-            try
+            //try
                 //if td = Definitions.Obj then () else
-                getOrAddClass td |> Option.iter (fun cls -> (i, m) |> moveToDict (meta.ClassInfo(td).Implementations) cls.Implementations "implementation" td)
-            with _ ->
-                failwithf "implementation node not found %A" n
+                let cls = getOrAddClassNeeded td
+                let clsImpl = meta.ClassInfo(td).Implementations
+                let k = i, m
+                if clsImpl.ContainsKey k then
+                    k |> moveToDict clsImpl cls.Implementations "implementation" td
+                else
+                    match getOrAddClass i with
+                    | Some icls ->
+                        m |> moveToDict (meta.ClassInfo(i).Methods) icls.Methods "default implementation" i
+                    | _ ->
+                        // this will fail but report original error
+                        k |> moveToDict clsImpl cls.Implementations "implementation" td
+
+            //with _ ->
+            //    failwithf "implementation node not found %A" n
         | TypeNode td ->
             if meta.Classes.ContainsKey td then 
                 getOrAddClass td |> ignore 

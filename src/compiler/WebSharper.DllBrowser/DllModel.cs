@@ -270,7 +270,8 @@ namespace WebSharper.DllBrowser
                         }
                         else
                         {
-                            sb.Append("  ERROR: ").Append(_nodes[kv.Key].ToString()).Append(" -> ").AppendLine(_nodes[kv.Value].ToString());
+                            sb.Append("  ").AppendLine(_nodes[kv.Key].ToString())
+                                .Append("    => ").AppendLine(_nodes[kv.Value].ToString());
                         }
                     }
                 }

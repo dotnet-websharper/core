@@ -1440,10 +1440,9 @@ type Compilation(meta: Info, ?hasGraph) =
                         match k with
                         | N.Override btyp ->
                             let btyp = this.FindProxied btyp  
-                            let mNode = graph.AddOrLookupImplementation(typ, btyp, meth)
-                            let amNode = graph.AddOrLookupNode(AbstractMethodNode(btyp, meth))
-                            graph.AddEdge(mNode, amNode)
-                            graph.AddOverride(typ, amNode, mNode)
+                            let mNode = graph.AddOrLookupNode(MethodNode(typ, meth))
+                            graph.AddEdge(mNode, AbstractMethodNode(btyp, meth))
+                            graph.AddOverride(typ, btyp, meth)
                             graph.AddEdge(mNode, clsNodeIndex)
                             for req in reqs do
                                 graph.AddEdge(mNode, resNode req)
