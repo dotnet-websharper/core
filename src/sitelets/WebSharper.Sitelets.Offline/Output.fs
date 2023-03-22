@@ -119,6 +119,10 @@ let getAssemblyFileName (mode: Mode) (aN: string) =
     | H.Debug -> String.Format("{0}.js", aN)
     | H.Release -> String.Format("{0}.min.js", aN)
 
+/// Gets the physical path to the assembly JavaScript folder.
+let getAssemblyScriptsPath (aN: string) =
+    P.CreatePath ["Scripts"; aN]
+
 /// Gets the physical path to the assembly JavaScript.
 let getAssemblyJavaScriptPath (conf: Config) (aN: string) =
     P.CreatePath ["Scripts"; aN; getAssemblyFileName conf.Options.Mode aN]
@@ -179,42 +183,59 @@ let writeEmbeddedResource (cfg: Config) (assemblyPath: string) (n: string) (targ
             use s2 = createFile cfg targetPath
             streamCopy s s2
 
+/// Writes embedded resources with given extension to the target folder.
+let writeEmbeddedResources (cfg: Config) (assemblyPath: string) (ext: string) (targetPath: P.Path) =
+    let aD = AssemblyDefinition.ReadAssembly(assemblyPath)
+    let streams =
+        aD.MainModule.Resources
+        |> Seq.choose (fun r ->
+            match r with
+            | :? Mono.Cecil.EmbeddedResource as r ->
+                if r.Name.EndsWith(ext) then Some (r.Name, r.GetResourceStream()) else None
+            | _ -> None)
+    for n, s in streams do
+        use s = s
+        use s2 = createFile cfg (P.SubPath targetPath n)
+        streamCopy s s2
+
 /// Outputs all required resources. This is the last step of processing.
 let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScript: bool) =
     for aN in st.Assemblies do
         let assemblyPath = aR.ResolvePath(AssemblyName aN)
         match assemblyPath with
         | Some aP ->
-            let embeddedResourceName =
-                match st.Config.Options.Mode with
-                | H.Debug -> EMBEDDED_JS
-                | H.Release -> EMBEDDED_MINJS
-            let p = getAssemblyJavaScriptPath st.Config aN
-            writeEmbeddedResource st.Config aP embeddedResourceName p
-            if sourceMap then
-                let sourceMapResourceName =
-                    match st.Config.Options.Mode with
-                    | H.Debug -> EMBEDDED_MAP
-                    | H.Release -> EMBEDDED_MINMAP
-                let sp = getAssemblyMapPath st.Config aN
-                try writeEmbeddedResource st.Config aP sourceMapResourceName sp
-                    let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
-                    File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory p,
-                        "\n//# sourceMappingURL=" + mapFileName)       
-                with _ -> ()
-            if typeScript then
-                let tp = getAssemblyTypeScriptPath st.Config aN
-                writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
-            st.Metadata.ExtraBundles
-            |> Set.filter (fun b -> b.AssemblyName = aN)
-            |> Set.iter (fun b ->
-                // TODO: this will have to use b.MinifiedFileName
-                // when we get to use .min.js for extra bundles.
-                let filename = b.FileName
-                let res = EmbeddedResource.Create(filename, AssemblyName(b.AssemblyName))
-                let path = getEmbeddedResourcePath st.Config res
-                writeEmbeddedResource st.Config aP filename path
-            )
+            let p = getAssemblyScriptsPath aN
+            writeEmbeddedResources st.Config aP ".js" p
+            //let embeddedResourceName =
+            //    match st.Config.Options.Mode with
+            //    | H.Debug -> EMBEDDED_JS
+            //    | H.Release -> EMBEDDED_MINJS
+            //let p = getAssemblyJavaScriptPath st.Config aN
+            //writeEmbeddedResource st.Config aP embeddedResourceName p
+            //if sourceMap then
+            //    let sourceMapResourceName =
+            //        match st.Config.Options.Mode with
+            //        | H.Debug -> EMBEDDED_MAP
+            //        | H.Release -> EMBEDDED_MINMAP
+            //    let sp = getAssemblyMapPath st.Config aN
+            //    try writeEmbeddedResource st.Config aP sourceMapResourceName sp
+            //        let mapFileName = getAssemblyMapFileName st.Config.Options.Mode aN
+            //        File.AppendAllText(P.ToAbsolute st.Config.OutputDirectory p,
+            //            "\n//# sourceMappingURL=" + mapFileName)       
+            //    with _ -> ()
+            //if typeScript then
+            //    let tp = getAssemblyTypeScriptPath st.Config aN
+            //    writeEmbeddedResource st.Config aP EMBEDDED_DTS tp
+            //st.Metadata.ExtraBundles
+            //|> Set.filter (fun b -> b.AssemblyName = aN)
+            //|> Set.iter (fun b ->
+            //    // TODO: this will have to use b.MinifiedFileName
+            //    // when we get to use .min.js for extra bundles.
+            //    let filename = b.FileName
+            //    let res = EmbeddedResource.Create(filename, AssemblyName(b.AssemblyName))
+            //    let path = getEmbeddedResourcePath st.Config res
+            //    writeEmbeddedResource st.Config aP filename path
+            //)
         | None ->
             stderr.WriteLine("Could not resolve: {0}", aN)
     for res in st.Resources do
@@ -225,7 +246,7 @@ let writeResources (aR: AssemblyResolver) (st: State) (sourceMap: bool) (typeScr
 
 /// Generates a relative path prefix, such as "../../../" for level 3.
 let relPath level =
-    String.replicate level "../"
+    if level = 0 then "./" else String.replicate level "../"
 
 /// Creates a context for resource HTML printing.
 let resourceContext (st: State) (level: int) : R.Context =

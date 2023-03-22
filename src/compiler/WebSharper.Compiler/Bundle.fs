@@ -202,7 +202,7 @@ module Bundling =
                             if name.ToLower().EndsWith ".js" && (mode = BundleMode.JavaScript || mode = BundleMode.MinifiedJavaScript) then
                                 let a = ty.Assembly.GetName().Name
                                 let i = a, name 
-                                if not (jsImports.Contains(i)) then
+                                if not (jsImports.Contains(i)) && i <> ("WebSharper.Core.JavaScript", "Runtime.js") then
                                     let url = a + "/" + name
                                         //if o.IsExtraBundle then 
                                         //    "../" + a + "/" + name

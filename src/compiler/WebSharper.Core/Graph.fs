@@ -41,8 +41,10 @@ type AssemblyResource(name, isModule) =
                 let filename = name + if ctx.DebuggingEnabled then ".js" else ".min.js"
                 match R.Rendering.TryGetCdn(ctx, name, filename) with
                 | Some r -> r
-                | None -> ctx.GetAssemblyRendering name
-            fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
+                | None -> 
+                    ctx.GetAssemblyRendering name
+            ignore
+            //fun writer -> r.Emit(writer R.Scripts, if isModule then R.JsModule else R.Js)
 
 /// A resource class for including the compiled .js module for an type in Sitelets
 [<Sealed>]
@@ -228,8 +230,8 @@ type Graph =
         let addNode n i =
             if allNodes.Add i then
                 match n with
-                | ResourceNode _ ->
-                //| AssemblyNode _ ->
+                | ResourceNode _
+                | AssemblyNode _ ->
                     resNodes.Add i |> ignore
                 | TypeNode typ ->
                     match metadata.Classes.TryGetValue(typ) with
@@ -289,8 +291,8 @@ type Graph =
         let activate i n =
             this.Resources.GetOrAdd(i, fun _ ->
                 match n with
-                //| AssemblyNode (name, true, isModule) ->
-                //    AssemblyResource(name, isModule) :> R.IResource
+                | AssemblyNode (name, true, isModule) ->
+                    AssemblyResource(name, isModule) :> R.IResource
                 | TypeNode typ ->
                     ModuleResource(typ) :> R.IResource
                 | ResourceNode (t, p) ->
@@ -335,8 +337,8 @@ type Graph =
             |> Seq.choose (fun i ->
                 let n = this.Nodes.[i]
                 match n with
-                //| AssemblyNode (_, true, _) ->
-                //    Some (true, (i, n))
+                | AssemblyNode (_, true, _) ->
+                    Some (true, (i, n))
                 | ResourceNode _ ->
                     Some (false, (i, n))
                 | TypeNode typ ->
@@ -364,9 +366,9 @@ type Graph =
         for _, (i, n) in resNodes do registerResNode i n
 
         [
-            //yield Resources.Runtime.Instance
+            yield Resources.Runtime.Instance
             for i, n in resNodesOrdered -> activate i n
-            //for i, n in asmNodes -> activate i n
+            for i, n in asmNodes -> activate i n
         ]
    
      /// Gets the resource nodes of a set of already explored graph nodes.

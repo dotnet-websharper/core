@@ -508,9 +508,11 @@ type BaseResource(kind: Kind) as this =
 type Runtime() =
     interface IResource with
         member this.Render ctx =
-            let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
+            //let name = if ctx.DebuggingEnabled then "Runtime.js" else "Runtime.min.js"
+            let name = "Runtime.js"
             let t = typeof<WebSharper.Core.JavaScript.Syntax.Expression>
             let ren = Rendering.GetWebResourceRendering(ctx, t, name)
-            fun writer -> ren.Emit(writer, JsModule, ctx.DefaultToHttp)
+            //fun writer -> ren.Emit(writer, JsModule, ctx.DefaultToHttp)
+            ignore
 
     static member Instance = Runtime() :> IResource
