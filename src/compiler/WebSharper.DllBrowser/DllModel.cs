@@ -128,6 +128,25 @@ namespace WebSharper.DllBrowser
 
                 if (cls != null)
                 {
+                    if (cls.BaseClass != null)
+                    {
+                        sb.Append("BaseClass: ").AppendLine(cls.BaseClass.Value.ToString().Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    foreach (var m in cls.Constructors)
+                    {
+                        sb.AppendLine(".ctor(" + m.Key.Value.ToString() + ")");
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                        sb.Append("  Optimizations: ").AppendLine(m.Value.Optimizations.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    if (cls.StaticConstructor != null)
+                    {
+                        sb.AppendLine(".cctor()");
+                        sb.Append("  Statement: ").AppendLine(Debug.PrintStatement(cls.StaticConstructor.Value).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
                     foreach (var m in cls.Methods)
                     {
                         sb.AppendLine(m.Key.Value.ToString());
@@ -136,6 +155,14 @@ namespace WebSharper.DllBrowser
                         sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                         sb.AppendLine();
                     }
+                    foreach (var m in cls.Implementations)
+                    {
+                        sb.AppendLine(m.Key.Item1.Value.ToString() + ": " + m.Key.Item2.Value.ToString());
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.CompiledForm.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+
                 }
 
                 return sb.ToString();
