@@ -136,17 +136,26 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
         match annot.ProxyOf with
         | Some d -> d 
         | _ -> sr.ReadNamedTypeDefinition intf
-    for m in intf.GetMembers().OfType<IMethodSymbol>() do
-        let mAnnot =
-            sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
-            |> fixMemberAnnot sr annot m
-        let md = 
-            match sr.ReadMember m with
-            | Member.Method (_, md) -> md
-            | Member.Override (_, md) -> md
-            | _ -> failwith "invalid interface member"
-        let gc = getConstraints m.TypeParameters sr
-        methods.Add(md, mAnnot.Name, gc)
+    let intfMethods =
+        intf.GetMembers().OfType<IMethodSymbol>()
+        |> Seq.map (fun m ->
+            let mAnnot =
+                sr.AttributeReader.GetMemberAnnot(annot, m.GetAttributes())
+                |> fixMemberAnnot sr annot m
+            m, mAnnot
+        )
+        |> List.ofSeq
+    let hasExplicitJS =
+        annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
+    for m, mAnnot in intfMethods do
+        if not hasExplicitJS || mAnnot.Kind.IsSome then
+            let md = 
+                match sr.ReadMember m with
+                | Member.Method (_, md) -> md
+                | Member.Override (_, md) -> md
+                | _ -> failwith "invalid interface member"
+            let gc = getConstraints m.TypeParameters sr
+            methods.Add(md, mAnnot.Name, gc)
     
     Some (def, 
         {

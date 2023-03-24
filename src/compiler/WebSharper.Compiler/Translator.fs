@@ -1878,7 +1878,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 this.Error ("Could not get name of abstract method") |> ignore
                 "$$ERROR$$", MemberKind.Simple
         match comp.TryLookupClassInfo(typ.TypeDefinition) with
-        | Some (addr, _) ->
+        | Some (addr, _) when not (comp.IsInterface(typ.TypeDefinition)) ->
             let trCtor = 
                 ctor |> Option.map (fun e ->
                     let trE = 
@@ -1906,7 +1906,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                         | _ -> failwithf "Unexpected expression for body in F# object expression: %A" e
                 )
             New(ClassExpr(None, Some (GlobalAccess addr), Option.toList trCtor @ trOvr), [], [])
-        | None -> 
+        | _ -> 
             let obj =                
                 Object (
                     ovr |> List.map (fun (t, m, e) ->
@@ -2180,7 +2180,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     warnIgnoringGenerics()
                     // TODO if we already know it's an object we could skip "object" test
                     let check e =
-                        // TODO have "is" address in metadata
+                        this.AddMethodDependency(t, isFunctionMethodForInterface t)
                         Appl(GlobalAccess ({ ii.Address with Address = [ isFunctionNameForInterface t ] }), [ e ], Pure, Some 1)                            
                     let i = Id.New(mut = false)
                     Let(i, trExpr,

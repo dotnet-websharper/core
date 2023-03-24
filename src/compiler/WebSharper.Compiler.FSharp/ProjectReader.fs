@@ -115,17 +115,30 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
     let tparams =
         intf.GenericParameters |> Seq.mapi (fun i p -> p.Name, i) |> Map.ofSeq
 
+    let intfMethods = 
+        intf.MembersFunctionsAndValues
+        |> Seq.map (fun m ->
+            let mAnnot =
+                sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
+                |> fixMemberAnnot (fun a -> sr.AttributeReader.GetMemberAnnot(annot, a.Attributes)) intf m
+            m, mAnnot
+        )
+        |> List.ofSeq
+    let hasExplicitJS =
+        annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
+
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
             let mAnnot =
                 sr.AttributeReader.GetMemberAnnot(annot, m.Attributes)
                 |> fixMemberAnnot (fun a -> sr.AttributeReader.GetMemberAnnot(annot, a.Attributes)) intf m
-            let md = 
-                match sr.ReadMember m with
-                | Member.Method (_, md) -> md
-                | _ -> failwith "invalid interface member"
-            let gc = getConstraints m.GenericParameters sr tparams
-            methods.Add(md, mAnnot.Name, gc)
+            if not hasExplicitJS || mAnnot.Kind.IsSome then
+                let md = 
+                    match sr.ReadMember m with
+                    | Member.Method (_, md) -> md
+                    | _ -> failwith "invalid interface member"
+                let gc = getConstraints m.GenericParameters sr tparams
+                methods.Add(md, mAnnot.Name, gc)
     
     Some (def, 
         {

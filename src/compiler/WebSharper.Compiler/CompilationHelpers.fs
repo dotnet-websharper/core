@@ -608,6 +608,14 @@ let makeExprInline (vars: Id list) expr =
 let isFunctionNameForInterface (t: TypeDefinition) =
     "is" + (t.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Split('`')[0]
 
+let isFunctionMethodForInterface (t: TypeDefinition) =
+    Method {
+        MethodName = isFunctionNameForInterface t
+        Parameters = [ NonGenericType Definitions.Obj ]
+        ReturnType = NonGenericType Definitions.Bool
+        Generics = 0
+    }
+
 module Definitions =
     open WebSharper.InterfaceGenerator.Type
 

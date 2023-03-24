@@ -775,8 +775,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let baseType, isObjBase =
             let tryFindClass c =
                 match refMeta.Classes.TryFind c with
-                | Some _ as res -> res
-                | _ -> current.Classes.TryFind c
+                | Some _ as res -> 
+                    if refMeta.Interfaces.ContainsKey c then None else res
+                | _ -> 
+                    if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
             | Some (ba, _, _) -> Some (getOrImportAddress ba), c.BaseClass.Value.Entity = Definitions.Object
             | _ -> None, false
@@ -1034,37 +1036,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             addStatement <| export true (
                 Interface(className, extends, imems, gen)
             )
-
-        let methodNames =
-            i.Methods.Values |> Seq.map (fun (i, _, _) -> i)
-
-        match currentClassAddr.Module with
-        | DotNetType _ ->
-            let isIntf =
-                let isFunctionName =
-                    isFunctionNameForInterface typ
-                let x = Id.New("x", typ = TSType TSType.Any)
-                let returnType =
-                    if output = O.JavaScript then 
-                        None 
-                    else
-                        Some (TSType (TSType.TypeGuard(x, TSType.Named [ className ] |> addGenerics gen)))
-                let funcId = 
-                    match getOrImportAddress (currentClassAddr.Func(isFunctionName)) with
-                    | Var f -> 
-                        if output = O.JavaScript then f else
-                            f.WithType(returnType)
-                    | a ->
-                        failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAddr.Func(isFunctionName)) a typ (Array.ofSeq currentScope)
-                if Seq.isEmpty methodNames then
-                    FuncDeclaration(funcId, [x], None, implSt (fun () -> Return (Value (Bool true))), gen)
-                else         
-                    let shortestName = methodNames |> Seq.minBy String.length
-                    let check = Binary(Value (String shortestName), BinaryOperator.``in``, Var x)
-                    FuncDeclaration(funcId, [x], None, implSt (fun () -> Return check), gen)
-
-            statements.Add(export false isIntf)
-        | _ -> ()
 
     for typ in content.Types do
         match current.Classes.TryFind(typ) with

@@ -718,7 +718,7 @@ type Compilation(meta: Info, ?hasGraph) =
             if td = typ then Some m else None
         ) |> Seq.append (
             match this.TryLookupClassInfo typ with
-            | Some (_, cls) -> cls.Methods.Keys :> _ seq
+            | Some (_, cls) when not (this.IsInterface(typ)) -> cls.Methods.Keys :> _ seq
             | _ ->
             match this.TryLookupInterfaceInfo typ with
             | Some intf -> intf.Methods.Keys :> _ seq
@@ -1253,7 +1253,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         addInherited i ii
                     | _ ->
                         extended.Add(i, None) |> ignore
-            
+                        
             if allMembers.Count = 0 && List.isEmpty nr.NotResolvedMethods then () else
             
             let resMethods = Dictionary()
@@ -1296,6 +1296,67 @@ type Compilation(meta: Info, ?hasGraph) =
                 stronglyNamedTypes.Add (typ, sn, false)
             | _ -> 
                 remainingTypes.Add (typ, false)
+
+            let cls =
+                match notResolvedClasses.TryFind typ with
+                | Some cls -> cls
+                | _ ->
+                    let cls =
+                        {
+                            StrongName = None
+                            BaseClass = None
+                            Implements = []
+                            Generics = []
+                            Requires = []
+                            Members = []
+                            Kind = NotResolvedClassKind.Class
+                            IsProxy = false
+                            Macros = []
+                            ForceNoPrototype = false
+                            ForceAddress = false
+                            Type = None
+                            SourcePos = 
+                                {
+                                    FileName = ""
+                                    Start = 0, 0
+                                    End = 0, 0
+                                }
+                        }
+                    cls
+            let isFunc = 
+                let m = isFunctionMethodForInterface typ
+                let x = Id.New("x", typ = TSType TSType.Any)
+                let returnType =
+                    Some (TSType (TSType.TypeGuard(x, TSType.Importing (this.TypeAddress(typ, false)))))
+                let body =
+                    if Seq.isEmpty allNames then
+                        Function([x], None, returnType, Return (Value (Bool true)))
+                    else         
+                        let check = 
+                            allNames
+                            |> Seq.map fst
+                            |> Seq.distinct
+                            |> Seq.map (fun name -> Binary(Value (String name), BinaryOperator.``in``, Var x))
+                            |> Seq.reduce (^&&)                            
+                        Function([x], None, returnType, Return check)
+                let nrm =
+                    {
+                        Kind = NotResolvedMemberKind.Static
+                        StrongName = None
+                        Generics = []
+                        Macros = []
+                        Generator = None
+                        Compiled = true
+                        Pure = true
+                        FuncArgs = None
+                        Args = [ x ]
+                        Body = body
+                        Requires = []
+                        Warn = None
+                        JavaScriptOptions = JavaScriptOptions.None
+                    }
+                NotResolvedMember.Method(m, nrm)
+            notResolvedClasses[typ] <- { cls  with Members = isFunc :: cls.Members }
         
         while notResolvedInterfaces.Count > 0 do
             let (KeyValue(typ, nr)) = Seq.head notResolvedInterfaces  
