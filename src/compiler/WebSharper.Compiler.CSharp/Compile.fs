@@ -37,6 +37,8 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     if config.AssemblyFile = null then
         argError "You must provide assembly output path."
 
+    let thisName = Path.GetFileNameWithoutExtension config.AssemblyFile
+
     let isBundleOnly = config.ProjectType = Some BundleOnly
     
     if not (isBundleOnly || File.Exists config.AssemblyFile) then 
@@ -143,8 +145,10 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
 
             if config.PrintJS then
                 match js with 
-                | Some (js, _) ->
-                    printfn "%s" js
+                | Some jss ->
+                    for (name, js, _) in jss do
+                        logger.Out("// " + name + ".js")
+                        logger.Out(js)
                 | _ -> ()
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
@@ -153,16 +157,21 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
-    | Some path, Some (js, _) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
-        logger.TimedStage ("Writing " + path)
+    | Some path, Some jss ->
+        let asmPath = Path.Combine(path, thisName)
+        Directory.CreateDirectory(asmPath) |> ignore
+        for (name, js, _) in jss do
+            let jsPath = Path.Combine(asmPath, name + ".js")
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+            logger.TimedStage ("Writing " + jsPath)
     | _ -> ()
 
-    match config.MinJSOutputPath, js with
-    | Some path, Some (_, minjs) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-        logger.TimedStage ("Writing " + path)
-    | _ -> ()
+    // TODO minimized output
+    //match config.MinJSOutputPath, js with
+    //| Some path, Some (_, minjs) ->
+    //    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
+    //    logger.TimedStage ("Writing " + path)
+    //| _ -> ()
 
     let handleCommandResult stageName exitContext cmdRes =  
         let res =

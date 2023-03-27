@@ -246,8 +246,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
-        for (n, p) in pkg do
-            let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
+        let jss = 
+            pkg |> Array.map (fun (n, p) -> 
+                let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
+                n, js, map
+            )
+        for n, js, map in jss do
             addRes (n + ".js") (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
                 addRes (n + ".map") None (Some (getBytes m)))
@@ -288,7 +292,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         )
 
         addMeta()
-        Some ("", ""), currentPosFixed, sources, res.ToArray()
+        Some jss, currentPosFixed, sources, res.ToArray()
     else
         // set current AssemblyNode to have no js
         current.Dependencies.Nodes |> Array.tryFindIndex (function

@@ -164,7 +164,8 @@ type WsConfig =
             with _ -> argError (sprintf "Failed to parse %s, not a valid json." fileName)
         let settings = 
             match json with
-            | Json.Object values -> values
+            | Json.Object values -> 
+                values |> List.filter (fun (k, v) -> v <> Json.Null)
             | _ -> argError (sprintf "Failed to parse %s, not a json object." fileName)
         let getString k v =
             match v with
@@ -254,7 +255,10 @@ type WsConfig =
                     | _ -> argError (sprintf "Invalid value in %s for JavaScriptExport, expecting true or false or an array of strings." fileName) 
                 res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
             | "jsoutput" ->
-                res <- { res with JSOutputPath = Some (getPath k v) }
+                let path = getPath k v
+                if path.EndsWith(".js") then
+                    argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
+                res <- { res with JSOutputPath = Some path }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
             | "singlenojserrors" ->

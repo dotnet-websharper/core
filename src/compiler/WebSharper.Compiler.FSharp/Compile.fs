@@ -251,11 +251,11 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             
             if config.PrintJS then
                 match js with 
-                | Some (js, _) ->
-                    sprintf "%s" js
-                    |> logger.Out
+                | Some jss ->
+                    for (name, js, _) in jss do
+                        logger.Out("// " + name + ".js")
+                        logger.Out(js)
                 | _ -> ()
-
 
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
@@ -263,16 +263,21 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             js, currentMeta, sources, extraBundles
 
     match config.JSOutputPath, js with
-    | Some path, Some (js, _) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), js)
-        logger.TimedStage ("Writing " + path)
+    | Some path, Some jss ->
+        let asmPath = Path.Combine(path, thisName)
+        Directory.CreateDirectory(asmPath) |> ignore
+        for (name, js, _) in jss do
+            let jsPath = Path.Combine(asmPath, name + ".js")
+            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+            logger.TimedStage ("Writing " + jsPath)
     | _ -> ()
 
-    match config.MinJSOutputPath, js with
-    | Some path, Some (_, minjs) ->
-        File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-        logger.TimedStage ("Writing " + path)
-    | _ -> ()
+    // TODO minimized output
+    //match config.MinJSOutputPath, js with
+    //| Some path, Some (_, minjs) ->
+    //    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
+    //    logger.TimedStage ("Writing " + path)
+    //| _ -> ()
 
     match config.ProjectType with
     | Some (Bundle | BundleOnly) ->
