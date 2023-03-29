@@ -115,7 +115,7 @@ let CreateBundleJSOutput (logger: LoggerBase) refMeta current entryPoint =
 
     Some ("", "")
 
-let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) =
+let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures (runtimeMeta: option<M.MetadataOptions * M.Info list>) (a: Mono.Cecil.AssemblyDefinition) =
     let assemblyName = a.Name.Name
     let sourceMap = false // TODO what about source mapping with all the small files
     let currentPosFixed, sources =
@@ -267,21 +267,23 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes
             | _ -> []
 
-        //let tspkg = 
-        //    JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
-        //    |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-        //for (n, p) in tspkg do
-        //    let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-        //    addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
-        //logger.TimedStage "Writing .ts files"
+        if ts then
+            let tspkg = 
+                JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+                |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+            for (n, p) in tspkg do
+                let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
+            logger.TimedStage "Writing .ts files"
 
-        //let dtspkg = 
-        //    JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists
-        //    |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
-        //for (n, p) in dtspkg do
-        //    let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-        //    addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
-        //logger.TimedStage "Writing .d.ts files"
+        if dts then
+            let dtspkg = 
+                JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists
+                |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
+            for (n, p) in dtspkg do
+                let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
+            logger.TimedStage "Writing .d.ts files"
 
         // set current AssemblyNode to be a module
         current.Dependencies.Nodes |> Array.tryFindIndex (function
@@ -305,16 +307,16 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         addMeta()
         None, currentPosFixed, sources, res.ToArray()
 
-let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
-    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap closures runtimeMeta a
+let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (a: Mono.Cecil.AssemblyDefinition) =
+    let jsOpt, currentPosFixed, sources, res = CreateResources logger comp refMeta current sourceMap dts ts closures runtimeMeta a
     let pub = Mono.Cecil.ManifestResourceAttributes.Public
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
     jsOpt, currentPosFixed, sources
 
-let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap closures runtimeMeta (assembly : Assembly) =
-    ModifyCecilAssembly logger comp refMeta current sourceMap closures runtimeMeta assembly.Raw
+let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) =
+    ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw
 
 let AddExtraAssemblyReferences (wsrefs: Assembly seq) (assembly : Assembly) =
     let a = assembly.Raw

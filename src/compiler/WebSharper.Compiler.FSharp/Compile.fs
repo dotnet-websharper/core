@@ -236,7 +236,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 | _ -> None
 
             let js, currentMeta, sources =
-                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.AnalyzeClosures runtimeMeta assem
+                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem
 
             match config.ProjectType with
             | Some (Bundle | Website) ->

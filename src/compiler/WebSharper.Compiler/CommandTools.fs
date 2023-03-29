@@ -115,7 +115,7 @@ type WsConfig =
         {                 
             SourceMap = false
             TypeScriptOutput = false
-            TypeScriptDeclaration = false
+            TypeScriptDeclaration = true
             IsDebug = false
             ProjectType = None
             OutputDir = None
@@ -215,6 +215,10 @@ type WsConfig =
                 res <- { res with DeadCodeElimination = getBool k v }
             | "sourcemap" ->
                 res <- { res with SourceMap = getBool k v }
+            | "dts" ->
+                res <- { res with TypeScriptDeclaration = getBool k v }
+            | "ts" ->
+                res <- { res with TypeScriptOutput = getBool k v }
             | "warnonly" ->
                 res <- { res with WarnOnly = getBool k v }
             | "downloadresources" ->
