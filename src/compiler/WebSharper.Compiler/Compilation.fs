@@ -85,6 +85,7 @@ type Compilation(meta: Info, ?hasGraph) =
         match classes.TryFind typ with
         | Some (addr, ct, Some cls) -> classes.[typ] <- (addr, ct, Some (f cls))
         | _ -> ()
+    let cleanName (s: string) = s.Replace('.', '_').Replace('+', '_').Replace('`', '_')
     let interfaces = MergedDictionary meta.Interfaces
     let notAnnotatedCustomTypes = Dictionary()
     let macroEntries = MergedDictionary meta.MacroEntries
@@ -1272,7 +1273,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 | Some "" -> ""
                 | Some sn -> sn + "$"
                 | _ ->                     
-                    typ.Value.FullName.Replace('.', '_').Replace('+', '_').Replace('`', '_') + "$"
+                    (cleanName typ.Value.FullName) + "$"
 
             for m, n, c in nr.NotResolvedMethods do
                 match n with
@@ -2094,7 +2095,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         elif n.EndsWith ".Static" then
                             let s = n.Split('.')
                             s[.. s.Length - 2] |> String.concat("_"), k
-                        else n.Replace('.', '_'), k 
+                        else cleanName n, k 
                     | M.StaticConstructor _ -> "cctor", MemberKind.Simple 
                 let uname, k = fixKindAndNameForProps typ uname k m
                 let addr = Resolve.getRenamedStaticMemberForClass uname k pr
@@ -2137,7 +2138,7 @@ type Compilation(meta: Info, ?hasGraph) =
                             MemberKind.Simple
                         | M.Method (mDef, { Kind = N.Instance | N.Abstract }) -> 
                             let n, k = this.GetMemberNameAndKind(m)
-                            Resolve.getRenamedInstanceMemberForClass (n.Replace('.', '_')) k pr |> Some,
+                            Resolve.getRenamedInstanceMemberForClass (cleanName n) k pr |> Some,
                             k
                         | M.Method (mDef, { Kind = N.Override td }) ->
                             match classes.TryFind td with
