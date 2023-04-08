@@ -137,12 +137,28 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
 
     let mappedTypes = Dictionary()
 
+    //let cleanName (s: string) = s.Replace('.', '_').Replace('+', '_').Replace('`', '_')
+
     member this.TSTypeOfDef(t: TypeDefinition) =
         match mappedTypes.TryGetValue t with
         | true, tt -> tt
         | _ ->
             let res =
                 match lookupType t with
+                | Class (a, (FSharpUnionInfo _), Some cls) ->
+                    let className = (t.Value.FullName.Split([|'.';'+'|]) |> Array.last).Split('`') |> Array.head
+                    if cls.HasWSPrototype then
+                        tsTypeOfAddress { a with Address = [ className + "_T" ] } 
+                    else
+                        tsTypeOfAddress { a with Address = [ className ] } 
+                | Class (a, (FSharpUnionCaseInfo _), Some cls) ->
+                    let unionCaseTypeName = (t.Value.FullName.Split([|'.';|]) |> Array.last).Split('`') |> Array.head
+                    let unionName = unionCaseTypeName.Split('+') |> Array.head
+                    let unionCaseName = unionCaseTypeName.Split('+') |> Array.last
+                    if cls.HasWSPrototype then
+                        TSType.Intersection [ tsTypeOfAddress { a with Address = [ unionName + "_T" ] }; tsTypeOfAddress { a with Address = [ unionCaseName ] } ]
+                    else
+                        TSType.Intersection [ tsTypeOfAddress { a with Address = [ unionName ] }; tsTypeOfAddress { a with Address = [ unionCaseName ] } ] 
                 | Class (a, _, Some c) ->
                     match c.Type with
                     | Some t -> t

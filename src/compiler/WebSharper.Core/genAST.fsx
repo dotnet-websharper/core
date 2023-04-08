@@ -285,9 +285,9 @@ let StatementDefs =
             , "JavaScript - class plain property"
         "ClassStatic", [ Statement, "optional" ]
             , "JavaScript - class static block"
-        "Interface", [ Str, "name"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
+        "Interface", [ Id, "intfId"; List TSType, "extending"; List Statement, "members"; List TSType, "generics" ]
             , "TypeScript - interface { ... }"
-        "Alias", [ TSType, "alias"; TSType, "origType" ]
+        "Alias", [ Id, "alias"; List TSType, "generics"; TSType, "origType" ]
             , "TypeScript - type or import alias"
         "XmlComment", [ Str, "xml" ]
             , "TypeScript - triple-slash directive"

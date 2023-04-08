@@ -139,6 +139,9 @@ type CollectVariables(env: Environment) =
     override this.VisitVarDeclaration(v, _) =
         defineId env v |> ignore
 
+    override this.VisitAlias(a, _, _) =
+        defineId env a |> ignore
+
     override this.VisitImport(d, f, n, m) =
         if m = "" then
             // global values used
@@ -542,7 +545,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | Class (n, b, i, m, g) ->
-        let jn = defineId env n
+        let jn = (defineId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
         let isAbstract =
             if env.Output = O.TypeScriptDeclaration then false else
@@ -550,12 +553,13 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
                 | ClassMethod (_, _, _, _, None, _) -> true
                 | _ -> false
             )
-        J.Class(jn, isAbstract, Option.map trE b, [], List.map (transformMember innerEnv) m)
+        J.Class(jn, isAbstract, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
-        let jsgen = g |> List.map (transformTypeName env true)
-        J.Interface(J.Id.New(n, gen = jsgen), List.map trT e, List.map (transformMember env) m)
-    | Alias (a, t) ->
-        J.TypeAlias(transformTypeName env true a, trT t)
+        let jn = (defineId env n).WithGenerics(transformGenerics env g)
+        J.Interface(jn, List.map trT e, List.map (transformMember env) m)
+    | Alias (a, g, t) ->
+        let trA = (transformId env a).WithGenerics(transformGenerics env g)  
+        J.TypeAlias(trA, trT t)
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | _ -> 

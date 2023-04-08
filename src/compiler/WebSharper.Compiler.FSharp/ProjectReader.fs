@@ -250,14 +250,17 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     match mem with
                     | None -> []
                     | Some (m, mem) ->
-                        //let skip =
-                        //    match kind, mem with
-                        //    | N.Abstract, _ -> 0
-                        //    | _, (Member.Method _ | Member.Override _ | Member.Implementation _) ->
-                        //        cls.GenericParameters.Count
-                        //    | _ -> 0
-                        //getConstraints (Seq.skip skip m.GenericParameters) sr clsTparams
-                        getConstraints m.GenericParameters sr clsTparams
+                        let skip =
+                            match kind, mem with
+                            | N.Abstract, _ -> 0
+                            | _, (Member.Method _ | Member.Override _ | Member.Implementation _) ->
+                                min cls.GenericParameters.Count m.GenericParameters.Count
+                            | _ -> 0
+                        try
+                            getConstraints (Seq.skip skip m.GenericParameters) sr clsTparams
+                        with _ ->
+                            failwithf "failed getting generic params on %s member %A" def.Value.FullName mem
+                        //getConstraints m.GenericParameters sr clsTparams
                 Macros = mAnnot.Macros
                 Generator = 
                     match mAnnot.Kind with
@@ -902,10 +905,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         let methods = 
             clsMembers |> Array.ofSeq |> Array.choose (fun m ->
                 match m with
-                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn }) ->
+                | NotResolvedMember.Method (mem, {Kind = NotResolvedMemberKind.Abstract; StrongName = sn; Generics = gc }) ->
                     clsMembers.Remove(m) |> ignore
-                    //let gc = getConstraints m.GenericParameters sr tparams                    
-                    let gc = []
                     Some (mem, sn, gc)
                 | _ -> None 
             )     
@@ -914,7 +915,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 StrongName = annot.Name 
                 Extends = annot.ProxyExtends |> List.map NonGeneric
                 NotResolvedMethods = List.ofArray methods 
-                Generics = []
+                Generics = getConstraints cls.GenericParameters sr clsTparams
                 Type = annot.Type
             }
         comp.AddInterface(def, intf)

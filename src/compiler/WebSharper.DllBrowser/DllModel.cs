@@ -185,6 +185,16 @@ namespace WebSharper.DllBrowser
             get
             {
                 var sb = new StringBuilder();
+                sb.Append("Address: ").AppendLine(InterfaceInfo.Address.ToString().Replace("\n", ""));
+                if (!InterfaceInfo.Extends.IsEmpty)
+                {
+                    sb.Append("Extends: ").AppendLine(string.Join(", ", InterfaceInfo.Extends.Select(i => i.ToString())));
+                }
+                if (!InterfaceInfo.Generics.IsEmpty)
+                {
+                    sb.Append("Generics: ").AppendLine(string.Join(", ", InterfaceInfo.Generics.Select(i => i.ToString())));
+                }
+                sb.AppendLine();
                 foreach (var m in InterfaceInfo.Methods)
                 {
                     sb.AppendLine(m.Key.Value.ToString());

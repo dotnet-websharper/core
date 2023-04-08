@@ -491,6 +491,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         let className = classId.Name.Value
 
+        let isUnion =
+            match ct with
+            | M.FSharpUnionInfo _ -> true
+            | _ -> false
+        let className_T, classId_T = 
+            if isUnion && c.HasWSPrototype then 
+                let tn = className + "_T"
+                tn, Id.New(tn, str = true)
+            else    
+                className, classId
+
         let gsArr = Array.ofList c.Generics
         let bTr() = bodyTransformer(gsArr)   
 
@@ -532,6 +543,13 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let cgen = getGenerics 0 c.Generics
         let thisTSType = lazy (thisTSTypeDef.Value |> addGenerics cgen) 
 
+        let thisTSTypeOrUnion =
+            lazy 
+            if isUnion && c.HasWSPrototype then 
+                TSType.Basic className |> addGenerics cgen 
+            else
+                thisTSType.Value
+
         let members = ResizeArray<Statement>()
          
         let mem (m: Method) info gc opts intfGen body =
@@ -542,22 +560,36 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 if output = O.JavaScript then TSType.Any else
                 match IgnoreExprSourcePos body with
                 | Function _ ->
-                    let p, r = 
-                        match intfGen with 
-                        | None -> m.Value.Parameters, m.Value.ReturnType
-                        | Some ig -> 
-                            try
-                                m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
-                                , m.Value.ReturnType.SubstituteGenerics ig 
-                            with _ ->
-                                failwithf "failed to substitute interface generics: %A to %A" ig m
-                    let pts =
-                        if isInstToStatic then
-                            tsTypeOf gsArr (NonGenericType typ) :: (typeOfParams opts gsArr p)
-                        else typeOfParams opts gsArr p
-                    TSType.Lambda(pts, tsTypeOf gsArr r)
+                    //let isUnionCaseMethod =
+                    //    if isUnion then
+                    //        match m.Value.ReturnType with
+                    //        | ConcreteType { Entity = e } ->
+                    //            let fn = e.Value.FullName
+                    //            fn.StartsWith(typ.Value.FullName + "+")
+                    //        | _ -> false
+                    //    else false
+                    //if isUnionCaseMethod then
+                    //    failwithf "unioncasemethod %s method %s" typ.Value.FullName m.Value.MethodName
+                    //    let p, r = m.Value.Parameters, m.Value.ReturnType
+                    //    let pts = typeOfParams opts gsArr p
+                    //    TSType.Lambda(pts, TSType.Intersection [ tsTypeOf gsArr r; thisTSTypeOrUnion.Value ] ) 
+                    //else
+                        let p, r = 
+                            match intfGen with 
+                            | None -> m.Value.Parameters, m.Value.ReturnType
+                            | Some ig -> 
+                                try
+                                    m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 
+                                    , m.Value.ReturnType.SubstituteGenerics ig 
+                                with _ ->
+                                    failwithf "failed to substitute interface generics: %A to %A" ig m
+                        let pts =
+                            if isInstToStatic then
+                                tsTypeOf gsArr (NonGenericType typ) :: (typeOfParams opts gsArr p)
+                            else typeOfParams opts gsArr p
+                        TSType.Lambda(pts, tsTypeOf gsArr r)
                 | _ ->
-                    tsTypeOf gsArr m.Value.ReturnType
+                    tsTypeOf [||] m.Value.ReturnType
             let mgen = getGenerics cgenl gc
             
             let func fromInst addr =
@@ -610,7 +642,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false // TODO
                             Kind = mkind
                         }
-                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature fromInst |> addGenerics mgen)
+                    members.Add <| ClassMethod(info, mname, args, thisVar, implStOpt (fun () -> staticThisTransformer.TransformStatement b), getSignature fromInst |> addGenerics (cgen @ mgen))
                 | _ ->
                     let info = 
                         {
@@ -767,7 +799,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false
                             Kind = kind
                         }
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
@@ -903,6 +935,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     
                     let tagMem() = 
                         ClassProperty(propInfo false false false, "$", TSType.Basic (string uci), None)
+                    let ucId() =
+                        Id.New(uc.Name, str = true)  
                     match uc.Kind with
                     | M.NormalFSharpUnionCase fs ->
                         let ucmems =
@@ -912,23 +946,27 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                     tsTypeOf gsArr f.UnionFieldType
                                 ClassProperty(propInfo false false false, "$" + string i, fTyp, None)
                             )
-                        addStatement <| export false (
-                            Interface(uc.Name, [], tagMem() :: ucmems, cgen)
+                        addStatement <| export false ( 
+                            Interface(ucId(), [], tagMem() :: ucmems, cgen)
                         )
                         ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
                     | M.ConstantFSharpUnionCase v -> 
                         ucTypes.Add(TSType.Basic v.TSType)
                     | M.SingletonFSharpUnionCase ->
                         addStatement <| export false (
-                            Interface(uc.Name, [], [ tagMem() ], cgen)
+                            Interface(ucId(), [], [ tagMem() ], cgen)
                         )
                         ucTypes.Add(TSType.Basic uc.Name |> addGenerics cgen)
 
-                addStatement <| export true (
-                    Alias(TSType.Basic className |> addGenerics cgen, TSType.Union (List.ofSeq ucTypes))
-                )
-                //addStatement <|
-                //    Alias(TSType.Basic className |> addGenerics cgen, TSType.Intersection [ thisTSType.Value; TSType.Union (List.ofSeq ucTypes) ])
+                if not (TypeTranslator.CustomTranslations.ContainsKey typ) then
+                    let t =
+                        if c.HasWSPrototype then
+                            TSType.Intersection [ thisTSTypeOrUnion.Value; TSType.Union (List.ofSeq ucTypes) ]
+                        else
+                            TSType.Union (List.ofSeq ucTypes)
+                    addStatement <| export false (
+                        Alias(classId_T, cgen, t)
+                    )
 
         | M.FSharpRecordInfo r when Option.isNone c.Type ->     
             isFSharpType <- true
@@ -942,7 +980,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         ClassProperty(propInfo false false f.Optional, f.JSName, fTyp, None)
                     )
                 addStatement <| export true (
-                    Interface(className, [], rmems, cgen)
+                    Interface(classId, [], rmems, cgen)
                 )
 
         | _ -> ()
@@ -975,7 +1013,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let implements =
                 if output = O.JavaScript then [] else
                 c.Implements |> List.map (tsTypeOfConcrete gsArr)
-            let classDecl() = Class(classId, baseType, implements, List.ofSeq members, [])
+            let classDecl() = Class(classId, baseType, implements, List.ofSeq members, cgen)
             match baseType with
             | Some b ->
                 let needsLazy = (not isSingleType || Option.isNone c.Type) && output <> O.TypeScriptDeclaration
@@ -1006,9 +1044,18 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         let igen = List.length i.Generics
         let gen = getGenerics 0 i.Generics
         let gsArr = Array.ofList i.Generics
+        let inlineMethods =
+            match current.Classes.TryFind(typ) with
+            | Some (_, _, Some c) -> 
+                c.Methods.Keys |> Array.ofSeq
+            | _ ->
+                [||]
         if output <> O.JavaScript then
             let imems =
-                i.Methods |> Seq.map (fun (KeyValue (m, (n, k, gc))) ->
+                i.Methods |> Seq.choose (fun (KeyValue (m, (n, k, gc))) ->
+                    // if method has a default implementation, it might not be declared on types using it in JS
+                    if inlineMethods |> Array.contains m then None else
+
                     let gsArr = Array.append gsArr (Array.ofList gc)
                     let args, argTypes =
                         m.Value.Parameters |> List.mapi (fun i p ->
@@ -1026,7 +1073,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false
                             Kind = k
                         }
-                    ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc))    
+                    ClassMethod(info, n, args, None, None, signature |> addGenerics (getGenerics igen gc)) |> Some   
                 ) |> List.ofSeq
 
             let extends =
@@ -1034,7 +1081,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 i.Extends |> List.map (tsTypeOfConcrete gsArr)
 
             addStatement <| export true (
-                Interface(className, extends, imems, gen)
+                Interface(classId, extends, imems, gen)
             )
 
     for typ in content.Types do

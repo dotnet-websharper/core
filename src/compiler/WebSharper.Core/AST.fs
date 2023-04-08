@@ -338,9 +338,9 @@ and Statement =
     /// JavaScript - class static block
     | ClassStatic of Optional:Statement
     /// TypeScript - interface { ... }
-    | Interface of Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
+    | Interface of IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType>
     /// TypeScript - type or import alias
-    | Alias of Alias:TSType * OrigType:TSType
+    | Alias of Alias:Id * Generics:list<TSType> * OrigType:TSType
     /// TypeScript - triple-slash directive
     | XmlComment of Xml:string
 /// Base class for code transformers.
@@ -612,11 +612,11 @@ type Transformer() =
     abstract TransformClassStatic : Optional:Statement -> Statement
     override this.TransformClassStatic a = ClassStatic (this.TransformStatement a)
     /// TypeScript - interface { ... }
-    abstract TransformInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
-    override this.TransformInterface (a, b, c, d) = Interface (a, b, List.map this.TransformStatement c, d)
+    abstract TransformInterface : IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> Statement
+    override this.TransformInterface (a, b, c, d) = Interface (this.TransformId a, b, List.map this.TransformStatement c, d)
     /// TypeScript - type or import alias
-    abstract TransformAlias : Alias:TSType * OrigType:TSType -> Statement
-    override this.TransformAlias (a, b) = Alias (a, b)
+    abstract TransformAlias : Alias:Id * Generics:list<TSType> * OrigType:TSType -> Statement
+    override this.TransformAlias (a, b, c) = Alias (this.TransformId a, b, c)
     /// TypeScript - triple-slash directive
     abstract TransformXmlComment : Xml:string -> Statement
     override this.TransformXmlComment a = XmlComment (a)
@@ -714,7 +714,7 @@ type Transformer() =
         | ClassProperty (a, b, c, d) -> this.TransformClassProperty (a, b, c, d)
         | ClassStatic a -> this.TransformClassStatic a
         | Interface (a, b, c, d) -> this.TransformInterface (a, b, c, d)
-        | Alias (a, b) -> this.TransformAlias (a, b)
+        | Alias (a, b, c) -> this.TransformAlias (a, b, c)
         | XmlComment a -> this.TransformXmlComment a
     /// Identifier for variable or label
     abstract TransformId : Id -> Id
@@ -984,11 +984,11 @@ type Visitor() =
     abstract VisitClassStatic : Optional:Statement -> unit
     override this.VisitClassStatic a = (this.VisitStatement a)
     /// TypeScript - interface { ... }
-    abstract VisitInterface : Name:string * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
-    override this.VisitInterface (a, b, c, d) = (); (); List.iter this.VisitStatement c; ()
+    abstract VisitInterface : IntfId:Id * Extending:list<TSType> * Members:list<Statement> * Generics:list<TSType> -> unit
+    override this.VisitInterface (a, b, c, d) = this.VisitId a; (); List.iter this.VisitStatement c; ()
     /// TypeScript - type or import alias
-    abstract VisitAlias : Alias:TSType * OrigType:TSType -> unit
-    override this.VisitAlias (a, b) = (); ()
+    abstract VisitAlias : Alias:Id * Generics:list<TSType> * OrigType:TSType -> unit
+    override this.VisitAlias (a, b, c) = this.VisitId a; (); ()
     /// TypeScript - triple-slash directive
     abstract VisitXmlComment : Xml:string -> unit
     override this.VisitXmlComment a = (())
@@ -1086,7 +1086,7 @@ type Visitor() =
         | ClassProperty (a, b, c, d) -> this.VisitClassProperty (a, b, c, d)
         | ClassStatic a -> this.VisitClassStatic a
         | Interface (a, b, c, d) -> this.VisitInterface (a, b, c, d)
-        | Alias (a, b) -> this.VisitAlias (a, b)
+        | Alias (a, b, c) -> this.VisitAlias (a, b, c)
         | XmlComment a -> this.VisitXmlComment a
     /// Identifier for variable or label
     abstract VisitId : Id -> unit
@@ -1188,7 +1188,7 @@ module IgnoreSourcePos =
     let (|ClassProperty|_|) x = match ignoreStatementSourcePos x with ClassProperty (a, b, c, d) -> Some (a, b, c, d) | _ -> None
     let (|ClassStatic|_|) x = match ignoreStatementSourcePos x with ClassStatic a -> Some a | _ -> None
     let (|Interface|_|) x = match ignoreStatementSourcePos x with Interface (a, b, c, d) -> Some (a, b, c, d) | _ -> None
-    let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b) -> Some (a, b) | _ -> None
+    let (|Alias|_|) x = match ignoreStatementSourcePos x with Alias (a, b, c) -> Some (a, b, c) | _ -> None
     let (|XmlComment|_|) x = match ignoreStatementSourcePos x with XmlComment a -> Some a | _ -> None
 module Debug =
     let private PrintTypeDefinition (x:Concrete<TypeDefinition>) = x.Entity.Value.FullName + match x.Generics with [] -> "" | g -> (g |> List.map string |> String.concat ", ")
@@ -1285,7 +1285,7 @@ module Debug =
         | ClassProperty (a, b, c, d) -> "ClassProperty" + "(" + string a + ", " + string b + ", " + string c + ", " + defaultArg (Option.map PrintExpression d) "_" + ")"
         | ClassStatic a -> "ClassStatic" + "(" + PrintStatement a + ")"
         | Interface (a, b, c, d) -> "Interface" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ", " + "[" + String.concat "; " (List.map string d) + "]" + ")"
-        | Alias (a, b) -> "Alias" + "(" + string a + ", " + string b + ")"
+        | Alias (a, b, c) -> "Alias" + "(" + string a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + string c + ")"
         | XmlComment a -> "XmlComment" + "(" + string a + ")"
 // }}
 
