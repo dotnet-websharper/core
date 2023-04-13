@@ -5,6 +5,7 @@
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
     <WebSharperTypeScriptDeclaration>True</WebSharperTypeScriptDeclaration>
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="Main.html" CopyToPublishDirectory="Always" />

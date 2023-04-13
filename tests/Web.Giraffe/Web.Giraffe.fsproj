@@ -4,6 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AssemblyName>Web.Giraffe.App</AssemblyName>
     <EnableDefaultContentItems>false</EnableDefaultContentItems>
+    <WebSharperTypeScriptOutput>False</WebSharperTypeScriptOutput>
   </PropertyGroup>
 
   <ItemGroup>

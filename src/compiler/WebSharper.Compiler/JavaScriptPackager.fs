@@ -650,7 +650,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false // TODO
                             IsOptional = false
                         }
-                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics mgen, implExprOpt (fun () -> body))
+                    members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics (cgen @ mgen), implExprOpt (fun () -> body))
             | M.Func (fname, fromInst) ->
                 func fromInst (currentClassAddr.Func(fname))
             | M.GlobalFunc (addr, fromInst) ->
@@ -768,7 +768,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         }
                     let ctorBody =
                         Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature true))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature true |> addGenerics cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             //| M.NewIndexed i ->

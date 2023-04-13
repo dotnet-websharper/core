@@ -4,6 +4,7 @@
     <TargetFramework>net6.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Tests>True</Tests>
+    <WebSharperTypeScriptDeclaration>False</WebSharperTypeScriptDeclaration>
     <WebSharperTypeScriptOutput>true</WebSharperTypeScriptOutput>
     <TypeScriptToolsVersion>Latest</TypeScriptToolsVersion>
     <TypeScriptCompileOnSaveEnabled>True</TypeScriptCompileOnSaveEnabled>

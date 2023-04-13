@@ -910,10 +910,16 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     Some (mem, sn, gc)
                 | _ -> None 
             )     
+        let extends =
+            annot.ProxyExtends
+            |> List.map (fun et ->
+                Generic et (List.init et.Value.GenericLength TypeParameter) 
+            )
+
         let intf =
             {
                 StrongName = annot.Name 
-                Extends = annot.ProxyExtends |> List.map NonGeneric
+                Extends = extends
                 NotResolvedMethods = List.ofArray methods 
                 Generics = getConstraints cls.GenericParameters sr clsTparams
                 Type = annot.Type
@@ -973,9 +979,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ ->
                             if argumentless && notForcedNotJavaScript then
                                 let caseField =
-                                    let caseDef = Hashed { def.Value with FullName = def.Value.FullName + "+" + case.CompiledName }
-                                    let gen = List.init cls.GenericParameters.Count (fun _ -> NonGenericType Definitions.Obj)
-                                    GenericType caseDef gen
+                                    let gen = List.init cls.GenericParameters.Count TypeParameter
+                                    GenericType def gen
                                     |> Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", MemberKind.Simple, Value (Int i) ])
                                 let a = { A.MemberAnnotation.BasicPureJavaScript with Name = Some case.Name }
