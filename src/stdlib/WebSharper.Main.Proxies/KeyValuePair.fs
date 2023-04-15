@@ -24,7 +24,7 @@ open WebSharper.JavaScript
 
 [<Proxy(typeof<System.Collections.Generic.KeyValuePair<_,_>>)>]
 [<Prototype false>]
-[<Type "{K: T0, V: T1}">]
+[<Type "{K: $0, V: $1}">]
 type private KeyValuePairProxy<'K,'V> =
     [<Inline "{K: $key, V: $value}">]
     new (key: 'K, value: 'V) = {}

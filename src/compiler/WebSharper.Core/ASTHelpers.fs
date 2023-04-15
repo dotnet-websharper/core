@@ -486,6 +486,7 @@ module TSType =
         | "$0" -> TSType.Param 0
         | "()=>$0" -> Lambda ([], TSType.Param 0)
         | "$0[]" -> ArrayOf (TSType.Param 0) 
+        | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))
 
