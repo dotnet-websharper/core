@@ -953,7 +953,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 expr
             else
                 let gcArr = Array.ofList gc
-                let tsGen = gen |> Seq.map (comp.TypeTranslator.TSTypeOf gcArr) |> Array.ofSeq
+                let tsGen = gen |> Seq.map comp.TypeTranslator.TSTypeOf |> Array.ofSeq
                 try GenericInlineResolver(gen, tsGen).TransformExpression expr
                 with e -> this.Error (sprintf "Failed to resolve generics: %s Expr: %s Generics %A" e.Message (Debug.PrintExpression expr) gcArr)
         try
@@ -1017,7 +1017,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     if i >= gcArr.Length then None else //TODO make sure we always have generics
                     match gcArr.[i].Type with
                     | Some _ -> None
-                    | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+                    | _ -> Some (comp.TypeTranslator.TSTypeOf c)
                 )
             else 
                 let cg = typ.Generics.Length
@@ -1026,7 +1026,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     if i + cg >= gcArr.Length then None else //TODO make sure we always have generics
                     match gcArr.[i + cg].Type with  
                     | Some _ -> None
-                    | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+                    | _ -> Some (comp.TypeTranslator.TSTypeOf c)
                 )
         let staticCall func =
             // for methods compiled as static because of Prototype(false)
@@ -1374,7 +1374,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             typ.Generics |> List.indexed |> List.choose (fun (i, c) ->
                 match gcArr.[i].Type with
                 | Some _ -> None
-                | _ -> Some (comp.TypeTranslator.TSTypeOf currentGenerics c)
+                | _ -> Some (comp.TypeTranslator.TSTypeOf c)
             )
         match info with
         | M.New None ->

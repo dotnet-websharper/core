@@ -362,8 +362,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let typeTranslator = TypeTranslator.TypeTranslator(lookupType, tsTypeOfAddress) 
     
     let inline tsTypeOfDef t = typeTranslator.TSTypeOfDef t
-    let inline tsTypeOfConcrete gs i = typeTranslator.TSTypeOfConcrete gs i
-    let inline tsTypeOf gs t = typeTranslator.TSTypeOf gs t
+    let inline tsTypeOfConcrete gs i = typeTranslator.TSTypeOfConcrete i
+    let inline tsTypeOf gs t = typeTranslator.TSTypeOf t
 
     let getGenerics j (gs: list<M.GenericParam>) =
         if output = O.JavaScript then [] else

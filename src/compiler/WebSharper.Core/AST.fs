@@ -87,11 +87,6 @@ and [<RequireQualifiedAccess>] VarKind =
     | Const
     | Let
 
-and [<RequireQualifiedAccess>] MemberKind =
-    | Simple
-    | Getter
-    | Setter
-
 and ClassMethodInfo =
     {
         IsStatic : bool

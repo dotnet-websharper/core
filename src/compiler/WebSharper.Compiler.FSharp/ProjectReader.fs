@@ -979,7 +979,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | _ ->
                             if argumentless && notForcedNotJavaScript then
                                 let caseField =
-                                    let gen = List.init cls.GenericParameters.Count TypeParameter
+                                    let gen = List.replicate cls.GenericParameters.Count (NonGenericType Definitions.Obj)
                                     GenericType def gen
                                     |> Definitions.SingletonUnionCase case.CompiledName
                                 let expr = CopyCtor(def, Object [ "$", MemberKind.Simple, Value (Int i) ])

@@ -164,10 +164,14 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                     | Some t -> t
                     | _ -> tsTypeOfAddress a
                 | Class (_, DelegateInfo i, None) ->
-                    TSType.LambdaWithOpt(i.DelegateArgs |> List.map (fun (t, d) -> this.TSTypeOf [||] t, Option.isSome d), this.TSTypeOf [||] i.ReturnType)
+                    TSType.LambdaWithOpt(i.DelegateArgs |> List.map (fun (t, d) -> this.TSTypeOf t, Option.isSome d), this.TSTypeOf i.ReturnType)
                 | Class (_, EnumInfo t, None) ->
                     this.TSTypeOfDef t
-                | Class (a, (FSharpRecordInfo _ | FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
+                | Class (_, (FSharpRecordInfo r), None) ->
+                    TSType.TypeLiteral (r |> List.map (fun f -> 
+                        f.JSName, MemberKind.Simple, this.TSTypeOf f.RecordFieldType
+                    ))
+                | Class (a, (FSharpUnionInfo _ | FSharpUnionCaseInfo _), None) ->
                     tsTypeOfAddress a
                 | Interface i ->
                     tsTypeOfAddress i.Address
@@ -175,9 +179,9 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
             mappedTypes.Add(t, res)
             res
 
-    member this.TSTypeOfConcrete (gs: GenericParam[]) (t: Concrete<TypeDefinition>) =
+    member this.TSTypeOfConcrete (t: Concrete<TypeDefinition>) =
         let e = t.Entity
-        let gen = t.Generics |> List.map (this.TSTypeOf gs)
+        let gen = t.Generics |> List.map this.TSTypeOf
         match CustomTranslations.TryGetValue e with
         | true, f -> 
             try f gen
@@ -196,30 +200,25 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
             | _ ->
                 td.SubstituteGenerics (Array.ofList gen)
 
-    member this.TSTypeOf (gs: GenericParam[]) (t: Type) =
+    member this.TSTypeOf (t: Type) =
         match t with 
-        | ConcreteType t -> this.TSTypeOfConcrete gs t
+        | ConcreteType t -> this.TSTypeOfConcrete t
         | ArrayType (t, a) -> 
             match a with
-            | 1 -> TSType.ArrayOf (this.TSTypeOf gs t)
-            | 2 -> TSType.ArrayOf (TSType.ArrayOf (this.TSTypeOf gs t))
+            | 1 -> TSType.ArrayOf (this.TSTypeOf t)
+            | 2 -> TSType.ArrayOf (TSType.ArrayOf (this.TSTypeOf t))
             | _ -> failwith "only 1 and 2-dim arrays are supported"
-        | TupleType (ts, _) -> TSType.Tuple (ts |> List.map (this.TSTypeOf gs))
+        | TupleType (ts, _) -> TSType.Tuple (ts |> List.map (this.TSTypeOf))
         | FSharpFuncType (a, r) -> 
             let ta =
                 match a with
                 | VoidType -> []
-                | _ -> [this.TSTypeOf gs a]
-            TSType.Lambda(ta, this.TSTypeOf gs r)
-        | ByRefType t -> TSType.ByRefOf (this.TSTypeOf gs t)
+                | _ -> [this.TSTypeOf a]
+            TSType.Lambda(ta, this.TSTypeOf r)
+        | ByRefType t -> TSType.ByRefOf (this.TSTypeOf t)
         | VoidType -> TSType.Void
         | TypeParameter i 
         | StaticTypeParameter i -> 
-            if i >= gs.Length then 
-                TSType.Any 
-            else 
-                match gs.[i].Type with
-                | Some t -> t
-                | _ -> TSType.Param i
+            TSType.Param i
         | LocalTypeParameter -> TSType.Any
         | TSType t -> t

@@ -57,6 +57,7 @@ type ResizeArrayEnumeratorProxy<'T> (arr: 'T[]) =
 [<Proxy(typeof<System.Collections.Generic.List<_>>)>]
 [<Name "WebSharper.Collections.List">]
 [<Prototype false>]
+[<Type "$0[]">]
 type ResizeArrayProxy<'T> [<Inline "$wsruntime.MarkResizable($_arr)">] (_arr: 'T []) =
 
     [<Inline "$wsruntime.MarkResizable([])">]

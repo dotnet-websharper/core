@@ -606,6 +606,13 @@ and transformTypeName (env: Environment) (isDeclaringParameter: bool) (typ: TSTy
         (transformId env i).Name + " is " + trN t
     | TSType.ObjectOf t ->
         "{[a:string]:" + trN t + "}"
+    | TSType.TypeLiteral o ->
+        "{" + (
+            o |> List.map (fun (n, k, t)  ->
+                n + ":" + trN t 
+            )
+            |> String.concat ","
+        ) + "}"
     |> fun n -> J.Id.New(n, typn = true)
 
 and transformType (env: Environment) (typ: TSType) =

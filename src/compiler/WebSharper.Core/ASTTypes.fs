@@ -864,6 +864,11 @@ module TypeHelpers =
             Some (t1, t2, t3, t4, t5, t6)
         | _ -> None
 
+type [<RequireQualifiedAccess>] MemberKind =
+    | Simple
+    | Getter
+    | Setter
+
 type CodeResource =
     {
         Assembly : string
@@ -887,6 +892,7 @@ type [<RequireQualifiedAccess>] TSType =
     | Constraint of TSType * list<TSType>
     | TypeGuard of Id * TSType
     | ObjectOf of TSType
+    | TypeLiteral of list<string * MemberKind * TSType> 
 
     member this.SubstituteGenerics (gs : TSType[]) =
         let inline tr (p:TSType) = p.SubstituteGenerics gs
@@ -906,6 +912,7 @@ type [<RequireQualifiedAccess>] TSType =
         | Constraint (t, c) -> Constraint (tr t, List.map tr c)
         | TypeGuard (a, t) -> TypeGuard(a, tr t)
         | ObjectOf a -> ObjectOf(tr a)
+        | TypeLiteral m -> TypeLiteral(m |> List.map (fun (n, k, t) -> n, k, tr t))
 
     member this.ResolveModule (getModule: Module -> Id option) =
         let inline tr (p:TSType) = p.ResolveModule getModule
@@ -928,6 +935,7 @@ type [<RequireQualifiedAccess>] TSType =
         | Constraint (t, c) -> Constraint (tr t, List.map tr c)
         | TypeGuard (a, t) -> TypeGuard(a, tr t)
         | ObjectOf a -> ObjectOf(tr a)
+        | TypeLiteral m -> TypeLiteral(m |> List.map (fun (n, k, t) -> n, k, tr t))
 
     override this.ToString() =
         match this with
@@ -945,6 +953,16 @@ type [<RequireQualifiedAccess>] TSType =
         | Constraint (t, ts) -> string t + " extends " + (ts |> Seq.map string |> String.concat ",")
         | TypeGuard (i, t) -> string i + " is " + string t
         | ObjectOf t -> "{[a:string]:" + string t + "}"
+        | TypeLiteral m ->
+            "{" + (
+                m |> List.map (fun (n, k, t) -> 
+                    match k with
+                    | MemberKind.Simple -> n + ":" + t.ToString()
+                    | MemberKind.Getter -> "get" + n + ":" + t.ToString()
+                    | MemberKind.Setter -> "set " + n + ":" + t.ToString()
+                )
+                |> String.concat ","
+            ) + "}"
 
 type MethodInfo =
     {
