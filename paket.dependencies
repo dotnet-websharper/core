@@ -39,11 +39,12 @@ group includes
 group fcs
     framework: net6.0, netstandard2.0
     source https://api.nuget.org/v3/index.json
+    source https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json
     storage: none
     nuget System.Runtime.Caching ~> 6.0.0
     nuget System.Configuration.ConfigurationManager ~> 6.0.0
     nuget NLog ~> 4.7.10
-    nuget FSharp.Compiler.Service
+    nuget FSharp.Compiler.Service prerelease
 
 group test
     source https://api.nuget.org/v3/index.json
