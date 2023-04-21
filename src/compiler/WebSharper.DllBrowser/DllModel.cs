@@ -111,27 +111,72 @@ namespace WebSharper.DllBrowser
     {
         public TypeDefinitionInfo Type { get; init; }
         public ClassInfo ClassInfo { get; init; }
+        public CustomTypeInfo CustomTypeInfo { get; init; }
         public override string Name => "Class: " + Type.FullName;
         public override string Details
         {
             get
             {
                 var sb = new StringBuilder();
-                foreach (var m in ClassInfo.Methods)
+
+                if (CustomTypeInfo != null)
                 {
-                    sb.AppendLine(m.Key.Value.ToString());
-                    sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
-                    sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
-                    sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
-                    sb.AppendLine();
+                    sb.AppendLine(CustomTypeInfo.ToString());
                 }
+                
+                var cls = ClassInfo;
+                if (cls != null)
+                {
+                    if (cls.Address != null)
+                    {
+                        sb.Append("Address: ").AppendLine(string.Join(".", cls.Address.Value.Value.Reverse()));
+                        sb.AppendLine();
+                    }
+                    if (cls.BaseClass != null)
+                    {
+                        sb.Append("BaseClass: ").AppendLine(cls.BaseClass.Value.ToString().Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    foreach (var m in cls.Constructors)
+                    {
+                        sb.AppendLine(".ctor(" + m.Key.Value.ToString() + ")");
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
+                        sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    if (cls.StaticConstructor != null)
+                    {
+                        sb.AppendLine(".cctor()");
+                        sb.Append("  Statement: ").AppendLine(Debug.PrintExpression(cls.StaticConstructor.Value.Item2).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    foreach (var m in cls.Methods)
+                    {
+                        sb.AppendLine(m.Key.Value.ToString());
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
+                        sb.Append("  Optimizations: ").AppendLine(m.Value.Item2.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item3).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+                    foreach (var m in cls.Implementations)
+                    {
+                        sb.AppendLine(m.Key.Item1.Value.ToString() + ": " + m.Key.Item2.Value.ToString());
+                        sb.Append("  CompiledForm: ").AppendLine(m.Value.Item1.ToString().Replace("\n", ""));
+                        sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Item2).Replace("\n", ""));
+                        sb.AppendLine();
+                    }
+
+                }
+
                 return sb.ToString();
             }
         }
-        public ClassModel(TypeDefinitionInfo type, ClassInfo classInfo)
+        public ClassModel(TypeDefinitionInfo type, ClassInfo classInfo, CustomTypeInfo customTypeInfo)
         {
             Type = type;
             ClassInfo = classInfo;
+            CustomTypeInfo = customTypeInfo;
         }
     }
 
