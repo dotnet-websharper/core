@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -25,7 +26,6 @@ namespace WebSharper.DllBrowser
     {
         public ObservableCollection<TreeNodeModel> DllModels { get; } = new();
         public string TitleText => $"WebSharper {Metadata.IO.CurrentVersion} Dll Browser";
-
         public MainWindow()
         {
             InitializeComponent();
@@ -66,6 +66,28 @@ namespace WebSharper.DllBrowser
                 }
             }
         }
+    }
 
+    public class FilterFontWeightConverter : IMultiValueConverter
+    {
+        public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+        {
+            var node = values[0] as TreeNodeModel;
+            var filter = values[1] as string;
+            if (string.IsNullOrEmpty(filter))
+            {
+                return FontWeights.Normal;
+            }
+            if (node != null && (node.Name.ToLower().Contains(filter.ToLower()) || node.Details.ToLower().Contains(filter.ToLower())))
+            {
+                return FontWeights.Bold;
+            }
+            return FontWeights.Normal;
+        }
+
+        public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 }
