@@ -211,14 +211,14 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         | Some (_, m, _) -> m 
         | _ -> []
 
-    let js, currentMeta, sources, extraBundles =
+    let js, currentMeta, sources, extraBundles, resources =
         let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
         if isBundleOnly then
             let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
             let extraBundles =
                 aR.Wrap <| fun () ->
                     Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
-            None, currentMeta, sources, extraBundles
+            None, currentMeta, sources, extraBundles, [||]
         else
             let assem = loader.LoadFile config.AssemblyFile
 
@@ -235,7 +235,7 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
                 | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, getRefMetas())
                 | _ -> None
 
-            let js, currentMeta, sources =
+            let js, currentMeta, sources, res =
                 ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem
 
             match config.ProjectType with
@@ -260,16 +260,23 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
 
             logger.TimedStage "Writing resources into assembly"
-            js, currentMeta, sources, extraBundles
+            js, currentMeta, sources, extraBundles, res
 
     match config.JSOutputPath, js with
     | Some path, Some jss ->
         let asmPath = Path.Combine(path, thisName)
         Directory.CreateDirectory(asmPath) |> ignore
-        for (name, js, _) in jss do
-            let jsPath = Path.Combine(asmPath, name + ".js")
-            File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
-            logger.TimedStage ("Writing " + jsPath)
+        if resources |> Array.isEmpty || config.ProjectType <> None then
+            for (name, js, _) in jss do
+                let jsPath = Path.Combine(asmPath, name + ".js")
+                File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+                logger.TimedStage ("Writing " + jsPath)
+        else
+            for (name, content) in resources do
+                if not <| name.ToLower().EndsWith ".meta" then
+                    let filePath = Path.Combine(asmPath, name)
+                    File.WriteAllBytes(Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath), content)
+                    logger.TimedStage ("Writing " + name)
     | _ -> ()
 
     // TODO minimized output

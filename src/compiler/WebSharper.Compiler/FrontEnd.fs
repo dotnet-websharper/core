@@ -313,7 +313,7 @@ let ModifyCecilAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta
     for name, contents in res do
         Mono.Cecil.EmbeddedResource(name, pub, contents)
         |> a.MainModule.Resources.Add
-    jsOpt, currentPosFixed, sources
+    jsOpt, currentPosFixed, sources, res
 
 let ModifyAssembly (logger: LoggerBase) (comp: Compilation option) (refMeta: M.Info) (current: M.Info) sourceMap dts ts closures runtimeMeta (assembly : Assembly) =
     ModifyCecilAssembly logger comp refMeta current sourceMap dts ts closures runtimeMeta assembly.Raw

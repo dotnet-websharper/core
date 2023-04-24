@@ -260,8 +260,8 @@ type WsConfig =
                 res <- { res with JavaScriptExport = Array.append this.JavaScriptExport j }
             | "jsoutput" ->
                 let path = getPath k v
-                if path.EndsWith(".js") then
-                    argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
+                //if path.EndsWith(".js") then
+                //    argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
                 res <- { res with JSOutputPath = Some path }
             | "minjsoutput" ->
                 res <- { res with MinJSOutputPath = Some (getPath k v) }
@@ -284,6 +284,9 @@ type WsConfig =
                 res <- { res with RuntimeMetadata = runtimeMetadata }
             | "$schema" -> ()
             | _ -> failwithf "Unrecognized setting in %s: %s" fileName k 
+        if res.ProjectType <> Some ProjectType.Bundle && res.ProjectType <> Some ProjectType.BundleOnly then
+            if res.JSOutputPath |> Option.map (fun x -> x.EndsWith(".js")) |> Option.defaultValue false then
+                argError (sprintf "Invalid value in %s for JsOutput, expecting a folder path." fileName)     
         res
     
 module ExecuteCommands =
