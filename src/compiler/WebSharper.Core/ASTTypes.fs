@@ -151,6 +151,8 @@ type FuncArgOptimization =
     | NotOptimizedFuncArg
     | CurriedFuncArg of int    
     | TupledFuncArg of int    
+    | OutRefArg
+    | InRefArg
 
 type Purity =
     /// Marks that a function call/property get has a side effect or depends on execution order.

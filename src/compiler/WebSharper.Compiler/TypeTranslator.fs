@@ -123,6 +123,10 @@ let CustomTranslations: IDictionary<TypeDefinition, list<TSType> -> TSType> =
                 | _ -> inv()
     ]
 
+let ByRefAddress = Address.TypeDefaultExport { Assembly = "WebSharper.Main"; Name = "WebSharper.ByRef`1" }
+let InRefAddress = Address.TypeDefaultExport { Assembly = "WebSharper.Main"; Name = "WebSharper.InRef`1" }
+let OutRefAddress = Address.TypeDefaultExport { Assembly = "WebSharper.Main"; Name = "WebSharper.OutRef`1" }
+
 type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAddress) =
     let defaultTsTypeOfAddress (a: Address) =
         let t = a.Address |> List.rev
@@ -215,7 +219,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
                 | VoidType -> []
                 | _ -> [this.TSTypeOf a]
             TSType.Lambda(ta, this.TSTypeOf r)
-        | ByRefType t -> TSType.ByRefOf (this.TSTypeOf t)
+        | ByRefType t -> 
+            TSType.Generic (tsTypeOfAddress ByRefAddress, [this.TSTypeOf t])
         | VoidType -> TSType.Void
         | TypeParameter i 
         | StaticTypeParameter i -> 

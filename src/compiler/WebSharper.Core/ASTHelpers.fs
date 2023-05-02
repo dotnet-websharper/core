@@ -182,6 +182,12 @@ let MakeOutRef setVal typ =
         "set", MemberKind.Simple, (Function ([value], None, typ, ExprStatement (setVal (Var value))))
     ]
 
+/// Make a proxy for an in argument, having a getter function.
+let MakeInRef getVal typ =
+    Object [
+        "get", MemberKind.Simple, (Function ([], None, typ, Return getVal))
+    ]
+
 /// Gets the value from a by-address value proxy
 let GetRef r =
     Appl(ItemGet (r, Value (String "get"), Pure), [], NoSideEffect, Some 0)
@@ -489,6 +495,3 @@ module TSType =
         | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))
-
-    let private ByRef = TSType.Named [ "WebSharper"; "ByRef" ]
-    let ByRefOf x = TSType.Generic(ByRef, [ x ])

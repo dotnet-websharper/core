@@ -319,7 +319,7 @@ type private IDictionaryProxy<'TKey, 'TValue> =
     [<Name "RemoveKey">]
     abstract member Remove : 'TKey -> bool
     [<Name "TryGetValue">]
-    abstract member TryGetValue : 'TKey * byref<'TValue> -> bool
+    abstract member TryGetValue : 'TKey * outref<'TValue> -> bool
 
 [<Proxy(typeof<System.Collections.Generic.IReadOnlyDictionary<_,_>>)>]
 type private IReadOnlyDictionaryProxy<'TKey, 'TValue> =
@@ -333,7 +333,7 @@ type private IReadOnlyDictionaryProxy<'TKey, 'TValue> =
     [<Name "ContainsKey">]
     abstract member ContainsKey : 'TKey -> bool
     [<Name "TryGetValue">]
-    abstract member TryGetValue : 'TKey * byref<'TValue> -> bool
+    abstract member TryGetValue : 'TKey * outref<'TValue> -> bool
 
 [<Proxy(typeof<System.Collections.Generic.ISet<_>>)>]
 type private ISetProxy<'T> =

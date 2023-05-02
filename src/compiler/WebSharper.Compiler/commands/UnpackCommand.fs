@@ -161,9 +161,9 @@ module UnpackCommand =
             else
                 for r in a.GetScripts(O.JavaScript) do
                     writeText script r.FileName r.Content
-            if cmd.UnpackTypeScriptDeclaration then
-                for r in a.GetScripts(O.TypeScriptDeclaration) do
-                    writeText script r.FileName r.Content
+                if cmd.UnpackTypeScriptDeclaration then
+                    for r in a.GetScripts(O.TypeScriptDeclaration) do
+                        writeText script r.FileName r.Content
             for r in a.GetContents() do
                 writeBinary content r.FileName (r.GetContentData())
         

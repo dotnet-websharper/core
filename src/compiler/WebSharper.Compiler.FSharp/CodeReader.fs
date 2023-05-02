@@ -96,7 +96,20 @@ let getFuncArg t =
             get (i :: acc) r 
         else
             match acc with
-            | [] | [1] -> NotOptimizedFuncArg
+            | [] | [1] -> 
+                if isByRef t then
+                    match t.TypeDefinition.LogicalName with
+                    | "byref`2" ->
+                        match t.GenericArguments.[1].TypeDefinition.LogicalName with
+                        | "Out" -> OutRefArg
+                        | "In" -> InRefArg
+                        | _ -> NotOptimizedFuncArg
+                    | "outref`1" -> OutRefArg
+                    | "inref`1" -> InRefArg
+                    | _ ->
+                        NotOptimizedFuncArg
+                else
+                    NotOptimizedFuncArg
             | [n] -> TupledFuncArg n
             | _ -> CurriedFuncArg (List.length acc)
     get [] t    

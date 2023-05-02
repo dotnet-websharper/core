@@ -320,6 +320,22 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     let members = cls.GetMembers()
 
     let getUnresolved (mem: option<IMethodSymbol>) (mAnnot: A.MemberAnnotation) kind compiled expr = 
+        let refArgs =
+            match mem with 
+            | None -> None
+            | Some m ->
+                let ra =
+                    m.Parameters |> Seq.map (fun p ->
+                        match p.RefKind with
+                        | RefKind.In -> 
+                            InRefArg
+                        | RefKind.Out -> 
+                            OutRefArg
+                        | _ ->
+                            NotOptimizedFuncArg
+                    ) 
+                    |> List.ofSeq
+                if ra |> List.forall (fun o -> o = NotOptimizedFuncArg) then None else Some ra
         {
             Kind = kind
             StrongName = mAnnot.Name
@@ -336,7 +352,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             Pure = mAnnot.Pure
             Body = expr
             Requires = mAnnot.Requires
-            FuncArgs = None
+            FuncArgs = refArgs
             Args = []
             Warn = mAnnot.Warn
             JavaScriptOptions = mAnnot.JavaScriptOptions

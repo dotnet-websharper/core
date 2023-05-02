@@ -181,6 +181,15 @@ let defaultValueOfParam (p: FSharpParameter) =
         else None
     )
 
+let refKindOfParam (p: FSharpParameter) =
+    p.Attributes |> Seq.tryPick (fun a ->
+        match a.AttributeType.FullName with
+        | "System.Runtime.InteropServices.OutAttribute" -> Some OutRefArg
+        | "System.Runtime.InteropServices.InAttribute" -> Some InRefArg
+        | _ -> None
+    )
+    |> Option.defaultValue NotOptimizedFuncArg
+
 let isAbstractClass (e: FSharpEntity) =
     e.Attributes |> Seq.exists (fun a ->
         a.AttributeType.FullName = "Microsoft.FSharp.Core.AbstractClassAttribute"
@@ -583,7 +592,14 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             | Some mem ->
                             let ca = 
                                 a |> List.map (fun (x, p) -> 
-                                    CodeReader.getFuncArg x.FullType
+                                    let fa = CodeReader.getFuncArg x.FullType
+                                    match fa, p with 
+                                    | NotOptimizedFuncArg, Some p ->
+                                        if CodeReader.isByRef x.FullType then
+                                            refKindOfParam p
+                                        else
+                                            NotOptimizedFuncArg     
+                                    | _ -> fa
                                 )
                             if ca |> List.forall ((=) NotOptimizedFuncArg) then None 
                             else 

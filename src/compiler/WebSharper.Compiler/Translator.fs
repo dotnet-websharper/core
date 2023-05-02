@@ -898,7 +898,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
     member this.OptimizeArg (opt, expr) =
         match opt with
-        | NotOptimizedFuncArg -> expr
+        | NotOptimizedFuncArg 
+        | OutRefArg
+        | InRefArg -> expr
         | CurriedFuncArg currying ->
             match IgnoreExprSourcePos expr with 
             | OptimizedFSharpArg(f, CurriedFuncArg arity) when arity = currying ->

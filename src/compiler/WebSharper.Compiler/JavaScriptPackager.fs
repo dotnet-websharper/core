@@ -535,7 +535,17 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         match p with
                         | FSharpFuncType (TupleType (ts, _), r) ->
                             TSType.Lambda(ts |> List.map (tsTypeOf gsArr), tsTypeOf gsArr r)
-                        | _ ->  failwith "Error detupling function parameter type"
+                        | _ -> failwith "Error detupling function parameter type"
+                    | OutRefArg ->
+                        match p with
+                        | ByRefType t ->
+                            TSType.Generic (tsTypeOfAddress TypeTranslator.OutRefAddress, [tsTypeOf gsArr t])
+                        | _ -> failwith "Error handling out ref argument"
+                    | InRefArg ->
+                        match p with
+                        | ByRefType t ->
+                            TSType.Generic (tsTypeOfAddress TypeTranslator.InRefAddress, [tsTypeOf gsArr t])
+                        | _ -> failwith "Error handling in ref argument"                    
                 )
 
         let cgenl = List.length c.Generics
