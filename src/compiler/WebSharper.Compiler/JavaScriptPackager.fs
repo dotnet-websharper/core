@@ -569,7 +569,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             let getSignature isInstToStatic =         
                 if output = O.JavaScript then TSType.Any else
                 match IgnoreExprSourcePos body with
-                | Function _ ->
+                | Function (_, _, ret, _) ->
                     //let isUnionCaseMethod =
                     //    if isUnion then
                     //        match m.Value.ReturnType with
@@ -586,7 +586,9 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     //else
                         let p, r = 
                             match intfGen with 
-                            | None -> m.Value.Parameters, m.Value.ReturnType
+                            | None -> 
+                                m.Value.Parameters
+                                , ret |> Option.defaultValue m.Value.ReturnType
                             | Some ig -> 
                                 try
                                     m.Value.Parameters |> List.map (fun p -> p.SubstituteGenerics ig) 

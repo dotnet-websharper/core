@@ -1327,8 +1327,14 @@ type Compilation(meta: Info, ?hasGraph) =
             let isFunc = 
                 let m = isFunctionMethodForInterface typ
                 let x = Id.New("x", typ = TSType TSType.Any)
+                let intfType =
+                    let tt = TSType.Importing (this.TypeAddress(typ, true))
+                    match m.Value.Generics with
+                    | 0 -> tt
+                    | g ->
+                        TSType.Generic(tt, List.init g TSType.Param)
                 let returnType =
-                    Some (TSType (TSType.TypeGuard(x, TSType.Importing (this.TypeAddress(typ, false)))))
+                    Some (TSType (TSType.TypeGuard(x, intfType)))
                 let body =
                     if Seq.isEmpty allNames then
                         Function([x], None, returnType, Return (Value (Bool true)))

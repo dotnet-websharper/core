@@ -139,6 +139,12 @@ type CollectVariables(env: Environment) =
     override this.VisitVarDeclaration(v, _) =
         defineId env v |> ignore
 
+    override this.VisitInterface(i, _, _, _) =
+        defineId env i |> ignore
+
+    override this.VisitClass(c, _, _, _, _) =
+        defineId env c |> ignore
+
     override this.VisitAlias(a, _, _) =
         defineId env a |> ignore
 
@@ -545,7 +551,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
     | XmlComment a ->
         J.StatementComment (J.Empty, a)
     | Class (n, b, i, m, g) ->
-        let jn = (defineId env n).WithGenerics(transformGenerics env g)
+        let jn = (transformId env n).WithGenerics(transformGenerics env g)
         let innerEnv = env.NewInner()
         let isAbstract =
             if env.Output = O.TypeScriptDeclaration then false else
@@ -555,7 +561,7 @@ and transformStatement (env: Environment) (statement: Statement) : J.Statement =
             )
         J.Class(jn, isAbstract, Option.map trE b, List.map (transformType env) i, List.map (transformMember innerEnv) m)
     | Interface (n, e, m, g) ->
-        let jn = (defineId env n).WithGenerics(transformGenerics env g)
+        let jn = (transformId env n).WithGenerics(transformGenerics env g)
         J.Interface(jn, List.map trT e, List.map (transformMember env) m)
     | Alias (a, g, t) ->
         let trA = (transformId env a).WithGenerics(transformGenerics env g)  

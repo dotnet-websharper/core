@@ -226,4 +226,4 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | StaticTypeParameter i -> 
             TSType.Param i
         | LocalTypeParameter -> TSType.Any
-        | TSType t -> t
+        | TSType t -> t.ResolveAddress(tsTypeOfAddress)

@@ -613,7 +613,7 @@ let isFunctionMethodForInterface (t: TypeDefinition) =
         MethodName = isFunctionNameForInterface t
         Parameters = [ NonGenericType Definitions.Obj ]
         ReturnType = NonGenericType Definitions.Bool
-        Generics = 0
+        Generics = t.Value.GenericLength
     }
 
 module Definitions =

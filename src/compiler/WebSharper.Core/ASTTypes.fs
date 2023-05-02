@@ -916,18 +916,15 @@ type [<RequireQualifiedAccess>] TSType =
         | ObjectOf a -> ObjectOf(tr a)
         | TypeLiteral m -> TypeLiteral(m |> List.map (fun (n, k, t) -> n, k, tr t))
 
-    member this.ResolveModule (getModule: Module -> Id option) =
-        let inline tr (p:TSType) = p.ResolveModule getModule
+    member this.ResolveAddress (resolve: Address -> TSType) =
+        let inline tr (p:TSType) = p.ResolveAddress resolve
         match this with 
         | Any
         | Named _
         | Imported _
         | Param _
             -> this
-        | Importing m  ->
-            match getModule m.Module with
-            | Some v -> Imported(v, m.Address)
-            | _ -> Named m.Address
+        | Importing m  -> resolve m
         | Generic (e, g) -> Generic (tr e, List.map tr g)
         | Function (t, a, e, r) -> Function (Option.map tr t, List.map (fun (a, o) -> tr a, o) a, Option.map tr e, tr r)
         | New (a, r) -> New (List.map tr a, tr r)
@@ -938,6 +935,13 @@ type [<RequireQualifiedAccess>] TSType =
         | TypeGuard (a, t) -> TypeGuard(a, tr t)
         | ObjectOf a -> ObjectOf(tr a)
         | TypeLiteral m -> TypeLiteral(m |> List.map (fun (n, k, t) -> n, k, tr t))
+
+    member this.ResolveModule (getModule: Module -> Id option) =
+        this.ResolveAddress (fun m ->
+            match getModule m.Module with
+            | Some v -> Imported(v, m.Address)
+            | _ -> Named m.Address
+        )
 
     override this.ToString() =
         match this with
