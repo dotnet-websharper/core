@@ -743,15 +743,19 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             [||], [] // TODO: should this be an error? I don't think it should ever happen
             mem m mi.CompiledForm mParam M.Optimizations.None (Some intfGen) mi.Expression
 
-        let constructors = ResizeArray<string * Id option * Id list * Statement>()
+        let constructors = ResizeArray<string * Id option * Id list * Statement * TSType>()
         let ctorSigs = ResizeArray<Statement>()
 
         for KeyValue(ctor, ct) in c.Constructors do
-            let getSignature isNew =         
+            let getSignature isNew nameOpt =         
                 if output = O.JavaScript then TSType.Any else
                 let pts = typeOfParams ct.Optimizations gsArr ctor.Value.CtorParameters
                 if isNew then
-                    TSType.New(pts, thisTSType.Value)
+                    let cpts =
+                        match nameOpt with
+                        | Some name -> TSType.Named [ "\"" + name + "\"" ] :: pts
+                        | _ -> pts
+                    TSType.New(cpts, thisTSType.Value)
                 else
                     TSType.Function(None, pts |> List.map (fun a -> a, false), None, thisTSType.Value)
 
@@ -764,32 +768,25 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         ()
                     | Function (args, thisVar, _, b) ->                  
                         let args = List.map (fun x -> x, Modifiers.None) args
-                        members.Add (ClassConstructor (args, thisVar, implStOpt (fun () -> b), getSignature true))
+                        members.Add (ClassConstructor (args, thisVar, implStOpt (fun () -> b), getSignature true None))
                     | _ ->
                         failwithf "Invalid form for translated constructor"
 
             | M.New (Some name) ->
                 match ct.Expression with
                 | Function (args, thisVar, _, b) ->                  
-                    constructors.Add(name, thisVar, args, b)
+                    constructors.Add(name, thisVar, args, b, getSignature true (Some name))
                     let info =
                         {
                             IsStatic = true
                             IsPrivate = false
                             Kind = MemberKind.Simple
                         }
-                    let ctorBody =
+                    let ctorBody() =
                         Return (New (JSThis, [], Value (String name) :: (args |> List.map Var)))
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> ctorBody), getSignature true |> addGenerics cgen))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt ctorBody, getSignature false None |> addGenerics cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
-            //| M.NewIndexed i ->
-            //    if body <> Undefined then
-            //        match body with
-            //        | Function (args, _, _, b) ->  
-            //            indexedCtors.Add (i, (args, b))
-            //        | _ ->
-            //            failwithf "Invalid form for translated constructor"
             | M.Func (name, _) ->
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
@@ -811,7 +808,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             IsPrivate = false
                             Kind = kind
                         }
-                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false |> addGenerics cgen))
+                    members.Add (ClassMethod(info, name, args, thisVar, implStOpt (fun () -> b), getSignature false None |> addGenerics cgen))
                 | _ ->
                     failwithf "Invalid form for translated constructor"
             | _ -> ()                            
@@ -829,12 +826,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         if constructors.Count > 0 then
             let index = Id.New("i", mut = false)
-            let maxArgs = constructors |> Seq.map (fun (_, _, a, _) -> List.length a) |> Seq.max
+            let maxArgs = constructors |> Seq.map (fun (_, _, a, _, _) -> List.length a) |> Seq.max
             let cArgs = List.init maxArgs (fun _ -> Id.New(mut = false, opt = true))
             let cThis = Id.NewThis()
             
             let ctorData = Dictionary()
-            for (name, thisVar, args, body) in constructors do
+            for (name, thisVar, args, body, tsSig) in constructors do
                 let body = 
                     match thisVar with
                     | Some t -> ReplaceId(t, cThis).TransformStatement(body)
@@ -856,14 +853,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                             None, None
                     | _ -> 
                         None, Some body
-                ctorData.Add(name, (args, chainedCtor, bodyRest))
+                ctorData.Add(name, (args, chainedCtor, bodyRest, tsSig))
 
             // calculate order of constructors so chained constructors work,
             // adding those with no dependencies first, so we will need to reverse in the end
             let addedCtors = HashSet()
-            let orderedCtorData = ResizeArray<string * Id list * (string * Expression list) option * Statement option>()
+            let orderedCtorData = ResizeArray<string * Id list * (string * Expression list) option * Statement option * TSType>()
             while ctorData.Count > 0 do
-                for KeyValue(name, (args, chainedCtor, bodyRest)) in ctorData |> Array.ofSeq do
+                for KeyValue(name, (args, chainedCtor, bodyRest, tsSig)) in ctorData |> Array.ofSeq do
                     let okToAdd =
                         match chainedCtor with
                         | None -> true
@@ -873,65 +870,72 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         //let chainedCtorArgsNum = match chainedCtor with Some (_, a) -> a.Length | None -> 0
                         orderedCtorData.Add (name, args, 
                             chainedCtor |> Option.map (fun (n, a) -> n, a), 
-                            bodyRest
+                            bodyRest, tsSig
                         )
                         ctorData.Remove name |> ignore
             orderedCtorData.Reverse()
-
-            let cBody =
-                let origIndices = Dictionary()
-                [ 
-                    for (name, args, chainedCtor, bodyRest) in orderedCtorData do
-                        match chainedCtor with
-                        | Some (ccName, ccArgs) ->
-                            let mutable oiOpt = None
-                            match bodyRest with 
-                            | Some _ ->
-                                let oi = Id.New(mut=false)
-                                yield VarDeclaration(oi, Undefined)
-                                origIndices.Add(name, oi)
-                                oiOpt <- Some oi
+            
+            if output <> O.TypeScriptDeclaration then
+            
+                let cBody =
+                    let origIndices = Dictionary()
+                    [ 
+                        for (name, args, chainedCtor, bodyRest, _) in orderedCtorData do
+                            match chainedCtor with
+                            | Some (ccName, ccArgs) ->
+                                let mutable oiOpt = None
+                                match bodyRest with 
+                                | Some _ ->
+                                    let oi = Id.New(mut=false)
+                                    yield VarDeclaration(oi, Undefined)
+                                    origIndices.Add(name, oi)
+                                    oiOpt <- Some oi
+                                | _ -> ()
+                                for a in args do
+                                    yield VarDeclaration (a, Undefined)
+                                let setters =
+                                    [
+                                        // set original arg vars
+                                        match oiOpt with
+                                        | Some oi -> 
+                                            yield VarSetStatement (oi, Value (Bool true))
+                                        | _ -> ()
+                                        for (a, ca) in Seq.zip args cArgs do
+                                            yield VarSetStatement (a, Var ca)
+                                        // redirect to chained constructor
+                                        yield VarSetStatement(index, Value (String ccName))
+                                        for v, vv in Seq.zip cArgs ccArgs do
+                                            yield VarSetStatement(v, vv)    
+                                    ]
+                                yield If((Var index) ^== Value (String name), Block setters, Empty)
                             | _ -> ()
-                            for a in args do
-                                yield VarDeclaration (a, Undefined)
-                            let setters =
-                                [
-                                    // set original arg vars
-                                    match oiOpt with
-                                    | Some oi -> 
-                                        yield VarSetStatement (oi, Value (Bool true))
-                                    | _ -> ()
-                                    for (a, ca) in Seq.zip args cArgs do
-                                        yield VarSetStatement (a, Var ca)
-                                    // redirect to chained constructor
-                                    yield VarSetStatement(index, Value (String ccName))
-                                    for v, vv in Seq.zip cArgs ccArgs do
-                                        yield VarSetStatement(v, vv)    
-                                ]
-                            yield If((Var index) ^== Value (String name), Block setters, Empty)
-                        | _ -> ()
-                    for (name, args, chainedCtor, bodyRest) in orderedCtorData do
-                        match chainedCtor, bodyRest with
-                        | None, Some br ->
-                            let settersAndBody =
-                                [
-                                    // set original arg vars
-                                    for (a, ca) in Seq.zip args cArgs do
-                                        yield VarDeclaration (a, Var ca)
-                                    yield br
-                                ]
-                            yield If((Var index) ^== Value (String name), Block settersAndBody, Empty)
-                        | _ -> ()
-                    for (name, args, _, bodyRest) in orderedCtorData do
-                        match origIndices.TryGetValue name, bodyRest with
-                        | (true, oi), Some br ->
-                            yield If(Var oi, br, Empty)
-                        | _ -> ()
-                ]
+                        for (name, args, chainedCtor, bodyRest, _) in orderedCtorData do
+                            match chainedCtor, bodyRest with
+                            | None, Some br ->
+                                let settersAndBody =
+                                    [
+                                        // set original arg vars
+                                        for (a, ca) in Seq.zip args cArgs do
+                                            yield VarDeclaration (a, Var ca)
+                                        yield br
+                                    ]
+                                yield If((Var index) ^== Value (String name), Block settersAndBody, Empty)
+                            | _ -> ()
+                        for (name, args, _, bodyRest, _) in orderedCtorData do
+                            match origIndices.TryGetValue name, bodyRest with
+                            | (true, oi), Some br ->
+                                yield If(Var oi, br, Empty)
+                            | _ -> ()
+                    ]
 
-            let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
-            members.Add (ClassConstructor (allArgs, Some cThis, implStOpt (fun () -> Block cBody), TSType.Any)) // TODO optimize, do not generate cBody for .d.ts  
+                let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
+                members.Add (ClassConstructor (allArgs, Some cThis, implStOpt (fun () -> Block cBody), TSType.Any))
         
+            else
+                for (_, args, _, _, tsSig) in orderedCtorData do
+                    let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
+                    members.Add (ClassConstructor (allArgs, Some cThis, None, tsSig))
+
         let mutable isFSharpType = false
 
         match ct with

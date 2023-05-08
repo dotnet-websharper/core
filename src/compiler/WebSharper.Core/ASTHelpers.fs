@@ -493,5 +493,6 @@ module TSType =
         | "()=>$0" -> Lambda ([], TSType.Param 0)
         | "$0[]" -> ArrayOf (TSType.Param 0) 
         | "{K: $0, V: $1}" -> TSType.TypeLiteral [ "K", MemberKind.Simple, TSType.Param 0; "V", MemberKind.Simple, TSType.Param 1 ]
+        | "{c: boolean, r: (() => void)[]}" -> TSType.TypeLiteral [ "c", MemberKind.Simple, TSType.Named [ "boolean" ]; "r", MemberKind.Simple, TSType.Named [ "(() => void)[]" ] ]
         | _ -> 
             TSType.Named (List.ofArray (x.Split('.')))

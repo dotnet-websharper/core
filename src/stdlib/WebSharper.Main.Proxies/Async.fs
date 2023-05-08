@@ -136,6 +136,7 @@ type private Async1Proxy<'T> =
     class end
 
 [<Proxy(typeof<CT>)>]
+[<Type "{c: boolean, r: (() => void)[]}">]
 type private CancellationTokenProxy =
     [<Inline "$this.c">]
     member this.IsCancellationRequested = X<bool>
