@@ -44,7 +44,7 @@ type ThisTransformer() =
             let res =
                 match thisVars.Head with
                 | _, captured when captured.Value ->
-                    let trBody = Block [ VarDeclaration(t,  JSThis); trBody ]
+                    let trBody = Block [ VarDeclaration(t, JSThis); trBody ]
                     Function(args, thisVar, typ, trBody)    
                 | _ ->
                     Function(args, thisVar, typ, trBody)    
@@ -57,7 +57,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = Block [ VarDeclaration(t,  JSThis); trBody ]
+                let trBody = Block [ VarDeclaration(t, JSThis); trBody ]
                 FuncDeclaration(id, args, thisVar, trBody, ty)
             | _ ->
                 FuncDeclaration(id, args, thisVar, trBody, ty)
@@ -73,7 +73,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  JSThis); b ])
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t, JSThis); b ])
                 ClassMethod(i, n, args, thisVar, trBody, s)
             | _ ->
                 ClassMethod(i, n, args, thisVar, trBody, s)
@@ -89,7 +89,7 @@ type ThisTransformer() =
         let res =
             match thisVars.Head with
             | Some t, captured when captured.Value ->
-                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t,  JSThis); b ])
+                let trBody = trBody |> Option.map (fun b -> Block [ VarDeclaration(t, JSThis); b ])
                 ClassConstructor(args, thisVar, trBody, s)
             | _ ->
                 ClassConstructor(args, thisVar, trBody, s)
@@ -509,7 +509,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             { new Transformer() with
                 override this.TransformGlobalAccess a = 
                     if a = currentClassAddr then
-                        JSThis
+                        Var classId
                     else
                         GlobalAccess a
             }

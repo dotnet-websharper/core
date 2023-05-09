@@ -235,6 +235,13 @@ type ExtendTest with
 //        member x.Get() = "hello"
 
 [<JavaScript>]
+type StaticTypeTest() =
+    static member TestType(x: obj) =
+        match x with
+        | :? StaticTypeTest -> true
+        | _ -> false
+
+[<JavaScript>]
 let Tests =
     TestCategory "Object" {
 
@@ -534,6 +541,11 @@ let Tests =
             let y = { SR2 = 1; SR2b = "a" }
             equal y.SR2 1
             equal y.SR2b "a"
+        }
+
+        Test "Static method type test against current type" {
+            let o = StaticTypeTest()
+            isTrue (StaticTypeTest.TestType(o))
         }
 
         Skip "Default interface member consumption" {
