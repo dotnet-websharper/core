@@ -836,31 +836,57 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     match thisVar with
                     | Some t -> ReplaceId(t, cThis).TransformStatement(body)
                     | _ -> body
-                // TODO what if not at start
-                let chainedCtor, bodyRest =
+                
+                let tryPickSplit chooser list =
+                    let rec p acc rest =
+                        match rest with
+                        | h :: t ->
+                            match chooser h with
+                            | None -> p (h :: acc) t
+                            | res -> Some (List.rev acc), res, if List.isEmpty t then None else Some t
+                        | [] ->
+                           None, None, Some list 
+                    p [] list
+
+                let beforeCtor, chainedCtor, bodyRest =
                     match body with
                     | I.Block (I.ExprStatement (I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _)) :: r) ->
-                        Some (baseName, baseArgs), Some (Block r)                                        
+                        None, Some (baseName, baseArgs), Some (Block r)                                        
                     | I.ExprStatement (I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _)) ->
-                        Some (baseName, baseArgs), None
+                        None, Some (baseName, baseArgs), None
                     | I.ExprStatement (I.Sequential(I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _) :: r)) ->
-                        Some (baseName, baseArgs), Some (ExprStatement (Sequential r))
-                    
+                        None, Some (baseName, baseArgs), Some (ExprStatement (Sequential r))
                     | I.ExprStatement (I.Application(I.Base, [], _)) ->
                         if Option.isSome baseType then
-                            None, Some body
+                            None, None, Some body
                         else
-                            None, None
+                            None, None, None
+                    | I.Block list ->
+                        let b, c, r = 
+                            list |> tryPickSplit (
+                                function
+                                | I.ExprStatement (I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _)) -> Some (baseName, baseArgs)
+                                | _ -> None
+                            )
+                        b |> Option.map CombineStatements, c, r |> Option.map CombineStatements
+                    | I.ExprStatement (I.Sequential list) ->
+                        let b, c, r = 
+                            list |> tryPickSplit (
+                                function
+                                | I.Application(I.JSThis, I.Value(String baseName) :: baseArgs, _) -> Some (baseName, baseArgs)
+                                | _ -> None
+                            )
+                        b |> Option.map (CombineExpressions >> ExprStatement), c, r |> Option.map (CombineExpressions >> ExprStatement)
                     | _ -> 
-                        None, Some body
-                ctorData.Add(name, (args, chainedCtor, bodyRest, tsSig))
+                        None, None, Some body
+                ctorData.Add(name, (args, beforeCtor, chainedCtor, bodyRest, tsSig))
 
             // calculate order of constructors so chained constructors work,
             // adding those with no dependencies first, so we will need to reverse in the end
             let addedCtors = HashSet()
-            let orderedCtorData = ResizeArray<string * Id list * (string * Expression list) option * Statement option * TSType>()
+            let orderedCtorData = ResizeArray<Statement option * string * Id list * (string * Expression list) option * Statement option * TSType>()
             while ctorData.Count > 0 do
-                for KeyValue(name, (args, chainedCtor, bodyRest, tsSig)) in ctorData |> Array.ofSeq do
+                for KeyValue(name, (args, beforeCtor, chainedCtor, bodyRest, tsSig)) in ctorData |> Array.ofSeq do
                     let okToAdd =
                         match chainedCtor with
                         | None -> true
@@ -868,19 +894,25 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     if okToAdd then
                         addedCtors.Add name |> ignore
                         //let chainedCtorArgsNum = match chainedCtor with Some (_, a) -> a.Length | None -> 0
-                        orderedCtorData.Add (name, args, 
+                        orderedCtorData.Add (beforeCtor, name, args, 
                             chainedCtor |> Option.map (fun (n, a) -> n, a), 
                             bodyRest, tsSig
                         )
                         ctorData.Remove name |> ignore
             orderedCtorData.Reverse()
             
+            // signatures
+            if output <> O.JavaScript then
+                for (_, _, args, _, _, tsSig) in orderedCtorData do
+                    let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
+                    members.Add (ClassConstructor (allArgs, Some cThis, None, tsSig))
+
+            // implementation
             if output <> O.TypeScriptDeclaration then
-            
                 let cBody =
                     let origIndices = Dictionary()
                     [ 
-                        for (name, args, chainedCtor, bodyRest, _) in orderedCtorData do
+                        for (beforeCtor, name, args, chainedCtor, bodyRest, _) in orderedCtorData do
                             match chainedCtor with
                             | Some (ccName, ccArgs) ->
                                 let mutable oiOpt = None
@@ -902,6 +934,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                         | _ -> ()
                                         for (a, ca) in Seq.zip args cArgs do
                                             yield VarSetStatement (a, Var ca)
+                                        // code before calling chained constructor
+                                        match beforeCtor with
+                                        | Some bcOpt ->
+                                            yield bcOpt
+                                        | _ -> ()
                                         // redirect to chained constructor
                                         yield VarSetStatement(index, Value (String ccName))
                                         for v, vv in Seq.zip cArgs ccArgs do
@@ -909,7 +946,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                     ]
                                 yield If((Var index) ^== Value (String name), Block setters, Empty)
                             | _ -> ()
-                        for (name, args, chainedCtor, bodyRest, _) in orderedCtorData do
+                        for (_, name, args, chainedCtor, bodyRest, _) in orderedCtorData do
                             match chainedCtor, bodyRest with
                             | None, Some br ->
                                 let settersAndBody =
@@ -921,7 +958,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                                     ]
                                 yield If((Var index) ^== Value (String name), Block settersAndBody, Empty)
                             | _ -> ()
-                        for (name, args, _, bodyRest, _) in orderedCtorData do
+                        for (_, name, args, _, bodyRest, _) in orderedCtorData do
                             match origIndices.TryGetValue name, bodyRest with
                             | (true, oi), Some br ->
                                 yield If(Var oi, br, Empty)
@@ -931,11 +968,6 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 let allArgs = List.map (fun x -> x, Modifiers.None) (index :: cArgs)
                 members.Add (ClassConstructor (allArgs, Some cThis, implStOpt (fun () -> Block cBody), TSType.Any))
         
-            else
-                for (_, args, _, _, tsSig) in orderedCtorData do
-                    let allArgs = List.map (fun x -> x, Modifiers.None) (index :: args)
-                    members.Add (ClassConstructor (allArgs, Some cThis, None, tsSig))
-
         let mutable isFSharpType = false
 
         match ct with
