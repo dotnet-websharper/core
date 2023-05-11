@@ -209,6 +209,8 @@ let ExprDefs =
             , "JavaScript - class { ... }"
         "ObjectExpr", [ Type, "objectType"; Option Expr, "constructor"; List (Tuple [NonGenericTypeDefinition; NonGenericMethod; Expr]), "overrides" ]
             , ".NET - F# object expression"
+        "Verbatim", [ List Str, "stringParts"; List Expr, "holes" ]
+            , "JavaScript verbatim code"
     ]    
 
 let StatementDefs =

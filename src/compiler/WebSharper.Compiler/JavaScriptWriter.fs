@@ -373,6 +373,8 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             //    (a.Address.Value |> List.rev |> String.concat ".") m
     | GlobalAccessSet (a, v) ->
         trE (GlobalAccess a) ^= trE v
+    | Verbatim (a, b) ->
+        J.Verbatim(a, b |> List.map trE)   
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 

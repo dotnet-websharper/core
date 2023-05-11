@@ -191,6 +191,7 @@ and Expression =
     | ExprComment of E * string
     | ImportFunc
     | ClassExpr   of option<Id> * option<E> * list<E> * list<Member>
+    | Verbatim    of list<string> * list<E>
 
     static member ( + ) (a, b) = Binary (a, B.``+``, b)
     static member ( - ) (a, b) = Binary (a, B.``-``, b)

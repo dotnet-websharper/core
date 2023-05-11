@@ -241,6 +241,8 @@ and Expression =
     | ClassExpr of ClassId:option<Id> * BaseClass:option<Expression> * Members:list<Statement>
     /// .NET - F# object expression
     | ObjectExpr of ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression>
+    /// JavaScript verbatim code
+    | Verbatim of StringParts:list<string> * Holes:list<Expression>
     with
     static member (^!==) (a, b) = Binary (a, BinaryOperator.``!==``, b)
     static member (^!=) (a, b) = Binary (a, BinaryOperator.``!=``, b)
@@ -505,6 +507,9 @@ type Transformer() =
     /// .NET - F# object expression
     abstract TransformObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> Expression
     override this.TransformObjectExpr (a, b, c) = ObjectExpr (a, Option.map this.TransformExpression b, List.map (fun (a, b, c) -> a, b, this.TransformExpression c) c)
+    /// JavaScript verbatim code
+    abstract TransformVerbatim : StringParts:list<string> * Holes:list<Expression> -> Expression
+    override this.TransformVerbatim (a, b) = Verbatim (a, List.map this.TransformExpression b)
     /// Empty statement
     abstract TransformEmpty : unit -> Statement
     override this.TransformEmpty () = Empty 
@@ -672,6 +677,7 @@ type Transformer() =
         | Cast (a, b) -> this.TransformCast (a, b)
         | ClassExpr (a, b, c) -> this.TransformClassExpr (a, b, c)
         | ObjectExpr (a, b, c) -> this.TransformObjectExpr (a, b, c)
+        | Verbatim (a, b) -> this.TransformVerbatim (a, b)
     abstract TransformStatement : Statement -> Statement
     override this.TransformStatement x =
         match x with
@@ -879,6 +885,9 @@ type Visitor() =
     /// .NET - F# object expression
     abstract VisitObjectExpr : ObjectType:Type * Constructor:option<Expression> * Overrides:list<TypeDefinition * Method * Expression> -> unit
     override this.VisitObjectExpr (a, b, c) = (); Option.iter this.VisitExpression b; List.iter (fun (a, b, c) -> this.VisitExpression c) c
+    /// JavaScript verbatim code
+    abstract VisitVerbatim : StringParts:list<string> * Holes:list<Expression> -> unit
+    override this.VisitVerbatim (a, b) = (); List.iter this.VisitExpression b
     /// Empty statement
     abstract VisitEmpty : unit -> unit
     override this.VisitEmpty () = ()
@@ -1044,6 +1053,7 @@ type Visitor() =
         | Cast (a, b) -> this.VisitCast (a, b)
         | ClassExpr (a, b, c) -> this.VisitClassExpr (a, b, c)
         | ObjectExpr (a, b, c) -> this.VisitObjectExpr (a, b, c)
+        | Verbatim (a, b) -> this.VisitVerbatim (a, b)
     abstract VisitStatement : Statement -> unit
     override this.VisitStatement x =
         match x with
@@ -1145,6 +1155,7 @@ module IgnoreSourcePos =
     let (|Cast|_|) x = match ignoreExprSourcePos x with Cast (a, b) -> Some (a, b) | _ -> None
     let (|ClassExpr|_|) x = match ignoreExprSourcePos x with ClassExpr (a, b, c) -> Some (a, b, c) | _ -> None
     let (|ObjectExpr|_|) x = match ignoreExprSourcePos x with ObjectExpr (a, b, c) -> Some (a, b, c) | _ -> None
+    let (|Verbatim|_|) x = match ignoreExprSourcePos x with Verbatim (a, b) -> Some (a, b) | _ -> None
     let ignoreStatementSourcePos expr =
         match expr with
         | StatementSourcePos (_, e) -> e
@@ -1244,6 +1255,7 @@ module Debug =
         | Cast (a, b) -> "Cast" + "(" + string a + ", " + PrintExpression b + ")"
         | ClassExpr (a, b, c) -> "ClassExpr" + "(" + defaultArg (Option.map string a) "_" + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map PrintStatement c) + "]" + ")"
         | ObjectExpr (a, b, c) -> "ObjectExpr" + "(" + string a + ", " + defaultArg (Option.map PrintExpression b) "_" + ", " + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) c) + "]" + ")"
+        | Verbatim (a, b) -> "Verbatim" + "(" + "[" + String.concat "; " (List.map string a) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression b) + "]" + ")"
     and PrintStatement x =
         match x with
         | Empty  -> "Empty" + ""
