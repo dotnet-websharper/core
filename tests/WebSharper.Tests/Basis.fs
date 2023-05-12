@@ -729,4 +729,16 @@ let Tests =
         Test "F# let mutable in module" {
             equal LetMutableTest.y 2
         }
+
+        Test "JS.Verbatim" {
+            equal (JS.Verbatim "1 + 1") 2
+            equal (JS.Verbatim $"1 + { 1 + 1 }") 3
+            let x = 2
+            equal (JS.Verbatim $"{x} * {x}") 4
+        }
+
+        //Test "JS.Html" {
+        //    let x = "hello"
+        //    raises (JS.Html $"<div>{x}</div>")
+        //}
     }

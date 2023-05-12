@@ -41,6 +41,7 @@ type Environment =
         mutable ScopeIds : Map<Id, string>
         //ScopeVars : ResizeArray<string>
         OuterScope : bool
+        IsJSX : bool ref
     }
     static member New(pref, ?mode) =
         {
@@ -52,6 +53,7 @@ type Environment =
             ScopeIds = Map [ Id.Global(), "globalThis"; Id.Import(), "import" ]
             //ScopeVars = ResizeArray()
             OuterScope = true
+            IsJSX = ref false
         }
 
     member this.NewInner() =
@@ -64,6 +66,7 @@ type Environment =
             ScopeIds = this.ScopeIds
             //ScopeVars = ResizeArray()
             OuterScope = false
+            IsJSX = this.IsJSX
         }
         
 let undef = J.Unary(J.UnaryOperator.``void``, J.Constant (J.Literal.Number "0"))
@@ -373,6 +376,9 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
             //    (a.Address.Value |> List.rev |> String.concat ".") m
     | GlobalAccessSet (a, v) ->
         trE (GlobalAccess a) ^= trE v
+    | Verbatim (a, b, isJSX) ->
+        env.IsJSX.Value <- env.IsJSX.Value || isJSX
+        J.Verbatim(a, b |> List.map trE)   
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
@@ -724,11 +730,11 @@ and transformMember (env: Environment) (mem: Statement) : J.Member =
         invalidForm (GetUnionCaseName mem)
 
 let transformProgram output pref statements =
-    if List.isEmpty statements then [] else
+    if List.isEmpty statements then [], false else
     let env = Environment.New(pref, output)
     //let cnames = CollectStrongNames(env)
     //statements |> List.iter cnames.VisitStatement
     let cvars = CollectVariables(env)
     statements |> List.iter cvars.VisitStatement
     //J.Ignore (J.Constant (J.String "use strict")) ::
-    (statements |> List.map (transformStatement env) |> flattenJS)
+    (statements |> List.map (transformStatement env) |> flattenJS), env.IsJSX.Value

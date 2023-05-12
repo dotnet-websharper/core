@@ -259,6 +259,17 @@ let rec startsWithObjectExpression = function
     | S.IgnoreEPos (S.Binary(e, _, _) | S.Application(e, _, _) | S.Conditional(e, _, _)) -> startsWithObjectExpression e
     | _ -> false
 
+module Seq =
+    let alternate (seq1: seq<_>) (seq2 : seq<_>) =
+        seq {
+            use e1 = seq1.GetEnumerator()
+            use e2 = seq2.GetEnumerator()
+            while e1.MoveNext() do
+                yield e1.Current
+                if e2.MoveNext() then
+                    yield e2.Current
+        }
+
 let rec Id (id: S.Id) =
     Conditional (Token "...") id.Rest
     ++ Word (if id.IsTypeName then id.Name else (if id.IsPrivate then "#" else "") + EscapeId id.Name)
@@ -419,6 +430,13 @@ and Expression (expression) =
         ++ Optional (fun b -> Word "extends" ++ Expression b) b
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member true) ms)
+    | S.Verbatim (s, e) ->
+        Token "(" ++ (
+            Seq.alternate 
+                (s |> Seq.map Token)
+                (e |> Seq.map Expression)
+            |> Seq.reduce (++)
+        ) ++ Token ")"
 
 and Statement canBeEmpty statement =
     match statement with

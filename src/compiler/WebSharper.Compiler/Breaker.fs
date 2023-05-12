@@ -956,6 +956,17 @@ let rec breakExpr expr : Broken<BreakResult> =
         )
     | ClassExpr(name, baseCls, mem) ->
         ClassExpr(name, baseCls, mem |> List.map BreakStatement) |> broken
+    | Verbatim(stringParts, holes, isJSX) ->
+        let brHoles =
+            holes 
+            |> List.map (fun e ->
+                let brE = breakExpr e
+                if hasNoStatements brE then
+                    getExpr brE.Body
+                else
+                    Application(Function([], None, None, brE |> toStatementsSpec Return |> List.ofSeq |> CombineStatements), [], ApplicationInfo.None)
+            )
+        Verbatim(stringParts, brHoles, isJSX) |> broken
     | e ->
         failwithf "Break expression error, not handled: %s" (Debug.PrintExpression e)
 

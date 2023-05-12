@@ -266,7 +266,7 @@ module Bundling =
 
                     let scriptBase = o.Config.ScriptBaseUrl |> Option.defaultValue ""
 
-                    let js, m = 
+                    let js, m, isJSX = 
                         pkg 
                         |> WebSharper.Compiler.JavaScriptPackager.addLoadedModules (List.ofSeq toLoad) scriptBase o.IsExtraBundle
                         |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript pref getCodeWriter
@@ -532,7 +532,7 @@ module Bundling =
                         let asm = refAssemblies |> List.find (fun asm -> asm.Name = b.AssemblyName)
                         let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
                         let findScript name = 
-                            name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
                         asm.Name, [findScript b.FileName; findScript b.MinifiedFileName]
                 )
                 |> Seq.append (
@@ -541,7 +541,7 @@ module Bundling =
                         let asm = refAssemblies |> List.find (fun asm -> asm.Name = a)
                         let scripts = asm.GetScripts WebSharper.Core.JavaScript.Output.JavaScript
                         let findScript name = 
-                            name, (scripts |> Seq.find (fun s -> s.FileName = name)).Content
+                            name, (scripts |> Seq.find (fun s -> s.FileName = name || s.FileName = name + "x")).Content
                         jss
                         |> Seq.map (fun js ->
                             asm.Name, [findScript js]

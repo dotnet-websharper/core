@@ -252,8 +252,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
             if config.PrintJS then
                 match js with 
                 | Some jss ->
-                    for (name, js, _) in jss do
-                        logger.Out("// " + name + ".js")
+                    for (name, js, _, isJSX) in jss do
+                        let x = if isJSX then "x" else ""
+                        logger.Out("// " + name + ".js" + x)
                         logger.Out(js)
                 | _ -> ()
 
@@ -267,8 +268,9 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         let asmPath = Path.Combine(path, thisName)
         Directory.CreateDirectory(asmPath) |> ignore
         if resources |> Array.isEmpty || config.ProjectType <> None then
-            for (name, js, _) in jss do
-                let jsPath = Path.Combine(asmPath, name + ".js")
+            for (name, js, _, isJSX) in jss do
+                let x = if isJSX then "x" else ""
+                let jsPath = Path.Combine(asmPath, name + ".js" + x)
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
                 logger.TimedStage ("Writing " + jsPath)
         else

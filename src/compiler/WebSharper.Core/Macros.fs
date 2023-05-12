@@ -1412,6 +1412,54 @@ type PrintF() =
             createPrinter c.Compilation ts (Some args) fs |> MacroOk
         | _ -> MacroError "printfMacro error"
 
+[<AbstractClass>]
+type StringInterpolationBase() =
+    inherit Macro()
+
+    abstract Process: stringParts: list<string> * holes: list<Expression> -> MacroResult
+           
+    override this.TranslateCall(c) =
+        match c.Arguments with
+        | [I.Value (Literal.String fs)] ->
+            this.Process([fs], [])
+        | [I.Call (None, etlo, pfts, [ I.Ctor (pf, _, pfArgs) ])] when 
+            etlo.Entity.Value.FullName = "Microsoft.FSharp.Core.ExtraTopLevelOperators"
+            && pfts.Entity.Value.MethodName = "PrintFormatToString" 
+            && pf.Entity.Value.FullName = "Microsoft.FSharp.Core.PrintfFormat`5" ->
+                match pfArgs with
+                | [ I.Value (Literal.String fs) ] ->
+                    this.Process([fs], [])
+                | [I.Value (Literal.String fs); I.NewArray args; _] ->
+                    this.Process(fs.Split([| "%P()" |], System.StringSplitOptions.None) |> List.ofArray, args)
+                | _ ->
+                    MacroError $"{this.GetType().Name} macro expects a string literal or string interpolation argument"
+        | _ -> MacroError $"{this.GetType().Name} macro expects a string literal or string interpolation argument"
+
+[<Sealed>]
+type JSVerbatim() =
+    inherit StringInterpolationBase()
+
+    override this.Process(stringParts, holes) = 
+        Verbatim(stringParts, holes, false) |> MacroOk
+
+[<Sealed>]
+type JSHtml() =
+    inherit StringInterpolationBase()
+
+    override this.Process(stringParts, holes) = 
+        let l = stringParts.Length - 1
+        let addedBraces =
+            stringParts
+            |> List.mapi (fun i s ->
+                if i = 0 then
+                    if l > 0 then s + "{" else s
+                elif i = l then
+                    "}" + s
+                else
+                    "}" + s + "{" 
+            )
+        Verbatim(addedBraces, holes, true) |> MacroOk
+
 let rec isImplementing (comp: M.ICompilation) typ intf =
     comp.GetClassInfo typ
     |> Option.map (fun cls ->

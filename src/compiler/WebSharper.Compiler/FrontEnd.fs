@@ -248,11 +248,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
         let jss = 
             pkg |> Array.map (fun (n, p) -> 
-                let js, map = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
-                n, js, map
+                let js, map, isJSX = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
+                n, js, map, isJSX
             )
-        for n, js, map in jss do
-            addRes (n + ".js") (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
+        for n, js, map, isJSX in jss do
+            let x = if isJSX then "x" else ""
+            addRes (n + ".js" + x) (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
                 addRes (n + ".map") None (Some (getBytes m)))
             logger.TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
@@ -272,8 +273,9 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in tspkg do
-                let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
-                addRes (n + ".ts") (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
+                let ts, _, isJSX = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                let x = if isJSX then "x" else ""
+                addRes (n + ".ts" + x) (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .ts files"
 
         if dts then
@@ -281,7 +283,7 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in dtspkg do
-                let ts, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                let ts, _, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
                 addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .d.ts files"
 

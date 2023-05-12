@@ -146,8 +146,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
             if config.PrintJS then
                 match js with 
                 | Some jss ->
-                    for (name, js, _) in jss do
-                        logger.Out("// " + name + ".js")
+                    for (name, js, _, isJSX) in jss do
+                        let x = if isJSX then "x" else ""
+                        logger.Out("// " + name + ".js" + x)
                         logger.Out(js)
                 | _ -> ()
 
@@ -160,8 +161,9 @@ let Compile config (logger: LoggerBase) tryGetMetadata =
     | Some path, Some jss ->
         let asmPath = Path.Combine(path, thisName)
         Directory.CreateDirectory(asmPath) |> ignore
-        for (name, js, _) in jss do
-            let jsPath = Path.Combine(asmPath, name + ".js")
+        for (name, js, _, isJSX) in jss do
+            let x = if isJSX then "x" else ""
+            let jsPath = Path.Combine(asmPath, name + ".js" + x)
             File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
             logger.TimedStage ("Writing " + jsPath)
     | _ -> ()

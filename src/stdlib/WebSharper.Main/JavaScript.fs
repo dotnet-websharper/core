@@ -289,3 +289,13 @@ type JS =
 
     [<Inline "import($moduleName)">]
     static member ImportDynamic<'T> (moduleName: string) = X<Promise<'T>>
+
+    /// Unchecked JS expression that makes it into output .js unchanged.
+    /// String interpolation is supported to include expressions.
+    [<Macro(typeof<WebSharper.Core.Macros.JSVerbatim>)>]
+    static member Verbatim<'T> (js: string) = X<'T>
+
+    /// Unchecked JSx expression that makes it into output .jsx unchanged.
+    /// String interpolation is supported to include expressions.
+    [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
+    static member Html<'T> (jsx: string) = X<'T>

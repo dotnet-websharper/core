@@ -429,6 +429,7 @@ let varEvalOrder (vars : Id list) expr =
             | TraitCall _
             | ObjectExpr _
             | ClassExpr _
+            | Verbatim _
                 -> fail()
     
     and evalSt s =
