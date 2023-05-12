@@ -1448,15 +1448,29 @@ type JSHtml() =
 
     override this.Process(stringParts, holes) = 
         let l = stringParts.Length - 1
+        let mutable useBraces = false
+        let withBeginBrace (s: string) =
+            useBraces <- not (s.EndsWith "<" || s.EndsWith "</")
+            if useBraces then
+                s + "{"
+            else
+                s
+        let withEndBrace (s: string) =
+            if useBraces then
+                "}" + s
+            else
+                s
         let addedBraces =
             stringParts
             |> List.mapi (fun i s ->
                 if i = 0 then
-                    if l > 0 then s + "{" else s
+                    if l > 0 then 
+                        s |> withBeginBrace
+                    else s
                 elif i = l then
-                    "}" + s
+                    s |> withEndBrace
                 else
-                    "}" + s + "{" 
+                    s |> withEndBrace |> withBeginBrace
             )
         Verbatim(addedBraces, holes, true) |> MacroOk
 

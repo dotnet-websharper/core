@@ -738,7 +738,10 @@ let Tests =
         }
 
         //Test "JS.Html" {
-        //    let x = "hello"
-        //    raises (JS.Html $"<div>{x}</div>")
+        //    let html =
+        //        let x = "hello"
+        //        let kecske x = JS.Html $"<div>{x?children}</div>" 
+        //        JS.Html $"<{kecske}>{x}</{kecske}>"
+        //    ()
         //}
     }
