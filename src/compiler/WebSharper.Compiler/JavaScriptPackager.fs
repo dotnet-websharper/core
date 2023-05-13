@@ -268,7 +268,43 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         | [] -> { address with Module = ImportedModule i }
                         | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
                     GlobalAccess importedAddress
+                | NpmPackage p ->
+                    let importWhat, importAs =
+                        let fromModuleName() = (p.Split('/') |> Array.last).Replace('.', '_').Replace('`', '_')
+                        match address.Address with
+                        | [] -> 
+                            "*", fromModuleName()
+                        | a -> 
+                            let n = List.last a
+                            if n = "default" then
+                                n, fromModuleName()
+                            else
+                                n, n
+                    let m = { Assembly = ""; Name = p }
+                    let moduleImports =
+                        match imports.TryGetValue m with
+                        | true, mi -> mi
+                        | _ ->
+                            let mi = Dictionary()
+                            imports.Add(m, mi)
+                            mi
+                    let i =
+                        match moduleImports.TryGetValue importWhat with
+                        | true, i -> i
+                        | _ ->
+                            let i = Id.New(importAs)
+                            moduleImports.Add(importWhat, i)
+                            i
+                    let importedAddress =
+                        match address.Address with
+                        | [] -> { address with Module = ImportedModule i }
+                        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
+                    GlobalAccess importedAddress
                 | DotNetType m ->
+                    //let m = 
+                    //    match output with
+                    //    | O.JavaScript -> { m with Name = m.Name + ".js" }
+                    //    | _ -> m
                     if currentScope.Contains m then
                         match address.Address |> List.rev with
                         | [] ->
@@ -316,7 +352,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             
             // TODO: remove, safety check only
             match res with 
-            | GlobalAccess { Module = JavaScriptModule _ | DotNetType _ } ->
+            | GlobalAccess { Module = JavaScriptModule _ | DotNetType _ | NpmPackage _ } ->
                 failwithf "unexpected import result for %A" address
             | _ -> ()
             
@@ -332,6 +368,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
         | JavaScriptModule _ 
+        | NpmPackage _
         | DotNetType _ ->
             let a = if a.Address.IsEmpty then { a with Address = [ "default" ] } else a
             match getOrImportAddress a with
@@ -349,6 +386,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     TSType.Imported(i, [])
             | _ ->
                 TSType.Named t
+        
         | ImportedModule v -> TSType.Imported(v, t)
 
     let lookupType (t: TypeDefinition) =
@@ -1185,12 +1223,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     | O.JavaScript -> ".js"
                     | _ -> ""
                 let fromModule =
-                    if not isSingleType then
-                        "./" + m.Assembly + "/" + m.Name + ext   
+                    if m.Assembly = "" then
+                        m.Name
+                    elif not isSingleType then
+                        "./" + m.Assembly + "/" + m.Name + ext  
                     elif m.Assembly = asmName then
-                        "./" + m.Name + ext
+                        "./" + m.Name + ext  
                     else
-                        "../" + m.Assembly + "/" + m.Name + ext
+                        "../" + m.Assembly + "/" + m.Name + ext  
                 declarations.Add(Import(defaultImport, fullImport, namedImports, fromModule))
 
         List.ofSeq (Seq.concat [ declarations; statements ])

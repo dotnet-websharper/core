@@ -736,12 +736,4 @@ let Tests =
             let x = 2
             equal (JS.Verbatim $"{x} * {x}") 4
         }
-
-        //Test "JS.Html" {
-        //    let html =
-        //        let x = "hello"
-        //        let kecske x = JS.Html $"<div>{x?children}</div>" 
-        //        JS.Html $"<{kecske}>{x}</{kecske}>"
-        //    ()
-        //}
     }

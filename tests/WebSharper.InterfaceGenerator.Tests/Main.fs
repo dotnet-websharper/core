@@ -112,14 +112,21 @@ module Definition =
 
     let WIGtest4 =
         Class "WIGtest4"
-        |> ImportDefault "WIGtest4.js"
+        |> ImportDefault "./WIGtest4.js"
         |+> Instance [
             "sayHiInst" => String ^-> String
         ]
         |+> Static [
             Constructor O
             "sayHiStatic" => String ^-> String
-            "sayHiFunc" => String ^-> String |> Import "sayHi" "WIGtest4.js"
+            "sayHiFunc" => String ^-> String |> Import "sayHi" "./WIGtest4.js"
+        ]
+
+    let NPMTest =
+        Class "NPMTest"
+        |> ImportDefault "NPMTest"
+        |+> Static [
+            "sayHiStatic" => String ^-> String
         ]
 
     let WIGtestGeneric =
@@ -240,6 +247,7 @@ module Definition =
                  WIGtest2
                  WIGtest3
                  WIGtest4
+                 NPMTest
                  WIGtestGeneric
                  ConfigObj
                  OneBasedArr

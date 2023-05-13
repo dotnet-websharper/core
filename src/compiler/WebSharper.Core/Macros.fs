@@ -1661,30 +1661,26 @@ type ImportJS() =
     inherit Macro()
 
     override __.TranslateCall(c) =
-        let defAsm (from: string) =
-            match from.IndexOf('/') with
-            | -1 -> c.Compilation.AssemblyName + "/" + from
-            | _ -> from
         match c.Method.Entity.Value.MethodName with
         | "Import" ->
             match c.Arguments with
             | [I.Value (String export); I.Value (String from)] ->
                 if JavaScript.Identifier.IsValid export || export = "*" then
-                    c.Compilation.AddJSImport (Some export, defAsm from) |> MacroOk
+                    c.Compilation.AddJSImport (Some export, from) |> MacroOk
                 elif export = "default" then
-                    c.Compilation.AddJSImport (None, defAsm from) |> MacroOk                
+                    c.Compilation.AddJSImport (None, from) |> MacroOk                
                 else
                     MacroError "JS.Import `export` argument must be a valid identifier"
             | _ -> MacroError "JS.Import arguments must be constant string"
         | "ImportDefault" ->
             match c.Arguments with
             | [I.Value (String from)] ->
-                c.Compilation.AddJSImport (None, defAsm from) |> MacroOk
+                c.Compilation.AddJSImport (None, from) |> MacroOk
             | _ -> MacroError "JS.ImportDefault arguments must be constant string"
         | "ImportAll" ->
             match c.Arguments with
             | [I.Value (String from)] ->
-                c.Compilation.AddJSImport (Some "*", defAsm from) |> MacroOk
+                c.Compilation.AddJSImport (Some "*", from) |> MacroOk
             | _ -> MacroError "JS.ImportAll argument must be constant string"
         | _ ->
             failwith "Unrecognized method using ImportJS"

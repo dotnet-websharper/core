@@ -1022,6 +1022,7 @@ type Module =
     | JavaScriptFile of CodeResource
     | JavaScriptModule of CodeResource
     | DotNetType of CodeResource
+    | NpmPackage of string
     | ImportedModule of Id
 
     override this.ToString() =
@@ -1030,6 +1031,7 @@ type Module =
         | JavaScriptFile r
         | JavaScriptModule r -> string r
         | DotNetType r -> string r
+        | NpmPackage p -> string p
         | ImportedModule i -> string i
 
 type PlainAddress = Hashed<list<string>>
@@ -1046,6 +1048,7 @@ type Address =
         | JavaScriptFile _ -> "globalThis."
         | JavaScriptModule c 
         | DotNetType c -> string c + "::"
+        | NpmPackage p -> p
         | ImportedModule i -> string i + "::"
         + (this.Address |> List.rev |> String.concat ".")
 
@@ -1121,12 +1124,18 @@ module Address =
     let Import asmName (export: string option, from: string) = 
         let from = if from.EndsWith ".js" then from.[.. from.Length - 4] else from
         let m =
-            match from.IndexOf('/') with
-            | -1 -> { Assembly = asmName; Name = from }
-            | i -> { Assembly = from[ .. i - 1]; Name = from[i + 1 ..] }
+            if from.StartsWith("./") then
+                JavaScriptModule { Assembly = asmName; Name = from[2 ..] }
+            elif from.StartsWith("../") then    
+                let from = from[3 ..]
+                match from.IndexOf('/') with
+                | -1 -> JavaScriptModule { Assembly = asmName; Name = from }
+                | i -> JavaScriptModule { Assembly = from[ .. i - 1]; Name = from[i + 1 ..] }
+            else    
+                NpmPackage from
         match export with
-        | None -> { Module = JavaScriptModule m; Address = Instances.DefaultAddress }
-        | Some x -> { Module = JavaScriptModule m; Address = [ x ] }
+        | None -> { Module = m; Address = Instances.DefaultAddress }
+        | Some x -> { Module = m; Address = [ x ] }
 
     /// Recognizes a WebSharper Runtime address
     let (|Runtime|_|) (a: Address) =

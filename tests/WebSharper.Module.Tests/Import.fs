@@ -27,12 +27,12 @@ open WebSharper.Testing
 [<JavaScript>]
 let mA, mB = 1, 2
 
-[<Stub; Import "sayHi.js">]
+[<Stub; Import "./sayHi.js">]
 type MyClassStub() =
     member this.sayHiInst(user: string) = X<string>
     static member sayHiStatic(user: string) = X<string>
 
-[<Import "sayHi.js">]
+[<Import "./sayHi.js">]
 type MyClassInline [<Inline "new $import()">] () =
     [<Inline "$this.sayHiInst($user)">]
     member this.sayHiInst(user: string) = X<string>
@@ -40,34 +40,46 @@ type MyClassInline [<Inline "new $import()">] () =
     static member sayHiStatic(user: string) = X<string>
 
 [<JavaScript>]
+module JSXTest =
+    let html() =
+        let x = "hello"
+        let kecske x = JS.Html $"<div>{x?children}</div>" 
+        JS.Html $"<h1>{x}</h1><{kecske}>{x}</{kecske}>"
+
+[<JavaScript>]
+module NPMTest =
+    let npmImportTest() =
+        WebSharper.InterfaceGenerator.Tests.NPMTest.SayHiStatic "World"
+
+[<JavaScript>]
 let Tests =
     TestCategory "Import" {
 
         Test "JS.Import" {
-            let sayHi = JS.Import<string -> string>("sayHi", "sayHi.js")
+            let sayHi = JS.Import<string -> string>("sayHi", "./sayHi.js")
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import default" {
-            let sayHiClass = JS.Import<obj>("default", "sayHi.js")
+            let sayHiClass = JS.Import<obj>("default", "./sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportDefault" {
-            let sayHiClass = JS.ImportDefault<obj>("sayHi.js")
+            let sayHiClass = JS.ImportDefault<obj>("./sayHi.js")
             let sayHi = sayHiClass?sayHiStatic : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.Import *" {
-            let sayHiModule = JS.Import<obj>("*", "sayHi.js")
+            let sayHiModule = JS.Import<obj>("*", "./sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
 
         Test "JS.ImportAll" {
-            let sayHiModule = JS.ImportAll<obj>("sayHi.js")
+            let sayHiModule = JS.ImportAll<obj>("./sayHi.js")
             let sayHi = sayHiModule?sayHi : string -> string
             equal (sayHi "World") "Hello, World!"
         }
