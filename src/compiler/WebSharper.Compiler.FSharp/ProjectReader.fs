@@ -414,7 +414,13 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         mdef.Value.Parameters,
                         mdef.Value.ReturnType
                     )
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true None Undefined
+                let vars =
+                    Seq.concat meth.CurriedParameterGroups
+                    |> Seq.map (fun p ->
+                        Id.New(?name = p.Name, mut = false)
+                    ) 
+                    |> List.ofSeq
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 

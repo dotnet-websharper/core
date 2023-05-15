@@ -244,12 +244,6 @@ let removeEmptyVarsSt (s: Statement) =
 //            collectCurriedTr.TransformExpression body
 //    else   
 //        collectCurriedTr.TransformExpression body
-
-let defaultRemotingProvider =
-    TypeDefinition {
-        Assembly = "WebSharper.Main"
-        FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
-    }, ConstructorInfo.Default(), []
     
 let private getItem n x = ItemGet(x, Value (String n), Pure)
 let private getIndex n x = ItemGet(x, Value (Int n), Pure)
@@ -352,21 +346,6 @@ type GenericInlineResolver (generics, tsGenerics) =
             ret |> Option.map subs, 
             body |> this.TransformStatement
         )
-
-let private objTy = NonGenericType Definitions.Obj
-
-let rpcMethodNode name ret =
-    M.AbstractMethodNode (Definitions.IRemotingProvider, Method {
-        MethodName = name
-        Parameters = [ NonGenericType Definitions.String; ArrayType (objTy, 1) ]
-        ReturnType = ret
-        Generics = 0       
-    })
-
-let private syncRpcMethodNode = rpcMethodNode "Sync" objTy
-let private asyncRpcMethodNode = rpcMethodNode "Async" (GenericType Definitions.Async [objTy])
-let private taskRpcMethodNode = rpcMethodNode "Task" (GenericType Definitions.Task1 [objTy])
-let private sendRpcMethodNode = rpcMethodNode "Send" VoidType
 
 let private wsEnumerableArray =
     NonGeneric <| TypeDefinition {
@@ -1131,50 +1110,9 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     boundVars.Remove v |> ignore
                     getExpr mres
             getExpr macroResult
-        | M.Remote (kind, handle, rh) ->
-            let name, mnode =
-                match kind with
-                | M.RemoteAsync -> "Async", asyncRpcMethodNode
-                | M.RemoteTask -> "Task", taskRpcMethodNode
-                | M.RemoteSend -> "Send", sendRpcMethodNode
-                | M.RemoteSync -> "Sync", syncRpcMethodNode
-            let remotingProvider =
-                let rpTyp, rpCtor, rpArgs =
-                    match rh with
-                    | Some (rp, p) -> 
-                        let paramInfo =
-                            let getParamInfo o = 
-                                let v = o |> M.ParameterObject.ToObj 
-                                let argType = 
-                                    if isNull v then 
-                                        NonGenericType Definitions.String 
-                                    else 
-                                        Reflection.ReadType (v.GetType())
-                                argType, v |> ReadLiteral |> Value
-                            match p with
-                            | None -> []
-                            | Some (M.ParameterObject.Array ps) ->
-                                ps |> Seq.map getParamInfo |> List.ofSeq   
-                            | Some p ->
-                                [ getParamInfo p ]
-                        rp, Constructor { CtorParameters = paramInfo |> List.map fst }, paramInfo |> List.map snd 
-                    | _ -> defaultRemotingProvider   
-                this.TransformCtor(NonGeneric rpTyp, rpCtor, rpArgs) 
-            if comp.HasGraph then
-                this.AddDependency(mnode)
-                let rec addTypeDeps (t: Type) =
-                    match t with
-                    | ConcreteType c ->
-                        this.AddDependency(M.TypeNode c.Entity)
-                        if not (comp.HasType c.Entity) && not (c.Entity.Value.FullName.StartsWith("<>f__AnonymousType")) then
-                            this.Warning("Remote method is returning a type which is not fully supported on client side. Add a JavaScript attribute or proxy for " + c.Entity.Value.FullName)
-                        c.Generics |> List.iter addTypeDeps
-                    | ArrayType(t, _) -> addTypeDeps t
-                    | TupleType (ts, _) -> ts |> List.iter addTypeDeps
-                    | _ -> ()
-                addTypeDeps meth.Entity.Value.ReturnType
-            Appl (remotingProvider |> getItem name, [ Value (String (handle.Pack())); NewArray (trArgs()) ], opts.Purity, Some 2)
-        //| M.NewIndexed _ -> failwith "Not a valid method info: IndexedConstructor"
+        | M.Remote (name, _) ->
+            let func = this.Static(typ, name, true)
+            ApplTyped(func, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
         | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
@@ -1329,7 +1267,8 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     JSRuntime.SetterOf (this.Static(typ)) name      
                 | MemberKind.Simple ->
                     this.Static(typ, name)
-            | M.Func (name, _) ->
+            | M.Func (name, _)
+            | M.Remote (name, _) ->
                 this.Static(typ, name, true)   
             | M.GlobalFunc (address, _) ->
                 GlobalAccess address
@@ -1348,9 +1287,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     JSRuntime.BindDelegate func (this.TransformExpression thisObj.Value) 
                 | _ -> this.Error ("Cannot look up prototype for delegate creating")
             | M.Inline _ 
-            | M.Macro _ 
-            | M.Remote _ -> inlined()
-            //| M.NewIndexed _
+            | M.Macro _ -> inlined()
             | M.New _ -> failwith "impossible"
         | CustomTypeMember _ -> inlined()
         | LookupMemberError err -> this.Error err

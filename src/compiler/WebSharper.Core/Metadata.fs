@@ -116,7 +116,7 @@ type CompiledMember =
     | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
-    | Remote of kind:RemotingKind * handle:MethodHandle * remotingProvider:option<TypeDefinition * option<ParameterObject>>
+    | Remote of name:string * handle:MethodHandle
 
 type CompiledField =
     | InstanceField of name:string
@@ -569,7 +569,7 @@ module internal Utilities =
             c |> Option.iter (fun c ->
             for KeyValue(mDef, m) in c.Methods do
                 match ignoreMacro m.CompiledForm with
-                | Remote (_, handle, _) ->
+                | Remote (_, handle) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()
             )
@@ -631,7 +631,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "7.0-beta2"
+    let CurrentVersion = "7.0-beta2-rev1"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

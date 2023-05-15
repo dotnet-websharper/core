@@ -1610,13 +1610,13 @@ type Compilation(meta: Info, ?hasGraph) =
                     else
                         New (Some n)
                 | N.AsStatic -> Func (n, true)
+                | N.Remote (_, h, _, _) -> Remote(n, h)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 
         let compiledNoAddressMember (nr : NotResolvedMethod) =
             match nr.Kind with
             | N.Inline ta -> Inline (true, ta)
-            | N.Remote (k, h, r) -> Remote (k, h, r |> Option.map (fun (t, p) -> t, p |> Option.map ParameterObject.OfObj))
             | N.NoFallback -> Inline (true, false) // will be erased
             | _ -> failwith "Invalid not compiled member kind"
             |> withMacros nr
@@ -1742,6 +1742,7 @@ type Compilation(meta: Info, ?hasGraph) =
                         | N.InlineImplementation _ -> None, Some false, false
                         | N.Static
                         | N.AsStatic
+                        | N.Remote _
                         | N.Constructor -> sn, Some true, false
                         | N.Quotation (pos, argNames) -> 
                             match m with 
@@ -1753,7 +1754,6 @@ type Compilation(meta: Info, ?hasGraph) =
                                         pos.FileName (fst pos.Start) (snd pos.Start) (fst pos.End) (snd pos.End)
                             | _ -> failwith "Quoted javascript code must be inside a method"
                             sn, Some true, false 
-                        | N.Remote _
                         | N.Inline _
                         | N.NoFallback -> None, None, false
                     | M.Field (_, { StrongName = sn; IsStatic = s }) -> 
@@ -1918,6 +1918,27 @@ type Compilation(meta: Info, ?hasGraph) =
                         | _ -> name, k
                 | _ -> name, k
 
+        let objTy = NonGenericType Definitions.Obj
+
+        let rpcMethod name ret =
+            Method {
+                MethodName = name
+                Parameters = [ NonGenericType Definitions.String; ArrayType (objTy, 1) ]
+                ReturnType = ret
+                Generics = 0       
+            }
+
+        let syncRpcMethod = rpcMethod "Sync" objTy
+        let asyncRpcMethod = rpcMethod "Async" (GenericType Definitions.Async [objTy])
+        let taskRpcMethod = rpcMethod "Task" (GenericType Definitions.Task1 [objTy])
+        let sendRpcMethod = rpcMethod "Send" VoidType
+
+        let defaultRemotingProvider =
+            TypeDefinition {
+                Assembly = "WebSharper.Main"
+                FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
+            }, ConstructorInfo.Default(), []
+
         let nameStaticMember typ name k m = 
             let res = assumeClass typ
             match m with
@@ -1941,13 +1962,66 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Field (fName, nr) ->
                 res.Fields.Add(fName, { CompiledForm = StaticField name; ReadOnly = nr.IsReadonly; Type = nr.FieldType; Order = nr.Order })
             | M.Method (mDef, nr) ->
+                let body = 
+                    match nr.Kind with
+                    | N.Remote (kind, handle, args, rh) ->
+
+                        let name, m =
+                            match kind with
+                            | RemoteAsync -> "Async", asyncRpcMethod
+                            | RemoteTask -> "Task", taskRpcMethod
+                            | RemoteSend -> "Send", sendRpcMethod
+                            | RemoteSync -> "Sync", syncRpcMethod
+                        let remotingProvider =
+                            let rpTyp, rpCtor, rpArgs =
+                                match rh with
+                                | Some (rp, p) -> 
+                                    let p = p |> Option.map ParameterObject.OfObj
+                                    let paramInfo =
+                                        let getParamInfo o = 
+                                            let v = o |> ParameterObject.ToObj 
+                                            let argType = 
+                                                if isNull v then 
+                                                    NonGenericType Definitions.String 
+                                                else 
+                                                    Reflection.ReadType (v.GetType())
+                                            argType, v |> ReadLiteral |> Value
+                                        match p with
+                                        | None -> []
+                                        | Some (ParameterObject.Array ps) ->
+                                            ps |> Seq.map getParamInfo |> List.ofSeq   
+                                        | Some p ->
+                                            [ getParamInfo p ]
+                                    rp, Constructor { CtorParameters = paramInfo |> List.map fst }, paramInfo |> List.map snd 
+                                | _ -> defaultRemotingProvider   
+                            Ctor(NonGeneric rpTyp, rpCtor, rpArgs) 
+                        
+                        let mNode = MethodNode(typ, mDef)
+                        if hasGraph then
+                            //graph.AddEdge()
+                            let rec addTypeDeps (t: Type) =
+                                match t with
+                                | ConcreteType c ->
+                                    graph.AddEdge(mNode, TypeNode c.Entity)
+                                    if not (this.HasType c.Entity) && not (c.Entity.Value.FullName.StartsWith("<>f__AnonymousType")) then
+                                        warnings.Add(None, CompilationWarning.SourceWarning ("Remote method is returning a type which is not fully supported on client side. Add a JavaScript attribute or proxy for " + c.Entity.Value.FullName))
+                                    c.Generics |> List.iter addTypeDeps
+                                | ArrayType(t, _) -> addTypeDeps t
+                                | TupleType (ts, _) -> ts |> List.iter addTypeDeps
+                                | _ -> ()
+                            addTypeDeps mDef.Value.ReturnType
+                        
+                        let callRP = Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, [ Value (String (handle.Pack())); NewArray (args |> List.map Var) ]) 
+                        Function(args, None, None, Return callRP)
+                    | _ ->
+                        nr.Body
                 let comp = compiledStaticMember name k res.HasWSPrototype typ nr
                 if nr.Compiled then 
                     let isPure =
-                        nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction nr.Body)
-                    res.Methods |> addMethod typ mDef { CompiledForm = comp; Optimizations = opts isPure nr; Generics = nr.Generics; Expression = nr.Body }
+                        nr.Pure || (notVirtual nr.Kind && Option.isNone res.StaticConstructor && isPureFunction body)
+                    res.Methods |> addMethod typ mDef { CompiledForm = comp; Optimizations = opts isPure nr; Generics = nr.Generics; Expression = body }
                 else
-                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, nr.Body)
+                    compilingMethods |> addCMethod (typ, mDef) (toCompilingMember nr comp, nr.Generics, body)
             | M.StaticConstructor st ->                
                 compilingStaticConstructors.Add(typ, st)
         

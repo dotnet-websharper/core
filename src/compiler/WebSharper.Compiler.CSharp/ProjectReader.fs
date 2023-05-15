@@ -588,24 +588,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Virtual or override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
-        | Some (A.MemberKind.Remote rp) -> 
-            let memdef = sr.ReadMember meth
-            match memdef with
-            | Member.Method (isInstance, mdef) ->
-                let remotingKind =
-                    match mdef.Value.ReturnType with
-                    | VoidType -> RemoteSend
-                    | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
-                    | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
-                    | _ -> RemoteSync // TODO: warning
-                let handle = 
-                    comp.GetRemoteHandle(
-                        def.Value.FullName + "." + mdef.Value.MethodName,
-                        mdef.Value.Parameters,
-                        mdef.Value.ReturnType
-                    )
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, rp)) true Undefined
-            | _ -> error "Only methods can be defined Remote"
         | Some kind ->
             let memdef = sr.ReadMember meth
             let mutable makeInline = false
@@ -1193,7 +1175,21 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Generated _ ->
                     addMethod (Some (meth, memdef)) mAnnot mdef (getKind()) false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
-                | A.MemberKind.Remote _ 
+                | A.MemberKind.Remote rp -> 
+                    let remotingKind =
+                        match mdef.Value.ReturnType with
+                        | VoidType -> RemoteSend
+                        | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
+                        | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
+                        | _ -> RemoteSync // TODO: warning
+                    let handle = 
+                        comp.GetRemoteHandle(
+                            def.Value.FullName + "." + mdef.Value.MethodName,
+                            mdef.Value.Parameters,
+                            mdef.Value.ReturnType
+                        )
+                    let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
+                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false Undefined
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])
@@ -1246,7 +1242,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                 | A.MemberKind.Generated _ ->
                     addConstructor (Some (meth, memdef)) mAnnot cdef N.Static false Undefined
                 | A.MemberKind.AttributeConflict m -> error m
-                | A.MemberKind.Remote _ 
+                | A.MemberKind.Remote _ -> failwith "a constructor should not be marked Remote"
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 | A.MemberKind.OptionalField
                 | A.MemberKind.Constant _ -> failwith "attribute not allowed on constructors"

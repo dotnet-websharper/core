@@ -703,6 +703,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                     members.Add <| ClassProperty(info, mname, getSignature false |> addGenerics (cgen @ mgen), implExprOpt (fun () -> body))
             | M.Func (fname, fromInst) ->
                 func fromInst (currentClassAddr.Func(fname))
+            | M.Remote (fname, _) ->
+                func false (currentClassAddr.Func(fname))
             | M.GlobalFunc (addr, fromInst) ->
                 func fromInst addr
             | _ -> ()
