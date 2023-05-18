@@ -167,7 +167,7 @@ type AjaxRemotingProvider() =
                             reg.Dispose()
                             err e
                     AjaxProvider.Async this.EndPoint headers payload ok err)
-            return! Json.ActivateAsync (Json.Parse data)
+            return Json.Parse data
         }
 
     interface IRemotingProvider with

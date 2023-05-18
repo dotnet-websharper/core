@@ -1939,6 +1939,44 @@ type Compilation(meta: Info, ?hasGraph) =
                 FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
             }, ConstructorInfo.Default(), []
 
+        let webSharperJson =
+            TypeDefinition {
+                Assembly = "WebSharper.Main"
+                FullName = "WebSharper.TypedJson"
+            } 
+
+        let encodeMethod = 
+            Method {
+                MethodName = "Encode"
+                Parameters = [ TypeParameter 0 ]
+                ReturnType = NonGenericType Definitions.Obj
+                Generics = 1       
+            }
+
+        let decodeMethod = 
+            Method {
+                MethodName = "Decode"
+                Parameters = [ NonGenericType Definitions.Obj ]
+                ReturnType = TypeParameter 0
+                Generics = 1       
+            }
+
+        let decodeAsyncMethod = 
+            Method {
+                MethodName = "DecodeAsync"
+                Parameters = [ GenericType Definitions.FSharpAsync [ NonGenericType Definitions.Obj ] ]
+                ReturnType = GenericType Definitions.FSharpAsync [ TypeParameter 0 ]
+                Generics = 1       
+            }
+
+        let decodeTaskMethod = 
+            Method {
+                MethodName = "DecodeTask"
+                Parameters = [ GenericType Definitions.Task1 [ NonGenericType Definitions.Obj ] ]
+                ReturnType = GenericType Definitions.Task1 [ TypeParameter 0 ]
+                Generics = 1       
+            }
+
         let nameStaticMember typ name k m = 
             let res = assumeClass typ
             match m with
@@ -1998,7 +2036,6 @@ type Compilation(meta: Info, ?hasGraph) =
                         
                         let mNode = MethodNode(typ, mDef)
                         if hasGraph then
-                            //graph.AddEdge()
                             let rec addTypeDeps (t: Type) =
                                 match t with
                                 | ConcreteType c ->
@@ -2011,7 +2048,25 @@ type Compilation(meta: Info, ?hasGraph) =
                                 | _ -> ()
                             addTypeDeps mDef.Value.ReturnType
                         
-                        let callRP = Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, [ Value (String (handle.Pack())); NewArray (args |> List.map Var) ]) 
+                        let encodedArgs =
+                            (args, mDef.Value.Parameters) ||> List.map2 (fun a p ->
+                                Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
+                            )
+
+                        let decode x =
+                            match kind with
+                            | RemoteAsync -> Call(None, NonGeneric webSharperJson, Generic decodeAsyncMethod [ mDef.Value.ReturnType ], [ x ])
+                            | RemoteTask -> Call(None, NonGeneric webSharperJson, Generic decodeTaskMethod [ mDef.Value.ReturnType ], [ x ])
+                            | RemoteSend -> x
+                            | RemoteSync -> Call(None, NonGeneric webSharperJson, Generic decodeMethod [ mDef.Value.ReturnType ], [ x ])
+
+                        let callRP = 
+                            Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, 
+                            [ 
+                                Value (String (handle.Pack()))
+                                NewArray encodedArgs 
+                            ]) 
+                            |> decode
                         Function(args, None, None, Return callRP)
                     | _ ->
                         nr.Body

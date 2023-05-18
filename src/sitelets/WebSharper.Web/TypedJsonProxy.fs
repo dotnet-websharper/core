@@ -23,6 +23,7 @@ namespace WebSharper
 open WebSharper.JavaScript
 open WebSharper.ClientSideJson
 open WebSharper.ClientSideJson.Macro
+open System.Threading.Tasks
 
 [<Proxy(typeof<WebSharper.Json>)>]
 type internal TypedJsonProxy =
@@ -38,3 +39,11 @@ type internal TypedJsonProxy =
 
     [<Macro(typeof<SerializeMacro>)>]
     static member Deserialize<'T> (x: string) = X<'T>
+
+    [<Inline>]
+    static member DecodeAsync<'T> (x: Async<obj>) : Async<'T> =
+        async.Bind(x, fun o -> async.Return (Json.Decode<'T> o))
+
+    [<Inline>]
+    static member DecodeTask<'T> (x: Task<obj>) : Task<'T> =
+        x.ContinueWith(System.Func<Task<obj>, 'T>(Json.Decode<'T>))
