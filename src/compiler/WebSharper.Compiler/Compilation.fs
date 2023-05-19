@@ -1941,7 +1941,7 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let webSharperJson =
             TypeDefinition {
-                Assembly = "WebSharper.Main"
+                Assembly = "WebSharper.Core"
                 FullName = "WebSharper.TypedJson"
             } 
 

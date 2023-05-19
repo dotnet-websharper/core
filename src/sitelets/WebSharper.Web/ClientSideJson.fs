@@ -374,10 +374,11 @@ module Macro =
             let addTypeDep td = param.Dependencies.Add (M.TypeNode td)
             let comp = param.Compilation
             let call = invoke comp isEnc
-            let ident = invokeId comp 
+            let ident = lazy invokeId comp 
             let isIdent r =
+                ident.IsValueCreated &&
                 match r with 
-                | Choice1Of3 e when obj.ReferenceEquals(e, ident) -> true
+                | Choice1Of3 e when obj.ReferenceEquals(e, ident.Value) -> true
                 | _ -> false
             let rec encode t =
                 match t with
@@ -403,11 +404,11 @@ module Macro =
                             | "System.Single"  | "System.Double"
                             | "System.String"  | "System.Guid"
                             | "WebSharper.Core.Json+Encoded"), []) ->
-                    ok ident
+                    ok ident.Value
                 | C (T "System.Object", []) ->
                     if isEnc then 
                         fail "JSON serialization for System.Object is not supported; only deserialization." 
-                    else ok ident
+                    else ok ident.Value
                 | C (T "Microsoft.FSharp.Collections.FSharpList`1", [t]) ->
                     encode t >>= fun e ->
                     ok (call "List" [e])
@@ -451,7 +452,7 @@ module Macro =
                     let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
                     match comp.GetMetadataEntries key with                    
                     | M.StringEntry "id" :: _ ->
-                        ok ident
+                        ok ident.Value
                     | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                         Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                     | _ ->
@@ -461,7 +462,7 @@ module Macro =
                             let enc = encRecType t args es
                             if isIdent enc then
                                 comp.AddMetadataEntry(key, M.StringEntry "id")
-                                comp.AddGeneratedInline(gm, ident)
+                                comp.AddGeneratedInline(gm, ident.Value)
                                 enc
                             else
                                 enc >>= fun e ->
@@ -494,7 +495,7 @@ module Macro =
             and encRecType t targs args =
                 let td = t.TypeDefinition
                 match comp.GetCustomTypeInfo td with
-                | M.EnumInfo _ -> ok ident
+                | M.EnumInfo _ -> ok ident.Value
                 | M.FSharpRecordInfo fields ->
                     let fieldEncoders =
                         fields
@@ -526,7 +527,7 @@ module Macro =
                     if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                         fo <> OptionalFieldKind.NormalOption && isIdent fe
                     )
-                    then ok ident
+                    then ok ident.Value
                     else
                         ((fun es ->
                             let es, tts = List.unzip es
@@ -714,7 +715,7 @@ module Macro =
                         if pr = Undefined && fieldEncoders |> List.forall (fun (_, fo, fe) ->
                             fo <> OptionalFieldKind.NormalOption && isIdent fe
                         )
-                        then ok ident
+                        then ok ident.Value
                         else
                             ((fun es ->
                                 let es, tts = List.unzip es
