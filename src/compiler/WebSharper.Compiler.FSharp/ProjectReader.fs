@@ -414,12 +414,15 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         mdef.Value.Parameters,
                         mdef.Value.ReturnType
                     )
+                let pars = Seq.concat meth.CurriedParameterGroups |> List.ofSeq
                 let vars =
-                    Seq.concat meth.CurriedParameterGroups
-                    |> Seq.map (fun p ->
-                        Id.New(?name = p.Name, mut = false)
-                    ) 
-                    |> List.ofSeq
+                    match pars with 
+                    | [ u ] when CodeReader.isUnit u.Type -> []
+                    | _ ->
+                        pars
+                        |> List.map (fun p ->
+                            Id.New(?name = p.Name, mut = false)
+                        ) 
                 addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()

@@ -537,6 +537,37 @@ module Macro =
                                 fe >>= fun e ->
                                 k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
                         <| []
+                | M.FSharpAnonRecordInfo fields ->
+                    let fieldTypes =
+                        match t with
+                        | ConcreteType { Generics = ft } -> ft
+                        | _ -> failwith ("Field types not found for F# anonymous record " + t.TypeDefinition.Value.FullName)
+                    let fieldEncoders =
+                        (fields, fieldTypes)
+                        ||> List.map2 (fun f t ->
+                            let t, optionKind =
+                                match t with
+                                | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "Microsoft.FSharp.Core.FSharpOption`1" ->
+                                    p, OptionalFieldKind.NormalOption 
+                                | ConcreteType { Entity = d; Generics = [p] } when d.Value.FullName = "WebSharper.JavaScript.Optional`1" ->
+                                    p, OptionalFieldKind.ErasedOption
+                                | t ->    
+                                    t, OptionalFieldKind.NotOption
+                            f, optionKind, encode (t.SubstituteGenerics (Array.ofList targs))
+                        )  
+                    if fieldEncoders |> List.forall (fun (_, fo, fe) ->
+                        fo <> OptionalFieldKind.NormalOption && isIdent fe
+                    )
+                    then ok ident.Value
+                    else
+                        ((fun es ->
+                            let es, tts = List.unzip es
+                            ok (call "Record" [Undefined; NewArray es])
+                            ), fieldEncoders)
+                        ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                fe >>= fun e ->
+                                k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                        <| []
                 // TODO: handle nested case type (possible when using from C#)
                 | M.FSharpUnionInfo u ->
                     let tryGetInlinableRecordInfo (uci: M.FSharpUnionCaseInfo) =
