@@ -2054,11 +2054,28 @@ type Compilation(meta: Info, ?hasGraph) =
                             )
 
                         let decode x =
+                            let returnTypePlain() =
+                                match mDef.Value.ReturnType with
+                                | ConcreteType c ->
+                                    match c.Generics with
+                                    | [] -> None
+                                    | t :: _ ->
+                                        if t = Type.VoidType then None else Some t
+                                | _ -> failwith "Expecting Async or Task return type"
+                            let decoded dm arg =
+                                Call(None, NonGeneric webSharperJson, Generic dm [ arg ], [ x ])
                             match kind with
-                            | RemoteAsync -> Call(None, NonGeneric webSharperJson, Generic decodeAsyncMethod [ mDef.Value.ReturnType ], [ x ])
-                            | RemoteTask -> Call(None, NonGeneric webSharperJson, Generic decodeTaskMethod [ mDef.Value.ReturnType ], [ x ])
+                            | RemoteAsync -> 
+                                match returnTypePlain() with
+                                | Some t -> decoded decodeAsyncMethod t
+                                | _ -> x
+                            | RemoteTask -> 
+                                match returnTypePlain() with
+                                | Some t -> decoded decodeTaskMethod t
+                                | _ -> x
                             | RemoteSend -> x
-                            | RemoteSync -> Call(None, NonGeneric webSharperJson, Generic decodeMethod [ mDef.Value.ReturnType ], [ x ])
+                            | RemoteSync -> 
+                                decoded decodeMethod mDef.Value.ReturnType
 
                         let callRP = 
                             Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, 

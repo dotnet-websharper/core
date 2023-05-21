@@ -46,4 +46,4 @@ type internal TypedJsonProxy =
 
     [<Inline>]
     static member DecodeTask<'T> (x: Task<obj>) : Task<'T> =
-        x.ContinueWith(System.Func<Task<obj>, 'T>(Json.Decode<'T>))
+        x.ContinueWith(System.Func<Task<obj>, 'T>(fun t -> Json.Decode<'T>(t.Result)))

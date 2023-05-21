@@ -87,7 +87,7 @@ let Middleware (options: WebSharperOptions) =
         match service with
         | :? IRemotingService as s -> s.Handler
         | _ -> null
-    let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
+    let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
         match handleRemote ctx server options with
         | Some rTask -> rTask
@@ -116,7 +116,7 @@ let HttpHandler () : RemotingHttpHandler =
                     match service with
                     | :? IRemotingService as s -> s.Handler
                     | _ -> null
-                let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
+                let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
             
                 match handleRemote httpCtx server options with
                 | Some handle ->
