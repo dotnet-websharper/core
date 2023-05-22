@@ -2586,7 +2586,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 ResourceHashes = Dictionary()
                 ExtraBundles = this.AllExtraBundles
             }    
-        let jP = Json.Provider.CreateTyped(info)
+        let jP = Json.ServerSideProvider
         let st = Verifier.State(jP)
         for KeyValue(t, cls) in classes.Current do
             match cls with
