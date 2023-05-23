@@ -612,16 +612,10 @@ let serializers =
             | _ -> raise (DecoderException(String g, typeof<System.Guid>))
         | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
-    let decimalHelperModule =
-        AST.Address.TypeModuleRoot { Assembly = "WebSharper.MathJS.Extensions"; Name = "WebSharper.Decimal" }
     let encDecimal (d: decimal) =
-        let b = System.Decimal.GetBits(d)
-        EncodedArrayInstance (
-            decimalHelperModule, 
-            b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
-        )
+        EncodedString (d.ToString())
     let decDecimal = function
-        | Object [ "mathjs", String "BigNumber"; "value", String d ] as x ->
+        | String d as x ->
             match System.Decimal.TryParse d with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<decimal>)) 

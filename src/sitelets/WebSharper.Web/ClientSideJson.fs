@@ -448,33 +448,49 @@ module Macro =
                 | C (T "System.DateTimeOffset", []) ->
                     ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
-                    let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
-                    let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                    match comp.GetMetadataEntries key with                    
-                    | M.StringEntry "id" :: _ ->
-                        ok ident.Value
-                    | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
-                    | _ ->
-                        let gtd, gm, _ = comp.NewGenerated("j")
-                        comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
-                        ((fun es ->
-                            let enc = encRecType t args es
-                            if isIdent enc then
-                                comp.AddMetadataEntry(key, M.StringEntry "id")
-                                comp.AddGeneratedInline(gm, ident.Value)
-                                enc
-                            else
-                                enc >>= fun e ->
-                                let gv = comp.NewGeneratedVar("v")
-                                let v = Var gv
-                                let b = Lambda ([], None, Conditional(v, v, VarSet(gv, Appl(e, [], NonPure, Some 0))))
-                                comp.AddGeneratedCode(gm, b)
-                                Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
-                         ), args)
-                        ||> List.fold (fun k t es ->
-                            encode t >>= fun e -> k ((t, e) :: es))
-                        <| []
+                    let defaultEnc() = 
+                        let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
+                        let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
+                        match comp.GetMetadataEntries key with                    
+                        | M.StringEntry "id" :: _ ->
+                            ok ident.Value
+                        | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                            Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                        | _ ->
+                            let gtd, gm, _ = comp.NewGenerated("j")
+                            comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
+                            ((fun es ->
+                                let enc = encRecType t args es
+                                if isIdent enc then
+                                    comp.AddMetadataEntry(key, M.StringEntry "id")
+                                    comp.AddGeneratedInline(gm, ident.Value)
+                                    enc
+                                else
+                                    enc >>= fun e ->
+                                    let gv = comp.NewGeneratedVar("v")
+                                    let v = Var gv
+                                    let b = Lambda ([], None, Conditional(v, v, VarSet(gv, Appl(e, [], NonPure, Some 0))))
+                                    comp.AddGeneratedCode(gm, b)
+                                    Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
+                             ), args)
+                            ||> List.fold (fun k t es ->
+                                encode t >>= fun e -> k ((t, e) :: es))
+                            <| []
+                    match comp.GetClassInfo(td) with
+                    | Some cls ->
+                        let m =
+                            Method { 
+                                MethodName = if isEnc then "EncodeJson" else "DecodeJson"
+                                Parameters = [ if isEnc then t else NonGenericType Definitions.Obj ]
+                                ReturnType = if isEnc then NonGenericType Definitions.Obj else t
+                                Generics = 0
+                            }
+                        if cls.Methods.ContainsKey(m) then
+                            let x = Id.New()
+                            Lambda([], None, Lambda ([x], None, Call(None, Generic td args, NonGeneric m, [Var x]))) |> ok
+                        else
+                            defaultEnc()    
+                    | _ -> defaultEnc()    
                 | ConcreteType _ -> failwith "impossible"
                 | FSharpFuncType _ -> 
                     fail (name + ": Cannot de/serialize a function value.")
