@@ -457,7 +457,7 @@ module Macro =
                         | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
                             Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                         | _ ->
-                            let gtd, gm, _ = comp.NewGenerated("j")
+                            let gtd, gm, _ = comp.NewGenerated((if isEnc then "EncodeJson_" else "DecodeJson_") + t.DisplayName)
                             comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
                             ((fun es ->
                                 let enc = encRecType t args es
@@ -467,7 +467,7 @@ module Macro =
                                     enc
                                 else
                                     enc >>= fun e ->
-                                    let gv = comp.NewGeneratedVar("v")
+                                    let gv = comp.NewGeneratedVar((if isEnc then "Encoder_" else "Decoder_") + t.DisplayName)
                                     let v = Var gv
                                     let b = Lambda ([], None, Conditional(v, v, VarSet(gv, Appl(e, [], NonPure, Some 0))))
                                     comp.AddGeneratedCode(gm, b)

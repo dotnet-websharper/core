@@ -685,6 +685,21 @@ type Type =
             | TSType _ -> invalidOp "TypeScript type has no AssemblyQualifiedName"
         getNameAndAsm this |> combine
 
+    member this.DisplayName =
+        let rec getName ty =
+            match ty with
+            | ConcreteType t -> (t.Entity.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Replace("`", "_")
+            | StaticTypeParameter _
+            | LocalTypeParameter 
+            | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
+            | ArrayType (t, i) -> "Array" + (if i = 0 then "" else string i + "D") + "_" + getName t
+            | TupleType (ts, _)  -> "Tuple_" + (ts |> Seq.map getName |> String.concat "_")
+            | FSharpFuncType _ -> "Func"
+            | ByRefType t -> "ByRef_" + getName t
+            | VoidType -> "Void"
+            | TSType _ -> invalidOp "TypeScript type has no DisplayName"
+        getName this
+
     member this.TypeDefinition =
         match this with
         | ConcreteType t -> t.Entity 
