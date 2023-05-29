@@ -117,7 +117,9 @@ type Response =
 
 type Request =
     {
+        Path : string
         Body : string
+        Method : string
         Headers : Headers
     }
 
@@ -184,43 +186,46 @@ let IsRemotingRequest (h: Headers) =
         | Some s when s.Contains HEADER_NAME -> true
         | _ -> false
 
-exception InvalidHeadersException
 exception RemotingException of message: string with
     override this.Message = this.message
 
 [<Sealed>]
 type Server(info, jP, handlers: Func<System.Type, obj>) =
     let remote = M.Utilities.getRemoteMethods info
-    let withoutHash = 
-        remote.Keys |> Seq.map (fun h -> h.Assembly, h.Path) |> HashSet
+    let remotePaths = 
+        let rp = Dictionary(StringComparer.InvariantCultureIgnoreCase)
+        for (KeyValue(mh, m)) in remote do
+            let p = mh.Pack()
+            try
+                rp.Add(p , m)
+            with _ ->
+                failwithf "Duplicate remote method found: %s" p
+        rp
     let d = ConcurrentDictionary()
-    let getConverter m =
-        match remote.TryFind m with
+    let getConverter (td, m) =
+        toConverter jP handlers (AST.Reflection.LoadMethod td m)
+    let getCachedConverter p =
+        match remotePaths.TryFind p with
         | None ->
-            if withoutHash.Contains (m.Assembly, m.Path) then
-                raise (RemotingException ("Remote method signature incompatible: " + m.Path + ", " + m.Assembly))
-            else
-                raise (RemotingException ("Remote method not found: " + m.Path + ", " + m.Assembly))
-        | Some (td, m) -> toConverter jP handlers (AST.Reflection.LoadMethod td m)
-    let getCachedConverter m =
-        d.GetOrAdd(m, valueFactory = Func<_,_>(getConverter))
+            raise (RemotingException ("Remote method not found: " + p))
+        | Some tdm ->
+            d.GetOrAdd(tdm, valueFactory = Func<_,_>(getConverter))
 
     member this.HandleRequest(req: Request) =
-        match req.Headers HEADER_NAME with
-        | None -> raise InvalidHeadersException
-        | Some m ->
-            let m = M.MethodHandle.Unpack m
-            let args = J.Parse req.Body
-            let conv = getCachedConverter m
-            let convd = conv args
-            async {
-                let! x = convd
-                let r = J.Stringify x
-                return {
-                    ContentType = "application/json"
-                    Content = r
-                }
+        let args = 
+            match req.Method with
+            | "GET" -> J.Array []
+            | _ -> J.Parse req.Body
+        let conv = getCachedConverter (req.Path.Trim('/'))
+        let convd = conv args
+        async {
+            let! x = convd
+            let r = J.Stringify x
+            return {
+                ContentType = "application/json"
+                Content = r
             }
+        }
 
     member this.JsonProvider = jP
 

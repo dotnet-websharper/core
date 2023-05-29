@@ -70,7 +70,7 @@ namespace WebSharper.CSharp.Tests
         }
     }
 
-    public static class Server
+    public static class CSharpServer
     {
         [Remote]
         public static Task<int> GetOneAsync()
@@ -185,7 +185,7 @@ namespace WebSharper.CSharp.Tests
             return 0;
         }
 
-        static Server()
+        static CSharpServer()
         {
             WebSharper.Core.Remoting.AddHandler(typeof(Handler), new HandlerImpl());
         }
@@ -228,7 +228,7 @@ namespace WebSharper.CSharp.Tests
         public async Task SimpleAsync()
         {
             if (!ShouldRun) { Expect(0); return; }
-            var r = await Server.GetOneAsync();
+            var r = await CSharpServer.GetOneAsync();
             Equal(r, 1);
         }
 
@@ -236,7 +236,7 @@ namespace WebSharper.CSharp.Tests
         public async Task SimpleAsyncWith1Arg()
         {
             if (!ShouldRun) { Expect(0); return; }
-            var r = await Server.AddOneAsync(1783);
+            var r = await CSharpServer.AddOneAsync(1783);
             Equal(r, 1784);
         }
 
@@ -244,7 +244,7 @@ namespace WebSharper.CSharp.Tests
         public async Task WithValueTuple()
         {
             if (!ShouldRun) { Expect(0); return; }
-            var r = await Server.AddOnesAsync((1783, 456));
+            var r = await CSharpServer.AddOnesAsync((1783, 456));
             Equal(r, (1784, 457));
         }
 
@@ -252,7 +252,7 @@ namespace WebSharper.CSharp.Tests
         public void SimpleVoid()
         {
             if (!ShouldRun) { Expect(0); return; }
-            Server.Void();
+            CSharpServer.Void();
             IsTrue(true);
         }
 
@@ -262,8 +262,8 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var k = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             var v = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
-            Server.Set(k, v);
-            var v2 = await Server.Extract(k);
+            CSharpServer.Set(k, v);
+            var v2 = await CSharpServer.Extract(k);
             Equal(v, v2);
         }
 
@@ -273,8 +273,8 @@ namespace WebSharper.CSharp.Tests
             if (!ShouldRun) { Expect(0); return; }
             var k = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
             var v = (int)(JavaScript.Math.Round(JavaScript.Math.Random() * 100));
-            await Server.SetAsync(k, v);
-            var v2 = await Server.Extract(k);
+            await CSharpServer.SetAsync(k, v);
+            var v2 = await CSharpServer.Extract(k);
             Equal(v, v2);
         }
 
@@ -282,11 +282,11 @@ namespace WebSharper.CSharp.Tests
         public async Task UserSession()
         {
             if (!ShouldRun) { Expect(0); return; }
-            Equal(await Server.GetUser(), null, "No logged in user");
-            await Server.Login("testuser");
-            Equal(await Server.GetUser(), "testuser", "Get logged in user");
-            await Server.Logout();
-            Equal(await Server.GetUser(), null, "Logout");
+            Equal(await CSharpServer.GetUser(), null, "No logged in user");
+            await CSharpServer.Login("testuser");
+            Equal(await CSharpServer.GetUser(), "testuser", "Get logged in user");
+            await CSharpServer.Logout();
+            Equal(await CSharpServer.GetUser(), null, "Logout");
         }
          
         [Test]
@@ -305,7 +305,7 @@ namespace WebSharper.CSharp.Tests
             var o = new TestClass();
             o.X = 1;
             o.Y = 2;
-            o = await Server.IncrementXY(o);
+            o = await CSharpServer.IncrementXY(o);
             Equal(o.X, 2);
             Equal(o.Y, 3);
         }
@@ -317,7 +317,7 @@ namespace WebSharper.CSharp.Tests
             var o = new TestClassSub();
             o.X = 1;
             o.Y = 1;
-            o = await Server.IncrementXYSub(o);
+            o = await CSharpServer.IncrementXYSub(o);
             Equal(o.X, 2);
             Equal(o.Y, 2);
         }
@@ -327,7 +327,7 @@ namespace WebSharper.CSharp.Tests
         {
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestStruct(1, 2);
-            o = await Server.IncrementXYStruct(o);
+            o = await CSharpServer.IncrementXYStruct(o);
             Equal(o.X, 2);
             Equal(o.Y, 3);
         }
@@ -337,7 +337,7 @@ namespace WebSharper.CSharp.Tests
         {
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestRecordPos(1, 2);
-            o = await Server.IncrementXYRecordPos(o);
+            o = await CSharpServer.IncrementXYRecordPos(o);
             IsTrue(o == new TestRecordPos(1, 2));
         }
 
@@ -346,7 +346,7 @@ namespace WebSharper.CSharp.Tests
         {
             if (!ShouldRun) { Expect(0); return; }
             var o = new TestRecord(1, 2);
-            o = await Server.IncrementXYRecord(o);
+            o = await CSharpServer.IncrementXYRecord(o);
             IsTrue(o == new TestRecord(1, 2));
         }
 
@@ -357,7 +357,7 @@ namespace WebSharper.CSharp.Tests
             {
                 if (!WebSharper.Pervasives.IsClient)
                 {
-                    Server.Zero();
+                    CSharpServer.Zero();
                 }
                 else
                 {
@@ -366,12 +366,12 @@ namespace WebSharper.CSharp.Tests
             }
             else
             {
-                Server.Zero();
+                CSharpServer.Zero();
             }
             var ok =
                 WebSharper.Pervasives.IsClient ? 
-                    (!WebSharper.Pervasives.IsClient ? Server.Zero() : 1)
-                    : Server.Zero();
+                    (!WebSharper.Pervasives.IsClient ? CSharpServer.Zero() : 1)
+                    : CSharpServer.Zero();
             Equal(ok, 1, "IsClient in conditional expression");
         }
 
@@ -379,7 +379,7 @@ namespace WebSharper.CSharp.Tests
         {
             try
             {
-                return await Server.AddOneAsync(x);
+                return await CSharpServer.AddOneAsync(x);
             }
             catch (Exception)
             {
@@ -392,7 +392,7 @@ namespace WebSharper.CSharp.Tests
         {
             try
             {
-                return await Server.FailOnServer();
+                return await CSharpServer.FailOnServer();
             }
             catch (Exception)
             {

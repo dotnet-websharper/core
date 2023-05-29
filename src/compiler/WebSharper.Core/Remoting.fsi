@@ -39,7 +39,9 @@ type Headers = string -> option<string>
 /// Represents an incoming request.
 type Request =
     {
+        Path : string
         Body : string
+        Method : string
         Headers : Headers
     }
 

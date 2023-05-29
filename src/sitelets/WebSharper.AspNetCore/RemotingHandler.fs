@@ -67,7 +67,9 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebS
                 let! resp =
                     server.HandleRequest(
                         {
+                            Path = ctx.Request.Path.ToString()
                             Body = body
+                            Method = ctx.Request.Method
                             Headers = getReqHeader
                         }, wsctx)
                 ctx.Response.StatusCode <- 200

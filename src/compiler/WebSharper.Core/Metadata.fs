@@ -40,14 +40,13 @@ type MethodHandle =
         SignatureHash : int
     }
     member this.Pack() =
-        this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
-
-    static member Unpack(s: string) =
-        try
-            let p = s.Split(':')
-            { Assembly = p.[0]; Path = p.[1]; SignatureHash = int p.[2] }
-        with _ ->
-            failwith "Failed to deserialize method handle"
+        //this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
+        let p = this.Path.Split('.')
+        match p[p.Length - 2 ..] with
+        | [| tn; mn |] ->
+            tn + "/" + mn
+        | _ ->
+            failwith "TypeName and MethodName not found for remote"
 
 [<RequireQualifiedAccess>]
 type ParameterObject =
