@@ -725,8 +725,20 @@ module Macro =
                 | _ -> 
                     match comp.GetClassInfo td with
                     | Some cls ->
+                        let getFields (cls: M.IClassInfo) =
+                            let rec collect acc (cls: M.IClassInfo) =
+                                match cls.BaseClass with
+                                | None ->
+                                    List.ofSeq cls.Fields.Values @ acc
+                                | Some bTd ->
+                                    match comp.GetClassInfo bTd.Entity with
+                                    | Some bCls ->
+                                        collect (List.ofSeq cls.Fields.Values @ acc) bCls
+                                    | None -> 
+                                        List.ofSeq cls.Fields.Values @ acc
+                            collect [] cls
                         let fieldEncoders =
-                            cls.Fields.Values
+                            getFields cls
                             |> Seq.sortBy (fun f -> f.Order)
                             |> Seq.choose (fun f ->
                                 let jsNameTypeAndOption =
