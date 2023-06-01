@@ -134,7 +134,8 @@ type TypeTranslator(lookupType: TypeDefinition -> LookupTypeResult, ?tsTypeOfAdd
         | StandardLibrary
         | JavaScriptFile _ -> TSType.Named t
         | JavaScriptModule _ 
-        | DotNetType _ -> TSType.Importing a
+        | DotNetType _ 
+        | NpmPackage _ -> TSType.Importing a
         | ImportedModule _ -> failwith "Unexpected: ImportedModule in TypeTranslator"
 
     let tsTypeOfAddress = defaultArg tsTypeOfAddress defaultTsTypeOfAddress

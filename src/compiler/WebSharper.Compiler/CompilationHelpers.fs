@@ -1623,8 +1623,12 @@ type OptimizeLocalCurriedFunc(var: Id, currying) =
             | TypeHelpers.OptimizedClosures4 (a1, a2, a3, r) -> getTypes (a3 :: a2 :: a1 :: acc) (i - 3) r
             | TypeHelpers.OptimizedClosures5 (a1, a2, a3, a4, r) -> getTypes (a4 :: a3 :: a2 :: a1 :: acc) (i - 4) r
             | TypeHelpers.OptimizedClosures6 (a1, a2, a3, a4, a5, r) -> getTypes (a5 :: a4 :: a3 :: a2 :: a1 :: acc) (i - 5) r
+            | TypeHelpers.PrintfFormat5 _ -> failwith "TODO correct types for the optimization of PrintfFormat functions" 
             | _ -> failwithf "Trying to optimize currification of a non-function type: %A for var %s" t (var.Name |> Option.defaultValue "noname")
-        var.VarType |> Option.map (getTypes [] currying)
+        try
+            var.VarType |> Option.map (getTypes [] currying)
+        with _ ->
+            None
 
     override this.TransformVar(v) =
         if v = var then
