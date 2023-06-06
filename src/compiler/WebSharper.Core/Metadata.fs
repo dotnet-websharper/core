@@ -41,7 +41,7 @@ type MethodHandle =
     }
     member this.Pack() =
         //this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
-        let p = this.Path.Split('.')
+        let p = this.Path.Split('.', '+')
         match p[p.Length - 2 ..] with
         | [| tn; mn |] ->
             tn + "/" + mn

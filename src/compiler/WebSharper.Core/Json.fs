@@ -456,7 +456,7 @@ and TAttrs =
                     cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
-        defaultArg customName (^T : (member Name : string) (mi))
+        defaultArg customName ((^T : (member Name : string) (mi)).TrimEnd('@'))
 
     static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo, ?pi: System.Reflection.ParameterInfo) =
         let mcad =
@@ -1314,14 +1314,23 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
                     jsonCtors.[0]  
                 else
                     raise (NoEncodingException t)
+        let fs = t.GetFields(fieldFlags)
         let ds = ctor.GetParameters() |> Array.map (fun p ->
             let prop = t.GetProperty(p.Name) |> Option.ofObj
             let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
             let fname =
                 let bfName = "<" + p.Name + ">k__BackingField"
-                if t.GetField(bfName) |> isNull then
-                    bfName
-                else
+                let fNameLc = p.Name.ToLowerInvariant()
+                let bfNameLc = bfName.ToLowerInvariant()
+                let fieldFound =
+                    fs |> Array.tryFind (fun f ->   
+                        let fLc = f.Name.ToLowerInvariant() 
+                        fLc = fNameLc || fLc = bfNameLc
+                    )    
+                match fieldFound with
+                | Some f ->
+                    f.Name
+                | _ ->
                     p.Name
             (i.GetEncodedFieldName t fname,
              decodeOptionalField dD ta))
@@ -2070,8 +2079,13 @@ module PlainProviderInternals =
                         getObjectFields t
                         |> Seq.map (fun f ->
                             let fn = f.Name
+                            if fn.Contains("StructTest") then
+                                printfn "YStructTest"
                             if fn.StartsWith("<") && fn.EndsWith(">k__BackingField") then
                                 let pn = fn.Replace("<", "").Replace(">k__BackingField", "")
+                                fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
+                            elif fn.EndsWith("@") then
+                                let pn = fn.TrimEnd('@')
                                 fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
                             else
                                 fn, f :> System.Reflection.MemberInfo

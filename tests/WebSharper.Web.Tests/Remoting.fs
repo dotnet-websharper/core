@@ -304,14 +304,14 @@ module Server =
     [<JavaScript; Struct; System.Serializable>]
     type Struct =
         val X : int
-        [<Name "yy">]
-        val Y : string
-        new (x, y) = { X = x; Y = y }
+        [<Name "yyStructTest">]
+        val YStructTest : string
+        new (x, y) = { X = x; YStructTest = y }
 
     [<Remote>]
     let f21 (x: Struct) =
         async {
-            return Struct(x.X + 1, x.Y + "a")
+            return Struct(x.X + 1, x.YStructTest + "a")
         }
 
     [<Remote>]
