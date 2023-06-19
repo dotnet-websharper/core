@@ -167,6 +167,11 @@ namespace WebSharper.DllBrowser
                     sb.Append("  Expression: ").AppendLine(Debug.PrintExpression(m.Value.Expression).Replace("\n", ""));
                     sb.AppendLine();
                 }
+                foreach (var f in cls.Fields)
+                {
+                    sb.AppendLine(f.Key.ToString());
+                    sb.Append("  CompiledForm: ").AppendLine(f.Value.CompiledForm.ToString().Replace("\n", ""));
+                }
                 foreach (var m in cls.Implementations)
                 {
                     sb.AppendLine(m.Key.Item1.Value.ToString() + ": " + m.Key.Item2.Value.ToString());

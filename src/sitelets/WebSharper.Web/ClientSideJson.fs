@@ -232,7 +232,7 @@ module Provider =
                     // [<NamedUnionCases(discr)>]
                     if JS.TypeOf discr ===. JS.Kind.String then
                         let tagName = x?(As<string> discr)
-                        cases |> Array.findIndex (fun (name, _) -> name = tagName)
+                        cases |> Array.findIndex (fun case -> if case.JS <> null then fst case = tagName else false)
                     else // [<NamedUnionCases>]
                         let r = ref JS.Undefined
                         JS.ForEach discr (fun k ->

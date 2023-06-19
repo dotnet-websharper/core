@@ -1171,7 +1171,7 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         if t.IsValueType then
             fs |> Array.map (fun f ->
                 let ta = TAttrs.Get(i, f.FieldType, f)
-                (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+                (i.GetEncodedFieldName f.DeclaringType (f.Name),
                  encodeOptionalField dE ta))
         else
             fs |> Array.map (fun f ->
@@ -1282,7 +1282,7 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | _ ->
         let ds = fs |> Array.map (fun f ->
             let ta = TAttrs.Get(i, f.FieldType, f)
-            (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+            (i.GetEncodedFieldName f.DeclaringType (f.Name),
              decodeOptionalField dD ta))
         fun (x: Value) ->
             match x with
