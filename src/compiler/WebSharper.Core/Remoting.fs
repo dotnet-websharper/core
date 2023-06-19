@@ -178,14 +178,6 @@ let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodIn
 [<Literal>]
 let HEADER_NAME = "x-websharper-rpc"
 
-let IsRemotingRequest (h: Headers) =
-    match h HEADER_NAME with
-    | Some _ -> true
-    | None ->
-        match h "Access-Control-Request-Headers" with
-        | Some s when s.Contains HEADER_NAME -> true
-        | _ -> false
-
 exception RemotingException of message: string with
     override this.Message = this.message
 
@@ -210,6 +202,9 @@ type Server(info, jP, handlers: Func<System.Type, obj>) =
             raise (RemotingException ("Remote method not found: " + p))
         | Some tdm ->
             d.GetOrAdd(tdm, valueFactory = Func<_,_>(getConverter))
+
+    member this.IsRemotingRequest (path: string) =
+        fst <| remotePaths.TryGetValue (path.TrimStart('/'))
 
     member this.HandleRequest(req: Request) =
         let args = 

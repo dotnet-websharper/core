@@ -74,7 +74,7 @@ type RpcHandler() =
             | _ -> []
         match reqMethod with
         | "OPTIONS" ->
-            ("Access-Control-Allow-Headers", "x-websharper-rpc, content-type, x-csrftoken")
+            ("Access-Control-Allow-Headers", "content-type, x-csrftoken")
             :: headers
             |> Preflight
         | _ when Remoting.csrfProtect && not (explicitlyAcceptedOrigin.IsSome || checkCsrf()) ->

@@ -45,9 +45,6 @@ type Request =
         Headers : Headers
     }
 
-/// Tests if the given request is marked as a
-/// WebSharper remote procedure call request.
-val IsRemotingRequest : Headers -> bool
 
 /// Adds an RPC handler object for a given remoting type.
 /// You can only add one instance for each type.
@@ -62,6 +59,8 @@ type Server =
 
     /// Handles a request.
     member HandleRequest : Request -> Async<Response>
+
+    member IsRemotingRequest : string -> bool
 
     /// Exposes the Json encoding/decoding provider
     member JsonProvider : Json.Provider

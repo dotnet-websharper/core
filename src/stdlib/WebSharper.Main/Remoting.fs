@@ -116,8 +116,7 @@ let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 [<JavaScript>]
 let private makeHeaders() =
     New [
-        "content-type" => "application/json"   
-        "x-websharper-rpc" => true
+        "content-type" => "application/json"
     ]
 
 [<JavaScript>]
