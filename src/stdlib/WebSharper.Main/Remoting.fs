@@ -114,10 +114,12 @@ type XhrProvider [<JavaScript>] () =
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<JavaScript>]
-let private makeHeaders() =
-    New [
-        "content-type" => "application/json"
-    ]
+let private makeHeaders(headers: (string * string) []) =
+    Array.append headers [|"content-type", "application/json"|]
+    |> Array.distinctBy fst
+    |> Array.map (fun (a,b) -> a => b)
+    |> New
+    
 
 [<JavaScript>]
 let private makePayload (data: obj []) =
@@ -140,10 +142,13 @@ type AjaxRemotingProvider() =
     abstract EndPoint : string
     override this.EndPoint = EndPoint
 
+    abstract Headers : (string * string) []
+    override this.Headers = [||]
+
     abstract AsyncBase : string * obj[] -> Async<obj> 
     override this.AsyncBase(m, data) = 
         async {
-            let headers = makeHeaders()
+            let headers = makeHeaders this.Headers
             let payload = makePayload data
             let! token = Async.CancellationToken
             let! data =
@@ -171,7 +176,7 @@ type AjaxRemotingProvider() =
 
     interface IRemotingProvider with
         member this.Sync m data : obj =
-            let data = AjaxProvider.Sync (this.EndPoint + "/" + m) (makeHeaders()) (makePayload data)
+            let data = AjaxProvider.Sync (this.EndPoint + "/" + m) (makeHeaders(this.Headers)) (makePayload data)
             Json.Activate (Json.Parse data) [||]
 
         member this.Async m data : Async<obj> =

@@ -60,6 +60,19 @@ type ApplicationBuilderExtensions =
             if not (isNull build) then build.Invoke(builder)
         )
 
+    [<Extension>]
+    static member UseWebSharperRemoting
+        (
+            this: IApplicationBuilder,
+            [<Optional>] build: Action<WebSharperBuilder>,
+            [<Optional>] headers: (string * string) []
+        ) =
+        ApplicationBuilderExtensions.UseWebSharper(this, fun builder ->
+            builder.UseSitelets(false) |> ignore
+            builder.UseRemoting(true, headers) |> ignore
+            if not (isNull build) then build.Invoke(builder)
+        )
+
     /// Use the WebSharper server side for remoting only.
     [<Extension>]
     static member UseWebSharperSitelets

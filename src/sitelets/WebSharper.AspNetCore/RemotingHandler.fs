@@ -43,6 +43,12 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebS
             ctx.Response.Headers.Add(k, v)
         )
 
+        options.RemotingHeaders
+        |> Array.iter (fun (k, v) ->
+            let v = Microsoft.Extensions.Primitives.StringValues(v)
+            ctx.Response.Headers.Add(k, v)
+        )
+
     if server.IsRemotingRequest ctx.Request.Path then
         let uri = Context.RequestUri ctx.Request
         let getCookie name =
