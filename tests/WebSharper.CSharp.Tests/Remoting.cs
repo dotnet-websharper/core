@@ -188,6 +188,7 @@ namespace WebSharper.CSharp.Tests
         static CSharpServer()
         {
             WebSharper.Core.Remoting.AddHandler(typeof(Handler), new HandlerImpl());
+            WebSharper.Core.Remoting.AddHandler(typeof(IntfHandler), new IntfHandlerImpl());
         }
     }
 
@@ -216,6 +217,21 @@ namespace WebSharper.CSharp.Tests
             return Task.FromResult(0);
         }
     }
+
+    public interface IntfHandler
+    {
+        [Remote]
+        public abstract Task<int> AddOne(int x);
+    }
+
+    public class IntfHandlerImpl : IntfHandler
+    {
+        public Task<int> AddOne(int x)
+        {
+            return Task.FromResult(x + 1);
+        }
+    }
+
 
     [JavaScript, Test("Task based remoting")]
     public class Remoting : TestCategory
@@ -296,6 +312,7 @@ namespace WebSharper.CSharp.Tests
             await Remote<Handler>().Reset();
             Equal(await Remote<Handler>().Increment(5), 5);
             Equal(await Remote<Handler>().Increment(5), 10);
+            Equal(await Remote<IntfHandler>().AddOne(5), 6);
         }
 
         [Test]

@@ -76,7 +76,7 @@ let fixMemberAnnot (getAnnot: _ -> A.MemberAnnotation) (x: FSharpEntity) (m: FSM
         | _ -> a
     else a
 
-let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) members =
+let rec private collectTypeAnnotations (d: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (t: Dictionary<TypeDefinition, FSharpEntity>) (sr: CodeReader.SymbolReader) parentAnnot (cls: FSharpEntity) (members: seq<SourceMemberOrEntity>) =
     let thisDef = sr.ReadTypeDefinition cls
     let annot =
         sr.AttributeReader.GetTypeAnnot(parentAnnot |> annotForTypeOrFile thisDef.Value.FullName, cls.Attributes)
@@ -85,7 +85,9 @@ let rec private collectClassAnnotations (d: Dictionary<FSharpEntity, TypeDefinit
     for m in members do
         match m with
         | SourceEntity (ent, nmembers) ->
-            collectClassAnnotations d t sr annot ent nmembers
+            collectTypeAnnotations d t sr annot ent nmembers
+        | SourceInterface ent ->
+            collectTypeAnnotations d t sr annot ent Seq.empty
         | _ -> ()
 
 let private getConstraints (genParams: seq<FSharpGenericParameter>) (sr: CodeReader.SymbolReader) tparams =
@@ -124,9 +126,15 @@ let private transformInterface (sr: CodeReader.SymbolReader) parentAnnot (intf: 
             m, mAnnot
         )
         |> List.ofSeq
+
+    let isRemote =
+        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+
+    if isRemote then None else
+
     let hasExplicitJS =
         annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
-
+    
     for m in intf.MembersFunctionsAndValues do
         if not m.IsProperty then
             let mAnnot =
@@ -203,7 +211,7 @@ let private transformInitAction (sc: Lazy<_ * StartupCode>) (comp: Compilation) 
 
 let private nrInline = N.Inline false
 
-let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: ResizeArray<SourceMemberOrEntity>) =
+let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (ac: ArgCurrying.ResolveFuncArgs) (sr: CodeReader.SymbolReader) (classAnnots: Dictionary<FSharpEntity, TypeDefinition * A.TypeAnnotation>) (isInterface: TypeDefinition -> bool) (recMembers: Dictionary<FSMFV, Id * FSharpExpr>) (cls: FSharpEntity) (members: IList<SourceMemberOrEntity>) =
     let thisDef, annot = classAnnots.[cls]
 
     if isResourceType sr cls then
@@ -237,6 +245,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> thisDef, None
 
     let isProxy = Option.isSome annot.ProxyOf 
+    let isThisInterface = cls.IsInterface
     let isInterfaceProxy = isProxy && isInterface def
 
     if annot.IsJavaScriptExport then
@@ -376,7 +385,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             comp.AddError(Some (CodeReader.getRange meth.DeclarationLocation), SourceError m)
 
         match mAnnot.Kind with
-        | Some A.MemberKind.Stub ->
+        | Some A.MemberKind.Stub when not isThisInterface ->
             hasStubMember <- true
             let memdef = sr.ReadMember(meth, cls)
             match memdef with
@@ -391,7 +400,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             | Member.Implementation _ -> error "Implementation method can't have Stub attribute"
             | Member.Override _ -> error "Override method can't have Stub attribute"
             | Member.StaticConstructor -> error "Static constructor can't have Stub attribute"
-        | Some A.MemberKind.JavaScript when meth.IsDispatchSlot -> 
+        | Some A.MemberKind.JavaScript when meth.IsDispatchSlot && not isThisInterface -> 
             let memdef = sr.ReadMember meth
             match memdef with
             | Member.Method (isInstance, mdef) ->
@@ -426,6 +435,8 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
+
+    if isThisInterface && clsMembers.Count = 0 then None else
 
     let fsharpSpecificNonException =
         cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsValueType
@@ -923,6 +934,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             transformClass sc comp ac sr classAnnots isInterface recMembers ent nmembers |> Option.iter comp.AddClass   
         | SourceInterface i ->
             transformInterface sr annot i |> Option.iter comp.AddInterface
+            transformClass sc comp ac sr classAnnots isInterface recMembers i (ResizeArray()) |> Option.iter comp.AddClass   
         | InitAction expr ->
             transformInitAction sc comp sr annot recMembers expr    
 
@@ -1576,7 +1588,9 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
         for t in topLevelTypes do
             match t with
             | SourceEntity (c, m) ->
-                collectClassAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
+                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot c m
+            | SourceInterface i ->
+                collectTypeAnnotations classAnnotations typeImplLookup sr rootTypeAnnot i Seq.empty
             | _ -> ()
 
         // register all proxies for signature redirection
@@ -1593,6 +1607,7 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 transformClass sc comp argCurrying sr classAnnotations isInterface recMembers c m |> Option.iter comp.AddClass
             | SourceInterface i ->
                 transformInterface sr rootTypeAnnot i |> Option.iter comp.AddInterface
+                transformClass sc comp argCurrying sr classAnnotations isInterface recMembers i [||] |> Option.iter comp.AddClass
             
         let getStartupCodeClass (def: TypeDefinition, sc: StartupCode) =
 

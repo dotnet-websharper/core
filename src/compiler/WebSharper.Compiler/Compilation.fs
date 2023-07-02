@@ -1228,6 +1228,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             notResolvedInterfaces.Remove typ |> ignore
+            let clsOpt = notResolvedClasses.TryFind typ
+            // If this is an interface used for remoting, do not process further
+            match clsOpt with
+            | Some cls when cls.Members |> List.exists (function NotResolvedMember.Method (_, { Kind = N.Remote _}) -> true | _ -> false) -> ()
+            | _ ->
+            
             let allMembers = HashSet()
             let allNames = HashSet()
             let extended = Dictionary() // has Some value if directly extended and JavaScript annotated
@@ -1299,7 +1305,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 remainingTypes.Add (typ, false)
 
             let cls =
-                match notResolvedClasses.TryFind typ with
+                match clsOpt with
                 | Some cls -> cls
                 | _ ->
                     let cls =

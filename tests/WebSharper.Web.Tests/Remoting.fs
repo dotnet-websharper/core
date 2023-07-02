@@ -405,6 +405,11 @@ module Server =
         [<Remote>]
         abstract member M5 : int -> int -> Async<int>
 
+    type IntfHandler =
+
+        [<Remote>]
+        abstract member IM3 : int -> Async<int>
+
     type HandlerImpl() =
         inherit Handler()
 
@@ -425,6 +430,14 @@ module Server =
             async.Return (a + b)
 
     do AddRpcHandler typeof<Handler> (HandlerImpl())
+
+    let intfHandlerImpl =
+        { new IntfHandler with
+            member this.IM3 x =
+                async.Return (x + 1)
+        }
+
+    do AddRpcHandler typeof<IntfHandler> intfHandlerImpl
 
     [<Remote>]
     let count1 () = async.Return counter1.Value
@@ -701,6 +714,10 @@ module Remoting =
 
             Test "M5" {
                 equalAsync (Remote<Server.Handler>.M5 3 6) 9
+            }
+
+            Test "IM3" {
+                equalAsync (Remote<Server.IntfHandler>.IM3 40) 41
             }
 
             Test "reverse" {

@@ -145,6 +145,12 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             m, mAnnot
         )
         |> List.ofSeq
+
+    let isRemote =
+        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+
+    if isRemote then None else
+
     let hasExplicitJS =
         annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
     for m, mAnnot in intfMethods do
