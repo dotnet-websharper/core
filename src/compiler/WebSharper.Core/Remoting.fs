@@ -67,7 +67,12 @@ type TaskAdapter<'T>() =
                 raise InvalidAsyncException
 
 let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
-    let t = m.ReturnType
+    let t =
+        if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+            let _, ret = Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements m.ReturnType 
+            ret
+        else
+            m.ReturnType
     let tD = if t.IsGenericType then t.GetGenericTypeDefinition() else t
     if t.IsGenericType && tD = typedefof<Async<_>> then
         let eT = t.GetGenericArguments().[0]
@@ -126,7 +131,23 @@ type Request =
 let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
     let par = m.GetParameters()
     match par.Length with
-    | 0 -> fun _ -> [||]
+    | 0 ->
+        let fsharpFuncParameters =
+            if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+                let args, _ = Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements m.ReturnType 
+                args |> Some 
+            else
+                None
+        match fsharpFuncParameters with
+        | None -> 
+            fun _ -> [||]
+        | Some x ->
+            let decoder = jP.GetDecoder x
+            fun x ->
+                match x with
+                | J.Array [] -> [||]
+                | J.Array [j] -> [| decoder.Decode j |]
+                | _ -> failwith "RPC parameter not received a single element array"
     | 1 ->
         let decoder = jP.GetDecoder par.[0].ParameterType
         fun x ->
@@ -169,11 +190,18 @@ let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodIn
                 raise (InvalidHandlerException t)
             | inst ->
                 let args = dec j
-                let ps = Array.zeroCreate (args.Length + 1)
-                for i in 1 .. args.Length do
-                    ps.[i] <- args.[i - 1]
-                ps.[0] <- inst
-                run.InvokeN(ps) |> enc
+                if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+                    let x = run.Invoke1(inst)
+                    let t = x.GetType()
+                    let invoker = t.GetMethod("Invoke")
+                    let args = if args = [||] then [|null|] else args
+                    invoker.Invoke(x, args) |> enc
+                else
+                    let ps = Array.zeroCreate (args.Length + 1)
+                    for i in 1 .. args.Length do
+                        ps.[i] <- args.[i - 1]
+                    ps.[0] <- inst
+                    run.InvokeN(ps) |> enc
 
 [<Literal>]
 let HEADER_NAME = "x-websharper-rpc"

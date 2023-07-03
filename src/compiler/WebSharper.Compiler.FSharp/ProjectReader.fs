@@ -432,7 +432,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         |> List.map (fun p ->
                             Id.New(?name = p.Name, mut = false)
                         ) 
-                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false None Undefined
+                addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp, None, None)) false None Undefined
             | _ -> error "Only methods can be defined Remote"
         | _ -> ()
 
@@ -962,7 +962,60 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 Type = annot.Type
             }
         comp.AddInterface(def, intf)
-    
+
+    if cls.IsFSharpRecord then
+        cls.FSharpFields |> Seq.iter (fun f ->
+            let fTyp = sr.ReadType clsTparams f.FieldType
+            let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
+            match fAnnot.Kind with
+            | Some (A.MemberKind.Remote rp) ->
+
+                let args, returnType =
+                    match fTyp with
+                    | Type.FSharpFuncType (arg, returnType) ->
+                        let rec recursiveProcessing (t: Type) (args: Type list) =
+                            match t with
+                            | Type.FSharpFuncType (arg, returnType) ->
+                                recursiveProcessing returnType (List.append args [arg])
+                            | t -> args, t
+                        recursiveProcessing returnType [arg]
+                    | _ ->
+                        comp.AddError(None, CompilationError.SourceError "The Remote attribute should only be used with lambda on a record type")
+                        [], VoidType
+                
+                let mdef =
+                    Hashed {
+                        MethodName = "get_" + f.Name
+                        Parameters = []
+                        ReturnType = fTyp
+                        Generics = 0
+                    }
+
+                let remotingKind =
+                    match returnType with
+                    | VoidType -> RemoteSend
+                    | ConcreteType { Entity = e } when e = Definitions.Async -> RemoteAsync
+                    | ConcreteType { Entity = e } when e = Definitions.Task || e = Definitions.Task1 -> RemoteTask
+                    | _ -> RemoteSync
+                let handle = 
+                    comp.GetRemoteHandle(
+                        def.Value.FullName + "." + f.Name,
+                        [],
+                        VoidType
+                    )
+                let pars =
+                    match args with
+                    | [ VoidType ] -> []
+                    | args -> args
+                let vars =
+                    pars
+                    |> List.map (fun p ->
+                        Id.New(?name = None, mut = false)
+                    ) 
+                addMethod None fAnnot mdef (N.Remote(remotingKind, handle, vars, rp, Some returnType, Some pars)) false None Undefined
+            | _ -> ()
+        )
+
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
     let ckind = 
@@ -1169,26 +1222,30 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
         if cls.IsFSharpRecord then
             let i = 
-                cls.FSharpFields |> Seq.map (fun f ->
-                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                cls.FSharpFields |> Seq.choose (fun f ->
                     let fTyp = sr.ReadType clsTparams f.FieldType
+                    let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append (Seq.append f.FieldAttributes f.PropertyAttributes) f.Attributes)
+                    
+                    match fAnnot.Kind with
+                    | Some (A.MemberKind.Remote _) -> None
+                    | _ ->
+                        let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
 
-                    {
-                        Name = f.Name
-                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
-                        RecordFieldType = fTyp
-                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                        Optional = isOpt
-                        IsMutable = f.IsMutable
-                    }
+                        {
+                            Name = f.Name
+                            JSName = match fAnnot.Name with Some n -> n | _ -> f.Name // TODO : set in resolver instead
+                            RecordFieldType = fTyp
+                            DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                            Optional = isOpt
+                            IsMutable = f.IsMutable
+                        }
+                        |> Some
                 )
-                |> List.ofSeq |> FSharpRecordInfo    
-
+                |> List.ofSeq |> function [] -> None | l -> l |> FSharpRecordInfo |> Some
             if comp.HasCustomTypeInfo def then
                 printfn "Already has custom type info: %s" def.Value.FullName
             else
-                comp.AddCustomType(def, i)
+                i |> Option.iter (fun i -> comp.AddCustomType(def, i))
 
         if cls.IsValueType && not (cls.IsFSharpRecord || cls.IsFSharpUnion || cls.IsEnum) then
             // add default constructor for structs
@@ -1227,16 +1284,19 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             else
                 f.PropertyAttributes
         let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes propertyAttributes)
-        let nr =
-            {
-                StrongName = fAnnot.Name
-                IsStatic = f.IsStatic
-                IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                IsReadonly = not f.IsMutable
-                FieldType = sr.ReadType clsTparams f.FieldType
-                Order = i
-            }
-        clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
+        match fAnnot.Kind with
+        | Some (A.MemberKind.Remote _) -> ()
+        | _ ->
+            let nr =
+                {
+                    StrongName = fAnnot.Name
+                    IsStatic = f.IsStatic
+                    IsOptional = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                    IsReadonly = not f.IsMutable
+                    FieldType = sr.ReadType clsTparams f.FieldType
+                    Order = i
+                }
+            clsMembers.Add (NotResolvedMember.Field (f.Name, nr))
 
     let strongName =
         annot.Name |> Option.map (fun n ->
@@ -1446,20 +1506,23 @@ let transformAssembly (logger: LoggerBase) (comp : Compilation) assemblyName (co
                 CustomTypeInfo.EnumInfo underlyingType
             else if entity.IsFSharpRecord then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes) 
-                entity.FSharpFields |> Seq.map (fun f ->
+                entity.FSharpFields |> Seq.choose (fun f ->
                     let fAnnot = sr.AttributeReader.GetMemberAnnot(tAnnot, Seq.append f.FieldAttributes f.PropertyAttributes)
-                    let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
-                    let fTyp = sr.ReadType clsTparams.Value f.FieldType
-                    {
-                        Name = f.Name
-                        JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
-                        RecordFieldType = fTyp
-                        DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
-                        Optional = isOpt
-                        IsMutable = f.IsMutable
-                    }
+                    match fAnnot.Kind with
+                    | Some (A.MemberKind.Remote _) -> None
+                    | _ ->
+                        let isOpt = fAnnot.Kind = Some A.MemberKind.OptionalField && CodeReader.isOption f.FieldType
+                        let fTyp = sr.ReadType clsTparams.Value f.FieldType
+                        {
+                            Name = f.Name
+                            JSName = match fAnnot.Name with Some n -> n | _ -> f.Name
+                            RecordFieldType = fTyp
+                            DateTimeFormat = fAnnot.DateTimeFormat |> List.tryHead |> Option.map snd
+                            Optional = isOpt
+                            IsMutable = f.IsMutable
+                        } |> Some 
                 )
-                |> List.ofSeq |> FSharpRecordInfo    
+                |> List.ofSeq |> function [] -> CustomTypeInfo.NotCustomType | l -> FSharpRecordInfo l
             else if entity.IsFSharpUnion then
                 let tAnnot = sr.AttributeReader.GetTypeAnnot(AttributeReader.TypeAnnotation.Empty, entity.Attributes)
                 let usesNull =

@@ -1616,7 +1616,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     else
                         New (Some n)
                 | N.AsStatic -> Func (n, true)
-                | N.Remote (_, h, _, _) -> Remote(n, h)
+                | N.Remote (_, h, _, _, _, args) -> Remote(n, h, args.IsSome)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 
@@ -2008,7 +2008,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let body = 
                     match nr.Kind with
-                    | N.Remote (kind, handle, args, rh) ->
+                    | N.Remote (kind, handle, args, rh, rt, argTypes) ->
 
                         let name, m =
                             match kind with
@@ -2055,10 +2055,15 @@ type Compilation(meta: Info, ?hasGraph) =
                             addTypeDeps mDef.Value.ReturnType
                         
                         let encodedArgs =
-                            (args, mDef.Value.Parameters) ||> List.map2 (fun a p ->
-                                Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
-                            )
-
+                            match argTypes with
+                            | None ->
+                                (args, mDef.Value.Parameters) ||> List.map2 (fun a p ->
+                                    Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
+                                )
+                            | Some argTypes ->
+                                (args, argTypes) ||> List.map2 (fun a p ->
+                                    Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
+                                )
                         let decode x =
                             let returnTypePlain() =
                                 match mDef.Value.ReturnType with
@@ -2067,7 +2072,10 @@ type Compilation(meta: Info, ?hasGraph) =
                                     | [] -> None
                                     | t :: _ ->
                                         if t = Type.VoidType then None else Some t
-                                | _ -> failwith "Expecting Async or Task return type"
+                                | _ ->
+                                    match rt with
+                                    | Some rt -> Some rt
+                                    | _ -> failwith "Expecting Async or Task return type"
                             let decoded dm arg =
                                 Call(None, NonGeneric webSharperJson, Generic dm [ arg ], [ x ])
                             match kind with

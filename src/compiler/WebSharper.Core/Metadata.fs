@@ -115,7 +115,7 @@ type CompiledMember =
     | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
-    | Remote of name:string * handle:MethodHandle
+    | Remote of name:string * handle:MethodHandle * isRecordField: bool
 
 type CompiledField =
     | InstanceField of name:string
@@ -568,7 +568,7 @@ module internal Utilities =
             c |> Option.iter (fun c ->
             for KeyValue(mDef, m) in c.Methods do
                 match ignoreMacro m.CompiledForm with
-                | Remote (_, handle) ->
+                | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()
             )

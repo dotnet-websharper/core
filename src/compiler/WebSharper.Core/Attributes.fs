@@ -209,7 +209,7 @@ type InternalProxyAttribute private () =
     new (proxiedType: Type, interfaces: Type[]) = InternalProxyAttribute()
 
 /// Marks a server-side function to be invokable remotely from the client-side.
-[<Sealed; U(T.Method)>]
+[<Sealed; U(T.Method|||T.Field)>]
 type RemoteAttribute() =
     inherit A()
 

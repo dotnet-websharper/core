@@ -429,6 +429,32 @@ module Server =
         override this.M5 a b =
             async.Return (a + b)
 
+    type RecordRemote =
+        {
+            [<Remote>]
+            R1 : string -> Async<string>
+            [<Remote>]
+            R2 : unit -> Async<int>
+            [<Remote>]
+            R3 : string * int -> Async<string>
+        }
+
+    let recordRemoteImpl =
+        {
+            R1 = fun x -> 
+                async {
+                    return (x + "_fromRecordRemote")
+                }
+            R2 = fun _ ->
+                async {
+                    return 42
+                }
+            R3 = fun (x, y) ->
+                async {
+                    return (x + "+" + string y)
+                }
+        }
+
     do AddRpcHandler typeof<Handler> (HandlerImpl())
 
     let intfHandlerImpl =
@@ -438,6 +464,8 @@ module Server =
         }
 
     do AddRpcHandler typeof<IntfHandler> intfHandlerImpl
+
+    do AddRpcHandler typeof<RecordRemote> recordRemoteImpl
 
     [<Remote>]
     let count1 () = async.Return counter1.Value
@@ -746,5 +774,11 @@ module Remoting =
                 equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f29 {| x = 1; y = {| a = 2; b = 3 |} |}) 6
                 equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f30 (1, 2)) {| x = 1; y = 2 |}
                 equalAsync (WebSharper.Sitelets.Tests.AnonRecordServer.f31 (1, 2, 3)) {| x = 1; y = {| a = 2; b = 3 |} |}
+            }
+
+            Test "Record remote instantiation" {
+                equalAsync (Remote<Server.RecordRemote>.R1 "myTestString") "myTestString_fromRecordRemote"
+                equalAsync (Remote<Server.RecordRemote>.R2 ()) 42
+                equalAsync (Remote<Server.RecordRemote>.R3 ("2", 1)) "2+1"
             }
         }
