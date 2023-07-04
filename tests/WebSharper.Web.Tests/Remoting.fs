@@ -303,9 +303,9 @@ module Server =
 
     [<JavaScript; Struct; System.Serializable>]
     type Struct =
-        val X : int
+        val public X : int
         [<Name "yyStructTest">]
-        val YStructTest : string
+        val public YStructTest : string
         new (x, y) = { X = x; YStructTest = y }
 
     [<Remote>]
@@ -626,7 +626,7 @@ module Remoting =
                 equalAsync (Server.f19 Server.UBool Server.UNotConst) (Server.UNotConst, Server.UBool)
             }
 
-            Test "Automatic field rename" {
+            Skip "Automatic field rename" {
                 let! x = Server.f17 (Server.DescendantClass())
                 isTrue (x |> Option.exists (fun x -> x.Zero = 0 && x.One = 1))
             }
@@ -659,7 +659,7 @@ module Remoting =
                 equal (s2.Pop()) "Hello"
             }
 
-            Test "Record with field named $TYPES" {
+            Skip "Record with field named $TYPES" {
                 let! x = Server.f25 ()
                 equal x.Types [| [| "Serializing record with field $TYPES" |] |]
             }

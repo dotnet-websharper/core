@@ -1297,77 +1297,112 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             | x ->
                 raise (DecoderException(x, ta.Type))
     else
-    match t.GetConstructor [||] with
-    | null -> 
-        // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
-        let ctors = t.GetConstructors()
-        let ctor = 
-            if ctors.Length = 1 then 
-                ctors.[0] 
-            else
-                let jsonCtors = 
-                    ctors |> Array.filter (fun c -> 
-                        c.GetCustomAttributesData()
-                        |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
-                    )
-                if jsonCtors.Length = 1 then 
-                    jsonCtors.[0]  
+    let getDecoderDef (t: Type) = 
+        match t.GetConstructor [||] with
+        | null -> 
+            // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
+            let ctors = t.GetConstructors()
+            let ctor = 
+                if ctors.Length = 1 then 
+                    ctors.[0] 
                 else
+                    let jsonCtors = 
+                        ctors |> Array.filter (fun c -> 
+                            c.GetCustomAttributesData()
+                            |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
+                        )
+                    if jsonCtors.Length = 1 then 
+                        jsonCtors.[0]  
+                    else
                     raise (NoEncodingException t)
-        let fs = t.GetFields(fieldFlags)
-        let ds = ctor.GetParameters() |> Array.map (fun p ->
-            let prop = t.GetProperty(p.Name) |> Option.ofObj
-            let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
-            let fname =
-                let bfName = "<" + p.Name + ">k__BackingField"
-                let fNameLc = p.Name.ToLowerInvariant()
-                let bfNameLc = bfName.ToLowerInvariant()
-                let fieldFound =
-                    fs |> Array.tryFind (fun f ->   
-                        let fLc = f.Name.ToLowerInvariant() 
-                        fLc = fNameLc || fLc = bfNameLc
-                    )    
-                match fieldFound with
-                | Some f ->
-                    f.Name
+            let fs = t.GetFields(fieldFlags)
+            let ds = ctor.GetParameters() |> Array.map (fun p ->
+                let prop = t.GetProperty(p.Name) |> Option.ofObj
+                let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
+                let fname =
+                    let bfName = "<" + p.Name + ">k__BackingField"
+                    let fNameLc = p.Name.ToLowerInvariant()
+                    let bfNameLc = bfName.ToLowerInvariant()
+                    let fieldFound =
+                        fs |> Array.tryFind (fun f ->   
+                            let fLc = f.Name.ToLowerInvariant() 
+                            fLc = fNameLc || fLc = bfNameLc
+                        )    
+                    match fieldFound with
+                    | Some f ->
+                        f.Name
+                    | _ ->
+                        p.Name
+                (i.GetEncodedFieldName t fname,
+                 decodeOptionalField dD ta))
+            fun (x: Value) ->
+                match x with
+                | Object fields ->
+                    let get = table fields
+                    let data =
+                        ds
+                        |> Seq.map (fun (n, dec) ->
+                           dec (get n))
+                        |> Seq.toArray
+                    ctor.Invoke(data)
+                | x ->
+                    null
+        | _ ->
+            let fs = getObjectFields t
+            let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
+            let ds = fs |> Array.map (fun f ->
+                let ta = TAttrs.Get(i, f.FieldType, f)
+                (i.GetEncodedFieldName f.DeclaringType f.Name,
+                 decodeOptionalField dD ta))
+            fun (x: Value) ->
+                match x with
+                | Object fields ->
+                    let get = table fields
+                    let obj = System.Activator.CreateInstance t
+                    let data =
+                        ds
+                        |> Seq.map (fun (n, dec) ->
+                           dec (get n))
+                        |> Seq.toArray
+                    FS.PopulateObjectMembers(obj, ms, data)
+                | x ->
+                    null
+    let rec getDecoder (t: Type) =
+        let rec subclassesAndThis (t: Type) = 
+            if t.IsSealed then 
+                [| t |]
+            else
+                Array.append (
+                    t.Assembly.GetTypes()
+                    |> Array.filter (fun tt -> tt.BaseType = t)
+                    |> Array.collect subclassesAndThis
+                ) [| t |]
+        let cs = subclassesAndThis t
+        if cs.Length > 1 then
+            let ds = cs |> Array.map getDecoderDef
+            fun (x: Value) ->
+                match x with
+                | Null -> null
                 | _ ->
-                    p.Name
-            (i.GetEncodedFieldName t fname,
-             decodeOptionalField dD ta))
-        fun (x: Value) ->
-            match x with
-            | Null -> null
-            | Object fields ->
-                let get = table fields
-                let data =
-                    ds
-                    |> Seq.map (fun (n, dec) ->
-                       dec (get n))
-                    |> Seq.toArray
-                ctor.Invoke(data)
-            | x ->
-                raise (DecoderException(x, ta.Type))
-    | _ ->
-        let fs = getObjectFields t
-        let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-        let ds = fs |> Array.map (fun f ->
-            let ta = TAttrs.Get(i, f.FieldType, f)
-            (i.GetEncodedFieldName f.DeclaringType f.Name,
-             decodeOptionalField dD ta))
-        fun (x: Value) ->
-            match x with
-            | Null -> null
-            | Object fields ->
-                let get = table fields
-                let obj = System.Activator.CreateInstance t
-                let data =
-                    ds
-                    |> Seq.map (fun (n, dec) ->
-                       dec (get n))
-                    |> Seq.toArray
-                FS.PopulateObjectMembers(obj, ms, data)
-            | x ->
-                raise (DecoderException(x, ta.Type))
+                    let v =
+                        ds |> Array.tryPick (fun d ->
+                            match d x with
+                            | null -> None
+                            | res -> Some res
+                        )
+                    match v with
+                    | Some res -> res
+                    | _ -> raise (DecoderException(x, ta.Type))
+        else
+            let d = getDecoderDef t
+            fun (x: Value) ->
+                match x with
+                | Null -> null
+                | _ ->
+                    match d x with
+                    | null -> raise (DecoderException(x, ta.Type))
+                    | res -> res
+    getDecoder t
 
 let btree node left right height count = 
     EncodedObject [

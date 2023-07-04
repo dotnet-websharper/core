@@ -223,6 +223,20 @@ module Provider =
                 | _ -> failwith "Invalid field option kind")
             if t ===. JS.Undefined then o else Create t o
 
+    let DecodeClass (t: obj) (fields: (string * (unit -> obj -> obj) * OptionalFieldKind)[]) (subClassDecoders: (unit -> obj -> 'T)[]) : (unit -> obj -> 'T) =
+        ()
+        fun () (x: obj) ->
+            subClassDecoders
+            |> Array.tryPick (fun dec ->
+                try 
+                    Some (dec () x)
+                with _ ->
+                    None
+            )
+            |> Option.defaultWith (fun () ->
+                DecodeRecord t fields () x
+            )
+
     let DecodeUnion (t: obj) (discr: obj) (cases: (string * (string * string * (unit -> obj -> obj) * OptionalFieldKind)[])[]) : (unit -> obj -> 'T) =
         ()
         fun () (x: obj) ->
@@ -380,6 +394,8 @@ module Macro =
                 match r with 
                 | Choice1Of3 e when obj.ReferenceEquals(e, ident.Value) -> true
                 | _ -> false
+            let allJSClasses =
+                lazy comp.GetJavaScriptClasses()
             let rec encode t =
                 match t with
                 | ArrayType (t, 1)
@@ -449,6 +465,16 @@ module Macro =
                     ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
                     let defaultEnc() = 
+                        let rec subclassesAndThis (t: Type) = 
+                            if t.IsSealed then 
+                                [| t |]
+                            else
+                                Array.append (
+                                    t.Assembly.GetTypes()
+                                    |> Array.filter (fun tt -> tt.BaseType = t)
+                                    |> Array.collect subclassesAndThis
+                                ) [| t |]
+
                         let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                         let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
                         match comp.GetMetadataEntries key with                    
@@ -725,6 +751,18 @@ module Macro =
                 | _ -> 
                     match comp.GetClassInfo td with
                     | Some cls ->
+                        let subclassesEncoders = 
+                            if isEnc then [||] else
+                            allJSClasses.Value |> Seq.choose (fun c ->
+                                match comp.GetClassInfo(c) with
+                                | Some ccls -> 
+                                    match ccls.BaseClass with
+                                    | Some bc when bc.Entity = td ->
+                                        Some (encode (NonGenericType c))
+                                    | _ -> None
+                                | _ -> None
+                            )
+                            |> Array.ofSeq
                         let getFields (cls: M.IClassInfo) =
                             let rec collect acc (cls: M.IClassInfo) =
                                 match cls.BaseClass with
@@ -776,6 +814,21 @@ module Macro =
                         )
                         then ok ident.Value
                         else
+                            if not isEnc && not (Array.isEmpty subclassesEncoders) then
+                                if subclassesEncoders |> Array.forall (function Choice1Of3 _ -> true | _ -> false) then
+                                    let encoders =
+                                        subclassesEncoders |> Array.map (function Choice1Of3 e -> e | _ -> Undefined) |> List.ofArray
+                                    ((fun es ->
+                                        let es, tts = List.unzip es
+                                        ok (call "Class" [pr; NewArray es; NewArray encoders])
+                                        ), fieldEncoders)
+                                    ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                            fe >>= fun e ->
+                                            k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                                    <| []
+                                else
+                                    subclassesEncoders |> Array.find (function Choice1Of3 _ -> false | _ -> true)    
+                            else
                             ((fun es ->
                                 let es, tts = List.unzip es
                                 ok (call "Record" [pr; NewArray es])
