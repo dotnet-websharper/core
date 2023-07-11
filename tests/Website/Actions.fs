@@ -21,8 +21,13 @@
 /// Declares parts of the website that can be linked to.
 module WebSharper.Tests.Website.Actions
 
+open WebSharper
+
 type Action =
     | [<CompiledName "/">] Home
     | [<CompiledName "/tests">] Tests
     | [<CompiledName "/consoletests">] ConsoleTests
+    | [<EndPoint "/testQuery?{a}&{b}">] TestQuery of a: int * b: string
+    | [<EndPoint "/testQuery2?what={w}&qwe={q}">] TestQuery2 of w: int * q: string
+
 

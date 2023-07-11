@@ -200,6 +200,15 @@ type RoutingMacro() =
                 | _ ->
                     Call(None, NonGeneric routerOpsModule, Generic QueryOp [t], [ cString name; r() ])
 
+            and queryRouter2 (t: Type) name r qName =
+                match t with
+                | C (T "Microsoft.FSharp.Core.FSharpOption`1", [ t ]) ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryOptionOp [ t ], [ cString qName; getRouter t ])    
+                | C (T "System.Nullable`1", [ t ]) ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryNullableOp [ t ], [ cString qName; getRouter t ])    
+                | _ ->
+                    Call(None, NonGeneric routerOpsModule, Generic QueryOp [t], [ cString qName; r() ])
+
             and fieldRouter (t: Type) (annot: Annotation) name =
                 let name =
                     match annot.EndPoints with
@@ -315,15 +324,17 @@ type RoutingMacro() =
                                             | M.SingletonFSharpUnionCase ->
                                                 none, NewArray []
                                             | M.NormalFSharpUnionCase fields ->
-                                                let queryFields = annot.Query |> Option.map HashSet
+                                                let mutable queryFields = annot.Query
                                                 let formDataFields = annot.FormData |> Option.map HashSet
                                                 let jsonField = annot.Json |> Option.bind id
                                                 let fRouters = 
                                                     fields |> List.map (fun f ->
                                                         let fTyp = f.UnionFieldType.SubstituteGenerics(Array.ofList g)
                                                         let r() = getRouter fTyp
-                                                        if queryFields |> Option.exists (fun q -> q.Remove f.Name) then
-                                                            queryRouter fTyp f.Name r
+                                                        if queryFields |> Option.exists (fun q -> q.ContainsKey f.Name) then
+                                                            let qName = queryFields |> Option.map (fun q -> q.Item f.Name)
+                                                            queryFields <- queryFields |> Option.map (fun q -> q.Remove f.Name)
+                                                            queryRouter2 fTyp f.Name r (qName |> Option.defaultValue f.Name)
                                                         elif formDataFields |> Option.exists (fun q -> q.Remove f.Name) then
                                                             Call(None, NonGeneric routerOpsModule, NonGeneric FormDataOp, [ queryRouter fTyp f.Name r ])
                                                         elif jsonField |> Option.exists (fun j -> j = f.Name) then
@@ -332,7 +343,7 @@ type RoutingMacro() =
                                                         else r()
                                                     )
                                                 if queryFields |> Option.exists (fun q -> q.Count > 0) then
-                                                    failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value)
+                                                    failwithf "Union case field specified by Query attribute not found: %s" (Seq.head queryFields.Value.Values)
                                                 none, NewArray fRouters
                                                
                                         NewArray [ constant; endpoints; routers ]

@@ -31,7 +31,7 @@ module P = FSharp.Quotations.Patterns
 type Annotation =
     {
         EndPoints : list<EndPointAnnotation>
-        Query : option<Set<string>>
+        Query : option<Map<string, string>>
         Json : option<option<string>>
         FormData : option<Set<string>>
         IsWildcard : bool
@@ -70,6 +70,8 @@ module Annotation =
             if String.IsNullOrEmpty a || a = "/" then b
             elif String.IsNullOrEmpty b || b = "/" then a
             elif b.StartsWith "/" then a + b else a + "/" + b
+        let unionMap map1 map2 =
+            Map.fold (fun acc key value -> Map.add key value acc) map1 map2
         {
             EndPoints = 
                 [
@@ -85,7 +87,7 @@ module Annotation =
                                 | _ -> ()
                         else yield { be with InheritRoute = false }
                 ]
-            Query = comb Set.union a.Query b.Query
+            Query = comb unionMap a.Query b.Query
             Json = comb (fun a b -> comb (fun _ _ -> failwith "multiple json fields") a b) a.Json b.Json 
             FormData = comb Set.union a.FormData b.FormData 
             IsWildcard = b.IsWildcard
@@ -116,6 +118,7 @@ type AttributeReader<'A>() =
         let mutable j = None
         let mutable w = false
         let mutable dt = None
+        let mutable queryFromEP = None
         let addToSet s attr =
             let set =
                 match !s with
@@ -125,18 +128,60 @@ type AttributeReader<'A>() =
                     s := Some set
                     set
             this.GetCtorParamArgs(attr) |> Array.iter (set.Add >> ignore)
+        let addToSetQ s attr =
+            let set =
+                match !s with
+                | Some set -> set
+                | None ->
+                    let set = HashSet()
+                    s := Some set
+                    set
+            this.GetCtorParamArgs(attr) |> Array.iter (fun x -> set.Add (x, x) |> ignore)
+
+        let addToSetQ2 s attr =
+            let set =
+                match !s with
+                | Some set -> set
+                | None ->
+                    let set = HashSet()
+                    s := Some set
+                    set
+            attr |> Array.iter (fun (x, y) -> set.Add (x, y) |> ignore)
+
         for attr in attrs do
             match this.GetAssemblyName attr with
             | "WebSharper.Core" ->
                 match this.GetName attr with
                 | "EndPointAttribute" ->
-                    this.GetCtorParamArgsOrPair(attr) |> Array.iter ep.Add
+                    let args = this.GetCtorParamArgsOrPair(attr)
+                    args |> Array.iter (fun arg ->
+                        let endpointString, i, b = args.[0]
+                        let endp, queryStrings =
+                            match endpointString.Split([|'?'|]) with
+                            | [| ep |] -> ep, None
+                            | [| ep; q |] ->
+                                ep,
+                                    q.Split([|'&'|])
+                                    |> Array.map (fun x ->
+                                        let p = x.Split([|'='|])
+                                        match p with
+                                        | [|q;f|] ->
+                                            f.TrimStart([|'{'|]).TrimEnd([|'}'|]), q
+                                        | _ ->
+                                            let x = x.TrimStart([|'{'|]).TrimEnd([|'}'|])
+                                            x, x
+                                    )
+                                    |> Some
+                            | _ -> endpointString, None
+                        ep.Add (endp, i, b)
+                        queryFromEP <- queryStrings
+                    )
                 | "NameAttribute" ->
                     wn := this.GetCtorArgOpt(attr)
                 | "MethodAttribute" ->
                     this.GetCtorParamArgs(attr) |> Array.iter ms.Add
                 | "QueryAttribute" ->
-                    addToSet q attr
+                    addToSetQ q attr
                 | "JsonAttribute" ->
                     j <- this.GetCtorArgOpt(attr) |> Some
                 | "FormDataAttribute" ->
@@ -177,6 +222,9 @@ type AttributeReader<'A>() =
                 | -1 -> Annotation.EndPoint None e inh
                 | i -> Annotation.EndPoint (Some <| e.Substring(0, i)) (e.Substring(i + 1)) inh
             ) |> List.ofSeq 
+        match queryFromEP with
+        | Some qEP -> addToSetQ2 q qEP
+        | None -> ()
         let endpoints =
             if ms.Count = 0 then
                 endpointsWithExplicitMethods
@@ -189,7 +237,7 @@ type AttributeReader<'A>() =
                 ]
         {
             EndPoints = endpoints 
-            Query = !q |> Option.map Set.ofSeq
+            Query = !q |> Option.map Map.ofSeq
             Json = j
             FormData = !fd |> Option.map Set.ofSeq
             IsWildcard = w
