@@ -382,6 +382,11 @@ module Macro =
             | Choice1Of3 x -> Choice1Of3 (f x) 
             | _ -> x
 
+        let isIdentExpr (e: Expression) =
+            match e with
+            | Call(None, pt, m, []) when pt.Entity = providerType && m.Entity.Value.MethodName = "Id" -> true
+            | _ -> false
+
         /// Returns None if MacroNeedsResolvedTypeArg.
         let getEncoding name isEnc param (t: Type) : EncodeResult =
             let warn msg = param.Warnings.Add msg
@@ -390,9 +395,8 @@ module Macro =
             let call = invoke comp isEnc
             let ident = lazy invokeId comp 
             let isIdent r =
-                ident.IsValueCreated &&
                 match r with 
-                | Choice1Of3 e when obj.ReferenceEquals(e, ident.Value) -> true
+                | Choice1Of3 e when isIdentExpr e -> true
                 | _ -> false
             let allJSClasses =
                 lazy comp.GetJavaScriptClasses()
@@ -465,16 +469,6 @@ module Macro =
                     ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
                     let defaultEnc() = 
-                        let rec subclassesAndThis (t: Type) = 
-                            if t.IsSealed then 
-                                [| t |]
-                            else
-                                Array.append (
-                                    t.Assembly.GetTypes()
-                                    |> Array.filter (fun tt -> tt.BaseType = t)
-                                    |> Array.collect subclassesAndThis
-                                ) [| t |]
-
                         let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                         let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
                         match comp.GetMetadataEntries key with                    
@@ -829,25 +823,37 @@ module Macro =
                                 else
                                     subclassesEncoders |> Array.find (function Choice1Of3 _ -> false | _ -> true)    
                             else
-                            ((fun es ->
-                                let es, tts = List.unzip es
-                                ok (call "Record" [pr; NewArray es])
-                                ), fieldEncoders)
-                            ||> List.fold (fun k (fn, fo, fe) es ->                     
-                                    fe >>= fun e ->
-                                    k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
-                            <| []
+                                ((fun es ->
+                                    let es, tts = List.unzip es
+                                    ok (call "Record" [pr; NewArray es])
+                                    ), fieldEncoders)
+                                ||> List.fold (fun k (fn, fo, fe) es ->                     
+                                        fe >>= fun e ->
+                                        k ((NewArray [cString fn; e; cInt (int fo)], t) :: es))
+                                <| []
                     | _ ->
                         fail (name + ": Type not supported: " + t.TypeDefinition.Value.FullName)
             encode t
 
+        let isIdentLambda (e: Expression) =
+            match e with
+            | Application(f, [], _) 
+            | Cast (_, Application(f, [], _))
+                when isIdentExpr f -> true
+            | _ -> false
+        
         let encodeLambda name param t =
             getEncoding name true param t
             |> mapOk (fun x -> Appl(x, [], Pure, Some 0))
 
         let encode name param t arg =
             encodeLambda name param t
-            |> mapOk (fun x -> Appl(x, [arg], Pure, Some 1))
+            |> mapOk (fun x -> 
+                if isIdentLambda x then
+                    arg
+                else
+                    Appl(x, [arg], Pure, Some 1)
+            )
 
         let decodeLambda name param t =
             getEncoding name false param t
@@ -860,7 +866,12 @@ module Macro =
 
         let decode name param t arg =
             decodeLambda name param t
-            |> mapOk (fun x -> Appl(x, [arg], Pure, Some 1))
+            |> mapOk (fun x -> 
+                if isIdentLambda x then
+                    arg
+                else
+                    Appl(x, [arg], Pure, Some 1)
+            )
 
     let Encode param t arg =
         // ENCODE()(arg)
