@@ -71,6 +71,8 @@ module PerformanceTests =
         | [<EndPoint "/">] USubAction of SubAction
         | [<EndPoint ("/string", "/stringtoo")>] UString of string
         | [<EndPoint "/query"; Query "s">] UQuery of s: string
+        | [<EndPoint "/query?{a}&{b}">] UQuery2 of a: int * b: string
+        | [<EndPoint "/query2?what={w}&qwe={q}">] UQuery3 of w: int * q: string
         | [<EndPoint "/tuple">] UTuple of p: int * string * bool
         | [<EndPoint "/tuple-with-queries"; Query("a", "b")>] UTupleQ of p: int * a: string * b: bool
         | [<EndPoint "/nullable">] UNullable of System.Nullable<int>
@@ -117,6 +119,8 @@ module PerformanceTests =
             UString """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
             UQuery "hello"
             UQuery """{} ## @!~~ +++ fe öüóőúéáű /\ `$%^&*  ->%20<- .,;"""
+            UQuery2 (1, "hi")
+            UQuery3 (1, "qwe-hi")
             UTuple (1, "hi", true)
             UTupleQ (1, "hi", true)
             UNullable (System.Nullable())
