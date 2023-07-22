@@ -406,8 +406,12 @@ module Macro =
                 | C (T "System.Collections.Generic.List`1", [t])
                 | C (T "System.Collections.Generic.Queue`1", [t])
                 | C (T "System.Collections.Generic.Stack`1", [t]) ->
-                    encode t >>= fun e ->
-                    ok (call "Array" [e])
+                    let itemEncoder = encode t
+                    if isIdent itemEncoder then
+                        ok ident.Value
+                    else
+                        encode t >>= fun e ->
+                        ok (call "Array" [e])
                 | ArrayType _ ->
                     fail "JSON serialization for multidimensional arrays is not supported."
                 | TSType (TSType.ArrayOf t) ->
@@ -457,10 +461,14 @@ module Macro =
                     encode t >>= fun e ->
                     ok (call "LinkedList" [e])
                 | TupleType (ts, _) ->
-                    ((fun es -> ok (call "Tuple" [NewArray es])), ts)
-                    ||> List.fold (fun k t ->
-                        fun es -> encode t >>= fun e -> k (e :: es))
-                    <| []
+                    let itemEncoders = ts |> List.map encode
+                    if itemEncoders |> List.forall isIdent then
+                        ok ident.Value
+                    else
+                        ((fun es -> ok (call "Tuple" [NewArray es])), itemEncoders)
+                        ||> List.fold (fun k enc ->
+                            fun es -> enc >>= fun e -> k (e :: es))
+                        <| []
                 | TSType (TSType.Tuple ts) ->
                     encodeTuple (List.map TSType ts)
                 | C (T "System.DateTime", []) ->
