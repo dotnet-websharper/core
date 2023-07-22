@@ -1031,8 +1031,12 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     let mutable hasSingletonCase = false
     let mutable hasConstantCase = false
+    let mutable isForcedNotJavaScript = annot.IsForcedNotJavaScript
 
-    let notForcedNotJavaScript = not annot.IsForcedNotJavaScript
+    if isForcedNotJavaScript && clsMembers.Count > 0 && (cls.IsFSharpUnion || cls.IsFSharpRecord || cls.IsFSharpExceptionDeclaration) then
+        comp.AddWarning(Some (CodeReader.getRange cls.DeclarationLocation),
+            SourceWarning ("Ingnoring use of JavaScript(false), as a member is marked JavaScript. Did you mean Prototype(false) for making type a plain JS object?"))
+        isForcedNotJavaScript <- false
 
     if annot.IsJavaScript || hasWSPrototype || isAugmentedFSharpType cls then
         if cls.IsFSharpUnion then
@@ -1067,7 +1071,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                         | Some (A.MemberKind.Constant v) -> 
                             constantCase v
                         | _ ->
-                            if argumentless && notForcedNotJavaScript then
+                            if argumentless && not isForcedNotJavaScript then
                                 let caseField =
                                     let gen = List.replicate cls.GenericParameters.Count (NonGenericType Definitions.Obj)
                                     GenericType def gen
@@ -1187,7 +1191,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                             normalFields
                     Lambda (vars, None, CopyCtor(def, obj))
 
-                let cKind = if annot.IsForcedNotJavaScript then nrInline else N.Static
+                let cKind = if isForcedNotJavaScript then nrInline else N.Static
                 addConstructor None A.MemberAnnotation.BasicPureJavaScript cdef cKind false None body
 
                 // properties
