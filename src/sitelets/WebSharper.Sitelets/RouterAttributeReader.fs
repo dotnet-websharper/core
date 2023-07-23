@@ -154,8 +154,7 @@ type AttributeReader<'A>() =
                 match this.GetName attr with
                 | "EndPointAttribute" ->
                     let args = this.GetCtorParamArgsOrPair(attr)
-                    args |> Array.iter (fun arg ->
-                        let endpointString, i, b = args.[0]
+                    args |> Array.iter (fun (endpointString, i, b) ->
                         let endp, queryStrings =
                             match endpointString.Split([|'?'|]) with
                             | [| ep |] -> ep, None
