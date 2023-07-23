@@ -1386,9 +1386,8 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
                 | _ ->
                     let v =
                         ds |> Array.tryPick (fun d ->
-                            match d x with
-                            | null -> None
-                            | res -> Some res
+                            try Some (d x) 
+                            with _ -> None
                         )
                     match v with
                     | Some res -> res
