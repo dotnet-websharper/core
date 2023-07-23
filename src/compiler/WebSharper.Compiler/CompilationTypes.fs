@@ -43,7 +43,7 @@ module NotResolved =
         | Constructor
         | Override of TypeDefinition
         | Implementation of TypeDefinition
-        | Remote of RemotingKind * MethodHandle * list<Id> * option<TypeDefinition * option<obj>>
+        | Remote of RemotingKind * MethodHandle * list<Id> * option<TypeDefinition * option<obj>> * option<Type> * option<Type list>
         | Inline of assertReturnType: bool
         | InlineImplementation of TypeDefinition
         | NoFallback

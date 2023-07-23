@@ -1228,6 +1228,12 @@ type Compilation(meta: Info, ?hasGraph) =
 
         let rec resolveInterface (typ: TypeDefinition) (nr: NotResolvedInterface) =
             notResolvedInterfaces.Remove typ |> ignore
+            let clsOpt = notResolvedClasses.TryFind typ
+            // If this is an interface used for remoting, do not process further
+            match clsOpt with
+            | Some cls when cls.Members |> List.exists (function NotResolvedMember.Method (_, { Kind = N.Remote _}) -> true | _ -> false) -> ()
+            | _ ->
+            
             let allMembers = HashSet()
             let allNames = HashSet()
             let extended = Dictionary() // has Some value if directly extended and JavaScript annotated
@@ -1299,7 +1305,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 remainingTypes.Add (typ, false)
 
             let cls =
-                match notResolvedClasses.TryFind typ with
+                match clsOpt with
                 | Some cls -> cls
                 | _ ->
                     let cls =
@@ -1610,7 +1616,7 @@ type Compilation(meta: Info, ?hasGraph) =
                     else
                         New (Some n)
                 | N.AsStatic -> Func (n, true)
-                | N.Remote (_, h, _, _) -> Remote(n, h)
+                | N.Remote (_, h, _, _, _, args) -> Remote(n, h, args.IsSome)
                 | _ -> failwith "Invalid static member kind"
                 |> withMacros nr        
 
@@ -1939,6 +1945,44 @@ type Compilation(meta: Info, ?hasGraph) =
                 FullName =  "WebSharper.Remoting+AjaxRemotingProvider"
             }, ConstructorInfo.Default(), []
 
+        let webSharperJson =
+            TypeDefinition {
+                Assembly = "WebSharper.Core"
+                FullName = "WebSharper.TypedJson"
+            } 
+
+        let encodeMethod = 
+            Method {
+                MethodName = "Encode"
+                Parameters = [ TypeParameter 0 ]
+                ReturnType = NonGenericType Definitions.Obj
+                Generics = 1       
+            }
+
+        let decodeMethod = 
+            Method {
+                MethodName = "Decode"
+                Parameters = [ NonGenericType Definitions.Obj ]
+                ReturnType = TypeParameter 0
+                Generics = 1       
+            }
+
+        let decodeAsyncMethod = 
+            Method {
+                MethodName = "DecodeAsync"
+                Parameters = [ GenericType Definitions.FSharpAsync [ NonGenericType Definitions.Obj ] ]
+                ReturnType = GenericType Definitions.FSharpAsync [ TypeParameter 0 ]
+                Generics = 1       
+            }
+
+        let decodeTaskMethod = 
+            Method {
+                MethodName = "DecodeTask"
+                Parameters = [ GenericType Definitions.Task1 [ NonGenericType Definitions.Obj ] ]
+                ReturnType = GenericType Definitions.Task1 [ TypeParameter 0 ]
+                Generics = 1       
+            }
+
         let nameStaticMember typ name k m = 
             let res = assumeClass typ
             match m with
@@ -1964,7 +2008,7 @@ type Compilation(meta: Info, ?hasGraph) =
             | M.Method (mDef, nr) ->
                 let body = 
                     match nr.Kind with
-                    | N.Remote (kind, handle, args, rh) ->
+                    | N.Remote (kind, handle, args, rh, rt, argTypes) ->
 
                         let name, m =
                             match kind with
@@ -1998,7 +2042,6 @@ type Compilation(meta: Info, ?hasGraph) =
                         
                         let mNode = MethodNode(typ, mDef)
                         if hasGraph then
-                            //graph.AddEdge()
                             let rec addTypeDeps (t: Type) =
                                 match t with
                                 | ConcreteType c ->
@@ -2011,7 +2054,50 @@ type Compilation(meta: Info, ?hasGraph) =
                                 | _ -> ()
                             addTypeDeps mDef.Value.ReturnType
                         
-                        let callRP = Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, [ Value (String (handle.Pack())); NewArray (args |> List.map Var) ]) 
+                        let encodedArgs =
+                            match argTypes with
+                            | None ->
+                                (args, mDef.Value.Parameters) ||> List.map2 (fun a p ->
+                                    Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
+                                )
+                            | Some argTypes ->
+                                (args, argTypes) ||> List.map2 (fun a p ->
+                                    Call(None, NonGeneric webSharperJson, Generic encodeMethod [ p ], [ Var a ])
+                                )
+                        let decode x =
+                            let returnTypePlain() =
+                                match mDef.Value.ReturnType with
+                                | ConcreteType c ->
+                                    match c.Generics with
+                                    | [] -> None
+                                    | t :: _ ->
+                                        if t = Type.VoidType then None else Some t
+                                | _ ->
+                                    match rt with
+                                    | Some rt -> Some rt
+                                    | _ -> failwith "Expecting Async or Task return type"
+                            let decoded dm arg =
+                                Call(None, NonGeneric webSharperJson, Generic dm [ arg ], [ x ])
+                            match kind with
+                            | RemoteAsync -> 
+                                match returnTypePlain() with
+                                | Some t -> decoded decodeAsyncMethod t
+                                | _ -> x
+                            | RemoteTask -> 
+                                match returnTypePlain() with
+                                | Some t -> decoded decodeTaskMethod t
+                                | _ -> x
+                            | RemoteSend -> x
+                            | RemoteSync -> 
+                                decoded decodeMethod mDef.Value.ReturnType
+
+                        let callRP = 
+                            Call(Some remotingProvider, NonGeneric Definitions.IRemotingProvider, NonGeneric m, 
+                            [ 
+                                Value (String (handle.Pack()))
+                                NewArray encodedArgs 
+                            ]) 
+                            |> decode
                         Function(args, None, None, Return callRP)
                     | _ ->
                         nr.Body
@@ -2514,7 +2600,7 @@ type Compilation(meta: Info, ?hasGraph) =
                 ResourceHashes = Dictionary()
                 ExtraBundles = this.AllExtraBundles
             }    
-        let jP = Json.Provider.CreateTyped(info)
+        let jP = Json.ServerSideProvider
         let st = Verifier.State(jP)
         for KeyValue(t, cls) in classes.Current do
             match cls with

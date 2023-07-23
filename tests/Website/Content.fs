@@ -67,8 +67,28 @@ let HomePage (ctx: Context<_>) =
                         Attr("href", ctx.Link (CSharpSiteletsTests WebSharper.CSharp.Sitelets.Tests.SiteletTest.JohnDoe)),
                         Text "C# Sitelets test minisite - John Doe"
                     )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (Site <| Actions.TestQuery(6, "qwe"))),
+                        Text "Query test link"
+                    )
+                ),
+                Elt("li",
+                    Elt("a",
+                        Attr("href", ctx.Link (Site <| Actions.TestQuery2(6, "qwe"))),
+                        Text "Query test link 2"
+                    )
                 )
             )
+        ]
+    )
+
+let TestQueryPage (ctx: Context<_>) (a: int, b: string) =
+    Content.Page(
+        Title = "WebSharper tests",
+        Body = [
+            Elt("h1", Text <| sprintf "WebSharper tests %i %s" a b)
         ]
     )
 
@@ -113,6 +133,7 @@ let MainSite runServerTests ctx = function
     | Actions.Home -> HomePage ctx
     | Actions.Tests -> TestsPage runServerTests true ctx
     | Actions.ConsoleTests -> TestsPage runServerTests false ctx
+    | Actions.TestQuery (a, b) -> TestQueryPage ctx (a, b)
 
 let Main runServerTests =
     System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- new System.Globalization.CultureInfo("en-US")

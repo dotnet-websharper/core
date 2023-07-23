@@ -236,6 +236,13 @@ type internal DecimalProxy =
     [<Inline>]
     static member op_UnaryPlus(n : decimal) : decimal = DecimalProxy.un WSDecimalMath.UnaryPlus n
 
+    [<Inline>]
+    member internal this.ToString() : string = WSDecimalMath.String (As<MathNumber> this)
+
+    static member EncodeJson(n: decimal) : obj = WSDecimalMath.String (As<MathNumber> n)
+
+    static member DecodeJson(n: obj) : decimal = DecimalProxy.Parse(As<string> n)
+
 [<Proxy "Microsoft.FSharp.Core.LanguagePrimitives+IntrinsicFunctions, FSharp.Core">]
 module internal IntrinsicFunctionProxy =
 

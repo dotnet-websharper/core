@@ -145,6 +145,12 @@ let private transformInterface (sr: R.SymbolReader) (annot: A.TypeAnnotation) (i
             m, mAnnot
         )
         |> List.ofSeq
+
+    let isRemote =
+        intfMethods |> List.exists (function (_, { Kind = Some (AttributeReader.MemberKind.Remote _) }) -> true | _ -> false)
+
+    if isRemote then None else
+
     let hasExplicitJS =
         annot.IsJavaScript || (intfMethods |> List.exists (fun (_, mAnnot) -> mAnnot.Kind = Some AttributeReader.MemberKind.JavaScript))
     for m, mAnnot in intfMethods do
@@ -1189,7 +1195,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                             mdef.Value.ReturnType
                         )
                     let vars = mdef.Value.Parameters |> List.map (fun _ -> Id.New())
-                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp)) false Undefined
+                    addMethod (Some (meth, memdef)) mAnnot mdef (N.Remote(remotingKind, handle, vars, rp, None, None)) false Undefined
                 | A.MemberKind.Stub -> failwith "should be handled previously"
                 if mAnnot.IsEntryPoint then
                     let ep = ExprStatement <| Call(None, thisType, NonGeneric mdef, [])

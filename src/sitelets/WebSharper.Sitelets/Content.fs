@@ -184,10 +184,8 @@ module Content =
             }
         }
 
-    let JsonProvider = WebSharper.Core.Json.Provider.Create()
-
     let JsonContent<'T, 'U> (f: Context<'T> -> 'U) =
-        let encoder = JsonProvider.GetEncoder<'U>()
+        let encoder = Json.ServerSideProvider.GetEncoder<'U>()
         Content.CustomContent <| fun ctx ->
             let x = f ctx
             {
@@ -197,13 +195,13 @@ module Content =
                     use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                     x
                     |> encoder.Encode
-                    |> JsonProvider.Pack
+                    |> Json.ServerSideProvider.Pack
                     |> WebSharper.Core.Json.Write tw
                 )
             }
 
     let JsonContentAsync<'T, 'U> (f: Context<'T> -> Async<'U>) =
-        let encoder = JsonProvider.GetEncoder<'U>()
+        let encoder = Json.ServerSideProvider.GetEncoder<'U>()
         Content.CustomContentAsync <| fun ctx ->
             async {
                 let! x = f ctx
@@ -214,7 +212,7 @@ module Content =
                         use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                         x
                         |> encoder.Encode
-                        |> JsonProvider.Pack
+                        |> Json.ServerSideProvider.Pack
                         |> WebSharper.Core.Json.Write tw
                     )
                 }

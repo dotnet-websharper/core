@@ -43,7 +43,13 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebS
             ctx.Response.Headers.Add(k, v)
         )
 
-    if Rem.IsRemotingRequest getReqHeader then
+        options.RemotingHeaders
+        |> Array.iter (fun (k, v) ->
+            let v = Microsoft.Extensions.Primitives.StringValues(v)
+            ctx.Response.Headers.Add(k, v)
+        )
+
+    if server.IsRemotingRequest ctx.Request.Path then
         let uri = Context.RequestUri ctx.Request
         let getCookie name =
             match ctx.Request.Cookies.TryGetValue(name) with
@@ -67,7 +73,9 @@ let internal handleRemote (ctx: HttpContext) (server: Rem.Server) (options: WebS
                 let! resp =
                     server.HandleRequest(
                         {
+                            Path = ctx.Request.Path.ToString()
                             Body = body
+                            Method = ctx.Request.Method
                             Headers = getReqHeader
                         }, wsctx)
                 ctx.Response.StatusCode <- 200
@@ -87,7 +95,7 @@ let Middleware (options: WebSharperOptions) =
         match service with
         | :? IRemotingService as s -> s.Handler
         | _ -> null
-    let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
+    let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
     Func<_,_,_>(fun (ctx: HttpContext) (next: Func<Task>) ->
         match handleRemote ctx server options with
         | Some rTask -> rTask
@@ -105,18 +113,18 @@ let HttpHandler () : RemotingHttpHandler =
                 match httpCtx.Request.Headers.TryGetValue(k) with
                 | true, s -> Seq.tryHead s
                 | false, _ -> None
-
-            if Rem.IsRemotingRequest getReqHeader then
-                let options =
-                    WebSharperBuilder(httpCtx.RequestServices)
-                        .UseSitelets(false)
-                        .Build()
-                let getRemotingHandler (t: Type) =
-                    let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
-                    match service with
-                    | :? IRemotingService as s -> s.Handler
-                    | _ -> null
-                let server = Rem.Server.Create options.Metadata options.Json (Func<_,_> getRemotingHandler)
+            let getRemotingHandler (t: Type) =
+                let service = httpCtx.RequestServices.GetService(typedefof<IRemotingService<_>>.MakeGenericType([| t |])) 
+                match service with
+                | :? IRemotingService as s -> s.Handler
+                | _ -> null
+            
+            let options =
+                WebSharperBuilder(httpCtx.RequestServices)
+                    .UseSitelets(false)
+                    .Build()
+            let server = Rem.Server.Create options.Metadata WebSharper.Json.ServerSideProvider (Func<_,_> getRemotingHandler)
+            if server.IsRemotingRequest httpCtx.Request.Path then
             
                 match handleRemote httpCtx server options with
                 | Some handle ->

@@ -25,13 +25,13 @@ open WebSharper.JavaScript
 module R = WebSharper.Core.Remoting
 
 [<JavaScript>]
-let mutable EndPoint = "?"
+let mutable EndPoint = JS.Window.Location.Origin
 
 [<JavaScript>]
 let UseHttps() =
     try
         if not (JS.Window.Location.Href.StartsWith "https://") then
-            EndPoint <- JS.Window.Location.Href.Replace("http://", "https://")
+            EndPoint <- JS.Window.Location.Origin.Replace("http://", "https://")
             true
         else false
     with _ ->
@@ -114,11 +114,12 @@ type XhrProvider [<JavaScript>] () =
 let mutable AjaxProvider = XhrProvider() :> IAjaxProvider
 
 [<JavaScript>]
-let private makeHeaders (m: string) =
-    New [
-        "content-type" => "application/json"   
-        "x-websharper-rpc" => m
-    ]
+let private makeHeaders(headers: (string * string) []) =
+    Array.append headers [|"content-type", "application/json"|]
+    |> Array.distinctBy fst
+    |> Array.map (fun (a,b) -> a => b)
+    |> New
+    
 
 [<JavaScript>]
 let private makePayload (data: obj []) =
@@ -141,10 +142,13 @@ type AjaxRemotingProvider() =
     abstract EndPoint : string
     override this.EndPoint = EndPoint
 
+    abstract Headers : (string * string) []
+    override this.Headers = [||]
+
     abstract AsyncBase : string * obj[] -> Async<obj> 
     override this.AsyncBase(m, data) = 
         async {
-            let headers = makeHeaders m
+            let headers = makeHeaders this.Headers
             let payload = makePayload data
             let! token = Async.CancellationToken
             let! data =
@@ -166,13 +170,13 @@ type AjaxRemotingProvider() =
                             waiting := false
                             reg.Dispose()
                             err e
-                    AjaxProvider.Async this.EndPoint headers payload ok err)
-            return! Json.ActivateAsync (Json.Parse data)
+                    AjaxProvider.Async (this.EndPoint + "/" + m) headers payload ok err)
+            return Json.Parse data
         }
 
     interface IRemotingProvider with
         member this.Sync m data : obj =
-            let data = AjaxProvider.Sync this.EndPoint (makeHeaders m) (makePayload data)
+            let data = AjaxProvider.Sync (this.EndPoint + "/" + m) (makeHeaders(this.Headers)) (makePayload data)
             Json.Activate (Json.Parse data) [||]
 
         member this.Async m data : Async<obj> =

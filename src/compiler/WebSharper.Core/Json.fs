@@ -456,7 +456,7 @@ and TAttrs =
                     cad.Constructor.DeclaringType = typeof<CompiledNameAttribute> then
                     Some (cad.ConstructorArguments.[0].Value :?> string)
                 else None)
-        defaultArg customName (^T : (member Name : string) (mi))
+        defaultArg customName ((^T : (member Name : string) (mi)).TrimEnd('@'))
 
     static member Get(i: FormatSettings, t: System.Type, ?mi: #System.Reflection.MemberInfo, ?uci: Reflection.UnionCaseInfo, ?pi: System.Reflection.ParameterInfo) =
         let mcad =
@@ -612,16 +612,10 @@ let serializers =
             | _ -> raise (DecoderException(String g, typeof<System.Guid>))
         | x -> raise (DecoderException(x, typeof<System.Guid>))
     add encGuid decGuid d   
-    let decimalHelperModule =
-        AST.Address.TypeModuleRoot { Assembly = "WebSharper.MathJS.Extensions"; Name = "WebSharper.Decimal" }
     let encDecimal (d: decimal) =
-        let b = System.Decimal.GetBits(d)
-        EncodedArrayInstance (
-            decimalHelperModule, 
-            b |> Seq.map (string >> EncodedNumber) |> List.ofSeq
-        )
+        EncodedString (d.ToString())
     let decDecimal = function
-        | Object [ "mathjs", String "BigNumber"; "value", String d ] as x ->
+        | String d as x ->
             match System.Decimal.TryParse d with
             | true, d -> d
             | _ -> raise (DecoderException(x, typeof<decimal>)) 
@@ -1177,7 +1171,7 @@ let objectEncoder dE (i: FormatSettings) (ta: TAttrs) =
         if t.IsValueType then
             fs |> Array.map (fun f ->
                 let ta = TAttrs.Get(i, f.FieldType, f)
-                (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+                (i.GetEncodedFieldName f.DeclaringType (f.Name),
                  encodeOptionalField dE ta))
         else
             fs |> Array.map (fun f ->
@@ -1288,7 +1282,7 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
         | _ ->
         let ds = fs |> Array.map (fun f ->
             let ta = TAttrs.Get(i, f.FieldType, f)
-            (i.GetEncodedFieldName f.DeclaringType (f.Name.TrimEnd('@')),
+            (i.GetEncodedFieldName f.DeclaringType (f.Name),
              decodeOptionalField dD ta))
         fun (x: Value) ->
             match x with
@@ -1303,68 +1297,111 @@ let objectDecoder dD (i: FormatSettings) (ta: TAttrs) =
             | x ->
                 raise (DecoderException(x, ta.Type))
     else
-    match t.GetConstructor [||] with
-    | null -> 
-        // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
-        let ctors = t.GetConstructors()
-        let ctor = 
-            if ctors.Length = 1 then 
-                ctors.[0] 
-            else
-                let jsonCtors = 
-                    ctors |> Array.filter (fun c -> 
-                        c.GetCustomAttributesData()
-                        |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
-                    )
-                if jsonCtors.Length = 1 then 
-                    jsonCtors.[0]  
+    let getDecoderDef (t: Type) = 
+        match t.GetConstructor [||] with
+        | null -> 
+            // look up singular parameterized constructor or the one annotated with JsonConstructorAttribute
+            let ctors = t.GetConstructors()
+            let ctor = 
+                if ctors.Length = 1 then 
+                    ctors.[0] 
                 else
+                    let jsonCtors = 
+                        ctors |> Array.filter (fun c -> 
+                            c.GetCustomAttributesData()
+                            |> Seq.exists (fun a -> a.AttributeType.FullName = "System.Text.Json.Serialization.JsonConstructorAttribute")
+                        )
+                    if jsonCtors.Length = 1 then 
+                        jsonCtors.[0]  
+                    else
                     raise (NoEncodingException t)
-        let ds = ctor.GetParameters() |> Array.map (fun p ->
-            let prop = t.GetProperty(p.Name) |> Option.ofObj
-            let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
-            let fname =
-                let bfName = "<" + p.Name + ">k__BackingField"
-                if t.GetField(bfName) |> isNull then
-                    bfName
-                else
-                    p.Name
-            (i.GetEncodedFieldName t fname,
-             decodeOptionalField dD ta))
-        fun (x: Value) ->
-            match x with
-            | Null -> null
-            | Object fields ->
-                let get = table fields
-                let data =
-                    ds
-                    |> Seq.map (fun (n, dec) ->
-                       dec (get n))
-                    |> Seq.toArray
-                ctor.Invoke(data)
-            | x ->
-                raise (DecoderException(x, ta.Type))
-    | _ ->
-        let fs = getObjectFields t
-        let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
-        let ds = fs |> Array.map (fun f ->
-            let ta = TAttrs.Get(i, f.FieldType, f)
-            (i.GetEncodedFieldName f.DeclaringType f.Name,
-             decodeOptionalField dD ta))
-        fun (x: Value) ->
-            match x with
-            | Null -> null
-            | Object fields ->
-                let get = table fields
-                let obj = System.Activator.CreateInstance t
-                let data =
-                    ds
-                    |> Seq.map (fun (n, dec) ->
-                       dec (get n))
-                    |> Seq.toArray
-                FS.PopulateObjectMembers(obj, ms, data)
-            | x ->
-                raise (DecoderException(x, ta.Type))
+            let fs = t.GetFields(fieldFlags)
+            let ds = ctor.GetParameters() |> Array.map (fun p ->
+                let prop = t.GetProperty(p.Name) |> Option.ofObj
+                let ta = TAttrs.Get(i, p.ParameterType, ?mi = prop, pi = p)
+                let fname =
+                    let bfName = "<" + p.Name + ">k__BackingField"
+                    let fNameLc = p.Name.ToLowerInvariant()
+                    let bfNameLc = bfName.ToLowerInvariant()
+                    let fieldFound =
+                        fs |> Array.tryFind (fun f ->   
+                            let fLc = f.Name.ToLowerInvariant() 
+                            fLc = fNameLc || fLc = bfNameLc
+                        )    
+                    match fieldFound with
+                    | Some f ->
+                        f.Name
+                    | _ ->
+                        p.Name
+                (i.GetEncodedFieldName t fname,
+                 decodeOptionalField dD ta))
+            fun (x: Value) ->
+                match x with
+                | Object fields ->
+                    let get = table fields
+                    let data =
+                        ds
+                        |> Seq.map (fun (n, dec) ->
+                           dec (get n))
+                        |> Seq.toArray
+                    ctor.Invoke(data)
+                | x ->
+                    null
+        | _ ->
+            let fs = getObjectFields t
+            let ms = fs |> Array.map (fun x -> x :> System.Reflection.MemberInfo)
+            let ds = fs |> Array.map (fun f ->
+                let ta = TAttrs.Get(i, f.FieldType, f)
+                (i.GetEncodedFieldName f.DeclaringType f.Name,
+                 decodeOptionalField dD ta))
+            fun (x: Value) ->
+                match x with
+                | Object fields ->
+                    let get = table fields
+                    let obj = System.Activator.CreateInstance t
+                    let data =
+                        ds
+                        |> Seq.map (fun (n, dec) ->
+                           dec (get n))
+                        |> Seq.toArray
+                    FS.PopulateObjectMembers(obj, ms, data)
+                | x ->
+                    null
+    let rec getDecoder (t: Type) =
+        let rec subclassesAndThis (t: Type) = 
+            if t.IsSealed then 
+                [| t |]
+            else
+                Array.append (
+                    t.Assembly.GetTypes()
+                    |> Array.filter (fun tt -> tt.BaseType = t)
+                    |> Array.collect subclassesAndThis
+                ) [| t |]
+        let cs = subclassesAndThis t
+        if cs.Length > 1 then
+            let ds = cs |> Array.map getDecoderDef
+            fun (x: Value) ->
+                match x with
+                | Null -> null
+                | _ ->
+                    let v =
+                        ds |> Array.tryPick (fun d ->
+                            try Some (d x) 
+                            with _ -> None
+                        )
+                    match v with
+                    | Some res -> res
+                    | _ -> raise (DecoderException(x, ta.Type))
+        else
+            let d = getDecoderDef t
+            fun (x: Value) ->
+                match x with
+                | Null -> null
+                | _ ->
+                    match d x with
+                    | null -> raise (DecoderException(x, ta.Type))
+                    | res -> res
+    getDecoder t
 
 let btree node left right height count = 
     EncodedObject [
@@ -2076,8 +2113,13 @@ module PlainProviderInternals =
                         getObjectFields t
                         |> Seq.map (fun f ->
                             let fn = f.Name
+                            if fn.Contains("StructTest") then
+                                printfn "YStructTest"
                             if fn.StartsWith("<") && fn.EndsWith(">k__BackingField") then
                                 let pn = fn.Replace("<", "").Replace(">k__BackingField", "")
+                                fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
+                            elif fn.EndsWith("@") then
+                                let pn = fn.TrimEnd('@')
                                 fn, t.GetProperty(pn) :> System.Reflection.MemberInfo
                             else
                                 fn, f :> System.Reflection.MemberInfo

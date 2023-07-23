@@ -67,7 +67,12 @@ type TaskAdapter<'T>() =
                 raise InvalidAsyncException
 
 let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
-    let t = m.ReturnType
+    let t =
+        if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+            let _, ret = Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements m.ReturnType 
+            ret
+        else
+            m.ReturnType
     let tD = if t.IsGenericType then t.GetGenericTypeDefinition() else t
     if t.IsGenericType && tD = typedefof<Async<_>> then
         let eT = t.GetGenericArguments().[0]
@@ -117,14 +122,32 @@ type Response =
 
 type Request =
     {
+        Path : string
         Body : string
+        Method : string
         Headers : Headers
     }
 
 let getParameterDecoder (jP: J.Provider) (m: MethodInfo) =
     let par = m.GetParameters()
     match par.Length with
-    | 0 -> fun _ -> [||]
+    | 0 ->
+        let fsharpFuncParameters =
+            if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+                let args, _ = Microsoft.FSharp.Reflection.FSharpType.GetFunctionElements m.ReturnType 
+                args |> Some 
+            else
+                None
+        match fsharpFuncParameters with
+        | None -> 
+            fun _ -> [||]
+        | Some x ->
+            let decoder = jP.GetDecoder x
+            fun x ->
+                match x with
+                | J.Array [] -> [||]
+                | J.Array [j] -> [| decoder.Decode j |]
+                | _ -> failwith "RPC parameter not received a single element array"
     | 1 ->
         let decoder = jP.GetDecoder par.[0].ParameterType
         fun x ->
@@ -167,60 +190,65 @@ let toConverter (jP: J.Provider) (handlers: Func<System.Type, obj>) (m: MethodIn
                 raise (InvalidHandlerException t)
             | inst ->
                 let args = dec j
-                let ps = Array.zeroCreate (args.Length + 1)
-                for i in 1 .. args.Length do
-                    ps.[i] <- args.[i - 1]
-                ps.[0] <- inst
-                run.InvokeN(ps) |> enc
+                if Microsoft.FSharp.Reflection.FSharpType.IsFunction m.ReturnType then
+                    let x = run.Invoke1(inst)
+                    let t = x.GetType()
+                    let invoker = t.GetMethod("Invoke")
+                    let args = if args = [||] then [|null|] else args
+                    invoker.Invoke(x, args) |> enc
+                else
+                    let ps = Array.zeroCreate (args.Length + 1)
+                    for i in 1 .. args.Length do
+                        ps.[i] <- args.[i - 1]
+                    ps.[0] <- inst
+                    run.InvokeN(ps) |> enc
 
 [<Literal>]
 let HEADER_NAME = "x-websharper-rpc"
 
-let IsRemotingRequest (h: Headers) =
-    match h HEADER_NAME with
-    | Some _ -> true
-    | None ->
-        match h "Access-Control-Request-Headers" with
-        | Some s when s.Contains HEADER_NAME -> true
-        | _ -> false
-
-exception InvalidHeadersException
 exception RemotingException of message: string with
     override this.Message = this.message
 
 [<Sealed>]
 type Server(info, jP, handlers: Func<System.Type, obj>) =
     let remote = M.Utilities.getRemoteMethods info
-    let withoutHash = 
-        remote.Keys |> Seq.map (fun h -> h.Assembly, h.Path) |> HashSet
+    let remotePaths = 
+        let rp = Dictionary(StringComparer.InvariantCultureIgnoreCase)
+        for (KeyValue(mh, m)) in remote do
+            let p = mh.Pack()
+            try
+                rp.Add(p , m)
+            with _ ->
+                failwithf "Duplicate remote method found: %s" p
+        rp
     let d = ConcurrentDictionary()
-    let getConverter m =
-        match remote.TryFind m with
+    let getConverter (td, m) =
+        toConverter jP handlers (AST.Reflection.LoadMethod td m)
+    let getCachedConverter p =
+        match remotePaths.TryFind p with
         | None ->
-            if withoutHash.Contains (m.Assembly, m.Path) then
-                raise (RemotingException ("Remote method signature incompatible: " + m.Path + ", " + m.Assembly))
-            else
-                raise (RemotingException ("Remote method not found: " + m.Path + ", " + m.Assembly))
-        | Some (td, m) -> toConverter jP handlers (AST.Reflection.LoadMethod td m)
-    let getCachedConverter m =
-        d.GetOrAdd(m, valueFactory = Func<_,_>(getConverter))
+            raise (RemotingException ("Remote method not found: " + p))
+        | Some tdm ->
+            d.GetOrAdd(tdm, valueFactory = Func<_,_>(getConverter))
+
+    member this.IsRemotingRequest (path: string) =
+        fst <| remotePaths.TryGetValue (path.TrimStart('/'))
 
     member this.HandleRequest(req: Request) =
-        match req.Headers HEADER_NAME with
-        | None -> raise InvalidHeadersException
-        | Some m ->
-            let m = M.MethodHandle.Unpack m
-            let args = J.Parse req.Body
-            let conv = getCachedConverter m
-            let convd = conv args
-            async {
-                let! x = convd
-                let r = J.Stringify x
-                return {
-                    ContentType = "application/json"
-                    Content = r
-                }
+        let args = 
+            match req.Method with
+            | "GET" -> J.Array []
+            | _ -> J.Parse req.Body
+        let conv = getCachedConverter (req.Path.Trim('/'))
+        let convd = conv args
+        async {
+            let! x = convd
+            let r = J.Stringify x
+            return {
+                ContentType = "application/json"
+                Content = r
             }
+        }
 
     member this.JsonProvider = jP
 

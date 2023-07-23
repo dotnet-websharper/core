@@ -552,6 +552,12 @@ module Definitions =
             FullName = "Microsoft.FSharp.Core.OptimizedClosures+FSharpFunc`6"
         }
 
+    let PrintfFormat5 =
+        TypeDefinition {
+            Assembly = "FSharp.Core"
+            FullName = "Microsoft.FSharp.Core.PrintfFormat`5"
+        }
+
     let ValueType =
         TypeDefinition {
             Assembly = "netstandard"
@@ -684,6 +690,21 @@ type Type =
             | LocalTypeParameter -> "$?", ""
             | TSType _ -> invalidOp "TypeScript type has no AssemblyQualifiedName"
         getNameAndAsm this |> combine
+
+    member this.DisplayName =
+        let rec getName ty =
+            match ty with
+            | ConcreteType t -> (t.Entity.Value.FullName.Split([| '.'; '+' |]) |> Array.last).Replace("`", "_")
+            | StaticTypeParameter _
+            | LocalTypeParameter 
+            | TypeParameter _ -> invalidOp "Generic parameter has no TypeDefinition"
+            | ArrayType (t, i) -> "Array" + (if i = 0 then "" else string i + "D") + "_" + getName t
+            | TupleType (ts, _)  -> "Tuple_" + (ts |> Seq.map getName |> String.concat "_")
+            | FSharpFuncType _ -> "Func"
+            | ByRefType t -> "ByRef_" + getName t
+            | VoidType -> "Void"
+            | TSType _ -> invalidOp "TypeScript type has no DisplayName"
+        getName this
 
     member this.TypeDefinition =
         match this with
@@ -864,6 +885,12 @@ module TypeHelpers =
         match t with
         | ConcreteType { Entity = e; Generics = [t1; t2; t3; t4; t5; t6] } when e = Definitions.OptimizedClosuresFSharpFunc6 ->
             Some (t1, t2, t3, t4, t5, t6)
+        | _ -> None
+
+    let (|PrintfFormat5|_|) t =
+        match t with
+        | ConcreteType { Entity = e; Generics = [t1; t2; t3; t4; t5] } when e = Definitions.PrintfFormat5 ->
+            Some (t1, t2, t3, t4, t5)
         | _ -> None
 
 type [<RequireQualifiedAccess>] MemberKind =

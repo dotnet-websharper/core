@@ -542,6 +542,18 @@ module Bug1284 =
     let records = [ {Field = 1.}; {Field = 2.} ]
 
 [<JavaScript>]
+module Bug1334 =
+    [<JavaScript(false)>]
+    type QRCodeAttrs =
+        {
+            size: int
+            message: string
+        }
+
+        [<JavaScript>]
+        member this.Foo() = 1
+
+[<JavaScript>]
 let Tests =
     TestCategory "Regression" {
 
@@ -1078,5 +1090,12 @@ let Tests =
             equal (Seq.sumBy Bug1284.addOne Bug1284.records).Field 5.
             equal (Seq.average Bug1284.records).Field 1.5
             equal (Seq.averageBy Bug1284.addOne Bug1284.records).Field 2.5
+        }
+
+        Test "#1334 Improper use of JavaScript(false)" {
+            let qr = {size=100; message="hello"} : Bug1334.QRCodeAttrs
+            equal qr.size 100
+            equal qr.message "hello"
+            equal (qr.Foo()) 1
         }
     }

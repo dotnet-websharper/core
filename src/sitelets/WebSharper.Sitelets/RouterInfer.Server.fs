@@ -150,6 +150,17 @@ module internal ServerRouting =
         else
             r() |> IQuery name
 
+    and queryRouter2 (t: Type) name r queryName =
+        let gd = if t.IsGenericType then t.GetGenericTypeDefinition() else null
+        if gd = typedefof<option<_>> then
+            let item = t.GetGenericArguments().[0]
+            getRouter item |> IQueryOption item queryName
+        elif gd = typedefof<Nullable<_>> then
+            let item = t.GetGenericArguments().[0]
+            getRouter item |> IQueryNullable queryName
+        else
+            r() |> IQuery queryName
+
     and fieldRouter (t: Type) (annot: Annotation) name : InferredRouter =
         let name =
             match annot.EndPoints with
@@ -221,7 +232,7 @@ module internal ServerRouting =
 
     and unionCaseRouter (c: Reflection.UnionCaseInfo) : UnionCaseRoutingInfo =
         let cAnnot = getUnionCaseAnnot c
-        let mutable queryFields = defaultArg cAnnot.Query Set.empty
+        let mutable queryFields = defaultArg cAnnot.Query Map.empty
         let mutable jsonField = cAnnot.Json |> Option.bind id
         let mutable formDataFields = defaultArg cAnnot.FormData Set.empty
         let endpoints = 
@@ -239,9 +250,10 @@ module internal ServerRouting =
                         getDateTimeRouter fName m.[fName] fTyp    
                     | _ ->
                         getRouter fTyp
-                if queryFields.Contains fName then 
-                    queryFields <- queryFields |> Set.remove fName
-                    queryRouter fTyp fName r
+                if queryFields.ContainsKey fName then 
+                    let queryName = queryFields.Item fName
+                    queryFields <- queryFields |> Map.remove fName
+                    queryRouter2 fTyp fName r queryName
                 elif formDataFields.Contains fName then 
                     formDataFields <- formDataFields |> Set.remove fName
                     queryRouter fTyp fName r |> IFormData
@@ -253,7 +265,7 @@ module internal ServerRouting =
                 else r()
             )
         if queryFields.Count > 0 then
-            failwithf "Query field not found: %s" (Seq.head queryFields)
+            failwithf "Query field not found: %s" (Seq.head queryFields |> fun kvp -> kvp.Key)
         match jsonField with
         | Some j ->
             failwithf "Json field not found: %s" j

@@ -256,13 +256,12 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
             addRes (n + ".js" + x) (Some (pu.JavaScriptFileName(ai))) (Some (getBytes js))
             map |> Option.iter (fun m ->
                 addRes (n + ".map") None (Some (getBytes m)))
-            logger.TimedStage (if sourceMap then "Writing .js and .map.js" else "Writing .js")
+            logger.TimedStage (if sourceMap then sprintf "Writing %s.js and %s.map.js" n n else sprintf "Writing %s.js" n)
             //let minJs, minMap = p |> WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Compact getCodeWriter
             //addRes (n + ".min.js") (Some (pu.MinifiedJavaScriptFileName(ai))) (Some (getBytes minJs))
             //minMap |> Option.iter (fun m ->
             //    addRes (n + ".min.map") None (Some (getBytes m)))        
             //logger.TimedStage (if sourceMap then "Writing .min.js and .min.map.js" else "Writing .min.js")
-        logger.TimedStage (if sourceMap then "Writing .js and .map.js files" else "Writing .js files")
         let resources = 
             match comp with
             | Some c -> c.Graph.GetResourcesOf c.Graph.Nodes

@@ -55,7 +55,8 @@ type WebSharperOptions
         json: Json.Provider,
         useSitelets: bool,
         useRemoting: bool,
-        useExtension: IApplicationBuilder -> WebSharperOptions -> unit
+        useExtension: IApplicationBuilder -> WebSharperOptions -> unit,
+        remotingHeaders: (string * string) []
     ) =
 
     member val AuthenticationScheme = "WebSharper" with get, set
@@ -84,6 +85,8 @@ type WebSharperOptions
 
     member this.Sitelet = sitelet
 
+    member this.RemotingHeaders = remotingHeaders
+
     member internal this.UseExtension = useExtension
 
 /// Defines settings for a WebSharper application.
@@ -100,6 +103,7 @@ type WebSharperBuilder(services: IServiceProvider) =
     let mutable _useSitelets = true
     let mutable _useRemoting = true
     let mutable _useExtension = fun _ _ -> ()
+    let mutable _rpcHeaders : (string * string) array = [||]
 
     /// <summary>Defines the sitelet to serve.</summary>
     /// <remarks>
@@ -181,6 +185,11 @@ type WebSharperBuilder(services: IServiceProvider) =
     /// <remarks>Default: true.</remarks>
     member this.UseRemoting([<Optional; DefaultParameterValue true>] useRemoting: bool) =
         _useRemoting <- useRemoting
+        this
+
+    member this.UseRemoting([<Optional; DefaultParameterValue true>] useRemoting: bool, [<Optional; DefaultParameterValue [||]>] headers: (string * string) []) =
+        _useRemoting <- useRemoting
+        _rpcHeaders <- headers
         this
 
     /// <summary>Adds an extra configuration step to execute that gets final the <c>WebSharperOptions</c> instance.</summary>
@@ -287,5 +296,6 @@ type WebSharperBuilder(services: IServiceProvider) =
             json,
             _useSitelets, 
             _useRemoting, 
-            _useExtension
+            _useExtension,
+            _rpcHeaders
         )

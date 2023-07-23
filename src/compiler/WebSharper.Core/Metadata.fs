@@ -40,14 +40,13 @@ type MethodHandle =
         SignatureHash : int
     }
     member this.Pack() =
-        this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
-
-    static member Unpack(s: string) =
-        try
-            let p = s.Split(':')
-            { Assembly = p.[0]; Path = p.[1]; SignatureHash = int p.[2] }
-        with _ ->
-            failwith "Failed to deserialize method handle"
+        //this.Assembly + ":" + this.Path + ":" + string this.SignatureHash
+        let p = this.Path.Split('.', '+')
+        match p[p.Length - 2 ..] with
+        | [| tn; mn |] ->
+            tn + "/" + mn
+        | _ ->
+            failwith "TypeName and MethodName not found for remote"
 
 [<RequireQualifiedAccess>]
 type ParameterObject =
@@ -116,7 +115,7 @@ type CompiledMember =
     | New of name: option<string>
     | Inline of isCompiled:bool * assertReturnType:bool
     | Macro of macroType:TypeDefinition * parameters:option<ParameterObject> * fallback:option<CompiledMember> 
-    | Remote of name:string * handle:MethodHandle
+    | Remote of name:string * handle:MethodHandle * isRecordField: bool
 
 type CompiledField =
     | InstanceField of name:string
@@ -569,7 +568,7 @@ module internal Utilities =
             c |> Option.iter (fun c ->
             for KeyValue(mDef, m) in c.Methods do
                 match ignoreMacro m.CompiledForm with
-                | Remote (_, handle) ->
+                | Remote (_, handle, _) ->
                     remotes.Add(handle, (cDef, mDef))
                 | _ -> ()
             )
@@ -631,7 +630,7 @@ module IO =
         with B.NoEncodingException t ->
             failwithf "Failed to create binary encoder for type %s" t.FullName
 
-    let CurrentVersion = "7.0-beta2-rev1"
+    let CurrentVersion = "7.0-beta2-rev2"
 
     let Decode (stream: System.IO.Stream) = MetadataEncoding.Decode(stream, CurrentVersion) :?> Info   
     let Encode stream (comp: Info) = MetadataEncoding.Encode(stream, comp, CurrentVersion)

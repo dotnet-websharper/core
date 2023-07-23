@@ -1110,9 +1110,12 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     boundVars.Remove v |> ignore
                     getExpr mres
             getExpr macroResult
-        | M.Remote (name, _) ->
+        | M.Remote (name, h, isRecordField) ->
             let func = this.Static(typ, name, true)
-            ApplTyped(func, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
+            if isRecordField then
+                func
+            else
+                ApplTyped(func, trArgs(), opts.Purity, Some meth.Entity.Value.Parameters.Length, funcParams true)
         | M.New _ -> failwith "Not a valid method info: Constructor"
 
     override this.TransformCall (thisObj, typ, meth, args) =
@@ -1268,7 +1271,7 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                 | MemberKind.Simple ->
                     this.Static(typ, name)
             | M.Func (name, _)
-            | M.Remote (name, _) ->
+            | M.Remote (name, _, _) ->
                 this.Static(typ, name, true)   
             | M.GlobalFunc (address, _) ->
                 GlobalAccess address

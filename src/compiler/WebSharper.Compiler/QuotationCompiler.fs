@@ -188,7 +188,7 @@ type QuotationCompiler (meta : M.Info) =
                         let vars = getVars()
                         let nr =
                             {
-                                Kind = N.Remote (remotingKind, handle, vars, rp)
+                                Kind = N.Remote (remotingKind, handle, vars, rp, Some mdef.Value.ReturnType, None)
                                 StrongName = mAnnot.Name
                                 Generics = []
                                 Macros = mAnnot.Macros
