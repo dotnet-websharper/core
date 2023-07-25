@@ -625,7 +625,10 @@ type Encoding(enc: Encoder) =
     member this.Decode(stream: System.IO.Stream, ?version: string) : obj =
         let mode = System.IO.Compression.CompressionMode.Decompress
         use stream = new System.IO.Compression.GZipStream(stream, mode)
-        use reader = new System.IO.BinaryReader(stream)
+        use memory = new System.IO.MemoryStream(8192)
+        stream.CopyTo(memory)
+        memory.Seek(0L, System.IO.SeekOrigin.Begin) |> ignore
+        use reader = new System.IO.BinaryReader(memory)
         match version with
         | Some version ->
             let ver = reader.ReadString()
@@ -639,7 +642,7 @@ type Encoding(enc: Encoder) =
                 System.String.Format("Unexpected: {0}. Expecting: {1}",
                     s, aqn)
             raise (EncodingException msg)
-        use r = new InterningReader(stream, reader)
+        use r = new InterningReader(memory, reader)
         try
             enc.Decode r
         with e ->
