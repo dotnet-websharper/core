@@ -118,6 +118,11 @@ type PrintF =
     new : unit -> PrintF
     inherit Macro
 
+[<Sealed>]
+type SideEffectingImport =
+    new : unit -> SideEffectingImport
+    inherit Macro
+
 [<AbstractClass>]
 type StringInterpolationBase =
     new : unit -> StringInterpolationBase

@@ -554,6 +554,7 @@ let rec breakExpr expr : Broken<BreakResult> =
     | Value _ 
     | JSThis
     | GlobalAccess _
+    | SideeffectingImport _
     | Hole _
         -> broken expr 
     | Function (args, isArr, typ, body) ->

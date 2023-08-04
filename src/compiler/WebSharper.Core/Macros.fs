@@ -1693,6 +1693,13 @@ let stringTy, lengthMeth, padLeft, padRight =
     Reflection.ReadMethod (t.GetMethod("PadRight", [|typeof<int>|]))
 
 [<Sealed>]
+type SideEffectingImport() =
+    inherit Macro()
+    override __.TranslateCall(c) =
+        Expression.SideeffectingImport (Address.Global())
+        |> MacroResult.MacroOk
+
+[<Sealed>]
 type StringFormat() =
     inherit Macro()
 

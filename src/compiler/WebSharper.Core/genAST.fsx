@@ -197,6 +197,8 @@ let ExprDefs =
             , "JavaSript object"
         "GlobalAccess", [ Object "Address", "address" ]
             , "A global or imported value"
+        "SideeffectingImport", [ Object "Address", "address" ]
+        , "An import statement with no value used"
         "GlobalAccessSet", [ Object "Address", "address"; Expr, "value" ]
             , "A global or imported value setter"
         "New", [ Expr, "func"; List TSType, "param"; List Expr, "arguments" ]
