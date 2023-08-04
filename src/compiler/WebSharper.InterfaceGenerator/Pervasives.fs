@@ -256,6 +256,9 @@ module Pervasives =
     let ImportDefault defaultFrom (x: #Code.Entity) =
         x |> Code.Entity.Update (fun x -> x.Import <- Some (None, defaultFrom))
 
+    /// Constructs a new `Type` from System.Type object.
+    let SystemType t = Type.SystemType (R.Type.FromType t)
+
     /// Constructs a class protocol (instance members).
     [<Obsolete "Use |+> Instance [...]">]
     let Protocol (members: list<Code.Member>) =
@@ -327,6 +330,12 @@ module Pervasives =
         | t -> 
             Type.NoInteropType t
 
+    /// Marks an entity with an import statement
+    let ImportFile defaultFrom (x: #Code.Method) =
+        x
+        |> Code.Entity.Update (fun x -> x.Import <- Some (None, defaultFrom))
+        |> WithInline "$importFile"
+
     /// Adds indexer argument.
     let Indexed (indexer: Type.Type) (p: Code.Property) =
         p |> Code.Entity.Update (fun x -> x.IndexerType <- Some indexer)
@@ -336,9 +345,6 @@ module Pervasives =
 
     /// Will be evaluated to the type the member is added to.
     let TSelf = Type.DefiningType
-
-    /// Constructs a new `Type` from System.Type object.
-    let SystemType t = Type.SystemType (R.Type.FromType t)
 
     /// Adds a macro to method or constructor. Macro type must be defined in another assembly.
     let WithMacro (macroType: System.Type) (x: #Code.MethodBase) =

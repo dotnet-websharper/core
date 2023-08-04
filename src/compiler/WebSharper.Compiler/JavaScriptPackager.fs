@@ -212,7 +212,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     addresses.Add(Address.Lib "import", Var (Id.Import()))
     let safeObject expr = Binary(expr, BinaryOperator.``||``, Object []) 
         
-    let getOrImportAddress (address: Address) =
+    let getOrImportAddress (sideEffectingImport: bool) (address: Address) =
         match addresses.TryGetValue address with
         | true, v -> v
         | _ ->
@@ -269,37 +269,46 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                         | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
                     GlobalAccess importedAddress
                 | NpmPackage p ->
-                    let importWhat, importAs =
-                        let fromModuleName() = (p.Split('/') |> Array.last).Replace('.', '_').Replace('`', '_')
-                        match address.Address with
-                        | [] -> 
-                            "*", fromModuleName()
-                        | a -> 
-                            let n = List.last a
-                            if n = "default" then
-                                n, fromModuleName()
-                            else
-                                n, n
-                    let m = { Assembly = ""; Name = p }
-                    let moduleImports =
+                    if sideEffectingImport then
+                        let m = { Assembly = ""; Name = p }
                         match imports.TryGetValue m with
-                        | true, mi -> mi
+                        | true, mi -> ()
                         | _ ->
                             let mi = Dictionary()
                             imports.Add(m, mi)
-                            mi
-                    let i =
-                        match moduleImports.TryGetValue importWhat with
-                        | true, i -> i
-                        | _ ->
-                            let i = Id.New(importAs)
-                            moduleImports.Add(importWhat, i)
-                            i
-                    let importedAddress =
-                        match address.Address with
-                        | [] -> { address with Module = ImportedModule i }
-                        | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
-                    GlobalAccess importedAddress
+                        Undefined
+                    else
+                        let importWhat, importAs =
+                            let fromModuleName() = (p.Split('/') |> Array.last).Replace('.', '_').Replace('`', '_')
+                            match address.Address with
+                            | [] -> 
+                                "*", fromModuleName()
+                            | a -> 
+                                let n = List.last a
+                                if n = "default" then
+                                    n, fromModuleName()
+                                else
+                                    n, n
+                        let m = { Assembly = ""; Name = p }
+                        let moduleImports =
+                            match imports.TryGetValue m with
+                            | true, mi -> mi
+                            | _ ->
+                                let mi = Dictionary()
+                                imports.Add(m, mi)
+                                mi
+                        let i =
+                            match moduleImports.TryGetValue importWhat with
+                            | true, i -> i
+                            | _ ->
+                                let i = Id.New(importAs)
+                                moduleImports.Add(importWhat, i)
+                                i
+                        let importedAddress =
+                            match address.Address with
+                            | [] -> { address with Module = ImportedModule i }
+                            | a -> { Module = ImportedModule i; Address = (a |> List.rev |> List.tail |> List.rev) }
+                        GlobalAccess importedAddress
                 | DotNetType m ->
                     //let m = 
                     //    match output with
@@ -371,7 +380,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
         | NpmPackage _
         | DotNetType _ ->
             let a = if a.Address.IsEmpty then { a with Address = [ "default" ] } else a
-            match getOrImportAddress a with
+            match getOrImportAddress false a with
             | GlobalAccess { Module = ImportedModule i; Address = a } ->
                 TSType.Imported(i, a |> List.rev)
             | Var i ->
@@ -434,7 +443,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     let resModule (t: TSType) =
         if output = O.JavaScript then t else 
         t.ResolveModule (fun m ->
-            match getOrImportAddress ({ Module = m; Address = [] }) with 
+            match getOrImportAddress false ({ Module = m; Address = [] }) with 
             | Var v -> Some v
             | GlobalAccess { Module = ImportedModule v } -> Some v
             | _ -> None
@@ -442,10 +451,12 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
     let bodyTransformer gsArr =
         { new Transformer() with
-            override this.TransformGlobalAccess a = getOrImportAddress a
+            override this.TransformGlobalAccess a = getOrImportAddress false a
+
+            override this.TransformSideeffectingImport a = getOrImportAddress true a
 
             override this.TransformGlobalAccessSet (a, v) = 
-                match getOrImportAddress a with
+                match getOrImportAddress false a with
                 | GlobalAccess ga ->
                     GlobalAccessSet(ga, this.TransformExpression v)
                 | ItemGet(e, i, _) ->
@@ -456,14 +467,14 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             override this.TransformItemGet(e, i, p) =
                 match e, i with
                 | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.IsEmpty ->
-                    a.Sub(n) |> getOrImportAddress
+                    a.Sub(n) |> getOrImportAddress false
                 | _ ->
                     base.TransformItemGet(e, i, p)
 
             override this.TransformItemSet(e, i, v) =
                 match e, i with
                 | I.GlobalAccess a, I.Value (Literal.String n) when a.Address.IsEmpty ->
-                    match a.Sub(n) |> getOrImportAddress with
+                    match a.Sub(n) |> getOrImportAddress false with
                     | GlobalAccess ga ->
                         GlobalAccessSet(ga, this.TransformExpression v)
                     | ItemGet(e, i, _) ->
@@ -644,7 +655,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
             
             let func fromInst addr =
                 let f = 
-                    match getOrImportAddress addr with
+                    match getOrImportAddress false addr with
                     | Var f -> 
                         f
                     | a ->
@@ -831,7 +842,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 match ct.Expression with 
                 | Function (args, thisVar, _, b) ->  
                     let f = 
-                        match getOrImportAddress (currentClassAddr.Func(name)) with
+                        match getOrImportAddress false (currentClassAddr.Func(name)) with
                         | Var f -> f
                         | a ->
                             failwithf "Func var lookup failed for %A, got %A while writing type %A currentScope=%A" (currentClassAddr.Func(name)) a typ (Array.ofSeq currentScope)
@@ -861,7 +872,7 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 | _ -> 
                     if current.Interfaces.ContainsKey c then None else current.Classes.TryFind c
             match c.BaseClass |> Option.bind (fun b -> tryFindClass b.Entity) with
-            | Some (ba, _, _) -> Some (getOrImportAddress ba), c.BaseClass.Value.Entity = Definitions.Object
+            | Some (ba, _, _) -> Some (getOrImportAddress false ba), c.BaseClass.Value.Entity = Definitions.Object
             | _ -> None, false
 
         if constructors.Count > 0 then

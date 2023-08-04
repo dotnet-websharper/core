@@ -229,6 +229,8 @@ and Expression =
     | Object of Properties:list<string * MemberKind * Expression>
     /// A global or imported value
     | GlobalAccess of Address:Address
+    /// An import statement with no value used
+    | SideeffectingImport of Address:Address
     /// A global or imported value setter
     | GlobalAccessSet of Address:Address * Value:Expression
     /// JavaScript 'new' call
@@ -489,6 +491,9 @@ type Transformer() =
     /// A global or imported value
     abstract TransformGlobalAccess : Address:Address -> Expression
     override this.TransformGlobalAccess a = GlobalAccess (a)
+    /// An import statement with no value used
+    abstract TransformSideeffectingImport : Address:Address -> Expression
+    override this.TransformSideeffectingImport a = SideeffectingImport (a)
     /// A global or imported value setter
     abstract TransformGlobalAccessSet : Address:Address * Value:Expression -> Expression
     override this.TransformGlobalAccessSet (a, b) = GlobalAccessSet (a, this.TransformExpression b)
@@ -671,6 +676,7 @@ type Transformer() =
         | ComplexElement a -> this.TransformComplexElement a
         | Object a -> this.TransformObject a
         | GlobalAccess a -> this.TransformGlobalAccess a
+        | SideeffectingImport a -> this.TransformSideeffectingImport a
         | GlobalAccessSet (a, b) -> this.TransformGlobalAccessSet (a, b)
         | New (a, b, c) -> this.TransformNew (a, b, c)
         | Hole a -> this.TransformHole a
@@ -867,6 +873,9 @@ type Visitor() =
     /// A global or imported value
     abstract VisitGlobalAccess : Address:Address -> unit
     override this.VisitGlobalAccess a = (())
+    /// An import statement with no value used
+    abstract VisitSideeffectingImport : Address:Address -> unit
+    override this.VisitSideeffectingImport a = (())
     /// A global or imported value setter
     abstract VisitGlobalAccessSet : Address:Address * Value:Expression -> unit
     override this.VisitGlobalAccessSet (a, b) = (); this.VisitExpression b
@@ -1047,6 +1056,7 @@ type Visitor() =
         | ComplexElement a -> this.VisitComplexElement a
         | Object a -> this.VisitObject a
         | GlobalAccess a -> this.VisitGlobalAccess a
+        | SideeffectingImport a -> this.VisitSideeffectingImport a
         | GlobalAccessSet (a, b) -> this.VisitGlobalAccessSet (a, b)
         | New (a, b, c) -> this.VisitNew (a, b, c)
         | Hole a -> this.VisitHole a
@@ -1149,6 +1159,7 @@ module IgnoreSourcePos =
     let (|ComplexElement|_|) x = match ignoreExprSourcePos x with ComplexElement a -> Some a | _ -> None
     let (|Object|_|) x = match ignoreExprSourcePos x with Object a -> Some a | _ -> None
     let (|GlobalAccess|_|) x = match ignoreExprSourcePos x with GlobalAccess a -> Some a | _ -> None
+    let (|SideeffectingImport|_|) x = match ignoreExprSourcePos x with SideeffectingImport a -> Some a | _ -> None
     let (|GlobalAccessSet|_|) x = match ignoreExprSourcePos x with GlobalAccessSet (a, b) -> Some (a, b) | _ -> None
     let (|New|_|) x = match ignoreExprSourcePos x with New (a, b, c) -> Some (a, b, c) | _ -> None
     let (|Hole|_|) x = match ignoreExprSourcePos x with Hole a -> Some a | _ -> None
@@ -1249,6 +1260,7 @@ module Debug =
         | ComplexElement a -> "ComplexElement" + "(" + "[" + String.concat "; " (List.map PrintExpression a) + "]" + ")"
         | Object a -> "Object" + "(" + "[" + String.concat "; " (List.map (fun (a, b, c) -> string a + ", " + string b + ", " + PrintExpression c) a) + "]" + ")"
         | GlobalAccess a -> "GlobalAccess" + "(" + string a + ")"
+        | SideeffectingImport a -> "SideeffectingImport" + "(" + string a + ")"
         | GlobalAccessSet (a, b) -> "GlobalAccessSet" + "(" + string a + ", " + PrintExpression b + ")"
         | New (a, b, c) -> "New" + "(" + PrintExpression a + ", " + "[" + String.concat "; " (List.map string b) + "]" + ", " + "[" + String.concat "; " (List.map PrintExpression c) + "]" + ")"
         | Hole a -> "Hole" + "(" + string a + ")"

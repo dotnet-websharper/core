@@ -313,6 +313,7 @@ let varEvalOrder (vars : Id list) expr =
             | Value _
             | JSThis
             | GlobalAccess _
+            | SideeffectingImport _
                 -> ()
             | Sequential a
             | NewTuple (a, _) ->

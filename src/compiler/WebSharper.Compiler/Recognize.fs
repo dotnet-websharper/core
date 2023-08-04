@@ -471,6 +471,12 @@ let rec private transformExpression (env: Environment) (expr: S.Expression) =
                 GlobalAccess i
             | None ->
                 failwith "Import attribute not found for use of $import in Inline."
+        | "$importFile" ->
+            match env.Import with
+            | Some i ->
+                SideeffectingImport i
+            | None ->
+                failwith "Import attribute not found for use of $importFile in Inline."
         //| "arguments" -> Arguments
         | "undefined" -> Undefined
         | n ->
