@@ -298,8 +298,8 @@ let startListening() =
 
     tokenSource.Cancel()
 
-[<assembly: System.Reflection.AssemblyTitleAttribute("WebSharper Booster " + AssemblyVersionInformation.AssemblyFileVersion)>]
-[<assembly: System.Reflection.AssemblyDescriptionAttribute("WebSharper Booster " + AssemblyVersionInformation.AssemblyFileVersion)>]
+[<assembly: System.Reflection.AssemblyTitleAttribute("WebSharper Booster (" + AssemblyVersionInformation.AssemblyDescription + ")")>]
+[<assembly: System.Reflection.AssemblyDescriptionAttribute("WebSharper Booster (" + AssemblyVersionInformation.AssemblyDescription + ")")>]
 do ()
 
 [<EntryPoint>]
