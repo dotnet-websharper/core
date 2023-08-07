@@ -419,23 +419,24 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
 
     ParsedOptions (!wsArgs, !warn)
 
+let clearOutput config logger =
+    try
+        let intermediaryOutput = config.AssemblyFile
+        if File.Exists intermediaryOutput then 
+            let failedOutput = intermediaryOutput + ".failed"
+            if File.Exists failedOutput then File.Delete failedOutput
+            File.Move (intermediaryOutput, failedOutput)
+    with _ ->
+        PrintGlobalError logger "Failed to clean intermediate output!"
+
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
-    let clearOutput() =
-        try
-            let intermediaryOutput = config.AssemblyFile
-            if File.Exists intermediaryOutput then 
-                let failedOutput = intermediaryOutput + ".failed"
-                if File.Exists failedOutput then File.Delete failedOutput
-                File.Move (intermediaryOutput, failedOutput)
-        with _ ->
-            PrintGlobalError logger "Failed to clean intermediate output!"
     try 
         let exitCode = 
             Compile config warnSettings logger checkerFactory tryGetMetadata
         if exitCode <> 0 then 
-            clearOutput()
+            clearOutput config logger
         exitCode            
     with _ ->
-        clearOutput()
+        clearOutput config logger
         reraise()
 
