@@ -95,6 +95,4 @@ let main(argv) =
             // The #if DEBUG ... #else behavior is implemented in the service.
             // NamedPipeService won't throw exception in the client.
             let res = sendCompileCommand argv
-            if res <> 0 then
-                clearOutput wsConfig logger
             res
