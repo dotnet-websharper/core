@@ -2523,34 +2523,6 @@ type Compilation(meta: Info, ?hasGraph) =
             let oprToString = MethodNode (operatorsMdl, operatorsToString)
             graph.AddEdge(oprToString, objToStringIndex)
 
-        // Add graph edge needed for Sitelets: Web.Controls will be looked up
-        // and initialized on client-side by Activator.Activate
-        if hasGraph && this.AssemblyName = "WebSharper.Web" then
-            let activate =
-                MethodNode(
-                    TypeDefinition {
-                        Assembly = "WebSharper.Main"
-                        FullName = "WebSharper.Activator"
-                    },
-                    Method {
-                        MethodName = "Activate"
-                        Parameters = []
-                        ReturnType = AST.VoidType
-                        Generics = 0
-                    } 
-                )
-            let control = 
-                TypeNode(
-                    TypeDefinition {
-                        Assembly = "WebSharper.Web"
-                        FullName = "WebSharper.Web.Control"
-                    }
-                )   
-            
-            let controlIndex = graph.Lookup.[control] 
-
-            graph.AddEdge(controlIndex, activate)
-
         // Add graph edge needed for decimal remoting
         if hasGraph && this.AssemblyName = "WebSharper.MathJS.Extensions" then
             let createDecimalBits =

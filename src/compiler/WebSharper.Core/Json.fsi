@@ -24,8 +24,6 @@ module WebSharper.Core.Json
 module M = WebSharper.Core.Metadata
 module Re = WebSharper.Core.Resources
 
-type JSModule = JSModule of AST.CodeResource
-
 /// Represents JSON values.
 type Value =
     | Null
@@ -66,19 +64,6 @@ exception NoDecoderException of typ:System.Type
 /// Thrown when no encoder can be derived for a given type.
 exception NoEncoderException of typ:System.Type
 
-/// Represents an object encoded to JSON.
-[<Sealed>]
-type Encoded =
-
-    /// Lifts a value.
-    static member Lift : Value -> Encoded
-
-    /// Constructs an array.
-    static member Array : list<Encoded> -> Encoded
-
-    /// Constructs an object.
-    static member Object : list<string * Encoded> -> Encoded
-
 /// Represents a decoder.
 [<Sealed>]
 type Decoder =
@@ -92,16 +77,16 @@ type Decoder<'T> =
 /// Represents an encoder.
 [<Sealed>]
 type Encoder =
-    member Encode : obj -> Encoded
+    member Encode : obj -> Value
 
 /// Represents a typed encoder.
 [<Sealed>]
 type Encoder<'T> =
-    member Encode : 'T -> Encoded
+    member Encode : 'T -> Value
 
 type FormatOptions =
     {
-        EncodeDateTime : option<string> -> System.DateTime -> Encoded
+        EncodeDateTime : option<string> -> System.DateTime -> Value
         DecodeDateTime : option<string> -> Value -> option<System.DateTime>
     }
 
@@ -125,12 +110,6 @@ type Provider =
     /// and WebSharper.Json.Serialize/Deserialize.
     static member Create : FormatOptions -> Provider
 
-    /// Constructs a typed JSON encoding provider.
-    /// This provider uses a WebSharper-specific encoding of types
-    /// and is only suitable for internal uses.
-    /// It is the encoding used for Remoting and Web.Control initialization.
-    static member CreateTyped : M.Info -> Provider
-
     /// Derives a decoder for a given type.
     member GetDecoder : System.Type -> Decoder
 
@@ -145,10 +124,6 @@ type Provider =
 
     member BuildDefaultValue : System.Type -> obj
     member BuildDefaultValue<'T> : unit -> 'T
-
-    /// Packs an encoded value to JSON.
-    member Pack : Encoded -> Value
-    member PackWithTypes : Encoded -> Value * list<AST.Address>
 
 /// Common functions about the JSON encoding.
 module Internal =

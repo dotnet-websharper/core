@@ -50,9 +50,8 @@ type Require<'T when 'T :> Resources.IResource>() =
 /// control in your application.
 [<AbstractClass>]
 type Control() =
-    static let gen = System.Random()
     [<System.NonSerialized>]
-    let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
+    let mutable id = ""
 
     member this.ID
         with get () = id
@@ -60,7 +59,8 @@ type Control() =
 
     interface INode with
         member this.IsAttribute = false
-        member this.Write (_, w) =
+        member this.Write (ctx, w) =
+            id <- System.String.Format("ws{0:x}", ctx.GetId().ToString())
             w.Write("""<div id="{0}"></div>""", this.ID)
 
     [<JavaScript>]
@@ -82,6 +82,9 @@ type Control() =
             this.GetBodyNode() |> Seq.singleton
 
         member this.Encode(meta, json) =
+            // TODO, need to get address for deserializer
+            meta.MacroEntries // not in runtime metadata yet
+
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =

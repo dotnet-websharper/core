@@ -29,7 +29,7 @@ module J = WebSharper.Core.Json
 /// that depend on resources.
 type IRequiresResources =
     abstract member Requires : M.Info -> seq<M.Node>
-    abstract member Encode : M.Info * J.Provider -> list<string * J.Encoded>
+    abstract member Encode : M.Info * J.Provider -> list<string * J.Value * WebSharper.Core.AST.Address>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -118,9 +118,13 @@ module Activator =
             if (As meta) then
                 onReady <| fun () ->
                     let text = meta.GetAttribute("content")
-                    let obj = Json.Activate (Json.Parse text) types
-                    Instances <- obj
-                    let fields = JS.GetFields obj
+                    let obj = Json.Parse text
+                    let fields =
+                        JS.GetFields obj
+                        |> Array.map (fun (f, v) ->
+                            f, types[f] v
+                        )
+                    Instances <- Object<obj>(fields)
                     // PreInitialize
                     fields |> Array.iter (fun (k, v) ->
                         match v with

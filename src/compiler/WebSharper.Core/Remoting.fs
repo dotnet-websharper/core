@@ -83,7 +83,7 @@ let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
         fun (x: obj) ->
             async {
                 let! x = aa.Box x
-                return jP.Pack (enc.Encode x)
+                return enc.Encode x
             }
     elif t.IsGenericType && tD = typedefof<Task<_>> then
         let eT = t.GetGenericArguments().[0]
@@ -94,24 +94,24 @@ let getResultEncoder (jP: J.Provider) (m: MethodInfo) =
         fun (x: obj) ->
             async {
                 let! x = aa.Box x
-                return jP.Pack (enc.Encode x)
+                return enc.Encode x
             }
     elif tD = typeof<Task> then
         fun (x: obj) ->
             let enc = jP.GetEncoder<unit>()
             async {
                 let! x = Async.AwaitIAsyncResult (unbox<Task> x)
-                return jP.Pack (enc.Encode ())
+                return enc.Encode ()
             }
     elif t = typeof<Void> || t = typeof<unit> then
         let enc = jP.GetEncoder typeof<unit>
         fun (x: obj) ->
-            jP.Pack (enc.Encode null)
+            enc.Encode null
             |> async.Return
     else
         let enc = jP.GetEncoder t
         fun (x: obj) ->
-            jP.Pack (enc.Encode x)
+            enc.Encode x
             |> async.Return
 
 type Response =

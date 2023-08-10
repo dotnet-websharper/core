@@ -250,7 +250,7 @@ type WebSharperBuilder(services: IServiceProvider) =
         let metadata, dependencies, json =
             match _metadata with
             | Some m ->
-                m, Graph.FromData m.Dependencies, J.Provider.CreateTyped m
+                m, Graph.FromData m.Dependencies, J.Provider.Create()
             | None ->
                 wsService.Value.GetWebSharperMeta(siteletAssembly.Value, logger)
 

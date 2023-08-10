@@ -68,8 +68,7 @@ module Content =
             controls
             |> List.ofSeq
             |> List.collect (fun c -> c.Encode(m, jP))
-            |> J.Encoded.Object
-            |> jP.PackWithTypes
+            |> J.Object
 
         J.Stringify jVal, types
 
@@ -195,7 +194,6 @@ module Content =
                     use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                     x
                     |> encoder.Encode
-                    |> Json.ServerSideProvider.Pack
                     |> WebSharper.Core.Json.Write tw
                 )
             }
@@ -212,7 +210,6 @@ module Content =
                         use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                         x
                         |> encoder.Encode
-                        |> Json.ServerSideProvider.Pack
                         |> WebSharper.Core.Json.Write tw
                     )
                 }

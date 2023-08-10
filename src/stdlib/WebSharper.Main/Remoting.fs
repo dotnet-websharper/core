@@ -177,7 +177,7 @@ type AjaxRemotingProvider() =
     interface IRemotingProvider with
         member this.Sync m data : obj =
             let data = AjaxProvider.Sync (this.EndPoint + "/" + m) (makeHeaders(this.Headers)) (makePayload data)
-            Json.Activate (Json.Parse data) [||]
+            Json.Parse data
 
         member this.Async m data : Async<obj> =
             this.AsyncBase(m, data)
