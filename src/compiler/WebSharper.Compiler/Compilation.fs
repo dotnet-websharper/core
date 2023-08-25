@@ -103,6 +103,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
+    let typesNeedingDeserialization = HashSet<Type>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
@@ -354,6 +355,21 @@ type Compilation(meta: Info, ?hasGraph) =
                 macroEntries.[key] <- value :: l
             | _ -> 
                 macroEntries.[key] <- [value]
+
+        member this.GetJsonMetadataEntry typ =
+            match macroEntries.TryFind (TypeEntry typ) with
+            | Some (StringEntry "id" :: _) ->
+                Some JsonId
+            | Some (CompositeEntry [ TypeDefinitionEntry gtd; MethodEntry gm ] :: _) ->
+                Some (JsonSerializer (gtd, gm))
+            | _ -> 
+                None
+
+        member this.AddJsonMetadataEntry (typ, entry) =
+            macroEntries.[TypeEntry typ] <- [ ]
+
+    //abstract GetJsonMetadataEntry : Type -> option<JsonSerializerEntry>
+    //abstract AddJsonMetadataEntry : Type * JsonSerializerEntry -> unit
 
         member this.AddError(pos, msg) =
             this.AddError(pos, SourceError msg)
@@ -1173,6 +1189,8 @@ type Compilation(meta: Info, ?hasGraph) =
             IncludeJsExports = includeJsExports
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
+
+    member this.TypesNeedingDeserialization = typesNeedingDeserialization
 
     member this.JSImport(export: string option, from: string) =
         Address.Import this.AssemblyName (export, from)

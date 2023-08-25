@@ -826,7 +826,29 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
             // so we need to loop until both are exhausted.
             if comp.CompilingMethods.Count > 0 then compileMethods()
 
+        let compileDeserializers() =
+            let webSharperJson =
+                TypeDefinition {
+                    Assembly = "WebSharper.Core"
+                    FullName = "WebSharper.TypedJson"
+                } 
+
+            let decodeMethod = 
+                Method {
+                    MethodName = "Decode"
+                    Parameters = [ NonGenericType Definitions.Obj ]
+                    ReturnType = TypeParameter 0
+                    Generics = 1       
+                }
+
+            for t in comp.TypesNeedingDeserialization do
+                // call JSON macro to create deserializers
+                let decodeExpr = Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ])
+                let toJS = DotNetToJavaScript(comp)
+                toJS.TransformExpression(decodeExpr) |> ignore
+
         compileMethods()
+        compileDeserializers()
         comp.CloseMacros()
         compileMethods()
 

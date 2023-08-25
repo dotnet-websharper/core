@@ -29,7 +29,7 @@ module J = WebSharper.Core.Json
 /// that depend on resources.
 type IRequiresResources =
     abstract member Requires : M.Info -> seq<M.Node>
-    abstract member Encode : M.Info * J.Provider -> list<string * J.Value * WebSharper.Core.AST.Address>
+    abstract member Encode : M.Info * J.Provider -> list<string * J.Value>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.

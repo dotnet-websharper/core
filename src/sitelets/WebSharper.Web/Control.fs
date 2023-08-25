@@ -292,13 +292,13 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
 
     let mutable args = [||]
     let mutable funcName = [||]
-    let mutable jsModule = Unchecked.defaultof<Json.JSModule>
+    //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
 
     [<JavaScript>]
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                let f = Array.fold (?) jsModule funcName
+                let f = funcName // Array.fold (?) jsModule funcName
                 let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
                 b.ReplaceInDom(node)
         } 
@@ -328,14 +328,14 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                 match cls.Methods.TryFind meth with
                 | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                     funcName <- [| "default"; a |]
-                    match clsAddr.Module with
-                    | AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                    | _ -> ()
+                    //match clsAddr.Module with
+                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
+                    //| _ -> ()
                 | Some { CompiledForm = M.Func (a, false) } ->
                     funcName <- [| a |]
-                    match clsAddr.Module with
-                    | AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                    | _ -> ()
+                    //match clsAddr.Module with
+                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
+                    //| _ -> ()
                 | Some _ ->
                     failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
                         (getLocation' elt) declType.Value.FullName meth.Value.MethodName
@@ -414,13 +414,13 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
 
     let args = fst bodyAndReqs
     let mutable funcName = [||]
-    let mutable jsModule = Unchecked.defaultof<Json.JSModule>
+    //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
 
     [<JavaScript>]
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
-                let f = Array.fold (?) jsModule funcName
+                let f = funcName // Array.fold (?) jsModule funcName
                 let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
                 b.ReplaceInDom(node)
         } 
@@ -440,14 +440,14 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                         match cls.Methods.TryFind meth with
                         | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
                             funcName <- [| "default"; a |]
-                            match clsAddr.Module with
-                            | AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                            | _ -> ()
+                            //match clsAddr.Module with
+                            //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
+                            //| _ -> ()
                         | Some  { CompiledForm = M.Func (a, false) } ->
                             funcName <- [| a |]
-                            match clsAddr.Module with
-                            | AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                            | _ -> ()
+                            //match clsAddr.Module with
+                            //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
+                            //| _ -> ()
                         | Some _ -> 
                             failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
                                 declType.Value.FullName meth.Value.MethodName

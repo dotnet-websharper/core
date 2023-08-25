@@ -166,6 +166,13 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
         sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
+let rec private isWebControlType (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    match cls.BaseType with
+    | Some bCls ->
+        let typ = sr.ReadTypeDefinition bCls.TypeDefinition
+        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls.TypeDefinition
+    | _ -> false
+
 let isAugmentedFSharpType (e: FSharpEntity) =
     e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
         e.IsFSharpUnion 
@@ -243,6 +250,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
+
+    if isWebControlType sr cls then
+        comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
 
     let isProxy = Option.isSome annot.ProxyOf 
     let isThisInterface = cls.IsInterface

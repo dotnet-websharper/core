@@ -596,6 +596,10 @@ let RecordFieldGetter (f: FSharpRecordFieldInfo) =
         Generics = 0       
     }
 
+type JsonSerializerEntry =
+    | JsonId
+    | JsonSerializer of TypeDefinition * Method
+
 type ICompilation =
     abstract GetCustomTypeInfo : TypeDefinition -> CustomTypeInfo
     abstract GetInterfaceInfo : TypeDefinition -> option<InterfaceInfo>
@@ -615,6 +619,8 @@ type ICompilation =
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
+    abstract GetJsonMetadataEntry : Type -> option<JsonSerializerEntry>
+    abstract AddJsonMetadataEntry : Type * JsonSerializerEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle

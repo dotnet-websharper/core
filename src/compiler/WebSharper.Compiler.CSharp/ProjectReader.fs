@@ -221,6 +221,13 @@ let private isResourceType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
         sr.ReadNamedTypeDefinition i = Definitions.IResource
     )
 
+let rec private isWebControlType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
+    match c.BaseType with
+    | null -> false
+    | bCls ->
+        let typ = sr.ReadNamedTypeDefinition bCls
+        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls
+
 let delegateTy, delRemove =
     match <@ System.Delegate.Remove(null, null) @> with
     | FSharp.Quotations.Patterns.Call (_, mi, _) ->
@@ -316,6 +323,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
+
+    if isWebControlType sr cls then
+        comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
 
     let thisTyp =
         GenericType def (List.init cls.TypeParameters.Length TypeParameter)

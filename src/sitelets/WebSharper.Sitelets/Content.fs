@@ -64,13 +64,40 @@ module Content =
     let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
-        let jVal, types =        
-            controls
+        let controls = 
+            controls 
             |> List.ofSeq
-            |> List.collect (fun c -> c.Encode(m, jP))
-            |> J.Object
 
-        J.Stringify jVal, types
+        let jEnc = 
+            controls 
+            |> List.collect (fun c -> c.Encode(m, jP))
+
+        let types =
+            controls
+            |> List.map (fun c  ->
+                let typ = Core.AST.Reflection.ReadType (c.GetType())
+                match m.MacroEntries.TryGetValue(M.TypeEntry typ) with
+                | true, M.StringEntry "id" :: _ ->
+                    failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
+                | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                    match m.Classes.TryGetValue(gtd) with
+                    | true, (cAddr, _, Some cls) ->
+                        match cls.Methods.TryGetValue gm with
+                        | true, mInfo ->
+                            match mInfo.CompiledForm with
+                            | M.Func (name, _) ->
+                                cAddr.Func(name)
+                            | _ ->
+                                failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
+                        | _ ->
+                            failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+                    | _ -> 
+                        failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+                | _ ->
+                    failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+            )
+
+        J.Stringify (J.Object jEnc), types
 
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
