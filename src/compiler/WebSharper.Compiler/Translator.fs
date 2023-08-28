@@ -843,9 +843,13 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
 
             for t in comp.TypesNeedingDeserialization do
                 // call JSON macro to create deserializers
-                let decodeExpr = Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ])
-                let toJS = DotNetToJavaScript(comp)
-                toJS.TransformExpression(decodeExpr) |> ignore
+                try
+                    let decodeExpr = Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ])
+                    let toJS = DotNetToJavaScript(comp)
+                    toJS.TransformExpression(decodeExpr) |> ignore
+                with e ->
+                    let msg = sprintf "Error during creating deserializer for type %s: %s" t.AssemblyQualifiedName e.Message
+                    comp.AddError(None, SourceError msg)
 
         compileMethods()
         compileDeserializers()

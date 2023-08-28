@@ -197,4 +197,4 @@ module Json =
                 | :? array<obj> as x ->
                     Core.Json.Array [ for v in x -> transform v ]
                 | x -> failwithf "Invalid JSON decoding: %A" x
-            Content.Json (Core.Json.Encoded.Lift (transform x))
+            Content.Json (transform x)

@@ -75,26 +75,31 @@ module Content =
         let types =
             controls
             |> List.map (fun c  ->
-                let typ = Core.AST.Reflection.ReadType (c.GetType())
-                match m.MacroEntries.TryGetValue(M.TypeEntry typ) with
-                | true, M.StringEntry "id" :: _ ->
-                    failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
-                | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                    match m.Classes.TryGetValue(gtd) with
-                    | true, (cAddr, _, Some cls) ->
-                        match cls.Methods.TryGetValue gm with
-                        | true, mInfo ->
-                            match mInfo.CompiledForm with
-                            | M.Func (name, _) ->
-                                cAddr.Func(name)
+                let t = c.GetType()
+                if t.IsSubclassOf(typeof<Web.Control>) then
+                    let typ = Core.AST.Reflection.ReadType t
+                    let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
+                    match m.MacroEntries.TryGetValue(key) with
+                    | true, M.StringEntry "id" :: _ ->
+                        failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
+                    | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                        match m.Classes.TryGetValue(gtd) with
+                        | true, (cAddr, _, Some cls) ->
+                            match cls.Methods.TryGetValue gm with
+                            | true, mInfo ->
+                                match mInfo.CompiledForm with
+                                | M.Func (name, _) ->
+                                    cAddr.Func(name)
+                                | _ ->
+                                    failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
                             | _ ->
-                                failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
-                        | _ ->
-                            failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                    | _ -> 
+                                failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+                        | _ -> 
+                            failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+                    | _ ->
                         failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                | _ ->
-                    failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+                else
+                    Core.AST.Address.Global()
             )
 
         J.Stringify (J.Object jEnc), types

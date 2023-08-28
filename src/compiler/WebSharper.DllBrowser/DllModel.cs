@@ -1,4 +1,5 @@
-﻿using Microsoft.FSharp.Core;
+﻿using Microsoft.FSharp.Collections;
+using Microsoft.FSharp.Core;
 //using Mono.Cecil.Cil;
 using System;
 using System.CodeDom;
@@ -69,6 +70,7 @@ namespace WebSharper.DllBrowser
             {
                 Contents.Add(new MetadataModel(meta));
                 Contents.Add(new GraphModel(meta.Dependencies));
+                Contents.Add(new MacroEntriesModel(meta));
             }
             Contents.Add(new ResourcesModel(assembly));
         }
@@ -335,4 +337,37 @@ namespace WebSharper.DllBrowser
         }
     }
 
+    public class MacroEntriesModel : TreeGroupNodeModel
+    {
+        public Info Metadata { get; init; }
+        public override string Name => "MacroEntries";
+        public MacroEntriesModel(Info metadata)
+        {
+            Metadata = metadata;
+            foreach (var x in metadata.MacroEntries)
+            {
+                Contents.Add(new MacroEntryModel(x.Key, x.Value));
+            }
+        }
+    }
+    public class MacroEntryModel : TreeLeafNodeModel
+    {
+        public MetadataEntry Key { get; init; }
+        public IEnumerable<MetadataEntry> Values { get; init; }
+        public override string Name => Key.ToString();
+        public override string GetDetails()
+        {
+            var sb = new StringBuilder();
+            foreach (var v in Values)
+            {
+                sb.AppendLine(v.ToString());
+            }
+            return sb.ToString();
+        }
+        public MacroEntryModel(MetadataEntry key, IEnumerable<MetadataEntry> values)
+        {
+            Key = key;
+            Values = values;
+        }
+    }
 }

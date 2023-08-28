@@ -251,7 +251,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
             p, Some proxied
         | _ -> thisDef, None
 
-    if isWebControlType sr cls then
+    if not cls.IsAbstractClass && isWebControlType sr cls then
         comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
 
     let isProxy = Option.isSome annot.ProxyOf 

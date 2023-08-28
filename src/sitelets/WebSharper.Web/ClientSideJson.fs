@@ -488,18 +488,18 @@ module Macro =
                     let defaultEnc() = 
                         //let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
                         //let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                        match comp.GetJsonMetadataEntry t with                    
+                        match comp.GetJsonMetadataEntry(isEnc, t) with                    
                         | Some M.JsonId ->
                             ok ident.Value
                         | Some (M.JsonSerializer (gtd, gm)) ->
                             Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                         | _ ->
                             let gtd, gm, _ = comp.NewGenerated((if isEnc then "EncodeJson_" else "DecodeJson_") + t.DisplayName)
-                            comp.AddJsonMetadataEntry(t, M.JsonSerializer (gtd, gm ))
+                            comp.AddJsonMetadataEntry(isEnc, t, M.JsonSerializer (gtd, gm ))
                             ((fun es ->
                                 let enc = encRecType t args es
                                 if isIdent enc then
-                                    comp.AddJsonMetadataEntry(t, M.JsonId)
+                                    comp.AddJsonMetadataEntry(isEnc, t, M.JsonId)
                                     comp.AddGeneratedInline(gm, ident.Value)
                                     enc
                                 else

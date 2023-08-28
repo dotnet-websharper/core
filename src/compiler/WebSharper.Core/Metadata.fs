@@ -343,6 +343,15 @@ type MetadataEntry =
     | ConstructorEntry of Constructor
     | CompositeEntry of list<MetadataEntry>
 
+    override this.ToString() =
+        match this with
+        | StringEntry s -> s
+        | TypeEntry t -> t.ToString() 
+        | TypeDefinitionEntry td -> td.ToString()
+        | MethodEntry m -> m.ToString()
+        | ConstructorEntry c -> c.ToString()
+        | CompositeEntry l -> l |> List.map (fun x -> x.ToString()) |> String.concat "; "
+
 type ExtraBundle =
     {
         AssemblyName : string
@@ -619,8 +628,8 @@ type ICompilation =
     abstract AssemblyName : string with get
     abstract GetMetadataEntries : MetadataEntry -> list<MetadataEntry>
     abstract AddMetadataEntry : MetadataEntry * MetadataEntry -> unit
-    abstract GetJsonMetadataEntry : Type -> option<JsonSerializerEntry>
-    abstract AddJsonMetadataEntry : Type * JsonSerializerEntry -> unit
+    abstract GetJsonMetadataEntry : bool * Type -> option<JsonSerializerEntry>
+    abstract AddJsonMetadataEntry : bool * Type * JsonSerializerEntry -> unit
     abstract AddError : option<SourcePos> * string -> unit 
     abstract AddWarning : option<SourcePos> * string -> unit 
     abstract AddBundle : name: string * entryPoint: Statement * [<OptionalArgument; DefaultParameterValue false>] includeJsExports: bool -> ExtraBundle

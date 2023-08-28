@@ -356,17 +356,23 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> 
                 macroEntries.[key] <- [value]
 
-        member this.GetJsonMetadataEntry typ =
-            match macroEntries.TryFind (TypeEntry typ) with
+        member this.GetJsonMetadataEntry (isEnc, typ) =
+            let key = CompositeEntry [ StringEntry (if isEnc then "JsonEncoder" else "JsonDecoder"); TypeEntry typ ]
+            match macroEntries.TryFind key with
             | Some (StringEntry "id" :: _) ->
                 Some JsonId
             | Some (CompositeEntry [ TypeDefinitionEntry gtd; MethodEntry gm ] :: _) ->
                 Some (JsonSerializer (gtd, gm))
-            | _ -> 
+            | me -> 
                 None
 
-        member this.AddJsonMetadataEntry (typ, entry) =
-            macroEntries.[TypeEntry typ] <- [ ]
+        member this.AddJsonMetadataEntry (isEnc, typ, entry) =
+            let key = CompositeEntry [ StringEntry (if isEnc then "JsonEncoder" else "JsonDecoder"); TypeEntry typ ]
+            let e =
+                match entry with
+                | JsonId -> StringEntry "id"
+                | JsonSerializer (gtd, gm) -> CompositeEntry [ TypeDefinitionEntry gtd; MethodEntry gm ]
+            macroEntries.[key] <- [ e ]
 
     //abstract GetJsonMetadataEntry : Type -> option<JsonSerializerEntry>
     //abstract AddJsonMetadataEntry : Type * JsonSerializerEntry -> unit
@@ -535,7 +541,12 @@ type Compilation(meta: Info, ?hasGraph) =
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
             Interfaces = interfaces
             Classes = classes
-            MacroEntries = Map.empty
+            MacroEntries = 
+                macroEntries |> Dict.filter (fun k _ ->
+                    match k with
+                    | CompositeEntry [ StringEntry "JsonDecoder"; TypeEntry _ ] -> true
+                    | _ -> false
+                )
             Quotations = quotations
             ResourceHashes = MergedDictionary meta.ResourceHashes
             ExtraBundles = this.AllExtraBundles

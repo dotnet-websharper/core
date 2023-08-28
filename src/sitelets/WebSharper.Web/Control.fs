@@ -83,7 +83,7 @@ type Control() =
 
         member this.Encode(meta, json) =
             // TODO, need to get address for deserializer
-            meta.MacroEntries // not in runtime metadata yet
+            //meta.MacroEntries // not in runtime metadata yet
 
             [this.ID, json.GetEncoder(this.GetType()).Encode this]
 

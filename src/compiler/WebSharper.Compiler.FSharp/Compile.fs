@@ -448,7 +448,7 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
     let exitCode = 
         Compile config warnSettings logger checkerFactory tryGetMetadata
     if exitCode <> 0 then 
-        clearOutput()
+        clearOutput config logger
     exitCode            
 #else
     try 

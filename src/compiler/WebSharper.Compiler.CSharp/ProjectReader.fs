@@ -324,7 +324,7 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
             p, Some proxied
         | _ -> thisDef, None
 
-    if isWebControlType sr cls then
+    if not cls.IsAbstract && isWebControlType sr cls then
         comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
 
     let thisTyp =
