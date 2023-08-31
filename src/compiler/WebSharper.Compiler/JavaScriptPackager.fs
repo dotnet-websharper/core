@@ -122,7 +122,7 @@ type PackageContent =
             | SingleType typ -> [| typ |]
             | Bundle (typs, _, _) -> typs
 
-let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) =
+let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content: PackageContent) (isLibrary: bool) =
     let imports = Dictionary<AST.CodeResource, Dictionary<string, Id>>()
     let jsUsed = HashSet<string>()
     let declarations = ResizeArray<Statement>()
@@ -1198,7 +1198,10 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
     if output <> O.TypeScriptDeclaration then
         match content with
         | Bundle(_, (OnLoadIfExists | ForceOnLoad), Some ep) ->
-            addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
+            if isLibrary then
+                statements.Add (bodyTransformer([||]).TransformStatement(ep))
+            else
+                addStatement <| ExprStatement (bodyTransformer([||]).TransformExpression(JSRuntime.OnLoad (Function([], None, None, ep))))
         | Bundle(_, ForceImmediate, Some ep) ->
             statements.Add (bodyTransformer([||]).TransformStatement(ep))
         | Bundle(_, (ForceOnLoad | ForceImmediate), None) ->
@@ -1238,6 +1241,8 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
                 let fromModule =
                     if m.Assembly = "" then
                         m.Name
+                    elif isLibrary then
+                        "./" + m.Name + ext  
                     elif not isSingleType then
                         "./" + m.Assembly + "/" + m.Name + ext  
                     elif m.Assembly = asmName then
@@ -1248,11 +1253,11 @@ let packageType (output: O) (refMeta: M.Info) (current: M.Info) asmName (content
 
         List.ofSeq (Seq.concat [ declarations; statements ])
 
-let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle =
+let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoint entryPointStyle isLibrary =
     let pkgs = ResizeArray()
     let classes = HashSet(current.Classes.Keys)
     let pkgTyp (typ: TypeDefinition) =
-        let p = packageType output refMeta current asmName (SingleType typ)
+        let p = packageType output refMeta current asmName (SingleType typ) false
         if not (List.isEmpty p) then
             pkgs.Add(typ.Value.FullName.Replace("+", "."), p)
     for typ in current.Interfaces.Keys do
@@ -1261,8 +1266,8 @@ let packageAssembly output (refMeta: M.Info) (current: M.Info) asmName entryPoin
     for typ in classes do
         pkgTyp typ
     if Option.isSome entryPoint then
-        let epTyp = TypeDefinition { Assembly = ""; FullName = "$EntryPoint" }     
-        let p = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint))
+        let epTyp = TypeDefinition { Assembly = asmName; FullName = "$EntryPoint" }     
+        let p = packageType output refMeta current asmName (Bundle ([| epTyp |], entryPointStyle, entryPoint)) isLibrary
         pkgs.Add("$EntryPoint", p)
     pkgs.ToArray()
 

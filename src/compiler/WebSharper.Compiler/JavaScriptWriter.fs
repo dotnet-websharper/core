@@ -378,7 +378,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
         trE (GlobalAccess a) ^= trE v
     | Verbatim (a, b, isJSX) ->
         env.IsJSX.Value <- env.IsJSX.Value || isJSX
-        J.Verbatim(a, b |> List.map trE)   
+        J.Verbatim(a, b |> List.map trE)
     | _ -> 
         invalidForm (GetUnionCaseName expr)
 
