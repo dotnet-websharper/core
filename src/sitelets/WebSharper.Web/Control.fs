@@ -295,6 +295,9 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
     //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
 
     [<JavaScript>]
+    static member DecodeJson(o: obj) = As<InlineControl<IControlBody>> (obj())
+        
+    [<JavaScript>]
     override this.Body =
         { new IControlBody with
             member this.ReplaceInDom(node) =
@@ -415,6 +418,9 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
     let args = fst bodyAndReqs
     let mutable funcName = [||]
     //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
+
+    [<JavaScript>]
+    static member DecodeJson(o: obj) = As<CSharpInlineControl> (obj())
 
     [<JavaScript>]
     override this.Body =
