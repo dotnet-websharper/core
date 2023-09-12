@@ -174,9 +174,18 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             Seq.append (Seq.singleton tD) (Seq.collect withNested tD.NestedTypes)
         else Seq.singleton tD
 
+    // Only those types should be discovered recursively, which can be found in the prototypes dictionary above
+    // As those are the types that are generated from the WIG definitions
+    // We don't want to process the types coming from the Generator/Definition part
+    let withNestedInit (tD: Mono.Cecil.TypeDefinition) =
+        if prototypes.ContainsKey tD.FullName then
+            withNested tD
+        else
+            Seq.empty
+
     let emptyMutableExternals = HashSet()
     
-    let allTypes = assembly.MainModule.Types |> Seq.collect withNested |> Array.ofSeq
+    let allTypes = assembly.MainModule.Types |> Seq.collect withNestedInit |> Array.ofSeq
         
     let asmName = assembly.FullName.Split(',').[0]
 
@@ -204,7 +213,8 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
             meth.CustomAttributes :> seq<_>
 
     let transformClass intfAsClass (typ: Mono.Cecil.TypeDefinition) =
-        if not (intfAsClass || typ.IsClass) || typ.FullName = "<Module>" then () else
+        // As a safety net, we should also throw away anything coming from the original dll's StartUp logic
+        if not (intfAsClass || typ.IsClass) || typ.FullName = "<Module>" || typ.FullName.StartsWith "<StartupCode" then () else
 
         let def = getTypeDefinition typ
 

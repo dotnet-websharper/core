@@ -136,17 +136,25 @@ Target.create "Prepare" <| fun _ ->
             WorkingDirectory = "./src/compiler/WebSharper.TypeScriptParser/"
         }
 
-let targets = MakeTargets {
-    WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
-        HasDefaultBuild = false
-        BuildAction =
-            BuildAction.Multiple [
-                BuildAction.Projects ["WebSharper.Compiler.sln"]
-                //BuildAction.Custom (publish [ Some "win-x64" ])
-                BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
-                BuildAction.Projects ["WebSharper.sln"]
-            ]
-}
+let targets =
+    MakeTargets {
+        WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
+            HasDefaultBuild = false
+            BuildAction =
+                BuildAction.Multiple [
+                    BuildAction.Projects ["WebSharper.Compiler.sln"]
+                    //BuildAction.Custom (publish [ Some "win-x64" ])
+                    BuildAction.Custom (publish [ None; Some "win-x64"; Some "linux-x64"; Some "linux-musl-x64"; Some "osx-x64" ])
+                    BuildAction.Projects ["WebSharper.sln"]
+                ]
+            Attributes =
+                [
+                    AssemblyInfo.Company "IntelliFactory"
+                    AssemblyInfo.Copyright "(c) IntelliFactory 2023"
+                    AssemblyInfo.Title "https://github.com/dotnet-websharper/core"
+                    AssemblyInfo.Product "WebSharper"
+                ]
+    }
 
 targets.AddPrebuild "Prepare"
 
