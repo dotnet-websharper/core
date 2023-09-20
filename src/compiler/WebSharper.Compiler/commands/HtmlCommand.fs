@@ -75,12 +75,30 @@ module HtmlCommand =
     let mutable implementationInstance = None : IHtmlCommand option
     
     let Exec env (config: Config) =
-        
+        let asmsProp = 
+            typeof<System.Runtime.Loader.AssemblyLoadContext>.GetProperty("Assemblies", [||])
+
+        let tryLoadAssembly path =
+            let name = System.Runtime.Loader.AssemblyLoadContext.GetAssemblyName(path)
+            let inMainContext =
+                try
+                    let assemblies = asmsProp.GetMethod.Invoke(System.Runtime.Loader.AssemblyLoadContext.Default, [||])
+                    assemblies :?> seq<System.Reflection.Assembly>
+                    |> Seq.tryFind (fun a ->
+                        a.GetName()
+                        |> AssemblyResolution.NetCoreImplemetnation.isCompatibleForInherit name)
+                with _ ->
+                    None
+            match inMainContext with
+            | None -> 
+                System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path) |> Some
+            | res -> res
         let loadAsm (path: string) =
-            try 
-                System.Runtime.Loader.AssemblyLoadContext.Default.LoadFromAssemblyPath(path)
-            with :? System.BadImageFormatException -> 
-                null
+            try
+                tryLoadAssembly path
+            with
+                | :? System.BadImageFormatException -> 
+                    None
 
         // force load shared assemblies
         [|
@@ -121,14 +139,17 @@ module HtmlCommand =
                 let cmdAssemblyPath =
                     Path.Combine(compilerDir, "WebSharper.Sitelets.Offline.dll")
                 let asm = loadAsm cmdAssemblyPath
-                let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
-                let t = asm.GetType(tN, throwOnError = true)
+                match asm with
+                | None -> failwithf "Assembly not referenced, needed for Html projects: %s" cmdAssemblyPath
+                | Some asm ->
+                    let tN = "WebSharper.Sitelets.Offline.HtmlCommand"
+                    let t = asm.GetType(tN, throwOnError = true)
                     
-                let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
+                    let cmd = Activator.CreateInstance(t) :?> IHtmlCommand
 
-                implementationInstance <- Some cmd
+                    implementationInstance <- Some cmd
 
-                cmd
+                    cmd
 
         cmd.Execute(env, config)   
 
