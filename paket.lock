@@ -568,16 +568,16 @@ STORAGE: NONE
 RESTRICTION: || (== net6.0) (== netstandard2.0)
 NUGET
   remote: https://api.nuget.org/v3/index.json
-    FSharp.Compiler.Service (43.7.400)
-      FSharp.Core (7.0.400)
+    FSharp.Compiler.Service (43.7.300)
+      FSharp.Core (7.0.300)
       System.Buffers (>= 4.5.1)
-      System.Collections.Immutable (>= 7.0)
-      System.Diagnostics.DiagnosticSource (>= 7.0.2)
+      System.Collections.Immutable (>= 6.0)
+      System.Diagnostics.DiagnosticSource (>= 6.0)
       System.Memory (>= 4.5.5)
       System.Reflection.Emit (>= 4.7)
-      System.Reflection.Metadata (>= 7.0)
+      System.Reflection.Metadata (>= 6.0.1)
       System.Runtime.CompilerServices.Unsafe (>= 6.0)
-    FSharp.Core (7.0.400)
+    FSharp.Core (7.0.300)
     Microsoft.Win32.SystemEvents (7.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
     NLog (4.7.15)
     System.Buffers (4.5.1)
@@ -825,4 +825,4 @@ GROUP wsbuild
 
 GIT
   remote: https://github.com/dotnet-websharper/build-script
-     (1d2e8ce1ca419e3c90a439f0dcf508e650734ba8)
+     (73d6303ae00aae83c1c075b5edc47ceb0068936e)
