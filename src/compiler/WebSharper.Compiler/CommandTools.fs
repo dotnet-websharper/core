@@ -146,7 +146,7 @@ type WsConfig =
                     false
                 else
                     match bool.TryParse(envVar) with
-                    | true, v -> v
+                    | true, v -> not v
                     | _ -> false
             RuntimeMetadata = Metadata.MetadataOptions.DiscardExpressions
             ArgWarnings = []

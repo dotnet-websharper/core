@@ -24,6 +24,7 @@ open System.IO
 open System.Threading
 open System.Threading.Tasks
 open WebSharper
+open WebSharper.Core
 
 module CT = WebSharper.Core.ContentTypes
 
@@ -63,46 +64,46 @@ module Content =
 
     let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
+    type ActivateControl =
+        | DecodeFromJson of id: string * data: string * deserializer: AST.Address
+
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
-        let controls = 
-            controls 
-            |> List.ofSeq
-
-        let jEnc = 
-            controls 
-            |> List.collect (fun c -> c.Encode(m, jP))
-
-        let types =
-            controls
-            |> List.map (fun c  ->
-                let t = c.GetType()
-                if t.IsSubclassOf(typeof<Web.Control>) then
-                    let typ = Core.AST.Reflection.ReadType t
-                    let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
-                    match m.MacroEntries.TryGetValue(key) with
-                    | true, M.StringEntry "id" :: _ ->
-                        failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
-                    | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                        match m.Classes.TryGetValue(gtd) with
-                        | true, (cAddr, _, Some cls) ->
-                            match cls.Methods.TryGetValue gm with
-                            | true, mInfo ->
-                                match mInfo.CompiledForm with
-                                | M.Func (name, _) ->
-                                    cAddr.Func(name)
-                                | _ ->
-                                    failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
-                            | _ ->
-                                failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                        | _ -> 
-                            failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                    | _ ->
-                        failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                else
-                    Core.AST.Address.Global()
-            )
-
-        J.Stringify (J.Object jEnc), types
+        controls
+        |> List.ofSeq
+        |> List.collect (fun c -> c.Encode(m, jP))
+        //|> List.choose (fun startup ->
+            
+        //    match json with
+        //    | None -> None
+        //    | Some (id, json) ->
+        //        let addr =
+        //            let t = c.GetType()
+        //            if t.IsSubclassOf(typeof<Web.Control>) then
+        //                let typ = Core.AST.Reflection.ReadType t
+        //                let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
+        //                match m.MacroEntries.TryGetValue(key) with
+        //                | true, M.StringEntry "id" :: _ ->
+        //                    failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
+        //                | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+        //                    match m.Classes.TryGetValue(gtd) with
+        //                    | true, (cAddr, _, Some cls) ->
+        //                        match cls.Methods.TryGetValue gm with
+        //                        | true, mInfo ->
+        //                            match mInfo.CompiledForm with
+        //                            | M.Func (name, _) ->
+        //                                cAddr.Func(name)
+        //                            | _ ->
+        //                                failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
+        //                        | _ ->
+        //                            failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+        //                    | _ -> 
+        //                        failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+        //                | _ ->
+        //                    failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+        //            else
+        //                Core.AST.Address.Global()
+        //        Some (DecodeFromJson (id, J.Stringify json, addr))
+        //)
 
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
@@ -128,17 +129,35 @@ module Content =
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let mJson, types = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
-            // Render meta
-            (tw Core.Resources.Meta).WriteLine(
-                "<meta id='{0}' name='{0}' content='{1}' />",
-                Activator.META_ID,
-                escape mJson
-            )
+            let toActivate = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
-            Some types
+            let scriptsTw = tw Core.Resources.Scripts
+            let activate (url: string) =
+                let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
+
+                for a in toActivate do
+                    let addr = a.Function
+                    let jsonArgs = 
+                        a.JsonData |> List.map J.Stringify |> String.concat ","
+                    let domId = a.IdToReplace |> Option.defaultValue ""
+                    match addr.Module with
+                    | AST.DotNetType m ->
+                        let i =
+                            match imported.TryGetValue(m) with
+                            | true, i ->
+                                i
+                            | _ ->
+                                let i = "i" + string (imported.Count + 1)
+                                imported.Add(m, i)
+                                scriptsTw.WriteLine("""import * as {0} from "{1}{2}/{3}.js";""", i, url, m.Assembly, m.Name)
+                                i
+
+                        scriptsTw.WriteLine("""{0}({1}).Body.ReplaceInDom(document.getElementById("{2}"));""", i, jsonArgs, domId)
+                    | _ -> 
+                        ()
+            Some activate
         else    
             None
 
@@ -164,14 +183,13 @@ module Content =
         let stylesTw = new HtmlTextWriter(stylesW, " ")
         use metaW = new StringWriter()
         let metaTw = new HtmlTextWriter(metaW, " ")
-        let resourceTypes =
+        let activation =
             writeResources ctx controls (function
                 | Core.Resources.Scripts -> scriptsTw
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
-        resourceTypes |> Option.iter (fun types ->
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
-        )
+        if Option.isSome activation then
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -181,10 +199,9 @@ module Content =
     let getResourcesAndScripts ctx controls =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
-        let resourceTypes = writeResources ctx controls (fun _ -> tw)
-        resourceTypes |> Option.iter (fun types ->
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
-        )
+        let activation = writeResources ctx controls (fun _ -> tw)
+        if Option.isSome activation then
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -193,12 +210,11 @@ module Content =
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
                 let renderHead (tw: HtmlTextWriter) =
-                    let resourceTypes = writeResources context body (fun _ -> tw)
+                    let activation = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
-                    resourceTypes |> Option.iter (fun types ->
-                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, types = types)
-                    )
+                    if Option.isSome activation then
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)

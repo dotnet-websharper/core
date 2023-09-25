@@ -252,15 +252,7 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
         | _ -> thisDef, None
 
     if not cls.IsAbstractClass && isWebControlType sr cls then
-        if def.Value.FullName = "WebSharper.Web.FSharpInlineControl" then
-            let iControlBody =
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.IControlBody"
-                }
-            comp.TypesNeedingDeserialization.Add(GenericType def [ NonGenericType iControlBody ]) |> ignore
-        else
-            comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
+        comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
 
     let isProxy = Option.isSome annot.ProxyOf 
     let isThisInterface = cls.IsInterface

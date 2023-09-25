@@ -444,7 +444,7 @@ let translate isBundle source =
     
         //printfn "packaged: %s" (WebSharper.Core.AST.Debug.PrintStatement (WebSharper.Core.AST.Block pkg))
 
-        let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
+        let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter pkg
         printfn "%s" js
     
     else
@@ -457,7 +457,7 @@ let translate isBundle source =
         let jsFiles = 
             pkg 
             |> Array.map (fun (file, p) ->
-                let js, map = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
+                let js, _, _ = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.JavaScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter p
                 file, js
             )
 
@@ -502,7 +502,7 @@ let getBody expr =
             cls.StaticConstructor |> Option.get |> stExpr
     | _ -> failwithf "class data not found: %A" typ
 
-translate true """
+translate false """
 namespace WebSharper.Tests
 
 open WebSharper
@@ -510,13 +510,13 @@ open WebSharper.JavaScript
 open System.Collections.Generic
 
 [<JavaScript>]
-module ObjectTest =
+module MyTest =
 
-    [<SPAEntryPoint>]
     let Main() =
-        let arr = [| 1 |] |> Seq.ofArray
-        for a in arr do
-            Console.Log(a)
+        let f x y = x + y
+        let g() =
+            f 1 2 + f 2 3
+        g() + g()
 """
 
 //translate """
