@@ -138,7 +138,7 @@ module Bundling =
                         if dce then trimMetadata meta nodes 
                         else meta
                     let asmName = Path.GetFileNameWithoutExtension o.Config.AssemblyFile
-                    JavaScriptPackager.bundleAssembly O.JavaScript current current asmName o.EntryPoint o.EntryPointStyle
+                    JavaScriptPackager.bundleAssembly O.JavaScript current current asmName o.EntryPoint o.EntryPointStyle false
                 with e -> 
                     CommandTools.argError ("Error during bundling: " + e.Message + " at " + e.StackTrace)
         let resources = graph.GetResourcesOf nodes

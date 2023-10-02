@@ -31,6 +31,16 @@ module C = WebSharper.Compiler.Commands
 open WebSharper.Compiler.FSharp.ErrorPrinting
 open FSharp.Compiler.CodeAnalysis
 
+let clearOutput config logger =
+    try
+        let intermediaryOutput = config.AssemblyFile
+        if File.Exists intermediaryOutput then 
+            let failedOutput = intermediaryOutput + ".failed"
+            if File.Exists failedOutput then File.Delete failedOutput
+            File.Move (intermediaryOutput, failedOutput)
+    with _ ->
+        PrintGlobalError logger "Failed to clean intermediate output!"
+
 let createAssemblyResolver (config : WsConfig) =
     let compilerDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
     let paths =
@@ -191,140 +201,147 @@ let Compile (config : WsConfig) (warnSettings: WarnSettings) (logger: LoggerBase
         aR.Wrap <| fun () ->
             compiler.Compile(refMeta, jsCompilerArgs, config, thisName, logger)
 
-    match comp with
-    | None ->        
-        1
-    | Some comp ->
+    let exitCode =
+        match comp with
+        | None ->        
+            1
+        | Some comp ->
 
-    if not (List.isEmpty comp.Errors || config.WarnOnly) then        
-        PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-        1
-    else
-    
-    let getRefMeta() =
-        match wsRefsMeta.Result with 
-        | Some (_, _, m) -> m 
-        | _ -> WebSharper.Core.Metadata.Info.Empty
-
-    let getRefMetas() =
-        match wsRefsMeta.Result with 
-        | Some (_, m, _) -> m 
-        | _ -> []
-
-    let js, currentMeta, sources, extraBundles, resources =
-        let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
-        if isBundleOnly then
-            let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
-            let extraBundles =
-                aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
-            None, currentMeta, sources, extraBundles, [||]
-        else
-            let assem = loader.LoadFile config.AssemblyFile
-
-            if config.ProjectType = Some Proxy then
-                EraseAssemblyContents assem
-                logger.TimedStage "Erasing assembly content for Proxy project"
-
-            let extraBundles = 
-                aR.Wrap <| fun () ->
-                    Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
-    
-            let runtimeMeta =
-                match config.ProjectType with
-                | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, getRefMetas())
-                | _ -> None
-
-            let js, currentMeta, sources, res =
-                ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem
-
-            match config.ProjectType with
-            | Some (Bundle | Website) ->
-                let wsRefs =
-                    match wsRefsMeta.Result with 
-                    | Some (r, _, m) -> r 
-                    | _ -> []
-                AddExtraAssemblyReferences wsRefs assem
-            | _ -> ()
-
+        if not (List.isEmpty comp.Errors || config.WarnOnly) then        
             PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
-            
-            if config.PrintJS then
-                match js with 
-                | Some jss ->
-                    for (name, js, _, isJSX) in jss do
-                        let x = if isJSX then "x" else ""
-                        logger.Out("// " + name + ".js" + x)
-                        logger.Out(js)
-                | _ -> ()
-
-            assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
-
-            logger.TimedStage "Writing resources into assembly"
-            js, currentMeta, sources, extraBundles, res
-
-    match config.JSOutputPath, js with
-    | Some path, Some jss ->
-        let asmPath = Path.Combine(path, thisName)
-        Directory.CreateDirectory(asmPath) |> ignore
-        if resources |> Array.isEmpty || config.ProjectType <> None then
-            for (name, js, _, isJSX) in jss do
-                let x = if isJSX then "x" else ""
-                let jsPath = Path.Combine(asmPath, name + ".js" + x)
-                File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
-                logger.TimedStage ("Writing " + jsPath)
+            1
         else
-            for (name, content) in resources do
-                if not <| name.ToLower().EndsWith ".meta" then
-                    let filePath = Path.Combine(asmPath, name)
-                    File.WriteAllBytes(Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath), content)
-                    logger.TimedStage ("Writing " + name)
-    | _ -> ()
+    
+        let getRefMeta() =
+            match wsRefsMeta.Result with 
+            | Some (_, _, m) -> m 
+            | _ -> WebSharper.Core.Metadata.Info.Empty
 
-    // TODO minimized output
-    //match config.MinJSOutputPath, js with
-    //| Some path, Some (_, minjs) ->
-    //    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
-    //    logger.TimedStage ("Writing " + path)
-    //| _ -> ()
-
-    match config.ProjectType with
-    | Some (Bundle | BundleOnly) ->
-        // comp.Graph does not have graph of dependencies and we need full graph here for bundling
-        let metas =
-            match wsRefsMeta.Result with
-            | Some (_, metas, _) -> metas
+        let getRefMetas() =
+            match wsRefsMeta.Result with 
+            | Some (_, m, _) -> m 
             | _ -> []
 
-        let currentJS =
-            lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
-        aR.Wrap <| fun () ->
-            Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
-        logger.TimedStage "Bundling"
-        0
-    | Some Html ->
-        logger.Out "Start writing offline sitelet"
-        logger.EnterContext()
-        let rm = comp.ToRuntimeMetadata()
-        let runtimeMeta = 
-            { rm with
-                Dependencies = 
-                    WebSharper.Core.DependencyGraph.Graph.FromData(
-                        getRefMetas() |> Seq.map (fun m -> m.Dependencies)
-                        |> Seq.append [ rm.Dependencies ]
-                    ).GetData()
-            }
-        ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet" true
-    | Some Website
-    | _ when Option.isSome config.OutputDir ->
-        match ExecuteCommands.GetWebRoot config with
-        | Some webRoot ->
-            ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking" false
-        | None ->
-            PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
-            1
-    | _ ->
-        0
+        let js, currentMeta, sources, extraBundles, resources =
+            let currentMeta = comp.ToCurrentMetadata(config.WarnOnly)
+            if isBundleOnly then
+                let currentMeta, sources = TransformMetaSources comp.AssemblyName currentMeta config.SourceMap 
+                let extraBundles =
+                    aR.Wrap <| fun () ->
+                        Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice1Of2 comp.AssemblyName)
+                None, currentMeta, sources, extraBundles, [||]
+            else
+                let assem = loader.LoadFile config.AssemblyFile
+
+                if config.ProjectType = Some Proxy then
+                    EraseAssemblyContents assem
+                    logger.TimedStage "Erasing assembly content for Proxy project"
+
+                let extraBundles = 
+                    aR.Wrap <| fun () ->
+                        Bundling.AddExtraBundles config logger (getRefMetas()) currentMeta refs comp (Choice2Of2 assem)
+    
+                let runtimeMeta =
+                    match config.ProjectType with
+                    | Some (Bundle | Website | Service) -> Some (config.RuntimeMetadata, getRefMetas())
+                    | _ -> None
+
+                let isLibrary = config.ProjectType = None 
+
+                let js, currentMeta, sources, res =
+                    ModifyAssembly logger (Some comp) (getRefMeta()) currentMeta config.SourceMap config.TypeScriptDeclaration config.TypeScriptOutput config.AnalyzeClosures runtimeMeta assem isLibrary
+
+                match config.ProjectType with
+                | Some (Bundle | Website) ->
+                    let wsRefs =
+                        match wsRefsMeta.Result with 
+                        | Some (r, _, m) -> r 
+                        | _ -> []
+                    AddExtraAssemblyReferences wsRefs assem
+                | _ -> ()
+
+                PrintWebSharperErrors config.WarnOnly config.ProjectFile warnSettings logger comp
+            
+                if config.PrintJS then
+                    match js with 
+                    | Some jss ->
+                        for (name, js, _, isJSX) in jss do
+                            let x = if isJSX then "x" else ""
+                            logger.Out("// " + name + ".js" + x)
+                            logger.Out(js)
+                    | _ -> ()
+
+                assem.Write (config.KeyFile |> Option.map File.ReadAllBytes) config.AssemblyFile
+
+                logger.TimedStage "Writing resources into assembly"
+                js, currentMeta, sources, extraBundles, res
+
+        match config.JSOutputPath, js with
+        | Some path, Some jss ->
+            let asmPath = Path.Combine(path, thisName)
+            Directory.CreateDirectory(asmPath) |> ignore
+            if resources |> Array.isEmpty || config.ProjectType <> None then
+                for (name, js, _, isJSX) in jss do
+                    let x = if isJSX then "x" else ""
+                    let jsPath = Path.Combine(asmPath, name + ".js" + x)
+                    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, jsPath), js)
+                    logger.TimedStage ("Writing " + jsPath)
+            else
+                for (name, content) in resources do
+                    if not <| name.ToLower().EndsWith ".meta" then
+                        let filePath = Path.Combine(asmPath, name)
+                        File.WriteAllBytes(Path.Combine(Path.GetDirectoryName config.ProjectFile, filePath), content)
+                        logger.TimedStage ("Writing " + name)
+        | _ -> ()
+
+        // TODO minimized output
+        //match config.MinJSOutputPath, js with
+        //| Some path, Some (_, minjs) ->
+        //    File.WriteAllText(Path.Combine(Path.GetDirectoryName config.ProjectFile, path), minjs)
+        //    logger.TimedStage ("Writing " + path)
+        //| _ -> ()
+
+        match config.ProjectType with
+        | Some (Bundle | BundleOnly) ->
+            // comp.Graph does not have graph of dependencies and we need full graph here for bundling
+            let metas =
+                match wsRefsMeta.Result with
+                | Some (_, metas, _) -> metas
+                | _ -> []
+
+            let currentJS =
+                lazy CreateBundleJSOutput logger (getRefMeta()) currentMeta comp.EntryPoint
+            aR.Wrap <| fun () ->
+                Bundling.Bundle config logger metas currentMeta comp currentJS sources refs extraBundles
+            logger.TimedStage "Bundling"
+            0
+        | Some Html ->
+            logger.Out "Start writing offline sitelet"
+            logger.EnterContext()
+            let rm = comp.ToRuntimeMetadata()
+            let runtimeMeta = 
+                { rm with
+                    Dependencies = 
+                        WebSharper.Core.DependencyGraph.Graph.FromData(
+                            getRefMetas() |> Seq.map (fun m -> m.Dependencies)
+                            |> Seq.append [ rm.Dependencies ]
+                        ).GetData()
+                }
+            ExecuteCommands.Html config runtimeMeta logger |> handleCommandResult logger config warnSettings "Finished writing offline sitelet" true
+        | Some Website
+        | _ when Option.isSome config.OutputDir ->
+            match ExecuteCommands.GetWebRoot config with
+            | Some webRoot ->
+                ExecuteCommands.Unpack webRoot config loader logger |> handleCommandResult logger config warnSettings "Unpacking" false
+            | None ->
+                PrintGlobalError logger "Failed to unpack website project, no WebSharperOutputDir specified"
+                1
+        | _ ->
+            0
+
+    if exitCode <> 0 then
+        clearOutput config logger
+    exitCode
 
 type ParseOptionsResult =
     | HelpOrCommand of int
@@ -433,29 +450,15 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
 
     ParsedOptions (!wsArgs, !warn)
 
-let clearOutput config logger =
-    try
-        let intermediaryOutput = config.AssemblyFile
-        if File.Exists intermediaryOutput then 
-            let failedOutput = intermediaryOutput + ".failed"
-            if File.Exists failedOutput then File.Delete failedOutput
-            File.Move (intermediaryOutput, failedOutput)
-    with _ ->
-        PrintGlobalError logger "Failed to clean intermediate output!"
-
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
 #if DEBUG
     let exitCode = 
         Compile config warnSettings logger checkerFactory tryGetMetadata
-    if exitCode <> 0 then 
-        clearOutput config logger
     exitCode            
 #else
     try 
         let exitCode = 
             Compile config warnSettings logger checkerFactory tryGetMetadata
-        if exitCode <> 0 then 
-            clearOutput config logger
         exitCode            
     with _ ->
         clearOutput config logger

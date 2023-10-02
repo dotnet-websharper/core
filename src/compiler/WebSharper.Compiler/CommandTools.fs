@@ -387,7 +387,9 @@ let LoadInterfaceGeneratorAssembly (file: string) (logger: LoggerBase) =
     let asm = WebSharper.Core.Reflection.LoadAssembly(file)
     let genFile = Path.ChangeExtension(file, ".Generator.dll")
     if File.Exists genFile then File.Delete genFile
-    File.Move(file, genFile)
+    // Instead of removing the original dll, we are going to keep the original F# dll as is,
+    // so we can properly carry over the win32 resources, so that the file properties are populated
+    File.Copy(file, genFile)
     let name = asm.GetName()
     let typedArg =
         asm.CustomAttributes |> Seq.tryPick (fun a ->
@@ -426,7 +428,8 @@ let RunInterfaceGenerator (aR: AssemblyResolver) snk config (logger: LoggerBase)
                 StrongNameKeyPath = snk
         }
     let cmp = InterfaceGenerator.Compiler.Create(logger)
-    let out = cmp.Compile(cfg, asmDef, asm)
+    // Passing in the original assembly file location, so that we can extend it, instead of creating a new assembly from scratch
+    let out = cmp.Compile(cfg, asmDef, config.AssemblyFile, asm)
     out.Save config.AssemblyFile
     logger.TimedStage "Writing final dll"
 

@@ -1514,7 +1514,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             (buildNested TypeAttributes.Interface)
         types, genTypes
 
-    let buildAssembly resolver options (assembly: Code.Assembly) =
+    let buildAssembly resolver options (assembly: Code.Assembly) (originalAssembly: Assembly option) (filePath: string) =
         if box assembly = null then
             failwithf "buildAssembly: assembly cannot be null"
         let aND = AssemblyNameDefinition(options.AssemblyName, options.AssemblyVersion)
@@ -1527,7 +1527,20 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         mp.AssemblyResolver <- resolver
         mp.Runtime <- TargetRuntime.Net_4_0
         let comments : Comments = Dictionary()
-        let def = AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
+        let def =
+            // If the original assembly is provided, we should read the Assembly from the fileSystem through Mono.Cecil,
+            // instead of creating a new one.
+            // Note: the ReaderParameters settings are important, as we want to avoid locking the dll we are handling, otherwise when we want to save the dll,
+            // we can run into access denied errors.
+            match originalAssembly with
+            | Some _ ->
+                let rp = ReaderParameters(ReadWrite = true, InMemory = true, ReadingMode = ReadingMode.Immediate)
+                AssemblyDefinition.ReadAssembly(filePath, rp)
+            | _ ->
+                AssemblyDefinition.CreateAssembly(aND, options.AssemblyName, mp)
+        def.Modules.Clear()
+        def.CustomAttributes.Clear()
+        def.MainModule.Resources.Clear()
         let types, genTypes = buildInitialTypes assembly def
         let tB = TypeBuilder(resolver, def, options.ReferencePaths)
         let tC = TypeConverter(tB, types, genTypes)
@@ -1555,8 +1568,8 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
                     addResource r.Name res.Text
                 | _ -> () // TODO: correct here?
 
-    member c.Compile(resolver, options, assembly, ?originalAssembly: Assembly) =
-        let (def, comments, mB, tB) = buildAssembly resolver options assembly
+    member c.Compile(resolver, options, assembly, filePath: string, ?originalAssembly: Assembly) =
+        let (def, comments, mB, tB) = buildAssembly resolver options assembly originalAssembly filePath
         logger.TimedStage "Built assembly"
         for f in options.EmbeddedResources do
             try
@@ -1595,9 +1608,9 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
         | Some docPath -> doc.Generate docPath
         r
 
-    member c.Compile(options, assembly, ?original) =
+    member c.Compile(options, assembly, filePath, ?original) =
         let (aR, resolver) = createAssemblyResolvers options
-        c.Compile(resolver, options, assembly, ?originalAssembly = original)
+        c.Compile(resolver, options, assembly, filePath, ?originalAssembly = original)
 
     member c.StartProgram(args, assembly, ?resolver: WebSharper.Compiler.AssemblyResolver, ?originalAssembly: Assembly) =
         let opts =
@@ -1607,7 +1620,7 @@ type Compiler(logger: WebSharper.Compiler.LoggerBase) =
             | Some r -> { opts with AssemblyResolver = Some r }
         let (aR, resolver) = createAssemblyResolvers opts
         aR.Wrap <| fun () ->
-            c.Compile(resolver, opts, assembly, ?originalAssembly = originalAssembly)
+            c.Compile(resolver, opts, assembly, "", ?originalAssembly = originalAssembly)
             |> ignore
         0
 
