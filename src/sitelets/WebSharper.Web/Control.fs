@@ -50,8 +50,9 @@ type Require<'T when 'T :> Resources.IResource>() =
 /// control in your application.
 [<AbstractClass>]
 type Control() =
+    static let gen = System.Random()
     [<System.NonSerialized>]
-    let mutable id = ""
+    let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
     member this.ID
         with get () = id
@@ -60,7 +61,7 @@ type Control() =
     interface INode with
         member this.IsAttribute = false
         member this.Write (ctx, w) =
-            id <- System.String.Format("ws{0:x}", ctx.GetId().ToString())
+            //id <- System.String.Format("ws{0:x}", ctx.GetId().ToString())
             w.Write("""<div id="{0}"></div>""", this.ID)
 
     [<JavaScript>]
@@ -77,45 +78,44 @@ type Control() =
         let m = t.GetProperty("Body").GetGetMethod()
         M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)
 
+    member this.GetJsonDecoder(meta: Metadata.Info, t: System.Type) = 
+        let typ = Core.AST.Reflection.ReadType t
+        let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
+        match meta.MacroEntries.TryGetValue(key) with
+        | true, M.StringEntry "id" :: _ ->
+            None
+        | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+            match meta.Classes.TryGetValue(gtd) with
+            | true, (cAddr, _, Some cls) ->
+                match cls.Methods.TryGetValue gm with
+                | true, mInfo ->
+                    match mInfo.CompiledForm with
+                    | M.Func (name, _) ->
+                        Some (cAddr.Func(name))
+                    | _ ->
+                        failwithf "deserializer not a top level function for %s" typ.AssemblyQualifiedName
+                | _ ->
+                    failwithf "method address not found for deserializer for %s" typ.AssemblyQualifiedName
+            | _ -> 
+                failwithf "address not found for deserializer for %s" typ.AssemblyQualifiedName
+        | _ ->
+            None
+
     interface IRequiresResources with
         member this.Requires(_) =
             this.GetBodyNode() |> Seq.singleton
 
         member this.Encode(meta, json) =
-            let addr =
-                let t = this.GetType()
-                let typ = Core.AST.Reflection.ReadType t
-                let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
-                match meta.MacroEntries.TryGetValue(key) with
-                | true, M.StringEntry "id" :: _ ->
-                    failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
-                | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-                    match meta.Classes.TryGetValue(gtd) with
-                    | true, (cAddr, _, Some cls) ->
-                        match cls.Methods.TryGetValue gm with
-                        | true, mInfo ->
-                            match mInfo.CompiledForm with
-                            | M.Func (name, _) ->
-                                cAddr.Func(name)
-                            | _ ->
-                                failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
-                        | _ ->
-                            failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                    | _ -> 
-                        failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-                | _ ->
-                    failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
+            let typ = this.GetType()
+            let addr = this.GetJsonDecoder(meta, typ)
 
-            let j = json.GetEncoder(this.GetType()).Encode this
+            let j = json.GetEncoder(typ).Encode this
 
-            [
-                {
-                    Function = addr
-                    JsonData = [ j ]
-                    ImportedArgs = []
-                    IdToReplace = Some this.ID
-                }
-            ]
+            match addr with
+            | Some addr ->
+                [ ClientReplaceInDomWithBody(this.ID, ClientFunctionCall(addr, [ ClientJsonData j])) ]
+            | _ ->
+                failwithf "address not found for deserializer for Web.Control type %s" typ.AssemblyQualifiedName
 
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
@@ -314,29 +314,21 @@ open ClientSideInternals
 /// The client-side control body must be an implicit or explicit quotation expression.
 /// It can capture local variables, of the same types which are serializable by WebSharper as RPC results.
 [<CompiledName "FSharpInlineControl">]
-type InlineControl([<JavaScript; ReflectedDefinition>] elt: Expr<IControlBody>) =
+type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition>] elt: Expr<'T>) =
     inherit Control()
 
     [<System.NonSerialized>]
     let elt = elt
 
-    [<JavaScript>]
+    [<System.NonSerialized>]
     let mutable args = [||]
-    [<JavaScript>]
-    let mutable funcName = [||]
-    //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
+    [<System.NonSerialized>]
+    let mutable funcAddr = AST.Address.Global()
 
     [<JavaScript>]
-    static member DecodeJson(o: obj) = As<InlineControl> (obj())
+    static member DecodeJson(o: obj) = As<InlineControl<IControlBody>> (obj())
         
-    [<JavaScript>]
-    override this.Body =
-        { new IControlBody with
-            member this.ReplaceInDom(node) =
-                let f = funcName // Array.fold (?) jsModule funcName
-                let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                b.ReplaceInDom(node)
-        } 
+    override this.Body = X<_>
 
     interface IRequiresResources with
         member this.Requires(meta) =
@@ -358,26 +350,38 @@ type InlineControl([<JavaScript; ReflectedDefinition>] elt: Expr<IControlBody>) 
             let fail() =
                 failwithf "Error in InlineControl at %s: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the assembly needs to be compiled with WsFsc.exe" 
                     (getLocation' elt) declType.Value.FullName meth.Value.MethodName
-            match meta.Classes.TryFind declType with
-            | Some (clsAddr, _, Some cls) ->
-                match cls.Methods.TryFind meth with
-                | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
-                    funcName <- [| "default"; a |]
-                    //match clsAddr.Module with
-                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                    //| _ -> ()
-                | Some { CompiledForm = M.Func (a, false) } ->
-                    funcName <- [| a |]
-                    //match clsAddr.Module with
-                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
-                    //| _ -> ()
-                | Some _ ->
-                    failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
-                        (getLocation' elt) declType.Value.FullName meth.Value.MethodName
-                | None -> fail()
-            | _ -> fail()
+            funcAddr <-
+                match meta.Classes.TryFind declType with
+                | Some (clsAddr, _, Some cls) ->
+                    match cls.Methods.TryFind meth with
+                    | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
+                        clsAddr.Static(a)
+                    | Some { CompiledForm = M.Func (a, false) } ->
+                        clsAddr.Func(a)
+                    | Some _ ->
+                        failwithf "Error in InlineControl at %s: Method %s.%s must be static and not inlined"
+                            (getLocation' elt) declType.Value.FullName meth.Value.MethodName
+                    | None -> fail()
+                | _ -> fail()
 
-            this.GetBodyNode() :: reqs |> Seq.ofList
+            reqs |> Seq.ofList
+
+        member this.Encode(meta, json) =
+            let data = 
+                args |> Seq.map (fun a ->
+                    let typ = a.GetType()
+                    let dec = this.GetJsonDecoder(meta, typ)
+                    
+                    let j = json.GetEncoder(typ).Encode a
+                    
+                    match dec with
+                    | Some dec ->
+                        ClientFunctionCall(dec, [ ClientJsonData j ])
+                    | None ->
+                        ClientJsonData j
+                )
+
+            [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]
 
 open System
 open System.Reflection
@@ -443,52 +447,51 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
         args, (declType, meth, reqs)
 
     [<JavaScript>]
-    let args = fst bodyAndReqs
-    [<JavaScript>]
-    let mutable funcName = [||]
-    //let mutable jsModule = Unchecked.defaultof<Json.JSModule>
-
-    [<JavaScript>]
     static member DecodeJson(o: obj) = As<CSharpInlineControl> (obj())
 
-    [<JavaScript>]
-    override this.Body =
-        { new IControlBody with
-            member this.ReplaceInDom(node) =
-                let f = funcName // Array.fold (?) jsModule funcName
-                let b = As<Function>(f).ApplyUnsafe(null, args) |> As<IControlBody>
-                b.ReplaceInDom(node)
-        } 
+    [<JavaScript(false)>]
+    override this.Body = X<_>
 
     interface IRequiresResources with
-        //member this.Encode(meta, json) =
-        //    if funcName.Length = 0 then
-        //        let declType, meth, reqs = snd bodyAndReqs
-        //        let fail() =
-        //            failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include WebSharper.CSharp.targets" 
-        //                declType.Value.FullName meth.Value.MethodName
-        //        match meta.Classes.TryFind declType with
-        //        | None -> fail()
-        //        | Some cls ->
-        //            match meta.Classes.TryFind declType with
-        //            | Some (clsAddr, _, Some cls) ->
-        //                match cls.Methods.TryFind meth with
-        //                | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
-        //                    funcName <- [| "default"; a |]
-        //                    //match clsAddr.Module with
-        //                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
-        //                    //| _ -> ()
-        //                | Some  { CompiledForm = M.Func (a, false) } ->
-        //                    funcName <- [| a |]
-        //                    //match clsAddr.Module with
-        //                    //| AST.DotNetType dt -> jsModule <- Json.JSModule dt
-        //                    //| _ -> ()
-        //                | Some _ -> 
-        //                    failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
-        //                        declType.Value.FullName meth.Value.MethodName
-        //                | None -> fail()
-        //            | _ -> fail()
-        //    [this.ID, json.GetEncoder(this.GetType()).Encode this]
+        member this.Encode(meta, json) =
+            let args = fst bodyAndReqs
+            
+            let funcAddr =
+                let declType, meth, reqs = snd bodyAndReqs
+                let fail() =
+                    failwithf "Error in InlineControl: Couldn't find translation of method %s.%s. The method or type should have JavaScript attribute or a proxy, and the project file needs to include WebSharper.CSharp.targets" 
+                        declType.Value.FullName meth.Value.MethodName
+                match meta.Classes.TryFind declType with
+                | None -> fail()
+                | Some cls ->
+                    match meta.Classes.TryFind declType with
+                    | Some (clsAddr, _, Some cls) ->
+                        match cls.Methods.TryFind meth with
+                        | Some { CompiledForm = M.Static (a, false, AST.MemberKind.Simple) } ->
+                            clsAddr.Static(a)
+                        | Some  { CompiledForm = M.Func (a, false) } ->
+                            clsAddr.Func(a)
+                        | Some _ -> 
+                            failwithf "Error in InlineControl: Method %s.%s must be static and not inlined"
+                                declType.Value.FullName meth.Value.MethodName
+                        | None -> fail()
+                    | _ -> fail()
+            
+            let data = 
+                args |> Seq.map (fun a ->
+                    let typ = a.GetType()
+                    let dec = this.GetJsonDecoder(meta, typ)
+                    
+                    let j = json.GetEncoder(typ).Encode a
+                    
+                    match dec with
+                    | Some dec ->
+                        ClientFunctionCall(dec, [ ClientJsonData j ])
+                    | None ->
+                        ClientJsonData j
+                )
+
+            [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]
 
         member this.Requires(_) =
             let _, _, reqs = snd bodyAndReqs 
@@ -504,4 +507,4 @@ module WebExtensions =
 
     [<System.Obsolete "Use `new WebSharper.Web.InlineControl(e)` instead">]
     let ClientSide ([<JavaScript; ReflectedDefinition>] e: Expr<#IControlBody>) =
-        new InlineControl(%e)
+        new InlineControl<_>(%e)

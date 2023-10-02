@@ -25,19 +25,18 @@ open WebSharper.JavaScript
 module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
-type ClientStartup =
-    {
-        Function: WebSharper.Core.AST.Address
-        JsonData: list<J.Value>
-        ImportedArgs: list<WebSharper.Core.AST.Address>
-        IdToReplace: option<string>
-    }
+type ClientCode =
+    | ClientJsonData of J.Value
+    | ClientFunctionCall of WebSharper.Core.AST.Address * seq<ClientCode>           
+    | ClientReplaceInDom of string * ClientCode
+    | ClientReplaceInDomWithBody of string * ClientCode
+    | ClientAddEventListener of string * string * ClientCode
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
     abstract member Requires : M.Info -> seq<M.Node>
-    abstract member Encode : M.Info * J.Provider -> list<ClientStartup>
+    abstract member Encode : M.Info * J.Provider -> seq<ClientCode>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.

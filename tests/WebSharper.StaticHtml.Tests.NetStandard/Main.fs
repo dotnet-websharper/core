@@ -20,7 +20,7 @@ module Site =
             contents |> Array.partition (fun n -> n.IsAttribute)
         interface IRequiresResources with
             member this.Requires(meta) = children |> Seq.collect (fun c -> c.Requires(meta))
-            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json)) |> List.ofSeq
+            member this.Encode(meta, json) =  children |> Seq.collect (fun c -> c.Encode(meta, json))
         interface INode with
             member this.Write(ctx, w) =
                 w.WriteBeginTag(name)

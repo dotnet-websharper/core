@@ -69,8 +69,8 @@ module Content =
 
     let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
+        |> Seq.collect (fun c -> c.Encode(m, jP))
         |> List.ofSeq
-        |> List.collect (fun c -> c.Encode(m, jP))
         //|> List.choose (fun startup ->
             
         //    match json with
@@ -138,25 +138,42 @@ module Content =
                 let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
 
                 for a in toActivate do
-                    let addr = a.Function
-                    let jsonArgs = 
-                        a.JsonData |> List.map J.Stringify |> String.concat ","
-                    let domId = a.IdToReplace |> Option.defaultValue ""
-                    match addr.Module with
-                    | AST.DotNetType m ->
-                        let i =
-                            match imported.TryGetValue(m) with
-                            | true, i ->
-                                i
-                            | _ ->
-                                let i = "i" + string (imported.Count + 1)
-                                imported.Add(m, i)
-                                scriptsTw.WriteLine("""import * as {0} from "{1}{2}/{3}.js";""", i, url, m.Assembly, m.Name)
-                                i
+                    let rec getCode a =
+                        match a with
+                        | ClientJsonData d ->
+                            J.Stringify d     
+                        | ClientFunctionCall (f, args) ->
+                            let i =
+                                match f.Module with
+                                | AST.DotNetType m ->
+                                    match imported.TryGetValue(m) with
+                                    | true, i ->
+                                        i
+                                    | _ ->
+                                        let i = "i" + string (imported.Count + 1)
+                                        match f.Address |> List.rev with
+                                        | [] -> failwith "empty address"
+                                        | a :: r ->
+                                            let j = i :: r |> String.concat "."
+                                            imported.Add(m, j)
+                                            match a with
+                                            | "default" ->
+                                                scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                            | _ ->
+                                                scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                            j
 
-                        scriptsTw.WriteLine("""{0}({1}).Body.ReplaceInDom(document.getElementById("{2}"));""", i, jsonArgs, domId)
-                    | _ -> 
-                        ()
+                                | _ ->
+                                    f.Address |> List.rev |> String.concat "."
+                            $"""{i}({ args |> Seq.map getCode |> String.concat "," })"""
+                        | ClientReplaceInDom (i, c) -> 
+                            $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
+                        | ClientReplaceInDomWithBody (i, c) -> 
+                            $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
+                        | ClientAddEventListener (i, e, c) ->
+                            $"""document.getElementById("{i}").addEventListener("{e}",{getCode c})"""
+                    scriptsTw.Write(getCode a)
+                    scriptsTw.WriteLine(";")
             Some activate
         else    
             None
