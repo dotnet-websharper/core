@@ -178,7 +178,7 @@ let trAsm (prototypes: IDictionary<string, string>) (assembly : Mono.Cecil.Assem
     // As those are the types that are generated from the WIG definitions
     // We don't want to process the types coming from the Generator/Definition part
     let withNestedInit (tD: Mono.Cecil.TypeDefinition) =
-        if prototypes.ContainsKey tD.FullName then
+        if prototypes.ContainsKey tD.FullName || isResourceType tD || tD.IsInterface then
             withNested tD
         else
             Seq.empty
