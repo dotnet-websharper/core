@@ -49,19 +49,10 @@ let (|Finish|_|) (str: string) =
         None
 
 
-let sendCompileCommand args =
-    let nLogger = 
-        let callerType = 
-            System.Diagnostics.StackTrace(0, false)
-                .GetFrames().[0]
-                .GetMethod()
-                .DeclaringType
-        NLog.LogManager.GetLogger(callerType.Name)
+let sendCompileCommand args projectDir =
     let serverName = "." // local machine server name
     let location = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location)
-    nLogger.Debug(sprintf "location of wsfsc.exe and wsfscservice.exe: %s" location)
     let pipeName = (location, "WsFscServicePipe") |> System.IO.Path.Combine |> hashPath
-    nLogger.Debug(sprintf "pipeName is : %s" pipeName)
     let exeName =
         if System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows) then
             "wsfscservice.exe"
@@ -76,10 +67,8 @@ let sendCompileCommand args =
         | e ->
             // If the processes cannot be queried, because of insufficient rights, the Mutex in service will handle
             // not running 2 instances
-            nLogger.Error(e, "Could not read running processes of wsfscservice.")
             [||]
 
-    nLogger.Debug(sprintf "number of running wsfscservices (> 0 means server is not needed): %i" runningServers.Length)
     let isServerNeeded =
         runningServers |> Array.isEmpty
 
@@ -94,7 +83,6 @@ let sendCompileCommand args =
         startInfo.UseShellExecute <- false
         startInfo.WindowStyle <- ProcessWindowStyle.Hidden
         proc <- Process.Start(startInfo)
-        nLogger.Debug(sprintf "Started service PID=%d" proc.Id)
 
     // the singleton wsfscservice.exe collects cache about metadata, and have the compiler in memory.
     // Call that with the compilation args for compilation.
@@ -121,7 +109,6 @@ let sendCompileCommand args =
                             return i |> Some
                         | x -> 
                             let unrecognizedMessageErrorCode = -13311
-                            nLogger.Error(sprintf "Unrecognizable message from server (%i): %s" unrecognizedMessageErrorCode x)
                             return unrecognizedMessageErrorCode |> Some
                     }
                 do! ms.CopyToAsync(clientPipe) |> Async.AwaitTask
@@ -129,18 +116,15 @@ let sendCompileCommand args =
                 let! errorCode = readingMessages clientPipe printResponse
                 match errorCode with
                 | Some -12211 ->
-                    nLogger.Error(sprintf "Error while parsing project parameters (%i)" unexpectedFinishErrorCode)
                     return -12211
                 | Some x -> return x
                 | None -> 
-                    nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
                     return unexpectedFinishErrorCode
                 }
             try
                 Async.RunSynchronously(write)
             with
             | _ -> 
-                nLogger.Error(sprintf "Listening for server finished abruptly (%i)" unexpectedFinishErrorCode)
                 unexpectedFinishErrorCode
         else
             let cannotConnectErrorCode = -14411
@@ -152,9 +136,6 @@ let sendCompileCommand args =
 
     let bf = new BinaryFormatter();
     use ms = new MemoryStream()
-
-    nLogger.Debug "WebSharper compilation arguments:"
-    args |> Array.iter (fun x -> nLogger.Debug("    " + x))
     // args going binary serialized to the service.
     let startCompileMessage: ArgsType = {args = args}
     bf.Serialize(ms, startCompileMessage);
@@ -162,5 +143,4 @@ let sendCompileCommand args =
     ms.Position <- 0L
     clientPipe.Connect()
     let returnCode = Write ms
-    nLogger.Debug(sprintf "wsfscservice.exe compiled in %s with error code: %i" location returnCode)
     returnCode
