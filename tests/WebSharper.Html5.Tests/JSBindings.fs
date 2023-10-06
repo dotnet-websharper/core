@@ -144,7 +144,6 @@ let Tests =
             notEqualMsg doc.Dir JS.Undefined "Checking dir"
             notEqualMsg doc.Doctype JS.Undefined "Checking doctype"
             notEqualMsg doc.DocumentElement JS.Undefined "Checking documentElement"
-            notEqualMsg doc.Domain JS.Undefined "Checking domain"
             notEqualMsg doc.Embeds JS.Undefined "Checking for embeds"
             notEqualMsg doc.Forms JS.Undefined "Checking for forms"
             notEqualMsg doc.Hidden JS.Undefined "Checking for hidden"

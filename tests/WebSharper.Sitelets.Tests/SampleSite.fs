@@ -157,7 +157,7 @@ module SampleSite =
     /// A helper function to create a 'fresh' url with a random get parameter
     /// in order to make sure that browsers don't show a cached version.
     let private RandomizeUrl url =
-        url + "?d=" + System.Uri.EscapeUriString (System.DateTime.Now.ToString())
+        url + "?d=" + System.Uri.EscapeDataString (System.DateTime.Now.ToString())
 
     /// User-defined widgets.
     module Widgets =
