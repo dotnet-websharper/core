@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-/// Declares resource (JS/CSS) dependencies.
+// Declares resource (JS/CSS) dependencies.
 namespace WebSharper.Tests
 
 open WebSharper

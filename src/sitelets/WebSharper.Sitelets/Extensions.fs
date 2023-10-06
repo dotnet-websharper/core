@@ -18,7 +18,7 @@
 //
 // $end{copyright}
 
-/// Implements utilities for use by the current assembly.
+// Implements utilities for use by the current assembly.
 namespace WebSharper.Sitelets
 
 open WebSharper
