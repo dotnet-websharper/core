@@ -369,6 +369,7 @@ let rec transformExpr (env: Environment) (expr: Expression) : J.Expression =
                 List.fold (fun e n ->
                     e.[J.Constant (J.String n)]
                 ) ha t
+        | NpmPackage _
         | JavaScriptModule _
         | DotNetType _ -> 
             J.Var (J.Id.New "IMPORT_ERROR")
