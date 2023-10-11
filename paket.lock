@@ -618,6 +618,33 @@ NUGET
     System.Windows.Extensions (7.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
       System.Drawing.Common (>= 7.0) - restriction: || (== net6.0) (&& (== netstandard2.0) (>= net6.0))
 
+GROUP giraffe
+STORAGE: NONE
+RESTRICTION: == net6.0
+NUGET
+  remote: https://api.nuget.org/v3/index.json
+    FSharp.Core (7.0.400)
+    Giraffe (6.2)
+      FSharp.Core (>= 6.0)
+      Giraffe.ViewEngine (>= 1.4)
+      Microsoft.IO.RecyclableMemoryStream (>= 2.2.1)
+      Newtonsoft.Json (>= 13.0.3)
+      System.Text.Json (>= 7.0.3)
+    Giraffe.ViewEngine (1.4)
+      FSharp.Core (>= 5.0)
+    Microsoft.IO.RecyclableMemoryStream (2.3.2)
+    Newtonsoft.Json (13.0.3)
+    Ply (0.3.1)
+      FSharp.Core (>= 4.6.2)
+      System.Threading.Tasks.Extensions (>= 4.5.4)
+    System.Runtime.CompilerServices.Unsafe (6.0)
+    System.Text.Encodings.Web (7.0)
+      System.Runtime.CompilerServices.Unsafe (>= 6.0)
+    System.Text.Json (7.0.3)
+      System.Runtime.CompilerServices.Unsafe (>= 6.0)
+      System.Text.Encodings.Web (>= 7.0)
+    System.Threading.Tasks.Extensions (4.5.4)
+
 GROUP includes
 REFERENCES: STRICT
 RESTRICTION: || (== net6.0) (== netstandard2.1)

@@ -1,0 +1,4 @@
+group giraffe
+    Giraffe
+    Giraffe.ViewEngine
+    Ply
