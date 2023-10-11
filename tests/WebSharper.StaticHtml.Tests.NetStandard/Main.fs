@@ -69,7 +69,7 @@ module Site =
                             Client.Elt "b" [|Client.Text "client side"|]
                             Client.Text " too!"
                         |] ))
-                Elt("div", Web.InlineControl <| Client.Main())
+                Elt("div", ClientSide <@ Client.Main() @>)
             ]
         )
 
