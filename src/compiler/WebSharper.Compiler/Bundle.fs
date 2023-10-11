@@ -269,7 +269,9 @@ module Bundling =
                     let js, m, isJSX = 
                         pkg 
                         |> WebSharper.Compiler.JavaScriptPackager.addLoadedModules (List.ofSeq toLoad) scriptBase o.IsExtraBundle
-                        |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript pref getCodeWriter
+                        |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript pref 
+                        |> fun (program, jsx) ->
+                            WebSharper.Compiler.JavaScriptPackager.programToString pref getCodeWriter program jsx
                     if sourceMap then
                         if mode = BundleMode.JavaScript then
                             map <- m
