@@ -51,6 +51,8 @@ let baseVersion =
     version + match pre with None -> "" | Some x -> "-" + x
     |> Paket.SemVer.Parse
 
+let computedVersion = ComputeVersion (Some baseVersion)
+
 let publish rids (mode: BuildMode) =
     let publishExe (mode: BuildMode) fw input output explicitlyCopyFsCore =
         for rid in rids do
@@ -110,6 +112,7 @@ Target.create "Prepare" <| fun _ ->
             yield File.ReadAllText(inFile)
             yield sprintf "    let [<Literal>] FcsVersion = \"%s\"" fcsVersion
             yield sprintf "    let [<Literal>] RoslynVersion = \"%s\"" roslynVersion
+            yield sprintf "    let [<Literal>] WSVersion = \"%s\"" computedVersion.AsString
         ]
     if not (File.Exists(outFile) && t = File.ReadAllText(outFile)) then
         File.WriteAllText(outFile, t)
@@ -138,7 +141,7 @@ Target.create "Prepare" <| fun _ ->
 
 let targets =
     MakeTargets {
-        WSTargets.Default (fun () -> ComputeVersion (Some baseVersion)) with
+        WSTargets.Default (fun () -> computedVersion) with
             HasDefaultBuild = false
             BuildAction =
                 BuildAction.Multiple [
@@ -151,7 +154,8 @@ let targets =
                 [
                     AssemblyInfo.Company "IntelliFactory"
                     AssemblyInfo.Copyright "(c) IntelliFactory 2023"
-                    AssemblyInfo.Title "https://github.com/dotnet-websharper/core"
+                    
+                    AssemblyInfo.Description "https://github.com/dotnet-websharper/core"
                     AssemblyInfo.Product "WebSharper"
                 ]
     }
