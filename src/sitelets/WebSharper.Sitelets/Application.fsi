@@ -38,7 +38,7 @@ type Application =
     /// Create a single-page HTML application.
     static member SinglePage : (Context<SPA.EndPoint> -> Async<Content<SPA.EndPoint>>) -> Sitelet<SPA.EndPoint>
 
-    /// Create a single-page application that returns text.
+    // Create a single-page application that returns text.
     // static member Text : (Context<SPA.EndPoint> -> string) -> Sitelet<SPA.EndPoint>
 
     /// Create a multi-page application.

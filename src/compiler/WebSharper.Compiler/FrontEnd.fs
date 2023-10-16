@@ -246,9 +246,29 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
         let pu = P.PathUtility.VirtualPaths("/")
         let ai = P.AssemblyId.Create(assemblyName)
         let inline getBytes (x: string) = System.Text.Encoding.UTF8.GetBytes x
+        let shouldUseJSX = ResizeArray<string>()
+        let jss' = 
+            pkg 
+            |> Array.map (fun (n, p) ->
+                let program, jsx = p |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.JavaScript WebSharper.Core.JavaScript.Readable
+                if jsx then
+                    shouldUseJSX.Add n
+                n, program, jsx
+            )
         let jss = 
-            pkg |> Array.map (fun (n, p) -> 
-                let js, map, isJSX = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.JavaScript WebSharper.Core.JavaScript.Readable getCodeWriter
+            jss' |> Array.map (fun (n, p, jsx) ->
+                let jsxModifiedProgram =
+                    p
+                    |> List.map (fun st ->
+                        match st with
+                        | JavaScript.Syntax.Statement.Import(di, fi, ni, mn) ->
+                            if shouldUseJSX.Exists(fun x -> mn.EndsWith(x + ".js")) then
+                                JavaScript.Syntax.Statement.Import(di, fi, ni, mn + "x")
+                            else
+                                st
+                        | _ -> st
+                    )
+                let js, map, isJSX = WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable getCodeWriter jsxModifiedProgram jsx
                 n, js, map, isJSX
             )
         for n, js, map, isJSX in jss do
@@ -272,7 +292,11 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 JavaScriptPackager.packageAssembly O.TypeScript refMeta current assemblyName (comp |> Option.bind (fun c -> c.EntryPoint)) JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in tspkg do
-                let ts, _, isJSX = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScript WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                let ts, _, isJSX =
+                    p
+                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScript WebSharper.Core.JavaScript.Readable
+                    |> fun (prog, jsx) ->
+                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
                 let x = if isJSX then "x" else ""
                 addRes (n + ".ts" + x) (Some (pu.TypeScriptFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .ts files"
@@ -282,7 +306,11 @@ let CreateResources (logger: LoggerBase) (comp: Compilation option) (refMeta: M.
                 JavaScriptPackager.packageAssembly O.TypeScriptDeclaration refMeta current assemblyName None JavaScriptPackager.EntryPointStyle.OnLoadIfExists isLibrary
                 |> Array.map (fun (f, ts) -> f, ts |> List.map removeSourcePos.TransformStatement)
             for (n, p) in dtspkg do
-                let ts, _, _ = p |> WebSharper.Compiler.JavaScriptPackager.programToString O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter
+                let ts, _, _ =
+                    p
+                    |> WebSharper.Compiler.JavaScriptPackager.transformProgramWithJSX O.TypeScriptDeclaration WebSharper.Core.JavaScript.Readable
+                    |> fun (prog, jsx) ->
+                        WebSharper.Compiler.JavaScriptPackager.programToString WebSharper.Core.JavaScript.Readable WebSharper.Core.JavaScript.Writer.CodeWriter prog jsx
                 addRes (n + ".d.ts") (Some (pu.TypeScriptDeclarationFileName(ai))) (Some (getBytes ts))
             logger.TimedStage "Writing .d.ts files"
 

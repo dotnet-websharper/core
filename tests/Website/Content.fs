@@ -134,6 +134,7 @@ let MainSite runServerTests ctx = function
     | Actions.Tests -> TestsPage runServerTests true ctx
     | Actions.ConsoleTests -> TestsPage runServerTests false ctx
     | Actions.TestQuery (a, b) -> TestQueryPage ctx (a, b)
+    | Actions.TestQuery2 (a, b) -> TestQueryPage ctx (a, b)
 
 let Main runServerTests =
     System.Globalization.CultureInfo.DefaultThreadCurrentCulture <- new System.Globalization.CultureInfo("en-US")

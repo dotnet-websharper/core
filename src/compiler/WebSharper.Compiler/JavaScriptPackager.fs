@@ -1320,8 +1320,10 @@ let addLoadedModules (urls: string list) scriptBase skipAssemblyDir (pkg: Statem
             ExprStatement(ApplAny(Var start, []))
         ]
 
-let programToString output pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) statements =
-    let program, isJSX = statements |> JavaScriptWriter.transformProgram output pref
+let transformProgramWithJSX output pref statements =
+    statements |> JavaScriptWriter.transformProgram output pref
+
+let programToString pref (getWriter: unit -> WebSharper.Core.JavaScript.Writer.CodeWriter) program isJSX =
     let writer = getWriter()
     WebSharper.Core.JavaScript.Writer.WriteProgram pref writer program
     writer.GetCodeFile(), writer.GetMapFile(), isJSX

@@ -676,10 +676,7 @@ module Type =
             | Some _, 1, Some pa ->
                 trFunc (TupleType [ArrayType (1, pa); snd f.Parameters.[0]]) (thisTransform * restTransform 1)
             | Some _, l, Some pa ->
-                trFunc (TupleType (ArrayType (1, pa) :: (f.Parameters |> List.map snd |> List.rev))) (thisTransform * restTransform l)       
-
-            | Some _, _, _ ->
-                trFunc (FunctionType { f with This = None }) thisTransform
+                trFunc (TupleType (ArrayType (1, pa) :: (f.Parameters |> List.map snd |> List.rev))) (thisTransform * restTransform l)
             | _ -> t
         | UnionOf ts ->
             if (ts |> Seq.exists (function ArrayType _ -> true | _ -> false))

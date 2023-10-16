@@ -16,7 +16,7 @@
 /tests/Web/downloads/
 /msbuild/AssemblyInfo.fs
 /.hg
-/.vs
+.vs
 /msbuild.log
 .fake
 /.vscode/
@@ -30,3 +30,4 @@
 /src/compiler/WebSharper.TypeScriptParser/node_modules
 /src/compiler/WebSharper.TypeScriptParser/app.js.map
 /src/compiler/WebSharper.TypeScriptParser/app.js
+websharper.log

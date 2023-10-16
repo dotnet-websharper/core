@@ -18,9 +18,9 @@
 //
 // $end{copyright}
 
-/// Tests Remoting functionality, including instance and static
-/// remote functions, returning async, unit and sync values, and
-/// sending/returning unions, lists, options, scalars and records.
+// Tests Remoting functionality, including instance and static
+// remote functions, returning async, unit and sync values, and
+// sending/returning unions, lists, options, scalars and records.
 namespace WebSharper.Web.Tests
 
 open System.Collections.Generic

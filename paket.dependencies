@@ -64,3 +64,12 @@ group nunit
     nuget FSharp.Core
     nuget System.Runtime.Loader 4.3.0
 
+
+group giraffe
+    framework: net6.0
+    source https://api.nuget.org/v3/index.json
+    storage: none
+
+    nuget Giraffe
+    nuget Giraffe.ViewEngine
+    nuget Ply
