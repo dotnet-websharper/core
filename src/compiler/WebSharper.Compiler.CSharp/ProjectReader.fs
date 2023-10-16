@@ -325,7 +325,9 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
         | _ -> thisDef, None
 
     if not cls.IsAbstract && isWebControlType sr cls then
-        comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
+        let sourcePos =
+            CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences[0]
+        comp.TypesNeedingDeserialization.Add(NonGenericType def, sourcePos) |> ignore
 
     let thisTyp =
         GenericType def (List.init cls.TypeParameters.Length TypeParameter)

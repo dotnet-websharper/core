@@ -258,9 +258,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     Assembly = "WebSharper.Main"
                     FullName = "WebSharper.IControlBody"
                 }
-            comp.TypesNeedingDeserialization.Add(GenericType def [ NonGenericType iControlBody ]) |> ignore
+            comp.TypesNeedingDeserialization.Add(GenericType def [ NonGenericType iControlBody ], CodeReader.getRange cls.DeclarationLocation)
         else
-            comp.TypesNeedingDeserialization.Add(NonGenericType def) |> ignore
+            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
 
     let isProxy = Option.isSome annot.ProxyOf 
     let isThisInterface = cls.IsInterface

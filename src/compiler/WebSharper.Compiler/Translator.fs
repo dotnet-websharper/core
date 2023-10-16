@@ -841,10 +841,10 @@ type DotNetToJavaScript private (comp: Compilation, ?inProgress) =
                     Generics = 1       
                 }
 
-            for t in comp.TypesNeedingDeserialization do
+            for t, pos in comp.TypesNeedingDeserialization do
                 // call JSON macro to create deserializers
                 try
-                    let decodeExpr = Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ])
+                    let decodeExpr = ExprSourcePos(pos, Call(None, NonGeneric webSharperJson, Generic decodeMethod [ t ], [ Undefined ]))
                     let toJS = DotNetToJavaScript(comp)
                     toJS.TransformExpression(decodeExpr) |> ignore
                 with e ->

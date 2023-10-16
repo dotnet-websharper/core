@@ -103,7 +103,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
-    let typesNeedingDeserialization = HashSet<Type>()
+    let typesNeedingDeserialization = ResizeArray<Type * SourcePos>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
