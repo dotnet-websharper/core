@@ -431,12 +431,19 @@ and Expression (expression) =
         ++ OptionalList (fun i -> Word "implements" ++ CommaSeparated Expression i) i
         ++ BlockLayout (List.map (Member true) ms)
     | S.Verbatim (s, e) ->
-        Token "(" ++ (
+        match s, e with
+        | [si], [_] when si = "..." ->
             Seq.alternate 
                 (s |> Seq.map Token)
                 (e |> Seq.map Expression)
-            |> Seq.reduce (++)
-        ) ++ Token ")"
+                |> Seq.reduce (++)
+        | _ ->
+            Token "(" ++ (
+                Seq.alternate 
+                    (s |> Seq.map Token)
+                    (e |> Seq.map Expression)
+                |> Seq.reduce (++)
+            ) ++ Token ")"
 
 and Statement canBeEmpty statement =
     match statement with
