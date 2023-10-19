@@ -31,6 +31,8 @@ type ClientCode =
     | ClientReplaceInDom of string * ClientCode
     | ClientReplaceInDomWithBody of string * ClientCode
     | ClientAddEventListener of string * string * ClientCode
+    | ClientDOMElement of string
+    | ClientInitialize of string * ClientCode
 
 /// An interface that has to be implemented by controls
 /// that depend on resources.

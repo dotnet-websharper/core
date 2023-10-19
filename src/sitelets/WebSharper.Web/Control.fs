@@ -78,44 +78,49 @@ type Control() =
         let m = t.GetProperty("Body").GetGetMethod()
         M.MethodNode (R.ReadTypeDefinition t, R.ReadMethod m)
 
-    member this.GetJsonDecoder(meta: Metadata.Info, t: System.Type) = 
+    static member EncodeClientObject(meta: Metadata.Info, json: Json.Provider, value: obj) = 
+        let t = value.GetType()
         let typ = Core.AST.Reflection.ReadType t
         let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
-        match meta.MacroEntries.TryGetValue(key) with
-        | true, M.StringEntry "id" :: _ ->
-            None
-        | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-            match meta.Classes.TryGetValue(gtd) with
-            | true, (cAddr, _, Some cls) ->
-                match cls.Methods.TryGetValue gm with
-                | true, mInfo ->
-                    match mInfo.CompiledForm with
-                    | M.Func (name, _) ->
-                        Some (cAddr.Func(name))
+        let deserializer =
+            match meta.MacroEntries.TryGetValue(key) with
+            | true, M.StringEntry "id" :: _ ->
+                None
+            | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                match meta.Classes.TryGetValue(gtd) with
+                | true, (cAddr, _, Some cls) ->
+                    match cls.Methods.TryGetValue gm with
+                    | true, mInfo ->
+                        match mInfo.CompiledForm with
+                        | M.Func (name, _) ->
+                            Some (cAddr.Func(name))
+                        | _ ->
+                            failwithf "deserializer not a top level function for %s" typ.AssemblyQualifiedName
                     | _ ->
-                        failwithf "deserializer not a top level function for %s" typ.AssemblyQualifiedName
-                | _ ->
-                    failwithf "method address not found for deserializer for %s" typ.AssemblyQualifiedName
-            | _ -> 
-                failwithf "address not found for deserializer for %s" typ.AssemblyQualifiedName
-        | _ ->
-            None
+                        failwithf "method address not found for deserializer for %s" typ.AssemblyQualifiedName
+                | _ -> 
+                    failwithf "address not found for deserializer for %s" typ.AssemblyQualifiedName
+            | _ ->
+                None
+        let jsonData = json.GetEncoder(t).Encode value
+        match deserializer with
+        | Some dec ->
+            ClientFunctionCall(dec, [ ClientJsonData jsonData ])
+        | None ->
+            ClientJsonData jsonData
 
     interface IRequiresResources with
         member this.Requires(_) =
             this.GetBodyNode() |> Seq.singleton
 
         member this.Encode(meta, json) =
-            let typ = this.GetType()
-            let addr = this.GetJsonDecoder(meta, typ)
+            let clientControl = Control.EncodeClientObject(meta, json, this)
 
-            let j = json.GetEncoder(typ).Encode this
-
-            match addr with
-            | Some addr ->
-                [ ClientReplaceInDomWithBody(this.ID, ClientFunctionCall(addr, [ ClientJsonData j])) ]
+            match clientControl with
+            | ClientFunctionCall _ ->
+                [ ClientReplaceInDomWithBody(this.ID, clientControl) ]
             | _ ->
-                failwithf "address not found for deserializer for Web.Control type %s" typ.AssemblyQualifiedName
+                failwithf "address not found for deserializer for Web.Control type %s" (this.GetType().AssemblyQualifiedName)
 
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
         writer.WriteLine("<div id='{0}'></div>", this.ID)
@@ -369,16 +374,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
         member this.Encode(meta, json) =
             let data = 
                 args |> Seq.map (fun a ->
-                    let typ = a.GetType()
-                    let dec = this.GetJsonDecoder(meta, typ)
-                    
-                    let j = json.GetEncoder(typ).Encode a
-                    
-                    match dec with
-                    | Some dec ->
-                        ClientFunctionCall(dec, [ ClientJsonData j ])
-                    | None ->
-                        ClientJsonData j
+                    Control.EncodeClientObject(meta, json, a)
                 )
 
             [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]
@@ -479,16 +475,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
             
             let data = 
                 args |> Seq.map (fun a ->
-                    let typ = a.GetType()
-                    let dec = this.GetJsonDecoder(meta, typ)
-                    
-                    let j = json.GetEncoder(typ).Encode a
-                    
-                    match dec with
-                    | Some dec ->
-                        ClientFunctionCall(dec, [ ClientJsonData j ])
-                    | None ->
-                        ClientJsonData j
+                    Control.EncodeClientObject(meta, json, a)
                 )
 
             [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]

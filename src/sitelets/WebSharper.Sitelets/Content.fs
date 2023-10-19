@@ -67,43 +67,10 @@ module Content =
     type ActivateControl =
         | DecodeFromJson of id: string * data: string * deserializer: AST.Address
 
-    let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
+    let collectClientCode<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
         controls
         |> Seq.collect (fun c -> c.Encode(m, jP))
         |> List.ofSeq
-        //|> List.choose (fun startup ->
-            
-        //    match json with
-        //    | None -> None
-        //    | Some (id, json) ->
-        //        let addr =
-        //            let t = c.GetType()
-        //            if t.IsSubclassOf(typeof<Web.Control>) then
-        //                let typ = Core.AST.Reflection.ReadType t
-        //                let key = M.CompositeEntry [ M.StringEntry "JsonDecoder"; M.TypeEntry typ ]
-        //                match m.MacroEntries.TryGetValue(key) with
-        //                | true, M.StringEntry "id" :: _ ->
-        //                    failwithf "id json for Web.Control %s" typ.AssemblyQualifiedName
-        //                | true, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
-        //                    match m.Classes.TryGetValue(gtd) with
-        //                    | true, (cAddr, _, Some cls) ->
-        //                        match cls.Methods.TryGetValue gm with
-        //                        | true, mInfo ->
-        //                            match mInfo.CompiledForm with
-        //                            | M.Func (name, _) ->
-        //                                cAddr.Func(name)
-        //                            | _ ->
-        //                                failwithf "serializer not a top level function for Web.Control %s" typ.AssemblyQualifiedName
-        //                        | _ ->
-        //                            failwithf "method address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-        //                    | _ -> 
-        //                        failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-        //                | _ ->
-        //                    failwithf "address not found for serializer for Web.Control %s" typ.AssemblyQualifiedName
-        //            else
-        //                Core.AST.Address.Global()
-        //        Some (DecodeFromJson (id, J.Stringify json, addr))
-        //)
 
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
@@ -129,7 +96,7 @@ module Content =
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let toActivate = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
+            let toActivate = collectClientCode ctx.Metadata ctx.Json (Seq.cast controls) |> List.indexed
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
@@ -137,43 +104,69 @@ module Content =
             let activate (url: string) =
                 let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
 
-                for a in toActivate do
-                    let rec getCode a =
-                        match a with
-                        | ClientJsonData d ->
-                            J.Stringify d     
-                        | ClientFunctionCall (f, args) ->
-                            let i =
-                                match f.Module with
-                                | AST.DotNetType m ->
-                                    match imported.TryGetValue(m) with
-                                    | true, i ->
-                                        i
-                                    | _ ->
-                                        let i = "i" + string (imported.Count + 1)
-                                        match f.Address |> List.rev with
-                                        | [] -> failwith "empty address"
-                                        | a :: r ->
-                                            let j = i :: r |> String.concat "."
-                                            imported.Add(m, j)
-                                            match a with
-                                            | "default" ->
-                                                scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                            | _ ->
-                                                scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                            j
-
+                let rec getCode a =
+                    match a with
+                    | ClientJsonData d ->
+                        J.Stringify d     
+                    | ClientFunctionCall (f, args) ->
+                        let i =
+                            match f.Module with
+                            | AST.DotNetType m ->
+                                match imported.TryGetValue(m) with
+                                | true, i ->
+                                    i
                                 | _ ->
-                                    f.Address |> List.rev |> String.concat "."
-                            $"""{i}({ args |> Seq.map getCode |> String.concat "," })"""
-                        | ClientReplaceInDom (i, c) -> 
-                            $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
-                        | ClientReplaceInDomWithBody (i, c) -> 
-                            $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
-                        | ClientAddEventListener (i, e, c) ->
-                            $"""document.getElementById("{i}").addEventListener("{e}",{getCode c})"""
-                    scriptsTw.Write(getCode a)
-                    scriptsTw.WriteLine(";")
+                                    let i = "i" + string (imported.Count + 1)
+                                    match f.Address |> List.rev with
+                                    | [] -> failwith "empty address"
+                                    | a :: r ->
+                                        let j = i :: r |> String.concat "."
+                                        imported.Add(m, j)
+                                        match a with
+                                        | "default" ->
+                                            scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                        | _ ->
+                                            scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                        j
+
+                            | _ ->
+                                f.Address |> List.rev |> String.concat "."
+                        $"""{i}({ args |> Seq.map getCode |> String.concat "," })"""
+                    | ClientReplaceInDom (i, c) -> 
+                        $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
+                    | ClientReplaceInDomWithBody (i, c) -> 
+                        $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
+                    | ClientAddEventListener (i, e, c) ->
+                        $"""document.getElementById("{i}").addEventListener("{e}",{getCode c})"""
+                    | ClientDOMElement i ->
+                        $"""document.getElementById("{i}")"""
+                    | ClientInitialize (_, c) ->
+                        getCode c
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, c) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""let {v} = {getCode c};""")
+                        scriptsTw.WriteLine($"""{v}.$preinit("{i}");""")
+                    | _ -> ()
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, _) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""{v}.$init("{i}");""")
+                    | _ ->
+                        scriptsTw.Write(getCode a)
+                        scriptsTw.WriteLine(";")
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, _) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""{v}.$postinit("{i}");""")
+                    | _ -> ()
+
             Some activate
         else    
             None
