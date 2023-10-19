@@ -2066,15 +2066,22 @@ type Compilation(meta: Info, ?hasGraph) =
                                 )
                         let decode x =
                             let returnTypePlain() =
-                                match mDef.Value.ReturnType with
-                                | ConcreteType c ->
-                                    match c.Generics with
-                                    | [] -> None
-                                    | t :: _ ->
-                                        if t = Type.VoidType then None else Some t
-                                | _ ->
+                                match rt with
+                                | Some rt -> 
                                     match rt with
-                                    | Some rt -> Some rt
+                                    | ConcreteType c ->
+                                        match c.Generics with
+                                        | [] -> None
+                                        | t :: _ ->
+                                            if t = Type.VoidType then None else Some t
+                                    | _ -> failwith "Expecting Async or Task return type"
+                                | _ -> 
+                                    match mDef.Value.ReturnType with
+                                    | ConcreteType c ->
+                                        match c.Generics with
+                                        | [] -> None
+                                        | t :: _ ->
+                                            if t = Type.VoidType then None else Some t
                                     | _ -> failwith "Expecting Async or Task return type"
                             let decoded dm arg =
                                 Call(None, NonGeneric webSharperJson, Generic dm [ arg ], [ x ])
