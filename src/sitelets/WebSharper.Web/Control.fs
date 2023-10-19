@@ -38,8 +38,7 @@ type Require (t: System.Type, [<System.ParamArray>] parameters: obj[]) =
         member this.IsAttribute = false
 
     interface IRequiresResources with
-        member this.Encode(_, _) = []
-        member this.Requires(_) = req :> _
+        member this.Requires(_, _) = req |> List.map ClientRequire |> Seq.ofList
 
 /// A server-side control that adds a runtime dependency on a given resource.
 type Require<'T when 'T :> Resources.IResource>() =
@@ -110,15 +109,15 @@ type Control() =
             ClientJsonData jsonData
 
     interface IRequiresResources with
-        member this.Requires(_) =
-            this.GetBodyNode() |> Seq.singleton
-
-        member this.Encode(meta, json) =
+        member this.Requires(meta, json) =
             let clientControl = Control.EncodeClientObject(meta, json, this)
 
             match clientControl with
             | ClientFunctionCall _ ->
-                [ ClientReplaceInDomWithBody(this.ID, clientControl) ]
+                [ 
+                    this.GetBodyNode() |> ClientRequire
+                    ClientReplaceInDomWithBody(this.ID, clientControl) 
+                ]
             | _ ->
                 failwithf "address not found for deserializer for Web.Control type %s" (this.GetType().AssemblyQualifiedName)
 
@@ -336,7 +335,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
     override this.Body = X<_>
 
     interface IRequiresResources with
-        member this.Requires(meta) =
+        member this.Requires(meta, json) =
             let declType, meth, reqs =
                 match getLocation elt with
                 | None -> failwith "Failed to find location of quotation"
@@ -369,15 +368,14 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                     | None -> fail()
                 | _ -> fail()
 
-            reqs |> Seq.ofList
-
-        member this.Encode(meta, json) =
             let data = 
                 args |> Seq.map (fun a ->
                     Control.EncodeClientObject(meta, json, a)
                 )
 
-            [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]
+            let code = ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data))
+
+            code :: (reqs |> List.map ClientRequire)
 
 open System
 open System.Reflection
@@ -449,7 +447,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
     override this.Body = X<_>
 
     interface IRequiresResources with
-        member this.Encode(meta, json) =
+        member this.Requires(meta, json) =
             let args = fst bodyAndReqs
             
             let funcAddr =
@@ -478,11 +476,11 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     Control.EncodeClientObject(meta, json, a)
                 )
 
-            [ ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data)) ]
+            let code = ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data))
 
-        member this.Requires(_) =
             let _, _, reqs = snd bodyAndReqs 
-            this.GetBodyNode() :: reqs |> Seq.ofList
+
+            code :: (this.GetBodyNode() :: reqs |> List.map ClientRequire)
 
 namespace WebSharper
 

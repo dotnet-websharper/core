@@ -26,6 +26,7 @@ module M = WebSharper.Core.Metadata
 module J = WebSharper.Core.Json
 
 type ClientCode =
+    | ClientRequire of M.Node
     | ClientJsonData of J.Value
     | ClientFunctionCall of WebSharper.Core.AST.Address * seq<ClientCode>           
     | ClientReplaceInDom of string * ClientCode
@@ -37,8 +38,7 @@ type ClientCode =
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : M.Info -> seq<M.Node>
-    abstract member Encode : M.Info * J.Provider -> seq<ClientCode>
+    abstract member Requires : M.Info * J.Provider -> seq<ClientCode>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.

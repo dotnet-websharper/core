@@ -67,11 +67,6 @@ module Content =
     type ActivateControl =
         | DecodeFromJson of id: string * data: string * deserializer: AST.Address
 
-    let collectClientCode<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
-        controls
-        |> Seq.collect (fun c -> c.Encode(m, jP))
-        |> List.ofSeq
-
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
             new MatchEvaluator(fun m ->
@@ -85,10 +80,14 @@ module Content =
     let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =
         // Resolve resources for the set of types and this assembly
         // Some controls may depend on Requires called first and Encode second, do not break this
+        let requiresAndCode =
+            controls
+            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json))
+            |> Array.ofSeq
         let resources =
             let nodeSet =
-                controls
-                |> Seq.collect (fun c -> c.Requires ctx.Metadata)
+                requiresAndCode
+                |> Seq.choose (fun c -> match c with ClientRequire n -> Some n | _ -> None) 
                 |> Set
             ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
                 ctx.Dependencies.GetResources ctx.Metadata nodes
@@ -96,7 +95,11 @@ module Content =
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let toActivate = collectClientCode ctx.Metadata ctx.Json (Seq.cast controls) |> List.indexed
+            let toActivate = 
+                requiresAndCode
+                |> Seq.indexed
+                |> Array.ofSeq
+
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
@@ -106,6 +109,8 @@ module Content =
 
                 let rec getCode a =
                     match a with
+                    | ClientRequire _ ->
+                        ""
                     | ClientJsonData d ->
                         J.Stringify d     
                     | ClientFunctionCall (f, args) ->
@@ -156,6 +161,8 @@ module Content =
                     | ClientInitialize (i, _) ->
                         let v = "o" + string ii
                         scriptsTw.WriteLine($"""{v}.$init("{i}");""")
+                    | ClientRequire _ ->
+                        ()
                     | _ ->
                         scriptsTw.Write(getCode a)
                         scriptsTw.WriteLine(";")
