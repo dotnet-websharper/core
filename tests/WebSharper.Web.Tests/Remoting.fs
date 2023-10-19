@@ -405,6 +405,9 @@ module Server =
         [<Remote>]
         abstract member M5 : int -> int -> Async<int>
 
+        [<Remote>]
+        abstract member M6 : unit -> Async<int list>
+
     type IntfHandler =
 
         [<Remote>]
@@ -429,6 +432,9 @@ module Server =
         override this.M5 a b =
             async.Return (a + b)
 
+        override this.M6 () =
+            async.Return ([1;2;3])
+
     type RecordRemote =
         {
             [<Remote>]
@@ -437,6 +443,8 @@ module Server =
             R2 : unit -> Async<int>
             [<Remote>]
             R3 : string * int -> Async<string>
+            [<Remote>]
+            R4 : unit -> Async<string list>
         }
 
     let recordRemoteImpl =
@@ -452,6 +460,10 @@ module Server =
             R3 = fun (x, y) ->
                 async {
                     return (x + "+" + string y)
+                }
+            R4 = fun () ->
+                async {
+                    return ["1"; "2"; "3"]
                 }
         }
 
@@ -744,6 +756,10 @@ module Remoting =
                 equalAsync (Remote<Server.Handler>.M5 3 6) 9
             }
 
+            Test "M6" {
+                equalAsync (Remote<Server.Handler>.M6 ()) [1;2;3]
+            }
+
             Test "IM3" {
                 equalAsync (Remote<Server.IntfHandler>.IM3 40) 41
             }
@@ -780,5 +796,6 @@ module Remoting =
                 equalAsync (Remote<Server.RecordRemote>.R1 "myTestString") "myTestString_fromRecordRemote"
                 equalAsync (Remote<Server.RecordRemote>.R2 ()) 42
                 equalAsync (Remote<Server.RecordRemote>.R3 ("2", 1)) "2+1"
+                equalAsync (Remote<Server.RecordRemote>.R4 ()) ["1";"2";"3"]
             }
         }
