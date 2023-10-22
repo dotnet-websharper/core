@@ -28,7 +28,8 @@ module J = WebSharper.Core.Json
 type ClientCode =
     | ClientRequire of M.Node
     | ClientJsonData of J.Value
-    | ClientFunctionCall of WebSharper.Core.AST.Address * seq<ClientCode>           
+    | ClientImport of WebSharper.Core.AST.Address 
+    | ClientApply of ClientCode * seq<ClientCode>
     | ClientReplaceInDom of string * ClientCode
     | ClientReplaceInDomWithBody of string * ClientCode
     | ClientAddEventListener of string * string * ClientCode

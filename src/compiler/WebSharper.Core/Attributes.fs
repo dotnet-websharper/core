@@ -100,7 +100,7 @@ type JavaScriptOptions =
     | NoDefaultInterfaceImplementation = 0x00000010
 
 /// Marks methods, properties and constructors for compilation to JavaScript.
-[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter, AllowMultiple = true)>]
+[<Sealed; U(T.Assembly|||T.Class|||T.Interface|||T.Module|||T.Constructor|||T.Method|||T.Property|||T.Event|||T.Struct|||T.Parameter|||T.Field, AllowMultiple = true)>]
 type JavaScriptAttribute() =
     inherit A()
 

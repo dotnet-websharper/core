@@ -50,7 +50,7 @@ type Require<'T when 'T :> Resources.IResource>() =
 [<AbstractClass>]
 type Control() =
     static let gen = System.Random()
-    [<System.NonSerialized>]
+    [<System.NonSerialized; JavaScript(false)>]
     let mutable id = System.String.Format("ws{0:x}", gen.Next().ToString())
 
     member this.ID
@@ -104,7 +104,7 @@ type Control() =
         let jsonData = json.GetEncoder(t).Encode value
         match deserializer with
         | Some dec ->
-            ClientFunctionCall(dec, [ ClientJsonData jsonData ])
+            ClientApply(ClientApply(ClientImport dec, []), [ ClientJsonData jsonData ])
         | None ->
             ClientJsonData jsonData
 
@@ -113,7 +113,7 @@ type Control() =
             let clientControl = Control.EncodeClientObject(meta, json, this)
 
             match clientControl with
-            | ClientFunctionCall _ ->
+            | ClientApply _ ->
                 [ 
                     this.GetBodyNode() |> ClientRequire
                     ClientReplaceInDomWithBody(this.ID, clientControl) 
@@ -321,12 +321,8 @@ open ClientSideInternals
 type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition>] elt: Expr<'T>) =
     inherit Control()
 
-    [<System.NonSerialized>]
     let elt = elt
-
-    [<System.NonSerialized>]
     let mutable args = [||]
-    [<System.NonSerialized>]
     let mutable funcAddr = AST.Address.Global()
 
     [<JavaScript>]
@@ -373,7 +369,7 @@ type InlineControl<'T when 'T :> IControlBody>([<JavaScript; ReflectedDefinition
                     Control.EncodeClientObject(meta, json, a)
                 )
 
-            let code = ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data))
+            let code = ClientReplaceInDom(this.ID, ClientApply(ClientImport funcAddr, data))
 
             code :: (reqs |> List.map ClientRequire)
 
@@ -389,10 +385,8 @@ open System.Linq.Expressions
 type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBody>>) =
     inherit Control()
 
-    [<System.NonSerialized; JavaScript(false)>]
     let elt = elt
 
-    [<System.NonSerialized>]
     let bodyAndReqs =
         let reduce (e: Expression) = if e.CanReduce then e.Reduce() else e
         let declType, meth, args, fReqs =
@@ -476,7 +470,7 @@ type CSharpInlineControl(elt: System.Linq.Expressions.Expression<Func<IControlBo
                     Control.EncodeClientObject(meta, json, a)
                 )
 
-            let code = ClientReplaceInDom(this.ID, ClientFunctionCall(funcAddr, data))
+            let code = ClientReplaceInDom(this.ID, ClientApply(ClientImport funcAddr, data))
 
             let _, _, reqs = snd bodyAndReqs 
 

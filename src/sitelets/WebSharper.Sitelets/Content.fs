@@ -113,30 +113,30 @@ module Content =
                         ""
                     | ClientJsonData d ->
                         J.Stringify d     
-                    | ClientFunctionCall (f, args) ->
-                        let i =
-                            match f.Module with
-                            | AST.DotNetType m ->
-                                match imported.TryGetValue(m) with
-                                | true, i ->
-                                    i
-                                | _ ->
-                                    let i = "i" + string (imported.Count + 1)
-                                    match f.Address |> List.rev with
-                                    | [] -> failwith "empty address"
-                                    | a :: r ->
-                                        let j = i :: r |> String.concat "."
-                                        imported.Add(m, j)
-                                        match a with
-                                        | "default" ->
-                                            scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                        | _ ->
-                                            scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
-                                        j
-
+                    | ClientImport f ->
+                        match f.Module with
+                        | AST.DotNetType m ->
+                            match imported.TryGetValue(m) with
+                            | true, i ->
+                                i
                             | _ ->
-                                f.Address |> List.rev |> String.concat "."
-                        $"""{i}({ args |> Seq.map getCode |> String.concat "," })"""
+                                let i = "i" + string (imported.Count + 1)
+                                match f.Address |> List.rev with
+                                | [] -> failwith "empty address"
+                                | a :: r ->
+                                    let j = i :: r |> String.concat "."
+                                    imported.Add(m, j)
+                                    match a with
+                                    | "default" ->
+                                        scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                    | _ ->
+                                        scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                    j
+
+                        | _ ->
+                            f.Address |> List.rev |> String.concat "."
+                    | ClientApply (c, args) ->
+                        $"""{getCode c}({ args |> Seq.map getCode |> String.concat "," })"""
                     | ClientReplaceInDom (i, c) -> 
                         $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
                     | ClientReplaceInDomWithBody (i, c) -> 

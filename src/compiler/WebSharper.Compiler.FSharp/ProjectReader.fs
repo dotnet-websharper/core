@@ -1291,6 +1291,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let fieldLoc (f: FSharpField) =
         let l = f.DeclarationLocation
         l.StartLine, l.StartColumn       
+    let fBaseAnnot = 
+        if isForcedNotJavaScript then 
+            annot 
+        else
+            { annot with IsJavaScript = true } // for F#, include all fields in JS by default, unless marked JavaScript(false)
     for i, f in cls.FSharpFields |> Seq.sortBy fieldLoc |> Seq.indexed do
         if selfCtorFields |> List.contains f.Name then () else
         let propertyAttributes =
@@ -1305,8 +1310,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Some p -> p.Attributes
             else
                 f.PropertyAttributes
-        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes propertyAttributes)
+        let fAnnot = sr.AttributeReader.GetMemberAnnot(fBaseAnnot, Seq.append f.FieldAttributes propertyAttributes)
         match fAnnot.Kind with
+        | None
         | Some (A.MemberKind.Remote _) -> ()
         | _ ->
             let nr =
