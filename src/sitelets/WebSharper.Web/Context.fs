@@ -26,8 +26,6 @@ open System.Collections.Generic
 [<AbstractClass>]
 type Context() =
 
-    let mutable prevId = 0 
-
     static member JoinWithSlash (a: string, b: string) =
         let startsWithSlash (s: string) =
             s.Length > 0
@@ -83,11 +81,6 @@ type Context() =
         if url.StartsWith "~" then
             Context.JoinWithSlash(this.ApplicationPath, url.Substring(1))
         else url
-
-    /// Gets a unique incremented id for the request.
-    member this.GetId() =
-        prevId <- prevId + 1
-        prevId        
 
 module Remoting =
 

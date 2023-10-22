@@ -166,6 +166,11 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
         sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
+let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    cls.AllInterfaces |> Seq.exists (fun i ->
+        i.BasicQualifiedName = "WebSharper.IRequiresResources"
+    )
+
 let rec private isWebControlType (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
     match cls.BaseType with
     | Some bCls ->
@@ -250,17 +255,6 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
-
-    if not cls.IsAbstractClass && isWebControlType sr cls then
-        if def.Value.FullName = "WebSharper.Web.FSharpInlineControl" then
-            let iControlBody =
-                TypeDefinition {
-                    Assembly = "WebSharper.Main"
-                    FullName = "WebSharper.IControlBody"
-                }
-            comp.TypesNeedingDeserialization.Add(GenericType def [ NonGenericType iControlBody ], CodeReader.getRange cls.DeclarationLocation)
-        else
-            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
 
     let isProxy = Option.isSome annot.ProxyOf 
     let isThisInterface = cls.IsInterface
@@ -1036,11 +1030,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
+    let isThisAbstract = isAbstractClass cls
+
+    if not isThisAbstract && not isThisInterface && isWebControlType sr cls then
+        match def.Value.FullName with
+        | "WebSharper.Web.FSharpInlineControl"
+        | "WebSharper.Web.InlineControl" -> ()
+        | _ ->
+            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
+
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif fsharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && ((isAbstractClass cls && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && ((isThisAbstract && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 

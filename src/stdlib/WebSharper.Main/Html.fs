@@ -36,10 +36,14 @@ type ClientCode =
     | ClientDOMElement of string
     | ClientInitialize of string * ClientCode
 
+/// Use to get a new unique id for an element on a page.
+type IUniqueIdSource =
+    abstract member NewId : unit -> string
+
 /// An interface that has to be implemented by controls
 /// that depend on resources.
 type IRequiresResources =
-    abstract member Requires : M.Info * J.Provider -> seq<ClientCode>
+    abstract member Requires : M.Info * J.Provider * IUniqueIdSource -> seq<ClientCode>
 
 /// HTML content that can be used as the Body of a web Control.
 /// Can be zero, one or many DOM nodes.
@@ -57,7 +61,6 @@ type IControl =
     inherit IRequiresResources
     [<JavaScript; Name "Body">]
     abstract member Body : IControlBody
-    abstract member Id : string
 
 /// An interface that has to be implemented by controls that
 /// are subject to activation but are not attached to a

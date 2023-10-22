@@ -93,13 +93,13 @@ module Server =
     [<AbstractClass>]
     type RequiresNoResources() =
         interface IRequiresResources with
-            member this.Requires(_, _) = Seq.empty
+            member this.Requires(_, _, _) = Seq.empty
 
     type Elt(name, [<System.ParamArray>] contents: INode[]) =
         let attributes, children =
             contents |> Array.partition (fun n -> n.IsAttribute)
         interface IRequiresResources with
-            member this.Requires(meta , json) = children |> Seq.collect (fun c -> c.Requires(meta, json))
+            member this.Requires(meta, json, getId) = children |> Seq.collect (fun c -> c.Requires(meta, json, getId))
         interface INode with
             member this.Write(ctx, w) =
                 w.WriteBeginTag(name)

@@ -78,11 +78,19 @@ module Content =
                 | _ -> failwith "unreachable"))
 
     let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =
+        let uniqueIdSource =
+            let mutable i = 0
+            { new IUniqueIdSource with
+                override this.NewId() =
+                    i <- i + 1
+                    "ws" + string i
+            }
+        
         // Resolve resources for the set of types and this assembly
         // Some controls may depend on Requires called first and Encode second, do not break this
         let requiresAndCode =
             controls
-            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json))
+            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
             |> Array.ofSeq
         let resources =
             let nodeSet =

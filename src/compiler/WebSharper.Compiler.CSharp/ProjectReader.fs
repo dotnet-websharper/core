@@ -221,6 +221,11 @@ let private isResourceType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
         sr.ReadNamedTypeDefinition i = Definitions.IResource
     )
 
+let rec private isIRequiresResources (sr: R.SymbolReader) (c: INamedTypeSymbol) =
+    c.AllInterfaces |> Seq.exists (fun i ->
+        i.Name = "IRequiresResources"
+    )
+
 let rec private isWebControlType (sr: R.SymbolReader) (c: INamedTypeSymbol) =
     match c.BaseType with
     | null -> false
@@ -323,11 +328,6 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
                     HashSet()
             p, Some proxied
         | _ -> thisDef, None
-
-    if not cls.IsAbstract && isWebControlType sr cls then
-        let sourcePos =
-            CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences[0]
-        comp.TypesNeedingDeserialization.Add(NonGenericType def, sourcePos) |> ignore
 
     let thisTyp =
         GenericType def (List.init cls.TypeParameters.Length TypeParameter)
@@ -1355,6 +1355,11 @@ let private transformClass (rcomp: CSharpCompilation) (sr: R.SymbolReader) (comp
     //    addMethod None pAnnot setter.Entity N.Inline false body
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
+
+    if not cls.IsAbstract && not isInterface && isWebControlType sr cls then
+        let sourcePos =
+            CodeReader.getSourcePosOfSyntaxReference cls.DeclaringSyntaxReferences[0]
+        comp.TypesNeedingDeserialization.Add(NonGenericType def, sourcePos) |> ignore
 
     if isStruct then
         comp.AddCustomType(def, StructInfo)
