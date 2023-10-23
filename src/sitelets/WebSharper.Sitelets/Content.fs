@@ -114,6 +114,7 @@ module Content =
             let scriptsTw = tw Core.Resources.Scripts
             let activate (url: string) =
                 let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
+                let mutable elems = 0
 
                 let rec getCode a =
                     match a with
@@ -149,8 +150,11 @@ module Content =
                         $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
                     | ClientReplaceInDomWithBody (i, c) -> 
                         $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
-                    | ClientAddEventListener (i, e, c) ->
-                        $"""document.getElementById("{i}").addEventListener("{e}",{getCode c})"""
+                    | ClientAddEventListener (i, ev, c) ->
+                        elems <- elems + 1
+                        let el = "e" + string elems
+                        scriptsTw.WriteLine($"""let {el} = document.getElementById("{i}");""")
+                        $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
                     | ClientDOMElement i ->
                         $"""document.getElementById("{i}")"""
                     | ClientInitialize (_, c) ->
