@@ -121,7 +121,11 @@ module Content =
                     | ClientRequire _ ->
                         ""
                     | ClientJsonData d ->
-                        J.Stringify d     
+                        J.Stringify d
+                    | ClientArrayData a ->
+                        $"""[{ a |> Seq.map getCode |> String.concat "," }]"""    
+                    | ClientObjectData a ->
+                        $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode v}" ) |> String.concat "," }}}"""    
                     | ClientImport f ->
                         match f.Module with
                         | AST.DotNetType m ->
