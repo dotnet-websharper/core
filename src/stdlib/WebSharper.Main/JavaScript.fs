@@ -299,3 +299,18 @@ type JS =
     /// String interpolation is supported to include expressions.
     [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
     static member Html<'T> (jsx: string) = X<'T>
+
+    /// Unchecked JSx expression that makes it into output .jsx unchanged.
+    /// String interpolation is supported to include expressions.
+    [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
+    static member Jsx<'T> (jsx: string) = X<'T>
+
+    /// Unchecked JSx expression that makes it into output .jsx unchanged.
+    /// String interpolation is supported to include expressions.
+    [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
+    static member jsx<'T> (jsx: string) = X<'T>
+
+    /// Unchecked JSx expression that makes it into output .jsx unchanged.
+    /// String interpolation is supported to include expressions.
+    [<Macro(typeof<WebSharper.Core.Macros.JSHtml>)>]
+    static member html<'T> (jsx: string) = X<'T>
