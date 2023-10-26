@@ -123,7 +123,7 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             "wbr"
         ]
 
-    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?types: list<AST.Address>) =
+    member this.WriteStartCode(scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
         let includeScriptTag = defaultArg includeScriptTag true
         let skipAssemblyDir = defaultArg skipAssemblyDir false
         if includeScriptTag then
@@ -134,44 +134,18 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
             if skipAssemblyDir then
                 this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
-            match types with
-            | None | Some [] -> ()
-            | Some types ->
-                this.WriteLine("""import {{ Activate }} from "{0}WebSharper.Main/WebSharper.Activator.js";""", url)
-                let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
-                let activate = System.Text.StringBuilder("Activate([")
-                let mutable first = true
-                for t in types do
-                    if first then
-                        first <- false
-                    else
-                        activate.Append(",") |> ignore
-                    match t.Module with  
-                    | AST.JavaScriptFile f ->
-                        this.WriteLine("""import "{1}{2}/{3}.js";""", url, f.Assembly, f.Name)
-                    | AST.JavaScriptModule m
-                    | AST.DotNetType m ->
-                        match imported.TryGetValue(m) with
-                        | true, i ->
-                            activate.Append(i) |> ignore
-                        | _ ->
-                            let i = "i" + string (imported.Count + 1)
-                            imported.Add(m, i)
-                            this.WriteLine("""import * as {0} from "{1}{2}/{3}.js";""", i, url, m.Assembly, m.Name)
-                            activate.Append(i) |> ignore
-                    | _ ->
-                        ()
-                activate.Append("]);") |> ignore
-                this.WriteLine(string activate)
+            match activation with
+            | None -> ()
+            | Some a -> a url
             this.WriteLine """StartWS();"""
         | None -> ()
         if includeScriptTag then
             this.WriteLine("""</script>""")
 
-    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?types: list<AST.Address>) =
+    static member WriteStartCode(writer: TextWriter, scriptBaseUrl: option<string>, ?includeScriptTag: bool, ?skipAssemblyDir: bool, ?activation: string -> unit) =
         writer.WriteLine()
         use w = new HtmlTextWriter(writer)
-        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?types = types)
+        w.WriteStartCode(scriptBaseUrl, ?includeScriptTag = includeScriptTag, ?skipAssemblyDir = skipAssemblyDir, ?activation = activation)
 
 type Rendering =
     | RenderInline of string

@@ -166,6 +166,18 @@ let private isResourceType (sr: CodeReader.SymbolReader) (e: FSharpEntity) =
         sr.ReadTypeDefinition i.TypeDefinition = Definitions.IResource
     )
 
+let private isIRequiresResources (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    cls.AllInterfaces |> Seq.exists (fun i ->
+        i.BasicQualifiedName = "WebSharper.IRequiresResources"
+    )
+
+let rec private isWebControlType (sr: CodeReader.SymbolReader) (cls: FSharpEntity) =
+    match cls.BaseType with
+    | Some bCls ->
+        let typ = sr.ReadTypeDefinition bCls.TypeDefinition
+        typ.Value.FullName = "WebSharper.Web.Control" || isWebControlType sr bCls.TypeDefinition
+    | _ -> false
+
 let isAugmentedFSharpType (e: FSharpEntity) =
     e.IsFSharpRecord || e.IsFSharpExceptionDeclaration || (
         e.IsFSharpUnion 
@@ -1018,11 +1030,20 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
 
     if not annot.IsJavaScript && clsMembers.Count = 0 && annot.Macros.IsEmpty then None else
 
+    let isThisAbstract = isAbstractClass cls
+
+    if not isThisAbstract && not isThisInterface && isWebControlType sr cls then
+        match def.Value.FullName with
+        | "WebSharper.Web.FSharpInlineControl"
+        | "WebSharper.Web.InlineControl" -> ()
+        | _ ->
+            comp.TypesNeedingDeserialization.Add(NonGenericType def, CodeReader.getRange cls.DeclarationLocation)
+
     let ckind = 
         if annot.IsStub || (hasStubMember && not hasNonStubMember)
         then NotResolvedClassKind.Stub
         elif fsharpModule then NotResolvedClassKind.Static
-        elif (annot.IsJavaScript && ((isAbstractClass cls && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
+        elif (annot.IsJavaScript && ((isThisAbstract && not isInterfaceProxy) || cls.IsFSharpExceptionDeclaration)) || (annot.Prototype = Some true)
         then NotResolvedClassKind.WithPrototype
         else NotResolvedClassKind.Class
 
@@ -1273,6 +1294,11 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
     let fieldLoc (f: FSharpField) =
         let l = f.DeclarationLocation
         l.StartLine, l.StartColumn       
+    let fBaseAnnot = 
+        if isForcedNotJavaScript then 
+            annot 
+        else
+            { annot with IsJavaScript = true } // for F#, include all fields in JS by default, unless marked JavaScript(false)
     for i, f in cls.FSharpFields |> Seq.sortBy fieldLoc |> Seq.indexed do
         if selfCtorFields |> List.contains f.Name then () else
         let propertyAttributes =
@@ -1287,8 +1313,9 @@ let rec private transformClass (sc: Lazy<_ * StartupCode>) (comp: Compilation) (
                 | Some p -> p.Attributes
             else
                 f.PropertyAttributes
-        let fAnnot = sr.AttributeReader.GetMemberAnnot(annot, Seq.append f.FieldAttributes propertyAttributes)
+        let fAnnot = sr.AttributeReader.GetMemberAnnot(fBaseAnnot, Seq.append f.FieldAttributes propertyAttributes)
         match fAnnot.Kind with
+        | None
         | Some (A.MemberKind.Remote _) -> ()
         | _ ->
             let nr =

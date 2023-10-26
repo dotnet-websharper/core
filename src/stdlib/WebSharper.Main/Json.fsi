@@ -21,15 +21,6 @@
 /// Implements JSON encoding and decoding for client-server interaction.
 module WebSharper.Json
 
-module Re = WebSharper.Core.Resources
-
-/// Represents the IE7-compatibility JSON resource.
-type Resource =
-
-    /// Constructs a new instance.
-    new : unit -> Resource
-
-    interface Re.IResource
 
 val private As<'T>          : obj -> 'T
 val private op_Dynamic<'T>  : obj -> string -> 'T
@@ -42,9 +33,3 @@ val Parse : string -> obj
 /// Converts a JavaScript object to a JSON string.
 /// For type-aware serialization compatible with Sitelets, see Json.Serialize.
 val Stringify : obj -> string
-
-/// Parses a JSON object returned by the server.
-val ActivateAsync : obj -> Async<'T>
-
-/// Parses a JSON object returned by the server using imported types.
-val Activate : obj -> obj[] -> 'T

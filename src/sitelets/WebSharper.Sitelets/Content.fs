@@ -24,6 +24,7 @@ open System.IO
 open System.Threading
 open System.Threading.Tasks
 open WebSharper
+open WebSharper.Core
 
 module CT = WebSharper.Core.ContentTypes
 
@@ -63,15 +64,8 @@ module Content =
 
     let defaultEncoding = new System.Text.UTF8Encoding(false) :> System.Text.Encoding
 
-    let metaJson<'T> (m: M.Info) (jP: Core.Json.Provider) (controls: seq<IRequiresResources>) =
-        let jVal, types =        
-            controls
-            |> List.ofSeq
-            |> List.collect (fun c -> c.Encode(m, jP))
-            |> J.Encoded.Object
-            |> jP.PackWithTypes
-
-        J.Stringify jVal, types
+    type ActivateControl =
+        | DecodeFromJson of id: string * data: string * deserializer: AST.Address
 
     let escape (s: string) =
         Regex.Replace(s, @"[&<>']",
@@ -84,12 +78,24 @@ module Content =
                 | _ -> failwith "unreachable"))
 
     let writeResources (ctx: Web.Context) (controls: seq<#IRequiresResources>) (tw: Core.Resources.RenderLocation -> HtmlTextWriter) =
+        let uniqueIdSource =
+            let mutable i = 0
+            { new IUniqueIdSource with
+                override this.NewId() =
+                    i <- i + 1
+                    "ws" + string i
+            }
+        
         // Resolve resources for the set of types and this assembly
         // Some controls may depend on Requires called first and Encode second, do not break this
+        let requiresAndCode =
+            controls
+            |> Seq.collect (fun c -> c.Requires (ctx.Metadata, ctx.Json, uniqueIdSource))
+            |> Array.ofSeq
         let resources =
             let nodeSet =
-                controls
-                |> Seq.collect (fun c -> c.Requires ctx.Metadata)
+                requiresAndCode
+                |> Seq.choose (fun c -> match c with ClientRequire n -> Some n | _ -> None) 
                 |> Set
             ctx.ResourceContext.ResourceDependencyCache.GetOrAdd(nodeSet, fun nodes ->
                 ctx.Dependencies.GetResources ctx.Metadata nodes
@@ -97,17 +103,94 @@ module Content =
         let hasResources = not (List.isEmpty resources)
         if hasResources then
             // Meta tag encoding the client side controls
-            let mJson, types = metaJson ctx.Metadata ctx.Json (Seq.cast controls)
-            // Render meta
-            (tw Core.Resources.Meta).WriteLine(
-                "<meta id='{0}' name='{0}' content='{1}' />",
-                Activator.META_ID,
-                escape mJson
-            )
+            let toActivate = 
+                requiresAndCode
+                |> Seq.indexed
+                |> Array.ofSeq
+
             // Render resources
             for r in resources do
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
-            Some types
+            let scriptsTw = tw Core.Resources.Scripts
+            let activate (url: string) =
+                let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
+                let mutable elems = 0
+
+                let rec getCode a =
+                    match a with
+                    | ClientRequire _ ->
+                        ""
+                    | ClientJsonData d ->
+                        J.Stringify d
+                    | ClientArrayData a ->
+                        $"""[{ a |> Seq.map getCode |> String.concat "," }]"""    
+                    | ClientObjectData a ->
+                        $"""{{{ a |> Seq.map (fun (n, v) -> $"\"{n}\":{getCode v}" ) |> String.concat "," }}}"""    
+                    | ClientImport f ->
+                        match f.Module with
+                        | AST.DotNetType m ->
+                            match imported.TryGetValue(m) with
+                            | true, i ->
+                                i
+                            | _ ->
+                                let i = "i" + string (imported.Count + 1)
+                                match f.Address |> List.rev with
+                                | [] -> failwith "empty address"
+                                | a :: r ->
+                                    let j = i :: r |> String.concat "."
+                                    imported.Add(m, j)
+                                    match a with
+                                    | "default" ->
+                                        scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                    | _ ->
+                                        scriptsTw.WriteLine($"""import {{ {a} as {i} }} from "{url}{m.Assembly}/{m.Name}.js";""")
+                                    j
+
+                        | _ ->
+                            f.Address |> List.rev |> String.concat "."
+                    | ClientApply (c, args) ->
+                        $"""{getCode c}({ args |> Seq.map getCode |> String.concat "," })"""
+                    | ClientReplaceInDom (i, c) -> 
+                        $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
+                    | ClientReplaceInDomWithBody (i, c) -> 
+                        $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
+                    | ClientAddEventListener (i, ev, c) ->
+                        elems <- elems + 1
+                        let el = "e" + string elems
+                        scriptsTw.WriteLine($"""let {el} = document.getElementById("{i}");""")
+                        $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
+                    | ClientDOMElement i ->
+                        $"""document.getElementById("{i}")"""
+                    | ClientInitialize (_, c) ->
+                        getCode c
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, c) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""let {v} = {getCode c};""")
+                        scriptsTw.WriteLine($"""{v}.$preinit("{i}");""")
+                    | _ -> ()
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, _) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""{v}.$init("{i}");""")
+                    | ClientRequire _ ->
+                        ()
+                    | _ ->
+                        scriptsTw.Write(getCode a)
+                        scriptsTw.WriteLine(";")
+
+                for ii, a in toActivate do
+                    match a with
+                    | ClientInitialize (i, _) ->
+                        let v = "o" + string ii
+                        scriptsTw.WriteLine($"""{v}.$postinit("{i}");""")
+                    | _ -> ()
+
+            Some activate
         else    
             None
 
@@ -133,14 +216,13 @@ module Content =
         let stylesTw = new HtmlTextWriter(stylesW, " ")
         use metaW = new StringWriter()
         let metaTw = new HtmlTextWriter(metaW, " ")
-        let resourceTypes =
+        let activation =
             writeResources ctx controls (function
                 | Core.Resources.Scripts -> scriptsTw
                 | Core.Resources.Styles -> stylesTw
                 | Core.Resources.Meta -> metaTw)
-        resourceTypes |> Option.iter (fun types ->
-            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
-        )
+        if Option.isSome activation then
+            scriptsTw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
         {
             Scripts = scriptsW.ToString()
             Styles = stylesW.ToString()
@@ -150,10 +232,9 @@ module Content =
     let getResourcesAndScripts ctx controls =
         use w = new StringWriter()
         use tw = new HtmlTextWriter(w, " ")
-        let resourceTypes = writeResources ctx controls (fun _ -> tw)
-        resourceTypes |> Option.iter (fun types ->
-            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, types = types)
-        )
+        let activation = writeResources ctx controls (fun _ -> tw)
+        if Option.isSome activation then
+            tw.WriteStartCode(ctx.ResourceContext.ScriptBaseUrl, ?activation = activation)
         w.ToString()
     
     let toCustomContentAsync (genPage: Context<'T> -> Async<Page>) context : Async<Http.Response> =
@@ -162,12 +243,11 @@ module Content =
             let writeBody (stream: Stream) =
                 let body = Seq.cache htmlPage.Body
                 let renderHead (tw: HtmlTextWriter) =
-                    let resourceTypes = writeResources context body (fun _ -> tw)
+                    let activation = writeResources context body (fun _ -> tw)
                     for elem in htmlPage.Head do
                         elem.Write(context, tw)
-                    resourceTypes |> Option.iter (fun types ->
-                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, types = types)
-                    )
+                    if Option.isSome activation then
+                        tw.WriteStartCode(context.ResourceContext.ScriptBaseUrl, ?activation = activation)
                 let renderBody (tw: HtmlTextWriter) =
                     for elem in body do
                         elem.Write(context, tw)
@@ -195,7 +275,6 @@ module Content =
                     use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                     x
                     |> encoder.Encode
-                    |> Json.ServerSideProvider.Pack
                     |> WebSharper.Core.Json.Write tw
                 )
             }
@@ -212,7 +291,6 @@ module Content =
                         use tw = new StreamWriter(s, System.Text.Encoding.UTF8, 1024, leaveOpen = true)
                         x
                         |> encoder.Encode
-                        |> Json.ServerSideProvider.Pack
                         |> WebSharper.Core.Json.Write tw
                     )
                 }

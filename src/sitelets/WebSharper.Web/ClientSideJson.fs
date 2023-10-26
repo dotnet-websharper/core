@@ -361,11 +361,20 @@ module Macro =
             }
         let invoke (comp: M.ICompilation) isEnc n args = 
             let f = (if isEnc then "Encode" else "Decode") + n
-            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = f)
-            Call(None, NonGeneric providerType, NonGeneric m, args)
+            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.tryFind (fun m -> m.Value.MethodName = f)
+            match m with 
+            | Some m ->
+                Call(None, NonGeneric providerType, NonGeneric m, args)
+            | None ->
+                failwithf "Json macro failed to find method %s.%s" providerType.Value.FullName f
+
         let invokeId (comp: M.ICompilation) = 
-            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.find (fun m -> m.Value.MethodName = "Id")
-            Call(None, NonGeneric providerType, NonGeneric m, [])
+            let m = comp.GetClassInfo(providerType).Value.Methods.Keys |> Seq.tryFind (fun m -> m.Value.MethodName = "Id")
+            match m with 
+            | Some m ->
+                Call(None, NonGeneric providerType, NonGeneric m, [])
+            | None ->
+                failwithf "Json macro failed to find method %s.Id" providerType.Value.FullName
 
         type EncodeResult = Choice<Expression, string, Type>
 
@@ -477,20 +486,20 @@ module Macro =
                     ok (call "DateTimeOffset" [])
                 | C (td, args) ->                    
                     let defaultEnc() = 
-                        let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
-                        let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
-                        match comp.GetMetadataEntries key with                    
-                        | M.StringEntry "id" :: _ ->
+                        //let top = comp.AssemblyName.Replace(".","$") + if isEnc then "_JsonEncoder" else "_JsonDecoder"
+                        //let key = M.CompositeEntry [ M.StringEntry top; M.TypeEntry t ]
+                        match comp.GetJsonMetadataEntry(isEnc, t) with                    
+                        | Some M.JsonId ->
                             ok ident.Value
-                        | M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ] :: _ ->
+                        | Some (M.JsonSerializer (gtd, gm)) ->
                             Lambda([], None, Call(None, NonGeneric gtd, NonGeneric gm, [])) |> ok
                         | _ ->
                             let gtd, gm, _ = comp.NewGenerated((if isEnc then "EncodeJson_" else "DecodeJson_") + t.DisplayName)
-                            comp.AddMetadataEntry(key, M.CompositeEntry [ M.TypeDefinitionEntry gtd; M.MethodEntry gm ])
+                            comp.AddJsonMetadataEntry(isEnc, t, M.JsonSerializer (gtd, gm ))
                             ((fun es ->
                                 let enc = encRecType t args es
                                 if isIdent enc then
-                                    comp.AddMetadataEntry(key, M.StringEntry "id")
+                                    comp.AddJsonMetadataEntry(isEnc, t, M.JsonId)
                                     comp.AddGeneratedInline(gm, ident.Value)
                                     enc
                                 else

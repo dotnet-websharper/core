@@ -103,6 +103,7 @@ type Compilation(meta: Info, ?hasGraph) =
     let compilingQuotedArgMethods = Dictionary<TypeDefinition * Method, int[]>()
     let compilingExtraBundles = Dictionary<string, ExtraBundleData>()
     let compiledExtraBundles = Dictionary<string, ExtraBundleData>()
+    let typesNeedingDeserialization = ResizeArray<Type * SourcePos>()
 
     let mutable generatedClass = None
     let resolver = getAllAddresses meta
@@ -355,6 +356,27 @@ type Compilation(meta: Info, ?hasGraph) =
             | _ -> 
                 macroEntries.[key] <- [value]
 
+        member this.GetJsonMetadataEntry (isEnc, typ) =
+            let key = CompositeEntry [ StringEntry (if isEnc then "JsonEncoder" else "JsonDecoder"); TypeEntry typ ]
+            match macroEntries.TryFind key with
+            | Some (StringEntry "id" :: _) ->
+                Some JsonId
+            | Some (CompositeEntry [ TypeDefinitionEntry gtd; MethodEntry gm ] :: _) ->
+                Some (JsonSerializer (gtd, gm))
+            | me -> 
+                None
+
+        member this.AddJsonMetadataEntry (isEnc, typ, entry) =
+            let key = CompositeEntry [ StringEntry (if isEnc then "JsonEncoder" else "JsonDecoder"); TypeEntry typ ]
+            let e =
+                match entry with
+                | JsonId -> StringEntry "id"
+                | JsonSerializer (gtd, gm) -> CompositeEntry [ TypeDefinitionEntry gtd; MethodEntry gm ]
+            macroEntries.[key] <- [ e ]
+
+    //abstract GetJsonMetadataEntry : Type -> option<JsonSerializerEntry>
+    //abstract AddJsonMetadataEntry : Type * JsonSerializerEntry -> unit
+
         member this.AddError(pos, msg) =
             this.AddError(pos, SourceError msg)
 
@@ -519,7 +541,12 @@ type Compilation(meta: Info, ?hasGraph) =
             Dependencies = if hasGraph then graph.GetData() else GraphData.Empty
             Interfaces = interfaces
             Classes = classes
-            MacroEntries = Map.empty
+            MacroEntries = 
+                macroEntries |> Dict.filter (fun k _ ->
+                    match k with
+                    | CompositeEntry [ StringEntry "JsonDecoder"; TypeEntry _ ] -> true
+                    | _ -> false
+                )
             Quotations = quotations
             ResourceHashes = MergedDictionary meta.ResourceHashes
             ExtraBundles = this.AllExtraBundles
@@ -1173,6 +1200,8 @@ type Compilation(meta: Info, ?hasGraph) =
             IncludeJsExports = includeJsExports
         })
         { AssemblyName = this.AssemblyName; BundleName = computedName }
+
+    member this.TypesNeedingDeserialization = typesNeedingDeserialization
 
     member this.JSImport(export: string option, from: string) =
         Address.Import this.AssemblyName (export, from)
@@ -2529,34 +2558,6 @@ type Compilation(meta: Info, ?hasGraph) =
             let objToStringIndex = graph.Lookup.[AbstractMethodNode(Definitions.Obj, toString)]
             let oprToString = MethodNode (operatorsMdl, operatorsToString)
             graph.AddEdge(oprToString, objToStringIndex)
-
-        // Add graph edge needed for Sitelets: Web.Controls will be looked up
-        // and initialized on client-side by Activator.Activate
-        if hasGraph && this.AssemblyName = "WebSharper.Web" then
-            let activate =
-                MethodNode(
-                    TypeDefinition {
-                        Assembly = "WebSharper.Main"
-                        FullName = "WebSharper.Activator"
-                    },
-                    Method {
-                        MethodName = "Activate"
-                        Parameters = []
-                        ReturnType = AST.VoidType
-                        Generics = 0
-                    } 
-                )
-            let control = 
-                TypeNode(
-                    TypeDefinition {
-                        Assembly = "WebSharper.Web"
-                        FullName = "WebSharper.Web.Control"
-                    }
-                )   
-            
-            let controlIndex = graph.Lookup.[control] 
-
-            graph.AddEdge(controlIndex, activate)
 
         // Add graph edge needed for decimal remoting
         if hasGraph && this.AssemblyName = "WebSharper.MathJS.Extensions" then

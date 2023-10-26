@@ -250,6 +250,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
 
     use webTestsProc = new Process()
     webTestsProc.StartInfo.FileName <- @"build\Release\Tests\net6.0\Web.exe"
+    webTestsProc.StartInfo.Arguments <- "--server.urls https://localhost:44336"
     webTestsProc.StartInfo.WorkingDirectory <- @"tests\Web"
     webTestsProc.StartInfo.UseShellExecute <- false
     webTestsProc.StartInfo.RedirectStandardOutput <- true
@@ -275,7 +276,7 @@ Target.create "RunMainTestsRelease" <| fun _ ->
     let res =
         Shell.Exec(
             "packages/test/Chutzpah/tools/chutzpah.console.exe", 
-            "http://localhost:5000/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
+            "https://localhost:44336/consoletests /engine Chrome /parallelism 1 /silent /failOnError /showFailureReport"
         )
     webTestsProc.Kill()
     if res <> 0 then
