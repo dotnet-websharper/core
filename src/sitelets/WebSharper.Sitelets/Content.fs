@@ -113,7 +113,7 @@ module Content =
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
             let scriptsTw = tw Core.Resources.Scripts
             let activate (url: string) =
-                let imported = System.Collections.Generic.Dictionary<AST.CodeResource, string>()
+                let imported = System.Collections.Generic.Dictionary<AST.Address, string>()
                 let mutable elems = 0
 
                 let rec getCode a =
@@ -129,7 +129,7 @@ module Content =
                     | ClientImport f ->
                         match f.Module with
                         | AST.DotNetType m ->
-                            match imported.TryGetValue(m) with
+                            match imported.TryGetValue(f) with
                             | true, i ->
                                 i
                             | _ ->
@@ -138,7 +138,7 @@ module Content =
                                 | [] -> failwith "empty address"
                                 | a :: r ->
                                     let j = i :: r |> String.concat "."
-                                    imported.Add(m, j)
+                                    imported.Add(f, j)
                                     match a with
                                     | "default" ->
                                         scriptsTw.WriteLine($"""import {i} from "{url}{m.Assembly}/{m.Name}.js";""")
