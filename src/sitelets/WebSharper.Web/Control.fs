@@ -59,7 +59,7 @@ type Control() =
     interface INode with
         member this.IsAttribute = false
         member this.Write (ctx, w) =
-            w.Write("""<div id="{0}"></div>""", this.ID)
+            w.Write("""<div ws-id="{0}"></div>""", this.ID)
 
     [<JavaScript>]
     abstract member Body : IControlBody
@@ -120,7 +120,7 @@ type Control() =
                 failwithf "address not found for deserializer for Web.Control type %s" (this.GetType().AssemblyQualifiedName)
 
     member this.Render (writer: WebSharper.Core.Resources.HtmlTextWriter) =
-        writer.WriteLine("<div id='{0}'></div>", this.ID)
+        writer.WriteLine("<div ws-id='{0}'></div>", this.ID)
 
 open WebSharper.JavaScript
 open Microsoft.FSharp.Quotations

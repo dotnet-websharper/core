@@ -83,7 +83,7 @@ module Content =
             { new IUniqueIdSource with
                 override this.NewId() =
                     i <- i + 1
-                    "ws" + string i
+                    "e" + string i
             }
         
         // Resolve resources for the set of types and this assembly
@@ -113,8 +113,16 @@ module Content =
                 Core.Resources.Rendering.RenderCached(ctx.ResourceContext, r, tw)
             let scriptsTw = tw Core.Resources.Scripts
             let activate (url: string) =
-                let imported = System.Collections.Generic.Dictionary<AST.Address, string>()
-                let mutable elems = 0
+                let imported = Dictionary<AST.Address, string>()
+                let elems = HashSet<string>()
+
+                let lookupElement i =
+                    if elems.Contains(i) then
+                        i
+                    else
+                        elems.Add(i) |> ignore
+                        scriptsTw.WriteLine($"""let {i} = document.querySelector("[ws-id={i}]");""")
+                        i
 
                 let rec getCode a =
                     match a with
@@ -151,16 +159,14 @@ module Content =
                     | ClientApply (c, args) ->
                         $"""{getCode c}({ args |> Seq.map getCode |> String.concat "," })"""
                     | ClientReplaceInDom (i, c) -> 
-                        $"""{getCode c}.ReplaceInDom(document.getElementById("{i}"))"""
+                        $"""{getCode c}.ReplaceInDom({lookupElement i})"""
                     | ClientReplaceInDomWithBody (i, c) -> 
-                        $"""{getCode c}.Body.ReplaceInDom(document.getElementById("{i}"))"""
+                        $"""{getCode c}.Body.ReplaceInDom({lookupElement i})"""
                     | ClientAddEventListener (i, ev, c) ->
-                        elems <- elems + 1
-                        let el = "e" + string elems
-                        scriptsTw.WriteLine($"""let {el} = document.getElementById("{i}");""")
+                        let el = lookupElement i
                         $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
                     | ClientDOMElement i ->
-                        $"""document.getElementById("{i}")"""
+                        lookupElement i
                     | ClientInitialize (_, c) ->
                         getCode c
 
