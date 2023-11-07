@@ -83,7 +83,7 @@ module Content =
             { new IUniqueIdSource with
                 override this.NewId() =
                     i <- i + 1
-                    "e" + string i
+                    string i
             }
         
         // Resolve resources for the set of types and this assembly
@@ -117,12 +117,11 @@ module Content =
                 let elems = HashSet<string>()
 
                 let lookupElement i =
-                    if elems.Contains(i) then
-                        i
-                    else
+                    let v = "e" + i
+                    if not (elems.Contains(i)) then
+                        scriptsTw.WriteLine($"""let {v} = document.querySelector("[ws-{i}]");""")
                         elems.Add(i) |> ignore
-                        scriptsTw.WriteLine($"""let {i} = document.querySelector("[ws-id={i}]");""")
-                        i
+                    v
 
                 let rec getCode a =
                     match a with
@@ -164,7 +163,10 @@ module Content =
                         $"""{getCode c}.Body.ReplaceInDom({lookupElement i})"""
                     | ClientAddEventListener (i, ev, c) ->
                         let el = lookupElement i
-                        $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
+                        if String.IsNullOrEmpty(ev) then
+                            $"""{el}.addEventListener({el}.getAttribute('ws-{i}'),{getCode c}({el}))"""
+                        else
+                            $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
                     | ClientDOMElement i ->
                         lookupElement i
                     | ClientInitialize (_, c) ->
