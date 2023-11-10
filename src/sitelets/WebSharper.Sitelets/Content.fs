@@ -164,9 +164,9 @@ module Content =
                     | ClientAddEventListener (i, ev, c) ->
                         let el = lookupElement i
                         if String.IsNullOrEmpty(ev) then
-                            $"""{el}.addEventListener({el}.getAttribute('ws-{i}'),{getCode c}({el}))"""
+                            $"""{el}.addEventListener({el}.getAttribute('ws-{i}'),{getCode c})"""
                         else
-                            $"""{el}.addEventListener("{ev}",{getCode c}({el}))"""
+                            $"""{el}.addEventListener("{ev}",{getCode c})"""
                     | ClientDOMElement i ->
                         lookupElement i
                     | ClientInitialize (_, c) ->
