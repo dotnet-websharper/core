@@ -130,14 +130,13 @@ type HtmlTextWriter(w: TextWriter, indent: string) =
             this.WriteLine("""<script type="{0}">""", CT.Text.Module.Text)
         match scriptBaseUrl with
         | Some url -> 
-            this.WriteLine("""import Runtime, {{ Start as StartWS }} from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
+            this.WriteLine("""import Runtime from "{0}WebSharper.Core.JavaScript/Runtime.js";""", url)
             this.WriteLine("""Runtime.ScriptBasePath = '{0}';""", url)
             if skipAssemblyDir then
                 this.WriteLine("""Runtime.ScriptSkipAssemblyDir = true;""")
             match activation with
             | None -> ()
             | Some a -> a url
-            this.WriteLine """StartWS();"""
         | None -> ()
         if includeScriptTag then
             this.WriteLine("""</script>""")
