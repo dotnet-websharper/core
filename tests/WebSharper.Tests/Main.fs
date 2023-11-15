@@ -45,13 +45,13 @@ let RunTests runServerSide autoStart =
         Array2D.Tests
         Async.Tests
         Basis.Tests
-        BigInt.Tests
         Char.Tests
         Conversions.Tests
         DateTime.Tests
         DateTime.NativeTests
         Delegate.Tests
         Double.Tests
+        BigInt.Tests
         Enum.Tests
         Event.Tests
         Exception.Tests
@@ -63,7 +63,6 @@ let RunTests runServerSide autoStart =
         List.Tests
         Macro.Tests
         Math.Tests
-        MathJS.Tests runServerSide
         Nullable.Tests
         Object.Tests
         ObjExpr.Tests

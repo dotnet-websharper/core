@@ -34,7 +34,6 @@
     <Compile Include="List.fs" />
     <Compile Include="Macro.fs" />
     <Compile Include="Math.fs" />
-    <Compile Include="MathJS.fs" />
     <Compile Include="Nullable.fs" />
     <Compile Include="Object.fs" />
     <Compile Include="ObjExpr.fs" />
@@ -73,8 +72,6 @@
     <ProjectReference Include="..\..\src\compiler\WebSharper.Core\WebSharper.Core.fsproj" />
     <ProjectReference Include="..\..\src\sitelets\WebSharper.Web\WebSharper.Web.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.JavaScript\WebSharper.JavaScript.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS\WebSharper.MathJS.fsproj" />
-    <ProjectReference Include="..\..\src\stdlib\WebSharper.MathJS.Extensions\WebSharper.MathJS.Extensions.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Collections\WebSharper.Collections.fsproj" />
     <ProjectReference Include="..\..\src\stdlib\WebSharper.Control\WebSharper.Control.fsproj" />
     <ProjectReference Include="..\ProxyProjectTest.Proxy\ProxyProjectTest.Proxy.fsproj" />

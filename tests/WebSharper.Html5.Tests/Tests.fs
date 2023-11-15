@@ -520,18 +520,6 @@ let WebWorkerTests =
             equal res "The worker replied: [worker2] Hello world!"
         }
 
-        Test "With Dependencies" {
-            let worker = new Worker(fun self ->
-                self.Onmessage <- fun e ->
-                    MathJS.Math.Create().Abs(e.Data :?> int) |> self.PostMessage
-            )
-            let! res = AsyncContinuationTimeout "Worker didn't run" <| fun ok ->
-                worker.Onmessage <- fun e -> ok <| string (e.Data :?> int)
-                worker.PostMessage(-123)
-            worker.Terminate()
-            equal res "123"
-        }
-
         Skip "JavaScriptExport inclusion" {
             let worker = new Worker("withJsExport", true, fun self ->
                 self.Onmessage <- fun e ->

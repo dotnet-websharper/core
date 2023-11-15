@@ -66,8 +66,6 @@ let Tests =
         Test "BigInt constructors" {
             let a = BI(1000)
 
-            // not int
-            equal a (BI(1000.5))
             // from byte arr
             equal a (BI([|232uy; 3uy; 0uy; 0uy|]))
         }

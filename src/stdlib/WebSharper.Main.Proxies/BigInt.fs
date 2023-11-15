@@ -58,12 +58,6 @@ type private BigIntegerProxy =
     [<Inline "BigInt($v)"; Pure>]
     new (v: uint32) = {}
 
-    [<Inline "BigInt(math.floor($v))"; Pure>]
-    new (v: double) = {}
-
-    [<Inline "BigInt(math.floor($v))"; Pure>]
-    new (v: decimal) = {}
-
     [<Inline; Pure>]
     static member CtorProxy (v: byte[]) =
         let binString = BigIntProxyHelpers.ToBinaryStr v
