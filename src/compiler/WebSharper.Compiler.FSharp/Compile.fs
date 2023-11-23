@@ -458,4 +458,3 @@ let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata =
     with _ ->
         clearOutput config logger
         reraise()
-#endif
