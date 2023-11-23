@@ -451,11 +451,6 @@ let ParseOptions (argv: string[]) (logger: LoggerBase) =
     ParsedOptions (!wsArgs, !warn)
 
 let StandAloneCompile config warnSettings logger checkerFactory tryGetMetadata = 
-#if DEBUG
-    let exitCode = 
-        Compile config warnSettings logger checkerFactory tryGetMetadata
-    exitCode            
-#else
     try 
         let exitCode = 
             Compile config warnSettings logger checkerFactory tryGetMetadata
